@@ -192,7 +192,7 @@ class OuModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 ou:id=*
-                    :value={[ meta:id=Woot99 ]}
+                    :value={[ it:adid=Woot99 ]}
                     :issuer={[ ou:org=* :name="ny dmv" ]}
                     :issuer:name="ny dmv"
                     :recipient={[ entity:contact=* :name=visi ]}
@@ -203,7 +203,7 @@ class OuModelTest(s_t_utils.SynTest):
             ]''')
 
             self.len(1, nodes)
-            self.propeq(nodes[0], 'value', 'Woot99', form='meta:id')
+            self.propeq(nodes[0], 'value', 'Woot99', form='it:adid')
             self.propeq(nodes[0], 'issuer:name', 'ny dmv')
             self.propeq(nodes[0], 'status', 'valid.')
             self.propeq(nodes[0], 'type', 'us.state.dmv.driverslicense.')
@@ -461,6 +461,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'desc', 'Moldy cheese')
 
             self.len(1, await core.nodes('ou:industry :reporter -> ou:org'))
+            self.len(3, await core.nodes('ou:industry -> ou:industryname'))
 
             self.len(1, nodes := await core.nodes('[ ou:industry=({"name": "faz"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)

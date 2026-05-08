@@ -12,7 +12,7 @@ async def main(argv, outp=s_output.stdout):
 
     pars = s_cmd.Parser(prog='synapse.tools.storm.validate', outp=outp, description=desc)
     pars.add_argument('file', help='Path to a .storm file to validate (use - for stdin).')
-    pars.add_argument('--mode', '-m', default='storm', choices=('storm', 'lookup', 'search'),
+    pars.add_argument('--mode', '-m', default='storm', choices=('storm', 'lookup'),
                       help='Parse mode (default: storm).')
 
     opts = pars.parse_args(argv)

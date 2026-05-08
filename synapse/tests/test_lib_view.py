@@ -487,7 +487,6 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(cmsgs[1][0][2][0][1][3], {'type': 'ival', 'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1})
             virts = cmsgs[2][0][2][0][1][3]
             self.eq(virts['size'], 2)
-            self.eq(virts['type'], ['test:str', 'test:str'])
 
             msgs = await core.stormlist('[test:guid=* :server=1.2.3.4:80]')
             cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
@@ -624,12 +623,11 @@ class ViewTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadArg) as cm:
                     await prox.saveNodeEdits(nodeedits, {})
                 self.eq(cm.exception.get('mesg'), "Meta argument requires user key to be a guid, got user=''")
-                with self.getAsyncLoggerStream('synapse.storm.log', 'u=') as stream:
+
+                with self.getLoggerStream('synapse.storm.log') as stream:
                     for edit in nodeedits:
                         await prox.saveNodeEdits(edit, {'time': s_common.now(), 'user': guid})
-                    self.true(await stream.wait(6))
-                valu = stream.getvalue().strip()
-                self.isin(f'u={guid}', valu)
+                    await stream.expect(f'u={guid}', timeout=6)
 
             self.len(1, await core.nodes('test:guid#foo', opts={'view': view}))
             self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
@@ -1302,8 +1300,11 @@ class ViewTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('test:guid -(_pwns)> *'))
 
-            self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe :readable=haha ]'))
-            self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
+            self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe ]'))
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('[ test:ro=foo :readable=haha ]')
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('test:ro=foo [ :readable=haha ]')
             with self.raises(s_exc.ReadOnlyProp):
                 await core.nodes('test:ro=foo [ :readable=newp ]')
 
@@ -1384,6 +1385,61 @@ class ViewTest(s_t_utils.SynTest):
                 self.false(await newnode.delEdge('_foo', n2nid))
 
             self.len(0, await core.nodes('inet:ip=1.2.3.4 <(*)- *', opts=viewopts2))
+
+    async def test_computed_prop_enforcement(self):
+
+        async with self.getTestCore() as core:
+
+            # computed prop cannot be set via storm during node creation
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('[ test:ro=bar :readable=haha ]')
+
+            # computed prop cannot be set via storm post-creation (first write)
+            await core.nodes('[ test:ro=bar ]')
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('test:ro=bar [ :readable=haha ]')
+
+            # computed prop cannot be set via view.addNode props= kwarg
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.view.addNode('test:ro', 'baz', props={'readable': 'haha'})
+
+            # computed prop cannot be set via view.addNodes nodedef props dict
+            view = core.getView()
+            nodes = await alist(view.addNodes([
+                (('test:ro', 'qux'), {'props': {'readable': 'haha'}}),
+            ]))
+            self.len(1, nodes)
+            self.none(nodes[0].get('readable'))
+
+            # writeable prop on same form still works
+            nodes = await core.nodes('[ test:ro=foo :writeable=hehe ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'writeable', 'hehe')
+
+            # computed props on comp forms are derived by ctor and cannot be overwritten
+            nodes = await core.nodes('[ test:comp=(10, "ten") ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 10)
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('test:comp=(10, "ten") [ :hehe=99 ]')
+
+            # re-creating the same node does not raise ReadOnlyProp
+            nodes = await core.nodes('[ test:comp=(10, "ten") ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 10)
+
+            # computed props cannot be deleted via storm prop-del syntax
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('test:comp=(10, "ten") [ -:hehe ]')
+
+            # copying nodes with computed props to a fork does not raise ReadOnlyProp
+            vdef2 = await core.view.fork()
+            view2_iden = vdef2.get('iden')
+            msgs = await core.stormlist(f'test:comp=(10, "ten") | copyto {view2_iden}')
+            self.stormHasNoWarnErr(msgs)
+            nodes = await core.nodes('test:comp=(10, "ten")', opts={'view': view2_iden})
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 10)
 
     async def test_subs_depth(self):
 
@@ -1510,98 +1566,98 @@ class ViewTest(s_t_utils.SynTest):
             view00 = core.getView()
             view01 = core.getView((await view00.fork())['iden'])
 
-            await core.nodes('[meta:name=foo meta:name=bar meta:name=baz meta:name=faz]')
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((meta:name,), valu="ba", cmpr="^=")')
+            await core.nodes('[entity:name=foo entity:name=bar entity:name=baz entity:name=faz]')
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:name,), valu="ba", cmpr="^=")')
             self.len(2, nodes)
 
             forkopts = {'view': view01.iden}
-            await core.nodes('[meta:name=foo2 meta:name=bar2 meta:name=baz2 meta:name=faz2]', opts=forkopts)
-            nodes = await core.nodes('yield $lib.lift.byPropRefs(meta:name, valu="ba", cmpr="^=")', opts=forkopts)
+            await core.nodes('[entity:name=foo2 entity:name=bar2 entity:name=baz2 entity:name=faz2]', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(entity:name, valu="ba", cmpr="^=")', opts=forkopts)
             self.len(4, nodes)
 
             await core.nodes('''[
-                (inet:service:platform=* :names=(bar, baz))
-                (transport:sea:vessel=* :name="bad ship")
-                (transport:sea:vessel=* :name="baz ship")
+                (entity:contact=* :names=(bar, baz))
+                (ou:org=* :name="bad ship")
+                (ou:org=* :name="baz ship")
             ]''')
 
             await core.nodes('''[
-                (inet:service:platform=* :name=foo)
-                (inet:service:platform=* :name=bar)
-                (inet:service:platform=* :names=(foo, baz))
-                (inet:service:platform=* :names=(bar, bar2))
-                (transport:sea:vessel=* :name=bar)
-                (transport:sea:vessel=* :name="bad ship")
-                (transport:sea:vessel=* :name="awesome ship")
+                (entity:contact=* :name=foo)
+                (entity:contact=* :name=bar)
+                (entity:contact=* :names=(foo, baz))
+                (entity:contact=* :names=(bar, bar2))
+                (ou:org=* :name=bar)
+                (ou:org=* :name="bad ship")
+                (ou:org=* :name="awesome ship")
             ]''', opts=forkopts)
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:contact:name, ou:org:name), valu="ba", cmpr="^=")', opts=forkopts)
             self.len(5, nodes)
             self.eq(['bad ship', 'bar', 'bar2', 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
             long1 = 'bar' * 100 + 'a'
             long2 = 'bar' * 100 + 'b'
             await core.nodes(f'''[
-                (inet:service:platform=* :names=({long1},))
-                (transport:sea:vessel=* :name={long2})
+                (entity:contact=* :names=({long1},))
+                (ou:org=* :name={long2})
             ]''')
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="ba", cmpr="^=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:contact:name, ou:org:name), valu="ba", cmpr="^=")', opts=forkopts)
             self.len(7, nodes)
             self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="az", cmpr="~=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:contact:name, ou:org:name), valu="az", cmpr="~=")', opts=forkopts)
             self.len(2, nodes)
             self.eq(['baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:contact:name, ou:org:name), valu="^ba", cmpr="~=")', opts=forkopts)
             self.len(7, nodes)
             self.eq(['bad ship', 'bar', 'bar2', long1, long2, 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs(meta:name, valu="^bar", cmpr="~=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs(entity:name, valu="^bar", cmpr="~=")', opts=forkopts)
             self.len(4, nodes)
             self.eq(['bar', 'bar2', long1, long2], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
             # Rip prop values out of sodes to make them undecodable for coverage
             layr = core.getLayer()
-            nodes = await core.nodes(f'inet:service:platform:names*[={long1}]')
+            nodes = await core.nodes(f'entity:contact:names*[={long1}]')
             nid = nodes[0].nid
 
             sode = layr.getStorNode(nid)
             sode['props'].pop('names')
             layr.dirty[nid] = sode
 
-            nodes = await core.nodes(f'transport:sea:vessel:name={long2}')
+            nodes = await core.nodes(f'ou:org:name={long2}')
             nid = nodes[0].nid
 
             sode = layr.getStorNode(nid)
             sode['props'].pop('name')
             layr.dirty[nid] = sode
 
-            nodes = await core.nodes('yield $lib.lift.byPropRefs((inet:service:platform:name, transport:sea:vessel:name), valu="^ba", cmpr="~=")', opts=forkopts)
+            nodes = await core.nodes('yield $lib.lift.byPropRefs((entity:contact:name, ou:org:name), valu="^ba", cmpr="~=")', opts=forkopts)
             self.len(5, nodes)
             self.eq(['bad ship', 'bar', 'bar2', 'baz', 'baz ship'], [n.valu() for n in nodes])
             for node in nodes:
-                self.eq('meta:name', node.form.name)
+                self.eq('entity:name', node.form.name)
 
             with self.raises(s_exc.BadTypeValu):
-                async for item in view00.iterPropValuesWithCmpr('meta:name', 'newp', 'newp', array=True):
+                async for item in view00.iterPropValuesWithCmpr('entity:name', 'newp', 'newp', array=True):
                     pass
 
             with self.raises(s_exc.NoSuchCmpr):
-                form = core.model.form('meta:name')
+                form = core.model.form('entity:name')
                 cmprvals = (('newp', None, form.type.stortype),)
-                async for item in view00.wlyr.iterPropValuesWithCmpr('meta:name', None, cmprvals):
+                async for item in view00.wlyr.iterPropValuesWithCmpr('entity:name', None, cmprvals):
                     pass
 
             async for item in view00.iterPropValuesWithCmpr('test:int', '?=', 'newp'):

@@ -718,11 +718,11 @@ class LayerTest(s_t_utils.SynTest):
                     self.eq(core0.auth.rootuser.iden, meta.get('user'))
 
                 offs, nodeedits, meta = await anext(genr)
-                self.eq(5, offs)
+                self.eq(6, offs)
                 self.eq(['test:str', 'bar'], nodeedits[0][:2])
 
                 offs, nodeedits, meta = await anext(genr)
-                self.eq(6, offs)
+                self.eq(7, offs)
                 self.eq(['test:str', 'baz'], nodeedits[0][:2])
 
                 # Once we've caught back up to the end of the nexus log, we shouldn't get a duplicate from the window
@@ -730,7 +730,7 @@ class LayerTest(s_t_utils.SynTest):
                 await core0.nodes('[ test:str=faz ]')
 
                 offs, nodeedits, meta = await task
-                self.eq(7, offs)
+                self.eq(8, offs)
                 self.eq(['test:str', 'faz'], nodeedits[0][:2])
 
                 await genr.aclose()
@@ -802,6 +802,21 @@ class LayerTest(s_t_utils.SynTest):
                 nid = nedit[0]
                 sode = layer0.getStorNode(s_common.int64en(nid))
                 self.eq((), await layer0._editMetaSet(nid, None, metaedit[0], sode, None))
+
+            user = await core0.auth.addUser('lowuser')
+            url = core0.getLocalUrl(user='lowuser', share='*/layer')
+            async with await s_telepath.openurl(url) as layrprox:
+
+                with self.raises(s_exc.AuthDeny):
+                    await layrprox.storNodeEdits(nodeedits)
+
+                with self.raises(s_exc.AuthDeny):
+                    await layrprox.storNodeEditsNoLift(nodeedits)
+
+                await user.addRule((True, ('layer', 'write')), gateiden=layer0.iden)
+
+                await layrprox.storNodeEdits(nodeedits)
+                await layrprox.storNodeEditsNoLift(nodeedits)
 
     async def test_layer_tombstone(self):
 
@@ -1351,7 +1366,7 @@ class LayerTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q, opts=viewopts3)
             self.eq(['true'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
 
-            q = 'inet:ip for $edge in $lib.layer.get().getEdgesByN2($node.iden()) { $lib.print($edge."-1") }'
+            q = 'inet:ip for $edge in $lib.layer.get().getEdgesByN2($node.iden) { $lib.print($edge."-1") }'
             msgs = await core.stormlist(q, opts=viewopts3)
             self.eq(['true'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
 
@@ -1721,8 +1736,16 @@ class LayerTest(s_t_utils.SynTest):
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp))
             self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
 
+            # for poly rows, providing a specific poly flagged stortype will filter by the requested stortype
+            styp = core.model.type('inet:asn').stortype | s_layer.STOR_FLAG_POLY
             rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp))
             self.eq((10, 20, 30), tuple(sorted([row[1][1] for row in rows])))
+
+            rows = await alist(layr.iterPropRows('inet:ip', 'asn', styp, startvalu=('inet:asn', 20)))
+            self.eq((20, 30), tuple(sorted([row[1][1] for row in rows])))
+
+            rows = await alist(layr.iterPropRows('inet:ip', 'asn', s_layer.STOR_TYPE_IVAL | s_layer.STOR_FLAG_POLY))
+            self.eq((), tuple(sorted([row[1][1] for row in rows])))
 
             tm = lambda x, y: (s_time.parse(x), s_time.parse(y), s_time.parse(y) - s_time.parse(x))  # NOQA
 
@@ -2752,7 +2775,7 @@ class LayerTest(s_t_utils.SynTest):
             infork00 = {'view': fork00['iden']}
             layr00 = core.getLayer(fork00['layers'][0]['iden'])
 
-            iden = await core.callStorm('[ inet:ip=1.2.3.4 ] return($node.iden())')
+            iden = await core.callStorm('[ inet:ip=1.2.3.4 ] return($node.iden)')
 
             sodes = await s_t_utils.alist(layr00.getStorNodesByForm('inet:ip'))
             self.len(0, sodes)

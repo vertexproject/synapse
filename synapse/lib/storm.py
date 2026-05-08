@@ -104,6 +104,7 @@ Notes:
         - HH:MM (24-hour format, e.g., 14:30 for 2:30 PM)
         - HH (hour only, minute defaults to 0)
         - :MM (minute only, for hourly periods)
+        - :MM,MM,... (comma-separated minutes, e.g., :15,45 runs at minute 15 and 45)
 
 Examples:
     # Run every day at midnight UTC
@@ -117,6 +118,12 @@ Examples:
 
     # Run every hour at minute 25
     cron.add hourly@:25 { $lib.print(hourly) }
+
+    # Run every hour at minute 24 and minute 45
+    cron.add hourly@:24,45 { $lib.print(hourly) }
+
+    # Run every hour at minute 24 and minute 45
+    cron.add --period hourly@:24,45 { $lib.print(hourly) }
 
     # Run every Monday and Wednesday at 10:00 UTC
     cron.add weekly/mon,wed@10:00 { $lib.print(weekly) }
@@ -1031,11 +1038,11 @@ stormcmds = (
             if $cmdopts.urls {
                 $urls = $cmdopts.urls
             } else {
-                if ($node.form() != "inet:url") {
+                if ($node.form != "inet:url") {
                     $lib.warn("wget can only take inet:url nodes as input without args.")
                     $lib.exit()
                 }
-                $urls = ($node.value(),)
+                $urls = ($node.value,)
             }
             for $url in $urls {
                 -> { yield $lib.axon.urlfile($url, params=$params, headers=$headers, ssl=$ssl, timeout=$timeout) }
@@ -1077,10 +1084,10 @@ stormcmds = (
 
         if $node {
             $count = ($count + 1)
-            if ($node.form() != "inet:url") {
+            if ($node.form != "inet:url") {
                 $lib.exit("nodes.import can only take inet:url nodes as input without args")
             }
-            $inurls = ($node.value(),)
+            $inurls = ($node.value,)
             for $url in $inurls {
                 -> { yield $fetchnodes($url, $ssl) }
             }
@@ -1261,16 +1268,16 @@ class StormDmon(s_base.Base):
         self.onfini(self.stop)
 
     async def stop(self):
-        logger.debug(f'Stopping Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Stopping Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
         if self.task is not None:
             self.task.cancel()
         self.task = None
-        logger.debug(f'Stopped Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Stopped Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
     async def run(self):
         if self.task:  # pragma: no cover
             raise s_exc.SynErr(mesg=f'Dmon - {self.iden} - has a current task and cannot start a new one.',
-                               iden=self.iden)
+                               extra=self.core.getLogExtra(iden=self.iden))
         self.task = self.schedCoro(self.dmonloop())
 
     async def bump(self):
@@ -1292,7 +1299,7 @@ class StormDmon(s_base.Base):
 
     async def dmonloop(self):
 
-        logger.debug(f'Starting Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Starting Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
         s_scope.set('user', self.user)
         s_scope.set('storm:dmon', self.iden)
@@ -1315,26 +1322,26 @@ class StormDmon(s_base.Base):
         def dmonPrint(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.info(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
+            logger.info(f'Dmon - {self.iden} - {mesg}', extra=self.core.getLogExtra(iden=self.iden))
 
         def dmonWarn(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.warning(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
+            logger.warning(f'Dmon - {self.iden} - {mesg}', extra=self.core.getLogExtra(iden=self.iden))
 
         while not self.isfini:
 
             if self.user.info.get('locked'):
                 self.status = 'fatal error: user locked'
                 logger.warning(f'Dmon user is locked. Stopping Dmon {self.iden}.',
-                               extra={'synapse': {'iden': self.iden}})
+                               extra=self.core.getLogExtra(iden=self.iden))
                 return
 
             view = self.core.getView(viewiden, user=self.user)
             if view is None:
                 self.status = 'fatal error: invalid view'
                 logger.warning(f'Dmon View is invalid. Stopping Dmon {self.iden}.',
-                               extra={'synapse': {'iden': self.iden}})
+                               extra=self.core.getLogExtra(iden=self.iden))
                 return
 
             try:
@@ -1350,7 +1357,7 @@ class StormDmon(s_base.Base):
                         self.count += 1
                         await asyncio.sleep(0)
 
-                    logger.warning(f'Dmon query exited: {self.iden}', extra={'synapse': {'iden': self.iden}})
+                    logger.warning(f'Dmon query exited: {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
                     self.status = 'sleeping'
 
@@ -1363,7 +1370,7 @@ class StormDmon(s_base.Base):
 
             except Exception as e:
                 self._runLogAdd(('err', s_common.excinfo(e)))
-                logger.exception(f'Dmon error ({self.iden})', extra={'synapse': {'iden': self.iden}})
+                logger.exception(f'Dmon error ({self.iden})', extra=self.core.getLogExtra(iden=self.iden))
                 self.status = f'error: {e}'
                 self.err_evnt.set()
 
@@ -1402,8 +1409,6 @@ class Runtime(s_base.Base):
         self.funcscope = False
 
         self.query = query
-
-        self.spawn_log_conf = await self.view.core._getSpawnLogConf()
 
         self.readonly = opts.get('readonly', False)
         self.model = view.core.getDataModel()
@@ -3283,13 +3288,8 @@ class CopyToCmd(Cmd):
 
                     prop = node.form.prop(name)
                     if prop.info.get('computed'):
-                        curv = proto.get(name)
-                        if curv is not None and curv != valu:
-                            valurepr = prop.type.repr(curv)
-                            mesg = f'Cannot overwrite read only property with conflicting ' \
-                                   f'value: {node.iden()} {prop.full} = {valurepr}'
-                            await runt.warn(mesg)
-                            continue
+                        # re-derived by destination ctor; never copy directly
+                        continue
 
                     if prop.type.ispoly:
                         valu = s_stormtypes.NodeRef(node.getWithVirts(name))
@@ -3726,20 +3726,10 @@ class MergeCmd(Cmd):
                             continue
 
                     if prop.info.get('computed'):
-                        isset = False
-                        for undr in sodes[1:]:
-                            props = undr.get('props')
-                            if props is not None:
-                                curv = props.get(name)
-                                if curv is not None:
-                                    isset = curv[0] != valu
-                                    break
-
-                        if isset:
-                            valurepr = prop.type.repr(curv[0])
-                            mesg = f'Cannot merge read only property with conflicting ' \
-                                   f'value: {nodeiden} {form}:{name} = {valurepr}'
-                            await runt.warn(mesg)
+                        if doapply:
+                            # re-derived by destination ctor; skip the set but clean up source layer
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_PROP_DEL, (name,)))
                             continue
 
                     if not doapply:
@@ -4677,7 +4667,7 @@ class MaxCmd(Cmd):
         file:bytes#foo.bar +:seen ($tick, $tock) = :seen | max $tick
 
         // Yield the it:dev:str node with the longest length
-        it:dev:str | max $lib.len($node.value())
+        it:dev:str | max $lib.len($node.value)
 
     '''
 
@@ -4731,7 +4721,7 @@ class MinCmd(Cmd):
         file:bytes#foo.bar +:seen ($tick, $tock) = :seen | min $tick
 
         // Yield the it:dev:str node with the shortest length
-        it:dev:str | min $lib.len($node.value())
+        it:dev:str | min $lib.len($node.value)
 
     '''
     name = 'min'
@@ -5239,7 +5229,7 @@ class ViewExecCmd(Cmd):
     Examples:
 
         // Move some tagged nodes to another view
-        inet:fqdn#foo.bar $fqdn=$node.value() | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
+        inet:fqdn#foo.bar $fqdn=$node.value | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
     '''
 
     name = 'view.exec'

@@ -129,6 +129,9 @@ class TypesTest(s_t_utils.SynTest):
         big2 = '-730750818665451459101841.0000000000000000000000015'
         self.eq(bign, (await huge.norm(big2))[0])
 
+        with self.raises(s_exc.BadTypeValu):
+            await huge.norm('1e+99999999999999999999999999999')
+
     async def test_taxonomy(self):
 
         model = s_datamodel.getBaseModel()
@@ -1113,6 +1116,13 @@ class TypesTest(s_t_utils.SynTest):
 
             self.eq(5, await core.callStorm('return($lib.cast(int, (5.5)))'))
 
+            valu = await core.callStorm('return($lib.cast(test:arrayprop:ints, (1, 2, 3)))')
+            self.eq(valu, (1, 2, 3))
+
+            ok, valu = await core.callStorm('return($lib.trycast(test:arrayprop:ints, (1, 2, 3)))')
+            self.true(ok)
+            self.eq(valu, (1, 2, 3))
+
     async def test_ival(self):
         model = s_datamodel.getBaseModel()
         ival = model.types.get('ival')
@@ -2088,13 +2098,16 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')[1]}}))
             self.len(1, nodes)
 
-            q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
+            q = 'test:int $end=$node.value test:str:tick*range=(2015, $end) -test:int'
             nodes = await core.nodes(q)
             self.len(6, nodes)
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
 
             nodes = await core.nodes('[test:str=e :tick=? :tick=2024]')
             self.propeq(nodes[0], 'tick', 1704067200000000)
+
+            retn = await core.callStorm('test:str=a return($lib.trycast(time, :tick))')
+            self.eq(retn, (True, 1388534400000000))
 
     async def test_types_long_indx(self):
 

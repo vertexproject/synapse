@@ -198,7 +198,7 @@ _DefaultConfig = {
                 'autonomous-system': {
                     'props': {
                         'name': '+:owner:name return(:owner:name)',
-                        'number': 'return($node.value())',
+                        'number': 'return($node.value)',
                     },
                 }
             },
@@ -686,10 +686,10 @@ stixingest = {
     'objects': {
         'intrusion-set': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(meta:name, $object.name)
+                ($ok, $name) = $lib.trycast(entity:name, $object.name)
                 if $ok {
 
-                    meta:name=$name -> ou:org
+                    entity:name=$name -> ou:org
                     { for $alias in $object.aliases { [ :names?+=$alias ] } }
                     return($node)
 
@@ -711,7 +711,7 @@ stixingest = {
         },
         'tool': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(meta:name, $object.name)
+                ($ok, $name) = $lib.trycast(it:softwarename, $object.name)
                 if (not $ok) { return() }
                 [ it:software=({"name": $object.name}) ]
                 return($node)
@@ -752,7 +752,7 @@ stixingest = {
         },
         'malware': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(meta:name, $object.name)
+                ($ok, $name) = $lib.trycast(it:softwarename, $object.name)
                 if (not $ok) { return() }
                 [ it:software=({"name": $object.name}) ]
                 return($node)
@@ -832,7 +832,7 @@ stixingest = {
                 if $object.country {
                     ($ok, $iso) = $lib.trycast(iso:3166:alpha2, $object.country)
                     if $ok {
-                        $geodict.loc = $iso
+                        $geodict."country:code" = $iso
                     }
                 }
 

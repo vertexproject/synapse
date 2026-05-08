@@ -12,8 +12,8 @@ class StatsCountByCmd(s_storm.Cmd):
 
     Examples:
 
-        // Show counts of meta:name values referenced by media:news nodes.
-        doc:report -(refs)> meta:name | stats.countby
+        // Show counts of entity:name values referenced by media:news nodes.
+        doc:report -(refs)> entity:name | stats.countby
 
         // Show counts of ASN values in a set of IPs.
         inet:ip#myips | stats.countby :asn

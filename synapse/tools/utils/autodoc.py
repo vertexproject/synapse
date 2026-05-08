@@ -701,7 +701,7 @@ async def docModel(outp,
     return rst, rst2
 
 async def docConfdefs(ctor):
-    cls = s_dyndeps.tryDynLocal(ctor)
+    cls = s_dyndeps.reqDynLocal(ctor)
 
     if not hasattr(cls, 'confdefs'):
         raise Exception('ctor must have a confdefs attr')
@@ -781,7 +781,7 @@ async def docConfdefs(ctor):
     return rst, clsname
 
 async def docStormsvc(ctor):
-    cls = s_dyndeps.tryDynLocal(ctor)
+    cls = s_dyndeps.reqDynLocal(ctor)
 
     if not hasattr(cls, 'cellapi'):
         raise Exception('ctor must have a cellapi attr')
@@ -988,5 +988,4 @@ def getArgParser(outp):
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
     s_cmd.exitmain(main)

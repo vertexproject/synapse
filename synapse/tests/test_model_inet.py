@@ -386,8 +386,8 @@ class InetModelTest(s_t_utils.SynTest):
                     :server:txbytes=2
                     :server:handshake="OHai!"
                     :server:txfiles={[ file:attachment=* :path=bar.exe ]}
-                    :server:softnames=(FooBar, bazfaz)
-                    :server:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
+                    :server:software:names=(FooBar, bazfaz)
+                    :server:software:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
 
                     :client=5.5.5.5
                     :client:host=*
@@ -396,8 +396,8 @@ class InetModelTest(s_t_utils.SynTest):
                     :client:txbytes=1
                     :client:handshake="Hello There"
                     :client:txfiles={[ file:attachment=* :path=foo.exe ]}
-                    :client:softnames=(HeHe, haha)
-                    :client:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
+                    :client:software:names=(HeHe, haha)
+                    :client:software:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
 
                     :tot:txcount=63
                     :tot:txbytes=3
@@ -411,19 +411,20 @@ class InetModelTest(s_t_utils.SynTest):
             ''')
 
             self.len(1, nodes)
+            self.propeq(nodes[0], 'period', (1751328000000000, 1751414400000000, 86400000000))
             self.propeq(nodes[0], 'client', 'tcp://5.5.5.5')
             self.propeq(nodes[0], 'client:txcount', 30)
             self.propeq(nodes[0], 'client:txbytes', 1)
             self.propeq(nodes[0], 'client:handshake', 'Hello There')
-            self.propeq(nodes[0], 'client:softnames', ('haha', 'hehe'))
-            self.propeq(nodes[0], 'client:cpes', ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
+            self.propeq(nodes[0], 'client:software:names', ('haha', 'hehe'))
+            self.propeq(nodes[0], 'client:software:cpes', ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
 
             self.propeq(nodes[0], 'server', 'tcp://1.2.3.4:443')
             self.propeq(nodes[0], 'server:txcount', 33)
             self.propeq(nodes[0], 'server:txbytes', 2)
             self.propeq(nodes[0], 'server:handshake', 'OHai!')
-            self.propeq(nodes[0], 'server:softnames', ('bazfaz', 'foobar'))
-            self.propeq(nodes[0], 'server:cpes', ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
+            self.propeq(nodes[0], 'server:software:names', ('bazfaz', 'foobar'))
+            self.propeq(nodes[0], 'server:software:cpes', ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
 
             self.propeq(nodes[0], 'tot:txcount', 63)
             self.propeq(nodes[0], 'tot:txbytes', 3)
@@ -946,6 +947,9 @@ class InetModelTest(s_t_utils.SynTest):
                 await t.norm((7, 1))
 
             with self.raises(s_exc.BadTypeValu):
+                await t.norm((1,))
+
+            with self.raises(s_exc.BadTypeValu):
                 t.repr((7, 1))
 
             # Form Tests ======================================================
@@ -1005,16 +1009,16 @@ class InetModelTest(s_t_utils.SynTest):
                 await core.nodes('[inet:ip=3.87/33]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo"] [inet:ip=$node.value()]')
+                await core.nodes('[test:str="foo"] [inet:ip=$node.value]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo-bar.com"] [inet:ip=$node.value()]')
+                await core.nodes('[test:str="foo-bar.com"] [inet:ip=$node.value]')
 
             self.len(0, await core.nodes('[inet:ip?=foo]'))
             self.len(0, await core.nodes('[inet:ip?=foo-bar.com]'))
 
-            self.len(0, await core.nodes('[test:str="foo"] [inet:ip?=$node.value()] -test:str'))
-            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ip?=$node.value()] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo"] [inet:ip?=$node.value] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ip?=$node.value] -test:str'))
 
             q = '''init { $l = () }
             [inet:ip=192.0.0.9 inet:ip=192.0.0.0 inet:ip=192.0.0.255] $l.append(:type)
@@ -1103,16 +1107,16 @@ class InetModelTest(s_t_utils.SynTest):
                 await core.nodes('[inet:ip=foo-bar-duck.com]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo"] [inet:ip=$node.value()]')
+                await core.nodes('[test:str="foo"] [inet:ip=$node.value]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo-bar.com"] [inet:ip=$node.value()]')
+                await core.nodes('[test:str="foo-bar.com"] [inet:ip=$node.value]')
 
             self.len(0, await core.nodes('[inet:ip?=foo]'))
             self.len(0, await core.nodes('[inet:ip?=foo-bar.com]'))
 
-            self.len(0, await core.nodes('[test:str="foo"] [inet:ip?=$node.value()] -test:str'))
-            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ip?=$node.value()] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo"] [inet:ip?=$node.value] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ip?=$node.value] -test:str'))
 
             await core.nodes('[ inet:ip=2a00:: inet:ip=2a00::1 ]')
 
@@ -1428,7 +1432,7 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            namesub = (t.metatype.typehash, 'foo bar', {})
+            namesub = (t.nametype.typehash, 'foo bar', {})
             emailsub = (t.emailtype.typehash, 'visi@vertex.link', {'subs': {
                             'fqdn': (t.emailtype.fqdntype.typehash, 'vertex.link', {'subs': {
                                 'host': (t.emailtype.fqdntype.hosttype.typehash, 'vertex', {}),

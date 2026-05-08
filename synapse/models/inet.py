@@ -184,10 +184,7 @@ class IPAddr(s_types.Type):
 
     async def _normPyTuple(self, valu, view=None):
 
-        if any((len(valu) != 2,
-                type(valu[0]) is not int,
-                type(valu[1]) is not int)):
-
+        if len(valu) != 2 or type(valu[0]) is not int or type(valu[1]) is not int:
             mesg = f'Invalid IP address tuple: {valu}'
             raise s_exc.BadTypeValu(mesg=mesg)
 
@@ -997,7 +994,7 @@ class Rfc2822Addr(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
-        self.metatype = self.modl.type('meta:name')
+        self.nametype = self.modl.type('base:name')
         self.emailtype = self.modl.type('inet:email')
 
     async def _normPyStr(self, valu, view=None):
@@ -1021,7 +1018,7 @@ class Rfc2822Addr(s_types.Str):
 
         subs = {}
         if name:
-            subs['name'] = (self.metatype.typehash, name, {})
+            subs['name'] = (self.nametype.typehash, name, {})
 
         try:
             mail, norminfo = await self.emailtype.norm(addr)
@@ -1395,8 +1392,10 @@ modeldefs = (
                 'doc': 'An instance of a file downloaded from a server.'}),
 
             ('inet:flow', ('guid', {}), {
+                'template': {'title': 'network flow'},
                 'interfaces': (
-                    ('inet:proto:link', {'template': {'link': 'flow'}}),
+                    ('base:activity', {}),
+                    ('inet:proto:link', {}),
                 ),
                 'doc': 'A network connection between a client and server.'}),
 
@@ -1872,61 +1871,58 @@ modeldefs = (
 
             ('inet:proto:link', {
 
-                'doc': 'Properties common to network protocol requests and transports.',
-                'template': {'link': 'link'},
+                'template': {'title': 'link'},
                 'props': (
-
-                    ('flow', ('inet:flow', {}), {
-                        'doc': 'The network flow which contained the {link}.'}),
 
                     ('client', ('inet:client', {}), {
                         'doc': 'The socket address of the client.'}),
 
                     ('client:host', ('it:host', {}), {
-                        'doc': 'The client host which initiated the {link}.'}),
+                        'doc': 'The client host which initiated the {title}.'}),
 
                     ('client:proc', ('it:exec:proc', {}), {
-                        'doc': 'The client process which initiated the {link}.'}),
+                        'doc': 'The client process which initiated the {title}.'}),
 
                     ('client:exe', ('file:bytes', {}), {
-                        'doc': 'The client executable which initiated the {link}.'}),
+                        'doc': 'The client executable which initiated the {title}.'}),
 
                     ('server', ('inet:server', {}), {
                         'doc': 'The socket address of the server.'}),
 
                     ('server:host', ('it:host', {}), {
-                        'doc': 'The server host which received the {link}.'}),
+                        'doc': 'The server host which received the {title}.'}),
 
                     ('server:proc', ('it:exec:proc', {}), {
-                        'doc': 'The server process which received the {link}.'}),
+                        'doc': 'The server process which received the {title}.'}),
 
                     ('server:exe', ('file:bytes', {}), {
-                        'doc': 'The server executable which received the {link}.'}),
+                        'doc': 'The server executable which received the {title}.'}),
 
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
-            }),
+                'doc': 'Properties common to network protocol requests and transports.'}),
 
             ('inet:proto:request', {
 
-                'doc': 'Properties common to network protocol requests and responses.',
+                'template': {'title': 'request'},
                 'interfaces': (
-                    ('inet:proto:link', {'template': {'link': 'request'}}),
+                    ('base:event', {}),
+                    ('inet:proto:link', {}),
                 ),
-
                 'props': (
-                    ('time', ('time', {}), {
-                        'doc': 'The time the request was sent.'}),
+
+                    ('flow', ('inet:flow', {}), {
+                        'doc': 'The network flow which contained the {title}.'}),
                 ),
-            }),
+                'doc': 'Properties common to network protocol requests and responses.'}),
 
             ('inet:service:base', {
                 'doc': 'Properties common to most forms within a service platform.',
                 'template': {'title': 'node'},
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'doc': 'A platform specific ID which identifies the {title}.'}),
 
                     ('platform', ('inet:service:platform', {}), {
@@ -2051,7 +2047,7 @@ modeldefs = (
 
             ('inet:email:message', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID parsed from the "message-id" header.'}),
 
                 ('to', ('inet:email', {}), {
@@ -2183,9 +2179,6 @@ modeldefs = (
 
             ('inet:flow', {}, (
 
-                ('period', ('ival', {}), {
-                    'doc': 'The period when the flow was active.'}),
-
                 ('server:txfiles', ('array', {'type': 'file:attachment'}), {
                     'doc': 'An array of files sent by the server.'}),
 
@@ -2216,16 +2209,16 @@ modeldefs = (
                 ('tot:txbytes', ('int', {}), {
                     'doc': 'The number of bytes sent in both directions.'}),
 
-                ('server:cpes', ('array', {'type': 'it:sec:cpe'}), {
+                ('server:software:cpes', ('array', {'type': 'it:sec:cpe'}), {
                     'doc': 'An array of NIST CPEs identified on the server.'}),
 
-                ('server:softnames', ('array', {'type': 'meta:name'}), {
+                ('server:software:names', ('array', {'type': 'it:softwarename'}), {
                     'doc': 'An array of software names identified on the server.'}),
 
-                ('client:cpes', ('array', {'type': 'it:sec:cpe'}), {
+                ('client:software:cpes', ('array', {'type': 'it:sec:cpe'}), {
                     'doc': 'An array of NIST CPEs identified on the client.'}),
 
-                ('client:softnames', ('array', {'type': 'meta:name'}), {
+                ('client:software:names', ('array', {'type': 'it:softwarename'}), {
                     'doc': 'An array of software names identified on the client.'}),
 
                 ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
@@ -2662,13 +2655,13 @@ modeldefs = (
                 ('asn', ('inet:asn', {}), {
                     'doc': 'The associated Autonomous System Number (ASN).'}),
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'}),
 
-                ('parentid', ('meta:id', {}), {
+                ('parentid', ('base:id', {}), {
                     'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'}),
 
-                ('name', ('meta:id', {}), {
+                ('name', ('base:id', {}), {
                     'doc': 'The name ID assigned to the network by the registrant.'}),
 
                 ('country', ('iso:3166:alpha2', {}), {
@@ -2690,10 +2683,10 @@ modeldefs = (
             ('inet:wifi:ap', {}, (
 
                 ('ssid', ('inet:wifi:ssid', {}), {
-                    'doc': 'The SSID for the wireless access point.', 'computed': True, }),
+                    'doc': 'The SSID for the wireless access point.'}),
 
                 ('bssid', ('inet:mac', {}), {
-                    'doc': 'The MAC address for the wireless access point.', 'computed': True, }),
+                    'doc': 'The MAC address for the wireless access point.'}),
 
                 ('channel', ('int', {}), {
                     'doc': 'The WIFI channel that the AP was last observed operating on.'}),
@@ -2835,7 +2828,7 @@ modeldefs = (
             ('inet:service:platform:type:taxonomy', {}, ()),
             ('inet:service:platform', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'An ID which identifies the platform.'}),
 
                 ('url', ('inet:url', {}), {
@@ -2853,12 +2846,12 @@ modeldefs = (
                 ('zones', ('array', {'type': 'inet:fqdn'}), {
                     'doc': 'An array of alternate zones for the platform.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'ex': 'twitter',
                     'alts': ('names',),
                     'doc': 'A friendly name for the platform.'}),
 
-                ('names', ('array', {'type': 'meta:name'}), {
+                ('names', ('array', {'type': 'base:name'}), {
                     'doc': 'An array of alternate names for the platform.'}),
 
                 ('desc', ('text', {}), {
@@ -3056,13 +3049,13 @@ modeldefs = (
                 ('place', ('geo:place', {}), {
                     'doc': 'The place that the message was sent from.'}),
 
-                ('place:name', ('meta:name', {}), {
+                ('place:name', ('geo:name', {}), {
                     'doc': 'The name of the place that the message was sent from.'}),
 
                 ('client:software', ('it:software', {}), {
                     'doc': 'The client software version used to send the message.'}),
 
-                ('client:software:name', ('meta:name', {}), {
+                ('client:software:name', ('it:softwarename', {}), {
                     'doc': 'The name of the client software used to send the message.'}),
 
                 ('file', ('file:bytes', {}), {

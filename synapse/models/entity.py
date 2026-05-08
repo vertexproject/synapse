@@ -67,7 +67,7 @@ modeldefs = (
                 ),
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'doc': 'A type or source specific ID for the {title}.'}),
 
                     ('bio', ('text', {}), {
@@ -212,6 +212,11 @@ modeldefs = (
                 'doc': 'A singular entity such as a person.'}),
 
             ('entity:name', ('base:name', {}), {
+                'modes': {
+                    'lookup': [
+                        {'cmpr': '^='}
+                    ]
+                },
                 'doc': 'A name used to refer to an entity.'}),
 
             ('entity:title', ('str', {'onespace': True, 'lower': True}), {
@@ -579,17 +584,11 @@ modeldefs = (
 
         'edges': (
 
-            (('entity:actor', 'used', 'meta:usable'), {
-                'doc': 'The actor used the target node.'}),
-
             (('entity:actor', 'used', 'meta:observable'), {
                 'doc': 'The actor used the target node.'}),
 
             (('entity:contactlist', 'has', 'entity:contact'), {
                 'doc': 'The contact list contains the contact.'}),
-
-            (('entity:action', 'used', 'meta:usable'), {
-                'doc': 'The action was taken using the target node.'}),
 
             (('entity:action', 'used', 'meta:observable'), {
                 'doc': 'The action was taken using the target node.'}),
@@ -708,6 +707,16 @@ modeldefs = (
 
             ('entity:campaign', {}, (
 
+                ('id', (
+                    ('it:mitre:attack:campaign:id', {}),
+                    ('base:id', {}),
+                ), {
+                    'alts': ('ids',),
+                    'doc': 'A unique ID given to the campaign.'}),
+
+                ('ids', ('array', {'type': (('it:mitre:attack:campaign:id', {}), ('base:id', {}))}), {
+                    'doc': 'An array of alternate IDs given to the campaign.'}),
+
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
 
@@ -733,7 +742,7 @@ modeldefs = (
 
             ('entity:conflict', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('event:name', {}), {
                     'doc': 'The name of the conflict.'}),
 
                 ('adversaries', ('array', {'type': 'entity:actor'}), {

@@ -64,7 +64,7 @@ class PlanModelTest(s_t_utils.SynTest):
                     :system={ plan:system:name="Woot CNO Planner" }
                 ]
 
-                $guid = $node.value()
+                $guid = $node.value
 
                 [
                     :inputs={[ plan:procedure:variable=*

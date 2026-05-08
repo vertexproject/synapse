@@ -619,7 +619,7 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes('function subr(svc) { $other=$svc return() } $t=$subr($lib.service.get(prim))')
                     self.eq(refs, prim._syn_refs)
 
-                    nodes = await core.nodes('[ meta:name=$lib.service.get(prim).lower() ]')
+                    nodes = await core.nodes('[ entity:name=$lib.service.get(prim).lower() ]')
                     self.len(1, nodes)
                     self.eq(nodes[0].ndef[1], 'asdf')
 
@@ -799,9 +799,9 @@ class StormSvcTest(s_test.SynTest):
 
                     curl = f'tcp://root:root@127.0.0.1:{port}/olds'
 
-                    with self.getAsyncLoggerStream('synapse.lib.stormsvc', 'running Synapse (2, 0, 0)') as stream:
+                    with self.getLoggerStream('synapse.lib.stormsvc') as stream:
                         await core.nodes(f'service.add olds {curl}')
-                        self.true(await asyncio.wait_for(stream.wait(), timeout=12))
+                        await stream.expect('running Synapse (2, 0, 0)', timeout=12)
 
     async def test_storm_svc_restarts(self):
 

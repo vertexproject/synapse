@@ -26,7 +26,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:tac', 1))
-            self.propeq(node, 'model', 'eyephone 9000')
+            self.propeq(node, 'model', 'eYephone 9000')
             self.nn(node.get('owner'))
 
             nodes = await core.nodes('[tel:mob:imid=(490154203237518, 310150123456789)]')

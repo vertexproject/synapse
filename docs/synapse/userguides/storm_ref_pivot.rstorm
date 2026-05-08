@@ -678,12 +678,12 @@ The following is a simple example to illustrate the concept.
 *Pivot from a set of strings (it:dev:str nodes) representing domains to the associated FQDNs (inet:fqdn nodes):*
 
 .. storm-pre:: [ it:dev:str=woot.com ]
-.. storm-pre:: it:dev:str=woot.com $fqdn=$node.value() -> { inet:fqdn ?= $fqdn }
-.. storm-pre:: it:dev:str=woot.com $fqdn=$node.value() inet:fqdn ?= $fqdn -it:dev:str
+.. storm-pre:: it:dev:str=woot.com $fqdn=$node.value -> { inet:fqdn ?= $fqdn }
+.. storm-pre:: it:dev:str=woot.com $fqdn=$node.value inet:fqdn ?= $fqdn -it:dev:str
 
 ::
   
-  <it:dev:str nodes> $fqdn = $node.value() -> { inet:fqdn ?= $fqdn }
+  <it:dev:str nodes> $fqdn = $node.value -> { inet:fqdn ?= $fqdn }
 
 The query above is a primary-to-primary property pivot between forms of different types. The query lifts
 the ``it:dev:str`` nodes, defines the variable ``$fqdn`` as the value of the node, then pivots to the
@@ -694,7 +694,7 @@ Note that you could create an equivalent Storm query using only lift and filter 
 
 ::
   
-  <it:dev:str nodes> $fqdn = $node.value() inet:fqdn ?= $fqdn -it:dev:str
+  <it:dev:str nodes> $fqdn = $node.value inet:fqdn ?= $fqdn -it:dev:str
 
 This second query still lifts the ``it:dev:str`` nodes and sets the ``$fqdn`` variable, but then lifts
 the ``inet:fqdn`` nodes directly and drops (filters out) the original ``it:dev:str`` nodes.

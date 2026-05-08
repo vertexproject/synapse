@@ -95,6 +95,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :discoverer={[ entity:contact=({"name": "visi"}) ]}
                     :vendor:notified=2020-01-14
                     :vendor:fixed=2020-01-14
+                    :seen=(20200101, 20200601)
 
                     :id = CVE-2013-0000
                     :ids = (VISI-B-0000,)
@@ -122,6 +123,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'vendor:notified', 1578960000000000)
             self.propeq(nodes[0], 'vendor:fixed', 1578960000000000)
             self.propeq(nodes[0], 'published', 1578960000000000)
+            self.nn(nodes[0].get('seen'))
 
             self.propeq(nodes[0], 'id', 'CVE-2013-0000', form='it:sec:cve')
             self.propeq(nodes[0], 'ids', ('VISI-B-0000',))

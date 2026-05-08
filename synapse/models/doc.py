@@ -9,11 +9,11 @@ modeldefs = (
                 ),
                 'props': (
 
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'alts': ('ids',),
                         'doc': 'The {title} ID.'}),
 
-                    ('ids', ('array', {'type': 'meta:id'}), {
+                    ('ids', ('array', {'type': 'base:id'}), {
                         'doc': 'An array of alternate IDs for the {title}.'}),
 
                     ('url', ('inet:url', {}), {

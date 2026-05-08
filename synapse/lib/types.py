@@ -399,7 +399,7 @@ class Type:
         if func is None:
             raise s_exc.BadTypeValu(name=self.name, mesg='no norm for type: %r.' % (type(valu),))
 
-        return await func(valu, view=None)
+        return await func(valu, view=view)
 
     def repr(self, norm):
         '''
@@ -1133,6 +1133,11 @@ class HugeNum(Type):
         self.setCmprCtor('>=', self._ctorCmprGe)
         self.setCmprCtor('<=', self._ctorCmprLe)
 
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(float, self._normPyInt)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
+
         self.storlifts.update({
             '<': self._storLiftNorm,
             '>': self._storLiftNorm,
@@ -1152,7 +1157,7 @@ class HugeNum(Type):
         if modulo is not None:
             self.modulo = s_common.hugenum(modulo)
 
-    async def _normHugeText(self, rawtext, view=None):
+    async def _normPyStr(self, rawtext, view=None):
 
         text = rawtext.lower().strip()
         text = text.replace(',', '').replace(' ', '')
@@ -1163,7 +1168,11 @@ class HugeNum(Type):
             mesg = f'Value does not start with a number: "{rawtext}"'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        huge = s_common.hugenum(valu)
+        try:
+            huge = s_common.hugenum(valu)
+        except decimal.DecimalException as e:
+            mesg = f'Invalid hugenum: {e}'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg) from None
 
         unit, off = s_grammar.nom(text, off, s_grammar.unitset)
         if unit:
@@ -1173,40 +1182,30 @@ class HugeNum(Type):
                 raise s_exc.BadTypeValu(mesg=mesg)
             huge = s_common.hugemul(huge, mult)
 
-        return huge
+        return self._norm(huge)
 
-    async def norm(self, valu, view=None):
+    async def _normPyInt(self, valu, view=None):
+        return self._norm(s_common.hugenum(valu))
 
-        if valu is None:
-            mesg = 'Hugenum type may not be null.'
-            raise s_exc.BadTypeValu(mesg=mesg)
+    async def _normNumber(self, valu, view=None):
+        return self._norm(valu.valu)
 
-        try:
-            if isinstance(valu, s_stormtypes.Number):
-                huge = valu.valu
-            elif isinstance(valu, str):
-                huge = await self._normHugeText(valu)
-            else:
-                huge = s_common.hugenum(valu)
+    def _norm(self, huge):
 
-            # behave modulo like int/float
-            if self.modulo is not None:
-                _, huge = s_common.hugemod(huge, self.modulo)
-                if huge < 0:
-                    huge = s_common.hugeadd(huge, self.modulo)
+        # behave modulo like int/float
+        if self.modulo is not None:
+            _, huge = s_common.hugemod(huge, self.modulo)
+            if huge < 0:
+                huge = s_common.hugeadd(huge, self.modulo)
 
-                huge = s_common.hugeround(huge)
-
-        except decimal.DecimalException as e:
-            mesg = f'Invalid hugenum: {e}'
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg) from None
+            huge = s_common.hugeround(huge)
 
         if huge > hugemax:
-            mesg = f'Value ({valu}) is too large for hugenum.'
+            mesg = f'Value ({huge}) is too large for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
         if abs(huge) > hugemax:
-            mesg = f'Value ({valu}) is too small for hugenum.'
+            mesg = f'Value ({huge}) is too small for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
         huge = s_common.hugeround(huge).normalize(s_common.hugectx)
@@ -2139,7 +2138,7 @@ class Poly(Type):
     def typefilter(self, tobj):
         if not self.typeset:
             return False
-        return any(t in self.typeset for t in tobj.types)
+        return tobj.name in self.typeset
 
     def ifacefilter(self, form):
         if not self.ifaces:
@@ -2256,21 +2255,23 @@ class Poly(Type):
         raise s_exc.NoSuchVirt.init(virt, self)
 
     def _raiseBadTypeValu(self, valu):
+        typeset = tuple(sorted(self.typeset))
+        ifaces = tuple(sorted(self.ifaces))
+
         mesg = f'Value of type {valu} is not allowed for {self.name}'
+        if typeset:
+            mesg += f' types=({", ".join(typeset)})'
 
-        if self.typeset is not None:
-            mesg += f' types={self.typeset}'
+        if ifaces:
+            mesg += f' interfaces=({", ".join(ifaces)})'
 
-        if self.ifaces is not None:
-            mesg += f' interfaces={self.ifaces}'
-
-        raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg, types=self.typeset, interfaces=self.ifaces)
+        raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg, types=typeset, interfaces=ifaces)
 
     async def _storLiftType(self, cmpr, valu):
         valu = valu.lower().strip()
 
         if (tobj := self.modl.type(valu)) is None or not self.typefilter(tobj):
-            if (form := self.modl.form(valu)) is None or not self.ifacefilter(form):
+            if (form := self.modl.form(valu)) is None or not self.formfilter(form):
                 self._raiseBadTypeValu(valu)
 
         return (('type=', valu, self.stortype),)
@@ -2294,7 +2295,7 @@ class Poly(Type):
 
         if isinstance(valu, s_node.Node):
             if cmpr == '=':
-                if self.typefilter(valu.form.type) or self.ifacefilter(valu.form):
+                if self.formfilter(valu.form):
                     return (('ndef=', valu.ndef, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.ndef[1]
@@ -2306,7 +2307,7 @@ class Poly(Type):
                 if self.typefilter(self.modl.type(typename)):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
-                elif (form := self.modl.form(typename)) is not None and self.ifacefilter(form):
+                elif (form := self.modl.form(typename)) is not None and self.formfilter(form):
                     return (('ndef=', valu.valu, s_layer.STOR_TYPE_POLY),)
 
             valu = valu.valu[1]
@@ -2407,7 +2408,7 @@ class Poly(Type):
 
     async def _normStormNode(self, valu, view=None):
 
-        if not self.typefilter(valu.form.type) and not self.ifacefilter(valu.form):
+        if not self.formfilter(valu.form):
             self._raiseBadTypeValu(valu.form.name)
 
         if valu.form.locked or valu.form.type.locked:
@@ -2422,7 +2423,7 @@ class Poly(Type):
         tobj = self.modl.type(typename)
         form = self.modl.form(typename)
 
-        if not self.typefilter(tobj) and (form is None or not self.ifacefilter(form)):
+        if not self.typefilter(tobj) and (form is None or not self.formfilter(form)):
             self._raiseBadTypeValu(typename)
 
         if tobj.locked or (form is not None and form.locked):
@@ -2431,7 +2432,7 @@ class Poly(Type):
         if form is not None:
             if valu.exists:
                 return valu.valu, {'skipadd': True, 'virts': valu.virts}
-            elif await view.getNodeByNdef(valu.valu) is not None:
+            elif view is not None and await view.getNodeByNdef(valu.valu) is not None:
                 valu.exists = True
                 return valu.valu, {'skipadd': True, 'virts': valu.virts}
 
@@ -2485,6 +2486,7 @@ class Data(Type):
 
     async def norm(self, valu, view=None):
         try:
+            valu = await s_stormtypes.toprim(valu)
             s_json.reqjsonsafe(valu)
             if self.validator is not None:
                 self.validator(valu)
@@ -3173,6 +3175,9 @@ class Time(IntBase):
 
     async def _normNumber(self, valu, prec=None, view=None):
         return await self._normPyInt(int(valu.valu), prec=prec)
+
+    async def _normStormNodeRef(self, nref, prec=None, view=None):
+        return await self._normPyInt(nref.valu[1], prec=prec)
 
     async def norm(self, valu, prec=None, view=None):
         func = self._type_norms.get(type(valu))

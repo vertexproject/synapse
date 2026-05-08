@@ -343,7 +343,7 @@ class Cpe23Str(s_types.Str):
 
         self.cpe22 = self.modl.type('it:sec:cpe:v2_2')
         self.strtype = self.modl.type('str').clone({'lower': True})
-        self.metatype = self.modl.type('meta:name')
+        self.entname = self.modl.type('entity:name')
 
     async def _normPyStr(self, valu, view=None):
         text = valu.lower()
@@ -459,7 +459,7 @@ class Cpe23Str(s_types.Str):
 
         subs = {
             'part': (styp, parts[PART_IDX_PART], {}),
-            'vendor': (self.metatype.typehash, parts[PART_IDX_VENDOR], {}),
+            'vendor': (self.entname.typehash, parts[PART_IDX_VENDOR], {}),
             'product': (styp, parts[PART_IDX_PRODUCT], {}),
             'version': (styp, parts[PART_IDX_VERSION], {}),
             'update': (styp, parts[PART_IDX_UPDATE], {}),
@@ -640,8 +640,10 @@ modeldefs = (
                 'template': {'title': 'host'},
                 'interfaces': (
                     ('phys:object', {}),
-                    ('inet:service:object', {}),
+                    ('entity:creatable', {}),
+                    ('biz:manufactured', {}),
                     ('risk:exploitable', {}),
+                    ('inet:service:object', {}),
                 ),
                 'doc': 'A GUID that represents a host or system.'}),
 
@@ -677,14 +679,30 @@ modeldefs = (
                 'prevnames': ('it:account',),
                 'doc': 'A local account on a host.'}),
 
+            ('it:host:posix:account', ('it:host:account', {}), {
+                'doc': 'A POSIX account on a host.'}),
+
+            ('it:host:windows:account', ('it:host:account', {}), {
+                'doc': 'A Windows account on a host.'}),
+
             ('it:host:group', ('guid', {}), {
                 'prevnames': ('it:group',),
                 'doc': 'A local group on a host.'}),
 
+            ('it:host:posix:group', ('it:host:group', {}), {
+                'doc': 'A POSIX group on a host.'}),
+
+            ('it:host:windows:group', ('it:host:group', {}), {
+                'doc': 'A Windows group on a host.'}),
+
+            ('it:host:group:membership', ('guid', {}), {
+                'doc': 'A host account or group being a member of a host group during a period.'}),
+
             ('it:host:login', ('guid', {}), {
                 'prevnames': ('it:logon',),
+                'template': {'title': 'login'},
                 'interfaces': (
-                    ('inet:proto:link', {'template': {'link': 'login'}}),
+                    ('inet:proto:request', {}),
                 ),
                 'doc': 'A host specific login session.'}),
 
@@ -727,39 +745,40 @@ modeldefs = (
             ('it:sec:vuln:scan:result', ('guid', {}), {
                 'doc': "A vulnerability scan result for an asset."}),
 
-            ('it:mitre:attack:group:id', ('meta:id', {'regex': r'^G[0-9]{4}$'}), {
+            ('it:mitre:attack:group:id', ('base:id', {'regex': r'^G[0-9]{4}$'}), {
+                'interfaces': (('entity:identifier', {}),),
                 'doc': 'A MITRE ATT&CK Group ID.',
                 'ex': 'G0100',
             }),
 
-            ('it:mitre:attack:tactic:id', ('meta:id', {'regex': r'^TA[0-9]{4}$'}), {
+            ('it:mitre:attack:tactic:id', ('base:id', {'regex': r'^TA[0-9]{4}$'}), {
                 'doc': 'A MITRE ATT&CK Tactic ID.',
                 'ex': 'TA0040',
             }),
 
-            ('it:mitre:attack:technique:id', ('meta:id', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
+            ('it:mitre:attack:technique:id', ('base:id', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
                 'doc': 'A MITRE ATT&CK Technique ID.',
                 'ex': 'T1548',
             }),
 
-            ('it:mitre:attack:mitigation:id', ('meta:id', {'regex': r'^M[0-9]{4}$'}), {
+            ('it:mitre:attack:mitigation:id', ('base:id', {'regex': r'^M[0-9]{4}$'}), {
                 'doc': 'A MITRE ATT&CK Mitigation ID.',
                 'ex': 'M1036',
             }),
 
-            ('it:mitre:attack:software:id', ('meta:id', {'regex': r'^S[0-9]{4}$'}), {
+            ('it:mitre:attack:software:id', ('base:id', {'regex': r'^S[0-9]{4}$'}), {
                 'doc': 'A MITRE ATT&CK Software ID.',
                 'ex': 'S0154',
             }),
 
-            ('it:mitre:attack:campaign:id', ('meta:id', {'regex': r'^C[0-9]{4}$'}), {
+            ('it:mitre:attack:campaign:id', ('base:id', {'regex': r'^C[0-9]{4}$'}), {
                 'doc': 'A MITRE ATT&CK Campaign ID.',
                 'ex': 'C0028',
             }),
 
             ('it:dev:function', ('guid', {}), {
                 'props': (
-                    ('id', ('meta:id', {}), {
+                    ('id', ('base:id', {}), {
                         'doc': 'An identifier for the function.'}),
 
                     ('name', ('it:dev:str', {}), {
@@ -901,6 +920,11 @@ modeldefs = (
                 'doc': 'A software product, tool, or script.'}),
 
             ('it:softwarename', ('base:name', {}), {
+                'modes': {
+                    'lookup': [
+                        {'cmpr': '^='}
+                    ]
+                },
                 'prevnames': ('it:prod:softname',),
                 'doc': 'The name of a software product or tool.'}),
 
@@ -936,7 +960,7 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of IT hardware types.'}),
 
-            ('it:adid', ('meta:id', {}), {
+            ('it:adid', ('base:id', {}), {
                 'interfaces': (
                     ('entity:identifier', {}),
                     ('meta:observable', {'template': {'title': 'advertising ID'}}),
@@ -973,6 +997,10 @@ modeldefs = (
             # TODO
             # ('it:os:windows:task', ('guid', {}), {
             #     'doc': 'A Microsoft Windows scheduled task configuration.'}),
+
+            ('it:os:posix:id', ('int', {'min': 0}), {
+                'ex': '1001',
+                'doc': 'A POSIX user or group ID.'}),
 
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
             ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
@@ -1505,10 +1533,10 @@ modeldefs = (
             ('it:storage:volume:type:taxonomy', {}, ()),
             ('it:storage:volume', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The unique volume ID.'}),
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the volume.'}),
 
                 ('type', ('it:storage:volume:type:taxonomy', {}), {
@@ -1563,7 +1591,7 @@ modeldefs = (
             ('it:network:type:taxonomy', {}, ()),
             ('it:network', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the network.'}),
 
                 ('desc', ('text', {}), {
@@ -1587,6 +1615,9 @@ modeldefs = (
 
             ('it:host:account', {}, (
 
+                ('id', ('base:id', {}), {
+                    'doc': 'The unique OS specific identifier for the account.'}),
+
                 ('user', ('inet:user', {}), {
                     'doc': 'The username associated with the account.'}),
 
@@ -1599,37 +1630,43 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The host where the account is registered.'}),
 
-                ('posix:uid', ('int', {}), {
-                    'ex': '1001',
-                    'doc': 'The user ID of the account.'}),
-
-                ('posix:gid', ('int', {}), {
-                    'ex': '1001',
-                    'doc': 'The primary group ID of the account.'}),
-
-                ('posix:gecos', ('int', {}), {
-                    'doc': 'The GECOS field for the POSIX account.'}),
-
-                ('posix:home', ('file:path', {}), {
-                    'ex': '/home/visi',
-                    'doc': "The path to the POSIX account's home directory."}),
-
-                ('posix:shell', ('file:path', {}), {
-                    'ex': '/bin/bash',
-                    'doc': "The path to the POSIX account's default shell."}),
-
-                ('windows:sid', ('it:os:windows:sid', {}), {
-                    'doc': 'The Microsoft Windows Security Identifier of the account.'}),
-
                 ('service:account', ('inet:service:account', {}), {
                     'doc': 'The optional service account which the local account maps to.'}),
 
-                ('groups', ('array', {'type': 'it:host:group'}), {
-                    'doc': 'Groups that the account is a member of.'}),
+                ('home', ('file:path', {}), {
+                    'doc': "The path to the account's home directory."}),
             )),
+
+            ('it:host:posix:account', {}, (
+
+                ('id', ('it:os:posix:id', {}), {
+                    'ex': '1001',
+                    'doc': 'The POSIX user ID of the account.'}),
+
+                ('gid', ('it:os:posix:id', {}), {
+                    'ex': '1001',
+                    'doc': 'The primary group ID of the account.'}),
+
+                ('gecos', ('int', {}), {
+                    'doc': 'The GECOS field for the account.'}),
+
+                ('shell', ('file:path', {}), {
+                    'ex': '/bin/bash',
+                    'doc': "The path to the account's default shell."}),
+            )),
+
+            ('it:host:windows:account', {}, (
+
+                ('id', ('it:os:windows:sid', {}), {
+                    'doc': 'The Microsoft Windows Security Identifier of the account.'}),
+            )),
+
             ('it:host:group', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('id', ('base:id', {}), {
+                    'doc': 'The unique OS specific identifier for the group.'}),
+
+                ('name', ('base:name', {}), {
                     'doc': 'The name of the group.'}),
 
                 ('desc', ('text', {}), {
@@ -1638,19 +1675,35 @@ modeldefs = (
                 ('host', ('it:host', {}), {
                     'doc': 'The host where the group was created.'}),
 
-                ('posix:gid', ('int', {}), {
-                    'ex': '1001',
-                    'doc': 'The primary group ID of the account.'}),
-
-                ('windows:sid', ('it:os:windows:sid', {}), {
-                    'doc': 'The Microsoft Windows Security Identifier of the group.'}),
-
                 ('service:role', ('inet:service:role', {}), {
                     'doc': 'The optional service role which the local group maps to.'}),
-
-                ('groups', ('array', {'type': 'it:host:group'}), {
-                    'doc': 'Groups that are a member of this group.'}),
             )),
+
+            ('it:host:posix:group', {}, (
+
+                ('id', ('it:os:posix:id', {}), {
+                    'ex': '1001',
+                    'doc': 'The POSIX ID of the group.'}),
+            )),
+
+            ('it:host:windows:group', {}, (
+
+                ('id', ('it:os:windows:sid', {}), {
+                    'doc': 'The Microsoft Windows Security Identifier of the group.'}),
+            )),
+
+            ('it:host:group:membership', {}, (
+
+                ('member', (('it:host:account', {}), ('it:host:group', {})), {
+                    'doc': 'The account or group that was a member of the group.'}),
+
+                ('group', ('it:host:group', {}), {
+                    'doc': 'The group which had the member.'}),
+
+                ('period', ('ival', {}), {
+                    'doc': 'The time period where the membership was active.'}),
+            )),
+
             ('it:host:login', {}, (
 
                 ('server:host', ('it:host', {}), {
@@ -1687,7 +1740,7 @@ modeldefs = (
                 ('desc', ('text', {}), {
                     'doc': 'A brief description of the screenshot.'})
             )),
-            ('it:dev:str', {'on': {'add': {'q': '[ :norm=$node.value() ]'}}}, (
+            ('it:dev:str', {'on': {'add': {'q': '[ :norm=$node.value ]'}}}, (
 
                 ('norm', ('str:lower', {}), {
                     'doc': 'Lower case normalized version of the it:dev:str.'}),
@@ -1703,7 +1756,7 @@ modeldefs = (
                     'computed': True,
                     'doc': 'The "part" field from the CPE 2.3 string.'}),
 
-                ('vendor', ('meta:name', {}), {
+                ('vendor', ('entity:name', {}), {
                     'computed': True,
                     'doc': 'The "vendor" field from the CPE 2.3 string.'}),
 
@@ -1917,7 +1970,7 @@ modeldefs = (
 
             ('it:dev:repo:remote', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'ex': 'origin',
                     'doc': 'The name the repo is using for the remote repo.'}),
 
@@ -1963,7 +2016,7 @@ modeldefs = (
                 ('mesg', ('text', {}), {
                     'doc': 'The commit message describing the changes in the commit.'}),
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The version control system specific commit identifier.'}),
 
                 ('url', ('inet:url', {}), {
@@ -2014,13 +2067,13 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL where the issue is hosted.'}),
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID of the issue in the repository system.'}),
             )),
 
             ('it:dev:repo:label', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID of the label.'}),
 
                 ('title', ('str:lower', {}), {
@@ -2088,7 +2141,7 @@ modeldefs = (
 
             ('it:hardware', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('base:name', {}), {
                     'doc': 'The name of this hardware specification.'}),
 
                 ('type', ('it:hardware:type:taxonomy', {}), {
@@ -2106,7 +2159,7 @@ modeldefs = (
                 ('manufacturer:name', ('entity:name', {}), {
                     'doc': 'The name of the organization that manufactures this hardware.'}),
 
-                ('model', ('base:name', {}), {
+                ('model', ('biz:model', {}), {
                     'doc': 'The model name or number for this hardware specification.'}),
 
                 ('version', ('it:version', {}), {
@@ -2123,7 +2176,7 @@ modeldefs = (
                 ('hardware', ('it:hardware', {}), {
                     'doc': 'The hardware specification of this component.'}),
 
-                ('serial', ('meta:id', {}), {
+                ('serial', ('base:id', {}), {
                     'doc': 'The serial number of this component.'}),
 
                 ('host', ('it:host', {}), {
@@ -2132,7 +2185,7 @@ modeldefs = (
 
             ('it:softid', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The ID issued by the software to the host.'}),
 
                 ('host', ('it:host', {}), {
@@ -2188,6 +2241,9 @@ modeldefs = (
 
                 ('parent', ('it:software', {}), {
                     'doc': 'The parent software version or family.'}),
+
+                ('tag', ('syn:tag', {}), {
+                    'doc': 'The tag used to annotate nodes that are associated with the software.'}),
 
                 ('name', ('it:softwarename', {}), {
                     'alts': ('names',),
@@ -2720,13 +2776,13 @@ modeldefs = (
             )),
 
             ('it:sec:stix:bundle', {}, (
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The id field from the STIX bundle.'}),
             )),
 
             ('it:sec:stix:indicator', {}, (
 
-                ('id', ('meta:id', {}), {
+                ('id', ('base:id', {}), {
                     'doc': 'The STIX id field from the indicator pattern.'}),
 
                 ('name', ('str', {}), {

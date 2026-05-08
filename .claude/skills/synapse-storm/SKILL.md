@@ -435,14 +435,14 @@ $lib.lift.byNodeData($name)                  // lift nodes with a given nodedata
 $lib.version.synapse                         // synapse version tuple
 ```
 
-### Node Object Methods
+### Node Object Attributes / Methods
 
 ```storm
-$node.form()                                 // form name string
-$node.ndef()                                 // (form, value) tuple
-$node.iden()                                 // node identity hash
+$node.form                                   // form name string
+$node.ndef                                   // (form, value) tuple
+$node.iden                                   // node identity hash
 $node.nid                                    // node ID in the layer
-$node.value()                                // primary value
+$node.value                                  // primary value
 $node.repr()                                 // human representation
 $node.pack()                                 // pack node to dict
 $node.props                                  // property dict access
@@ -558,7 +558,7 @@ switch $x {
 +:asn=1234
 
 // Expression context needs parenthesized comparison
-if ($node.value() = "test") { ... }
+if ($node.value = "test") { ... }
 ```
 
 ### 10. Incorrect `try`/`catch` Exception Names
