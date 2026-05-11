@@ -44,7 +44,7 @@ class ResourceMonitor(s_base.Base):
             self.slab.put(s_common.int64en(probe[0]), probe, db='resmon:probes')
             await self.waitfini(self.sleeptime)
 
-    def getResProbe()
+    def getResProbe(self):
 
         disk = shutil.disk_usage(self.dirn)
 
