@@ -3518,7 +3518,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pkgvars.get(key, defv=s_common.novalu) is s_common.novalu:
             return default
 
-        return await self._push('storm:pkg:var:pop', name, key, default)
+        return await self._push('storm:pkg:var:pop', name, key, default=default)
 
     @s_nexus.Pusher.onPush('storm:pkg:var:pop')
     async def _popStormPkgVar(self, name, key, default=None):
