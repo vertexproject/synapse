@@ -1247,11 +1247,16 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             self.true(os.path.isdir(oldpath))
             self.false(os.path.isdir(newpath))
 
+            # skip deleting temp files so rmtree is hit from where we want
+            def skipDelTmp(self):
+                pass
+
             with mock.patch('shutil.rmtree', side_effect=OSError("fail")):
-                with self.raises(s_exc.BadCoreStore) as cm:
-                    async with await s_axon.Axon.anit(dirn) as axon:
-                        pass
-                self.isin('Failed to trash slab', str(cm.exception))
+                with mock.patch('synapse.lib.cell.Cell._delTmpFiles', skipDelTmp):
+                    with self.raises(s_exc.BadCoreStore) as cm:
+                        async with await s_axon.Axon.anit(dirn) as axon:
+                            pass
+                    self.isin('Failed to trash slab', str(cm.exception))
             self.true(os.path.isdir(oldpath))
 
     async def test_axon_oldvers(self):

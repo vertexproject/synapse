@@ -198,7 +198,7 @@ _DefaultConfig = {
                 'autonomous-system': {
                     'props': {
                         'name': '+:owner:name return(:owner:name)',
-                        'number': 'return($node.value())',
+                        'number': 'return($node.value)',
                     },
                 }
             },
@@ -832,7 +832,7 @@ stixingest = {
                 if $object.country {
                     ($ok, $iso) = $lib.trycast(iso:3166:alpha2, $object.country)
                     if $ok {
-                        $geodict.loc = $iso
+                        $geodict."country:code" = $iso
                     }
                 }
 

@@ -74,3 +74,60 @@ class TaskTest(s_test.SynTest):
                 await s_task.Task.anit(boss, asyncio.current_task(), None, root, iden=10)
             with self.raises(s_exc.BadArg):
                 await s_task.Task.anit(boss, asyncio.current_task(), None, root, iden='woot')
+
+    async def test_task_done_boss_fini(self):
+        # _onTaskDone must not call schedCoroSafe when the boss is already fini'd.
+        # Previously this would attempt to schedule Task.fini() on the dead Boss,
+        # producing an orphan task that would never be cleaned up.
+        async with self.getTestCell(BossCell) as bcell:
+            root = await bcell.auth.getUserByName('root')
+            boss = bcell.cboss
+
+            done_evt = asyncio.Event()
+
+            async def longrun():
+                await done_evt.wait()
+
+            task = boss.schedCoro(longrun())
+            synt = await s_task.Task.anit(boss, task, 'longrun', root)
+
+            # Fini the boss first (simulating what happens during Cell.fini when the
+            # Boss is a tofini child and is torn down before _kill_active_tasks runs).
+            await boss.fini()
+
+            # Task's asyncio done-callback fires here; with the fix it must skip
+            # schedCoroSafe rather than scheduling fini() on the dead boss.
+            done_evt.set()
+            await asyncio.sleep(0)
+
+            # The boss is fini'd and its task registry is clear — no orphan tasks.
+            self.true(boss.isfini)
+            self.eq(boss.tasks, {})
+            # _syn_task is cleared so the asyncio task is no longer associated.
+            self.none(task._syn_task)
+
+    async def test_task_promoted_boss_reuse(self):
+        # A task promoted under Boss A must not carry its stale _syn_task reference
+        # into operations on Boss B after Boss A has been fini'd. Specifically,
+        # _onTaskFini must clear _syn_task so that the next boss.promote() call
+        # creates a fresh Task rather than returning the dead one.
+        async with self.getTestCell(BossCell) as bcell:
+            root = await bcell.auth.getUserByName('root')
+
+            async with await s_boss.Boss.anit() as boss_a:
+                # Promote the current asyncio task under boss_a.
+                synt_a = await boss_a.promote('work', root)
+                self.nn(s_task.current())
+                self.eq(s_task.current(), synt_a)
+
+            # boss_a is fini'd; _onTaskFini should have cleared _syn_task.
+            self.true(boss_a.isfini)
+            self.none(asyncio.current_task()._syn_task)
+            self.none(s_task.current())
+
+            async with await s_boss.Boss.anit() as boss_b:
+                # Promoting under boss_b must succeed and return a fresh Task.
+                synt_b = await boss_b.promote('work', root)
+                self.nn(synt_b)
+                self.eq(synt_b.boss, boss_b)
+                self.false(synt_b.boss.isfini)

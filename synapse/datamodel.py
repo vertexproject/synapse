@@ -329,7 +329,7 @@ class Form:
             self.onAdd(depfunc)
 
         if self.isrunt and (liftfunc := self.info.get('liftfunc')) is not None:
-            func = s_dyndeps.tryDynLocal(liftfunc)
+            func = s_dyndeps.reqDynLocal(liftfunc)
             modl.core.addRuntLift(name, func)
 
     def implements(self, ifname):
@@ -583,6 +583,8 @@ class Model:
 
         self.formprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
 
+        self._lookup_hints = None
+
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
             'types': [],
@@ -600,6 +602,43 @@ class Model:
 
         # TODO order props based on score...
         return list(props.values())
+
+    def getLookupHints(self):
+        '''
+        Return a cached list of (prop_full_name, cmpr) tuples for all forms/props
+        that define lookup mode hints in the data model.
+        '''
+        if self._lookup_hints is not None:
+            return self._lookup_hints
+
+        hints = []
+
+        for name, form in self.forms.items():
+            lhints = form.type.info.get('modes', {}).get('lookup')
+            if not lhints:
+                continue
+
+            for hint in lhints:
+                cmpr = hint.get('cmpr')
+                if cmpr is None:
+                    continue
+
+                hints.append((form.name, cmpr))
+
+        for name, prop in self.props.items():
+            lhints = prop.info.get('modes', {}).get('lookup')
+            if not lhints:
+                continue
+
+            for hint in lhints:
+                cmpr = hint.get('cmpr')
+                if cmpr is None:
+                    continue
+
+                hints.append((prop.full, cmpr))
+
+        self._lookup_hints = hints
+        return self._lookup_hints
 
     def getArrayPropsByType(self, name):
         props = self.arraysbytype.get(name, {})
@@ -1004,7 +1043,7 @@ class Model:
 
                 typeopts = dict(typedef[1])
                 ctor = typeopts.pop('ctor')
-                item = s_dyndeps.tryDynFunc(ctor, self, typename, typeinfo, typeopts, skipinit=True)
+                item = s_dyndeps.reqDynFunc(ctor, self, typename, typeinfo, typeopts, skipinit=True)
                 self.types[typename] = item
                 ctors[typename] = ctor
 
@@ -1233,24 +1272,13 @@ class Model:
             self.childforms[pform.name].append(formname)
             forminfo = pform.info | forminfo
 
-            pprops = []
-            ptypes = {}
+            child_propnames = {pdef[0] for pdef in propdefs}
 
-            polydefs = self.processPropdefs(propdefs)
-            for propdef in polydefs:
-                ptypes[propdef[0]] = propdef[1]
-
-            for prop in pform.props.values():
-                if prop.ifaces:
-                    continue
-
-                if (newdef := ptypes.get(prop.name)) is not None:
-                    if newdef != prop.typedef:
-                        mesg = f'Form {formname} overrides inherited prop {prop.name} with a different typedef.'
-                        raise s_exc.BadPropDef(mesg=mesg, typedef=newdef, form=formname, prop=prop.name)
-                    continue
-
-                pprops.append((prop.name, prop.typedef, prop.info))
+            pprops = [
+                (prop.name, prop.typedef, prop.info)
+                for prop in pform.props.values()
+                if not prop.ifaces and prop.name not in child_propnames
+            ]
 
             propdefs = tuple(pprops) + propdefs
 
@@ -1310,6 +1338,7 @@ class Model:
         self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
+        self._lookup_hints = None
 
         return form
 
@@ -1394,6 +1423,7 @@ class Model:
         self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
+        self._lookup_hints = None
 
         if parentform:
             self.childforms[parentform.name].remove(formname)
@@ -1488,6 +1518,7 @@ class Model:
                     self.propprevnames[prevfull] = prop.full
 
         self.childpropcache.clear()
+        self._lookup_hints = None
 
         return prop
 
@@ -1698,6 +1729,7 @@ class Model:
                 self.delFormProp(kid, propname)
 
         self.childpropcache.clear()
+        self._lookup_hints = None
 
     def type(self, name):
         '''

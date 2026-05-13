@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.json as s_json
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 
 import synapse.cortex as s_cortex
@@ -298,7 +299,7 @@ class DataModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             q = '''
             syn:type:subof=comp $opts=:opts
-            -> syn:form:type $valu=$node.value()
+            -> syn:form:type $valu=$node.value
             for ($name, $thing) in $opts.fields {
                 $v=`{$valu}:{$name}`  syn:prop=$v
             }
@@ -508,6 +509,61 @@ class DataModelTest(s_t_utils.SynTest):
             self.none(core.model.edge(('test:interface', 'matches', None)))
 
             core.model.delEdge(('test:interface', 'matches', None))
+
+    async def test_getLookupHints(self):
+        async with self.getTestCore() as core:
+
+            hints = core.model.getLookupHints()
+            self.isinstance(hints, list)
+            self.gt(len(hints), 0)
+
+            # all entries are (prop_full_name, cmpr) tuples
+            for pname, cmpr in hints:
+                self.isinstance(pname, str)
+                self.isinstance(cmpr, str)
+
+            # known hints from the model are present
+            self.isin(('entity:name', '^='), hints)
+            self.isin(('it:softwarename', '^='), hints)
+            self.isin(('syn:tag:base', '^='), hints)
+
+            # second call returns the cached result
+            hints2 = core.model.getLookupHints()
+            self.true(hints is hints2)
+
+            # cache is invalidated when a form with a lookup hint is added
+            core.model.addType('test:lookupform', 'base:name', {}, {
+                'modes': {'lookup': [{'cmpr': '^='}]},
+                'doc': 'test lookup form',
+            })
+            core.model.addForm('test:lookupform', {}, ())
+            hints3 = core.model.getLookupHints()
+            self.false(hints3 is hints2)
+            self.isin(('test:lookupform', '^='), hints3)
+
+            # hint entries with no cmpr key are skipped for both forms and props
+            core.model.addType('test:nocmprform', 'base:name', {}, {
+                'modes': {'lookup': [{'doc': 'no cmpr here'}]},
+                'doc': 'test no-cmpr form',
+            })
+            core.model.addForm('test:nocmprform', {}, ())
+            core.model.addFormProp('entity:name', 'testnocmpr', ('str', {}), {
+                'modes': {'lookup': [{'doc': 'no cmpr here'}]},
+                'doc': 'test no-cmpr prop',
+            })
+            hints4 = core.model.getLookupHints()
+            self.notin(('test:nocmprform', None), hints4)
+            self.notin(('entity:name:testnocmpr', None), hints4)
+
+            # cache is invalidated when a form is removed
+            core.model.delForm('test:lookupform')
+            hints5 = core.model.getLookupHints()
+            self.notin(('test:lookupform', '^='), hints5)
+
+            # cache is invalidated when a prop with lookup hint is removed
+            core.model.delFormProp('entity:name', 'testnocmpr')
+            hints6 = core.model.getLookupHints()
+            self.false(hints5 is hints6)
 
     async def test_datamodel_locked_subs(self):
 
@@ -798,10 +854,12 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadPropDef):
                 core.model.addForm('_test:newp', {}, ((1, 2),))
 
-            with self.raises(s_exc.BadPropDef):
-                core.model.addForm('_test:newp', {}, (('name', ('int', {}), {}),))
+            # Subforms can override an inherited prop with any typedef
+            core.model.addForm('_test:newp', {}, (('name', ('int', {}), {}),))
 
-            core.model.addForm('_test:newp', {}, (('name', ('str', {}), {}),))
+            newp = core.model.form('_test:newp')
+            self.eq(newp.prop('name').type.name, 'poly')
+            self.eq(newp.prop('name').type.typeset, frozenset({'int'}))
 
             await core.nodes("$lib.model.ext.addForm(_test:ip, inet:ip, ({}), ({}))")
             await core.nodes("$lib.model.ext.addFormProp(it:host, _ip2, ('_test:ip', ({})), ({}))")
@@ -1108,6 +1166,16 @@ class DataModelTest(s_t_utils.SynTest):
             await core.nodes('[test:str=foo :_polyint=1234]')
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str +test:str:_polyint=haha')
+
+            # _raiseBadTypeValu via virtlift
+            with self.raises(s_exc.BadTypeValu) as cm:
+                await core.nodes('test:str:_polyint.type=test:float')
+
+            self.isinstance(cm.exception.get('types'), tuple)
+            self.isinstance(cm.exception.get('interfaces'), tuple)
+            self.notin('frozenset', str(cm.exception))
+            self.isin('types=(test:comp, test:int)', str(cm.exception))
+            s_msgpack.en(cm.exception.items())
 
             # Poly.getVirtGetr handles self.virts (e.g., .type)
             nodes = await core.nodes('[test:str=foo :bar=vertex.link]')

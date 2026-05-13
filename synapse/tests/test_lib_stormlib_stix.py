@@ -462,7 +462,7 @@ class StormLibStixTest(s_test.SynTest):
             gloc = await core.nodes('geo:place', opts=opts)
             self.len(3, gloc)
 
-            place = await core.nodes('geo:place:loc=cn', opts=opts)
+            place = await core.nodes('geo:place:country:code=cn', opts=opts)
             self.len(1, place)
             self.propeq(place[0], 'name', 'china')
 

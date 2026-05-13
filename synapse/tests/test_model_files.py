@@ -186,6 +186,44 @@ class FileTest(s_t_utils.SynTest):
 
             self.len(7, await core.nodes('file:bytes -> file:entry:file :path -> file:path | uniq'))
 
+    async def test_model_filebytes_ssdeeps(self):
+
+        async with self.getTestCore() as core:
+            h1 = '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'
+            h2 = '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLLo:iglLlsHSfxVYVLs'
+            h3 = '24:eMPMHYRQBUuJT+Xv51ivpeaxWbktsgWXfSY+Xv51ivpeaxWb00XVFfOrzWXfS:eMPEPUuiUeaOMSqDUeaO0YOOK'
+            sha = 'a' * 64
+
+            # Set multiple ssdeep hashes on a file:bytes node
+            nodes = await core.nodes(
+                '[ file:bytes=($sha,) :ssdeeps=($h1, $h2, $h3) ]',
+                opts={'vars': {'sha': sha, 'h1': h1, 'h2': h2, 'h3': h3}})
+            self.len(1, nodes)
+            node = nodes[0]
+
+            # Values are stored uniq and sorted
+            self.propeq(node, 'ssdeeps', tuple(sorted({h1, h2, h3})))
+
+            # Lift by array element value
+            self.len(1, await core.nodes('file:bytes:ssdeeps*[=$h]', opts={'vars': {'h': h1}}))
+            self.len(1, await core.nodes('file:bytes:ssdeeps*[=$h]', opts={'vars': {'h': h2}}))
+
+            # Pivot from file:bytes to crypto:hash:ssdeep
+            self.len(3, await core.nodes('file:bytes :ssdeeps -> crypto:hash:ssdeep'))
+
+            # Invalid ssdeep hash is rejected
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(
+                    '[ file:bytes=($sha,) :ssdeeps=(notanssdeep,) ]',
+                    opts={'vars': {'sha': sha}})
+
+            # Duplicates are deduped, sorted order is maintained
+            nodes = await core.nodes(
+                '[ file:bytes=($sha,) :ssdeeps=($h1, $h1, $h2) ]',
+                opts={'vars': {'sha': sha, 'h1': h1, 'h2': h2}})
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'ssdeeps', tuple(sorted({h1, h2})))
+
     async def test_model_file_mime_exe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:

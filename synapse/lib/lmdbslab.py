@@ -1444,7 +1444,11 @@ class Slab(s_base.Base):
                 if lkey[:size] != byts:
                     return count
 
-                count += scan.curs.count()
+                if scan.dupsort:
+                    count += scan.curs.count()
+                else:
+                    count += 1
+
                 if maxsize is not None and maxsize == count:
                     return count
 

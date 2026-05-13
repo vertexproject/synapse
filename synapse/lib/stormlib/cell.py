@@ -65,7 +65,7 @@ storm_missing_coins = '''
 storm_missing_cpe22 = '''
 $views = $lib.view.list(deporder=$lib.true)
 for $view in $views {
-    view.exec $view.iden { it:sec:cpe -:v2_2 [ :v2_2=$node.value() ] }
+    view.exec $view.iden { it:sec:cpe -:v2_2 [ :v2_2=$node.value ] }
 }
 '''
 

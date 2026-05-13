@@ -8,10 +8,11 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
-import synapse.lib.view as s_view
 import synapse.lib.json as s_json
 import synapse.lib.time as s_time
+import synapse.lib.view as s_view
 import synapse.lib.editor as s_editor
+import synapse.lib.parser as s_parser
 
 import synapse.tests.utils as s_test
 
@@ -127,40 +128,53 @@ class AstTest(s_test.SynTest):
 
     async def test_mode_search(self):
 
-        conf = {'storm:interface:search': False}
-        async with self.getTestCore(conf=conf) as core:
-            msgs = await core.stormlist('asdf asdf', opts={'mode': 'search'})
-            self.stormIsInWarn('Storm search interface is not enabled!', msgs)
-
+        # non-scrapeable text is matched via datamodel lookup hints in lookup mode
         async with self.getTestCore() as core:
-            core.loadStormPkg({
-                'name': 'testsearch',
-                'modules': [
-                    {'name': 'testsearch', 'interfaces': ['search'], 'storm': '''
-                        function search(tokens) {
-                            for $tokn in $tokens {
-                                ou:org:name^=$tokn
-                                emit ((0), $lib.hex.decode($node.iden()))
-                            }
-                        }
-                    '''},
-                ],
-            })
-            await core.nodes('[ ou:org=* :name=apt1 ]')
-            await core.nodes('[ ou:org=* :name=vertex ]')
-            nodes = await core.nodes('apt1', opts={'mode': 'search'})
+            await core.nodes('[ entity:name="Vertex Project" ]')
+            await core.nodes('[ entity:name="APT1 Group" ]')
+            await core.nodes('[ it:softwarename="Synapse Platform" ]')
+
+            nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
             self.len(1, nodes)
             nodeiden = nodes[0].iden()
-            self.propeq(nodes[0], 'name', 'apt1')
+            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
 
-            nodes = await core.nodes('', opts={'mode': 'search'})
+            nodes = await core.nodes('', opts={'mode': 'lookup'})
             self.len(0, nodes)
 
-            nodes = await core.nodes('| uniq', opts={'mode': 'search', 'idens': [nodeiden]})
+            nodes = await core.nodes('| uniq', opts={'mode': 'lookup', 'idens': [nodeiden]})
             self.len(1, nodes)
 
             with self.raises(s_exc.BadSyntax):
-                await core.nodes('| $$$$', opts={'mode': 'search'})
+                await core.nodes('| $$$$', opts={'mode': 'lookup'})
+
+            # when the model has no lookup hints, remainder text yields nothing
+            core.model._lookup_hints = []
+            nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
+            self.len(0, nodes)
+            core.model._lookup_hints = None
+
+            # a hint with an unsupported comparator is skipped gracefully
+            core.model._lookup_hints = [('entity:name', '!!='), ('entity:name', '^=')]
+            nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
+            core.model._lookup_hints = None
+
+            # a scrape match that covers only part of a whitespace-token must not
+            # leave a partial fragment as a remainder for hints-based search
+            # "1.2.3.4Vertex" -> scraper pulls "1.2.3.4" but the whole token is
+            # covered so "Vertex" must not bleed through to the hints path
+            await core.nodes('[ inet:ip=1.2.3.4 ]')
+            nodes = await core.nodes('1.2.3.4Vertex', opts={'mode': 'lookup'})
+            ndefs = {n.ndef for n in nodes}
+            self.notin(('entity:name', 'vertex project'), ndefs)
+
+            # a quoted token containing whitespace must be treated as a single
+            # remainder token, not split on the internal space
+            nodes = await core.nodes('"Vertex Project"', opts={'mode': 'lookup'})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
 
     async def test_try_set(self):
         '''
@@ -186,18 +200,8 @@ class AstTest(s_test.SynTest):
             self.propeq(nodes[0], 'tick', 1546300800000000)
 
     async def test_ast_autoadd(self):
-
-        async with self.getTestCore() as core:
-            visi = await core.auth.addUser('visi')
-            with self.raises(s_exc.AuthDeny):
-                opts = {'mode': 'autoadd', 'user': visi.iden}
-                nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
-            opts = {'mode': 'autoadd'}
-            nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
-            self.len(3, nodes)
-            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
-            self.eq(nodes[1].ndef, ('inet:fqdn', 'woot.com'))
-            self.eq(nodes[2].ndef, ('inet:email', 'visi@vertex.link'))
+        with self.raises(s_exc.BadArg):
+            s_parser.parseQuery('inet:ip=1.2.3.4', mode='autoadd')
 
     async def test_ast_lookup(self):
 
@@ -216,18 +220,18 @@ class AstTest(s_test.SynTest):
             opts = {'mode': 'lookup'}
             q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 CVE-2021-44228'
             nodes = await core.nodes(q, opts=opts)
-            self.eq(ndefs, [n.ndef for n in nodes])
+            self.eq(set(ndefs), {n.ndef for n in nodes})
 
             # check lookup refang
             q = '1(.)2.3.4 foo[.]bar.com visi[at]vertex.link hxxps://[ff::00]:4443/hehe?foo=bar&baz=faz 1(.)2.3.4:123 CVE-2021-44228'
             nodes = await core.nodes(q, opts=opts)
             self.len(6, nodes)
-            self.eq(ndefs, [n.ndef for n in nodes])
+            self.eq(set(ndefs), {n.ndef for n in nodes})
 
             q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 CVE-2021-44228 | [ +#hehe ]'
             nodes = await core.nodes(q, opts=opts)
             self.len(6, nodes)
-            self.eq(ndefs, [n.ndef for n in nodes])
+            self.eq(set(ndefs), {n.ndef for n in nodes})
             self.true(all(n.getTag('hehe') is not None for n in nodes))
 
             # AST object passes through inbound genrs
@@ -253,6 +257,27 @@ class AstTest(s_test.SynTest):
                 nodes = [m[1] for m in msgs if m[0] == 'node']
                 self.len(1, nodes)
                 self.eq(nodes[0][0], ('inet:ip', (4, 0x01020304)))
+
+        # a Storm scrape interface that returns info without match/offset is
+        # handled gracefully (the span is not removed from the remainder)
+        async with self.getTestCore() as core:
+            core.loadStormPkg({
+                'name': 'testscrape',
+                'modules': [
+                    {'name': 'testscrape', 'interfaces': ['scrape'], 'storm': '''
+                        function scrape(text) {
+                            [ inet:fqdn=scrape.test.com ]
+                            return ( (("inet:fqdn", "scrape.test.com", ({"custom": "info"})),) )
+                        }
+                    '''},
+                ],
+            })
+            # use text the built-in scraper won't match so the Storm scrape
+            # interface result (with no match/offset in info) reaches the
+            # remainder computation and exercises the continue branch
+            nodes = await core.nodes('notascrapabletoken', opts={'mode': 'lookup'})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'scrape.test.com'))
 
     async def test_ast_subq_vars(self):
 
@@ -556,7 +581,7 @@ class AstTest(s_test.SynTest):
             self.nn(nodes[1].getTag('visi'))
             self.none(nodes[0].getTag('visi'))
 
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]  [ (inet:dns:a=(vertex.link, $node.value()) +#foo ) ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]  [ (inet:dns:a=(vertex.link, $node.value) +#foo ) ]')
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
             self.none(nodes[0].getTag('foo'))
             self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', (4, 0x01020304))))
@@ -1702,7 +1727,7 @@ class AstTest(s_test.SynTest):
                 return ($arg)
             }
             [(test:str=foo) (test:str=bar)]
-            $retn=$echo($node.value())
+            $retn=$echo($node.value)
             $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
@@ -1715,10 +1740,10 @@ class AstTest(s_test.SynTest):
             function echo(arg) {
                 $lib.print(`arg is {$arg}`)
                 [(test:str=1234) (test:str=5678)]
-                return ($node.value())
+                return ($node.value)
             }
             [(test:str=foo) (test:str=bar)]
-            $retn=$echo($node.value())
+            $retn=$echo($node.value)
             $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
@@ -1735,7 +1760,7 @@ class AstTest(s_test.SynTest):
                 }
             }
             [(test:int=0) (test:int=1)]
-            $retn=$cond($node.value())
+            $retn=$cond($node.value)
             $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
@@ -1973,7 +1998,7 @@ class AstTest(s_test.SynTest):
             q = '''
             $test = $lib.import(yieldsforever)
             yield $test.yieldme("yieldsforimports")
-            $lib.print($node.value())
+            $lib.print($node.value)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('yieldsforimports', msgs)
@@ -2089,7 +2114,7 @@ class AstTest(s_test.SynTest):
             self.eq(42, await core.callStorm('$val=(42) function x(parm1=$val) { return($parm1) } return($x())'))
 
             # force sleep in iter with ret
-            q = 'function x() { [ inet:asn=2 ] if ($node.value() = (3)) { return((3)) } } $x()'
+            q = 'function x() { [ inet:asn=2 ] if ($node.value = (3)) { return((3)) } } $x()'
             self.len(0, await core.nodes(q))
 
             # test Function.isRuntSafe
@@ -2191,7 +2216,7 @@ class AstTest(s_test.SynTest):
             # non-runtsafe test
             q = '''$dict = ({})
             [(test:str=key1 :hehe=val1) (test:str=key2 :hehe=val2)]
-            $key=$node.value()
+            $key=$node.value
             $dict.$key=:hehe
             fini {
                 $lib.fire(event, dict=$dict)
@@ -2920,9 +2945,6 @@ class AstTest(s_test.SynTest):
                 await core.nodes('$lib.view.get().fork()', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('vertex.link', opts={'readonly': True, 'mode': 'autoadd'})
-
-            with self.raises(s_exc.IsReadOnly):
                 await core.nodes('inet:ip | limit 1 | tee { [+#foo] }', opts={'readonly': True})
 
             q = 'function func(arg) { $lib.print(`hello {$arg}`) return () } $func(world)'
@@ -2952,49 +2974,49 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
             self.len(1, await core.nodes('[test:str=QuickBrownFox]'))
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ~= "Brown") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('yes', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ~= "brown") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('yes', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ~= "(?-i:brown)") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('no', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data.lower() ~= "brown") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('yes', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ~= "newp") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('no', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ^= "Quick") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('yes', msgs)
 
-            q = '''test:str $data=$node.value()
+            q = '''test:str $data=$node.value
             if ($data ^= "quick") { $lib.print(yes) }
             else { $lib.print(no) }
             '''
@@ -3184,6 +3206,9 @@ class AstTest(s_test.SynTest):
     async def test_ast_cmdoper(self):
 
         async with self.getTestCore() as core:
+
+            # Wait for migration event so we're not counting anything happening in there
+            await self.waitForActiveMigration(core)
 
             evtl = asyncio.get_event_loop()
             beforecount = len(evtl._asyncgens)
@@ -3477,7 +3502,7 @@ class AstTest(s_test.SynTest):
             '''
             await highlighteq('(("1.2.3.4", 10), {[crypto:x509:cert=*]})', text)
 
-            await highlighteq('node.value()', '[ test:str=foo test:int=$node.value() ]')
+            await highlighteq('node.value', '[ test:str=foo test:int=$node.value ]')
 
             await highlighteq('newp', '[ test:str=foo :seen=newp ]')
             await highlighteq('newp', '[ test:str=foo :seen*unset=newp ]')
@@ -3806,7 +3831,7 @@ class AstTest(s_test.SynTest):
             init {$baz = hehe $lib.print('second init!') }
             $lib.print($baz)
             [test:str=stuff]
-            $stuff = $node.value()
+            $stuff = $node.value
             fini { $lib.print(fini1) }
             fini { $lib.print(`fini {$stuff}`) }
             '''
@@ -4261,7 +4286,7 @@ class AstTest(s_test.SynTest):
 
             q = '''
             test:str=test1
-            $test=$node.value()
+            $test=$node.value
             [(test:str=test2 +(refs)> {test:str=$test})]
             '''
             nodes = await core.nodes(q)
@@ -4273,7 +4298,7 @@ class AstTest(s_test.SynTest):
 
             q = '''
             test:str=test2
-            $valu=$node.value()
+            $valu=$node.value
             | spin |
             test:str=test1 -> { test:str=$valu }
             '''
@@ -4297,7 +4322,7 @@ class AstTest(s_test.SynTest):
             q = '''
             $q = ${
                 test:str=test1
-                $test=$node.value()
+                $test=$node.value
                 [(test:str=test2 +(refs)> {test:str=$test})]
             }
             $lib.macro.set(test.edge, $q)
@@ -4315,7 +4340,7 @@ class AstTest(s_test.SynTest):
             q = '''
             $q = ${
                 test:str=test2
-                $valu=$node.value()
+                $valu=$node.value
                 | spin |
                 test:str=test1 -> { test:str=$valu }
             }
@@ -4345,10 +4370,10 @@ class AstTest(s_test.SynTest):
     async def test_ast_subq_runtsafety(self):
 
         async with self.getTestCore() as core:
-            msgs = await core.stormlist('$foo={[test:str=foo] return($node.value())} $lib.print($foo)')
+            msgs = await core.stormlist('$foo={[test:str=foo] return($node.value)} $lib.print($foo)')
             self.stormIsInPrint('foo', msgs)
 
-            msgs = await core.stormlist('$lib.print({[test:str=foo] return($node.value())})')
+            msgs = await core.stormlist('$lib.print({[test:str=foo] return($node.value)})')
             self.stormIsInPrint('foo', msgs)
 
     async def test_ast_path_links(self):
