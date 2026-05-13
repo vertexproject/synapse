@@ -1571,6 +1571,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         for iden, info in userkv.items():
             raw = info.get('email')
+            if raw is None:
+                continue
 
             try:
                 norm = s_auth.normEmail(raw)
