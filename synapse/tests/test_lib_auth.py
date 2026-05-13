@@ -245,6 +245,17 @@ class AuthTest(s_test.SynTest):
             eve = await auth.addUser('eve', email='alice@example.org')
             self.eq(eve, await auth.getUserByEmail('alice@example.org'))
 
+            # Exercise the nexus handler email branches directly. The public
+            # setUserInfo pre-check normally catches no-ops and duplicates
+            # before _push, but the handler also guards both for replay safety.
+            frank = await auth.addUser('frank', email='frank@example.com')
+            await auth._push('user:info', frank.iden, 'email', 'frank@example.com')
+            self.eq('frank@example.com', frank.info.get('email'))
+
+            grace = await auth.addUser('grace')
+            with self.raises(s_exc.DupUserEmail):
+                await auth._push('user:info', grace.iden, 'email', 'frank@example.com')
+
     async def test_hive_tele_auth(self):
 
         # confirm that the primitives used by higher level APIs

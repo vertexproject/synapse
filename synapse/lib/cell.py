@@ -1593,10 +1593,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 candidate = f'{local}+{iden}@{domain}'
                 try:
                     candidate = s_auth.normEmail(candidate)
-                except s_exc.BadArg:
+                except s_exc.BadArg:  # pragma: no cover
                     candidate = None
 
-                if candidate is None or candidate in seen:
+                if candidate is None or candidate in seen:  # pragma: no cover
                     logger.warning(f'Could not deduplicate email for user {iden}; clearing.')
                     info['email'] = None
                     userkv.set(iden, info)
