@@ -29,13 +29,34 @@ def textFromRule(rule):
         text = '!' + text
     return text
 
+_emailtype = None
+
+def _getEmailType():
+    global _emailtype
+    if _emailtype is None:
+        # Lazy load a full data model so non-Cortex cells can reuse the
+        # canonical inet:email normalization.
+        import synapse.datamodel as s_datamodel
+        import synapse.lib.modules as s_modules
+        import synapse.lib.dyndeps as s_dyndeps
+
+        modl = s_datamodel.Model()
+        mdefs = []
+        for ctor in s_modules.coremods:
+            cls = s_dyndeps.reqDynLocal(ctor)
+            mdefs.extend(cls.getModelDefs(None))
+        modl.addDataModels(mdefs)
+        _emailtype = modl.type('inet:email')
+
+    return _emailtype
+
 def normEmail(email):
     '''
-    Normalize an email address for use as a unique key.
+    Normalize an email address for use as a unique key via the inet:email type.
 
-    Returns the normalized form (lowercase, stripped) or None if the input
-    is None or normalizes to an empty string. Raises BadArg if the value is
-    not a string or does not contain an "@" character.
+    Returns the normalized form or None if the input is None or normalizes
+    to an empty string. Raises BadArg if the value is not a string or does
+    not parse as an email address.
     '''
     if email is None:
         return None
@@ -43,12 +64,14 @@ def normEmail(email):
     if not isinstance(email, str):
         raise s_exc.BadArg(mesg='email must be a string', name='email')
 
-    norm = email.strip().lower()
-    if norm == '':
+    valu = email.strip()
+    if valu == '':
         return None
 
-    if '@' not in norm:
-        raise s_exc.BadArg(mesg=f'email must contain "@": {email!r}', name='email')
+    try:
+        norm, _info = _getEmailType().norm(valu)
+    except s_exc.BadTypeValu as e:
+        raise s_exc.BadArg(mesg=e.get('mesg'), name='email') from None
 
     return norm
 
