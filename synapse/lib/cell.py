@@ -1385,6 +1385,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._bumpCellVers('cell:storage', (
             (2, self._storCellAuthMigration),
+            (3, self._storUserEmailIndexMigration),
         ), nexs=False)
 
         self.auth = await self._initCellAuth()
@@ -1555,6 +1556,70 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                             rolekv.set(roleiden, role)
 
         logger.warning(f'...Cell ({self.getCellType()}) auth migration complete!')
+
+    async def _storUserEmailIndexMigration(self):
+        if self.conf.get('auth:ctor') is not None:
+            return
+
+        logger.warning(f'Building user email index for Cell ({self.getCellType()})')
+
+        authkv = self.slab.getSafeKeyVal('auth')
+        userkv = authkv.getSubKeyVal('user:info:')
+        emailkv = authkv.getSubKeyVal('user:email:')
+
+        seen = {}
+        collisions = []
+
+        for iden, info in userkv.items():
+            raw = info.get('email')
+            if raw is None or raw == '':
+                continue
+
+            if not isinstance(raw, str):
+                logger.warning(f'User {iden} has non-string email {raw!r}; clearing.')
+                info['email'] = None
+                userkv.set(iden, info)
+                continue
+
+            norm = raw.strip().lower()
+            if '@' not in norm:
+                logger.warning(f'User {iden} has malformed email {raw!r}; clearing.')
+                info['email'] = None
+                userkv.set(iden, info)
+                continue
+
+            if norm in seen:
+                collisions.append((iden, raw, norm))
+                continue
+
+            if info.get('email') != norm:
+                info['email'] = norm
+                userkv.set(iden, info)
+
+            seen[norm] = iden
+
+        for iden, raw, norm in collisions:
+            local, _, domain = norm.partition('@')
+            candidate = f'{local}+{iden}@{domain}'
+            if candidate in seen:
+                logger.warning(f'Could not deduplicate email for user {iden}; clearing.')
+                candidate = None
+            else:
+                logger.warning(f'Duplicate email {raw!r} on user {iden}; rewriting to {candidate}.')
+
+            info = userkv.get(iden)
+            info['email'] = candidate
+            userkv.set(iden, info)
+            if candidate is not None:
+                seen[candidate] = iden
+
+        for iden, info in userkv.items():
+            email = info.get('email')
+            if email is None:
+                continue
+            emailkv.set(email, iden)
+
+        logger.warning(f'...user email index for Cell ({self.getCellType()}) complete!')
 
     async def _drivePermMigration(self):
         async with await s_drive.Drive.anit(self.slab, 'celldrive') as olddrive:
@@ -3321,6 +3386,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getUserIdenByName(self, name):
         user = await self.auth.getUserByName(name)
+        if user is not None:
+            return user.iden
+
+    async def getUserIdenByEmail(self, email):
+        user = await self.auth.getUserByEmail(email)
         if user is not None:
             return user.iden
 

@@ -172,6 +172,79 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.InconsistentStorage):
                 await auth.addAuthGate(core.view.iden, 'newp')
 
+    async def test_auth_email_unique(self):
+
+        async with self.getTestCore() as core:
+
+            auth = core.auth
+
+            alice = await auth.addUser('alice', email='alice@example.com')
+            bob = await auth.addUser('bob')
+
+            self.eq('alice@example.com', alice.info.get('email'))
+            self.eq(alice, await auth.getUserByEmail('alice@example.com'))
+            self.eq(alice.iden, await auth.getUserIdenByEmail('alice@example.com'))
+
+            self.eq(alice, await auth.getUserByEmail('ALICE@EXAMPLE.COM'))
+            self.eq(alice, await auth.getUserByEmail('  alice@example.com  '))
+
+            self.none(await auth.getUserByEmail(None))
+            self.none(await auth.getUserByEmail(''))
+            self.none(await auth.getUserByEmail('nobody@example.com'))
+
+            with self.raises(s_exc.DupEmail):
+                await auth.addUser('alice2', email='alice@example.com')
+
+            with self.raises(s_exc.DupEmail):
+                await auth.addUser('alice3', email='ALICE@example.com')
+
+            with self.raises(s_exc.DupEmail):
+                await auth.setUserInfo(bob.iden, 'email', 'alice@example.com')
+
+            indx = await core.getNexsIndx()
+            await auth.setUserInfo(alice.iden, 'email', 'alice@example.com')
+            self.eq(indx, await core.getNexsIndx())
+
+            indx = await core.getNexsIndx()
+            await auth.setUserInfo(alice.iden, 'email', 'ALICE@EXAMPLE.COM')
+            self.eq(indx, await core.getNexsIndx())
+            self.eq('alice@example.com', alice.info.get('email'))
+
+            await auth.setUserInfo(alice.iden, 'email', 'Alice@Example.org')
+            self.eq('alice@example.org', alice.info.get('email'))
+            self.none(await auth.getUserByEmail('alice@example.com'))
+            self.eq(alice, await auth.getUserByEmail('alice@example.org'))
+
+            charlie = await auth.addUser('charlie', email='alice@example.com')
+            self.eq(charlie, await auth.getUserByEmail('alice@example.com'))
+
+            await auth.setUserInfo(charlie.iden, 'email', None)
+            self.none(await auth.getUserByEmail('alice@example.com'))
+            self.none(charlie.info.get('email'))
+
+            await auth.setUserInfo(bob.iden, 'email', 'bob@example.com')
+            self.eq(bob, await auth.getUserByEmail('bob@example.com'))
+
+            await auth.setUserInfo(bob.iden, 'email', '')
+            self.none(await auth.getUserByEmail('bob@example.com'))
+            self.none(bob.info.get('email'))
+
+            with self.raises(s_exc.BadArg):
+                await auth.setUserInfo(bob.iden, 'email', 'notanemail')
+
+            with self.raises(s_exc.BadArg):
+                await auth.addUser('dave', email='notanemail')
+
+            with self.raises(s_exc.BadArg):
+                await auth.setUserInfo(bob.iden, 'email', 1234)
+
+            await auth.setUserInfo(alice.iden, 'email', 'alice@example.org')
+            await auth.delUser(alice.iden)
+            self.none(await auth.getUserByEmail('alice@example.org'))
+
+            eve = await auth.addUser('eve', email='alice@example.org')
+            self.eq(eve, await auth.getUserByEmail('alice@example.org'))
+
     async def test_hive_tele_auth(self):
 
         # confirm that the primitives used by higher level APIs

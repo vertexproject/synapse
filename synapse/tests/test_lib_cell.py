@@ -1355,6 +1355,82 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('faz', cell.conf.get('auth:conf')['baz'])
                 await cell.auth.addUser('visi')
                 await cell._storCellAuthMigration()
+                await cell._storUserEmailIndexMigration()
+
+    async def test_cell_user_email_migration(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+
+                authkv = cell.slab.getSafeKeyVal('auth')
+                userkv = authkv.getSubKeyVal('user:info:')
+                emailkv = authkv.getSubKeyVal('user:email:')
+
+                alice = await cell.auth.addUser('alice')
+                bob = await cell.auth.addUser('bob')
+                charlie = await cell.auth.addUser('charlie')
+                doris = await cell.auth.addUser('doris')
+                eve = await cell.auth.addUser('eve')
+
+                ainfo = userkv.get(alice.iden)
+                ainfo['email'] = 'Shared@Example.com'
+                userkv.set(alice.iden, ainfo)
+
+                binfo = userkv.get(bob.iden)
+                binfo['email'] = 'shared@example.com'
+                userkv.set(bob.iden, binfo)
+
+                cinfo = userkv.get(charlie.iden)
+                cinfo['email'] = 'notanemail'
+                userkv.set(charlie.iden, cinfo)
+
+                dinfo = userkv.get(doris.iden)
+                dinfo['email'] = 12345
+                userkv.set(doris.iden, dinfo)
+
+                einfo = userkv.get(eve.iden)
+                einfo['email'] = ' UNIQUE@Example.com '
+                userkv.set(eve.iden, einfo)
+
+                for norm in ('shared@example.com', 'unique@example.com'):
+                    emailkv.delete(norm)
+
+                with self.getLoggerStream('synapse.lib.cell') as stream:
+                    await cell._storUserEmailIndexMigration()
+
+                logs = stream.getvalue()
+                self.isin('Building user email index', logs)
+                self.isin('user email index for Cell', logs)
+                self.isin('Duplicate email', logs)
+                self.isin('malformed email', logs)
+                self.isin('non-string email', logs)
+
+                cell.auth.clearAuthCache()
+
+                # Iteration order over user idens is not insertion order, so the
+                # "winner" of the shared@example.com collision is whichever iden
+                # the slab yields first; the other gets rewritten.
+                aemail = userkv.get(alice.iden).get('email')
+                bemail = userkv.get(bob.iden).get('email')
+
+                if aemail == 'shared@example.com':
+                    first, second = alice, bob
+                else:
+                    first, second = bob, alice
+
+                self.eq('shared@example.com', userkv.get(first.iden).get('email'))
+                self.eq(f'shared+{second.iden}@example.com', userkv.get(second.iden).get('email'))
+
+                self.none(userkv.get(charlie.iden).get('email'))
+                self.none(userkv.get(doris.iden).get('email'))
+                self.eq('unique@example.com', userkv.get(eve.iden).get('email'))
+
+                self.eq(first.iden, await cell.auth.getUserIdenByEmail('shared@example.com'))
+                self.eq(second.iden,
+                        await cell.auth.getUserIdenByEmail(f'shared+{second.iden}@example.com'))
+                self.eq(eve.iden, await cell.auth.getUserIdenByEmail('unique@example.com'))
+                self.eq(eve.iden, await cell.auth.getUserIdenByEmail('UNIQUE@EXAMPLE.COM'))
 
     async def test_cell_auth_userlimit(self):
         maxusers = 3

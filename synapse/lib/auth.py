@@ -29,6 +29,29 @@ def textFromRule(rule):
         text = '!' + text
     return text
 
+def normEmail(email):
+    '''
+    Normalize an email address for use as a unique key.
+
+    Returns the normalized form (lowercase, stripped) or None if the input
+    is None or normalizes to an empty string. Raises BadArg if the value is
+    not a string or does not contain an "@" character.
+    '''
+    if email is None:
+        return None
+
+    if not isinstance(email, str):
+        raise s_exc.BadArg(mesg='email must be a string', name='email')
+
+    norm = email.strip().lower()
+    if norm == '':
+        return None
+
+    if '@' not in norm:
+        raise s_exc.BadArg(mesg=f'email must contain "@": {email!r}', name='email')
+
+    return norm
+
 @dataclasses.dataclass(slots=True)
 class _allowedReason:
     value: Union[bool | None]
@@ -143,8 +166,10 @@ class Auth(s_nexus.Pusher):
 
         self.userdefs = self.stor.getSubKeyVal('user:info:')
         self.useridenbyname = self.stor.getSubKeyVal('user:name:')
+        self.useridenbyemail = self.stor.getSubKeyVal('user:email:')
         self.userbyidencache = s_cache.FixedCache(self._getUser, size=1000)
         self.useridenbynamecache = s_cache.FixedCache(self._getUserIden, size=1000)
+        self.useridenbyemailcache = s_cache.FixedCache(self._getUserIdenByEmail, size=1000)
 
         self.roledefs = self.stor.getSubKeyVal('role:info:')
         self.roleidenbyname = self.stor.getSubKeyVal('role:name:')
@@ -263,6 +288,34 @@ class Auth(s_nexus.Pusher):
 
     def _getUserIden(self, name):
         return self.useridenbyname.get(name)
+
+    async def getUserByEmail(self, email):
+        '''
+        Get a user by their email address.
+
+        Args:
+            email (str): Email of the user to get. Normalized before lookup.
+
+        Returns:
+            User: A User. May return None if there is no user with the requested email.
+        '''
+        norm = normEmail(email)
+        if norm is None:
+            return None
+
+        useriden = self.useridenbyemailcache.get(norm)
+        if useriden is not None:
+            return self.user(useriden)
+
+    async def getUserIdenByEmail(self, email):
+        norm = normEmail(email)
+        if norm is None:
+            return None
+
+        return self.useridenbyemailcache.get(norm)
+
+    def _getUserIdenByEmail(self, normemail):
+        return self.useridenbyemail.get(normemail)
 
     async def getRoleByName(self, name):
         roleiden = self.roleidenbynamecache.get(name)
@@ -413,6 +466,17 @@ class Auth(s_nexus.Pusher):
         if name in ('locked', 'archived') and not valu:
             self.checkUserLimit()
 
+        if name == 'email' and gateiden is None:
+            newnorm = normEmail(valu)
+            if newnorm == user.info.get('email'):
+                return
+
+            if newnorm is not None:
+                existing = self.useridenbyemail.get(newnorm)
+                if existing is not None and existing != iden:
+                    raise s_exc.DupEmail(mesg=f'Duplicate email, email={newnorm!r} already exists.',
+                                         email=newnorm)
+
         await self._push('user:info', iden, name, valu, gateiden=gateiden, logged=logged, mesg=mesg)
 
     @s_nexus.Pusher.onPush('user:info')
@@ -455,6 +519,29 @@ class Auth(s_nexus.Pusher):
                 user.info['authgates'][gateiden] = info
 
             self.userdefs.set(iden, user.info)
+
+        elif name == 'email':
+            newnorm = normEmail(valu)
+            oldnorm = user.info.get('email')
+            if newnorm == oldnorm:
+                return
+
+            if newnorm is not None:
+                existing = self.useridenbyemail.get(newnorm)
+                if existing is not None and existing != iden:
+                    raise s_exc.DupEmail(mesg=f'Duplicate email, email={newnorm!r} already exists.',
+                                         email=newnorm)
+
+                self.useridenbyemail.set(newnorm, iden)
+                self.useridenbyemailcache.put(newnorm, iden)
+
+            if oldnorm is not None and oldnorm != newnorm:
+                self.useridenbyemail.delete(oldnorm)
+                self.useridenbyemailcache.pop(oldnorm)
+
+            user.info['email'] = newnorm
+            self.userdefs.set(iden, user.info)
+
         else:
             user.info[name] = s_msgpack.deepcopy(valu)
             self.userdefs.set(iden, user.info)
@@ -616,6 +703,12 @@ class Auth(s_nexus.Pusher):
         if self.useridenbynamecache.get(name) is not None:
             raise s_exc.DupUserName(mesg=f'Duplicate username, {name=} already exists.', name=name)
 
+        if email is not None:
+            normnew = normEmail(email)
+            if normnew is not None and self.useridenbyemail.get(normnew) is not None:
+                raise s_exc.DupEmail(mesg=f'Duplicate email, email={normnew!r} already exists.',
+                                     email=normnew)
+
         if iden is None:
             iden = s_common.guid()
         else:
@@ -745,6 +838,11 @@ class Auth(s_nexus.Pusher):
         self.userbyidencache.pop(user.iden)
         self.useridenbynamecache.pop(user.name)
 
+        email = user.info.get('email')
+        if email is not None:
+            self.useridenbyemail.delete(email)
+            self.useridenbyemailcache.pop(email)
+
         for gateiden in user.authgates.keys():
             gate = self.getAuthGate(gateiden)
             if gate is not None:
@@ -799,6 +897,7 @@ class Auth(s_nexus.Pusher):
         '''
         self.userbyidencache.clear()
         self.useridenbynamecache.clear()
+        self.useridenbyemailcache.clear()
         self.rolebyidencache.clear()
         self.roleidenbynamecache.clear()
         self.authgates.clear()
