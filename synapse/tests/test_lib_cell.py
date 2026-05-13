@@ -1372,6 +1372,7 @@ class CellTest(s_t_utils.SynTest):
                 charlie = await cell.auth.addUser('charlie')
                 doris = await cell.auth.addUser('doris')
                 eve = await cell.auth.addUser('eve')
+                frank = await cell.auth.addUser('frank')
 
                 ainfo = userkv.get(alice.iden)
                 ainfo['email'] = 'Shared@Example.com'
@@ -1393,6 +1394,10 @@ class CellTest(s_t_utils.SynTest):
                 einfo['email'] = ' UNIQUE@Example.com '
                 userkv.set(eve.iden, einfo)
 
+                finfo = userkv.get(frank.iden)
+                finfo['email'] = ''
+                userkv.set(frank.iden, finfo)
+
                 for norm in ('shared@example.com', 'unique@example.com'):
                     emailkv.delete(norm)
 
@@ -1403,8 +1408,7 @@ class CellTest(s_t_utils.SynTest):
                 self.isin('Building user email index', logs)
                 self.isin('user email index for Cell', logs)
                 self.isin('Duplicate email', logs)
-                self.isin('malformed email', logs)
-                self.isin('non-string email', logs)
+                self.isin('invalid email', logs)
 
                 cell.auth.clearAuthCache()
 
@@ -1425,6 +1429,7 @@ class CellTest(s_t_utils.SynTest):
                 self.none(userkv.get(charlie.iden).get('email'))
                 self.none(userkv.get(doris.iden).get('email'))
                 self.eq('unique@example.com', userkv.get(eve.iden).get('email'))
+                self.none(userkv.get(frank.iden).get('email'))
 
                 self.eq(first.iden, await cell.auth.getUserIdenByEmail('shared@example.com'))
                 self.eq(second.iden,

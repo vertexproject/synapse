@@ -1572,20 +1572,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         for iden, info in userkv.items():
             raw = info.get('email')
-            if raw is None or raw == '':
-                continue
 
-            if not isinstance(raw, str):
-                logger.warning(f'User {iden} has non-string email {raw!r}; clearing.')
+            try:
+                norm = s_auth.normEmail(raw)
+            except s_exc.BadArg:
+                logger.warning(f'User {iden} has invalid email {raw!r}; clearing.')
                 info['email'] = None
                 userkv.set(iden, info)
                 continue
 
-            norm = raw.strip().lower()
-            if '@' not in norm:
-                logger.warning(f'User {iden} has malformed email {raw!r}; clearing.')
-                info['email'] = None
-                userkv.set(iden, info)
+            if norm is None:
+                if info.get('email') is not None:
+                    info['email'] = None
+                    userkv.set(iden, info)
                 continue
 
             if norm in seen:
@@ -1601,7 +1600,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for iden, raw, norm in collisions:
             local, _, domain = norm.partition('@')
             candidate = f'{local}+{iden}@{domain}'
-            if candidate in seen:
+            try:
+                candidate = s_auth.normEmail(candidate)
+            except s_exc.BadArg:
+                candidate = None
+
+            if candidate is None or candidate in seen:
                 logger.warning(f'Could not deduplicate email for user {iden}; clearing.')
                 candidate = None
             else:
