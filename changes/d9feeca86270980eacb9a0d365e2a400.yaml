@@ -1,0 +1,8 @@
+---
+desc: Added a ``cell:storage`` migration that builds a unique user email index. Pre-existing
+  duplicate emails are rewritten to ``<local>+<iden>@<domain>`` form, and invalid or
+  empty values are cleared.
+desc:literal: false
+prs: []
+type: migration
+...
