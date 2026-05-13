@@ -1,6 +1,6 @@
 ---
 desc: Added the ``$lib.auth.users.byemail()`` Storm function. User emails are now
-  normalized via the ``inet:email`` type and must be unique within a Cell.
+  normalized via the ``inet:email`` type and must be unique.
 desc:literal: false
 prs: []
 type: feat
