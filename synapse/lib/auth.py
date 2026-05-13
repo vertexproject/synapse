@@ -497,7 +497,7 @@ class Auth(s_nexus.Pusher):
             if newnorm is not None:
                 existing = self.useridenbyemail.get(newnorm)
                 if existing is not None and existing != iden:
-                    raise s_exc.DupEmail(mesg=f'Duplicate email, email={newnorm!r} already exists.',
+                    raise s_exc.DupUserEmail(mesg=f'Duplicate email, email={newnorm!r} already exists.',
                                          email=newnorm)
 
         await self._push('user:info', iden, name, valu, gateiden=gateiden, logged=logged, mesg=mesg)
@@ -552,7 +552,7 @@ class Auth(s_nexus.Pusher):
             if newnorm is not None:
                 existing = self.useridenbyemail.get(newnorm)
                 if existing is not None and existing != iden:
-                    raise s_exc.DupEmail(mesg=f'Duplicate email, email={newnorm!r} already exists.',
+                    raise s_exc.DupUserEmail(mesg=f'Duplicate email, email={newnorm!r} already exists.',
                                          email=newnorm)
 
                 self.useridenbyemail.set(newnorm, iden)
@@ -729,7 +729,7 @@ class Auth(s_nexus.Pusher):
         if email is not None:
             normnew = normEmail(email)
             if normnew is not None and self.useridenbyemail.get(normnew) is not None:
-                raise s_exc.DupEmail(mesg=f'Duplicate email, email={normnew!r} already exists.',
+                raise s_exc.DupUserEmail(mesg=f'Duplicate email, email={normnew!r} already exists.',
                                      email=normnew)
 
         if iden is None:

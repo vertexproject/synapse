@@ -192,13 +192,13 @@ class AuthTest(s_test.SynTest):
             self.none(await auth.getUserByEmail(''))
             self.none(await auth.getUserByEmail('nobody@example.com'))
 
-            with self.raises(s_exc.DupEmail):
+            with self.raises(s_exc.DupUserEmail):
                 await auth.addUser('alice2', email='alice@example.com')
 
-            with self.raises(s_exc.DupEmail):
+            with self.raises(s_exc.DupUserEmail):
                 await auth.addUser('alice3', email='ALICE@example.com')
 
-            with self.raises(s_exc.DupEmail):
+            with self.raises(s_exc.DupUserEmail):
                 await auth.setUserInfo(bob.iden, 'email', 'alice@example.com')
 
             indx = await core.getNexsIndx()

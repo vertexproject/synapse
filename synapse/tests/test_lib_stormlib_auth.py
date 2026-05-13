@@ -382,11 +382,11 @@ class StormLibAuthTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.auth.users.byemail("nobody@vertex.link"))'))
 
-            with self.raises(s_exc.DupEmail):
+            with self.raises(s_exc.DupUserEmail):
                 await core.callStorm('$lib.auth.users.add(bob, email=visi@vertex.link)')
 
             await core.callStorm('$lib.auth.users.add(bob)')
-            with self.raises(s_exc.DupEmail):
+            with self.raises(s_exc.DupUserEmail):
                 await core.callStorm('$lib.auth.users.byname(bob).email = "VISI@vertex.link"')
 
             iden = await core.callStorm(
