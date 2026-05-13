@@ -1,9 +1,6 @@
 ---
-desc: Added the ``$lib.auth.users.byemail()`` Storm function for fast user lookup
-  by email. User emails are now normalized via the ``inet:email`` type and enforced
-  as unique within a Cell; setting a duplicate raises ``DupUserEmail``. A storage migration
-  builds the email index and rewrites pre-existing duplicates to ``user+<iden>@<domain>``
-  form.
+desc: Added the ``$lib.auth.users.byemail()`` Storm function. User emails are now
+  normalized via the ``inet:email`` type and must be unique within a Cell.
 desc:literal: false
 prs: []
 type: feat
