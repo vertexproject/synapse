@@ -1,0 +1,7 @@
+---
+desc: Migrated existing ``econ:pay:card`` nodes with a ``:pan`` property to also create the
+  corresponding ``econ:pay:pan`` node.
+desc:literal: false
+prs: []
+type: migration
+...

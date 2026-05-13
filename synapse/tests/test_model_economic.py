@@ -17,6 +17,31 @@ class EconTest(s_utils.SynTest):
             self.eq(4, card.get('pan:mii'))
             self.eq(402400, card.get('pan:iin'))
 
+            # Setting :pan auto-creates econ:pay:pan form node
+            pans = await core.nodes('econ:pay:pan=4024007150779444')
+            self.len(1, pans)
+            pan = pans[0]
+            self.eq('4024007150779444', pan.ndef[1])
+            self.eq(4, pan.get('mii'))
+            self.eq(402400, pan.get('iin'))
+
+            # Pivot from card to pan works
+            self.len(1, await core.nodes('econ:pay:card -> econ:pay:pan'))
+
+            # econ:pay:pan can be created standalone
+            nodes = await core.nodes('[ econ:pay:pan=5500005555555559 ]')
+            self.len(1, nodes)
+            self.eq(5, nodes[0].get('mii'))
+            self.eq(550000, nodes[0].get('iin'))
+
+            # econ:pay:pan:iin pivots to econ:pay:iin
+            self.len(1, await core.nodes('econ:pay:pan=4024007150779444 -> econ:pay:iin'))
+            self.len(1, await core.nodes('econ:pay:pan=4024007150779444 :iin -> econ:pay:iin'))
+
+            # bad PAN rejected
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:pay:pan=notapan ]')
+
             place = s_common.guid()
             bycont = s_common.guid()
             fromcont = s_common.guid()
