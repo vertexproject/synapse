@@ -1568,7 +1568,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         emailkv = authkv.getSubKeyVal('user:email:')
 
         seen = {}
-        collisions = []
 
         for iden, info in userkv.items():
             raw = info.get('email')
@@ -1588,40 +1587,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 continue
 
             if norm in seen:
-                collisions.append((iden, raw, norm))
+                local, _, domain = norm.partition('@')
+                candidate = f'{local}+{iden}@{domain}'
+                try:
+                    candidate = s_auth.normEmail(candidate)
+                except s_exc.BadArg:
+                    candidate = None
+
+                if candidate is None or candidate in seen:
+                    logger.warning(f'Could not deduplicate email for user {iden}; clearing.')
+                    info['email'] = None
+                    userkv.set(iden, info)
+                    continue
+
+                logger.warning(f'Duplicate email {raw!r} on user {iden}; rewriting to {candidate}.')
+                info['email'] = candidate
+                userkv.set(iden, info)
+                seen[candidate] = iden
+                emailkv.set(candidate, iden)
                 continue
 
             if info.get('email') != norm:
                 info['email'] = norm
                 userkv.set(iden, info)
-
             seen[norm] = iden
-
-        for iden, raw, norm in collisions:
-            local, _, domain = norm.partition('@')
-            candidate = f'{local}+{iden}@{domain}'
-            try:
-                candidate = s_auth.normEmail(candidate)
-            except s_exc.BadArg:
-                candidate = None
-
-            if candidate is None or candidate in seen:
-                logger.warning(f'Could not deduplicate email for user {iden}; clearing.')
-                candidate = None
-            else:
-                logger.warning(f'Duplicate email {raw!r} on user {iden}; rewriting to {candidate}.')
-
-            info = userkv.get(iden)
-            info['email'] = candidate
-            userkv.set(iden, info)
-            if candidate is not None:
-                seen[candidate] = iden
-
-        for iden, info in userkv.items():
-            email = info.get('email')
-            if email is None:
-                continue
-            emailkv.set(email, iden)
+            emailkv.set(norm, iden)
 
         logger.warning(f'...user email index for Cell ({self.getCellType()}) complete!')
 
