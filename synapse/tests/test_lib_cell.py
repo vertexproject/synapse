@@ -2282,22 +2282,6 @@ class CellTest(s_t_utils.SynTest):
                 await cell.sync()
         self.isin('Insufficient open file descriptors available.', cm.exception.get('mesg'))
 
-        revt = asyncio.Event()
-        addWriteHold = s_nexus.NexsRoot.addWriteHold
-        delWriteHold = s_nexus.NexsRoot.delWriteHold
-
-        async def wrapAddWriteHold(root, reason):
-            retn = await addWriteHold(root, reason)
-            revt.set()
-            return retn
-
-        async def wrapDelWriteHold(root, reason):
-            retn = await delWriteHold(root, reason)
-            revt.set()
-            return retn
-
-        _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
-
         def full_fds():
             return {'hard_limit': 256, 'soft_limit': 256, 'usage': 255}
 
