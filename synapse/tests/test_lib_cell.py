@@ -1485,11 +1485,11 @@ class CellTest(s_t_utils.SynTest):
                             cell.auth.clearAuthCache()
 
                         # Bump the nexus version on the leader; the follower replays.
-                        await cell00.setNexsVers((2, 199))
+                        await cell00.setNexsVers((2, 243))
                         await cell01.sync()
 
-                        self.eq((2, 199), cell00.nexsvers)
-                        self.eq((2, 199), cell01.nexsvers)
+                        self.eq((2, 243), cell00.nexsvers)
+                        self.eq((2, 243), cell01.nexsvers)
 
                         # Leader and follower must end up with byte-identical user info
                         # and email index entries.

@@ -65,7 +65,7 @@ import synapse.tools.service.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
-NEXUS_VERSION = (2, 199)
+NEXUS_VERSION = (2, 243)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -1872,7 +1872,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             # Clear the auth caches so the changes get picked up by the already running auth subsystem
             self.auth.clearAuthCache()
 
-        if self.nexsvers < (2, 199) and newvers >= (2, 199) and self.conf.get('auth:ctor') is None:
+        if self.nexsvers < (2, 243) and newvers >= (2, 243) and self.conf.get('auth:ctor') is None:
             # Build the unique user email index and rewrite any pre-existing duplicates. Driven
             # through the nexus log so mirrors apply the same writes at the same offset.
             await self._storUserEmailIndexMigration()

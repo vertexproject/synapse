@@ -543,7 +543,7 @@ class Auth(s_nexus.Pusher):
 
             self.userdefs.set(iden, user.info)
 
-        elif name == 'email':
+        elif name == 'email' and self.nexsroot and self.nexsroot.cell.nexsvers >= (2, 243):
             newnorm = normEmail(valu)
             oldnorm = user.info.get('email')
             if newnorm == oldnorm:
