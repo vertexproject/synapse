@@ -1907,10 +1907,10 @@ class LibUsers(s_stormtypes.Lib):
         {'name': 'byemail', 'desc': 'Get a specific user by email address.',
          'type': {'type': 'function', '_funcname': '_methUsersByEmail',
                   'args': (
-                      {'name': 'email', 'type': 'str', 'desc': 'The email of the user to retrieve.', },
+                      {'name': 'email', 'type': 'str', 'desc': 'The email of the user to retrieve.'},
                   ),
                   'returns': {'type': ['null', 'auth:user'],
-                              'desc': 'The ``auth:user`` object, or null if the user does not exist.', }}},
+                              'desc': 'The ``auth:user`` object, or null if the user does not exist.'}}},
     )
     _storm_lib_path = ('auth', 'users')
     _storm_lib_perms = (
