@@ -2108,3 +2108,10 @@ class ModelRevTest(s_tests.SynTest):
             fixed(servers[0], nodedata)
             self.none(servers[0].get('port'))
             control(servers[1])
+
+    async def test_modelrev_0_2_36(self):
+        async with self.getRegrCore('model-0.2.36') as core:
+            nodes = await core.nodes('econ:pay:pan=4024007150779444')
+            self.len(1, nodes)
+            self.eq(4, nodes[0].get('mii'))
+            self.eq(402400, nodes[0].get('iin'))
