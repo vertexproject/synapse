@@ -1,0 +1,7 @@
+---
+desc: Added ``$lib.model.migration.fuseNodes()`` Storm API to fuse nodes together and
+  delete the source nodes.
+desc:literal: false
+prs: []
+type: feat
+...

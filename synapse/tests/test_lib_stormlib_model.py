@@ -736,3 +736,379 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, ndata)
             self.eq(ndata[0].get('client'), 'tcp://2.3.4.5')
             self.eq(await ndata[0].getData('migration:inet:service:message:client:address'), 'tcp://1.2.3.4')
+
+    async def test_stormlib_model_migration_fuse_nodes(self):
+
+        async with self.getTestCore() as core:
+
+            # --- Validation errors ---
+
+            await core.nodes('[ test:str=fuse-src00 test:str=fuse-dst00 ]')
+
+            # src must be a node
+            await self.asyncraises(s_exc.BadArg,
+                core.nodes('test:str=fuse-src00 $lib.model.migration.fuseNodes($node, newp)'))
+
+            # dst must be a node
+            await self.asyncraises(s_exc.BadArg,
+                core.nodes('test:str=fuse-src00 $lib.model.migration.fuseNodes(newp, $node)'))
+
+            # src and dst must be the same form
+            guidval = s_common.guid()
+            opts = {'vars': {'guidval': guidval}}
+            await core.nodes('[ test:guid=$guidval ]', opts=opts)
+            await self.asyncraises(s_exc.BadArg,
+                core.nodes('test:str=fuse-src00 $n=$node -> { test:guid=$guidval $lib.model.migration.fuseNodes($n, $node) }',
+                           opts=opts))
+
+            # src runt form raises IsRuntForm
+            await self.asyncraises(s_exc.IsRuntForm,
+                core.nodes('test:runt=beep $n=$node -> { test:runt=boop $lib.model.migration.fuseNodes($n, $node) }'))
+
+            # self-fuse warns and no-ops
+            mesgs = await core.stormlist(
+                'test:str=fuse-src00 $lib.model.migration.fuseNodes($node, $node)')
+            self.stormIsInWarn('src and dst are the same node', mesgs)
+            self.len(1, await core.nodes('test:str=fuse-src00'))
+
+            # --- Basic happy path ---
+
+            await core.addTagProp('tp', ('str', {}), {})
+            await core.addFormProp('test:str', '_efoo', ('str', {}), {})
+
+            opts = {'vars': {'hsrc': 'hp-src', 'hdst': 'hp-dst'}}
+
+            await core.nodes('''
+                [ test:str=$hsrc
+                    :hehe=srcval
+                    :tick=2020
+                    .seen=(2010, 2020)
+                    +#foo.bar=(2015, 2016)
+                    +#foo.bar:tp=src-tp
+                    +#src.only
+                    :_efoo=srcext
+                ]
+                $node.data.set(k1, src-k1)
+                $node.data.set(k2, src-k2)
+            ''', opts=opts)
+
+            await core.nodes('''
+                [ test:str=$hdst
+                    :hehe=dstval
+                    :tick=2019
+                    .seen=(2015, 2025)
+                    +#foo.bar=(2018, 2022)
+                    +#foo.bar:tp=dst-tp
+                    +#dst.only
+                ]
+                $node.data.set(k1, dst-k1)
+                $node.data.set(k3, dst-k3)
+            ''', opts=opts)
+
+            dstcreated = (await core.nodes('test:str=$hdst', opts=opts))[0].get('.created')
+            self.nn(dstcreated)
+
+            # set up N1 and N2 edges on src
+            await core.nodes('[ test:str=hp-edge-other ]')
+            await core.nodes('test:str=$hsrc [ +(refs)> { test:str=hp-edge-other } ]', opts=opts)
+            await core.nodes('test:str=hp-edge-other [ +(seen)> { test:str=$hsrc } ]', opts=opts)
+
+            # fuse src into dst
+            await core.nodes('test:str=$hsrc $n=$node -> { test:str=$hdst $lib.model.migration.fuseNodes($n, $node) }',
+                              opts=opts)
+
+            # src is deleted
+            self.len(0, await core.nodes('test:str=$hsrc', opts=opts))
+
+            nodes = await core.nodes('test:str=$hdst', opts=opts)
+            self.len(1, nodes)
+            dst = nodes[0]
+
+            # primary props: src wins on conflict
+            self.eq('srcval', dst.get('hehe'))
+            self.eq(s_time.parse('2020'), dst.get('tick'))
+
+            # .created is preserved from dst
+            self.eq(dstcreated, dst.get('.created'))
+
+            # .seen is unioned: (min(2010,2015), max(2020,2025)) = (2010, 2025)
+            self.eq((s_time.parse('2010'), s_time.parse('2025')), dst.get('.seen'))
+
+            # tags: both sets present
+            self.isin('foo.bar', dst.tags)
+            self.isin('dst.only', dst.tags)
+            self.isin('src.only', dst.tags)
+
+            # tag ival: union (min(2015,2018), max(2016,2022)) = (2015, 2022)
+            self.eq((s_time.parse('2015'), s_time.parse('2022')), dst.tags.get('foo.bar'))
+
+            # tagprop: src wins
+            self.eq('src-tp', dst.getTagProp('foo.bar', 'tp'))
+
+            # nodedata: src wins k1, additive k2 and k3
+            self.eq('src-k1', await dst.getData('k1'))
+            self.eq('src-k2', await dst.getData('k2'))
+            self.eq('dst-k3', await dst.getData('k3'))
+
+            # ext prop
+            self.eq('srcext', dst.get('_efoo'))
+
+            # N1 edge (src was N1: src -(refs)> other) → dst -(refs)> other
+            edgeother = (await core.nodes('test:str=hp-edge-other'))[0]
+            n1edges = [e async for e in dst.iterEdgesN1()]
+            self.isin(('refs', edgeother.iden()), n1edges)
+
+            # N2 edge (src was N2: other -(seen)> src) → other -(seen)> dst
+            n2edges = [e async for e in dst.iterEdgesN2()]
+            self.isin(('seen', edgeother.iden()), n2edges)
+
+            # --- .seen union: src has .seen but dst does not ---
+
+            opts = {'vars': {'ssrc': 'seen-src', 'sdst': 'seen-dst'}}
+            await core.nodes('[ test:str=$ssrc .seen=(2020, 2021) test:str=$sdst ]', opts=opts)
+
+            await core.nodes('test:str=$ssrc $n=$node -> { test:str=$sdst $lib.model.migration.fuseNodes($n, $node) }',
+                             opts=opts)
+
+            self.len(0, await core.nodes('test:str=$ssrc', opts=opts))
+            nodes = await core.nodes('test:str=$sdst', opts=opts)
+            self.len(1, nodes)
+            self.eq((s_time.parse('2020'), s_time.parse('2021')), nodes[0].get('.seen'))
+
+            # --- Form-typed scalar ref rewrite ---
+            # test:guid:name is test:str-typed; should be rewritten from src to dst
+
+            opts = {'vars': {'r1src': 'ref-scalar-src', 'r1dst': 'ref-scalar-dst',
+                             'r1guid': s_common.guid()}}
+            await core.nodes('[ test:str=$r1src test:str=$r1dst ]', opts=opts)
+            await core.nodes('[ test:guid=$r1guid :name=$r1src ]', opts=opts)
+
+            await core.nodes('test:str=$r1src $n=$node -> { test:str=$r1dst $lib.model.migration.fuseNodes($n, $node) }',
+                             opts=opts)
+
+            self.len(0, await core.nodes('test:str=$r1src', opts=opts))
+            nodes = await core.nodes('test:guid=$r1guid', opts=opts)
+            self.len(1, nodes)
+            self.eq('ref-scalar-dst', nodes[0].get('name'))
+
+            # --- Form-typed array ref rewrite + dedup ---
+            # test:arrayprop:strsnosplit is array(test:str); contains both src and dst → dedup to just dst
+
+            opts = {'vars': {'r2src': 'arr-src', 'r2dst': 'arr-dst', 'r2ap': s_common.guid()}}
+            await core.nodes('[ test:str=$r2src test:str=$r2dst ]', opts=opts)
+            await core.nodes('[ test:arrayprop=$r2ap :strsnosplit=($r2src, $r2dst) ]', opts=opts)
+
+            await core.nodes('test:str=$r2src $n=$node -> { test:str=$r2dst $lib.model.migration.fuseNodes($n, $node) }',
+                             opts=opts)
+
+            self.len(0, await core.nodes('test:str=$r2src', opts=opts))
+            nodes = await core.nodes('test:arrayprop=$r2ap', opts=opts)
+            self.len(1, nodes)
+            arrv = nodes[0].get('strsnosplit')
+            self.notin('arr-src', arrv)
+            self.isin('arr-dst', arrv)
+
+            # --- Form-typed array ref rewrite (src only, no dedup) ---
+            # When only src is in the array (dst not present), dst is appended after src is removed.
+
+            opts = {'vars': {'r2bsrc': 'arr2-src', 'r2bdst': 'arr2-dst', 'r2bap': s_common.guid()}}
+            await core.nodes('[ test:str=$r2bsrc test:str=$r2bdst ]', opts=opts)
+            await core.nodes('[ test:arrayprop=$r2bap :strsnosplit=($r2bsrc,) ]', opts=opts)
+
+            await core.nodes('test:str=$r2bsrc $n=$node -> { test:str=$r2bdst $lib.model.migration.fuseNodes($n, $node) }',
+                             opts=opts)
+
+            self.len(0, await core.nodes('test:str=$r2bsrc', opts=opts))
+            nodes = await core.nodes('test:arrayprop=$r2bap', opts=opts)
+            self.len(1, nodes)
+            arrv = nodes[0].get('strsnosplit')
+            self.notin('arr2-src', arrv)
+            self.isin('arr2-dst', arrv)
+
+            # --- Ndef scalar ref rewrite ---
+            # test:str:bar is ndef-typed; points at (test:str, src) → rewrites to (test:str, dst)
+
+            opts = {'vars': {'r3src': 'ndef-src', 'r3dst': 'ndef-dst', 'r3ref': 'ndef-ref'}}
+            await core.nodes('[ test:str=$r3src test:str=$r3dst ]', opts=opts)
+            await core.nodes('[ test:str=$r3ref :bar=(test:str, $r3src) ]', opts=opts)
+
+            await core.nodes('test:str=$r3src $n=$node -> { test:str=$r3dst $lib.model.migration.fuseNodes($n, $node) }',
+                             opts=opts)
+
+            self.len(0, await core.nodes('test:str=$r3src', opts=opts))
+            nodes = await core.nodes('test:str=$r3ref', opts=opts)
+            self.len(1, nodes)
+            self.eq(('test:str', 'ndef-dst'), nodes[0].get('bar'))
+
+            # --- Ndef array ref rewrite + dedup ---
+            # test:str:ndefs is array(ndef); contains both (test:str, src) and (test:str, dst) → dedup to just dst
+
+            opts = {'vars': {'r4src': 'ndefa-src', 'r4dst': 'ndefa-dst', 'r4ref': 'ndefa-ref'}}
+            await core.nodes('[ test:str=$r4src test:str=$r4dst ]', opts=opts)
+            await core.nodes('[ test:str=$r4ref :ndefs=((test:str, $r4src), (test:str, $r4dst)) ]', opts=opts)
+
+            await core.nodes('test:str=$r4src $n=$node -> { test:str=$r4dst $lib.model.migration.fuseNodes($n, $node) }',
+                             opts=opts)
+
+            self.len(0, await core.nodes('test:str=$r4src', opts=opts))
+            nodes = await core.nodes('test:str=$r4ref', opts=opts)
+            self.len(1, nodes)
+            ndefs = nodes[0].get('ndefs')
+            self.notin(('test:str', 'ndefa-src'), ndefs)
+            self.isin(('test:str', 'ndefa-dst'), ndefs)
+
+            # --- Non-comp RO ref: warn and skip ---
+            # test:rostr:strref is test:str-typed and read-only but NOT a comp sub-prop.
+            # fuseNodes() warns and skips it; the prop on the referrer is left unchanged.
+
+            opts = {'vars': {'nc1src': 'ncomp-src', 'nc1dst': 'ncomp-dst', 'nc1guid': s_common.guid()}}
+            await core.nodes('[ test:str=$nc1src test:str=$nc1dst ]', opts=opts)
+            await core.nodes('[ test:rostr=$nc1guid :strref=$nc1src ]', opts=opts)
+
+            mesgs = await core.stormlist(
+                'test:str=$nc1src $n=$node -> { test:str=$nc1dst $lib.model.migration.fuseNodes($n, $node) }',
+                opts=opts)
+            self.stormIsInWarn('cannot rewrite read-only ref', mesgs)
+
+            # referrer prop is unchanged (skipped, not rewritten)
+            nodes = await core.nodes('test:rostr=$nc1guid', opts=opts)
+            self.len(1, nodes)
+            self.eq('ncomp-src', nodes[0].get('strref'))
+
+            # --- Comp-form RO ref rename ---
+            # test:pivcomp:lulz is test:str-typed and read-only (comp sub-prop).
+            # Fusing the lulz value triggers recursive comp rename.
+
+            opts = {'vars': {'c1src': 'comp-src', 'c1dst': 'comp-dst', 'c1targ': 'comp-pivtarg'}}
+            await core.nodes('[ test:str=$c1src test:str=$c1dst ]', opts=opts)
+            await core.nodes('[ test:pivcomp=($c1targ, $c1src) ]', opts=opts)
+
+            await core.nodes('test:str=$c1src $n=$node -> { test:str=$c1dst $lib.model.migration.fuseNodes($n, $node) }',
+                             opts=opts)
+
+            self.len(0, await core.nodes('test:str=$c1src', opts=opts))
+            self.len(0, await core.nodes('test:pivcomp=($c1targ, $c1src)', opts=opts))
+            nodes = await core.nodes('test:pivcomp=($c1targ, $c1dst)', opts=opts)
+            self.len(1, nodes)
+            self.eq('comp-dst', nodes[0].get('lulz'))
+
+            # --- Cycle: src.ref = dst (primary prop copy produces self-ref on dst) ---
+
+            opts = {'vars': {'cy1src': 'cycle1-src', 'cy1dst': 'cycle1-dst'}}
+            await core.nodes('[ test:str=$cy1src :somestr=$cy1dst test:str=$cy1dst ]', opts=opts)
+
+            await core.nodes('test:str=$cy1src $n=$node -> { test:str=$cy1dst $lib.model.migration.fuseNodes($n, $node) }',
+                             opts=opts)
+
+            self.len(0, await core.nodes('test:str=$cy1src', opts=opts))
+            nodes = await core.nodes('test:str=$cy1dst', opts=opts)
+            self.len(1, nodes)
+            self.eq('cycle1-dst', nodes[0].get('somestr'))
+
+            # --- Cycle: dst.ref = src (_rewriteRefs rewrites dst's prop to self-ref) ---
+
+            opts = {'vars': {'cy2src': 'cycle2-src', 'cy2dst': 'cycle2-dst'}}
+            await core.nodes('[ test:str=$cy2src test:str=$cy2dst :somestr=$cy2src ]', opts=opts)
+
+            await core.nodes('test:str=$cy2src $n=$node -> { test:str=$cy2dst $lib.model.migration.fuseNodes($n, $node) }',
+                             opts=opts)
+
+            self.len(0, await core.nodes('test:str=$cy2src', opts=opts))
+            nodes = await core.nodes('test:str=$cy2dst', opts=opts)
+            self.len(1, nodes)
+            self.eq('cycle2-dst', nodes[0].get('somestr'))
+
+            # --- Permissions: node.del on src form denied for low-privilege user ---
+
+            await core.nodes('[ test:str=p-src test:str=p-dst ]')
+
+            lowuser = await core.auth.addUser('lowuser')
+            aslow = {'user': lowuser.iden}
+
+            await self.asyncraises(s_exc.AuthDeny,
+                core.nodes('test:str=p-src $n=$node -> { test:str=p-dst $lib.model.migration.fuseNodes($n, $node) }',
+                           opts=aslow))
+
+            # src unchanged after failed fuse (no partial edits)
+            self.len(1, await core.nodes('test:str=p-src'))
+
+            # --- Forked view: all nodes created in the fork's write layer ---
+            # This is the recommended workflow: create a fork whose write layer holds src,
+            # dst, and any inbound referrers; fuse there; parent view is unaffected.
+
+            opts = {'vars': {'fvsrc': 'fv-src', 'fvdst': 'fv-dst', 'fvguid': s_common.guid()}}
+
+            # Fork first so the parent view stays clean.
+            vdef2 = await core.view.fork()
+            view2iden = vdef2.get('iden')
+            view2opts = {'view': view2iden}
+
+            # Create src, dst, and a referrer all in the fork's write layer.
+            # :name is test:str-typed, so this auto-creates test:str=fv-src in the fork's wlyr.
+            await core.nodes('[ test:str=$fvsrc :hehe=srcval ]', opts=opts | view2opts)
+            await core.nodes('[ test:str=$fvdst ]', opts=opts | view2opts)
+            await core.nodes('[ test:guid=$fvguid :name=$fvsrc ]', opts=opts | view2opts)
+
+            # Fuse in the fork.
+            await core.nodes(
+                'test:str=$fvsrc $n=$node -> { test:str=$fvdst $lib.model.migration.fuseNodes($n, $node) }',
+                opts=opts | view2opts)
+
+            # src is gone from the fork.
+            self.len(0, await core.nodes('test:str=$fvsrc', opts=opts | view2opts))
+            # dst is present and carries merged content from src.
+            nodes = await core.nodes('test:str=$fvdst', opts=opts | view2opts)
+            self.len(1, nodes)
+            self.eq('srcval', nodes[0].get('hehe'))
+            # referrer's name is rewritten to dst.
+            nodes = await core.nodes('test:guid=$fvguid', opts=opts | view2opts)
+            self.len(1, nodes)
+            self.eq('fv-dst', nodes[0].get('name'))
+
+            # Parent view is unaffected: src, dst, and referrer were only in the fork.
+            self.len(0, await core.nodes('test:str=$fvsrc', opts=opts))
+            self.len(0, await core.nodes('test:str=$fvdst', opts=opts))
+            self.len(0, await core.nodes('test:guid=$fvguid', opts=opts))
+
+            # --- Forked view: src in parent layer → CantDelNode ---
+            # Synapse 2.x has no tombstones; deleting a node in a parent layer is a no-op,
+            # so fuseNodes raises CantDelNode before making any changes.
+
+            opts = {'vars': {'fv2src': 'fv2-src', 'fv2dst': 'fv2-dst'}}
+            await core.nodes('[ test:str=$fv2src :hehe=fv2srcval test:str=$fv2dst ]', opts=opts)
+
+            vdef3 = await core.view.fork()
+            view3opts = {'view': vdef3.get('iden')}
+
+            await self.asyncraises(s_exc.CantDelNode,
+                core.nodes('test:str=$fv2src $n=$node -> { test:str=$fv2dst $lib.model.migration.fuseNodes($n, $node) }',
+                           opts=opts | view3opts))
+
+            # both nodes unchanged: no partial edits were committed
+            self.len(1, await core.nodes('test:str=$fv2src', opts=opts | view3opts))
+            nodes = await core.nodes('test:str=$fv2dst', opts=opts | view3opts)
+            self.len(1, nodes)
+            self.none(nodes[0].get('hehe'))
+
+            # --- Forked view: comp parent in parent layer → CantDelNode during comp rename ---
+            # When the ro-ref comp node itself lives in a parent layer, _rewriteRoRef raises
+            # CantDelNode (can't delete the old comp). No edits are committed.
+
+            opts = {'vars': {'fv3src': 'fv3-src', 'fv3dst': 'fv3-dst', 'fv3targ': 'fv3-targ'}}
+            await core.nodes('[ test:str=$fv3dst ]', opts=opts)
+            await core.nodes('[ test:pivcomp=($fv3targ, $fv3src) ]', opts=opts)
+
+            vdef4 = await core.view.fork()
+            view4opts = {'view': vdef4.get('iden')}
+
+            # create src in the forked view's write layer so the src-layer check passes
+            await core.nodes('[ test:str=$fv3src ]', opts=opts | view4opts)
+
+            await self.asyncraises(s_exc.CantDelNode,
+                core.nodes('test:str=$fv3src $n=$node -> { test:str=$fv3dst $lib.model.migration.fuseNodes($n, $node) }',
+                           opts=opts | view4opts))
+
+            # src still exists, old comp still exists, new comp was never created
+            self.len(1, await core.nodes('test:str=$fv3src', opts=opts | view4opts))
+            self.len(1, await core.nodes('test:pivcomp=($fv3targ, $fv3src)', opts=opts | view4opts))
+            self.len(0, await core.nodes('test:pivcomp=($fv3targ, $fv3dst)', opts=opts | view4opts))
