@@ -1127,7 +1127,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             raise s_exc.BadArg(mesg='$lib.model.migration.fuseNodes() requires src and dst from the same view.')
 
         if src.form is not dst.form:
-            raise s_exc.BadArg(mesg=f'$lib.model.migration.fuseNodes() requires src and dst to share the same form.')
+            raise s_exc.BadArg(mesg='$lib.model.migration.fuseNodes() requires src and dst to share the same form.')
 
         if src.form.isrunt:
             raise s_exc.IsRuntForm(mesg='$lib.model.migration.fuseNodes() cannot fuse runt nodes.',
