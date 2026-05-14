@@ -1437,6 +1437,78 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(eve.iden, await cell.auth.getUserIdenByEmail('unique@example.com'))
                 self.eq(eve.iden, await cell.auth.getUserIdenByEmail('UNIQUE@EXAMPLE.COM'))
 
+    async def test_cell_user_email_migration_mirror(self):
+
+        with self.getTestDir() as dirn:
+            path00 = s_common.gendir(dirn, 'cell00')
+            path01 = s_common.gendir(dirn, 'cell01')
+
+            with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 198)):
+
+                conf00 = {'dmon:listen': 'tcp://127.0.0.1:0/',
+                          'nexslog:en': True}
+
+                alice_iden = None
+                bob_iden = None
+
+                async with self.getTestCell(s_cell.Cell, dirn=path00, conf=conf00) as cell00:
+                    alice = await cell00.auth.addUser('alice')
+                    bob = await cell00.auth.addUser('bob')
+                    alice_iden = alice.iden
+                    bob_iden = bob.iden
+
+                # Snapshot the leader for the follower to boot from.
+                s_tools_backup.backup(path00, path01)
+
+                async with self.getTestCell(s_cell.Cell, dirn=path00, conf=conf00) as cell00:
+
+                    conf01 = {'dmon:listen': 'tcp://127.0.0.1:0/',
+                              'mirror': cell00.getLocalUrl(),
+                              'nexslog:en': True}
+
+                    async with self.getTestCell(s_cell.Cell, dirn=path01, conf=conf01) as cell01:
+                        await cell01.sync()
+
+                        self.eq((2, 198), cell00.nexsvers)
+                        self.eq((2, 198), cell01.nexsvers)
+
+                        # Seed an identical duplicate-email state on both slabs to
+                        # simulate legacy data carried from before the uniqueness rule.
+                        # Direct slab writes are not replicated through nexus, so we
+                        # apply the same writes to both cells by hand.
+                        for cell in (cell00, cell01):
+                            userkv = cell.slab.getSafeKeyVal('auth').getSubKeyVal('user:info:')
+                            for iden in (alice_iden, bob_iden):
+                                info = userkv.get(iden)
+                                info['email'] = 'shared@example.com'
+                                userkv.set(iden, info)
+                            cell.auth.clearAuthCache()
+
+                        # Bump the nexus version on the leader; the follower replays.
+                        await cell00.setNexsVers((2, 199))
+                        await cell01.sync()
+
+                        self.eq((2, 199), cell00.nexsvers)
+                        self.eq((2, 199), cell01.nexsvers)
+
+                        # Leader and follower must end up with byte-identical user info
+                        # and email index entries.
+                        for iden in (alice_iden, bob_iden):
+                            i00 = cell00.slab.getSafeKeyVal('auth').getSubKeyVal('user:info:').get(iden)
+                            i01 = cell01.slab.getSafeKeyVal('auth').getSubKeyVal('user:info:').get(iden)
+                            self.eq(i00, i01)
+
+                        e00 = dict(cell00.slab.getSafeKeyVal('auth').getSubKeyVal('user:email:').items())
+                        e01 = dict(cell01.slab.getSafeKeyVal('auth').getSubKeyVal('user:email:').items())
+                        self.eq(e00, e01)
+
+                        # Survivor keeps shared@example.com; the other gets rewritten.
+                        self.isin('shared@example.com', e00)
+                        winner = e00['shared@example.com']
+                        loser = bob_iden if winner == alice_iden else alice_iden
+                        self.isin(f'shared+{loser}@example.com', e00)
+                        self.eq(loser, e00[f'shared+{loser}@example.com'])
+
     async def test_cell_auth_userlimit(self):
         maxusers = 3
         conf = {
