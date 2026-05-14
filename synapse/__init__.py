@@ -22,6 +22,6 @@ import lmdb
 if tuple([int(x) for x in lmdb.__version__.split('.')]) < (1, 0, 0):  # pragma: no cover
     raise Exception('synapse is only supported on version >= 1.0.0 of the lmdb python module')
 
-from synapse.lib.version import version, verstring
+from synapse.lib.version import version, verstring  # noqa: F401
 # Friendly __version__ string alias
 __version__ = verstring

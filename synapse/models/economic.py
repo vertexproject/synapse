@@ -138,6 +138,17 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The registered name of the issuer.'}),
                 )),
 
+                ('econ:pay:pan', {}, (
+
+                    ('mii', ('econ:pay:mii', {}), {
+                        'ro': True,
+                        'doc': 'The Major Industry Identifier (MII) of the PAN.'}),
+
+                    ('iin', ('econ:pay:iin', {}), {
+                        'ro': True,
+                        'doc': 'The Issuer Identification Number (IIN) of the PAN.'}),
+                )),
+
                 ('econ:pay:card', {}, (
 
                     ('pan', ('econ:pay:pan', {}), {

@@ -22,9 +22,8 @@ async def unixlisten(path, onlink):
     '''
     Start an PF_UNIX server listening on the given path.
     '''
-    info = {'path': path, 'unix': True}
-
     async def onconn(reader, writer):
+        info = {'path': path, 'unix': True}
         link = await Link.anit(reader, writer, info=info)
         link.schedCoro(onlink(link))
     return await asyncio.start_unix_server(onconn, path=path)
@@ -44,6 +43,35 @@ async def unixconnect(path):
 
     info = {'path': path, 'unix': True}
     return await Link.anit(reader, writer, info=info)
+
+async def unixwait(path):
+    '''
+    Wait for a unix socket path to be open and listening.
+
+    Args:
+        path: Path to the socket.
+
+    Notes:
+        This will loop forever. Callers should wrap this in ``asyncio.wait_for()``
+        with a known timeout value.
+
+    Returns:
+        None: Returns when the socket can be connected too.
+    '''
+    while True:
+        try:
+
+            reader, writer = await asyncio.open_unix_connection(path=path)
+
+            reader._transport.abort()
+
+            writer.close()
+            await writer.wait_closed()
+
+            return
+
+        except (ConnectionRefusedError, FileNotFoundError):
+            await asyncio.sleep(0.01)
 
 async def linkfile(mode='wb'):
     '''

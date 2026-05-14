@@ -1,5 +1,4 @@
 import string
-import asyncio
 import logging
 import pathlib
 import functools
@@ -14,9 +13,7 @@ import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
-import synapse.lib.coro as s_coro
-import synapse.lib.link as s_link
-import synapse.lib.msgpack as s_msgpack
+import synapse.lib.processpool as s_processpool
 
 import synapse.lib.crypto.coin as s_coin
 
@@ -223,7 +220,7 @@ def windows_path_check(match: regex.Match):
 ipv4_match = r'(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)'
 ipv4_regex = fr'''
 (?P<valu>
-    (?<!\d|\d\.|[0-9a-f:]:)
+    (?<!\d|\d\.|:[0-9a-f]{{0,4}}:)
     ({ipv4_match})
     (?!\d|\.\d)
 )
@@ -293,7 +290,7 @@ scrape_types = [  # type: ignore
      {'callback': url_scheme_check}),
     ('inet:url', r'(["\'])?(?P<valu>\\[^\n]+?)(?(1)\1|\s)', {'callback': unc_path_check}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
-    ('inet:server', fr'(?P<valu>(?:(?<!\d|\d\.|[0-9a-f:]:)((?P<addr>{ipv4_match})|\[(?P<v6addr>{ipv6_match})\]):(?P<port>\d{{1,5}})(?!\d|\.\d)))',
+    ('inet:server', fr'(?P<valu>(?:(?<!\d|\d\.|:[0-9a-f]{{0,4}}:)((?P<addr>{ipv4_match})|\[(?P<v6addr>{ipv6_match})\]):(?P<port>\d{{1,5}})(?!\d|\.\d)))',
      {'callback': inet_server_check, 'flags': regex.VERBOSE}),
     ('inet:ipv4', ipv4_regex, {'flags': regex.VERBOSE}),
     ('inet:ipv6', ipv6_regex, {'callback': ipv6_check, 'flags': regex.VERBOSE}),
@@ -575,7 +572,7 @@ async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
     Yields:
         dict: A dictionary of match results.
     '''
-    matches = await s_coro.semafork(_genMatchList, text, regx, opts)
+    matches = await s_processpool.semafork(_genMatchList, text, regx, opts)
     for info in matches:
         yield info
 
@@ -687,7 +684,7 @@ async def contextScrapeAsync(text, form=None, refang=True, first=False):
     Returns:
         (dict): Yield info dicts of results.
     '''
-    matches = await s_coro.semafork(_contextScrapeList, text, form=form, refang=refang, first=first)
+    matches = await s_processpool.semafork(_contextScrapeList, text, form=form, refang=refang, first=first)
     for info in matches:
         yield info
 
@@ -704,6 +701,6 @@ async def scrapeAsync(text, ptype=None, refang=True, first=False):
     Returns:
         (str, object): Yield tuples of node ndef values.
     '''
-    matches = await s_coro.semafork(_contextScrapeList, text, form=ptype, refang=refang, first=first)
+    matches = await s_processpool.semafork(_contextScrapeList, text, form=ptype, refang=refang, first=first)
     for info in matches:
         yield info.get('form'), info.get('valu')

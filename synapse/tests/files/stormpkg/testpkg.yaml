@@ -51,7 +51,10 @@ inits:
     - name: first
       version: 0
       inaugural: true
-      query: "$lib.globals.set(testpkg-first, (true))"
+      query: "$lib.globals.set(testpkg-first, $myvar)"
+      queryopts:
+        vars:
+          myvar: true
     - name: second
       desc: Another init
       version: 2

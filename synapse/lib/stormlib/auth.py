@@ -1,4 +1,3 @@
-import copy
 import asyncio
 
 import synapse.exc as s_exc
@@ -1190,11 +1189,17 @@ class User(s_stormtypes.Prim):
         await self.runt.snap.core.setUserName(self.valu, name)
 
     async def _derefGet(self, name):
-        udef = await self.runt.snap.core.getUserDef(self.valu)
+        udef = await self.runt.snap.core.getUserDef(self.valu, packroles=False)
         return udef.get(name, s_common.novalu)
 
     async def _methUserGet(self, name):
-        udef = await self.runt.snap.core.getUserDef(self.valu)
+        name = await s_stormtypes.tostr(name)
+
+        packroles = False
+        if name == 'roles':
+            packroles = True
+
+        udef = await self.runt.snap.core.getUserDef(self.valu, packroles=packroles)
         return udef.get(name)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1208,8 +1213,7 @@ class User(s_stormtypes.Prim):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUserRoles(self):
-        udef = await self.runt.snap.core.getUserDef(self.valu)
-        return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
+        return [Role(self.runt, role.iden) async for role in self.runt.snap.core.getUserRoles(self.valu)]
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUserAllowed(self, permname, gateiden=None, default=False):
@@ -1266,8 +1270,8 @@ class User(s_stormtypes.Prim):
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         # TODO: Remove me in 3.0.0
         if gateiden == 'cortex':
-            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            mesg = 'Adding rule on the "cortex" authgate. This authgate is not used ' \
+                   'for permission checks and will be removed in Synapse v3.0.0.'
             await self.runt.snap.warn(mesg, log=False)
         await self.runt.snap.core.addUserRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
@@ -1528,8 +1532,8 @@ class Role(s_stormtypes.Prim):
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         # TODO: Remove me in 3.0.0
         if gateiden == 'cortex':
-            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            mesg = 'Adding rule on the "cortex" authgate. This authgate is not used ' \
+                   'for permission checks and will be removed in Synapse v3.0.0.'
             await self.runt.snap.warn(mesg, log=False)
         await self.runt.snap.core.addRoleRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
@@ -1892,22 +1896,36 @@ class LibUsers(s_stormtypes.Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the user to retrieve. Returns the current user if not specified.', 'default': None},
                   ),
                   'returns': {'type': ['null', 'auth:user'],
-                              'desc': 'The ``auth:user`` object, or none if the user does not exist.', }}},
+                              'desc': 'The ``auth:user`` object, or null if the user does not exist.', }}},
         {'name': 'byname', 'desc': 'Get a specific user by name.',
          'type': {'type': 'function', '_funcname': '_methUsersByName',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the user to retrieve.', },
                   ),
                   'returns': {'type': ['null', 'auth:user'],
-                              'desc': 'The ``auth:user`` object, or none if the user does not exist.', }}},
+                              'desc': 'The ``auth:user`` object, or null if the user does not exist.', }}},
     )
     _storm_lib_path = ('auth', 'users')
     _storm_lib_perms = (
+        {'perm': ('auth',), 'gate': 'cortex',
+         'desc': 'Controls all auth permissions.'},
+        {'perm': ('auth', 'role'), 'gate': 'cortex',
+         'desc': 'Controls all auth role permissions.'},
+        {'perm': ('auth', 'role', 'add'), 'gate': 'cortex',
+         'desc': 'Controls adding a role.'},
+        {'perm': ('auth', 'role', 'del'), 'gate': 'cortex',
+         'desc': 'Controls deleting a role.'},
+        {'perm': ('auth', 'role', 'set'), 'gate': 'cortex',
+         'desc': 'Controls setting any auth role property.'},
         {'perm': ('auth', 'role', 'set', 'name'), 'gate': 'cortex',
          'desc': 'Permits a user to change the name of a role.'},
         {'perm': ('auth', 'role', 'set', 'rules'), 'gate': 'cortex',
          'desc': 'Permits a user to modify rules of a role.'},
 
+        {'perm': ('auth', 'self'), 'gate': 'cortex',
+         'desc': 'Controls all auth self permissions.'},
+        {'perm': ('auth', 'self', 'set'), 'gate': 'cortex',
+         'desc': 'Controls setting any auth self property.'},
          {'perm': ('auth', 'self', 'set', 'email'), 'gate': 'cortex',
          'desc': 'Permits a user to change their own email address.',
          'default': True},
@@ -1920,6 +1938,18 @@ class LibUsers(s_stormtypes.Lib):
         {'perm': ('auth', 'self', 'set', 'apikey'), 'gate': 'cortex',
          'desc': 'Permits a user to manage their API keys.',
          'default': True},
+        {'perm': ('auth', 'user'), 'gate': 'cortex',
+         'desc': 'Controls all auth user permissions.'},
+        {'perm': ('auth', 'user', 'add'), 'gate': 'cortex',
+         'desc': 'Controls adding a user.'},
+        {'perm': ('auth', 'user', 'del'), 'gate': 'cortex',
+         'desc': 'Controls deleting a user.'},
+        {'perm': ('auth', 'user', 'get'), 'gate': 'cortex',
+         'desc': 'Controls all auth user get permissions.'},
+        {'perm': ('auth', 'user', 'pop'), 'gate': 'cortex',
+         'desc': 'Controls all auth user pop permissions.'},
+        {'perm': ('auth', 'user', 'set'), 'gate': 'cortex',
+         'desc': 'Controls setting any auth user property.'},
         {'perm': ('auth', 'user', 'grant'), 'gate': 'cortex',
          'desc': 'Controls granting roles to a user.'},
         {'perm': ('auth', 'user', 'revoke'), 'gate': 'cortex',
@@ -1966,21 +1996,22 @@ class LibUsers(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUsersList(self):
-        return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
+        return [User(self.runt, useriden) async for useriden in self.runt.snap.core.getUserIdens()]
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUsersGet(self, iden=None):
         if iden is None:
             iden = self.runt.user.iden
-        udef = await self.runt.snap.core.getUserDef(iden)
-        if udef is not None:
-            return User(self.runt, udef['iden'])
+
+        if self.runt.snap.core.hasUserIden(iden):
+            return User(self.runt, iden)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUsersByName(self, name):
-        udef = await self.runt.snap.core.getUserDefByName(name)
-        if udef is not None:
-            return User(self.runt, udef['iden'])
+        name = await s_stormtypes.tostr(name)
+        useriden = await self.runt.snap.core.getUserIdenByName(name)
+        if useriden is not None:
+            return User(self.runt, useriden)
 
     async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
         if not self.runt.allowed(('auth', 'user', 'add')):
@@ -2053,19 +2084,19 @@ class LibRoles(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRolesList(self):
-        return [Role(self.runt, rdef['iden']) for rdef in await self.runt.snap.core.getRoleDefs()]
+        return [Role(self.runt, roleiden) async for roleiden in self.runt.snap.core.getRoleIdens()]
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRolesGet(self, iden):
-        rdef = await self.runt.snap.core.getRoleDef(iden)
-        if rdef is not None:
-            return Role(self.runt, rdef['iden'])
+        if self.runt.snap.core.hasRoleIden(iden):
+            return Role(self.runt, iden)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRolesByName(self, name):
-        rdef = await self.runt.snap.core.getRoleDefByName(name)
-        if rdef is not None:
-            return Role(self.runt, rdef['iden'])
+        name = await s_stormtypes.tostr(name)
+        roleiden = await self.runt.snap.core.getRoleIdenByName(name)
+        if roleiden is not None:
+            return Role(self.runt, roleiden)
 
     async def _methRolesAdd(self, name, iden=None):
         if not self.runt.allowed(('auth', 'role', 'add')):

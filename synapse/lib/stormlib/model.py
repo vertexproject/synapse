@@ -608,11 +608,11 @@ class LibModelEdge(s_stormtypes.Lib):
             if vverb == verb:
                 return
 
-        raise s_exc.NoSuchName(mesg=f'No such edge verb in the current view', name=verb)
+        raise s_exc.NoSuchName(mesg='No such edge verb in the current view', name=verb)
 
     async def _chkKeyName(self, key):
         if key not in self.validedgekeys:
-            raise s_exc.NoSuchProp(mesg=f'The requested key is not valid for light edge metadata.',
+            raise s_exc.NoSuchProp(mesg='The requested key is not valid for light edge metadata.',
                                    name=key)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -658,7 +658,7 @@ class LibModelEdge(s_stormtypes.Lib):
 
         oldv = kvdict.pop(key, None)
         if oldv is None:
-            raise s_exc.NoSuchProp(mesg=f'Key is not set for this edge verb',
+            raise s_exc.NoSuchProp(mesg='Key is not set for this edge verb',
                                    verb=verb, name=key)
 
         await self.runt.snap.core.setHiveKey(path, kvdict)

@@ -7,6 +7,7 @@ import base64
 import signal
 import socket
 import asyncio
+import logging
 import tarfile
 import collections
 import multiprocessing
@@ -28,10 +29,10 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.link as s_link
-import synapse.lib.drive as s_drive
+import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
-import synapse.lib.config as s_config
 import synapse.lib.certdir as s_certdir
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -41,6 +42,8 @@ import synapse.lib.platforms.linux as s_linux
 import synapse.tools.service.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
+
+logger = logging.getLogger(__name__)
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -57,15 +60,18 @@ def _backupSleep(path, linkinfo):
     time.sleep(3.0)
 
 async def _doEOFBackup(path):
+    # This function has to be detected as an async generator
+    if False:
+        yield
     return
 
 async def _iterBackupEOF(path, linkinfo):
     link = await s_link.fromspawn(linkinfo)
-    await s_daemon.t2call(link, _doEOFBackup, (path,), {})
+    await s_daemon.t2call(link, _doEOFBackup, (path,), {}, first=False)
     link.writer.write_eof()
     await link.fini()
 
-def _backupEOF(path, linkinfo):
+def _backupEOF(path, linkinfo, logconf):
     asyncio.run(_iterBackupEOF(path, linkinfo))
 
 def lock_target(dirn, evt1):  # pragma: no cover
@@ -169,43 +175,6 @@ async def altAuthCtor(cell):
     cell.onfini(auth.fini)
     return auth
 
-testDataSchema_v0 = {
-    'type': 'object',
-    'properties': {
-        'type': {'type': 'string'},
-        'size': {'type': 'number'},
-        'stuff': {'type': ['number', 'null'], 'default': None}
-    },
-    'required': ['type', 'size', 'stuff'],
-    'additionalProperties': False,
-}
-
-testDataSchema_v1 = {
-    'type': 'object',
-    'properties': {
-        'type': {'type': 'string'},
-        'size': {'type': 'number'},
-        'stuff': {'type': ['number', 'null'], 'default': None},
-        'woot': {'type': 'string'},
-        'blorp': {
-            'type': 'object',
-            'properties': {
-                'bleep': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'object',
-                        'properties': {
-                            'neato': {'type': 'string'}
-                        }
-                    }
-                }
-            }
-        }
-    },
-    'required': ['type', 'size', 'woot'],
-    'additionalProperties': False,
-}
-
 class CellTest(s_t_utils.SynTest):
 
     async def test_cell_getLocalUrl(self):
@@ -219,260 +188,6 @@ class CellTest(s_t_utils.SynTest):
 
                 url = cell.getLocalUrl(user='lowuser', share='*/view')
                 self.eq(url, f'cell://lowuser@{dirn}:*/view')
-
-    async def test_cell_drive(self):
-
-        with self.getTestDir() as dirn:
-            async with self.getTestCell(dirn=dirn) as cell:
-
-                with self.raises(s_exc.BadName):
-                    s_drive.reqValidName('A' * 512)
-
-                info = {'name': 'users'}
-                pathinfo = await cell.addDriveItem(info)
-
-                info = {'name': 'root'}
-                pathinfo = await cell.addDriveItem(info, path='users')
-
-                with self.raises(s_exc.DupIden):
-                    await cell.drive.addItemInfo(pathinfo[-1], path='users')
-
-                rootdir = pathinfo[-1].get('iden')
-                self.eq(0, pathinfo[-1].get('kids'))
-
-                info = {'name': 'win32k.sys', 'type': 'hehe'}
-                with self.raises(s_exc.NoSuchType):
-                    info = await cell.addDriveItem(info, reldir=rootdir)
-
-                infos = [i async for i in cell.getDriveKids(s_drive.rootdir)]
-                self.len(1, infos)
-                self.eq(1, infos[0].get('kids'))
-                self.eq('users', infos[0].get('name'))
-
-                # TODO how to handle iden match with additional property mismatch
-
-                self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0))
-                self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
-                self.false(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
-
-                with self.raises(s_exc.BadVersion):
-                    await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0)
-
-                info = {'name': 'win32k.sys', 'type': 'woot', 'perm': {'users': {}}}
-                info = await cell.addDriveItem(info, reldir=rootdir)
-                self.notin('perm', info)
-                self.eq(info[0]['permissions'], {
-                    'users': {},
-                    'roles': {}
-                })
-
-                iden = info[-1].get('iden')
-
-                tick = s_common.now()
-                rootuser = cell.auth.rootuser.iden
-                fooser = await cell.auth.addUser('foo')
-                neatrole = await cell.auth.addRole('neatrole')
-                await fooser.grant(neatrole.iden)
-
-                with self.raises(s_exc.SchemaViolation):
-                    versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
-                    await cell.setDriveData(iden, versinfo, {'newp': 'newp'})
-
-                versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
-                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 20, 'stuff': 12})
-                self.eq(info.get('version'), (1, 1, 0))
-                self.eq(versinfo.get('version'), (1, 1, 0))
-
-                versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
-                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0, 'stuff': 13})
-                self.eq(info.get('version'), (1, 1, 0))
-                self.eq(versinfo.get('version'), (1, 0, 0))
-
-                versinfo10, data10 = await cell.getDriveData(iden, vers=(1, 0, 0))
-                self.eq(versinfo10.get('updated'), tick)
-                self.eq(versinfo10.get('updater'), rootuser)
-                self.eq(versinfo10.get('version'), (1, 0, 0))
-
-                versinfo11, data11 = await cell.getDriveData(iden, vers=(1, 1, 0))
-                self.eq(versinfo11.get('updated'), tick + 10)
-                self.eq(versinfo11.get('updater'), rootuser)
-                self.eq(versinfo11.get('version'), (1, 1, 0))
-
-                versions = [vers async for vers in cell.getDriveDataVersions(iden)]
-                self.len(2, versions)
-                self.eq(versions[0], versinfo11)
-                self.eq(versions[1], versinfo10)
-
-                info = await cell.delDriveData(iden, vers=(0, 0, 0))
-
-                versions = [vers async for vers in cell.getDriveDataVersions(iden)]
-                self.len(2, versions)
-                self.eq(versions[0], versinfo11)
-                self.eq(versions[1], versinfo10)
-
-                info = await cell.delDriveData(iden, vers=(1, 1, 0))
-                self.eq(info.get('updated'), tick)
-                self.eq(info.get('version'), (1, 0, 0))
-
-                info = await cell.delDriveData(iden, vers=(1, 0, 0))
-                self.eq(info.get('size'), 0)
-                self.eq(info.get('version'), (0, 0, 0))
-                self.none(info.get('updated'))
-                self.none(info.get('updater'))
-
-                # repopulate a couple data versions to test migration and delete
-                versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
-                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0, 'stuff': 14})
-                versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
-                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17, 'stuff': 15})
-                self.eq(versinfo, (await cell.getDriveData(iden))[0])
-
-                await cell.setDriveItemProp(iden, versinfo, ('stuff',), 1234)
-                data = await cell.getDriveData(iden)
-                self.eq(data[1]['stuff'], 1234)
-
-                # This will be done by the cell in a cell storage version migration...
-                async def migrate_v1(info, versinfo, data):
-                    data['woot'] = 'woot'
-                    return data
-
-                await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
-
-                versinfo['version'] = (1, 1, 1)
-                await cell.setDriveItemProp(iden, versinfo, 'stuff', 3829)
-                data = await cell.getDriveData(iden)
-                self.eq(data[0]['version'], (1, 1, 1))
-                self.eq(data[1]['stuff'], 3829)
-
-                await self.asyncraises(s_exc.NoSuchIden, cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real'))
-
-                await self.asyncraises(s_exc.BadArg, cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'), 'my special string'))
-                data[1]['blorp'] = {
-                    'bleep': [{'neato': 'thing'}]
-                }
-                info, versinfo = await cell.setDriveData(iden, versinfo, data[1])
-                now = s_common.now()
-                versinfo['updated'] = now
-                await cell.setDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'), 'my special string')
-                data = await cell.getDriveData(iden)
-                self.eq(now, data[0]['updated'])
-                self.eq('my special string', data[1]['blorp']['bleep'][0]['neato'])
-
-                versinfo['version'] = (1, 2, 1)
-                await cell.delDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'))
-                vers, data = await cell.getDriveData(iden)
-                self.eq((1, 2, 1), vers['version'])
-                self.nn(data['blorp']['bleep'][0])
-                self.notin('neato', data['blorp']['bleep'][0])
-
-                await self.asyncraises(s_exc.NoSuchIden, cell.delDriveItemProp(s_common.guid(), versinfo, 'blorp'))
-
-                self.none(await cell.delDriveItemProp(iden, versinfo, ('lolnope', 'nopath')))
-
-                versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
-                self.eq('woot', data.get('woot'))
-
-                versinfo, data = await cell.getDriveData(iden, vers=(1, 1, 0))
-                self.eq('woot', data.get('woot'))
-
-                with self.raises(s_exc.NoSuchIden):
-                    await cell.reqDriveInfo('d7d6107b200e2c039540fc627bc5537d')
-
-                with self.raises(s_exc.TypeMismatch):
-                    await cell.getDriveInfo(iden, typename='newp')
-
-                self.nn(await cell.getDriveInfo(iden))
-                self.len(4, [vers async for vers in cell.getDriveDataVersions(iden)])
-
-                await cell.delDriveData(iden)
-                self.len(3, [vers async for vers in cell.getDriveDataVersions(iden)])
-
-                await cell.delDriveInfo(iden)
-
-                self.none(await cell.getDriveInfo(iden))
-                self.len(0, [vers async for vers in cell.getDriveDataVersions(iden)])
-
-                with self.raises(s_exc.NoSuchPath):
-                    await cell.getDrivePath('users/root/win32k.sys')
-
-                pathinfo = await cell.addDrivePath('foo/bar/baz')
-                self.len(3, pathinfo)
-                self.eq('foo', pathinfo[0].get('name'))
-                self.eq(1, pathinfo[0].get('kids'))
-                self.eq('bar', pathinfo[1].get('name'))
-                self.eq(1, pathinfo[1].get('kids'))
-                self.eq('baz', pathinfo[2].get('name'))
-                self.eq(0, pathinfo[2].get('kids'))
-
-                self.eq(pathinfo, await cell.addDrivePath('foo/bar/baz'))
-
-                baziden = pathinfo[2].get('iden')
-                self.eq(pathinfo, await cell.drive.getItemPath(baziden))
-
-                info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: s_cell.PERM_ADMIN}, 'roles': {}})
-                # make sure drive perms work with easy perms
-                self.true(cell._hasEasyPerm(info, cell.auth.rootuser, s_cell.PERM_ADMIN))
-                # defaults to READ
-                self.true(cell._hasEasyPerm(info, fooser, s_cell.PERM_READ))
-                self.false(cell._hasEasyPerm(info, fooser, s_cell.PERM_EDIT))
-
-                with self.raises(s_exc.NoSuchIden):
-                    # s_drive.rootdir is all 00s... ;)
-                    await cell.setDriveInfoPerm(s_drive.rootdir, {'users': {}, 'roles': {}})
-
-                await cell.addDrivePath('hehe/haha')
-                pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
-
-                self.eq('hoho', pathinfo[-1].get('name'))
-                self.eq(baziden, pathinfo[-1].get('iden'))
-
-                self.true(await cell.drive.hasPathInfo('hehe/haha/hoho'))
-                self.false(await cell.drive.hasPathInfo('foo/bar/baz'))
-
-                pathinfo = await cell.getDrivePath('foo/bar')
-                self.eq(0, pathinfo[-1].get('kids'))
-
-                pathinfo = await cell.getDrivePath('hehe/haha')
-                self.eq(1, pathinfo[-1].get('kids'))
-
-                with self.raises(s_exc.DupName):
-                    iden = pathinfo[-2].get('iden')
-                    name = pathinfo[-1].get('name')
-                    cell.drive.reqFreeStep(iden, name)
-
-                walks = [item async for item in cell.drive.walkPathInfo('hehe')]
-                self.len(3, walks)
-                # confirm walked paths are yielded depth first...
-                self.eq('hoho', walks[0].get('name'))
-                self.eq('haha', walks[1].get('name'))
-                self.eq('hehe', walks[2].get('name'))
-
-                iden = walks[2].get('iden')
-                walks = [item async for item in cell.drive.walkItemInfo(iden)]
-                self.len(3, walks)
-                self.eq('hoho', walks[0].get('name'))
-                self.eq('haha', walks[1].get('name'))
-                self.eq('hehe', walks[2].get('name'))
-
-                self.none(cell.drive.getTypeSchema('newp'))
-
-                cell.drive.validators.pop('woot')
-                self.nn(cell.drive.getTypeValidator('woot'))
-
-                # move to root dir
-                pathinfo = await cell.setDriveInfoPath(baziden, 'zipzop')
-                self.len(1, pathinfo)
-                self.eq(s_drive.rootdir, pathinfo[-1].get('parent'))
-
-                pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
-                self.len(3, pathinfo)
-
-            async with self.getTestCell(dirn=dirn) as cell:
-                data = {'type': 'woot', 'size': 20, 'stuff': 12, 'woot': 'woot'}
-                # explicitly clear out the cache JsValidators, otherwise we get the cached, pre-msgpack
-                # version of the validator, which will be correct and skip the point of this test.
-                s_config._JsValidators.clear()
-                cell.drive.reqValidData('woot', data)
 
     async def test_cell_auth(self):
 
@@ -516,13 +231,13 @@ class CellTest(s_t_utils.SynTest):
 
                     # @adminApi methods are allowed
                     self.true(await proxy.adminOnly())
-                    mesg = "Executing [EchoAuthApi.adminOnlyLog] as [root] with args [(1, 2)[{'three': 4}]"
-                    with self.getStructuredAsyncLoggerStream('synapse.lib.cell', mesg) as stream:
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
                         self.eq(await proxy.adminOnlyLog(1, 2, three=4), (1, 2, {'three': 4}))
-                        self.true(await stream.wait(timeout=10))
+                        mesg = "Executing [EchoAuthApi.adminOnlyLog] as [root] with args [(1, 2)[{'three': 4}]"
+                        await stream.expect('Admin API invoked', timeout=10)
                     msgs = stream.jsonlines()
                     self.len(1, msgs)
-                    self.eq('EchoAuthApi.adminOnlyLog', msgs[0].get('wrapped_func'))
+                    self.eq('EchoAuthApi.adminOnlyLog', msgs[0]['params'].get('func'))
 
                 visi = await echo.auth.addUser('visi')
                 await visi.setPasswd('foo')
@@ -709,44 +424,6 @@ class CellTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NeedConfValu):
                     await echo.reqAhaProxy()
 
-    async def test_cell_drive_perm_migration(self):
-        async with self.getRegrCore('drive-perm-migr') as core:
-            item = await core.getDrivePath('driveitemdefaultperms')
-            self.len(1, item)
-            self.notin('perm', item)
-            self.eq(item[0]['permissions'], {'users': {}, 'roles': {}})
-
-            ldog = await core.auth.getRoleByName('littledog')
-            bdog = await core.auth.getRoleByName('bigdog')
-
-            louis = await core.auth.getUserByName('lewis')
-            tim = await core.auth.getUserByName('tim')
-            mj = await core.auth.getUserByName('mj')
-
-            item = await core.getDrivePath('permfolder/driveitemwithperms')
-            self.len(2, item)
-            self.notin('perm', item[0])
-            self.notin('perm', item[1])
-            self.eq(item[0]['permissions'], {'users': {tim.iden: s_cell.PERM_ADMIN}, 'roles': {}})
-            self.eq(item[1]['permissions'], {
-                'users': {
-                    mj.iden: s_cell.PERM_ADMIN
-                },
-                'roles': {
-                    ldog.iden: s_cell.PERM_READ,
-                    bdog.iden: s_cell.PERM_EDIT,
-                },
-                'default': s_cell.PERM_DENY
-            })
-
-            # make sure it's all good with easy perms
-            self.true(core._hasEasyPerm(item[0], tim, s_cell.PERM_ADMIN))
-            self.false(core._hasEasyPerm(item[0], mj, s_cell.PERM_EDIT))
-
-            self.true(core._hasEasyPerm(item[1], mj, s_cell.PERM_ADMIN))
-            self.true(core._hasEasyPerm(item[1], tim, s_cell.PERM_READ))
-            self.true(core._hasEasyPerm(item[1], louis, s_cell.PERM_EDIT))
-
     async def test_cell_unix_sock(self):
 
         async with self.getTestCore() as core:
@@ -848,12 +525,12 @@ class CellTest(s_t_utils.SynTest):
         # but exercises the long-path failure inside of the cell's daemon
         # instead.
         with self.getTestDir() as dirn:
-            extrapath = 108 * 'A'
+            extrapath = s_const.UNIX_SOCKET_PATH_MAX * 'A'
             longdirn = s_common.genpath(dirn, extrapath)
-            with self.getAsyncLoggerStream('synapse.lib.cell', 'LOCAL UNIX SOCKET WILL BE UNAVAILABLE') as stream:
+            with self.getLoggerStream('synapse.lib.cell') as stream:
                 async with self.getTestCell(s_cell.Cell, dirn=longdirn) as cell:
                     self.none(cell.dmon.addr)
-                self.true(await stream.wait(1))
+                await stream.expect('LOCAL UNIX SOCKET WILL BE UNAVAILABLE', timeout=1)
 
     async def test_cell_setuser(self):
 
@@ -934,6 +611,8 @@ class CellTest(s_t_utils.SynTest):
 
                 self.eq(info.get('features'), cell.features)
                 self.eq(info.get('features', {}).get('testvalu'), 2)
+
+                self.none(info.get('optimized'))
 
                 # Defaults aha data is
                 self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
@@ -1368,7 +1047,7 @@ class CellTest(s_t_utils.SynTest):
                 }
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
-                with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
                     async with await s_cell.Cell.initFromArgv([dirn]):
                         pass
                 stream.seek(0)
@@ -1382,7 +1061,7 @@ class CellTest(s_t_utils.SynTest):
                 }
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
-                with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
                     async with await s_cell.Cell.initFromArgv([dirn]):
                         pass
                 stream.seek(0)
@@ -1435,23 +1114,21 @@ class CellTest(s_t_utils.SynTest):
             self.skip('Test requires /dev/null to exist.')
 
         async with self.withSetLoggingMock():
-            with self.getAsyncLoggerStream('synapse.lib.cell',
-                                           'Error starting cell at /dev/null') as stream:
+            with self.getLoggerStream('synapse.lib.cell') as stream:
                 with self.raises(FileExistsError):
                     async with await s_cell.Cell.initFromArgv(['/dev/null']):
                         pass
-                self.true(await stream.wait(timeout=6))
+                await stream.expect('Error starting cell at /dev/null', timeout=6)
 
             # Bad configs can also cause a failure.
             with self.getTestDir() as dirn:
-                with self.getAsyncLoggerStream('synapse.lib.cell',
-                                               'Error while bootstrapping cell config') as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
                     with self.raises(s_exc.BadConfValu) as cm:
                         with self.setTstEnvars(SYN_CELL_AUTH_PASSWD="true"):  # interpreted as a yaml bool true
                             async with await s_cell.Cell.initFromArgv([dirn, ]):
                                 pass
                     self.eq(cm.exception.get('name'), 'auth:passwd')
-                self.true(await stream.wait(timeout=6))
+                    await stream.expect('Error while bootstrapping cell config', timeout=6)
 
     async def test_cell_backup(self):
 
@@ -1481,6 +1158,13 @@ class CellTest(s_t_utils.SynTest):
                     self.none(info['lastsize'])
                     self.none(info['lastupload'])
                     self.none(info['lastexception'])
+
+                    # Verify currduration is a positive ms value while a backup is running
+                    core.backmonostart = time.monotonic() - 5.0
+                    info = await proxy.getBackupInfo()
+                    self.isinstance(info['currduration'], int)
+                    self.ge(info['currduration'], 5000)
+                    core.backmonostart = None
 
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup('../woot')
@@ -2218,10 +1902,9 @@ class CellTest(s_t_utils.SynTest):
                 async with self.getTestCell(s_cell.Cell, dirn=path01, conf={'nexslog:en': True}) as cell01:
                     pass
 
-                with self.getAsyncLoggerStream('synapse.lib.nexus',
-                                               'has different iden') as stream:
+                with self.getLoggerStream('synapse.lib.nexus') as stream:
                     async with self.getTestCell(s_cell.Cell, dirn=path01, conf=conf01) as cell01:
-                        await stream.wait(timeout=2)
+                        await stream.expect('has different iden', timeout=2)
                         self.true(await cell01.nexsroot.waitfini(6))
 
     async def test_backup_restore_base(self):
@@ -2256,16 +1939,15 @@ class CellTest(s_t_utils.SynTest):
             with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl):
                 with self.getTestDir() as cdir:
                     # Restore works
-                    with self.getAsyncLoggerStream('synapse.lib.cell',
-                                                   'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
-                            self.true(await stream.wait(6))
+                            await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL', timeout=6)
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
                             self.true(core.conf.get('storm:log'))
 
                     # Turning the service back on with the restore URL is fine too.
-                    with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
@@ -2293,11 +1975,10 @@ class CellTest(s_t_utils.SynTest):
                     # all of the existing content of that directory. Remove the restore.done file
                     # to force the restore from happening again.
                     os.unlink(rpath)
-                    with self.getAsyncLoggerStream('synapse.lib.cell',
-                                                   'Removing existing') as stream:
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
-                            self.true(await stream.wait(6))
+                            await stream.expect('Removing existing', timeout=6)
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
             # Restore a backup which has an existing restore.done file in it - that marker file will get overwritten
@@ -2305,11 +1986,10 @@ class CellTest(s_t_utils.SynTest):
             with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl2):
                 with self.getTestDir() as cdir:
                     # Restore works
-                    with self.getAsyncLoggerStream('synapse.lib.cell',
-                                                   'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
-                            self.true(await stream.wait(6))
+                            await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL', timeout=6)
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
                     rpath = s_common.genpath(cdir, 'restore.done')
@@ -2401,11 +2081,10 @@ class CellTest(s_t_utils.SynTest):
                     with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl,
                                            SYN_CORTEX_AHA_PROVISION=purl):
                         # Restore works
-                        with self.getAsyncLoggerStream('synapse.lib.cell',
-                                                       'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
+                        with self.getLoggerStream('synapse.lib.cell') as stream:
                             argv = [bdr0, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                             async with await s_cortex.Cortex.initFromArgv(argv) as bcree00:
-                                self.true(await stream.wait(6))
+                                await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL', timeout=6)
                                 self.len(1, await bcree00.nodes('inet:asn=0'))
                                 self.len(1, await bcree00.nodes('[inet:asn=1234]'))
 
@@ -2422,7 +2101,7 @@ class CellTest(s_t_utils.SynTest):
                                                        SYN_CORTEX_AHA_PROVISION=purl):
                                     argv = [bdr1, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                                     async with await s_cortex.Cortex.initFromArgv(argv) as bcree01:
-                                        self.true(await stream.wait(6))
+                                        await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL', timeout=6)
                                         self.true(bcree00.isactive)
                                         self.false(bcree01.isactive)
 
@@ -2497,11 +2176,10 @@ class CellTest(s_t_utils.SynTest):
                     with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl,
                                            SYN_CORTEX_AHA_PROVISION=purl):
                         # Restore works
-                        with self.getAsyncLoggerStream('synapse.lib.cell',
-                                                       'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
+                        with self.getLoggerStream('synapse.lib.cell') as stream:
                             argv = [bdr0, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                             async with await s_cortex.Cortex.initFromArgv(argv) as bcree00:
-                                self.true(await stream.wait(6))
+                                await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL', timeout=6)
                                 self.len(1, await bcree00.nodes('inet:asn=0'))
                                 self.len(1, await bcree00.nodes('[inet:asn=1234]'))
 
@@ -2518,7 +2196,7 @@ class CellTest(s_t_utils.SynTest):
                                                        SYN_CORTEX_AHA_PROVISION=purl):
                                     argv = [bdr1, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                                     async with await s_cortex.Cortex.initFromArgv(argv) as bcree01:
-                                        self.true(await stream.wait(6))
+                                        await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL', timeout=6)
                                         self.true(bcree00.isactive)
                                         self.false(bcree01.isactive)
 
@@ -2751,11 +2429,9 @@ class CellTest(s_t_utils.SynTest):
                 # This tmp_reason assertion seems counter-intuitive at first; but it's really
                 # asserting that the message which was incorrectly being logged is no longer logged.
                 log_enable_writes = f'Free space on {core.dirn} above minimum threshold'
-                with self.getAsyncLoggerStream('synapse.lib.cell', log_enable_writes) as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
                     await core.nexsroot.addWriteHold(tmp_reason := 'something else')
-                    self.false(await stream.wait(1))
-                stream.seek(0)
-                self.eq(stream.read(), '')
+                self.eq(stream.getvalue(), '')
 
                 await core.nexsroot.delWriteHold(tmp_reason)
                 revt.clear()
@@ -2847,10 +2523,9 @@ class CellTest(s_t_utils.SynTest):
                     viewiden = view.get('iden')
 
                     opts = {'view': viewiden}
-                    with self.getAsyncLoggerStream('synapse.lib.lmdbslab',
-                                              'Error during slab resize callback - foo') as stream:
+                    with self.getLoggerStream('synapse.lib.lmdbslab') as stream:
                         msgs = await core.stormlist('for $x in $lib.range(200) {[test:int=$x]}', opts=opts)
-                        self.true(await stream.wait(timeout=30))
+                        await stream.expect('Error during slab resize callback - foo', timeout=30)
 
         async with self.getTestCore() as core:
 
@@ -2884,17 +2559,29 @@ class CellTest(s_t_utils.SynTest):
             lmdbfile = s_common.genpath(dirn, 'layers', layriden, 'layer_v2.lmdb', 'data.mdb')
             stat00 = os.stat(lmdbfile)
 
-            with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+            with self.getLoggerStream('synapse.lib.cell') as stream:
 
                 conf = {'onboot:optimize': True}
                 async with self.getTestCore(dirn=dirn, conf=conf) as core:
-                    pass
+                    info = await core.getCellInfo()
+                    optimized = info.get('optimized')
+                    self.nn(optimized)
+                    self.nn(optimized['init']['time'])
+                    self.nn(optimized['init']['size'])
+                    self.nn(optimized['fini']['time'])
+                    self.nn(optimized['fini']['size'])
+                    self.le(optimized['init']['time'], optimized['fini']['time'])
 
             stream.seek(0)
             self.isin('onboot optimization complete!', stream.read())
 
             stat01 = os.stat(lmdbfile)
             self.ne(stat00.st_ino, stat01.st_ino)
+
+            # Verify optimization record persists across restarts without optimization
+            async with self.getTestCore(dirn=dirn) as core:
+                info = await core.getCellInfo()
+                self.eq(info.get('optimized'), optimized)
 
             _ntuple_stat = collections.namedtuple('stat', 'st_dev st_mode st_blocks st_size')
             realstat = os.stat
@@ -2907,7 +2594,7 @@ class CellTest(s_t_utils.SynTest):
                 return real
 
             with mock.patch('os.stat', diffdev):
-                with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
 
                     conf = {'onboot:optimize': True}
                     async with self.getTestCore(dirn=dirn, conf=conf) as core:
@@ -2922,7 +2609,7 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
                 await core.runBackup()
 
-            with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+            with self.getLoggerStream('synapse.lib.cell') as stream:
 
                 conf = {'onboot:optimize': True}
                 async with self.getTestCore(dirn=dirn, conf=conf) as core:
@@ -3363,7 +3050,7 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_hive_migration(self):
 
-        with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+        with self.getLoggerStream('synapse.lib.cell') as stream:
 
             async with self.getRegrCore('hive-migration') as core:
                 visi = await core.auth.getUserByName('visi')
@@ -3431,7 +3118,7 @@ class CellTest(s_t_utils.SynTest):
         sysvals['vm.dirty_writeback_centisecs'] += 1
 
         # Detect and report incorrect values
-        with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+        with self.getLoggerStream('synapse.lib.cell') as stream:
             with mock.patch.object(s_cell.Cell, 'SYSCTL_VALS', sysvals):
                 async with self.getTestCore(conf={'health:sysctl:checks': True}):
                     pass
@@ -3444,7 +3131,7 @@ class CellTest(s_t_utils.SynTest):
         mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
         mesg += 'for information about these sysctl parameters.'
         self.eq(msgs[0]['message'], mesg)
-        self.eq(msgs[0]['sysctls'], [
+        self.eq(msgs[0]['params']['sysctls'], [
             {'name': 'vm.dirty_expire_centisecs', 'expected': 21, 'actual': sysctls['vm.dirty_expire_centisecs']},
             {'name': 'vm.dirty_writeback_centisecs', 'expected': 21, 'actual': sysctls['vm.dirty_writeback_centisecs']},
         ])
@@ -3620,10 +3307,10 @@ class CellTest(s_t_utils.SynTest):
                 async def proxy(self, timeout=None):
                     return self._proxy
 
-            with self.getAsyncLoggerStream('synapse.lib.cell', 'AHA client connection failed.') as stream:
+            with self.getLoggerStream('synapse.lib.cell') as stream:
                 cell.ahaclient = MockAhaClient()
                 self.none(await cell.getAhaProxy())
-                self.true(await stream.wait(timeout=1))
+                await stream.expect('AHA client connection failed.', timeout=1)
 
             class MockProxyHasNot:
                 def _hasTeleFeat(self, name, vers):
@@ -3675,11 +3362,11 @@ class CellTest(s_t_utils.SynTest):
                         return mock_proc
 
                     with mock.patch('synapse.lib.cell.s_coro.executor', mock_executor):
-                        with self.getAsyncLoggerStream('synapse.lib.cell', 'Error during backup streaming') as stream:
+                        with self.getLoggerStream('synapse.lib.cell') as stream:
                             with self.raises(Exception) as cm:
                                 async for _ in proxy.iterBackupArchive('bkup'):
                                     pass
-                            self.true(await stream.wait(timeout=6))
+                            await stream.expect('Error during backup streaming', timeout=6)
 
     async def test_iter_new_backup_archive(self):
 
@@ -3697,13 +3384,13 @@ class CellTest(s_t_utils.SynTest):
                         raise Exception('backup failed')
 
                     with mock.patch.object(s_cell.Cell, 'runBackup', mock_runBackup):
-                        with self.getAsyncLoggerStream('synapse.lib.cell', 'Removing') as stream:
+                        with self.getLoggerStream('synapse.lib.cell') as stream:
                             with self.raises(s_exc.SynErr) as cm:
                                 async for _ in proxy.iterNewBackupArchive('failedbackup', remove=True):
                                     pass
 
                             self.isin('backup failed', str(cm.exception))
-                            self.true(await stream.wait(timeout=6))
+                            await stream.expect('Removing', timeout=6)
 
                             path = os.path.join(backdirn, 'failedbackup')
                             self.false(os.path.exists(path))
@@ -3767,6 +3454,27 @@ class CellTest(s_t_utils.SynTest):
             self.none(await cell00.getTask(task01))
             self.false(await cell00.killTask(task01))
 
+    async def test_cell_task_dedup(self):
+
+        async with self.getTestCell() as cell:
+
+            iden00 = s_common.guid()
+            task00 = {'iden': iden00, 'service': 'peer.cell.synapse'}
+
+            iden01 = s_common.guid()
+            task01 = {'iden': iden01, 'service': 'peer.cell.synapse'}
+
+            async def peerGenr(todo, timeout=None):
+                yield ('peer.cell.synapse', (True, task00))
+                yield ('peer.cell.synapse', (True, task00))
+                yield ('peer.cell.synapse', (True, task01))
+
+            with mock.patch.object(cell, 'callPeerGenr', peerGenr):
+                tasks = [task async for task in cell.getTasks()]
+
+            self.len(2, tasks)
+            self.eq([iden00, iden01], [t['iden'] for t in tasks])
+
     async def test_cell_fini_order(self):
 
         with self.getTestDir() as dirn:
@@ -3810,3 +3518,48 @@ class CellTest(s_t_utils.SynTest):
                     items.append(item)
                 self.len(1, items)
                 self.eq('sync', items[0][1])
+
+    async def test_cell_logging(self):
+
+        s_logging.setup()
+
+        async with self.getTestAha() as aha:
+
+            # test some of the gather API implementations...
+            purl00 = await aha.addAhaSvcProv('00.cell')
+            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
+
+            with self.getLoggerStream('synapse.tests.test_lib_cell') as stream:
+                # confirm last-one-wins "service" key is always initialized
+                logger.warning('oh hai there!')
+                mesg = stream.jsonlines()[0]
+                self.eq(mesg['service'], '00.cell.synapse')
+
+            async with cell00.getLocalProxy() as proxy:
+
+                logs = await proxy.logs()
+
+                self.isin('oh hai there!', [m['message'] for m in logs])
+                self.isin('00.cell.synapse', [m.get('service') for m in logs])
+
+                event = asyncio.Event()
+                async def sendlogs():
+                    await event.wait()
+                    for i in range(4):
+                        extra = cell00.getLogExtra(indx=i)
+                        logger.warning('stream of logs', extra=extra)
+                        await asyncio.sleep(0.01)
+
+                task = cell00.schedCoro(sendlogs())
+
+                logs = []
+                async for log in proxy.watch():
+
+                    event.set()
+                    if log['message'] == 'stream of logs':
+                        logs.append(log)
+
+                    if len(logs) == 4:
+                        break
+
+                await task

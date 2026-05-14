@@ -467,6 +467,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The reported name of the place associated with this contact.',
                     }),
                     ('phone', ('tel:phone', {}), {
+                        'alts': ('phones',),
                         'doc': 'The main phone number for this contact.',
                     }),
                     ('phone:fax', ('tel:phone', {}), {
@@ -474,6 +475,9 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('phone:work', ('tel:phone', {}), {
                         'doc': 'The work phone number for this contact.'}),
+
+                    ('phones', ('array', {'type': 'tel:phone', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of secondary/associated phone numbers.'}),
 
                     ('id', ('str', {'strip': True}), {
                         'doc': 'A type or source specific unique ID for the contact.'}),

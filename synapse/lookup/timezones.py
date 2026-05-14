@@ -40,4 +40,4 @@ def getTzOffset(name, defval=None):
     try:
         return _timezones.get(name.upper(), defval), {}
     except AttributeError:
-        raise s_exc.BadArg(mesg=f'Timezone name must a string') from None
+        raise s_exc.BadArg(mesg='Timezone name must a string') from None

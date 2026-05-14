@@ -15,8 +15,8 @@ class EthereumTest(s_test.SynTest):
             retn = await core.callStorm(f'return($lib.crypto.coin.ethereum.eip55({laddr}))')
             self.eq(retn, (True, addr))
 
-            retn = await core.callStorm(f'return($lib.crypto.coin.ethereum.eip55(foo))')
+            retn = await core.callStorm('return($lib.crypto.coin.ethereum.eip55(foo))')
             self.eq(retn, (False, None))
 
-            retn = await core.callStorm(f'return($lib.crypto.coin.ethereum.eip55($lib.null))')
+            retn = await core.callStorm('return($lib.crypto.coin.ethereum.eip55($lib.null))')
             self.eq(retn, (False, None))

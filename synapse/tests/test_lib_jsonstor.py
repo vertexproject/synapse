@@ -1,6 +1,5 @@
 import synapse.exc as s_exc
 import synapse.lib.lmdbslab as s_lmdbslab
-import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tests.utils as s_test
 

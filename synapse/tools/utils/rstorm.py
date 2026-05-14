@@ -31,5 +31,4 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(line, addnl=False)
 
 if __name__ == '__main__':  # pragma: no cover
-    s_common.setlogging(logger)
     s_cmd.exitmain(main)

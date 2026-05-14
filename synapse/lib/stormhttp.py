@@ -469,6 +469,7 @@ class LibHttp(s_stormtypes.Lib):
                             # so there is no connection to read a body from.
                             'body': b'',
                             'history': [],
+                            '_raw_headers': [[str(k), v] for k, v in hist.headers.items()],
                             'request_headers': {str(k): v for k, v in hist.request_info.headers.items()}
                         }
                         history.append(hnfo)
@@ -479,6 +480,7 @@ class LibHttp(s_stormtypes.Lib):
                         'url': str(resp.url),
                         'body': await resp.read(),
                         'history': history,
+                        '_raw_headers': [[str(k), v] for k, v in resp.headers.items()],
                         'request_headers': {str(k): v for k, v in resp.request_info.headers.items()},
                     }
                     return HttpResp(info)
@@ -524,6 +526,9 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'history', 'desc': 'A list of response objects representing the history of the response. This is populated when responses are redirected.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorHistory',
                   'returns': {'type': 'list', 'desc': 'A list of ``inet:http:resp`` objects.', }}},
+        {'name': 'getRawHeaders', 'desc': 'Get a dictionary mapping header names to lists of all their values.',
+         'type': {'type': 'function', '_funcname': 'getRawHeaders',
+                  'returns': {'type': 'dict', 'desc': 'A dictionary mapping each header name to a list of values.'}}},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
          'type': {'type': 'function', '_funcname': '_httpRespJson',
                   'args': (
@@ -557,9 +562,16 @@ class HttpResp(s_stormtypes.Prim):
 
     def getObjLocals(self):
         return {
+            'getRawHeaders': self.getRawHeaders,
             'json': self._httpRespJson,
             'msgpack': self._httpRespMsgpack,
         }
+
+    async def getRawHeaders(self):
+        retn = {}
+        for k, v in self.valu.get('_raw_headers', []):
+            retn.setdefault(k, []).append(v)
+        return retn
 
     async def _httpRespJson(self, encoding=None, errors='surrogatepass'):
         try:
@@ -578,7 +590,10 @@ class HttpResp(s_stormtypes.Prim):
 
         except s_exc.BadJsonText as e:
             mesg = f'Unable to decode HTTP response as json: {e.get("mesg")}'
-            raise s_exc.BadJsonText(mesg=mesg)
+            info = {'mesg': mesg}
+            if (text := e.get('text')) is not None:
+                info['text'] = text
+            raise s_exc.BadJsonText(**info)
 
     async def _httpRespMsgpack(self):
         byts = self.valu.get('body')

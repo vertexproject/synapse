@@ -1,7 +1,6 @@
 import synapse.exc as s_exc
 
 import synapse.lib.cell as s_cell
-import synapse.lib.layer as s_layer
 
 import synapse.tests.utils as s_test
 

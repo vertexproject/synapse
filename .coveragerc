@@ -1,12 +1,31 @@
 [report]
 omit =
     */synapse/tests/test_*
+    /tmp/*
+
+; Coverage config note (Python 3.11 vs 3.14):
+; CI currently splits coverage configuration between:
+;   - main process: `--cov-config=.coveragerc.main`
+;   - multiprocessing children: `COVERAGE_PROCESS_START=.coveragerc`
+; When we move the baseline to Python 3.14, we should verify this
+; workaround is required and remove the `.coveragerc.main` file.
+;
+; A single .coveragerc can't satisfy both the main process and its spawned subprocesses.
+; The subprocesses tasks need concurrency = multiprocessing and parallel = True so
+; coverage traces across process boundaries and writes separate .coverage.* data files
+; (merged later by --cov-append), without this subprocess coverage is lost.
+; Applying concurrency = multiprocessing to the main process causes coverage's
+; multiprocessing tracer to conflict with Python 3.11's async tracing, resulting
+; in lines after await being falsely reported as missed.
+[run]
+concurrency = multiprocessing
+parallel = True
+sigterm = True
 
 ; Uncomment this section to enable code coverage of storm files in the
 ; storm_dirs directory listed below. This is disabled by default right now
 ; because it's pretty intensive and imposes a large perf hit on the already slow
 ; tests.
-;[run]
 ;plugins = synapse.utils.stormcov
 
 [synapse.utils.stormcov]

@@ -3225,8 +3225,9 @@ class AstTest(s_test.SynTest):
                 q += f'inet:ipv4={x} '
             q += ']'
 
-            with self.raises(s_exc.RecursionLimitHit) as err:
+            with self.raises(s_exc.RecursionLimitHit) as cm:
                 msgs = await core.nodes(q)
+            self.isinstance(cm.exception.__cause__, RecursionError)
 
     async def test_ast_highlight(self):
 
@@ -3819,12 +3820,12 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
 
             # Lift node, get prop via implicit pivot, assign data prop to var, update var
-            q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow'
+            q = 'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].props.get('raw'), {'foo': 'bar'})
 
-            q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow [ :raw=$raw ]'
+            q = 'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow [ :raw=$raw ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].props.get('raw'), {'foo': 'bar', 'baz': 'box'})

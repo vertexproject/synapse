@@ -440,6 +440,18 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1723680000000, nodes[0].get('valid_from'))
             self.eq(1723680000000, nodes[0].get('valid_until'))
 
+            nodes = await core.nodes('''
+                [ it:dev:function:sample=*
+                    :function={[ it:dev:function=* :id=VISI-10 :name=foobar :desc=Woot ]}
+                    :file=*
+                    :file:offs=10
+                ]
+            ''')
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('function'))
+            self.eq(nodes[0].get('file:offs'), 10)
+            self.len(1, await core.nodes('it:dev:function:sample -> it:dev:function +:name=foobar'))
+
     async def test_infotech_ios(self):
 
         async with self.getTestCore() as core:
@@ -814,7 +826,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'techniques': teqs,
                 'url': url0,
             }
-            q = '''[(it:prod:soft=$valu :id="Foo " :name=$p.name :type=$p.type :names=$p.names
+            q = '''[(it:prod:soft=$valu :id="Foo " :tag=cno.mal.cobaltstrike :name=$p.name :type=$p.type :names=$p.names
                 :desc=$p.desc :desc:short=$p."desc:short" :author:org=$p."author:org" :author:email=$p."author:email"
                 :author:acct=$p."author:acct" :author:person=$p."author:person"
                 :techniques=$p.techniques :url=$p.url )]'''
@@ -823,6 +835,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('it:prod:soft', prod0))
             self.eq(node.get('id'), 'Foo')
+            self.eq(node.get('tag'), 'cno.mal.cobaltstrike')
             self.eq(node.get('name'), 'balloon maker')
             self.eq(node.get('desc'), "Pennywise's patented balloon blower upper")
             self.eq(node.get('desc:short'), 'balloon blower')

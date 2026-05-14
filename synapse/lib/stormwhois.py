@@ -43,7 +43,7 @@ class LibWhois(s_stormtypes.Lib):
         elif form == 'ipquery':
             guid_props = ('time', 'fqdn', 'url', 'ipv4', 'ipv6')
         else:
-            mesg = f'No guid helpers available for this inet:whois form'
+            mesg = 'No guid helpers available for this inet:whois form'
             raise s_exc.StormRuntimeError(mesg=mesg, form=form)
 
         guid_vals = []

@@ -248,8 +248,10 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The threat cluster targeted the target node.'}),
                 (('risk:threat', 'uses', None), {
                     'doc': 'The threat cluster uses the target node.'}),
+                (('risk:threat', 'uses', 'inet:service:platform'), {
+                    'doc': 'The threat cluster uses the service platform.'}),
                 (('risk:threat', 'uses', 'inet:service:app'), {
-                    'doc': 'The threat cluster uses the online application.'}),
+                    'doc': 'Deprecated. Please use the inet:service:platform form instead.', 'deprecated': True}),
                 (('risk:attack', 'targets', None), {
                     'doc': 'The attack targeted the target node.'}),
                 (('risk:attack', 'uses', None), {

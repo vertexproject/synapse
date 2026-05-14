@@ -5,11 +5,12 @@ import logging
 
 from typing import Any, BinaryIO, Callable, Iterator, Optional
 
-from synapse.vendor.cpython.lib.json import detect_encoding
+from synapse.vendor.cpython.lib.json import detect_encoding  # noqa: F401
 
 import yyjson
 
 import synapse.exc as s_exc
+import synapse.lib.logging as s_logging
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,10 @@ def _fallback_loads(s: str | bytes) -> Any:
     try:
         return json.loads(s)
     except json.JSONDecodeError as exc:
-        raise s_exc.BadJsonText(mesg=exc.args[0])
+        import synapse.common as s_common  # Avoid circular import
+        text = s if isinstance(s, str) else s.decode('utf-8', errors='replace')
+        snippet = s_common.trimText(text[exc.pos:])
+        raise s_exc.BadJsonText(mesg=exc.args[0], text=snippet)
 
 def loads(s: str | bytes) -> Any:
     '''
@@ -44,8 +48,8 @@ def loads(s: str | bytes) -> Any:
         return yyjson.Document(s, flags=yyjson.ReaderFlags.BIGNUM_AS_RAW).as_obj
 
     except (ValueError, TypeError) as exc:
-        extra = {'synapse': {'fn': 'loads', 'reason': str(exc)}}
-        logger.warning('Using fallback JSON deserialization. Please report this to Vertex.', extra=extra)
+        logger.warning('Using fallback JSON deserialization. Please report this to Vertex.',
+                       extra=s_logging.getLogExtra(fn='loads', reason=(str(exc))))
         return _fallback_loads(s)
 
 def load(fp: BinaryIO) -> Any:
@@ -125,8 +129,8 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
     try:
         return _dumps(obj, sort_keys=sort_keys, indent=indent, default=default, newline=newline)
     except UnicodeEncodeError as exc:
-        extra = {'synapse': {'fn': 'dumps', 'reason': str(exc)}}
-        logger.warning('Using fallback JSON serialization. Please report this to Vertex.', extra=extra)
+        logger.warning('Using fallback JSON serialization. Please report this to Vertex.',
+                       extra=s_logging.getLogExtra(fn='dumps', reason=(str(exc))))
 
         ret = _fallback_dumps(obj, sort_keys=sort_keys, indent=indent, default=default)
 
