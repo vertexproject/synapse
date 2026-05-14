@@ -4,7 +4,7 @@ modeldefs = (
         'interfaces': (
 
             ('entity:identifier', {
-                'doc': 'An interface which is inherited by entity identifier forms.'}),
+                'doc': 'An interface which is implemented by entity identifier forms.'}),
 
             ('entity:action', {
                 'template': {'title': 'action'},

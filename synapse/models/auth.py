@@ -37,7 +37,7 @@ modeldefs = (
 
         'interfaces': (
             ('auth:credential', {
-                'doc': 'An interface inherited by authentication credential forms.',
+                'doc': 'An interface implemented by authentication credential forms.',
             }),
         ),
 

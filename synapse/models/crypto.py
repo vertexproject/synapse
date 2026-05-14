@@ -255,13 +255,13 @@ modeldefs = (
                         'ex': 'aes256',
                         'doc': 'The cryptographic algorithm which uses the key material.'}),
                 ),
-                'doc': 'An interface inherited by all cryptographic keys.'}),
+                'doc': 'An interface implemented by all cryptographic keys.'}),
 
             ('crypto:hash', {
-                'doc': 'An interface inherited by all cryptographic hashes.'}),
+                'doc': 'An interface implemented by all cryptographic hashes.'}),
 
             ('crypto:hashable', {
-                'doc': 'An interface inherited by types which are frequently hashed.'}),
+                'doc': 'An interface implemented by types which are frequently hashed.'}),
 
             ('crypto:smart:effect', {
                 'doc': 'Properties common to the effects of a crypto smart contract transaction.',

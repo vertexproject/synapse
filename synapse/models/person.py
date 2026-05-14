@@ -67,7 +67,7 @@ modeldefs = (
         'interfaces': (
 
             ('edu:learnable', {
-                'doc': 'An interface inherited by nodes which represent a skill which can be learned.'}),
+                'doc': 'An interface implemented by nodes which represent a skill which can be learned.'}),
 
         ),
         'forms': (
