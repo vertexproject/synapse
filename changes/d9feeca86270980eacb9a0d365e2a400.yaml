@@ -1,8 +1,0 @@
----
-desc: Added a migration that builds a unique user email index. Pre-existing duplicate
-  emails are rewritten to ``user+<iden>@domain.com`` form, and invalid or empty values
-  are cleared.
-desc:literal: false
-prs: []
-type: migration
-...

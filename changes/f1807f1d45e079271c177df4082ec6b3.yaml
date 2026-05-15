@@ -1,7 +1,0 @@
----
-desc: Pinned the stix2-validator dependency to less than version 3.3.0 due to a packaging
-  issue in version 3.3.1 that causes all STIX bundle validation to fail.
-desc:literal: false
-prs: []
-type: note
-...
