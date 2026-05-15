@@ -896,6 +896,107 @@ class MigrationEditorMixin:
             if n1proto is not None:
                 await n1proto.delEdge(verb, src.iden())
 
+    async def _preflightPerms(self, src, dst):
+        runt = self.runt
+        snap = runt.snap
+
+        # Admin of the write layer skips the full scan — avoids doubling fuse cost.
+        if runt.isAdmin(gateiden=snap.wlyr.iden):
+            return
+
+        # node.del — only when src lives in the write layer (mirrors _fuseNodes).
+        if src.bylayer['ndef'] == snap.wlyr.iden:
+            runt.layerConfirm(('node', 'del', src.form.name))
+
+        # Primary props — mirror _fusePrimaryProps filter/merge logic exactly.
+        form = src.form
+        for name, valu in src.props.items():
+            if name.startswith('_'):
+                continue
+
+            prop = form.props.get(name)
+            if prop.info.get('ro'):
+                continue
+
+            if name == '.seen':
+                dstv = dst.get('.seen')
+                if dstv is None:
+                    runt.confirmPropSet(prop)
+                else:
+                    merged = (min(valu[0], dstv[0]), max(valu[1], dstv[1]))
+                    if merged != dstv:
+                        runt.confirmPropSet(prop)
+
+                continue
+
+            runt.confirmPropSet(prop)
+
+        # Tag-add — mirrors copyTags.
+        for tagname in src.tags:
+            runt.layerConfirm(('node', 'tag', 'add', *tagname.split('.')))
+
+        # Edge-add — mirrors copyEdges; once per unique verb across N1 and N2.
+        verbs = set()
+        async for (verb, _) in src.iterEdgesN1():
+            if verb not in verbs:
+                runt.layerConfirm(('node', 'edge', 'add', verb))
+                verbs.add(verb)
+
+        async for (verb, _) in src.iterEdgesN2():
+            if verb not in verbs:
+                runt.layerConfirm(('node', 'edge', 'add', verb))
+                verbs.add(verb)
+
+        # Node-data set — mirrors copyData.
+        async for name in src.iterDataKeys():
+            runt.layerConfirm(('node', 'data', 'set', name))
+
+        # Inbound ref scan — once per prop type. Mirrors the four loops in
+        # _rewriteRefs. For each prop type, scan until the first non-self
+        # referrer, check the perm that _rewriteOne/_rewriteRoRef would check,
+        # then break — perms are per prop-type, not per referrer node.
+        model = snap.core.model
+        formname = src.form.name
+        srcvalu = src.ndef[1]
+        srcndef = (formname, srcvalu)
+
+        async def _checkRef(prop, lookup):
+            async for refnode in lookup:
+                if refnode.buid == src.buid:
+                    continue
+
+                if prop.info.get('ro'):
+                    # _rewriteRoRef warns-and-skips non-comp refs and
+                    # parent-layer comps; only check delete perm when the
+                    # rename would actually fire.
+                    if (isinstance(refnode.form.type, s_types.Comp)
+                            and refnode.bylayer['ndef'] == snap.wlyr.iden):
+                        runt.layerConfirm(('node', 'del', refnode.form.name))
+                else:
+                    runt.confirmPropSet(prop)
+
+                break
+
+        for prop in model.getPropsByType(formname):
+            await _checkRef(prop, snap.nodesByPropValu(prop.full, '=', srcvalu))
+
+        for prop in model.getArrayPropsByType(formname):
+            await _checkRef(prop, snap.nodesByPropArray(prop.full, '=', srcvalu))
+
+        for prop in model.getPropsByType('ndef'):
+            ndeftype = prop.type
+            if ndeftype.formfilter is not None and ndeftype.formfilter(src.form):
+                continue
+
+            await _checkRef(prop, snap.nodesByPropValu(prop.full, '=', srcndef))
+
+        for prop in model.getArrayPropsByType('ndef'):
+            ndeftype = prop.type.arraytype
+            if ndeftype.formfilter is not None and ndeftype.formfilter(src.form):
+                continue
+
+            await _checkRef(prop, snap.nodesByPropArray(prop.full, '=', srcndef))
+
     async def _fuseNodes(self, src, dst, depth=0):
 
         snap = self.runt.snap
@@ -1040,6 +1141,13 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             fail to be rewritten. Place all of src's data in the same writable layer before
             calling fuseNodes() to avoid these edge cases.
 
+            Permissions:
+
+            All required permissions are validated up-front before any writes occur, so a
+            caller missing node.del, node.prop.set.<form>:<prop>, node.tag.add.<tag>,
+            node.edge.add.<verb>, or node.data.set.<name> triggers AuthDeny with no
+            partial state. Admins of the write layer skip the pre-flight scan entirely.
+
             Notes:
 
             - Any triggers attached to the affected forms will fire for each edit.
@@ -1140,6 +1248,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             await self.runt.warn('$lib.model.migration.fuseNodes() src and dst are the same node, skipping.')
             return
 
+        await self._preflightPerms(src, dst)
         await self._fuseNodes(src, dst)
 
 @s_stormtypes.registry.registerLib

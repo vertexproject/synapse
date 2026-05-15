@@ -1035,6 +1035,111 @@ class StormlibModelTest(s_test.SynTest):
             # src unchanged after failed fuse (no partial edits)
             self.len(1, await core.nodes('test:str=p-src'))
 
+            # --- Preflight: missing node.prop.set on src primary prop ---
+
+            await core.nodes('[ test:str=p-prop-src :hehe=42 test:str=p-prop-dst ]')
+
+            lowprop = await core.auth.addUser('lowprop')
+            await lowprop.addRule((True, ('node', 'del')))
+            aslowprop = {'user': lowprop.iden}
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(
+                    'test:str=p-prop-src $n=$node -> { test:str=p-prop-dst $lib.model.migration.fuseNodes($n, $node) }',
+                    opts=aslowprop)
+
+            self.isin('node.prop.set', ectx.exception.errinfo['perm'])
+            # src unchanged (preflight raised before any writes)
+            nodes = await core.nodes('test:str=p-prop-src')
+            self.len(1, nodes)
+            self.eq('42', nodes[0].get('hehe'))
+
+            # --- Preflight: missing node.tag.add when src has tags ---
+
+            await core.nodes('[ test:str=p-tag-src +#preflight.tag test:str=p-tag-dst ]')
+
+            lowtag = await core.auth.addUser('lowtag')
+            await lowtag.addRule((True, ('node', 'del')))
+            await lowtag.addRule((True, ('node', 'prop', 'set')))
+            aslowtag = {'user': lowtag.iden}
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(
+                    'test:str=p-tag-src $n=$node -> { test:str=p-tag-dst $lib.model.migration.fuseNodes($n, $node) }',
+                    opts=aslowtag)
+
+            self.isin('node.tag.add', ectx.exception.errinfo['perm'])
+            self.len(1, await core.nodes('test:str=p-tag-src'))
+
+            # --- Preflight: missing node.edge.add when src has a light edge ---
+
+            await core.nodes('[ test:str=p-edge-n2 test:str=p-edge-src test:str=p-edge-dst ]')
+            await core.nodes('test:str=p-edge-src [ <(refs)+ { test:str=p-edge-n2 } ]')
+
+            lowedge = await core.auth.addUser('lowedge')
+            await lowedge.addRule((True, ('node', 'del')))
+            await lowedge.addRule((True, ('node', 'prop', 'set')))
+            await lowedge.addRule((True, ('node', 'tag', 'add')))
+            aslowedge = {'user': lowedge.iden}
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(
+                    'test:str=p-edge-src $n=$node -> { test:str=p-edge-dst $lib.model.migration.fuseNodes($n, $node) }',
+                    opts=aslowedge)
+
+            self.isin('node.edge.add', ectx.exception.errinfo['perm'])
+            self.len(1, await core.nodes('test:str=p-edge-src'))
+
+            # --- Preflight: missing confirmPropSet for inbound ref prop ---
+            # Grant all direct perms; withhold node.prop.set on the referrer's prop.
+
+            await core.nodes('[ test:str=p-ref-src test:str=p-ref-dst ]')
+            await core.nodes('[ test:guid=(p-ref-guid,) :name=p-ref-src ]')
+
+            lowref = await core.auth.addUser('lowref')
+            await lowref.addRule((True, ('node', 'del')))
+            await lowref.addRule((True, ('node', 'prop', 'set', 'test:str')))
+            await lowref.addRule((True, ('node', 'tag', 'add')))
+            await lowref.addRule((True, ('node', 'edge', 'add')))
+            await lowref.addRule((True, ('node', 'data', 'set')))
+            aslowref = {'user': lowref.iden}
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(
+                    'test:str=p-ref-src $n=$node -> { test:str=p-ref-dst $lib.model.migration.fuseNodes($n, $node) }',
+                    opts=aslowref)
+
+            self.isin('node.prop.set', ectx.exception.errinfo['perm'])
+            # src not deleted; referrer still points at src
+            self.len(1, await core.nodes('test:str=p-ref-src'))
+            ref_nodes = await core.nodes('test:guid=(p-ref-guid,)')
+            self.len(1, ref_nodes)
+            self.eq('p-ref-src', ref_nodes[0].get('name'))
+
+            # --- Preflight: admin short-circuit --- admin bypasses perm scan ---
+            # Admin of the write layer skips the entire preflight scan; fuse succeeds
+            # even with no explicit perms granted.
+
+            await core.nodes('[ test:str=p-admin-src :hehe=99 +#admin.tag test:str=p-admin-dst ]')
+            await core.nodes('[ test:guid=(p-admin-ref,) :name=p-admin-src ]')
+
+            adminuser = await core.auth.addUser('adminuser')
+            await adminuser.setAdmin(True)
+            asadmin = {'user': adminuser.iden}
+
+            await core.nodes(
+                'test:str=p-admin-src $n=$node -> { test:str=p-admin-dst $lib.model.migration.fuseNodes($n, $node) }',
+                opts=asadmin)
+
+            self.len(0, await core.nodes('test:str=p-admin-src'))
+            nodes = await core.nodes('test:str=p-admin-dst')
+            self.len(1, nodes)
+            self.eq('99', nodes[0].get('hehe'))
+            # referrer rewritten to dst
+            ref_nodes = await core.nodes('test:guid=(p-admin-ref,)')
+            self.len(1, ref_nodes)
+            self.eq('p-admin-dst', ref_nodes[0].get('name'))
+
             # --- Forked view: all nodes created in the fork's write layer ---
             # This is the recommended workflow: create a fork whose write layer holds src,
             # dst, and any inbound referrers; fuse there; parent view is unaffected.
