@@ -1367,8 +1367,10 @@ class CellTest(s_t_utils.SynTest):
                 userkv = authkv.getSubKeyVal('user:info:')
                 emailkv = authkv.getSubKeyVal('user:email:')
 
-                alice = await cell.auth.addUser('alice')
-                bob = await cell.auth.addUser('bob')
+                # Pin idens for the collision pair so alice's record is yielded
+                # by the slab first (lower lex order) and predictably wins.
+                alice = await cell.auth.addUser('alice', iden='aa' + '0' * 30)
+                bob = await cell.auth.addUser('bob', iden='bb' + '0' * 30)
                 charlie = await cell.auth.addUser('charlie')
                 doris = await cell.auth.addUser('doris')
                 eve = await cell.auth.addUser('eve')
@@ -1412,28 +1414,17 @@ class CellTest(s_t_utils.SynTest):
 
                 cell.auth.clearAuthCache()
 
-                # Iteration order over user idens is not insertion order, so the
-                # "winner" of the shared@example.com collision is whichever iden
-                # the slab yields first; the other gets rewritten.
-                aemail = userkv.get(alice.iden).get('email')
-                bemail = userkv.get(bob.iden).get('email')
-
-                if aemail == 'shared@example.com':
-                    first, second = alice, bob
-                else:
-                    first, second = bob, alice
-
-                self.eq('shared@example.com', userkv.get(first.iden).get('email'))
-                self.eq(f'shared+{second.iden}@example.com', userkv.get(second.iden).get('email'))
+                self.eq('shared@example.com', userkv.get(alice.iden).get('email'))
+                self.eq(f'shared+{bob.iden}@example.com', userkv.get(bob.iden).get('email'))
 
                 self.none(userkv.get(charlie.iden).get('email'))
                 self.none(userkv.get(doris.iden).get('email'))
                 self.eq('unique@example.com', userkv.get(eve.iden).get('email'))
                 self.none(userkv.get(frank.iden).get('email'))
 
-                self.eq(first.iden, await cell.auth.getUserIdenByEmail('shared@example.com'))
-                self.eq(second.iden,
-                        await cell.auth.getUserIdenByEmail(f'shared+{second.iden}@example.com'))
+                self.eq(alice.iden, await cell.auth.getUserIdenByEmail('shared@example.com'))
+                self.eq(bob.iden,
+                        await cell.auth.getUserIdenByEmail(f'shared+{bob.iden}@example.com'))
                 self.eq(eve.iden, await cell.auth.getUserIdenByEmail('unique@example.com'))
                 self.eq(eve.iden, await cell.auth.getUserIdenByEmail('UNIQUE@EXAMPLE.COM'))
 
@@ -1452,8 +1443,10 @@ class CellTest(s_t_utils.SynTest):
                 bob_iden = None
 
                 async with self.getTestCell(s_cell.Cell, dirn=path00, conf=conf00) as cell00:
-                    alice = await cell00.auth.addUser('alice')
-                    bob = await cell00.auth.addUser('bob')
+                    # Pin idens so alice is yielded by the slab first and predictably
+                    # wins the duplicate-email rewrite.
+                    alice = await cell00.auth.addUser('alice', iden='aa' + '0' * 30)
+                    bob = await cell00.auth.addUser('bob', iden='bb' + '0' * 30)
                     alice_iden = alice.iden
                     bob_iden = bob.iden
 
@@ -1502,12 +1495,9 @@ class CellTest(s_t_utils.SynTest):
                         e01 = dict(cell01.slab.getSafeKeyVal('auth').getSubKeyVal('user:email:').items())
                         self.eq(e00, e01)
 
-                        # Survivor keeps shared@example.com; the other gets rewritten.
-                        self.isin('shared@example.com', e00)
-                        winner = e00['shared@example.com']
-                        loser = bob_iden if winner == alice_iden else alice_iden
-                        self.isin(f'shared+{loser}@example.com', e00)
-                        self.eq(loser, e00[f'shared+{loser}@example.com'])
+                        # Alice's pinned iden sorts first so she wins the duplicate.
+                        self.eq(alice_iden, e00['shared@example.com'])
+                        self.eq(bob_iden, e00[f'shared+{bob_iden}@example.com'])
 
     async def test_cell_auth_userlimit(self):
         maxusers = 3
