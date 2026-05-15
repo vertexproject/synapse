@@ -556,9 +556,11 @@ class Auth(s_nexus.Pusher):
                                          email=newnorm)
 
                 self.useridenbyemail.set(newnorm, iden)
+                self.useridenbyemailcache.put(newnorm, iden)
 
             if oldnorm is not None and oldnorm != newnorm:
                 self.useridenbyemail.delete(oldnorm)
+                self.useridenbyemailcache.pop(oldnorm)
 
             user.info['email'] = newnorm
             self.userdefs.set(iden, user.info)
