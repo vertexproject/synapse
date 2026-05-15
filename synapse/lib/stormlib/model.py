@@ -871,15 +871,12 @@ class MigrationEditorMixin:
 
         snap = self.runt.snap
 
-        if refnode.bylayer['ndef'] != snap.wlyr.iden:  # pragma: no cover
-            raise s_exc.CantDelNode(
-                mesg=(f'$lib.model.migration.fuseNodes() cannot rename comp form {refnode.form.name!r}: '
-                      f'its ndef lives in layer {refnode.bylayer["ndef"]!r} but the current write '
-                      f'layer is {snap.wlyr.iden!r}. Synapse does not support cross-layer node '
-                      f'deletion (no tombstones).'),
-                form=refnode.form.name,
-                iden=refnode.iden(),
-            )
+        if refnode.bylayer['ndef'] != snap.wlyr.iden:
+            await self.runt.warn(
+                f'$lib.model.migration.fuseNodes() cannot rename comp form {refnode.form.name!r}: '
+                f'its ndef lives in layer {refnode.bylayer["ndef"]!r} which is not the current '
+                f'write layer {snap.wlyr.iden!r}. This inbound reference will not be rewritten.')
+            return
 
         oldcompvalu = refnode.ndef[1]
         newcomplist = list(oldcompvalu)
@@ -903,16 +900,15 @@ class MigrationEditorMixin:
 
         snap = self.runt.snap
 
-        if src.bylayer['ndef'] != snap.wlyr.iden:
-            raise s_exc.CantDelNode(
-                mesg=(f'$lib.model.migration.fuseNodes() cannot fuse comp node {src.iden()!r}: '
-                      f'its ndef lives in layer {src.bylayer["ndef"]!r} but the current write layer '
-                      f'is {snap.wlyr.iden!r}.'),
-                form=src.form.name,
-                iden=src.iden(),
-            )
+        can_delete = src.bylayer['ndef'] == snap.wlyr.iden
 
-        self.runt.layerConfirm(('node', 'del', src.form.name))
+        if not can_delete:
+            await self.runt.warn(
+                f'$lib.model.migration.fuseNodes() cannot delete src node {src.iden()!r}: '
+                f'its ndef lives in layer {src.bylayer["ndef"]!r} which is not the current '
+                f'write layer {snap.wlyr.iden!r}. Content will be merged but src will not be deleted.')
+        else:
+            self.runt.layerConfirm(('node', 'del', src.form.name))
 
         async with snap.getEditor() as editor:
             proto = editor.loadNode(dst)
@@ -924,7 +920,8 @@ class MigrationEditorMixin:
             await self.copyData(src, proto, overwrite=True)
             await self._rewriteRefs(editor, src, dst, depth=depth)
 
-        await src.delete(force=False)
+        if can_delete:
+            await src.delete(force=True)
 
     async def _fusePrimaryProps(self, src, proto):
         form = src.form
@@ -1017,9 +1014,14 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
             - src and dst must be the same form.
             - src and dst must be from the same view.
-            - src (and any read-only comp-form nodes renamed during ref rewriting) must live in
-              the current view's write layer. Synapse does not support cross-layer node deletion
-              (no tombstones); fuseNodes() raises CantDelNode if this requirement is not met.
+
+            Layer behavior:
+
+            If src's ndef lives in a parent (read-only) layer, fuseNodes() emits a warning and
+            merges all content into dst but skips the src delete. The caller is responsible for
+            deleting src from the appropriate view. Similarly, if a read-only comp-form node that
+            references src lives in a parent layer, its reference is not rewritten and a warning
+            is emitted.
 
             Recommended workflow for deduplication after $lib.layer.load:
 
@@ -1126,6 +1128,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         if src.snap is not dst.snap:  # pragma: no cover
             raise s_exc.BadArg(mesg='$lib.model.migration.fuseNodes() requires src and dst from the same view.')
 
+        # TODO - 3.0.0: with form inheritance, relax to allow fusing compatible (parent/child) forms.
         if src.form is not dst.form:
             raise s_exc.BadArg(mesg='$lib.model.migration.fuseNodes() requires src and dst to share the same form.')
 

@@ -970,6 +970,9 @@ class StormlibModelTest(s_test.SynTest):
                 opts=opts)
             self.stormIsInWarn('cannot rewrite read-only ref', mesgs)
 
+            # src is deleted (force=True; remaining refs become dangling)
+            self.len(0, await core.nodes('test:str=$nc1src', opts=opts))
+
             # referrer prop is unchanged (skipped, not rewritten)
             nodes = await core.nodes('test:rostr=$nc1guid', opts=opts)
             self.len(1, nodes)
@@ -1070,9 +1073,10 @@ class StormlibModelTest(s_test.SynTest):
             self.len(0, await core.nodes('test:str=$fvdst', opts=opts))
             self.len(0, await core.nodes('test:guid=$fvguid', opts=opts))
 
-            # --- Forked view: src in parent layer → CantDelNode ---
-            # Synapse 2.x has no tombstones; deleting a node in a parent layer is a no-op,
-            # so fuseNodes raises CantDelNode before making any changes.
+            # --- Forked view: src in parent layer → warn, content merged, src not deleted ---
+            # When src's ndef lives in a parent layer, fuseNodes warns and merges content
+            # into dst but skips the delete. The caller is responsible for deleting src
+            # from the appropriate view.
 
             opts = {'vars': {'fv2src': 'fv2-src', 'fv2dst': 'fv2-dst'}}
             await core.nodes('[ test:str=$fv2src :hehe=fv2srcval test:str=$fv2dst ]', opts=opts)
@@ -1080,19 +1084,23 @@ class StormlibModelTest(s_test.SynTest):
             vdef3 = await core.view.fork()
             view3opts = {'view': vdef3.get('iden')}
 
-            await self.asyncraises(s_exc.CantDelNode,
-                core.nodes('test:str=$fv2src $n=$node -> { test:str=$fv2dst $lib.model.migration.fuseNodes($n, $node) }',
-                           opts=opts | view3opts))
+            mesgs = await core.stormlist(
+                'test:str=$fv2src $n=$node -> { test:str=$fv2dst $lib.model.migration.fuseNodes($n, $node) }',
+                opts=opts | view3opts)
+            self.stormIsInWarn('cannot delete src node', mesgs)
 
-            # both nodes unchanged: no partial edits were committed
-            self.len(1, await core.nodes('test:str=$fv2src', opts=opts | view3opts))
+            # content is merged: dst now has src's hehe prop
             nodes = await core.nodes('test:str=$fv2dst', opts=opts | view3opts)
             self.len(1, nodes)
-            self.none(nodes[0].get('hehe'))
+            self.eq('fv2srcval', nodes[0].get('hehe'))
 
-            # --- Forked view: comp parent in parent layer → CantDelNode during comp rename ---
-            # When the ro-ref comp node itself lives in a parent layer, _rewriteRoRef raises
-            # CantDelNode (can't delete the old comp). No edits are committed.
+            # src is NOT deleted (it lives in the parent layer)
+            self.len(1, await core.nodes('test:str=$fv2src', opts=opts | view3opts))
+
+            # --- Forked view: src and comp both in parent layer → both warn ---
+            # Creating test:pivcomp=(fv3targ, fv3src) in the parent auto-creates test:str=fv3src
+            # in the parent layer. Both src and the comp referrer therefore live in the parent;
+            # fuseNodes warns for both: src is not deleted, comp is not renamed.
 
             opts = {'vars': {'fv3src': 'fv3-src', 'fv3dst': 'fv3-dst', 'fv3targ': 'fv3-targ'}}
             await core.nodes('[ test:str=$fv3dst ]', opts=opts)
@@ -1101,14 +1109,19 @@ class StormlibModelTest(s_test.SynTest):
             vdef4 = await core.view.fork()
             view4opts = {'view': vdef4.get('iden')}
 
-            # create src in the forked view's write layer so the src-layer check passes
-            await core.nodes('[ test:str=$fv3src ]', opts=opts | view4opts)
+            mesgs = await core.stormlist(
+                'test:str=$fv3src $n=$node -> { test:str=$fv3dst $lib.model.migration.fuseNodes($n, $node) }',
+                opts=opts | view4opts)
 
-            await self.asyncraises(s_exc.CantDelNode,
-                core.nodes('test:str=$fv3src $n=$node -> { test:str=$fv3dst $lib.model.migration.fuseNodes($n, $node) }',
-                           opts=opts | view4opts))
+            # two warnings: src not deleted (in parent), comp not renamed (also in parent)
+            self.stormIsInWarn('cannot delete src node', mesgs)
+            self.stormIsInWarn('cannot rename comp form', mesgs)
 
-            # src still exists, old comp still exists, new comp was never created
+            # src persists (in parent layer, not deleted)
             self.len(1, await core.nodes('test:str=$fv3src', opts=opts | view4opts))
+
+            # old comp persists (unrewritten; also in parent layer)
             self.len(1, await core.nodes('test:pivcomp=($fv3targ, $fv3src)', opts=opts | view4opts))
+
+            # new comp was never created
             self.len(0, await core.nodes('test:pivcomp=($fv3targ, $fv3dst)', opts=opts | view4opts))
