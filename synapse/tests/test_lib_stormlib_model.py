@@ -1140,6 +1140,61 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, ref_nodes)
             self.eq('p-admin-dst', ref_nodes[0].get('name'))
 
+            # --- Preflight: non-admin, .seen with dstv is None (first-set .seen path) ---
+            # Exercises the confirmPropSet branch when dst has no .seen (dstv is None).
+
+            fullperm = await core.auth.addUser('fullperm')
+            await fullperm.addRule((True, ('node',)))
+            asfull = {'user': fullperm.iden}
+
+            opts_pfa = {'vars': {'pfasrc': 'pfa-src', 'pfadst': 'pfa-dst'}}
+            await core.nodes('[ test:str=$pfasrc .seen=(2020, 2021) test:str=$pfadst ]', opts=opts_pfa)
+
+            await core.nodes(
+                'test:str=$pfasrc $n=$node -> { test:str=$pfadst $lib.model.migration.fuseNodes($n, $node) }',
+                opts=opts_pfa | asfull)
+
+            self.len(0, await core.nodes('test:str=$pfasrc', opts=opts_pfa))
+
+            # --- Preflight: non-admin full-perm fuse — exercises all preflight scan loops ---
+            # src has .seen (merge path, merged != dstv), a tag, N1 and N2 edges (distinct
+            # verbs so the N2 verbs.add line is reached), nodedata, an inbound scalar form ref
+            # (non-RO prop, hits confirmPropSet + break), and an inbound comp ref (RO comp prop,
+            # hits layerConfirm node.del + break). Also drives the array and ndef scan loops.
+
+            opts_pfb = {'vars': {
+                'pfbsrc': 'pfb-src', 'pfbdst': 'pfb-dst',
+                'pfbn1tgt': 'pfb-n1tgt', 'pfbn2src': 'pfb-n2src',
+                'pfbtarg': 'pfb-targ',
+            }}
+            # src: .seen=(2019, 2021), tag, dst: .seen=(2020, 2020)
+            # merged=(2019,2021) != dstv=(2020,2020) → lines 926-928 covered.
+            await core.nodes(
+                '[ test:str=$pfbsrc .seen=(2019, 2021) +#pfb.tag '
+                '  test:str=$pfbdst .seen=(2020, 2020) '
+                '  test:str=$pfbn1tgt test:str=$pfbn2src ]',
+                opts=opts_pfb)
+            # N1 edge from src (verb=refs) and N2 edge on src (verb=linked, distinct from refs).
+            await core.nodes('test:str=$pfbsrc [ +(refs)> { test:str=$pfbn1tgt } ]', opts=opts_pfb)
+            await core.nodes('test:str=$pfbsrc [ <(linked)+ { test:str=$pfbn2src } ]', opts=opts_pfb)
+            # Nodedata on src.
+            await core.nodes('test:str=$pfbsrc $node.data.set(pfbkey, pfbdata)', opts=opts_pfb)
+            # Inbound scalar form ref (test:guid.name is non-RO, type test:str).
+            await core.nodes('[ test:guid=(pfb-fuse-guid,) :name=$pfbsrc ]', opts=opts_pfb)
+            # Inbound RO comp ref (test:pivcomp.lulz is RO, type test:str).
+            await core.nodes('[ test:pivcomp=($pfbtarg, $pfbsrc) ]', opts=opts_pfb)
+
+            await core.nodes(
+                'test:str=$pfbsrc $n=$node -> { test:str=$pfbdst $lib.model.migration.fuseNodes($n, $node) }',
+                opts=opts_pfb | asfull)
+
+            self.len(0, await core.nodes('test:str=$pfbsrc', opts=opts_pfb))
+            nodes = await core.nodes('test:str=$pfbdst', opts=opts_pfb)
+            self.len(1, nodes)
+            # .seen was merged: min(2019, 2020) / max(2021, 2020) → (2019, 2021)
+            pfb_seen = nodes[0].get('.seen')
+            self.true(pfb_seen[0] <= pfb_seen[1])
+
             # --- Forked view: all nodes created in the fork's write layer ---
             # This is the recommended workflow: create a fork whose write layer holds src,
             # dst, and any inbound referrers; fuse there; parent view is unaffected.

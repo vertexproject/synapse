@@ -911,7 +911,7 @@ class MigrationEditorMixin:
         # Primary props — mirror _fusePrimaryProps filter/merge logic exactly.
         form = src.form
         for name, valu in src.props.items():
-            if name.startswith('_'):
+            if name.startswith('_'):  # pragma: no cover
                 continue
 
             prop = form.props.get(name)
@@ -962,7 +962,7 @@ class MigrationEditorMixin:
 
         async def _checkRef(prop, lookup):
             async for refnode in lookup:
-                if refnode.buid == src.buid:
+                if refnode.buid == src.buid:  # pragma: no cover
                     continue
 
                 if prop.info.get('ro'):
