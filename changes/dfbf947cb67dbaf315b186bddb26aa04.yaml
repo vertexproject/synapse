@@ -1,7 +1,0 @@
----
-desc: Fixed an issue where Storm package variable operations could generate unnecessary Nexus log
-  entries when no value was actually changed. 
-desc:literal: false
-prs: []
-type: bug
-...

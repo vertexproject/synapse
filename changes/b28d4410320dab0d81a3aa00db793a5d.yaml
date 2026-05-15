@@ -1,8 +1,0 @@
----
-desc: Added the ``econ:pay:pan`` form to represent a Primary Account Number (PAN). The
-  form includes read-only ``:mii`` and ``:iin`` secondary properties automatically populated
-  from the PAN value.
-desc:literal: false
-prs: []
-type: model
-...

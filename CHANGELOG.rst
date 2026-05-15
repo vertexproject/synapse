@@ -6,6 +6,49 @@
 Synapse Changelog
 *****************
 
+v2.243.0 - 2026-05-15
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated existing ``econ:pay:card`` nodes with a ``:pan`` property to also
+  create the corresponding ``econ:pay:pan`` node.
+  (`#4944 <https://github.com/vertexproject/synapse/pull/4944>`_)
+- Added a migration that builds a unique user email index. Pre-existing
+  duplicate emails are rewritten to ``user+<iden>@domain.com`` form, and
+  invalid or empty values are cleared.
+  (`#4946 <https://github.com/vertexproject/synapse/pull/4946>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added the ``econ:pay:pan`` form to represent a Primary Account Number (PAN).
+  The form includes read-only ``:mii`` and ``:iin`` secondary properties
+  automatically populated from the PAN value.
+  (`#4944 <https://github.com/vertexproject/synapse/pull/4944>`_)
+- See :ref:`userguide_model_v2_243_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added the ``$lib.auth.users.byemail()`` Storm function. User emails are now
+  normalized via the ``inet:email`` type and must be unique.
+  (`#4946 <https://github.com/vertexproject/synapse/pull/4946>`_)
+
+Bugfixes
+--------
+- Fixed an issue where Storm package variable operations could generate
+  unnecessary Nexus log entries when no value was actually changed.
+  (`#4943 <https://github.com/vertexproject/synapse/pull/4943>`_)
+
+Notes
+-----
+- Pinned the stix2-validator dependency to less than version 3.3.0 due to a
+  packaging issue in version 3.3.1 that causes all STIX bundle validation to
+  fail.
+  (`#4945 <https://github.com/vertexproject/synapse/pull/4945>`_)
+- Updated the allowed versions of the ``cryptography`` library.
+  (`#4949 <https://github.com/vertexproject/synapse/pull/4949>`_)
+
 v2.242.0 - 2026-05-08
 =====================
 
