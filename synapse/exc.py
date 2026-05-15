@@ -196,6 +196,7 @@ class DupPropName(SynErr): pass
 class DupRoleName(SynErr): pass
 class DupTagPropName(SynErr): pass
 class DupUserName(SynErr): pass
+class DupUserEmail(SynErr): pass
 class DupStormSvc(SynErr): pass
 
 class DupTypeName(SynErr):

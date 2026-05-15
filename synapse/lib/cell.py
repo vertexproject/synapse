@@ -65,7 +65,7 @@ import synapse.tools.service.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
-NEXUS_VERSION = (2, 198)
+NEXUS_VERSION = (2, 243)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -1556,6 +1556,66 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning(f'...Cell ({self.getCellType()}) auth migration complete!')
 
+    async def _storUserEmailIndexMigration(self):
+        if self.conf.get('auth:ctor') is not None:
+            return
+
+        logger.warning(f'Building user email index for Cell ({self.getCellType()})')
+
+        authkv = self.slab.getSafeKeyVal('auth')
+        userkv = authkv.getSubKeyVal('user:info:')
+        emailkv = authkv.getSubKeyVal('user:email:')
+
+        seen = {}
+
+        for iden, info in userkv.items():
+            raw = info.get('email')
+            if raw is None:
+                continue
+
+            try:
+                norm = s_auth.normEmail(raw)
+            except s_exc.BadArg:
+                logger.warning(f'User {iden} has invalid email {raw!r}; clearing.')
+                info['email'] = None
+                userkv.set(iden, info)
+                continue
+
+            if norm is None:
+                if info.get('email') is not None:
+                    info['email'] = None
+                    userkv.set(iden, info)
+                continue
+
+            if norm in seen:
+                local, _, domain = norm.partition('@')
+                candidate = f'{local}+{iden}@{domain}'
+                try:
+                    candidate = s_auth.normEmail(candidate)
+                except s_exc.BadArg:  # pragma: no cover
+                    candidate = None
+
+                if candidate is None or candidate in seen:  # pragma: no cover
+                    logger.warning(f'Could not deduplicate email for user {iden}; clearing.')
+                    info['email'] = None
+                    userkv.set(iden, info)
+                    continue
+
+                logger.warning(f'Duplicate email {raw!r} on user {iden}; rewriting to {candidate}.')
+                info['email'] = candidate
+                userkv.set(iden, info)
+                seen[candidate] = iden
+                emailkv.set(candidate, iden)
+                continue
+
+            if info.get('email') != norm:
+                info['email'] = norm
+                userkv.set(iden, info)
+            seen[norm] = iden
+            emailkv.set(norm, iden)
+
+        logger.warning(f'...user email index for Cell ({self.getCellType()}) complete!')
+
     async def _drivePermMigration(self):
         async with await s_drive.Drive.anit(self.slab, 'celldrive') as olddrive:
             for lkey, lval in self.slab.scanByPref(s_drive.LKEY_INFO, db=olddrive.dbname):
@@ -1810,6 +1870,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     userkv.set(iden, info)
 
             # Clear the auth caches so the changes get picked up by the already running auth subsystem
+            self.auth.clearAuthCache()
+
+        if self.nexsvers < (2, 243) and newvers >= (2, 243) and self.conf.get('auth:ctor') is None:
+            # Build the unique user email index and rewrite any pre-existing duplicates. Driven
+            # through the nexus log so mirrors apply the same writes at the same offset.
+            await self._storUserEmailIndexMigration()
             self.auth.clearAuthCache()
 
     async def configNexsVers(self):
@@ -3321,6 +3387,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getUserIdenByName(self, name):
         user = await self.auth.getUserByName(name)
+        if user is not None:
+            return user.iden
+
+    async def getUserIdenByEmail(self, email):
+        user = await self.auth.getUserByEmail(email)
         if user is not None:
             return user.iden
 

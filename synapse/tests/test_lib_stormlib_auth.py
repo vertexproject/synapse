@@ -368,6 +368,33 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('Controls the ability to open a telepath URL.', msgs)
             self.stormNotInPrint('node.add.<form>', msgs)
 
+    async def test_stormlib_auth_users_byemail(self):
+
+        async with self.getTestCore() as core:
+
+            visiden = await core.callStorm('return($lib.auth.users.add(visi, email=visi@vertex.link).iden)')
+
+            iden = await core.callStorm('return($lib.auth.users.byemail("visi@vertex.link").iden)')
+            self.eq(iden, visiden)
+
+            iden = await core.callStorm('return($lib.auth.users.byemail("VISI@VERTEX.LINK").iden)')
+            self.eq(iden, visiden)
+
+            self.none(await core.callStorm('return($lib.auth.users.byemail("nobody@vertex.link"))'))
+
+            with self.raises(s_exc.DupUserEmail):
+                await core.callStorm('$lib.auth.users.add(bob, email=visi@vertex.link)')
+
+            await core.callStorm('$lib.auth.users.add(bob)')
+            with self.raises(s_exc.DupUserEmail):
+                await core.callStorm('$lib.auth.users.byname(bob).email = "VISI@vertex.link"')
+
+            iden = await core.callStorm(
+                'return($lib.auth.users.byemail("visi@vertex.link").iden)',
+                opts={'readonly': True},
+            )
+            self.eq(iden, visiden)
+
     async def test_stormlib_auth_default_allow(self):
         async with self.getTestCore() as core:
 
@@ -1363,8 +1390,8 @@ class StormLibAuthTest(s_test.SynTest):
             await core.callStorm('$lib.auth.users.byname(new1).name = new2')
             self.none(await core.callStorm('return($lib.auth.users.byname(new1))'))
             self.nn(await core.callStorm('return($lib.auth.users.byname(new2))'))
-            await core.callStorm('$lib.auth.users.byname(new2).email = "visi@vertex.link"')
-            self.eq('visi@vertex.link', await core.callStorm('return($lib.auth.users.byname(new2).email)'))
+            await core.callStorm('$lib.auth.users.byname(new2).email = "new2@vertex.link"')
+            self.eq('new2@vertex.link', await core.callStorm('return($lib.auth.users.byname(new2).email)'))
 
             # test renaming a role
             await core.callStorm('$lib.auth.roles.add(new0)')
