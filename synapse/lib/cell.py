@@ -1243,11 +1243,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initCellBoot()
 
         # we need to know this pretty early...
-        self.ahasvcname = None
-        ahaname = self.conf.get('aha:name')
-        ahanetw = self.conf.get('aha:network')
-        if ahaname is not None and ahanetw is not None:
-            self.ahasvcname = f'{ahaname}.{ahanetw}'
+        self.ahasvcname = self._getAhaSvcName()
+        if self.ahasvcname is not None:
             s_logging.setLogInfo('service', self.ahasvcname)
 
             # Update the processpool configuration as early as possible; before
@@ -2335,6 +2332,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
         return ahainfo
+
+    def _getAhaSvcName(self):
+        '''
+        Return the AHA service name used as the ``service`` log key
+        and for the ``ahasvcname`` attribute. Returns None when the
+        cell is not configured as an AHA service.
+        '''
+        ahaname = self.conf.get('aha:name')
+        ahanetw = self.conf.get('aha:network')
+        if ahaname is not None and ahanetw is not None:
+            return f'{ahaname}.{ahanetw}'
+
+        return None
 
     async def _initAhaService(self):
 

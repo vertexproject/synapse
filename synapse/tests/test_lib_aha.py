@@ -13,6 +13,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.logging as s_logging
 
 import synapse.tools.aha.list as s_a_list
 
@@ -497,6 +498,31 @@ class AhaTest(s_test.SynTest):
 
                     async with await s_telepath.openurl('aha://0.cell...') as proxy:
                         self.nn(await proxy.getCellIden())
+
+    async def test_lib_aha_logging(self):
+
+        s_logging.setup()
+
+        # AHA service does not register as an AHA service so make sure
+        # it sets the 'service' log key directly. The default test AHA
+        # has 'aha:network' set to 'synapse' but not 'aha:name'.
+        async with self.getTestAha() as aha:
+            self.eq(aha.ahasvcname, 'aha.synapse')
+
+            with self.getLoggerStream('synapse.lib.aha') as stream:
+                s_aha.logger.warning('aha test message')
+                mesg = stream.jsonlines()[0]
+                self.eq(mesg['service'], 'aha.synapse')
+
+        # An explicit 'aha:name' overrides the default.
+        conf = {'aha:name': 'aha00'}
+        async with self.getTestAha(conf=conf) as aha:
+            self.eq(aha.ahasvcname, 'aha00.synapse')
+
+            with self.getLoggerStream('synapse.lib.aha') as stream:
+                s_aha.logger.warning('aha test message')
+                mesg = stream.jsonlines()[0]
+                self.eq(mesg['service'], 'aha00.synapse')
 
     async def test_lib_aha_bootstrap(self):
 
