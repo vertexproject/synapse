@@ -1244,8 +1244,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # we need to know this pretty early...
         self.ahasvcname = self._getAhaSvcName()
-        if self.ahasvcname is not None:
-            s_logging.setLogInfo('service', self.ahasvcname)
+
+        svcname = self.getSvcName()
+        if svcname is not None:
+            s_logging.setLogInfo('service', svcname)
 
             # Update the processpool configuration as early as possible; before
             # we go through additional boot steps which may trigger pool workers
@@ -2335,9 +2337,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def _getAhaSvcName(self):
         '''
-        Return the AHA service name used as the ``service`` log key
-        and for the ``ahasvcname`` attribute. Returns None when the
-        cell is not configured as an AHA service.
+        Return the AHA service identifier used for the ``ahasvcname``
+        attribute. Returns None when the cell is not configured as
+        an AHA service.
         '''
         ahaname = self.conf.get('aha:name')
         ahanetw = self.conf.get('aha:network')
@@ -2345,6 +2347,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return f'{ahaname}.{ahanetw}'
 
         return None
+
+    def getSvcName(self):
+        '''
+        Return the name used as the ``service`` key for log entries.
+        Defaults to the AHA service identifier. Returns None when
+        no name is available.
+        '''
+        return self._getAhaSvcName()
 
     async def _initAhaService(self):
 

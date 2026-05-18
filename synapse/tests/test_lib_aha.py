@@ -506,9 +506,11 @@ class AhaTest(s_test.SynTest):
         # AHA service does not register as an AHA service so make sure
         # it sets the 'service' log key directly. The default test AHA
         # has 'aha:network' set to 'synapse' and 'dns:name' set but no
-        # 'aha:name', so the service log key falls back to 'dns:name'.
+        # 'aha:name', so the service log key falls back to 'dns:name'
+        # while 'ahasvcname' stays None.
         async with self.getTestAha() as aha:
-            self.eq(aha.ahasvcname, '00.aha.loop.vertex.link')
+            self.none(aha.ahasvcname)
+            self.eq(aha.getSvcName(), '00.aha.loop.vertex.link')
 
             with self.getLoggerStream('synapse.lib.aha') as stream:
                 s_aha.logger.warning('aha test message')
@@ -519,6 +521,7 @@ class AhaTest(s_test.SynTest):
         conf = {'aha:name': 'aha00'}
         async with self.getTestAha(conf=conf) as aha:
             self.eq(aha.ahasvcname, 'aha00.synapse')
+            self.eq(aha.getSvcName(), 'aha00.synapse')
 
             with self.getLoggerStream('synapse.lib.aha') as stream:
                 s_aha.logger.warning('aha test message')
@@ -529,6 +532,7 @@ class AhaTest(s_test.SynTest):
         conf = {'dns:name': None}
         async with self.getTestAha(conf=conf) as aha:
             self.none(aha.ahasvcname)
+            self.none(aha.getSvcName())
 
     async def test_lib_aha_bootstrap(self):
 
