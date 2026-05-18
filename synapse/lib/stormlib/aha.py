@@ -174,6 +174,7 @@ class AhaLib(s_stormtypes.Lib):
             timeout (int): Optional timeout in seconds.
             skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
+        self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
         todo = await s_stormtypes.toprim(todo)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
@@ -202,6 +203,7 @@ class AhaLib(s_stormtypes.Lib):
             timeout (int): Optional timeout in seconds.
             skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
+        self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
         todo = await s_stormtypes.toprim(todo)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
