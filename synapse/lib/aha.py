@@ -563,14 +563,13 @@ class AhaCell(s_cell.Cell):
         # The AHA service does not register itself with AHA, so the
         # default cell logic that derives the service log name from
         # both 'aha:name' and 'aha:network' will not produce a value
-        # when 'aha:name' is not configured. Fall back to 'aha' as
-        # the name so the 'service' log key is always populated.
-        ahanetw = self.conf.get('aha:network')
-        if ahanetw is None:
-            return None
+        # when 'aha:name' is not configured. Fall back to 'dns:name'
+        # so the 'service' log key is still populated.
+        name = s_cell.Cell._getAhaSvcName(self)
+        if name is not None:
+            return name
 
-        ahaname = self.conf.get('aha:name', 'aha')
-        return f'{ahaname}.{ahanetw}'
+        return self.conf.get('dns:name')
 
     async def _initCellBoot(self):
 
