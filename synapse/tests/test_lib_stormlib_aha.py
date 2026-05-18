@@ -328,6 +328,21 @@ Connection information:
                     $lib.aha.callPeerApi(noiden.cell..., $todo)
                 '''))
 
+                lowuser = await core00.auth.addUser('lowuser')
+                await lowuser.addRule((True, ('storm',)))
+                lowopts = {'user': lowuser.iden}
+                with self.raises(s_exc.AuthDeny):
+                    await core00.callStorm('''
+                        $todo = $lib.utils.todo('getCellInfo')
+                        for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo) {}
+                    ''', opts=lowopts)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core00.callStorm('''
+                        $todo = $lib.utils.todo('getNexusChanges', (0), wait=(false))
+                        for ($name, $info) in $lib.aha.callPeerGenr(cell..., $todo) {}
+                    ''', opts=lowopts)
+
                 msgs = await core00.stormlist('aha.svc.mirror')
                 self.stormIsInPrint('Service Mirror Groups:', msgs)
                 self.stormIsInPrint('cell.synapse', msgs)
