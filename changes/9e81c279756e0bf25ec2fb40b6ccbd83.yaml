@@ -1,0 +1,6 @@
+---
+desc: Added a missing admin check to ``$lib.aha.callPeerApi()`` and ``$lib.aha.callPeerGenr()``.
+desc:literal: false
+prs: []
+type: bug
+...
