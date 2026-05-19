@@ -565,7 +565,7 @@ class AhaCell(s_cell.Cell):
         # 'aha:name' + 'aha:network' will not produce a value when
         # 'aha:name' is not configured. Fall back to 'dns:name' so
         # the 'service' log key is still populated.
-        name = s_cell.Cell.getSvcName(self)
+        name = super().getSvcName(self)
         if name is not None:
             return name
 
