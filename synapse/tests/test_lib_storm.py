@@ -3683,6 +3683,66 @@ class StormTest(s_t_utils.SynTest):
             testmax = await core.nodes('ou:org | max #minmax')
             self.eq(testmax[0].ndef, maxnodes[0].ndef)
 
+            # --size option: max yields top-N in descending order
+            nodes = await core.nodes('test:guid | max :tick --size 2')
+            self.len(2, nodes)
+            self.eq(nodes[0].get('tick'), maxval)
+            self.eq(nodes[1].get('tick'), midval)
+
+            nodes = await core.nodes('test:guid | max :tick --size 3')
+            self.len(3, nodes)
+            self.eq(nodes[0].get('tick'), maxval)
+            self.eq(nodes[1].get('tick'), midval)
+            self.eq(nodes[2].get('tick'), minval)
+
+            # --size larger than node count yields all nodes
+            nodes = await core.nodes('test:guid | max :tick --size 50')
+            self.len(3, nodes)
+
+            # --size via storm variable
+            nodes = await core.nodes('$n=2 test:guid | max :tick --size $n')
+            self.len(2, nodes)
+            self.eq(nodes[0].get('tick'), maxval)
+
+            # default (no --size) yields one node (backward compat)
+            nodes = await core.nodes('test:guid | max :tick')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), maxval)
+
+            # cap exceeded raises StormRuntimeError
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test:guid | max :tick --size 10001')
+
+            # --size option: min yields bottom-N in ascending order
+            nodes = await core.nodes('test:guid | min :tick --size 2')
+            self.len(2, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+            self.eq(nodes[1].get('tick'), midval)
+
+            nodes = await core.nodes('test:guid | min :tick --size 3')
+            self.len(3, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+            self.eq(nodes[1].get('tick'), midval)
+            self.eq(nodes[2].get('tick'), maxval)
+
+            # --size larger than node count yields all nodes
+            nodes = await core.nodes('test:guid | min :tick --size 50')
+            self.len(3, nodes)
+
+            # --size via storm variable
+            nodes = await core.nodes('$n=2 test:guid | min :tick --size $n')
+            self.len(2, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+
+            # default (no --size) yields one node (backward compat)
+            nodes = await core.nodes('test:guid | min :tick')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+
+            # cap exceeded raises StormRuntimeError
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test:guid | min :tick --size 10001')
+
     async def test_scrape(self):
 
         async with self.getTestCore() as core:
