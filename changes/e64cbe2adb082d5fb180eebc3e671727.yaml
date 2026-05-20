@@ -1,0 +1,7 @@
+---
+desc: Added ``inet:whois:iprec:org`` and ``inet:whois:iprec:org:name`` properties to
+  better capture the organization that registered the network.
+desc:literal: false
+prs: []
+type: model
+...
