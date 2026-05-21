@@ -1,0 +1,2 @@
+$hello = $lib.import(acme.hello)
+$hello.woot("hello storm!")

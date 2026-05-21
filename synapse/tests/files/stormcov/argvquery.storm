@@ -1,0 +1,10 @@
+function foo() {
+    tee {
+        if $lib.true {
+            stop
+        }
+    } {}
+}
+yield $foo()
+// coverage: 1, 2, 3, 4, 6, 8
+// lines:    1, 2, 3, 4,    8

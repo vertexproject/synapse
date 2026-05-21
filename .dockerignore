@@ -1,0 +1,66 @@
+# vim:set ft=gitignore:
+
+cells/
+build/
+localdata/
+
+# Git / Editor / Coverage / Linter
+.git
+.gitignore
+.dockerignore
+.idea
+*.swo
+*.swp
+html/
+htmlcov/
+.coverage
+.coverage.*
+.coveragerc
+coverage.xml
+*,cover
+cover/
+.pytest_cache/
+.tox/
+.cache
+nosetests.xml
+.mypy_cache/
+
+# CI
+.appveyor.yml
+.bumpversion.cfg
+.circleci
+.pyup.yml
+
+# Synapse
+docs/
+CHANGELOG.md
+Dockerfile
+
+# Python
+**/*.pyc
+**/__pycache__
+build
+dist
+*.egg-info
+.eggs
+eggs/
+*.egg
+venv
+.python-version
+.Python
+env/
+develop-eggs/
+downloads/
+lib64/
+parts/
+sdist/
+var/
+*.manifest
+.installed.cfg
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+*.mo
+*.pot
+*.log
+target/

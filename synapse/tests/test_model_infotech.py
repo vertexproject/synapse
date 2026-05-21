@@ -1,0 +1,2222 @@
+
+import synapse.exc as s_exc
+import synapse.common as s_common
+
+import synapse.lib.json as s_json
+import synapse.lib.const as s_const
+import synapse.lib.scrape as s_scrape
+
+
+import synapse.tests.files as s_t_files
+import synapse.tests.utils as s_t_utils
+import synapse.tests.test_lib_scrape as s_t_scrape
+
+class InfotechModelTest(s_t_utils.SynTest):
+
+    async def test_infotech_basics(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''[
+                it:sec:cwe=CWE-120
+                    :name=omg
+                    :desc=omgwtfbbq
+                    :url=https://cwe.mitre.org/data/definitions/120.html
+                    :parents=(CWE-119,)
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cwe', 'CWE-120'))
+            self.propeq(nodes[0], 'name', 'omg')
+            self.propeq(nodes[0], 'desc', 'omgwtfbbq')
+            self.propeq(nodes[0], 'url', 'https://cwe.mitre.org/data/definitions/120.html')
+            self.propeq(nodes[0], 'parents', ('CWE-119',))
+
+            nodes = await core.nodes('''[
+                it:exec:thread=*
+                    :proc=*
+                    :period=(20210202, 20210203)
+                    :exitcode=0
+                    :sandbox:file=*
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].ndef[1])
+            self.propeq(nodes[0], 'period', (1612224000000000, 1612310400000000, 86400000000))
+            self.propeq(nodes[0], 'exitcode', 0)
+            self.len(1, await core.nodes('it:exec:thread :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:thread :sandbox:file -> file:bytes'))
+
+            nodes = await core.nodes('''[
+                it:exec:lib:load=*
+                    :proc=*
+                    :va=0x00a000
+                    :loaded=20210202
+                    :unloaded=20210203
+                    :path=/home/invisigoth/rootkit.so
+                    :file=*
+                    :sandbox:file=*
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].ndef[1])
+            self.nn(nodes[0].get('proc'))
+            self.propeq(nodes[0], 'va', 0x00a000)
+            self.propeq(nodes[0], 'loaded', 1612224000000000)
+            self.propeq(nodes[0], 'unloaded', 1612310400000000)
+            self.len(1, await core.nodes('it:exec:lib:load :file -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:lib:load :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:lib:load -> file:path +file:path=/home/invisigoth/rootkit.so'))
+            self.len(1, await core.nodes('it:exec:lib:load :sandbox:file -> file:bytes'))
+
+            nodes = await core.nodes('''[
+                it:exec:mmap:add=*
+                    :proc=*
+                    :va=0x00a000
+                    :size=4096
+                    :perms:read=1
+                    :perms:write=0
+                    :perms:execute=1
+                    :created=20210202
+                    :deleted=20210203
+                    :path=/home/invisigoth/rootkit.so
+                    :hash:sha256=ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c
+                    :sandbox:file=*
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].ndef[1])
+            self.nn(nodes[0].get('proc'))
+            self.propeq(nodes[0], 'va', 0x00a000)
+            self.propeq(nodes[0], 'size', 4096)
+            self.propeq(nodes[0], 'perms:read', 1)
+            self.propeq(nodes[0], 'perms:write', 0)
+            self.propeq(nodes[0], 'perms:execute', 1)
+            self.propeq(nodes[0], 'created', 1612224000000000)
+            self.propeq(nodes[0], 'deleted', 1612310400000000)
+            self.propeq(nodes[0], 'hash:sha256', 'ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c')
+            self.len(1, await core.nodes('it:exec:mmap:add -> crypto:hash:sha256'))
+            self.len(1, await core.nodes('it:exec:mmap:add :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:mmap:add -> file:path +file:path=/home/invisigoth/rootkit.so'))
+            self.len(1, await core.nodes('it:exec:mmap:add :sandbox:file -> file:bytes'))
+
+            nodes = await core.nodes('''[
+                it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa
+                    :exitcode=0
+                    :sandbox:file=*
+                    :name=RunDLL32
+                    :path=c:/windows/system32/rundll32.exe
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], '80e6c59d9c349ac15f716eaa825a23fa')
+            self.propeq(nodes[0], 'exitcode', 0)
+            self.propeq(nodes[0], 'name', 'RunDLL32')
+            self.propeq(nodes[0], 'path', 'c:/windows/system32/rundll32.exe')
+            self.len(1, await core.nodes('it:exec:proc:path.base=rundll32.exe'))
+            self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :sandbox:file -> file:bytes'))
+
+            # FIXME host:activity interface?
+            nodes = await core.nodes('''[
+                it:av:scan:result=*
+                    :time=20231117
+                    :verdict=suspicious
+                    :scanner={[ it:software=* :name="visi scan" ]}
+                    :scanner:name="visi scan"
+                    :categories=("Foo  Bar", "baz faz")
+                    :signame=omgwtfbbq
+                    :target={[ file:bytes=({"sha256": "80e6c59d9c349ac15f716eaa825a23fa80e6c59d9c349ac15f716eaa825a23fa"}) ]}
+                    :multi:scan={[ it:av:scan:result=*
+                        :scanner:name="visi total"
+                        :multi:count=10
+                        :multi:count:benign=3
+                        :multi:count:unknown=1
+                        :multi:count:suspicious=4
+                        :multi:count:malicious=2
+                    ]}
+            ]''')
+            self.propeq(nodes[0], 'time', 1700179200000000)
+            self.propeq(nodes[0], 'verdict', 30)
+            self.propeq(nodes[0], 'scanner:name', 'visi scan')
+            self.propeq(nodes[0], 'target', 'fa1caa2924199d7b4bab0f57ebdbb7ec')
+            self.propeq(nodes[0], 'signame', 'omgwtfbbq')
+            self.propeq(nodes[0], 'categories', ('baz faz', 'foo bar'))
+
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> file:bytes'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:software'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:av:signame'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:softwarename'))
+
+            nodes = await core.nodes('it:av:scan:result:scanner:name="visi total"')
+            self.len(1, nodes)
+
+            self.propeq(nodes[0], 'multi:count', 10)
+            self.propeq(nodes[0], 'multi:count:benign', 3)
+            self.propeq(nodes[0], 'multi:count:unknown', 1)
+            self.propeq(nodes[0], 'multi:count:suspicious', 4)
+            self.propeq(nodes[0], 'multi:count:malicious', 2)
+
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi total" -> it:av:scan:result +:scanner:name="visi scan"'))
+
+            q = '''
+            [ it:network=(vertex, ops, lan)
+                :desc="Vertex Project Operations LAN"
+                :name="opslan.lax.vertex.link"
+                :net="10.1.0.0/16"
+                :owner={ gen.ou.org "Vertex Project" }
+                :type=virtual.sdn
+                :dns:resolvers=(1.2.3.4, tcp://1.2.3.4:99)
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:network', s_common.guid(('vertex', 'ops', 'lan'))))
+            self.propeq(nodes[0], 'desc', 'Vertex Project Operations LAN')
+            self.propeq(nodes[0], 'name', 'opslan.lax.vertex.link')
+            self.propeq(nodes[0], 'net', ((4, 167837696), (4, 167903231)))
+            self.propeq(nodes[0], 'type', 'virtual.sdn.')
+            self.propeq(nodes[0], 'dns:resolvers', ('udp://1.2.3.4:53', 'tcp://1.2.3.4:99'))
+
+            nodes = await core.nodes('''[
+                it:sec:stix:indicator=*
+                    :id=zoinks
+                    :name=woot
+                    :confidence=90
+                    :revoked=(false)
+                    :desc="my neato indicator"
+                    :pattern="some rule text"
+                    :pattern_type=yara
+                    :created=20240815
+                    :updated=20240815
+                    :labels=(hehe, haha)
+                    :valid_from=20240815
+                    :valid_until=20240815
+                    +(detects)> {[ entity:campaign=(foo, bar) ]}
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'zoinks')
+            self.propeq(nodes[0], 'name', 'woot')
+            self.propeq(nodes[0], 'confidence', 90)
+            self.propeq(nodes[0], 'revoked', False)
+            self.propeq(nodes[0], 'desc', 'my neato indicator')
+            self.propeq(nodes[0], 'pattern', 'some rule text')
+            self.propeq(nodes[0], 'pattern_type', 'yara')
+            self.propeq(nodes[0], 'labels', ('haha', 'hehe'))
+            self.propeq(nodes[0], 'created', 1723680000000000)
+            self.propeq(nodes[0], 'updated', 1723680000000000)
+            self.propeq(nodes[0], 'valid_from', 1723680000000000)
+            self.propeq(nodes[0], 'valid_until', 1723680000000000)
+            self.len(1, await core.nodes('it:sec:stix:indicator -(detects)> entity:campaign'))
+
+            nodes = await core.nodes('''
+                [ it:host:hosted:url=({[ it:host=* ]}, https://vertex.link)
+                    :seen=20251113
+                ]
+            ''')
+
+            self.len(1, nodes)
+            self.nn(nodes[0].get('host'))
+            self.propeq(nodes[0], 'url', 'https://vertex.link')
+            self.propeq(nodes[0], 'seen', (1762992000000000, 1762992000000001, 1))
+            self.len(1, await core.nodes('it:host:hosted:url -> it:host'))
+            self.len(1, await core.nodes('it:host:hosted:url -> inet:url'))
+
+            nodes = await core.nodes('''
+                [ it:dev:function:sample=*
+                    :function={[ it:dev:function=* :id=VISI-10 :name=foobar :desc=Woot ]}
+                    :file=*
+                    :file:offs=10
+                ]
+            ''')
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('function'))
+            self.propeq(nodes[0], 'file:offs', 10)
+            self.len(1, await core.nodes('it:dev:function:sample -> it:dev:function +:name=foobar'))
+
+    async def test_infotech_android(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[it:os:android:perm="Foo Perm"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:android:perm', 'Foo Perm'))
+
+            nodes = await core.nodes('[it:os:android:intent="Foo Intent"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:android:intent', 'Foo Intent'))
+
+            softver = s_common.guid()
+            valu = (softver, 'Listen Test')
+            nodes = await core.nodes('[it:os:android:ilisten=$valu]', opts={'vars': {'valu': valu}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:android:ilisten', (softver, 'Listen Test')))
+            self.propeq(node, 'app', softver)
+            self.propeq(node, 'intent', 'Listen Test')
+
+            valu = (softver, 'Broadcast Test')
+            nodes = await core.nodes('[it:os:android:ibroadcast=$valu]', opts={'vars': {'valu': valu}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:android:ibroadcast', (softver, 'Broadcast Test')))
+            self.propeq(node, 'app', softver)
+            self.propeq(node, 'intent', 'Broadcast Test')
+
+            valu = (softver, 'Test Perm')
+            nodes = await core.nodes('[it:os:android:reqperm=$valu]', opts={'vars': {'valu': valu}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:android:reqperm', (softver, 'Test Perm')))
+            self.propeq(node, 'app', softver)
+            self.propeq(node, 'perm', 'Test Perm')
+
+    async def test_it_forms_simple(self):
+        async with self.getTestCore() as core:
+            place = s_common.guid()
+            nodes = await core.nodes('[it:hostname="Bobs Computer"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:hostname', 'bobs computer'))
+
+            q = '''
+            [ it:software:image=(ubuntu, 24.10, amd64, vhdx)
+                :name="ubuntu-24.10-amd64.vhdx"
+                :published=202405170940
+                :publisher={[ entity:contact=(blackout,) :name=blackout ]}
+                :creator={[ inet:service:account=* :user=visi ]}
+                :parents={[ it:software:image=* :name=zoom ]}
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('parents'))
+            self.eq(nodes[0].ndef, ('it:software:image', s_common.guid(('ubuntu', '24.10', 'amd64', 'vhdx'))))
+            self.propeq(nodes[0], 'name', 'ubuntu-24.10-amd64.vhdx')
+            self.propeq(nodes[0], 'published', 1715938800000000)
+            self.propeq(nodes[0], 'publisher', s_common.guid(('blackout',)))
+
+            nodes = await core.nodes('''
+                [ it:host=*
+
+                    :id=foo123
+                    :name="Bobs laptop"
+                    :desc="Bobs paperweight"
+
+                    :ip=1.2.3.4
+                    :place=*
+                    :place:latlong=(0, 0)
+
+                    :os=*
+                    :image={ it:software:image | limit 1 }
+                    :serial=111-222
+                    :place:loc=us.hehe.haha
+                    :operator={[ entity:contact=* ]}
+                    :org=*
+
+                    :phys:mass=10kg
+                    :phys:width=5m
+                    :phys:height=10m
+                    :phys:length=20m
+                    :phys:volume=1000m
+                ]
+            ''')
+            self.len(1, nodes)
+
+            self.propeq(nodes[0], 'id', 'foo123')
+            self.propeq(nodes[0], 'name', 'bobs laptop')
+            self.propeq(nodes[0], 'desc', 'Bobs paperweight')
+            self.propeq(nodes[0], 'ip', (4, 0x01020304))
+            self.propeq(nodes[0], 'place:latlong', (0.0, 0.0))
+            self.propeq(nodes[0], 'place:loc', 'us.hehe.haha')
+            self.propeq(nodes[0], 'phys:mass', '10000')
+            self.propeq(nodes[0], 'phys:width', 5000)
+            self.propeq(nodes[0], 'phys:height', 10000)
+            self.propeq(nodes[0], 'phys:length', 20000)
+            self.propeq(nodes[0], 'phys:volume', 1000000)
+
+            self.len(1, await core.nodes('it:host :os -> it:software'))
+            self.len(1, await core.nodes('it:host :org -> ou:org'))
+            self.len(1, await core.nodes('it:host :place -> geo:place'))
+            self.len(1, await core.nodes('it:host :operator -> entity:contact'))
+
+            host = node
+
+            nodes = await core.nodes(r'''
+            [ it:storage:volume=(smb, 192.168.0.10, c$, temp)
+                :name="\\\\192.168.0.10\\c$\\temp"
+                :size=(10485760)
+                :type=windows.smb.share
+            ]
+            ''')
+
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:storage:volume', s_common.guid(('smb', '192.168.0.10', 'c$', 'temp'))))
+            self.propeq(nodes[0], 'name', '\\\\192.168.0.10\\c$\\temp')
+            self.propeq(nodes[0], 'size', s_const.mebibyte * 10)
+            self.propeq(nodes[0], 'type', 'windows.smb.share.')
+            volume = nodes[0]
+
+            nodes = await core.nodes(r'''
+                [ it:storage:mount=*
+                    :host={ it:host | limit 1 }
+                    :path="z:\\"
+                    :volume={ it:storage:volume | limit 1 }
+                ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('it:storage:mount :host -> it:host'))
+            self.len(1, await core.nodes('it:storage:mount :path -> file:path'))
+            self.len(1, await core.nodes('it:storage:mount :volume -> it:storage:volume'))
+
+            nodes = await core.nodes('[it:dev:int=0x61c88648]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:int', 1640531528))
+
+            nodes = await core.nodes('''[
+                it:sec:cve=CVE-2013-9999
+                    //:nist:nvd:source=NistSource
+                    //:nist:nvd:published=2021-10-11
+                    //:nist:nvd:modified=2021-10-11
+
+                    //:cisa:kev:name=KevName
+                    //:cisa:kev:desc=KevDesc
+                    //:cisa:kev:action=KevAction
+                    //:cisa:kev:vendor=KevVendor
+                    //:cisa:kev:product=KevProduct
+                    //:cisa:kev:added=2022-01-02
+                    //:cisa:kev:duedate=2022-01-02
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:sec:cve', 'CVE-2013-9999'))
+            # self.propeq(node, 'nist:nvd:source', 'nistsource')
+            # self.propeq(node, 'nist:nvd:published', 1633910400000000)
+            # self.propeq(node, 'nist:nvd:modified', 1633910400000000)
+            # self.propeq(node, 'cisa:kev:name', 'KevName')
+            # self.propeq(node, 'cisa:kev:desc', 'KevDesc')
+            # self.propeq(node, 'cisa:kev:action', 'KevAction')
+            # self.propeq(node, 'cisa:kev:vendor', 'kevvendor')
+            # self.propeq(node, 'cisa:kev:product', 'kevproduct')
+            # self.propeq(node, 'cisa:kev:added', 1641081600000000)
+            # self.propeq(node, 'cisa:kev:duedate', 1641081600000000)
+
+            nodes = await core.nodes('[ it:sec:cve=cve-2010-9998 ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cve', 'CVE-2010-9998'))
+
+            nodes = await core.nodes('it:sec:cve^=cve-2010')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cve', 'CVE-2010-9998'))
+
+            nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20122013\u20131138'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:sec:cve', 'CVE-2013-1138'))
+
+            nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20112013\u20140001'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:sec:cve', 'CVE-2013-0001'))
+
+            nodes = await core.nodes('[ it:adid=visi ]')
+            self.eq(('it:adid', 'visi'), nodes[0].ndef)
+
+            nodes = await core.nodes('''
+                init {
+                    $org = $lib.guid()
+                    $host = $lib.guid()
+                    $acct = $lib.guid()
+                }
+                [
+                    it:host:account=$acct
+                        :host=$host
+                        :user=visi
+                        :contact={[ entity:contact=* :email=visi@vertex.link ]}
+                        :period=(2024, *)
+                        // FIXME
+                        //:domain={[ it:domain=* :org=$org :name=vertex :desc="the vertex project domain" ]}
+
+                    (it:host:session=*
+                        :period=(20210314,202103140201)
+                        :account=$acct
+                        :server:host=$host)
+                ]
+            ''')
+            self.len(2, nodes)
+            self.propeq(nodes[0], 'user', 'visi')
+            self.nn(nodes[0].get('host'))
+            self.propeq(nodes[0], 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+            # FIXME :domain
+            # self.nn(nodes[0].get('domain'))
+            self.nn(nodes[0].get('contact'))
+
+            self.nn(nodes[1].get('server:host'))
+            self.nn(nodes[1].get('account'))
+            self.propeq(nodes[1], 'period', (1615680000000000, 1615687260000000, 7260000000))
+
+            nodes = await core.nodes('''
+                [ it:host:login=*
+                    :account={ it:host:account:user=visi }
+                    :success=$lib.true
+                    :credential={[ auth:passwd=cool ]}
+                    :flow={[ inet:flow=(foo,) ]}
+                    :session={ it:host:session }
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'it:host:login')
+            self.nn(nodes[0].get('account'))
+            self.propeq(nodes[0], 'success', True)
+            self.nn(nodes[0].get('credential'))
+            self.nn(nodes[0].get('flow'))
+            self.nn(nodes[0].get('session'))
+
+            # Sample SIDs from here:
+            # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/81d92bba-d22b-4a8c-908a-554ab29148ab
+            sids = [
+                'S-1-0-0', 'S-1-1-0', 'S-1-2-0', 'S-1-2-1', 'S-1-3', 'S-1-3-0',
+                'S-1-3-1', 'S-1-3-2', 'S-1-3-3', 'S-1-3-4', 'S-1-5', 'S-1-5-1',
+                'S-1-5-2', 'S-1-5-3', 'S-1-5-4', 'S-1-5-6', 'S-1-5-7', 'S-1-5-8',
+                'S-1-5-9', 'S-1-5-10', 'S-1-5-11', 'S-1-5-12', 'S-1-5-13', 'S-1-5-14',
+                'S-1-5-15', 'S-1-5-17', 'S-1-5-18', 'S-1-5-19', 'S-1-5-20',
+                'S-1-5-21-0-0-0-496', 'S-1-5-21-0-0-0-497', 'S-1-5-32-544',
+                'S-1-5-32-545', 'S-1-5-32-546', 'S-1-5-32-547', 'S-1-5-32-548',
+                'S-1-5-32-549', 'S-1-5-32-550', 'S-1-5-32-551', 'S-1-5-32-552',
+                'S-1-5-32-554', 'S-1-5-32-555', 'S-1-5-32-556', 'S-1-5-32-557',
+                'S-1-5-32-558', 'S-1-5-32-559', 'S-1-5-32-560', 'S-1-5-32-561',
+                'S-1-5-32-562', 'S-1-5-32-568', 'S-1-5-32-569', 'S-1-5-32-573',
+                'S-1-5-32-574', 'S-1-5-32-575', 'S-1-5-32-576', 'S-1-5-32-577',
+                'S-1-5-32-578', 'S-1-5-32-579', 'S-1-5-32-580', 'S-1-5-32-582',
+                'S-1-5-33', 'S-1-5-64-10', 'S-1-5-64-14', 'S-1-5-64-21', 'S-1-5-65-1',
+                'S-1-5-80', 'S-1-5-80-0', 'S-1-5-83-0', 'S-1-5-84-0-0-0-0-0',
+                'S-1-5-90-0', 'S-1-5-113', 'S-1-5-114', 'S-1-5-1000', 'S-1-15-2-1',
+                'S-1-16-0', 'S-1-16-4096', 'S-1-16-8192', 'S-1-16-8448', 'S-1-16-12288',
+                'S-1-16-16384', 'S-1-16-20480', 'S-1-16-28672', 'S-1-18-1', 'S-1-18-2',
+                'S-1-18-3', 'S-1-18-4', 'S-1-18-5', 'S-1-18-6',
+            ]
+
+            opts = {'vars': {'sids': sids}}
+            nodes = await core.nodes('for $sid in $sids {[ it:host:windows:account=* :id=$sid ]}', opts=opts)
+            self.len(88, nodes)
+
+            nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:session :server:host -> it:host')
+            self.len(1, nodes)
+            self.eq('it:host', nodes[0].ndef[0])
+
+            self.len(1, await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:host:account -> it:host:login -> inet:flow'))
+
+            # test inet:proto:link interface properties on it:host:login
+            nodes = await core.nodes('''
+                init {
+                    $chost = $lib.guid()
+                    $shost = $lib.guid()
+                }
+                [
+                    it:host:login=*
+                        :client=tcp://1.2.3.4:5678
+                        :client:host=$chost
+                        :server=tcp://5.6.7.8:443
+                        :server:host=$shost
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'client', 'tcp://1.2.3.4:5678')
+            self.nn(nodes[0].get('client:host'))
+            self.propeq(nodes[0], 'server', 'tcp://5.6.7.8:443')
+            self.nn(nodes[0].get('server:host'))
+
+            # FIXME :domain
+            # nodes = await core.nodes('it:host:account -> it:domain')
+            # self.len(1, nodes)
+            # self.nn(nodes[0].get('org'))
+            # self.propeq(nodes[0], 'name', 'vertex')
+            # self.propeq(nodes[0], 'desc', 'the vertex project domain')
+
+            nodes = await core.nodes('''[
+                it:log:event=*
+                    :mesg=foobar
+                    :data=(foo, bar, baz)
+                    :severity=debug
+
+                    :host={it:host | limit 1}
+                    :sandbox:file=*
+                    :service:platform=*
+                    :service:account=*
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'severity', 10)
+            self.propeq(nodes[0], 'mesg', 'foobar')
+            self.propeq(nodes[0], 'data', ('foo', 'bar', 'baz'))
+            # check that the host activity model was inherited
+            self.nn(nodes[0].get('host'))
+            self.len(1, await core.nodes('it:log:event :sandbox:file -> file:bytes'))
+            self.len(1, await core.nodes('it:log:event :service:account -> inet:service:account'))
+            self.len(1, await core.nodes('it:log:event :service:platform -> inet:service:platform'))
+
+            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language={[ lang:language=({"code": "en.us"}) ]} ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('keyboard:language'))
+            self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))
+            self.len(1, await core.nodes('lang:language:code=en.us -> it:host'))
+
+    async def test_it_host_account_subforms(self):
+
+        async with self.getTestCore() as core:
+
+            # Test it:host:posix:account with all props
+            nodes = await core.nodes('''
+                $host = $lib.guid()
+                [
+                    it:host:posix:account=*
+                        :user=visi
+                        :host=$host
+                        :id=1001
+                        :gid=1001
+                        :gecos=42
+                        :home=/home/visi
+                        :shell=/bin/bash
+                        :period=(2024, *)
+                        :contact={[ entity:contact=* :email=visi@vertex.link ]}
+                        :service:account={[ inet:service:account=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:posix:account')
+            self.propeq(node, 'user', 'visi')
+            self.nn(node.get('host'))
+            self.propeq(node, 'id', 1001, type='it:os:posix:id')
+            self.propeq(node, 'gid', 1001, type='it:os:posix:id')
+            self.propeq(node, 'gecos', 42)
+            self.propeq(node, 'home', '/home/visi')
+            self.propeq(node, 'shell', '/bin/bash')
+            self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+            self.nn(node.get('contact'))
+            self.nn(node.get('service:account'))
+
+            # Test it:host:windows:account with all props
+            nodes = await core.nodes('''
+                $host = $lib.guid()
+                [
+                    it:host:windows:account=*
+                        :user=admin
+                        :host=$host
+                        :id=S-1-5-21-0-0-0-500
+                        :period=(2024, *)
+                        :contact={[ entity:contact=* :email=admin@vertex.link ]}
+                        :service:account={[ inet:service:account=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:windows:account')
+            self.propeq(node, 'user', 'admin')
+            self.nn(node.get('host'))
+            self.propeq(node, 'id', 'S-1-5-21-0-0-0-500', type='it:os:windows:sid')
+            self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+            self.nn(node.get('contact'))
+            self.nn(node.get('service:account'))
+
+            # Test :id on parent it:host:account with base:id value
+            nodes = await core.nodes('[it:host:account=* :id=acct-12345]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'acct-12345', type='base:id')
+
+            # Verify querying it:host:account returns parent and child form nodes
+            nodes = await core.nodes('it:host:account')
+            posix = [n for n in nodes if n.ndef[0] == 'it:host:posix:account']
+            windows = [n for n in nodes if n.ndef[0] == 'it:host:windows:account']
+            self.len(1, posix)
+            self.len(1, windows)
+
+            # Verify pivot from child forms works
+            self.len(1, await core.nodes('it:host:posix:account :host -> it:host'))
+            self.len(1, await core.nodes('it:host:windows:account :host -> it:host'))
+
+            # Test it:host:group:membership for account-in-group membership
+            nodes = await core.nodes('''
+                [
+                    it:host:group:membership=*
+                        :member={ it:host:posix:account:id=1001 }
+                        :group={[ it:host:posix:group=* :id=1001 ]}
+                        :period=(2024, *)
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:group:membership')
+            self.nn(node.get('member'))
+            self.nn(node.get('group'))
+            self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+
+            # Verify pivots through the membership form
+            self.len(1, await core.nodes('it:host:group:membership :member -> it:host:account'))
+            self.len(1, await core.nodes('it:host:group:membership :group -> it:host:group'))
+
+            # Test negative integer rejected by it:os:posix:id
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[it:host:posix:account=* :id=-1]')
+
+    async def test_it_host_group_subforms(self):
+
+        async with self.getTestCore() as core:
+
+            # Test it:host:posix:group with all props
+            nodes = await core.nodes('''
+                $host = $lib.guid()
+                [
+                    it:host:posix:group=*
+                        :id=1001
+                        :name=developers
+                        :desc="the developers group"
+                        :host=$host
+                        :service:role={[ inet:service:role=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:posix:group')
+            self.propeq(node, 'id', 1001, type='it:os:posix:id')
+            self.propeq(node, 'name', 'developers')
+            self.propeq(node, 'desc', 'the developers group')
+            self.nn(node.get('host'))
+            self.nn(node.get('service:role'))
+
+            # Test it:host:windows:group with all props
+            nodes = await core.nodes('''
+                $host = $lib.guid()
+                [
+                    it:host:windows:group=*
+                        :id=S-1-5-32-544
+                        :name=administrators
+                        :host=$host
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:windows:group')
+            self.propeq(node, 'id', 'S-1-5-32-544', type='it:os:windows:sid')
+            self.propeq(node, 'name', 'administrators')
+            self.nn(node.get('host'))
+
+            # Test :id on parent it:host:group with base:id value
+            nodes = await core.nodes('[it:host:group=* :id=grp-12345]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'grp-12345', type='base:id')
+
+            # Verify querying it:host:group returns parent and child form nodes
+            nodes = await core.nodes('it:host:group')
+            posix = [n for n in nodes if n.ndef[0] == 'it:host:posix:group']
+            windows = [n for n in nodes if n.ndef[0] == 'it:host:windows:group']
+            self.len(1, posix)
+            self.len(1, windows)
+
+            # Verify pivot from child forms works
+            self.len(1, await core.nodes('it:host:posix:group :host -> it:host'))
+            self.len(1, await core.nodes('it:host:windows:group :host -> it:host'))
+
+            # Test it:host:group:membership for nested group membership
+            nodes = await core.nodes('''
+                [
+                    it:host:group:membership=*
+                        :member={ it:host:posix:group:id=1001 }
+                        :group={[ it:host:posix:group=* :id=3001 ]}
+                        :period=(2024, *)
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:group:membership')
+            self.nn(node.get('member'))
+            self.nn(node.get('group'))
+            self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+
+            # Verify pivots through the membership form
+            self.len(1, await core.nodes('it:host:group:membership :member -> it:host:group'))
+            self.len(1, await core.nodes('it:host:group:membership :group -> it:host:group'))
+
+            # Test negative integer rejected by it:os:posix:id
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[it:host:posix:group=* :id=-1]')
+
+    async def test_it_software(self):
+        # Test all prodsoft and prodsoft associated linked forms
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                it:software=*
+                    :id="Foo "
+                    :tag=cno.mal.cobaltstrike
+                    :name="Balloon Maker"
+                    :names=("clowns inc",)
+                    :type=hehe.haha
+                    :desc="Pennywise's patented balloon blower upper"
+                    :url=https://vertex.link/products/balloonmaker
+                    :version=V1.0.1-beta+exp.sha.5114f85
+                    :released="2018-04-03 08:44:22"
+                    :risk:score=highest
+                    :seen=(20180101, 20190101)
+                    +(runson)> {[ it:software=({"name": "linux"}) ]}
+                    +(runson)> {[ it:hardware=({"name": "amd64"}) ]}
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.propeq(node, 'id', 'Foo')
+            self.propeq(node, 'tag', 'cno.mal.cobaltstrike')
+            self.propeq(node, 'name', 'balloon maker')
+            self.propeq(node, 'desc', "Pennywise's patented balloon blower upper")
+            self.propeq(node, 'url', 'https://vertex.link/products/balloonmaker')
+            self.propeq(node, 'released', 1522745062000000)
+            self.propeq(node, 'version', 'V1.0.1-beta+exp.sha.5114f85')
+            self.propeq(node, 'risk:score', 50)
+            self.nn(node.get('seen'))
+            self.len(1, await core.nodes('it:software:name="balloon maker" -> it:software:type:taxonomy'))
+            self.len(2, await core.nodes('it:softwarename="balloon maker" -> it:software -> it:softwarename'))
+            self.len(1, await core.nodes('it:software:id=Foo -(runson)> it:software +:name=linux'))
+            self.len(1, await core.nodes('it:software:id=Foo -(runson)> it:hardware +:name=amd64'))
+
+            self.len(1, nodes := await core.nodes('[ it:software=({"name": "clowns inc"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
+
+            # Test 'vers' semver brute forcing
+            testvectors = [
+                ('1', 0x000010000000000),
+                ('2.0A1', 0x000020000000000),
+                ('2016-03-01', 0x007e00000300001),
+                ('1.2.windows-RC1', 0x000010000200000),
+                ('3.4', 0x000030000400000),
+                ('1.3a2.dev12', 0x000010000000000),
+                ('v2.4.0.0-1', 0x000020000400000),
+                ('v2.4.1.0-0.3.rc1', 0x000020000400001),
+                ('0.18rc2', 0),
+                ('OpenSSL_1_0_2l', 0x000010000000000),
+            ]
+
+            for tv, te in testvectors:
+                nodes = await core.nodes('[it:software=* :version=$valu]', opts={'vars': {'valu': tv}})
+                self.len(1, nodes)
+                node = nodes[0]
+                self.propeq(node, 'version.semver', te)
+
+            nodes = await core.nodes('[it:software=* :version=$valu]', opts={'vars': {'valu': ''}})
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'version', '')
+            self.none(nodes[0].get('version.semver'))
+
+    async def test_it_form_callbacks(self):
+        async with self.getTestCore() as core:
+            # it:dev:str kicks out the :norm property on him when he is made
+            nodes = await core.nodes('[it:dev:str="evil RAT"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:str', 'evil RAT'))
+            # FIXME make this type behavior rather than a callback
+            # self.propeq(node, 'norm', 'evil rat')
+
+    async def test_it_semvertype(self):
+        async with self.getTestCore() as core:
+            t = core.model.type('it:semver')
+            testvectors = (
+                # Strings
+                ('1.2.3', (0x000010000200003,
+                           {'major': 1, 'minor': 2, 'patch': 3, })),
+                ('0.0.1', (0x000000000000001,
+                           {'major': 0, 'minor': 0, 'patch': 1, })),
+                ('1.2.3-alpha', (0x000010000200003,
+                                 {'major': 1, 'minor': 2, 'patch': 3,
+                                  'pre': 'alpha', })),
+                ('1.2.3-alpha.1', (0x000010000200003,
+                                   {'major': 1, 'minor': 2, 'patch': 3,
+                                    'pre': 'alpha.1', })),
+                ('1.2.3-0.3.7', (0x000010000200003,
+                                 {'major': 1, 'minor': 2, 'patch': 3,
+                                  'pre': '0.3.7', })),
+                ('1.2.3-x.7.z.92', (0x000010000200003,
+                                    {'major': 1, 'minor': 2, 'patch': 3,
+                                     'pre': 'x.7.z.92', })),
+                ('1.2.3-alpha+001', (0x000010000200003,
+                                     {'major': 1, 'minor': 2, 'patch': 3,
+                                      'pre': 'alpha', 'build': '001'})),
+                ('1.2.3+20130313144700', (0x000010000200003,
+                                          {'major': 1, 'minor': 2, 'patch': 3,
+                                           'build': '20130313144700'})),
+                ('1.2.3-beta+exp.sha.5114f85', (0x000010000200003,
+                                                {'major': 1, 'minor': 2, 'patch': 3,
+                                                 'pre': 'beta',
+                                                 'build': 'exp.sha.5114f85'})),
+                # Real world examples
+                ('1.2.3-B5CD5743F', (0x000010000200003,
+                                     {'major': 1, 'minor': 2, 'patch': 3,
+                                      'pre': 'B5CD5743F', })),
+                ('V1.2.3', (0x000010000200003,
+                            {'major': 1, 'minor': 2, 'patch': 3, })),
+                ('V1.4.0-RC0', (0x000010000400000,
+                                {'major': 1, 'minor': 4, 'patch': 0,
+                                 'pre': 'RC0', })),
+                ('v2.4.1-0.3.rc1', (0x000020000400001,
+                                    {'major': 2, 'minor': 4, 'patch': 1,
+                                     'pre': '0.3.rc1'})),
+                ('0.18.1', (0x000000001200001,
+                            {'major': 0, 'minor': 18, 'patch': 1, })),
+                # Integer values
+                (0, (0, {'major': 0, 'minor': 0, 'patch': 0})),
+                (1, (1, {'major': 0, 'minor': 0, 'patch': 1})),
+                (2, (2, {'major': 0, 'minor': 0, 'patch': 2})),
+                (0xFFFFF, (0xFFFFF, {'major': 0, 'minor': 0, 'patch': 0xFFFFF})),
+                (0xFFFFF + 1, (0xFFFFF + 1, {'major': 0, 'minor': 1, 'patch': 0})),
+                (0xdeadb33f1337133, (0xdeadb33f1337133, {'major': 0xdeadb, 'minor': 0x33f13, 'patch': 0x37133})),
+                (0xFFFFFFFFFFFFFFF, (0xFFFFFFFFFFFFFFF, {'major': 0xFFFFF, 'minor': 0xFFFFF, 'patch': 0xFFFFF})),
+                # Brute forced strings
+                ('1', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
+                ('1.2', (1099513724928, {'major': 1, 'minor': 2, 'patch': 0})),
+                ('2.0A1', (2199023255552, {'major': 2, 'minor': 0, 'patch': 0})),
+                ('0.18rc2', (0, {'major': 0, 'minor': 0, 'patch': 0})),
+                ('0.0.00001', (1, {'major': 0, 'minor': 0, 'patch': 1})),
+                ('2016-03-01', (2216615444742145, {'major': 2016, 'minor': 3, 'patch': 1})),
+                ('v2.4.0.0-1', (2199027449856, {'major': 2, 'minor': 4, 'patch': 0})),
+                ('1.3a2.dev12', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
+                ('OpenSSL_1_0_2l', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
+                ('1.2.windows-RC1', (1099513724928, {'major': 1, 'minor': 2, 'patch': 0})),
+                ('v2.4.1.0-0.3.rc1', (2199027449857, {'major': 2, 'minor': 4, 'patch': 1})),
+                ('1.2.3-alpha.foo..+001', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha.foo.001+001', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha+001.blahblahblah...', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha+001.blahblahblah.*iggy', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3}))
+            )
+
+            for v, e in testvectors:
+                ev, es = e
+                valu, rdict = await t.norm(v)
+                self.eq(valu, ev)
+
+            testvectors_bad = (
+                # invalid ints
+                -1,
+                0xFFFFFFFFFFFFFFFFFFFFFFFF + 1,
+                # Just bad input
+                '   ',
+                ' alpha ',
+            )
+            for v in testvectors_bad:
+                await self.asyncraises(s_exc.BadTypeValu, t.norm(v))
+
+            testvectors_repr = (
+                (0, '0.0.0'),
+                (1, '0.0.1'),
+                (0x000010000200003, '1.2.3'),
+            )
+            for v, e in testvectors_repr:
+                self.eq(t.repr(v), e)
+
+    async def test_it_forms_screenshot(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                it:exec:screenshot=*
+                    :host=*
+                    :image=*
+                    :desc=WootWoot
+                    :sandbox:file=*
+            ]''')
+
+            self.len(1, nodes)
+            self.eq('it:exec:screenshot', nodes[0].ndef[0])
+            self.propeq(nodes[0], 'desc', 'WootWoot')
+
+            self.len(1, await core.nodes('it:exec:screenshot :host -> it:host'))
+            self.len(1, await core.nodes('it:exec:screenshot :image -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:screenshot :sandbox:file -> file:bytes'))
+
+    async def test_it_forms_hardware(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                it:hardware=*
+                    :manufacturer={ gen.ou.org dell }
+                    :manufacturer:name=dell
+                    :model=XPS13
+                    :version=1.2.3
+                    :type=pc.laptop
+                    :desc=WootWoot
+                    :released=20220202
+                    :cpe=cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*
+                    :parts = (*, *)
+                    :seen=20220101
+            ]''')
+            self.propeq(nodes[0], 'desc', 'WootWoot')
+            self.propeq(nodes[0], 'model', 'XPS13')
+            self.propeq(nodes[0], 'version', '1.2.3')
+            self.nn(nodes[0].get('seen'))
+            self.propeq(nodes[0], 'version.semver', 1099513724931)
+            self.propeq(nodes[0], 'cpe', 'cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*')
+            self.propeq(nodes[0], 'released', 1643760000000000)
+            self.len(1, await core.nodes('it:hardware :type -> it:hardware:type:taxonomy'))
+            self.len(2, await core.nodes('it:hardware:model=XPS13 -> it:hardware'))
+            self.propeq(nodes[0], 'manufacturer:name', 'dell')
+            self.len(1, await core.nodes('it:hardware:version.semver >= 1.0.0'))
+            self.len(1, await core.nodes('it:hardware:version +:version.semver >= 1.0.0'))
+            self.len(1, await core.nodes('it:hardware -> ou:org +:name=dell'))
+
+            # coverage for :version.semver accessors
+            await core.nodes('it:hardware:version [ :version=woot ]')
+            self.len(0, await core.nodes('it:hardware:version.semver >= 1.0.0'))
+            self.len(0, await core.nodes('it:hardware:version +:version.semver >= 1.0.0'))
+
+            nodes = await core.nodes('''[
+                it:host:component=*
+                    :hardware={it:hardware:model=XPS13}
+                    :serial=asdf1234
+                    :host=*
+            ]''')
+            self.nn(nodes[0].get('host'))
+            self.propeq(nodes[0], 'serial', 'asdf1234')
+            self.len(1, await core.nodes('it:host:component -> it:host'))
+            self.len(1, await core.nodes('it:host:component -> it:hardware +:model=XPS13'))
+
+    async def test_it_forms_hostexec(self):
+        # forms related to the host execution model
+        async with self.getTestCore() as core:
+            exe = s_common.guid()
+            port = 80
+            tick = s_common.now()
+            host = s_common.guid()
+            proc = s_common.guid()
+            mutex = 'giggleXX_X0'
+            pipe = 'pipe\\mynamedpipe'
+            pid = 20
+            key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
+
+            sandfile = s_common.guid()
+            addr4 = f'tcp://1.2.3.4:{port}'
+            addr6 = f'udp://[::1]:{port}'
+            url = 'http://www.google.com/sekrit.html'
+            raw_path = r'c:\Windows\System32\rar.exe'
+            norm_path = r'c:/windows/system32/rar.exe'
+            src_proc = s_common.guid()
+            src_path = r'c:/temp/ping.exe'
+            cmd0 = 'rar a -r yourfiles.rar *.txt'
+            fpath = 'c:/temp/yourfiles.rar'
+            fbyts = s_common.guid()
+            pprops = {
+                'exe': exe,
+                'pid': pid,
+                'cmd': cmd0,
+                'host': host,
+                'time': tick,
+                'account': '*',
+                'path': raw_path,
+                'sandbox:file': sandfile,
+            }
+            q = '''[(it:exec:proc=$valu :exe=$p.exe :pid=$p.pid :cmd=$p.cmd :host=$p.host
+                :account=$p.account :path=$p.path
+                :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': proc, 'p': pprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:proc', proc))
+            self.propeq(node, 'exe', exe)
+            self.propeq(node, 'pid', pid)
+            self.propeq(node, 'cmd', cmd0)
+            self.propeq(node, 'host', host)
+            self.propeq(node, 'path', norm_path)
+            self.propeq(node, 'sandbox:file', sandfile)
+            self.nn(node.get('account'))
+            self.len(1, await core.nodes('it:exec:proc -> it:host:account'))
+
+            nodes = await core.nodes('it:cmd')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:cmd', 'rar a -r yourfiles.rar *.txt'))
+
+            q = '''
+            [ it:host=(VTX001, 192.168.0.10) :name=VTX001 :ip=192.168.0.10 ]
+            $host = $node
+
+            [( it:cmd:session=(202405170900, 202405171000, bash, $host)
+                :host=$host
+                :period=(202405170900, 202405171000)
+                :account={ it:host:account | limit 1 }
+            )]
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            hostguid = s_common.guid(('VTX001', '192.168.0.10'))
+            self.eq(nodes[0].ndef, ('it:host', hostguid))
+            self.eq(nodes[1].ndef, ('it:cmd:session', s_common.guid(('202405170900', '202405171000', 'bash', hostguid))))
+            self.propeq(nodes[1], 'host', hostguid)
+            self.propeq(nodes[1], 'period', (1715936400000000, 1715940000000000, 3600000000))
+            self.nn(nodes[1].get('account'))
+
+            cmdsess = nodes[1]
+
+            q = '''
+            [
+                (it:cmd:history=(1715936400000001, $sessiden)
+                    :cmd="ls -la"
+                    :time=(1715936400000001)
+                )
+
+                (it:cmd:history=(1715936400000002, $sessiden)
+                    :cmd="cd /"
+                    :time=(1715936400000002)
+                )
+
+                (it:cmd:history=(1715936400000003, $sessiden)
+                    :cmd="ls -laR"
+                    :time=(1715936400000003)
+                )
+
+                :session=$sessiden
+            ]
+            '''
+            opts = {'vars': {'sessiden': cmdsess.ndef[1]}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef, ('it:cmd:history', s_common.guid(('1715936400000001', cmdsess.ndef[1]))))
+            self.propeq(nodes[0], 'cmd', 'ls -la')
+            self.propeq(nodes[0], 'time', 1715936400000001)
+            self.propeq(nodes[0], 'session', cmdsess.ndef[1])
+
+            self.eq(nodes[1].ndef, ('it:cmd:history', s_common.guid(('1715936400000002', cmdsess.ndef[1]))))
+            self.propeq(nodes[1], 'cmd', 'cd /')
+            self.propeq(nodes[1], 'time', 1715936400000002)
+            self.propeq(nodes[1], 'session', cmdsess.ndef[1])
+
+            self.eq(nodes[2].ndef, ('it:cmd:history', s_common.guid(('1715936400000003', cmdsess.ndef[1]))))
+            self.propeq(nodes[2], 'cmd', 'ls -laR')
+            self.propeq(nodes[2], 'time', 1715936400000003)
+            self.propeq(nodes[2], 'session', cmdsess.ndef[1])
+
+            m0 = s_common.guid()
+            mprops = {
+                'exe': exe,
+                'proc': proc,
+                'name': mutex,
+                'host': host,
+                'time': tick,
+                'sandbox:file': sandfile,
+            }
+            q = '''[(it:exec:mutex:add=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
+                    :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': m0, 'p': mprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:mutex:add', m0))
+            self.propeq(node, 'exe', exe)
+            self.propeq(node, 'proc', proc)
+            self.propeq(node, 'host', host)
+            self.propeq(node, 'time', tick)
+            self.propeq(node, 'name', mutex)
+            self.propeq(node, 'sandbox:file', sandfile)
+
+            p0 = s_common.guid()
+            pipeprops = {
+                'exe': exe,
+                'proc': proc,
+                'name': pipe,
+                'host': host,
+                'time': tick,
+                'sandbox:file': sandfile,
+            }
+            q = '''[(it:exec:pipe:add=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
+                    :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': p0, 'p': pipeprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:pipe:add', p0))
+            self.propeq(node, 'exe', exe)
+            self.propeq(node, 'proc', proc)
+            self.propeq(node, 'host', host)
+            self.propeq(node, 'time', tick)
+            self.propeq(node, 'name', pipe)
+            self.propeq(node, 'sandbox:file', sandfile)
+
+            nodes = await core.nodes('''
+                [ it:exec:fetch=*
+                    :proc=*
+                    :host={ it:host | limit 1 }
+                    :url=https://vertex.link
+                    :time=20250718
+
+                    :browser=*
+
+                    :page:pdf=*
+                    :page:html=*
+                    :page:image=*
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'url', 'https://vertex.link')
+            self.propeq(nodes[0], 'time', 1752796800000000)
+
+            self.len(1, await core.nodes('it:exec:fetch :host -> it:host'))
+            self.len(1, await core.nodes('it:exec:fetch :browser -> it:software'))
+            self.len(1, await core.nodes('it:exec:fetch :page:pdf -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:fetch :page:html -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:fetch :page:image -> file:bytes'))
+
+            b0 = s_common.guid()
+            bprops = {
+                'proc': proc,
+                'host': host,
+                'exe': exe,
+                'time': tick,
+                'server': addr4,
+                'sandbox:file': sandfile,
+            }
+            q = '''[(it:exec:bind=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                :server=$p.server :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': b0, 'p': bprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:bind', b0))
+            self.eq(node.ndef[1], b0)
+            self.propeq(node, 'exe', exe)
+            self.propeq(node, 'proc', proc)
+            self.propeq(node, 'host', host)
+            self.propeq(node, 'time', tick)
+            self.propeq(node, 'server', addr4)
+            self.propeq(node, 'sandbox:file', sandfile)
+
+            b1 = s_common.guid()
+            bprops['server'] = addr6
+            nodes = await core.nodes(q, opts={'vars': {'valu': b1, 'p': bprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:bind', b1))
+            self.propeq(node, 'server', addr6)
+
+            faprops = {
+                'exe': exe,
+                'host': host,
+                'proc': proc,
+                'file': fbyts,
+                'time': tick,
+                'path': fpath,
+                'sandbox:file': sandfile,
+            }
+            fa0 = s_common.guid()
+            q = '''[(it:exec:file:add=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                :file=$p.file :path=$p.path
+                :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': fa0, 'p': faprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:file:add', fa0))
+            self.propeq(node, 'exe', exe)
+            self.propeq(node, 'host', host)
+            self.propeq(node, 'proc', proc)
+            self.propeq(node, 'time', tick)
+            self.propeq(node, 'file', fbyts)
+            self.propeq(node, 'path', fpath)
+            self.len(1, await core.nodes('it:exec:file:add:path.dir=c:/temp'))
+            self.len(1, await core.nodes('it:exec:file:add:path.base=yourfiles.rar'))
+            self.len(1, await core.nodes('it:exec:file:add:path.ext=rar'))
+            self.propeq(node, 'sandbox:file', sandfile)
+
+            fr0 = s_common.guid()
+            q = '''[(it:exec:file:read=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                            :file=$p.file :path=$p.path
+                            :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': fr0, 'p': faprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:file:read', fr0))
+            self.propeq(node, 'exe', exe)
+            self.propeq(node, 'host', host)
+            self.propeq(node, 'proc', proc)
+            self.propeq(node, 'time', tick)
+            self.propeq(node, 'file', fbyts)
+            self.propeq(node, 'path', fpath)
+            self.len(1, await core.nodes('it:exec:file:read:path.dir=c:/temp'))
+            self.len(1, await core.nodes('it:exec:file:read:path.base=yourfiles.rar'))
+            self.len(1, await core.nodes('it:exec:file:read:path.ext=rar'))
+            self.propeq(node, 'sandbox:file', sandfile)
+
+            fw0 = s_common.guid()
+            q = '''[(it:exec:file:write=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                    :file=$p.file :path=$p.path
+                    :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': fw0, 'p': faprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:file:write', fw0))
+            self.propeq(node, 'exe', exe)
+            self.propeq(node, 'host', host)
+            self.propeq(node, 'proc', proc)
+            self.propeq(node, 'time', tick)
+            self.propeq(node, 'file', fbyts)
+            self.propeq(node, 'path', fpath)
+            self.len(1, await core.nodes('it:exec:file:write:path.dir=c:/temp'))
+            self.len(1, await core.nodes('it:exec:file:write:path.base=yourfiles.rar'))
+            self.len(1, await core.nodes('it:exec:file:write:path.ext=rar'))
+            self.propeq(node, 'sandbox:file', sandfile)
+
+            fd0 = s_common.guid()
+            q = '''[(it:exec:file:del=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                                :file=$p.file :path=$p.path
+                                :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': fd0, 'p': faprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:file:del', fd0))
+            self.propeq(node, 'exe', exe)
+            self.propeq(node, 'host', host)
+            self.propeq(node, 'proc', proc)
+            self.propeq(node, 'time', tick)
+            self.propeq(node, 'file', fbyts)
+            self.propeq(node, 'path', fpath)
+            self.len(1, await core.nodes('it:exec:file:del:path.dir=c:/temp'))
+            self.len(1, await core.nodes('it:exec:file:del:path.base=yourfiles.rar'))
+            self.len(1, await core.nodes('it:exec:file:del:path.ext=rar'))
+            self.propeq(node, 'sandbox:file', sandfile)
+
+            file0 = s_common.guid()
+            fsprops = {
+                'host': host,
+                'path': fpath,
+                'file': fbyts,
+                'ctime': tick,
+                'mtime': tick + 1,
+                'atime': tick + 2,
+                'group': 'domainadmin'
+            }
+            nodes = await core.nodes('''[
+                file:system:entry=*
+                    :host={ it:host | limit 1 }
+                    :path=c:/temp/yourfiles.rar
+                    :file=*
+                    :added=20200202
+                    :created=20200202
+                    :modified=20200203
+                    :accessed=20200204
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.nn(node.get('host'))
+            self.nn(node.get('file'))
+
+            self.propeq(node, 'added', 1580601600000000)
+            self.propeq(node, 'created', 1580601600000000)
+            self.propeq(node, 'modified', 1580688000000000)
+            self.propeq(node, 'accessed', 1580774400000000)
+            self.propeq(node, 'path', 'c:/temp/yourfiles.rar')
+
+            self.len(1, await core.nodes('file:system:entry:path.dir=c:/temp'))
+            self.len(1, await core.nodes('file:system:entry:path.base=yourfiles.rar'))
+            self.len(1, await core.nodes('file:system:entry:path.ext=rar'))
+
+            rprops = {
+                'host': host,
+                'proc': proc,
+                'exe': exe,
+                'time': tick,
+                'reg': '*',
+                'sandbox:file': sandfile,
+            }
+            forms = ('it:exec:windows:registry:get',
+                     'it:exec:windows:registry:set',
+                     'it:exec:windows:registry:del',
+                     )
+            for form in forms:
+                rk0 = s_common.guid()
+                nprops = rprops.copy()
+                q = '''[(*$form=$valu :host=$p.host :proc=$p.proc :exe=$p.exe :time=$p.time :entry=$p.reg
+                    :sandbox:file=$p."sandbox:file")]'''
+                nodes = await core.nodes(q, opts={'vars': {'form': form, 'valu': rk0, 'p': nprops}})
+                self.len(1, nodes)
+                node = nodes[0]
+                self.eq(node.ndef, (form, rk0))
+                self.propeq(node, 'host', host)
+                self.propeq(node, 'proc', proc)
+                self.propeq(node, 'exe', exe)
+                self.propeq(node, 'time', tick)
+                self.nn(node.get('entry'))
+                self.propeq(node, 'sandbox:file', sandfile)
+
+        async with self.getTestCore() as core:
+            forms = [
+                'file:system:entry',
+                'it:exec:file:add',
+                'it:exec:file:del',
+                'it:exec:file:read',
+                'it:exec:file:write',
+            ]
+
+            for form in forms:
+                opts = {'vars': {'form': form, 'prop': f'{form}:path'}}
+                nodes = await core.nodes('[ *$form=($form, calc) :path="c:/windows/system32/calc.exe" ]', opts=opts)
+                self.len(1, nodes)
+                self.propeq(nodes[0], 'path', 'c:/windows/system32/calc.exe')
+                self.len(1, await core.nodes('*($prop).dir=c:/windows/system32', opts=opts))
+                self.len(1, await core.nodes('*($prop).base=calc.exe', opts=opts))
+                self.len(1, await core.nodes('*($prop).ext=exe', opts=opts))
+
+                nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/blackout/script.ps1" ]', opts=opts)
+                self.len(1, nodes)
+                self.propeq(nodes[0], 'path', 'c:/users/blackout/script.ps1')
+                self.len(1, await core.nodes('*($prop).dir=c:/users/blackout', opts=opts))
+                self.len(1, await core.nodes('*($prop).base=script.ps1', opts=opts))
+                self.len(1, await core.nodes('*($prop).ext=ps1', opts=opts))
+
+                nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/admin/superscript.bat" ]', opts=opts)
+                self.len(1, nodes)
+                self.propeq(nodes[0], 'path', 'c:/users/admin/superscript.bat')
+                self.len(1, await core.nodes('*($prop).dir=c:/users/admin', opts=opts))
+                self.len(1, await core.nodes('*($prop).base=superscript.bat', opts=opts))
+                self.len(1, await core.nodes('*($prop).ext=bat', opts=opts))
+
+    async def test_it_app_yara(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:app:yara:rule=*
+                    :id=V-31337
+                    :url=https://vertex.link/yara-lolz/V-31337
+                    :created=20200202 :updated=20220401
+                    :enabled=true :text=gronk
+                    :creator={[ entity:contact=* ]}
+                    :name=foo :version=1.2.3
+                    +(detects)> {[ it:softwarename=woot ]}
+                ]
+            ''')
+
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'name', 'foo')
+            self.propeq(nodes[0], 'id', 'V-31337')
+            self.propeq(nodes[0], 'url', 'https://vertex.link/yara-lolz/V-31337')
+            self.propeq(nodes[0], 'enabled', True)
+            self.propeq(nodes[0], 'created', 1580601600000000)
+            self.propeq(nodes[0], 'updated', 1648771200000000)
+            self.propeq(nodes[0], 'text', 'gronk')
+            self.propeq(nodes[0], 'version', '1.2.3')
+            self.propeq(nodes[0], 'version.semver', 0x10000200003)
+
+            self.len(1, await core.nodes('it:app:yara:rule -> entity:contact'))
+            self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename'))
+
+            nodes = await core.nodes('''
+                $file = {[ file:bytes=* ]}
+                $rule = { it:app:yara:rule:id=V-31337 }
+                [ it:app:yara:match=({"rule": $rule, "target": $file})
+                    :version=1.2.3
+                    :matched=20200202
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('rule'))
+            self.nn(nodes[0].get('target'))
+            self.propeq(nodes[0], 'version', '1.2.3')
+            self.propeq(nodes[0], 'matched', 1580601600000000)
+
+    async def test_it_app_snort(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+            [ it:app:snort:rule=*
+                :id=999
+                :engine=1
+                :text=gronk
+                :name=foo
+                :creator = {[ entity:contact=* :name=visi ]}
+                :created = 20120101
+                :updated = 20220101
+                :enabled=1
+                :version=1.2.3
+                +(detects)> {[ it:softwarename=woot ]}
+            ]
+            ''')
+
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', '999')
+            self.propeq(nodes[0], 'engine', 1)
+            self.propeq(nodes[0], 'name', 'foo')
+            self.propeq(nodes[0], 'text', 'gronk')
+            self.propeq(nodes[0], 'enabled', True)
+            self.propeq(nodes[0], 'version', '1.2.3')
+            self.propeq(nodes[0], 'created', 1325376000000000)
+            self.propeq(nodes[0], 'updated', 1640995200000000)
+            self.nn(nodes[0].get('creator'))
+
+            self.len(1, await core.nodes('it:app:snort:rule -(detects)> it:softwarename'))
+
+            rule = nodes[0].ndef[1]
+
+            nodes = await core.nodes('''[
+                it:app:snort:match=*
+                    :rule={[ it:app:snort:rule=({"id": 999}) ]}
+                    :matched=2015
+                    :target={[ inet:flow=* ]}
+                    :sensor={[ it:host=* ]}
+                    :version=1.2.3
+                    :dropped=true
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('target'))
+            self.nn(nodes[0].get('sensor'))
+            self.propeq(nodes[0], 'dropped', 1)
+            self.propeq(nodes[0], 'rule', rule)
+            self.propeq(nodes[0], 'version', '1.2.3')
+            self.propeq(nodes[0], 'matched', 1420070400000000)
+
+    async def test_it_function(self):
+
+        async with self.getTestCore() as core:
+
+            fileiden = s_common.guid()
+
+            q = '''[
+                it:dev:function=*
+                    :id=ZIP10
+                    :name=woot_woot
+                    :desc="Woot woot"
+                    :strings=(foo, bar, foo)
+                    :impcalls=(foo, bar, foo)
+            ]'''
+
+            opts = {'vars': {'file': fileiden}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'ZIP10')
+            self.propeq(nodes[0], 'name', 'woot_woot')
+            self.propeq(nodes[0], 'desc', 'Woot woot')
+            self.propeq(nodes[0], 'strings', ('bar', 'foo'))
+            self.propeq(nodes[0], 'impcalls', ('bar', 'foo'))
+            self.len(1, await core.nodes('it:dev:function :name -> it:dev:str'))
+            self.len(2, await core.nodes('it:dev:function :strings -> it:dev:str'))
+            # impcalls uses str:lower type (not it:dev:str form) so form pivot is not supported
+            self.len(0, await core.nodes('it:dev:function :impcalls -> it:dev:str'))
+
+            q = '''[
+                it:dev:function:sample=*
+                    :file=*
+                    :function={ it:dev:function }
+                    :va=0x404438
+                    :calls=(*, *)
+            ]'''
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'va', 0x404438)
+            self.len(1, await core.nodes('it:dev:function:sample:va=0x404438 -> file:bytes'))
+            self.len(1, await core.nodes('it:dev:function:sample:va=0x404438 -> it:dev:function'))
+            self.len(2, await core.nodes('it:dev:function:sample:va=0x404438 :calls -> it:dev:function:sample'))
+
+    async def test_infotech_cpes(self):
+
+        async with self.getTestCore() as core:
+            self.eq(r'foo:bar', (await core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*'))[1]['subs']['vendor'][1])
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[it:sec:cpe=asdf]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('[ it:sec:cpe="cpe:2.3:a:vendor001:product-foo" :v2_2="cpe:/a:vendor:product\\foo" ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('[ it:sec:cpe="cpe:/a:vend🙃:prod:vers" ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm(r'$lib.cast(it:sec:cpe, "cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*")')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm(r'$lib.cast(it:sec:cpe:v2_2, "cpe:/a:01generator:pireospay\r\n:-::~~~prestashop~~")')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('$lib.cast(it:sec:cpe:v2_2, "cpe:2.3:*")')
+
+            nodes = await core.nodes('''[
+                it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*'))
+            self.propeq(nodes[0], 'part', 'a')
+            self.propeq(nodes[0], 'vendor', 'microsoft')
+            self.propeq(nodes[0], 'product', 'internet_explorer')
+            self.propeq(nodes[0], 'version', '8.0.6001')
+            self.propeq(nodes[0], 'update', 'beta')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes("[ it:sec:cpe='cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*' ]")
+
+            nodes = await core.nodes(r'[ it:sec:cpe="cpe:2.3:o:cisco:ios:12.1\\(22\\)ea1a:*:*:*:*:*:*:*" ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cpe', r'cpe:2.3:o:cisco:ios:12.1\(22\)ea1a:*:*:*:*:*:*:*'))
+            self.propeq(nodes[0], 'part', 'o')
+            self.propeq(nodes[0], 'product', 'ios')
+            self.propeq(nodes[0], 'vendor', 'cisco')
+            self.propeq(nodes[0], 'version', '12.1(22)ea1a')
+            self.propeq(nodes[0], 'v2_2', 'cpe:/o:cisco:ios:12.1%2822%29ea1a')
+
+            cpe23 = core.model.type('it:sec:cpe')
+            cpe22 = core.model.type('it:sec:cpe:v2_2')
+
+            with self.raises(s_exc.BadTypeValu):
+                await cpe22.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
+
+            with self.raises(s_exc.BadTypeValu):
+                await cpe23.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
+
+            # test cast 2.2 -> 2.3 upsample
+            norm, info = await cpe23.norm('cpe:/a:vertex:synapse')
+            self.eq(norm, 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*')
+
+            # test cast 2.3 -> 2.2 downsample
+            norm, info = await cpe22.norm('cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*')
+            self.eq(norm, 'cpe:/a:vertex:synapse')
+
+            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:* ]')
+            self.propeq(nodes[0], 'v2_2', 'cpe:/a:vertex:synapse')
+
+            # test lift by either via upsample and downsample
+            self.len(1, await core.nodes('it:sec:cpe=cpe:/a:vertex:synapse +:v2_2=cpe:/a:vertex:synapse'))
+            self.len(1, await core.nodes('it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
+            self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:/a:vertex:synapse'))
+            self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
+
+            # Test cpe22 -> cpe23 escaping logic
+            norm, info = await cpe23.norm('cpe:/a:%21')
+            self.eq(norm, 'cpe:2.3:a:\\!:*:*:*:*:*:*:*:*:*')
+
+            norm, info = await cpe23.norm('cpe:/a:%5c%21')
+            self.eq(norm, 'cpe:2.3:a:\\!:*:*:*:*:*:*:*:*:*')
+
+            norm, info = await cpe23.norm('cpe:/a:%5cb')
+            self.eq(norm, 'cpe:2.3:a:\\\\b:*:*:*:*:*:*:*:*:*')
+
+            norm, info = await cpe23.norm('cpe:/a:b%5c')
+            self.eq(norm, 'cpe:2.3:a:b\\\\:*:*:*:*:*:*:*:*:*')
+
+            norm, info = await cpe23.norm('cpe:/a:b%5c%5c')
+            self.eq(norm, 'cpe:2.3:a:b\\\\:*:*:*:*:*:*:*:*:*')
+
+            norm, info = await cpe23.norm('cpe:/a:b%5c%5cb')
+            self.eq(norm, 'cpe:2.3:a:b\\\\b:*:*:*:*:*:*:*:*:*')
+
+            # Examples based on customer reports
+            q = r'''
+            [
+                it:sec:cpe="cpe:/a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~"
+                it:sec:cpe="cpe:/a:1c:1c%3aenterprise:-"
+                it:sec:cpe="cpe:/a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~"
+                it:sec:cpe="cpe:/o:zyxel:nas326_firmware:5.21%28aazf.14%29c0"
+            ]
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            # Examples based on customer reports
+            q = r'''
+            [
+                it:sec:cpe="cpe:2.3:a:x1c:1c\\:enterprise:-:*:*:*:*:*:*:*"
+                it:sec:cpe="cpe:2.3:a:xacurax:under_construction_\\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"
+                it:sec:cpe="cpe:2.3:o:xzyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*"
+                it:sec:cpe="cpe:2.3:a:vendor:product\\%45:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
+                it:sec:cpe="cpe:2.3:a:vendor2:product\\%23:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
+            ]
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('it:sec:cpe:vendor=vendor')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'product', 'product%45')
+
+            nodes = await core.nodes('it:sec:cpe:vendor=vendor2')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'product', 'product%23')
+
+    async def test_infotech_cpe_conversions(self):
+        self.thisEnvMust('CIRCLECI')
+
+        async with self.getTestCore() as core:
+            cpe23 = core.model.type('it:sec:cpe')
+            cpe22 = core.model.type('it:sec:cpe:v2_2')
+            # Test 2.2->2.3 and 2.3->2.2 conversions
+            filename = s_t_files.getAssetPath('cpedata.json')
+            with open(filename, 'r') as fp:
+                cpedata = s_json.load(fp)
+
+            for (_cpe22, _cpe23) in cpedata:
+                # Convert cpe22 -> cpe23
+                norm_22, _ = await cpe23.norm(_cpe22)
+                self.eq(norm_22, _cpe23)
+
+                norm_23, info_23 = await cpe23.norm(_cpe23)
+                self.eq(norm_23, _cpe23)
+
+                # No escaped characters in the secondary props
+                for name, valu in info_23.items():
+                    if name == 'v2_2':
+                        continue
+
+                    self.notin('\\', valu)
+
+                # Norm cpe23 and check the cpe22 conversion
+                sub_23_v2_2 = info_23['subs']['v2_2'][1]
+
+                norm_sub_23_v2_2, _ = await cpe22.norm(sub_23_v2_2)
+                self.eq(norm_sub_23_v2_2, sub_23_v2_2)
+
+    async def test_cpe_scrape_one_to_one(self):
+
+        async with self.getTestCore() as core:
+            q = '[it:sec:cpe=$valu]'
+            for _, valu in s_scrape.scrape(s_t_scrape.cpedata, ptype='it:sec:cpe'):
+                nodes = await core.nodes(q, opts={'vars': {'valu': valu}})
+                self.len(1, nodes)
+                node = nodes[0]
+                self.eq(node.ndef[1], valu.lower(), msg=valu.lower())
+
+    async def test_infotech_c2config(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ it:sec:c2:config=*
+                    :file=*
+                    :family=Beacon
+                    :servers=(http://1.2.3.4, tcp://visi:secret@vertex.link)
+                    :decoys=(https://woot.com, https://foo.bar)
+                    :listens=(https://0.0.0.0:443,)
+                    :proxies=(socks5://visi:secret@1.2.3.4:1234,)
+                    :dns:resolvers=(udp://8.8.8.8:53,)
+                    :http:headers=(
+                        (user-agent, wootbot),
+                    )
+                    :mutex=OnlyOnce
+                    :crypto:key={[ crypto:key:secret=* ]}
+                    :campaigncode=WootWoot
+                    :raw = ({"hehe": "haha"})
+                    :connect:delay=01:00:00
+                    :connect:interval=08:00:00
+                ]
+            ''')
+            node = nodes[0]
+            self.nn(node.get('file'))
+            self.nn(node.get('crypto:key'))
+            self.propeq(node, 'mutex', 'OnlyOnce')
+            self.propeq(node, 'family', 'beacon')
+            self.propeq(node, 'campaigncode', 'WootWoot')
+            self.propeq(node, 'servers', ('http://1.2.3.4', 'tcp://visi:secret@vertex.link'))
+            self.propeq(node, 'connect:delay', 3600000000)
+            self.propeq(node, 'connect:interval', 28800000000)
+            self.propeq(node, 'raw', {'hehe': 'haha'})
+            self.propeq(node, 'listens', ('https://0.0.0.0:443',))
+            self.propeq(node, 'proxies', ('socks5://visi:secret@1.2.3.4:1234',))
+            self.propeq(node, 'dns:resolvers', ('udp://8.8.8.8:53',))
+            self.propeq(node, 'decoys', ('https://woot.com', 'https://foo.bar',))
+
+    async def test_infotech_query(self):
+
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'root': core.auth.rootuser.iden}}
+            nodes = await core.nodes('''
+                [ it:exec:query=*
+                    :text="SELECT * FROM threats"
+                    :language="SQL"
+                    :opts=({"foo": "bar"})
+                    :api:url=https://vertex.link/api/v1.
+                    :time=20220720
+                    :offset=99
+                    :account={[ syn:user=root ]}
+                    :platform = *
+                ]
+            ''', opts=opts)
+            self.propeq(nodes[0], 'time', 1658275200000000)
+            self.propeq(nodes[0], 'offset', 99)
+            self.propeq(nodes[0], 'language', 'sql')
+            self.propeq(nodes[0], 'opts', {"foo": "bar"})
+            self.propeq(nodes[0], 'text', 'SELECT * FROM threats')
+            self.propeq(nodes[0], 'account', core.auth.rootuser.iden, type='syn:user')
+            self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
+
+            self.len(1, await core.nodes('it:exec:query :account -> syn:user'))
+            self.len(1, await core.nodes('it:exec:query :platform -> inet:service:platform'))
+
+    async def test_infotech_softid(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:softid=*
+                    :id=Woot
+                    :host=*
+                    :software={[ it:software=* :name=beacon ]}
+                    :software:name=beacon
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'Woot')
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('software'))
+            self.len(1, await core.nodes('it:host -> it:softid'))
+            self.len(1, await core.nodes('it:software:name=beacon -> it:softid'))
+
+    async def test_infotech_repo(self):
+
+        async with self.getTestCore() as core:
+            diff = s_common.guid()
+            repo = s_common.guid()
+            issue = s_common.guid()
+            commit = s_common.guid()
+            branch = s_common.guid()
+            icom = s_common.guid()
+            dcom = s_common.guid()
+            origin = s_common.guid()
+            label = s_common.guid()
+            issuelabel = s_common.guid()
+            submod = s_common.guid()
+            remote = s_common.guid()
+            parent = s_common.guid()
+            replyto = s_common.guid()
+            file = s_common.guid()
+
+            props = {
+                'name': 'synapse',
+                'desc': 'Synapse Central Intelligence System',
+                'url': 'https://github.com/vertexproject/synapse',
+                'type': 'svn.',
+                'submodules': (submod,),
+            }
+            q = '''[(it:dev:repo=$valu :name=$p.name :desc=$p.desc :url=$p.url :type=$p.type
+                :submodules=$p.submodules )]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': repo, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo', repo))
+            self.propeq(node, 'name', 'synapse')
+            self.propeq(node, 'desc', 'Synapse Central Intelligence System')
+            self.propeq(node, 'url', 'https://github.com/vertexproject/synapse')
+            self.propeq(node, 'type', 'svn.')
+            self.propeq(node, 'submodules', (submod,))
+
+            props = {
+                'name': 'origin',
+                'repo': repo,
+                'url': 'git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging',
+                'remote': origin,
+            }
+            q = '''[(it:dev:repo:remote=$valu :name=$p.name :repo=$p.repo :url=$p.url :remote=$p.remote)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': remote, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:remote', remote))
+            self.propeq(node, 'name', 'origin')
+            self.propeq(node, 'repo', repo),
+            self.propeq(node, 'url', 'git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging')
+            self.propeq(node, 'remote', origin)
+
+            props = {
+                'repo': repo,
+                'branch': branch,
+                'parents': (parent,),
+                'mesg': 'a fancy new release',
+                'id': 'r12345',
+                'url': 'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf',
+            }
+            q = '''[(it:dev:repo:commit=$valu :repo=$p.repo :branch=$p.branch :parents=$p.parents :mesg=$p.mesg
+                :id=$p.id :url=$p.url)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': commit, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:commit', commit))
+            self.propeq(node, 'repo', repo)
+            self.propeq(node, 'branch', branch)
+            self.propeq(node, 'parents', (parent,))
+            self.propeq(node, 'mesg', 'a fancy new release')
+            self.propeq(node, 'id', 'r12345')
+            self.propeq(node, 'url', 'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf')
+
+            nodes = await core.nodes('''
+                [ it:dev:repo:entry=*
+                    :repo={it:dev:repo | limit 1}
+                    :file=*
+                    :path=foo/bar/baz.exe
+                    <(has)+ { it:dev:repo:commit | limit 1 }
+                ]
+            ''')
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('repo'))
+            self.propeq(nodes[0], 'path', 'foo/bar/baz.exe')
+
+            self.len(1, await core.nodes('it:dev:repo:entry <(has)- it:dev:repo:commit'))
+
+            props = {
+                'commit': commit,
+                'file': file,
+                'path': 'synapse/tets/test_model_infotech.py',
+                'url': 'https://github.com/vertexproject/synapse/compare/it_dev_repo_models?expand=1',
+            }
+            q = '''[(it:dev:repo:diff=$valu :commit=$p.commit :file=$p.file :path=$p.path :url=$p.url)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': diff, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:diff', diff))
+            self.propeq(node, 'commit', commit)
+            self.propeq(node, 'file', file)
+            self.propeq(node, 'path', 'synapse/tets/test_model_infotech.py')
+            self.propeq(node, 'url', 'https://github.com/vertexproject/synapse/compare/it_dev_repo_models?expand=1')
+
+            props = {
+                'repo': repo,
+                'title': 'a fancy new release',
+                'desc': 'Gonna be a big release friday',
+                'updated': 1,
+                'id': '1234',
+                'url': 'https://github.com/vertexproject/synapse/issues/2821',
+            }
+            q = '''[(it:dev:repo:issue=$valu :repo=$p.repo :title=$p.title :desc=$p.desc
+                :updated=$p.updated :id=$p.id :url=$p.url)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': issue, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:issue', issue))
+            self.propeq(node, 'repo', repo)
+            self.propeq(node, 'title', 'a fancy new release')
+            self.propeq(node, 'desc', 'Gonna be a big release friday')
+            self.propeq(node, 'updated', 1)
+            self.propeq(node, 'id', '1234')
+            self.propeq(node, 'url', 'https://github.com/vertexproject/synapse/issues/2821')
+
+            props = {
+                'id': '123456789',
+                'title': 'new feature',
+                'desc': 'a super cool new feature'
+            }
+            q = '[(it:dev:repo:label=$valu :id=$p.id :title=$p.title :desc=$p.desc)]'
+            nodes = await core.nodes(q, opts={'vars': {'valu': label, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:label', label))
+            self.propeq(node, 'id', '123456789')
+            self.propeq(node, 'title', 'new feature')
+            self.propeq(node, 'desc', 'a super cool new feature')
+
+            props = {
+                'issue': issue,
+                'label': label,
+            }
+            q = '[(it:dev:repo:issue:label=$valu :issue=$p.issue :label=$p.label)]'
+            nodes = await core.nodes(q, opts={'vars': {'valu': issuelabel, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:issue:label', issuelabel))
+            self.propeq(node, 'label', label)
+            self.propeq(node, 'issue', issue)
+
+            props = {
+                'issue': issue,
+                'text': 'a comment on an issue',
+                'replyto': replyto,
+                'url': 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758',
+                'updated': 93
+            }
+            q = '''[(it:dev:repo:issue:comment=$valu :issue=$p.issue :text=$p.text :replyto=$p.replyto
+                :url=$p.url :updated=$p.updated)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': icom, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:issue:comment', icom))
+            self.propeq(node, 'issue', issue)
+            self.propeq(node, 'text', 'a comment on an issue')
+            self.propeq(node, 'replyto', replyto)
+            self.propeq(node, 'url', 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758')
+            self.propeq(node, 'updated', 93)
+
+            props = {
+                'diff': diff,
+                'text': 'types types types types types',
+                'replyto': replyto,
+                'line': 100,
+                'offset': 100,
+                'url': 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069',
+                'updated': 3
+            }
+            q = '''[(it:dev:repo:diff:comment=$valu :diff=$p.diff :text=$p.text :replyto=$p.replyto
+                :line=$p.line :offset=$p.offset :url=$p.url :updated=$p.updated)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': dcom, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:diff:comment', dcom))
+            self.propeq(node, 'diff', diff)
+            self.propeq(node, 'text', 'types types types types types')
+            self.propeq(node, 'replyto', replyto)
+            self.propeq(node, 'line', 100)
+            self.propeq(node, 'offset', 100)
+            self.propeq(node, 'url', 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069')
+            self.propeq(node, 'updated', 3)
+
+            props = {
+                'parent': parent,
+                'start': commit,
+                'name': 'IT_dev_repo_models',
+                'url': 'https://github.com/vertexproject/synapse/tree/it_dev_repo_models',
+                'merged': 1,
+            }
+            q = '''[(it:dev:repo:branch=$valu :parent=$p.parent :start=$p.start :name=$p.name
+                :url=$p.url :merged=$p.merged)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': branch, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:branch', branch))
+            self.propeq(node, 'parent', parent)
+            self.propeq(node, 'start', commit)
+            self.propeq(node, 'name', 'IT_dev_repo_models')
+            self.propeq(node, 'url', 'https://github.com/vertexproject/synapse/tree/it_dev_repo_models')
+            self.propeq(node, 'merged', 1)
+
+            nodes = await core.nodes('it:dev:repo')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo <- *')
+            self.len(5, nodes)
+
+            nodes = await core.nodes('it:dev:repo:commit')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('it:dev:repo:type:taxonomy')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:issue:comment')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo:diff:comment')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo:remote')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:remote :repo -> it:dev:repo')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:dev:repo', repo))
+
+            nodes = await core.nodes('it:dev:repo:remote :remote -> it:dev:repo')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:dev:repo', origin))
+
+            nodes = await core.nodes('it:dev:repo:issue:comment=$guid :replyto -> *', {'vars': {'guid': icom}})
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:diff:comment=$guid :replyto -> *', {'vars': {'guid': dcom}})
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:branch=$guid :parent -> *', {'vars': {'guid': branch}})
+            self.len(1, nodes)
+
+    async def test_infotech_vulnscan(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ it:sec:vuln:scan=*
+                    :time=202308180819
+                    :desc="Woot Woot"
+                    :id=FOO-10
+                    :ext:url=https://vertex.link/scans/FOO-10
+                    :software:name=nessus
+                    :software={[ it:software=* :name=nessus ]}
+                    :operator={[ entity:contact=* :name=visi ]}
+                ]
+            ''')
+            self.len(1, nodes)
+
+            self.propeq(nodes[0], 'time', 1692346740000000)
+            self.propeq(nodes[0], 'software:name', 'nessus')
+            self.propeq(nodes[0], 'desc', 'Woot Woot')
+            self.propeq(nodes[0], 'id', 'FOO-10')
+            self.propeq(nodes[0], 'ext:url', 'https://vertex.link/scans/FOO-10')
+
+            self.nn(nodes[0].get('operator'))
+            self.nn(nodes[0].get('software'))
+
+            self.len(1, await core.nodes('it:sec:vuln:scan -> entity:contact +:name=visi'))
+            self.len(1, await core.nodes('it:sec:vuln:scan -> it:software +:name=nessus'))
+
+            nodes = await core.nodes('''
+                [ it:sec:vuln:scan:result=*
+                    :scan={it:sec:vuln:scan}
+                    :vuln={[ risk:vuln=* :name="nucsploit9k" ]}
+                    :desc="Network service is vulnerable to nucsploit9k"
+                    :id=FOO-10.0
+                    :ext:url=https://vertex.link/scans/FOO-10/0
+                    :time=2023081808190828
+                    :mitigated=2023081808190930
+                    :mitigation={[ risk:mitigation=* :name="mitigate this" ]}
+                    :asset={[ inet:server=tcp://1.2.3.4:443 ]}
+                    :priority=high
+                    :severity=highest
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'priority', 40)
+            self.propeq(nodes[0], 'severity', 50)
+            self.propeq(nodes[0], 'time', 1692346748280000)
+            self.propeq(nodes[0], 'mitigated', 1692346749300000)
+            self.propeq(nodes[0], 'desc', 'Network service is vulnerable to nucsploit9k')
+            self.propeq(nodes[0], 'id', 'FOO-10.0')
+            self.propeq(nodes[0], 'ext:url', 'https://vertex.link/scans/FOO-10/0')
+
+            self.len(1, await core.nodes('it:sec:vuln:scan:result :asset -> * +inet:server'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:vuln +:name=nucsploit9k'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:mitigation +:name="mitigate this"'))
+
+    async def test_infotech_it_sec_metrics(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ it:sec:metrics=*
+
+                    :org={ gen.ou.org vertex }
+                    :org:name=vertex
+                    :org:fqdn=vertex.link
+
+                    :period=(202307, 202308)
+
+                    :alerts:count=100
+                    :alerts:falsepos=90
+                    :alerts:meantime:triage=2:00:00
+
+                    :assets:users=13
+                    :assets:hosts=123
+
+                    :assets:vulns:count=4
+                    :assets:vulns:mitigated=2
+                    :assets:vulns:discovered=4
+                    :assets:vulns:preexisting=2
+
+                    :assets:vulns:meantime:mitigate="1D 2:37:00"
+
+                ]
+            ''')
+            self.len(1, nodes)
+
+            self.propeq(nodes[0], 'org:name', 'vertex')
+            self.propeq(nodes[0], 'org:fqdn', 'vertex.link')
+            self.propeq(nodes[0], 'period', (1688169600000000, 1690848000000000, 2678400000000))
+
+            self.propeq(nodes[0], 'alerts:count', 100)
+            self.propeq(nodes[0], 'alerts:falsepos', 90)
+            self.propeq(nodes[0], 'alerts:meantime:triage', 7200000000)
+
+            self.propeq(nodes[0], 'assets:users', 13)
+            self.propeq(nodes[0], 'assets:hosts', 123)
+
+            self.propeq(nodes[0], 'assets:vulns:count', 4)
+            self.propeq(nodes[0], 'assets:vulns:mitigated', 2)
+            self.propeq(nodes[0], 'assets:vulns:discovered', 4)
+            self.propeq(nodes[0], 'assets:vulns:preexisting', 2)
+
+            self.len(1, await core.nodes('it:sec:metrics -> ou:org +:name=vertex'))
+
+    async def test_infotech_windows(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:os:windows:service=*
+                    :name=Woot
+                    :host=*
+                    :type=(0x20)
+                    :start=(0x20)
+                    :errorcontrol=(0x20)
+                    :displayname="Foo Bar Baz"
+                    :imagepath=c:/windows/system32/woot.exe
+                    :description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+                ]
+            ''')
+
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'name', 'woot')
+            self.propeq(nodes[0], 'type', 0x20)
+            self.propeq(nodes[0], 'start', 0x20)
+            self.propeq(nodes[0], 'errorcontrol', 0x20)
+            self.propeq(nodes[0], 'displayname', 'foo bar baz')
+            self.propeq(nodes[0], 'imagepath', 'c:/windows/system32/woot.exe')
+            self.propeq(nodes[0], 'description', 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.')
+
+            self.len(1, await core.nodes('it:os:windows:service -> it:host'))
+            self.len(1, await core.nodes('it:os:windows:service -> file:path'))
+
+            self.len(1, await core.nodes('[ it:exec:proc=* <(ledto)+ { it:os:windows:service } ]'))
+
+            nodes = await core.nodes('''[
+                it:os:windows:registry:entry=*
+                    :key=foo/bar/baz
+                    :name=faz
+                    :value={[ it:dev:int=0xf0 ]}
+                    :seen=2022
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'key', 'foo/bar/baz')
+            self.propeq(nodes[0], 'name', 'faz')
+            self.propeq(nodes[0], 'value', 0xf0, type='it:dev:int')
+            self.nn(nodes[0].get('seen'))
+            self.len(1, await core.nodes('it:dev:int=0xf0 -> it:os:windows:registry:entry'))
+            self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ file:bytes=* ]} ]'))
+            self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ it:dev:str=woot ]} ]'))
+            self.len(1, await core.nodes('it:os:windows:registry:entry -> it:os:windows:registry:key'))
+
+    async def test_infotech_mitre(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ it:mitre:attack:group:id=G0100 ]')
+            self.len(1, nodes)
+            self.eq('G0100', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:group:id=foo ]'))
+
+            nodes = await core.nodes('[ it:mitre:attack:tactic:id=TA0040 ]')
+            self.len(1, nodes)
+            self.eq('TA0040', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:tactic:id=foo ]'))
+
+            nodes = await core.nodes('[ it:mitre:attack:technique:id=T1548.123 ]')
+            self.len(1, nodes)
+            self.eq('T1548.123', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:technique:id=foo ]'))
+
+            nodes = await core.nodes('[ it:mitre:attack:mitigation:id=M1036 ]')
+            self.len(1, nodes)
+            self.eq('M1036', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:mitigation:id=foo ]'))
+
+            nodes = await core.nodes('[ it:mitre:attack:software:id=S0154 ]')
+            self.len(1, nodes)
+            self.eq('S0154', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:software:id=foo ]'))
+
+            nodes = await core.nodes('[ it:mitre:attack:campaign:id=C0028 ]')
+            self.len(1, nodes)
+            self.eq('C0028', nodes[0].ndef[1])
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ it:mitre:attack:campaign:id=foo ]'))
+
+            # Test that MITRE ATT&CK IDs can be set on :id/:ids properties of related forms
+            nodes = await core.nodes('[ risk:threat=* :id=G0100 :ids=(G0101,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'G0100', type='it:mitre:attack:group:id')
+            self.eq((('it:mitre:attack:group:id', 'G0101'),), nodes[0].get('ids'))
+
+            nodes = await core.nodes('[ entity:campaign=* :id=C0028 :ids=(C0029,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'C0028', type='it:mitre:attack:campaign:id')
+            self.eq((('it:mitre:attack:campaign:id', 'C0029'),), nodes[0].get('ids'))
+
+            nodes = await core.nodes('[ risk:tool:software=* :id=S0154 :ids=(S0155,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'S0154', type='it:mitre:attack:software:id')
+            self.eq((('it:mitre:attack:software:id', 'S0155'),), nodes[0].get('ids'))
+
+            nodes = await core.nodes('[ meta:technique=* :id=T1548 :ids=(T1549,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'T1548', type='it:mitre:attack:technique:id')
+            self.eq((('it:mitre:attack:technique:id', 'T1549'),), nodes[0].get('ids'))
+
+            nodes = await core.nodes('[ risk:mitigation=* :id=M1036 :ids=(M1037,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'M1036', type='it:mitre:attack:mitigation:id')
+            self.eq((('it:mitre:attack:mitigation:id', 'M1037'),), nodes[0].get('ids'))
+
+            nodes = await core.nodes('[ plan:phase=* :id=TA0040 :ids=(TA0041,) ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'TA0040', type='it:mitre:attack:tactic:id')
+            self.eq((('it:mitre:attack:tactic:id', 'TA0041'),), nodes[0].get('ids'))

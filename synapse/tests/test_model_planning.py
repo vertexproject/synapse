@@ -1,0 +1,131 @@
+import synapse.tests.utils as s_t_utils
+
+class PlanModelTest(s_t_utils.SynTest):
+
+    async def test_model_planning(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ plan:system=*
+                    :name="Woot CNO Planner"
+                    :creator={[ entity:contact=* :name=visi ]}
+                    :created=20240202
+                    :updated=20240203
+                    :version=1.0.0
+                    :url=https://vertex.link
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'name', 'woot cno planner')
+            self.propeq(nodes[0], 'created', 1706832000000000)
+            self.propeq(nodes[0], 'updated', 1706918400000000)
+            self.propeq(nodes[0], 'version', '1.0.0')
+            self.propeq(nodes[0], 'url', 'https://vertex.link')
+
+            self.len(1, await core.nodes('plan:system :creator -> entity:contact +:name=visi'))
+
+            nodes = await core.nodes('''
+                [ plan:phase=*
+                    :system={ plan:system:name="Woot CNO Planner"}
+                    :title="Recon"
+                    :desc="Do some recon."
+                    :index=17
+                    :url=https://vertex.link/recon
+                    :id=id001
+                    :created=20240202
+                    :updated=20240203
+                    :version=1.0.0
+                    +(uses)> {[ meta:technique=({"id": "id00"}) ]}
+                ]
+            ''')
+
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'title', 'Recon')
+            self.propeq(nodes[0], 'desc', 'Do some recon.')
+            self.propeq(nodes[0], 'index', 17)
+            self.propeq(nodes[0], 'url', 'https://vertex.link/recon')
+            self.propeq(nodes[0], 'id', 'id001')
+            self.propeq(nodes[0], 'created', 1706832000000000)
+            self.propeq(nodes[0], 'updated', 1706918400000000)
+            self.propeq(nodes[0], 'version', '1.0.0')
+
+            self.len(1, await core.nodes('plan:phase :system -> plan:system +:name="Woot CNO Planner"'))
+
+            nodes = await core.nodes('''
+                [ plan:procedure=*
+                    :system={ plan:system:name="Woot CNO Planner"}
+                    :title="Pwn Some Boxes"
+                    :desc="Yoink."
+                    :creator={ entity:contact:name=visi }
+                    :created=20240202
+                    :updated=20240203
+                    :version=1.0.0
+                    :type=cno.offense
+                    :system={ plan:system:name="Woot CNO Planner" }
+                ]
+
+                $guid = $node.value
+
+                [
+                    :inputs={[ plan:procedure:variable=*
+                        :name=network
+                        :type=cidr
+                        :default=127.0.0.0/24
+                        :procedure=$guid
+                    ]}
+
+                    :firststep={[ plan:procedure:step=*
+                        :title="Are there vulnerable services?"
+                        :desc="Scan the target network and identify available services."
+                        :procedure=$guid
+                        :phase={ plan:phase:title=Recon }
+                        :outputs={[ plan:procedure:variable=* :name=services ]}
+
+                        :links={[ plan:procedure:link=*
+                            :condition=(true)
+                            :procedure=$guid
+                            :next={[ plan:procedure:step=*
+                                :title="Exploit Services"
+                                :desc="Gank that stuff."
+                                :procedure=$guid
+                                :outputs={[ plan:procedure:variable=* :name=shellz ]}
+                            ]}
+
+                        ]}
+                    ]}
+                ]
+            ''')
+
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'title', 'Pwn Some Boxes')
+            self.propeq(nodes[0], 'desc', 'Yoink.')
+            self.nn(nodes[0].get('creator'))
+            self.propeq(nodes[0], 'created', 1706832000000000)
+            self.propeq(nodes[0], 'updated', 1706918400000000)
+            self.propeq(nodes[0], 'version', '1.0.0')
+
+            self.len(1, await core.nodes('plan:procedure :type -> plan:procedure:type:taxonomy'))
+            self.len(1, await core.nodes('plan:procedure :system -> plan:system +:name="Woot CNO Planner"'))
+            self.len(1, await core.nodes('plan:procedure :firststep -> plan:procedure:step -> plan:procedure:link'))
+
+            nodes = await core.nodes('plan:procedure :inputs -> plan:procedure:variable')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'name', 'network')
+            self.propeq(nodes[0], 'type', 'cidr')
+            self.propeq(nodes[0], 'default', '127.0.0.0/24')
+            self.nn(nodes[0].get('procedure'))
+
+            nodes = await core.nodes('plan:procedure :firststep -> plan:procedure:step')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'title', 'Are there vulnerable services?')
+            self.propeq(nodes[0], 'desc', 'Scan the target network and identify available services.')
+            self.nn(nodes[0].get('procedure'))
+
+            self.len(1, await core.nodes('plan:procedure :firststep -> plan:procedure:step -> plan:phase'))
+            self.len(1, await core.nodes('plan:procedure :firststep -> plan:procedure:step :outputs -> plan:procedure:variable'))
+
+            nodes = await core.nodes('plan:procedure :firststep -> plan:procedure:step -> plan:procedure:link')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'condition', True)
+            self.nn(nodes[0].get('next'))
+            self.nn(nodes[0].get('procedure'))

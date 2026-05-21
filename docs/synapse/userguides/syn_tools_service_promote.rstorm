@@ -1,0 +1,19 @@
+.. highlight:: none
+
+.. _syn-tools-service-promote:
+
+service.promote
+===============
+
+The Synapse ``service.promote`` tool can be used to promote a mirror to the leader.
+
+Syntax
+------
+
+``service.promote`` is executed using ``python -m synapse.tools.service.promote``. The command usage is as follows:
+
+.. shell:: --fail-ok python -m synapse.tools.service.promote -h
+
+.. note::
+
+  This tool was previously run using ``synapse.tools.promote``. It can still be run with that name.

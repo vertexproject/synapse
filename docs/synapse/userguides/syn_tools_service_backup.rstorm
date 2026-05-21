@@ -1,0 +1,19 @@
+.. highlight:: none
+
+.. _syn-tools-service-backup:
+
+service.backup
+==============
+
+The Synapse ``service.backup`` tool can be used to create an optimized backup of a Synapse directory.
+
+Syntax
+------
+
+``service.backup`` is executed using ``python -m synapse.tools.service.backup``. The command usage is as follows:
+
+.. shell:: --fail-ok python -m synapse.tools.service.backup -h
+
+.. note::
+
+  This tool was previously run using ``synapse.tools.backup``. It can still be run with that name.

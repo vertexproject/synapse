@@ -1,0 +1,45 @@
+apiVersion: "apps/v1"
+kind: "DaemonSet"
+metadata:
+  name: "setsysctl"
+  labels:
+    app.kubernetes.io/name: "sysctl"
+    app.kubernetes.io/instance: "sysctl"
+    app.kubernetes.io/version: "1.36.0-glibc"
+    app.kubernetes.io/component: "sysctl"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "sysctl"
+      app.kubernetes.io/instance: "sysctl"
+      app.kubernetes.io/version: "1.36.0-glibc"
+      app.kubernetes.io/component: "sysctl"
+      app.kubernetes.io/part-of: "synapse"
+      environment: "dev"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "sysctl"
+        app.kubernetes.io/instance: "sysctl"
+        app.kubernetes.io/version: "1.36.0-glibc"
+        app.kubernetes.io/component: "sysctl"
+        app.kubernetes.io/part-of: "synapse"
+        environment: "dev"
+    spec:
+      containers:
+      - name: "apply-sysctl"
+        image: "busybox:1.36.0-glibc"  # Latest glibc based busybox
+        securityContext:
+          privileged: true
+        command:
+        - "/bin/sh"
+        - "-c"
+        - |
+          set -o errexit
+          set -o xtrace
+          while sysctl -w vm.swappiness=10 vm.dirty_expire_centisecs=20 vm.dirty_writeback_centisecs=20 vm.dirty_background_ratio=2 vm.dirty_ratio=4
+          do
+            sleep 600s
+          done

@@ -1,0 +1,19 @@
+.. highlight:: none
+
+.. _syn-tools-service-shutdown:
+
+service.shutdown
+================
+
+The Synapse ``service.shutdown`` tool can be used to initiate a graceful shutdown of a Synapse service.
+
+Syntax
+------
+
+``service.shutdown`` is executed using ``python -m synapse.tools.service.shutdown``. The command usage is as follows:
+
+.. shell:: --fail-ok python -m synapse.tools.service.shutdown -h
+
+.. note::
+
+  This tool was previously run using ``synapse.tools.shutdown``. It can still be run with that name.

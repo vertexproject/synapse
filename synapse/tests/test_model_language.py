@@ -1,0 +1,79 @@
+import synapse.exc as s_exc
+import synapse.tests.utils as s_t_utils
+
+class LangModuleTest(s_t_utils.SynTest):
+
+    async def test_model_language(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                lang:translation=*
+                    :input=Hola
+                    :input:lang={[ lang:language=({"code": "es"}) ]}
+                    :output=Hi
+                    :output:lang={[ lang:language=({"code": "en.us"}) :name=english :names=(merican,) ]}
+                    :desc=Greetings
+                    :engine=*
+                lang:phrase=Hola
+            ]''')
+            self.len(2, nodes)
+
+            self.propeq(nodes[0], 'input', 'Hola')
+            self.propeq(nodes[0], 'output', 'Hi')
+            self.propeq(nodes[0], 'input:lang', '83e8f5fe6992924a7e88916cf8b5ba36')
+            self.propeq(nodes[0], 'output:lang', '577f4caf89d89fcc9d605c33fd803af8')
+            self.propeq(nodes[0], 'desc', 'Greetings')
+
+            self.len(1, await core.nodes('lang:phrase -> lang:translation:input'))
+
+            self.len(1, await core.nodes('lang:translation :input -> lang:phrase'))
+
+            self.len(1, await core.nodes('lang:translation -> it:software'))
+            self.len(2, await core.nodes('lang:translation -> lang:language'))
+
+            nodes = await core.nodes('lang:language:code=en.us -> lang:name')
+            self.sorteq(['english', 'merican'], [n.repr() for n in nodes])
+
+            nodes = await core.nodes('[ lang:phrase="For   The  People" ]')
+            self.len(1, nodes)
+            self.eq('For   The  People', nodes[0].repr())
+
+    async def test_hashtag(self):
+
+        async with self.getTestCore() as core:
+
+            self.len(1, await core.nodes('[ lang:hashtag="#🫠" ]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#🫠🫠" ]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#·bar"]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#foo·"]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#foo〜"]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#hehe" ]'))
+            self.len(1, await core.nodes('[ lang:hashtag="#foo·bar"]'))  # note the interpunct
+            self.len(1, await core.nodes('[ lang:hashtag="#foo〜bar"]'))  # note the wave dash
+            self.len(1, await core.nodes('[ lang:hashtag="#fo·o·······b·ar"]'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ lang:hashtag="foo" ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ lang:hashtag="#foo#bar" ]')
+
+            # All unicode whitespace from:
+            # https://www.compart.com/en/unicode/category/Zl
+            # https://www.compart.com/en/unicode/category/Zp
+            # https://www.compart.com/en/unicode/category/Zs
+            whitespace = [
+                '\u0020', '\u00a0', '\u1680', '\u2000', '\u2001', '\u2002', '\u2003', '\u2004',
+                '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200a', '\u202f', '\u205f',
+                '\u3000', '\u2028', '\u2029',
+            ]
+            for char in whitespace:
+                with self.raises(s_exc.BadTypeValu):
+                    await core.callStorm(f'[ lang:hashtag="#foo{char}bar" ]')
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.callStorm(f'[ lang:hashtag="#{char}bar" ]')
+
+                # These are allowed because strip=True
+                await core.callStorm(f'[ lang:hashtag="#foo{char}" ]')
+                await core.callStorm(f'[ lang:hashtag=" #foo{char}" ]')

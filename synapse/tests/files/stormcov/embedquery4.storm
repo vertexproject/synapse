@@ -1,0 +1,7 @@
+
+tee
+${
+    inet:fqdn=embedquery4.storm
+}
+// coverage: 2, 3, 4
+// lines:    2,    4

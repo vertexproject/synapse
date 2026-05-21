@@ -1,0 +1,555 @@
+import synapse.exc as s_exc
+
+import synapse.lib.gis as s_gis
+import synapse.lib.layer as s_layer
+import synapse.lib.types as s_types
+import synapse.lib.grammar as s_grammar
+
+units = {
+    'mm': 1,
+    'millimeter': 1,
+    'millimeters': 1,
+
+    'cm': 10,
+    'centimeter': 10,
+    'centimeters': 10,
+
+    # international foot
+    'foot': 304.8,
+    'feet': 304.8,
+
+    'm': 1000,
+    'meter': 1000,
+    'meters': 1000,
+
+    # international mile
+    'mile': 1609344,
+    'miles': 1609344,
+
+    'km': 1000000,
+    'kilometer': 1000000,
+    'kilometers': 1000000,
+
+    # international yard
+    'yard': 914.4,
+    'yards': 914.4,
+}
+
+distrepr = (
+    (1000000.0, 'km'),
+    (1000.0, 'm'),
+    (10.0, 'cm'),
+)
+
+arearepr = (
+    (1000000.0, 'sq.km'),
+    (1000.0, 'sq.m'),
+    (10.0, 'sq.cm'),
+)
+
+areaunits = {
+    'mm²': 1,
+    'sq.mm': 1,
+
+    'cm²': 10,
+    'sq.cm': 10,
+
+    # international foot
+    'foot²': 304.8,
+    'feet²': 304.8,
+    'sq.feet': 304.8,
+
+    'm²': 1000,
+    'sq.m': 1000,
+    'sq.meters': 1000,
+
+    # international mile
+    'mile²': 1609344,
+    'miles²': 1609344,
+    'sq.miles': 1609344,
+
+    'km²': 1000000,
+    'sq.km': 1000000,
+
+    # international yard
+    'yard²': 914.4,
+    'sq.yards': 914.4,
+}
+
+geojsonschema = {
+
+    'definitions': {
+
+        'BoundingBox': {'type': 'array', 'minItems': 4, 'items': {'type': 'number'}},
+        'PointCoordinates': {'type': 'array', 'minItems': 2, 'items': {'type': 'number'}},
+        'LineStringCoordinates': {'type': 'array', 'minItems': 2, 'items': {'$ref': '#/definitions/PointCoordinates'}},
+        'LinearRingCoordinates': {'type': 'array', 'minItems': 4, 'items': {'$ref': '#/definitions/PointCoordinates'}},
+        'PolygonCoordinates': {'type': 'array', 'items': {'$ref': '#/definitions/LinearRingCoordinates'}},
+
+        'Point': {
+            'title': 'GeoJSON Point',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['Point']},
+                'coordinates': {'$ref': '#/definitions/PointCoordinates'},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+         },
+
+        'LineString': {
+            'title': 'GeoJSON LineString',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['LineString']},
+                'coordinates': {'$ref': '#/definitions/LineStringCoordinates'},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+         },
+
+        'Polygon': {
+            'title': 'GeoJSON Polygon',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['Polygon']},
+                'coordinates': {'$ref': '#/definitions/PolygonCoordinates'},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'MultiPoint': {
+            'title': 'GeoJSON MultiPoint',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['MultiPoint']},
+                'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/PointCoordinates'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'MultiLineString': {
+            'title': 'GeoJSON MultiLineString',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['MultiLineString']},
+                'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/LineStringCoordinates'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+         },
+
+        'MultiPolygon': {
+            'title': 'GeoJSON MultiPolygon',
+            'type': 'object',
+            'required': ['type', 'coordinates'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['MultiPolygon']},
+                'coordinates': {'type': 'array', 'items': {'$ref': '#/definitions/PolygonCoordinates'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'GeometryCollection': {
+            'title': 'GeoJSON GeometryCollection',
+            'type': 'object',
+            'required': ['type', 'geometries'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['GeometryCollection']},
+                'geometries': {'type': 'array', 'items': {'oneOf': [
+                    {'$ref': '#/definitions/Point'},
+                    {'$ref': '#/definitions/LineString'},
+                    {'$ref': '#/definitions/Polygon'},
+                    {'$ref': '#/definitions/MultiPoint'},
+                    {'$ref': '#/definitions/MultiLineString'},
+                    {'$ref': '#/definitions/MultiPolygon'},
+                ]}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'Feature': {
+            'title': 'GeoJSON Feature',
+            'type': 'object',
+            'required': ['type', 'properties', 'geometry'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['Feature']},
+                'geometry': {'oneOf': [
+                    {'type': 'null'},
+                    {'$ref': '#/definitions/Point'},
+                    {'$ref': '#/definitions/LineString'},
+                    {'$ref': '#/definitions/Polygon'},
+                    {'$ref': '#/definitions/MultiPoint'},
+                    {'$ref': '#/definitions/MultiLineString'},
+                    {'$ref': '#/definitions/MultiPolygon'},
+                    {'$ref': '#/definitions/GeometryCollection'},
+                ]},
+                'properties': {'oneOf': [{'type': 'null'}, {'type': 'object'}]},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+
+        'FeatureCollection': {
+            'title': 'GeoJSON FeatureCollection',
+            'type': 'object',
+            'required': ['type', 'features'],
+            'properties': {
+                'type': {'type': 'string', 'enum': ['FeatureCollection']},
+                'features': {'type': 'array', 'items': {'$ref': '#/definitions/Feature'}},
+                'bbox': {'$ref': '#/definitions/BoundingBox'},
+            },
+        },
+    },
+
+    'oneOf': [
+        {'$ref': '#/definitions/Point'},
+        {'$ref': '#/definitions/LineString'},
+        {'$ref': '#/definitions/Polygon'},
+        {'$ref': '#/definitions/MultiPoint'},
+        {'$ref': '#/definitions/MultiLineString'},
+        {'$ref': '#/definitions/MultiPolygon'},
+        {'$ref': '#/definitions/GeometryCollection'},
+        {'$ref': '#/definitions/Feature'},
+        {'$ref': '#/definitions/FeatureCollection'},
+    ],
+}
+
+class Dist(s_types.Int):
+
+    _opt_defs = (
+        ('baseoff', 0),  # type: ignore
+    ) + s_types.Int._opt_defs
+
+    def postTypeInit(self):
+        s_types.Int.postTypeInit(self)
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(str, self._normPyStr)
+        self.baseoff = self.opts.get('baseoff')
+
+    async def _normPyInt(self, valu, view=None):
+        return valu, {}
+
+    async def _normPyStr(self, text, view=None):
+        try:
+            valu, off = s_grammar.parse_float(text, 0)
+        except Exception:
+            mesg = f'Distance requires a valid number and unit. No valid number found: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
+
+        unit, off = s_grammar.nom(text, off, s_grammar.alphaset)
+
+        mult = units.get(unit.lower())
+        if mult is None:
+            mesg = f'Unknown unit of distance: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        norm = int(valu * mult) + self.baseoff
+        if norm < 0:
+            mesg = f'A geo:dist may not be negative: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        return norm, {}
+
+    def repr(self, norm):
+
+        valu = norm - self.baseoff
+
+        text = None
+
+        absv = abs(valu)
+        for base, unit in distrepr:
+            if absv >= base:
+                size = absv / base
+                text = '%s %s' % (size, unit)
+                break
+
+        if text is None:
+            text = '%d mm' % (absv,)
+
+        if valu < 0:
+            text = f'-{text}'
+
+        return text
+
+areachars = {'.'}.union(s_grammar.alphaset)
+class Area(s_types.Int):
+
+    def postTypeInit(self):
+        s_types.Int.postTypeInit(self)
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(str, self._normPyStr)
+
+    async def _normPyInt(self, valu, view=None):
+        return valu, {}
+
+    async def _normPyStr(self, text, view=None):
+        try:
+            valu, off = s_grammar.parse_float(text, 0)
+        except Exception:
+            mesg = f'Area requires a valid number and unit, no valid number found: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
+
+        unit, off = s_grammar.nom(text, off, areachars)
+
+        mult = areaunits.get(unit.lower())
+        if mult is None:
+            mesg = f'Unknown unit of area: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        norm = int(valu * mult)
+        if norm < 0:
+            mesg = f'A geo:area may not be negative: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        return norm, {}
+
+    def repr(self, norm):
+
+        text = None
+        for base, unit in arearepr:
+            if norm >= base:
+                size = norm / base
+                text = f'{size} {unit}'
+                break
+
+        if text is None:
+            text = f'{norm} sq.mm'
+
+        return text
+
+class LatLong(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_LATLONG
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+        self.setCmprCtor('near=', self._cmprNear)
+        self.storlifts.update({
+            'near=': self._storLiftNear,
+        })
+
+        self.lattype = self.modl.type('geo:latitude')
+        self.lontype = self.modl.type('geo:longitude')
+
+    async def _normCmprValu(self, valu):
+        latlong, dist = valu
+        rlatlong = (await self.modl.type('geo:latlong').norm(latlong))[0]
+        rdist = (await self.modl.type('geo:dist').norm(dist))[0]
+        return rlatlong, rdist
+
+    async def _cmprNear(self, valu):
+        latlong, dist = await self._normCmprValu(valu)
+
+        async def cmpr(valu):
+            if s_gis.haversine(valu, latlong) <= dist:
+                return True
+            return False
+        return cmpr
+
+    async def _storLiftNear(self, cmpr, valu):
+        latlong = (await self.norm(valu[0]))[0]
+        dist = (await self.modl.type('geo:dist').norm(valu[1]))[0]
+        return ((cmpr, (latlong, dist), self.stortype),)
+
+    async def _normPyStr(self, valu, view=None):
+        valu = valu.strip()
+
+        parts = valu.split(',')
+        if len(parts) == 2:
+            try:
+                float(parts[0])
+                float(parts[1])
+                return await self._normPyTuple(tuple(parts))
+            except ValueError:
+                pass
+
+        latv, lonv = s_gis.parseLatLong(valu)
+
+        return await self._normPyTuple((latv, lonv))
+
+    async def _normPyTuple(self, valu, view=None):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Valu must contain valid latitude,longitude')
+
+        try:
+            latv, latfo = await self.lattype.norm(valu[0])
+            lonv, lonfo = await self.lontype.norm(valu[1])
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=str(e)) from None
+
+        return (latv, lonv), {'subs': {'lat': (self.lattype.typehash, latv, latfo),
+                                       'lon': (self.lontype.typehash, lonv, lonfo)}}
+
+    def repr(self, norm):
+        return f'{norm[0]},{norm[1]}'
+
+modeldefs = (
+    {
+
+        'interfaces': (
+
+            ('geo:locatable', {
+                'doc': 'Properties common to items and events which may be geolocated.',
+                'prefix': 'place',
+                'template': {'title': 'item', 'happened': 'was located'},
+                'props': (
+                    ('', ('geo:place', {}), {
+                        'doc': 'The place where the {title} {happened}.'}),
+
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geopolitical location where the {title} {happened}.'}),
+
+                    ('name', ('geo:name', {}), {
+                        'doc': 'The name where the {title} {happened}.'}),
+
+                    ('address', ('geo:address', {}), {
+                        'doc': 'The postal address where the {title} {happened}.'}),
+
+                    ('address:city', ('base:name', {}), {
+                        'doc': 'The city where the {title} {happened}.'}),
+
+                    ('latlong', ('geo:latlong', {}), {
+                        'doc': 'The latlong where the {title} {happened}.'}),
+
+                    ('latlong:accuracy', ('geo:dist', {}), {
+                        'doc': 'The accuracy of the latlong where the {title} {happened}.'}),
+
+                    ('altitude', ('geo:altitude', {}), {
+                        'doc': 'The altitude where the {title} {happened}.'}),
+
+                    ('altitude:accuracy', ('geo:dist', {}), {
+                        'doc': 'The accuracy of the altitude where the {title} {happened}.'}),
+
+                    ('country', ('pol:country', {}), {
+                        'doc': 'The country where the {title} {happened}.'}),
+
+                    ('country:code', ('iso:3166:alpha2', {}), {
+                        'doc': 'The country code where the {title} {happened}.'}),
+
+                    ('bbox', ('geo:bbox', {}), {
+                        'doc': 'A bounding box which encompasses where the {title} {happened}.'}),
+
+                    ('geojson', ('geo:json', {}), {
+                        'doc': 'A GeoJSON representation of where the {title} {happened}.'}),
+                ),
+            }),
+        ),
+
+        'types': (
+
+            ('geo:dist', (None, {'ctor': 'synapse.models.geospace.Dist'}), {
+                'ex': '10 km',
+                'doc': 'A geographic distance (base unit is mm).'}),
+            ('geo:area', (None, {'ctor': 'synapse.models.geospace.Area'}), {
+                'ex': '10 sq.km',
+                'doc': 'A geographic area (base unit is square mm).'}),
+            ('geo:latlong', (None, {'ctor': 'synapse.models.geospace.LatLong'}), {
+                'ex': '-12.45,56.78',
+                'doc': 'A Lat/Long string specifying a point on Earth.'}),
+
+            ('geo:telem', ('guid', {}), {
+                'interfaces': (
+                    ('phys:tangible', {'template': {'title': 'object'}}),
+                    ('geo:locatable', {'template': {'title': 'object'}}),
+                ),
+                'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
+
+            ('geo:json', ('data', {'schema': geojsonschema}), {
+                'doc': 'GeoJSON structured JSON data.'}),
+
+            ('geo:name', ('base:name', {}), {
+                'doc': 'An unstructured place name or address.'}),
+
+            ('geo:place', ('guid', {}), {
+                'template': {'title': 'place'},
+                'interfaces': (
+                    ('geo:locatable', {'prefix': ''}),
+                ),
+                'doc': 'A geographic place.'}),
+
+            ('geo:place:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of place types.',
+            }),
+
+            ('geo:address', ('str', {'lower': True, 'onespace': True}), {
+                'doc': 'A street/mailing address string.'}),
+
+            ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
+                               'minisvalid': False, 'maxisvalid': True}), {
+                'ex': '31.337',
+                'doc': 'A longitude in floating point notation.'}),
+
+            ('geo:latitude', ('float', {'min': -90.0, 'max': 90.0,
+                              'minisvalid': True, 'maxisvalid': True}), {
+                'ex': '31.337',
+                'doc': 'A latitude in floating point notation.'}),
+
+            ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
+                                        ('xmin', 'geo:longitude'),
+                                        ('xmax', 'geo:longitude'),
+                                        ('ymin', 'geo:latitude'),
+                                        ('ymax', 'geo:latitude'))}), {
+                'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.'}),
+
+            ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
+                'doc': "A negative or positive offset from Mean Sea Level (6,371.0088km from Earth's core)."}),
+        ),
+
+        'edges': (
+            (('geo:place', 'contains', 'geo:place'), {
+                'doc': 'The source place completely contains the target place.'}),
+        ),
+
+        'forms': (
+
+            ('geo:name', {}, ()),
+
+            ('geo:telem', {}, (
+
+                ('time', ('time', {}), {
+                    'doc': 'The time that the telemetry measurements were taken.'}),
+
+                ('desc', ('str', {}), {
+                    'doc': 'A description of the telemetry sample.'}),
+
+                ('node', ('meta:observable', {}), {
+                    'doc': 'The node that was observed at the associated time and place.'}),
+            )),
+
+            ('geo:place:type:taxonomy', {
+                'prevnames': ('geo:place:taxonomy',)}, ()),
+
+            ('geo:place', {}, (
+
+                ('id', ('base:id', {}), {
+                    'doc': 'A type specific identifier such as an airport ID.'}),
+
+                ('type', ('geo:place:type:taxonomy', {}), {
+                    'doc': 'The type of place.'}),
+
+                ('name', ('geo:name', {}), {
+                    'alts': ('names',),
+                    'doc': 'The name of the place.'}),
+
+                ('names', ('array', {'type': 'geo:name'}), {
+                    'doc': 'An array of alternative place names.'}),
+
+                ('desc', ('text', {}), {
+                    'doc': 'A description of the place.'}),
+
+                ('photo', ('file:bytes', {}), {
+                    'doc': 'The image file to use as the primary image of the place.'}),
+            )),
+        )
+    },
+)

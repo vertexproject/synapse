@@ -1,0 +1,23 @@
+.. highlight:: none
+
+.. _syn-tools-storm-pkg-gen:
+
+storm.pkg.gen
+=============
+
+The Synapse ``storm.pkg.gen`` tool can be used to generate a Storm :ref:`gloss-package` containing new Storm commands
+and Storm modules from a YAML definition and optionally push it to a Cortex or PkgRepo.
+
+For additional details on using the ``storm.pkg.gen`` tool see :ref:`dev-rapid-power-ups-build` a Rapid Power-Up.
+
+Syntax
+------
+
+``storm.pkg.gen`` is executed using ``python -m synapse.tools.storm.pkg.gen``. The command usage is as follows:
+
+.. shell:: --fail-ok python -m synapse.tools.storm.pkg.gen -h
+
+
+.. note::
+
+  This tool was previously run using ``synapse.tools.genpkg``. It can still be run with that name.
