@@ -4361,7 +4361,7 @@ class MinCmd(Cmd):
 
             counter += 1
 
-        for negvalu, _, item in sorted(heap, key=lambda x: x[0], reverse=True):
+        for _, _, item in sorted(heap, key=lambda x: x[0], reverse=True):
             yield item
 
 class DelNodeCmd(Cmd):
