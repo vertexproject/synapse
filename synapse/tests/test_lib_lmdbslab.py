@@ -1749,6 +1749,33 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 vals = await alist(slab.scanKeysByHierPref(b'tt.', depth=0, db=dupsdb, nodup=True))
                 self.eq(vals, [b'tt.a', b'tt.c'])
 
+                # A slab commit during the inner await would bump the scan and close scan.curs,
+                # ensure the next scan.set_range refreshes the cursor before calling set_range.
+                orig = asyncio.sleep
+
+                async def bumping_sleep(delay):
+                    for sc in list(slab.scans):
+                        sc.bump()
+                    await orig(delay)
+
+                with patch('synapse.lib.lmdbslab.asyncio.sleep', new=bumping_sleep):
+                    vals = await alist(slab.scanKeysByHierPref(b'pp.', depth=0, db=testdb))
+
+                self.eq(vals, [b'pp.e'])
+
+                # If the slab is fini'd while the inner seek loop is sleeping,
+                # the bumped scan must raise IsFini rather than touching the
+                # closed transaction.
+                async def bumping_fini_sleep(delay):
+                    for sc in list(slab.scans):
+                        sc.bump()
+                    slab.isfini = True
+                    await orig(delay)
+
+                with patch('synapse.lib.lmdbslab.asyncio.sleep', new=bumping_fini_sleep):
+                    with self.raises(s_exc.IsFini):
+                        await alist(slab.scanKeysByHierPref(b'pp.', depth=0, db=testdb))
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):

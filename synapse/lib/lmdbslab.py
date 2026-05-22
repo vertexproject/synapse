@@ -1464,6 +1464,14 @@ class Slab(s_base.Base):
                     taillen = len(parts[-1]) + 1
                     nextvalu = lkey[:-taillen] + seprnext
 
+                    # Due to the sleep in this loop, we may get bumped and set_range
+                    # doesn't need to handle that elsewhere so just check/refresh it here.
+                    if scan.bumped:
+                        if self.isfini:
+                            raise s_exc.IsFini()
+                        scan.bumped = False
+                        scan.curs = self.xact.cursor(db=scan.db)
+
                     if not scan.set_range(nextvalu):
                         return
 
