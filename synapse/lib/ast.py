@@ -48,13 +48,14 @@ class AstNode:
     '''
     # set to True if recursive runt-safety checks should *not* recurse
     # into children of this node.
+    nodeprio = 0
     runtopaque = False
 
     def __init__(self, astinfo, kids=()):
         self.kids = []
         self.astinfo = astinfo
         self.hasast = {}
-        [self.addKid(k) for k in kids]
+        [self.addKid(k) for k in sorted(kids, key=lambda x: x.nodeprio)]
 
     def getAstText(self):
         return self.astinfo.text[self.astinfo.soff:self.astinfo.eoff]
@@ -880,6 +881,7 @@ class InitBlock(AstNode):
             }
 
     '''
+    nodeprio = -1
 
     async def run(self, runt, genr):
 
@@ -947,6 +949,7 @@ class FiniBlock(AstNode):
         A fini block must be runtsafe.
 
     '''
+    nodeprio = 1
 
     async def run(self, runt, genr):
 
