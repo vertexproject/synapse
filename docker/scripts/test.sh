@@ -2,73 +2,73 @@
 
 ##############################################################################
 #
-# Test the suite of synapse images
+# Smoke-test the suite of synapse images.
 #
-# This is expected to be executed from the root of the repository; eg:
+# This is expected to be executed from the root of the synapse directory; eg:
 #
-# ./docker/scripts/test_all.sh
+# ./docker/scripts/test.sh
 #
-# The first argument may be provided, which is the tag to test.
-# A default tag will be used if one is not provided.
+# The first argument may be provided, which is the tag to test. A default tag
+# will be used if one is not provided.
 #
 ##############################################################################
 
-set -e # exit on nonzero
-set -u # undefined variables
-set -o pipefail # pipefail propagate error codes
-set -x # debugging
+set -e
+set -u
+set -o pipefail
+set -x
 
 TAG=${1:-}
 
 [ -z ${TAG} ] && TAG=3.x.x-dev && echo "Tag not provided, defaulting tag to ${TAG}"
 
-# Spin up our containers
+POLL_INTERVAL=2
+TIMEOUT=300
+CONTAINERS="test-aha test-axon test-cortex test-jsonstor"
+
+stop_all() {
+    for CNAME in ${CONTAINERS}; do
+        docker stop ${CNAME} >/dev/null 2>&1 || true
+    done
+}
+trap stop_all EXIT
+
+# Up-front sanity check on the synapse base entrypoint.
+docker run --rm --entrypoint python vertexproject/synapse:${TAG} -m synapse.servers.cortex --help
+
+# Spin up the service-variant containers.
 echo "Spinning up images"
+docker run -d --rm --name test-aha -e "SYN_AHA_AHA_NETWORK=synapse.ci" vertexproject/synapse-aha:${TAG}
+docker run -d --rm --name test-axon vertexproject/synapse-axon:${TAG}
+docker run -d --rm --name test-cortex -e SYN_CORTEX_AXON="tcp://root:root@127.0.0.1:0" -e SYN_CORTEX_JSONSTOR="tcp://root:root@127.0.0.1:0" vertexproject/synapse-cortex:${TAG}
+docker run -d --rm --name test-jsonstor vertexproject/synapse-jsonstor:${TAG}
 
-docker run --rm -it --entrypoint python vertexproject/synapse:${TAG} -m synapse.servers.cortex --help
-dstatus00=$?
-if [ $dstatus00 != "0" ]; then exit 1; fi
+# Poll each container until its health check reports a decisive status. Match
+# the pattern used by the per-project test scripts in projects/{name}/docker.
+for CNAME in ${CONTAINERS}; do
+    ELAPSED=0
+    DSTATUS=
+    while true; do
+        DSTATUS=$(docker inspect ${CNAME} --format '{{.State.Health.Status}}')
+        echo "[${ELAPSED}s] ${CNAME}: ${DSTATUS}"
+        if [[ "${DSTATUS}" != "starting" ]]; then
+            break
+        fi
+        ELAPSED=$((ELAPSED + POLL_INTERVAL))
+        if [ "${ELAPSED}" -ge "${TIMEOUT}" ]; then
+            echo "[!] Timeout after ${TIMEOUT}s waiting for ${CNAME}"
+            docker logs ${CNAME} || true
+            exit 1
+        fi
+        sleep ${POLL_INTERVAL}
+    done
 
-docker run --rm -it --entrypoint /usr/bin/git vertexproject/synapse-ci:${TAG} --help
-dstatus01=$?
-if [ $dstatus01 != "0" ]; then exit 1; fi
+    docker logs ${CNAME}
 
-docker run --rm -it --entrypoint /usr/local/bin/node vertexproject/synapse-ci:${TAG}-browsers --help
-dstatus02=$?
-if [ $dstatus02 != "0" ]; then exit 1; fi
-
-docker run --rm -d --name test-aha -e "SYN_AHA_AHA_NETWORK=synapse.ci" vertexproject/synapse-aha:${TAG}
-docker run --rm -d --name test-axon vertexproject/synapse-axon:${TAG}
-docker run --rm -d --name test-cortex vertexproject/synapse-cortex:${TAG}
-docker run --rm -d --name test-jsonstor vertexproject/synapse-jsonstor:${TAG}
-
-# Let them run and allow health checks to fire
-DELAY=45
-echo "Sleeping ${DELAY} seconds.."
-sleep ${DELAY}
-
-echo "Docker information"
-
-docker container ls -a
-
-docker logs test-aha
-docker logs test-axon
-docker logs test-cortex
-docker logs test-jsonstor
-
-dstatus01=`docker inspect test-aha --format '{{.State.Health.Status}}'`
-dstatus02=`docker inspect test-axon --format '{{.State.Health.Status}}'`
-dstatus03=`docker inspect test-cortex --format '{{.State.Health.Status}}'`
-dstatus04=`docker inspect test-jsonstor --format '{{.State.Health.Status}}'`
-
-docker stop test-aha
-docker stop test-axon
-docker stop test-cortex
-docker stop test-jsonstor
-
-if [ $dstatus01 != "healthy" ]; then exit 1; fi
-if [ $dstatus02 != "healthy" ]; then exit 1; fi
-if [ $dstatus03 != "healthy" ]; then exit 1; fi
-if [ $dstatus04 != "healthy" ]; then exit 1; fi
+    if [ "${DSTATUS}" != "healthy" ]; then
+        echo "[!] ${CNAME} reported non-healthy status: ${DSTATUS}"
+        exit 1
+    fi
+done
 
 exit 0

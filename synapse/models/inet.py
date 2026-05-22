@@ -1441,10 +1441,32 @@ modeldefs = (
                 'doc': 'An HTTP session.'}),
 
             ('inet:http:request', ('guid', {}), {
+                'template': {'title': 'HTTP request'},
                 'interfaces': (
                     ('inet:proto:request', {}),
                 ),
                 'doc': 'A single HTTP request.'}),
+
+            ('inet:http:response', ('guid', {}), {
+                'template': {'title': 'HTTP response'},
+                'interfaces': (
+                    ('inet:proto:response', {}),
+                ),
+                'props': (
+
+                    ('code', ('int', {}), {
+                        'doc': 'The HTTP response code received.'}),
+
+                    ('reason', ('str', {}), {
+                        'doc': 'The HTTP response reason phrase received.'}),
+
+                    ('headers', ('array', {'type': 'inet:http:response:header', 'uniq': False, 'sorted': False}), {
+                        'doc': 'An array of HTTP headers from the response.'}),
+
+                    ('body', ('file:bytes', {}), {
+                        'doc': 'The HTTP response body received.'}),
+                ),
+                'doc': 'An HTTP response returned by a server.'}),
 
             ('inet:hyperlink', ('guid', {}), {
                 'doc': 'A URL link embedded in a message.'}),
@@ -1953,7 +1975,21 @@ modeldefs = (
                     ('flow', ('inet:flow', {}), {
                         'doc': 'The network flow which contained the {title}.'}),
                 ),
-                'doc': 'Properties common to network protocol requests and responses.'}),
+                'doc': 'Properties common to network protocol requests.'}),
+
+            ('inet:proto:response', {
+
+                'template': {'title': 'response'},
+                'interfaces': (
+                    ('base:event', {}),
+                    ('inet:proto:link', {}),
+                ),
+                'props': (
+
+                    ('flow', ('inet:flow', {}), {
+                        'doc': 'The network flow which contained the {title}.'}),
+                ),
+                'doc': 'Properties common to network protocol responses.'}),
 
             ('inet:proto:login', {
 
@@ -2410,23 +2446,11 @@ modeldefs = (
                 ('cookies', ('array', {'type': 'inet:http:cookie'}), {
                     'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
 
-                ('response:time', ('time', {}), {
-                    'doc': 'The time a response to the request was received.'}),
-
-                ('response:code', ('int', {}), {
-                    'doc': 'The HTTP response code received.'}),
-
-                ('response:reason', ('str', {}), {
-                    'doc': 'The HTTP response reason phrase received.'}),
-
-                ('response:headers', ('array', {'type': 'inet:http:response:header', 'uniq': False, 'sorted': False}), {
-                    'doc': 'An array of HTTP headers from the response.'}),
-
-                ('response:body', ('file:bytes', {}), {
-                    'doc': 'The HTTP response body received.'}),
-
                 ('session', ('inet:http:session', {}), {
                     'doc': 'The HTTP session this request was part of.'}),
+
+                ('response', ('inet:http:response', {}), {
+                    'doc': 'The HTTP response sent by the server.'}),
             )),
 
             ('inet:http:session', {}, (
@@ -2677,11 +2701,17 @@ modeldefs = (
                 ('expires', ('time', {}), {
                     'doc': 'The "expires" time from the whois record.'}),
 
-                ('registrar', ('entity:name', {}), {
-                    'doc': 'The registrar name from the whois record.'}),
+                ('registrar', ('entity:actor', {}), {
+                    'doc': 'The actor who acted as the registrar for the FQDN.'}),
 
-                ('registrant', ('entity:name', {}), {
-                    'doc': 'The registrant name from the whois record.'}),
+                ('registrar:name', ('entity:name', {}), {
+                    'doc': 'The name of the actor who acted as the registrar for the FQDN.'}),
+
+                ('registrant', ('entity:actor', {}), {
+                    'doc': 'The actor who registered the FQDN.'}),
+
+                ('registrant:name', ('entity:name', {}), {
+                    'doc': 'The name of the actor who registered the FQDN.'}),
 
                 ('contacts', ('array', {'type': 'entity:contact'}), {
                     'doc': 'The whois registration contacts.'}),
@@ -2742,6 +2772,18 @@ modeldefs = (
 
                 ('name', ('base:id', {}), {
                     'doc': 'The name ID assigned to the network by the registrant.'}),
+
+                ('registrar', ('entity:actor', {}), {
+                    'doc': 'The actor who acted as the registrar for the network.'}),
+
+                ('registrar:name', ('entity:name', {}), {
+                    'doc': 'The name of the actor who acted as the registrar for the network.'}),
+
+                ('registrant', ('entity:actor', {}), {
+                    'doc': 'The actor who registered the network.'}),
+
+                ('registrant:name', ('entity:name', {}), {
+                    'doc': 'The name of the actor who registered the network.'}),
 
                 ('country', ('iso:3166:alpha2', {}), {
                     'doc': 'The ISO 3166 Alpha-2 country code.'}),

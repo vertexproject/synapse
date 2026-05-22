@@ -828,7 +828,7 @@ Lift an org node by its name:
 
 Lift a DNS request node by the name used in the DNS query:
 
-.. storm-pre:: [ inet:dns:request=* :time="2020/04/30 09:30:33.000" :query:name=pop.seznam.cz :query:name:fqdn=pop.seznam.cz ]
+.. storm-pre:: [ inet:dns:request=* :time="2020/04/30 09:30:33.000" :query:name=pop.seznam.cz ]
 .. storm-cli:: inet:dns:request:query:name = pop.seznam.cz
 
 It is also possible to lift and filter guid nodes using a "sufficiently unique" prefix match of the guid value.

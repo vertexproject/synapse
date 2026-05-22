@@ -634,7 +634,7 @@ secondary properties that are specific to the kind of event.
 
 An individual DNS request (``inet:dns:request``) is an example of an individual time-based event node:
 
-.. storm-pre:: [inet:dns:request="00000a17dbe261d10ce6ed514872bd37" :query=(tcp://199.68.196.162,download.applemusic.itemdb.com,1) :reply:code=0 :server=tcp://178.62.239.55 :time="2024/09/30 16:01:27.506"]
+.. storm-pre:: [inet:dns:request="00000a17dbe261d10ce6ed514872bd37" :query:name=download.applemusic.itemdb.com :query:type=1 :client=tcp://199.68.196.162 :server=tcp://178.62.239.55 :time="2024/09/30 16:01:27.506" :response={[ inet:dns:response=* :code=0 ]}]
 .. storm-cli:: inet:dns:request=00000a17dbe261d10ce6ed514872bd37
 
 A conference is an example of an event node with an associated time period:

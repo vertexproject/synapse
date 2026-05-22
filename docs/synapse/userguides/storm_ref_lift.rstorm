@@ -779,7 +779,7 @@ used to lift nodes based on comparisons among various combinations of times and 
 
 *Lift all DNS requests that occurred on May 3, 2023 (between 05/03/2023 00:00:00 and 05/03/2023 23:59:59):*
 
-.. storm-pre:: [ inet:dns:request="*" :time="2023/05/03 21:09:04.000" :query:name:fqdn=vertex.link ]
+.. storm-pre:: [ inet:dns:request="*" :time="2023/05/03 21:09:04.000" :query:name=vertex.link ]
 .. storm-pre:: inet:dns:request:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 ::
   

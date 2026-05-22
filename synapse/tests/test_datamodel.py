@@ -58,17 +58,17 @@ class DataModelTest(s_t_utils.SynTest):
             self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
 
             with self.raises(s_exc.NoSuchProp) as cm:
-                core.model.reqProp('inet:dns:query:name:ipv4')
-            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+                core.model.reqProp('inet:dns:a:ipv4')
+            self.isin('Did you mean inet:dns:a:ip?', cm.exception.get('mesg'))
 
             with self.raises(s_exc.NoSuchProp) as cm:
-                core.model.reqPropsByLook('inet:dns:query:name:ipv4')
-            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+                core.model.reqPropsByLook('inet:dns:a:ipv4')
+            self.isin('Did you mean inet:dns:a:ip?', cm.exception.get('mesg'))
 
-            form = core.model.reqForm('inet:dns:query')
+            form = core.model.reqForm('inet:dns:a')
             with self.raises(s_exc.NoSuchProp) as cm:
-                form.reqProp('name:ipv4')
-            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+                form.reqProp('ipv4')
+            self.isin('Did you mean inet:dns:a:ip?', cm.exception.get('mesg'))
 
             with self.raises(s_exc.NoSuchType) as cm:
                 core.model.addFormProp('test:str', 'bar', ('newp', {}), {})

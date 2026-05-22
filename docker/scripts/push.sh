@@ -6,7 +6,7 @@
 #
 # This is expected to be executed from the root of the repository; eg:
 #
-# ./docker/scripts/push_all.sh
+# ./docker/scripts/push.sh
 #
 # The first argument is the tag to push.
 # The second argument is the registry to push to.
@@ -34,16 +34,12 @@ docker tag vertexproject/synapse-aha:${TAG} ${REGISTRY}vertexproject/synapse-aha
 docker tag vertexproject/synapse-axon:${TAG} ${REGISTRY}vertexproject/synapse-axon:${TAG}
 docker tag vertexproject/synapse-cortex:${TAG} ${REGISTRY}vertexproject/synapse-cortex:${TAG}
 docker tag vertexproject/synapse-jsonstor:${TAG} ${REGISTRY}vertexproject/synapse-jsonstor:${TAG}
-docker tag vertexproject/synapse-ci:${TAG} ${REGISTRY}vertexproject/synapse-ci:${TAG}
-docker tag vertexproject/synapse-ci:${TAG}-browsers ${REGISTRY}vertexproject/synapse-ci:${TAG}-browsers
 
 docker push ${REGISTRY}vertexproject/synapse:${TAG}
 docker push ${REGISTRY}vertexproject/synapse-aha:${TAG}
 docker push ${REGISTRY}vertexproject/synapse-axon:${TAG}
 docker push ${REGISTRY}vertexproject/synapse-cortex:${TAG}
 docker push ${REGISTRY}vertexproject/synapse-jsonstor:${TAG}
-docker push ${REGISTRY}vertexproject/synapse-ci:${TAG}
-docker push ${REGISTRY}vertexproject/synapse-ci:${TAG}-browsers
 
 # Record the pushed files
 docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse:${TAG} > $DIGESTFILE
@@ -51,8 +47,6 @@ docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexprojec
 docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse-axon:${TAG} >> $DIGESTFILE
 docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse-cortex:${TAG} >> $DIGESTFILE
 docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse-jsonstor:${TAG} >> $DIGESTFILE
-docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse-ci:${TAG} >> $DIGESTFILE
-docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse-ci:${TAG}-browsers >> $DIGESTFILE
 
 echo "image digests:"
 cat $DIGESTFILE

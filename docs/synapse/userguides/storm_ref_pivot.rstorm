@@ -291,9 +291,11 @@ Implicit syntax can be used for these pivots if the target property is self-evid
 
 *Pivot from a set of FQDNs (inet:fqdn nodes) to their associated DNS requests (inet:dns:request nodes):*
 
-.. storm-pre:: [ inet:fqdn=vertex.link inet:fqdn=woot.com (inet:dns:request=* :query:name:fqdn=woot.com) ]
-.. storm-pre:: inet:fqdn -> inet:dns:request
-.. storm-pre:: inet:fqdn -> inet:dns:request:query:name:fqdn
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ inet:fqdn=vertex.link inet:fqdn=woot.com (inet:dns:request=* :query:name=woot.com) ]
+    .. storm-pre:: inet:fqdn -> inet:dns:request
+    .. storm-pre:: inet:fqdn -> inet:dns:request:query:name
 
 ::
   

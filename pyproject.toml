@@ -72,6 +72,10 @@ docs = [
     'sphinx-notfound-page>=1.0.4,<2.0.0',
     'jinja2>=3.1.4,<4.0.0',
 ]
+build = [
+    "build",
+]
+
 
 [project.urls]
 Homepage = 'https://vertex.link'

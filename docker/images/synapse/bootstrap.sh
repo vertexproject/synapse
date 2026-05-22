@@ -4,7 +4,7 @@ apt-get clean
 apt-get update
 apt-get -y upgrade
 apt-get install -y libffi-dev
-apt-get install -y locales curl tini nano build-essential
+apt-get install -y locales tini nano build-essential
 
 python -m pip install --upgrade pip
 
@@ -20,12 +20,12 @@ useradd -r --home-dir=/home/synuser -u 999 -g synuser --shell /bin/bash synuser
 mkdir -p /home/synuser
 chown synuser:synuser /home/synuser
 
-PIP_NO_CACHE_DIR=1
-PIP_ROOT_USER_ACTION=ignore
-python -m pip install --verbose /build/synapse
+if [ -d /build/dist ]; then
+    python -m pip install /build/dist/*.whl
+fi
 
 # Cleanup build time deps and remove problematic files
-apt-get remove -y --purge curl build-essential
+apt-get remove -y --purge build-essential
 apt-get remove -y --allow-remove-essential --purge e2fsprogs
 apt-get autoremove -y --purge
 apt-get clean

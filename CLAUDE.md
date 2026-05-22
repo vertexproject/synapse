@@ -107,6 +107,40 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
 - Files with the `.rstorm` extension are converted to `.rst` using the `synapse.tools.utils.rstorm` tool.
 - Key docs: `adminguide.rstorm`, `deploymentguide.rst`, `devopsguide.rst`, `httpapi.rst`
 
+## Docker
+
+`docker/scripts/build.sh` is the canonical builder for the synapse base images.
+
+```bash
+# Build all five base images with the default tag (3.x.x-dev):
+./docker/scripts/build.sh
+
+# Build with an explicit tag:
+./docker/scripts/build.sh 3.x.x-dev
+
+# Build only the vertexproject/synapse base, skip the four service variants:
+./docker/scripts/build.sh --only-base my_tag
+
+# Skip the BuildKit cache prune at the start (preserves the cache for iterative
+# integrations driven by external tooling):
+./docker/scripts/build.sh --no-prune my_tag
+
+# Flags compose; positional TAG comes last:
+./docker/scripts/build.sh --no-prune --only-base my_tag
+```
+
+Default behavior (no flags) produces:
+
+- `vertexproject/synapse:TAG`
+- `vertexproject/synapse-aha:TAG`
+- `vertexproject/synapse-axon:TAG`
+- `vertexproject/synapse-cortex:TAG`
+- `vertexproject/synapse-jsonstor:TAG`
+
+and starts with `docker builder prune -a -f`. `--no-prune` and `--only-base` are the supported escape hatches for callers that need lighter-touch behavior; the script must continue to be runnable directly with no flags for standalone use (CI base image publish, etc.).
+
+`docker/scripts/test.sh [TAG]` smoke-tests the produced images. It runs the synapse base entrypoint, starts the four service-variant containers, and polls each one's Docker `Health.Status` every 2s up to a 300s timeout. The poll loop exits as soon as a container reports a decisive status (anything other than `starting`); a final `healthy` check decides the script's exit code. An EXIT trap stops all containers on both success and failure paths so nothing leaks.
+
 ## Important Notes
 
 - The Storm language (`.storm` files, stormlib modules) is central to the system. Changes to the parser or stormlib modules can have wide-reaching effects.

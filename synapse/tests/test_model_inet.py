@@ -796,6 +796,7 @@ class InetModelTest(s_t_utils.SynTest):
             server = s_common.guid()
             flow = s_common.guid()
             iden = s_common.guid()
+            respiden = s_common.guid()
             body = s_common.guid()
             sand = s_common.guid()
 
@@ -806,7 +807,31 @@ class InetModelTest(s_t_utils.SynTest):
                 'client:host': client,
                 'server:host': server,
                 'sandbox:file': sand,
+                'respiden': respiden,
             }
+            q = '''[inet:http:response=$p.respiden
+                :time=2015
+                :flow=$p.flow
+                :code=200
+                :reason=OK
+                :headers=((baz, faz),)
+                :body=$p.body
+                :client=1.2.3.4
+                :server="5.5.5.5:443"
+            ]'''
+            nodes = await core.nodes(q, opts={'vars': {'p': props}})
+            self.len(1, nodes)
+            resp = nodes[0]
+            self.eq(resp.ndef, ('inet:http:response', respiden))
+            self.propeq(resp, 'time', 1420070400000000)
+            self.propeq(resp, 'flow', flow)
+            self.propeq(resp, 'code', 200)
+            self.propeq(resp, 'reason', 'OK')
+            self.propeq(resp, 'headers', (('baz', 'faz'),))
+            self.propeq(resp, 'body', body)
+            self.propeq(resp, 'client', 'tcp://1.2.3.4')
+            self.propeq(resp, 'server', 'tcp://5.5.5.5:443')
+
             q = '''[inet:http:request=$valu
                 :time=2015
                 :flow=$p.flow
@@ -817,17 +842,14 @@ class InetModelTest(s_t_utils.SynTest):
                 :headers=((foo, bar),)
                 :header:host=vertex.link
                 :header:referer="https://google.com?s=awesome"
-                :response:code=200
-                :response:reason=OK
-                :response:headers=((baz, faz),)
-                :response:body=$p.body
+                :response=$p.respiden
                 :client=1.2.3.4
                 :client:host=$p."client:host"
                 :server="5.5.5.5:443"
                 :server:host=$p."server:host"
                 :session=$p.sess
                 :sandbox:file=$p."sandbox:file"
-                ]'''
+            ]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': iden, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -840,10 +862,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(node, 'body', body)
             self.propeq(node, 'header:host', 'vertex.link')
             self.propeq(node, 'header:referer', 'https://google.com?s=awesome')
-            self.propeq(node, 'response:code', 200)
-            self.propeq(node, 'response:reason', 'OK')
-            self.propeq(node, 'response:headers', (('baz', 'faz'),))
-            self.propeq(node, 'response:body', body)
+            self.propeq(node, 'response', respiden)
             self.propeq(node, 'session', sess)
             self.propeq(node, 'sandbox:file', sand)
             self.propeq(node, 'client', 'tcp://1.2.3.4')
@@ -852,7 +871,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(node, 'server:host', server)
 
             self.len(1, await core.nodes('inet:http:request -> inet:http:request:header'))
-            self.len(1, await core.nodes('inet:http:request -> inet:http:response:header'))
+            self.len(1, await core.nodes('inet:http:request :response -> inet:http:response -> inet:http:response:header'))
 
             nodes = await core.nodes('inet:http:request -> inet:http:session [ :contact=* ]')
             self.len(1, nodes)
@@ -2419,8 +2438,10 @@ class InetModelTest(s_t_utils.SynTest):
                 [ inet:whois:record=0c63f6b67c9a3ca40f9f942957a718e9
                     :fqdn=woot.com
                     :text="YELLING AT pennywise@vertex.link LOUDLY"
-                    :registrar=' cool REGISTRAR'
-                    :registrant=' cool REGISTRANT'
+                    :registrar={[ ou:org=* :name=' cool REGISTRAR' ]}
+                    :registrar:name=' cool REGISTRAR'
+                    :registrant={[ ou:org=* :name=' cool REGISTRANT' ]}
+                    :registrant:name=' cool REGISTRANT'
                     :seen=2022
                 ]
             ''')
@@ -2429,8 +2450,10 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('inet:whois:record', '0c63f6b67c9a3ca40f9f942957a718e9'))
             self.propeq(node, 'fqdn', 'woot.com')
             self.propeq(node, 'text', 'yelling at pennywise@vertex.link loudly')
-            self.propeq(node, 'registrar', 'cool registrar')
-            self.propeq(node, 'registrant', 'cool registrant')
+            self.propeq(node, 'registrar:name', 'cool registrar')
+            self.propeq(node, 'registrant:name', 'cool registrant')
+            self.len(1, await core.nodes('inet:whois:record :registrar -> ou:org +:name="cool registrar"'))
+            self.len(1, await core.nodes('inet:whois:record :registrant -> ou:org +:name="cool registrant"'))
             self.nn(node.get('seen'))
 
             with self.getLoggerStream('synapse.datamodel') as stream:
@@ -2465,6 +2488,10 @@ class InetModelTest(s_t_utils.SynTest):
             }
             q = '''[(inet:whois:iprecord=$valu :net=$p.net :created=$p.created :updated=$p.updated
                 :text=$p.text :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
+                :registrar={[ ou:org=* :name=" ARIN " ]}
+                :registrar:name=" ARIN "
+                :registrant={[ ou:org=* :name=" VERTEX Project " ]}
+                :registrant:name=" VERTEX Project "
                 :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
                 :links=$p.links :seen=2022)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv4, 'p': props}})
@@ -2481,12 +2508,16 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(node, 'asn', 12345)
             self.propeq(node, 'id', 'NET-10-0-0-0-1')
             self.propeq(node, 'name', 'vtx')
+            self.propeq(node, 'registrar:name', 'arin')
+            self.propeq(node, 'registrant:name', 'vertex project')
             self.propeq(node, 'parentid', 'NET-10-0-0-0-0')
             self.propeq(node, 'contacts', (addlcontact,))
             self.propeq(node, 'country', 'us')
             self.propeq(node, 'status', 'validated')
             self.propeq(node, 'type', 'direct allocation')
             self.propeq(node, 'links', ('http://rdap.com/foo', 'http://rdap.net/bar'))
+            self.len(1, await core.nodes('inet:whois:iprecord :registrar -> ou:org +:name="arin"'))
+            self.len(1, await core.nodes('inet:whois:iprecord :registrant -> ou:org +:name="vertex project"'))
             self.nn(node.get('seen'))
 
             rec_ipv6 = s_common.guid()
