@@ -3713,6 +3713,13 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('test:guid | max :tick --size 10001')
 
+            # below minimum raises StormRuntimeError
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test:guid | max :tick --size 0')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test:guid | max :tick --size -1')
+
             # --size option: min yields bottom-N in ascending order
             nodes = await core.nodes('test:guid | min :tick --size 2')
             self.len(2, nodes)
@@ -3742,6 +3749,13 @@ class StormTest(s_t_utils.SynTest):
             # cap exceeded raises StormRuntimeError
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('test:guid | min :tick --size 10001')
+
+            # below minimum raises StormRuntimeError
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test:guid | min :tick --size 0')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test:guid | min :tick --size -1')
 
     async def test_scrape(self):
 

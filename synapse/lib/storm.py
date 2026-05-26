@@ -4262,6 +4262,10 @@ class MaxCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         size = await s_stormtypes.toint(self.opts.size)
+        if size < 1:
+            mesg = f'Specified size ({size}) is below the minimum (1).'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         if size > 10000:
             mesg = f'Specified size ({size}) is above the maximum (10000).'
             raise s_exc.StormRuntimeError(mesg=mesg)
@@ -4329,6 +4333,10 @@ class MinCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         size = await s_stormtypes.toint(self.opts.size)
+        if size < 1:
+            mesg = f'Specified size ({size}) is below the minimum (1).'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         if size > 10000:
             mesg = f'Specified size ({size}) is above the maximum (10000).'
             raise s_exc.StormRuntimeError(mesg=mesg)
