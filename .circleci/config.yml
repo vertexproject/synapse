@@ -117,6 +117,7 @@ commands:
             fi
             latest_model_path="${MODEL_DIR%/}/$latest_model"
             echo "Found latest model: $latest_model_path"
+            . venv/bin/activate
             SYNDEV_CELL_DRIVE_NOSPAWN=1 python -m synapse.tools.changelog format --version v2.999.999 --model-ref $latest_model_path --model-doc-dir ./docs/synapse/userguides/model_updates/
 
       - run:
