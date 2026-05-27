@@ -3711,7 +3711,7 @@ class StormTest(s_t_utils.SynTest):
 
             # cap exceeded raises BadArg
             with self.raises(s_exc.BadArg):
-                await core.nodes('test:guid | max :tick --size 10001')
+                await core.nodes('test:guid | max :tick --size 101')
 
             # below minimum raises BadArg
             with self.raises(s_exc.BadArg):
@@ -3748,7 +3748,7 @@ class StormTest(s_t_utils.SynTest):
 
             # cap exceeded raises BadArg
             with self.raises(s_exc.BadArg):
-                await core.nodes('test:guid | min :tick --size 10001')
+                await core.nodes('test:guid | min :tick --size 101')
 
             # below minimum raises BadArg
             with self.raises(s_exc.BadArg):

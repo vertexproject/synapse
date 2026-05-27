@@ -33,6 +33,8 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
+MINMAX_SIZE_MAX = 100
+
 addtriggerdescr = '''
 Add a trigger to the cortex.
 
@@ -4256,7 +4258,7 @@ class MaxCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('valu', help='The property or variable to use for comparison.')
         pars.add_argument('--size', default=1,
-                          help='The number of nodes to yield (max 10000). Nodes are yielded in descending order.')
+                          help='The number of nodes to yield (max 100). Nodes are yielded in descending order.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -4266,8 +4268,8 @@ class MaxCmd(Cmd):
             mesg = f'Specified size ({size}) is below the minimum (1).'
             raise s_exc.BadArg(mesg=mesg)
 
-        if size > 10000:
-            mesg = f'Specified size ({size}) is above the maximum (10000).'
+        if size > MINMAX_SIZE_MAX:
+            mesg = f'Specified size ({size}) is above the maximum ({MINMAX_SIZE_MAX}).'
             raise s_exc.BadArg(mesg=mesg)
 
         ivaltype = self.runt.snap.core.model.type('ival')
@@ -4327,7 +4329,7 @@ class MinCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('valu', help='The property or variable to use for comparison.')
         pars.add_argument('--size', default=1,
-                          help='The number of nodes to yield (max 10000). Nodes are yielded in ascending order.')
+                          help='The number of nodes to yield (max 100). Nodes are yielded in ascending order.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -4337,8 +4339,8 @@ class MinCmd(Cmd):
             mesg = f'Specified size ({size}) is below the minimum (1).'
             raise s_exc.BadArg(mesg=mesg)
 
-        if size > 10000:
-            mesg = f'Specified size ({size}) is above the maximum (10000).'
+        if size > MINMAX_SIZE_MAX:
+            mesg = f'Specified size ({size}) is above the maximum ({MINMAX_SIZE_MAX}).'
             raise s_exc.BadArg(mesg=mesg)
 
         ivaltype = self.runt.snap.core.model.type('ival')
