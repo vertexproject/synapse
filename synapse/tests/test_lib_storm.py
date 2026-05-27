@@ -3709,7 +3709,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), maxval)
 
-            # cap exceeded raises StormRuntimeError
+            # cap exceeded raises BadArg
             with self.raises(s_exc.BadArg):
                 await core.nodes('test:guid | max :tick --size 10001')
 
@@ -3746,7 +3746,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
 
-            # cap exceeded raises StormRuntimeError
+            # cap exceeded raises BadArg
             with self.raises(s_exc.BadArg):
                 await core.nodes('test:guid | min :tick --size 10001')
 
