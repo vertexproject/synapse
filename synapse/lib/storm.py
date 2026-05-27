@@ -4258,7 +4258,7 @@ class MaxCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('valu', help='The property or variable to use for comparison.')
         pars.add_argument('--size', default=1,
-                          help='The number of nodes to yield (max 100). Nodes are yielded in descending order.')
+                          help=f'The number of nodes to yield (max {MINMAX_SIZE_MAX}). Nodes are yielded in descending order.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -4329,7 +4329,7 @@ class MinCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('valu', help='The property or variable to use for comparison.')
         pars.add_argument('--size', default=1,
-                          help='The number of nodes to yield (max 100). Nodes are yielded in ascending order.')
+                          help=f'The number of nodes to yield (max {MINMAX_SIZE_MAX}). Nodes are yielded in ascending order.')
         return pars
 
     async def execStormCmd(self, runt, genr):
