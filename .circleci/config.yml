@@ -107,7 +107,7 @@ commands:
           command: |
             set -x
             MODEL_DIR=./changes/modelrefs/
-            latest_model=$( find "$MODEL_DIR" -maxdepth 1 -type f -name 'model_*_*.tar.gz' -printf '%f\n' \
+            latest_model=$( find "$MODEL_DIR" -maxdepth 1 -type f -name 'model_*_*.yaml.gz' -printf '%f\n' \
                 | sort -t '_' -k2 -V \
                 | tail -n 1
             )
