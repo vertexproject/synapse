@@ -1471,9 +1471,6 @@ class OuModule(s_module.CoreModule):
                     ('priority', ('meta:priority', {}), {
                         'doc': 'The priority of the requirement.'}),
 
-                    ('goal', ('ou:goal', {}), {
-                        'doc': 'The goal that the requirement is designed to achieve.'}),
-
                     ('active', ('bool', {}), {
                         'doc': 'Set to true if the requirement is currently active.'}),
 
