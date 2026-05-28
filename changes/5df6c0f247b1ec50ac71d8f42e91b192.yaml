@@ -1,5 +1,5 @@
 ---
-desc: Fix a bug in the ``Cell.shutdown()`` API where the ``timeout`` argument was not bounding
+desc: Fixed a bug in the ``Cell.shutdown()`` API where the ``timeout`` argument was not bounding
   the total runtime of the API. That timeout argument is now applied across the entire function.
 desc:literal: false
 prs: []
