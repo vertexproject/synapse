@@ -140,11 +140,12 @@ def un(data, depth=0):
 
     # Reconstruct AstInfo
     pos = meta.get('pos')
-    if pos is not None:
-        soff, eoff, sline, eline, scol, ecol, isterm = pos
-        astinfo = s_parser.AstInfo('', soff, eoff, sline, eline, scol, ecol, isterm)
-    else:
-        astinfo = s_parser.AstInfo('', 0, 0, 0, 0, 0, 0, False)
+    if pos is None:
+        mesg = 'Invalid AST node metadata: missing pos info'
+        raise s_exc.BadArg(mesg=mesg)
+
+    soff, eoff, sline, eline, scol, ecol, isterm = pos
+    astinfo = s_parser.AstInfo('', soff, eoff, sline, eline, scol, ecol, isterm)
 
     # Deserialize children
     childnodes = [un(k, depth=depth + 1) for k in kids]
