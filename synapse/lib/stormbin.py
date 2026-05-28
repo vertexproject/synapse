@@ -18,7 +18,6 @@ Attribute keys use short names (e.g. ``a`` instead of ``attrs``,
 '''
 import base64
 import logging
-import hashlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -298,17 +297,3 @@ def isCompiled(qinput):
         return True
 
     return False
-
-def stormbinHash(qinput):
-    '''
-    Compute a cache hash for compiled query input.
-
-    Args:
-        qinput: Query input (bytes or base64-prefixed str).
-
-    Returns:
-        str: Hex digest suitable for cache key.
-    '''
-    if isinstance(qinput, str):
-        qinput = qinput.encode()
-    return hashlib.md5(qinput, usedforsecurity=False).hexdigest()

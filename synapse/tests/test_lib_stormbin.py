@@ -426,17 +426,6 @@ class StormBinTest(s_test.SynTest):
         with self.raises(s_exc.BadArg):
             s_stormbin.decompile('inet:fqdn')
 
-    def test_stormbin_hash(self):
-        '''Test stormbinHash function.'''
-        byts = s_stormbin.compile('inet:fqdn')
-        h = s_stormbin.stormbinHash(byts)
-        self.assertIsInstance(h, str)
-        self.eq(len(h), 32)
-
-        # String input also works
-        h2 = s_stormbin.stormbinHash('}AAAB')
-        self.assertIsInstance(h2, str)
-
     async def test_stormbin_cortex_binary(self):
         '''Test that cortex.storm() accepts compiled binary input.'''
         async with self.getTestCore() as core:
