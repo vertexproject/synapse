@@ -25,7 +25,7 @@ class Boss(s_base.Base):
         self.shutdown_lock = asyncio.Lock()
         self.onfini(self._onBossFini)
 
-    async def shutdown(self, timeout=None, cancel_tasks=False):
+    async def shutdown(self, timeout=None, drain=True):
         '''
         Initiate a shutdown of the Boss by stopping promotion of any new tasks
         and either awaiting or cancelling top-level promoted tasks.
@@ -37,8 +37,9 @@ class Boss(s_base.Base):
                 The timeout is shared across all tasks; if it is reached
                 before every task is reaped the shutdown is aborted. ``None``
                 blocks indefinitely.
-            cancel_tasks: If True, cancel top-level tasks before awaiting them.
-                If False, top-level tasks are only awaited.
+            drain: If True (the default), top-level tasks are awaited until
+                they complete on their own. If False, top-level tasks are
+                cancelled before being awaited.
 
         Returns:
             bool: True if all eligible tasks were reaped before the timeout
@@ -51,7 +52,7 @@ class Boss(s_base.Base):
             toplevel = [task for task in self.tasks.values()
                         if task.root is None and not task.background]
 
-            if cancel_tasks:
+            if not drain:
                 for task in toplevel:
                     task.task.cancel()
 

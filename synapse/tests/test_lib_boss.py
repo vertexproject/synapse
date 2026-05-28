@@ -70,7 +70,7 @@ class BossTest(s_test.SynTest):
             with self.raises(s_exc.ShuttingDown):
                 boss.reqNotShut()
 
-    async def test_boss_shutdown_cancel_tasks(self):
+    async def test_boss_shutdown_no_drain(self):
 
         async with self.getTestCell(BossCell) as bcell:
             boss = bcell.cboss
@@ -88,10 +88,10 @@ class BossTest(s_test.SynTest):
 
             self.len(1, boss.ps())
 
-            self.true(await boss.shutdown(timeout=2, cancel_tasks=True))
+            self.true(await boss.shutdown(timeout=2, drain=False))
             self.true(boss.is_shutdown)
 
-    async def test_boss_shutdown_cancel_slowexit(self):
+    async def test_boss_shutdown_no_drain_slowexit(self):
 
         async with self.getTestCell(BossCell) as bcell:
             boss = bcell.cboss
@@ -104,14 +104,14 @@ class BossTest(s_test.SynTest):
                 try:
                     await asyncio.sleep(60)
                 except asyncio.CancelledError:
-                    # simulate a slow cleanup that blows the budget
+                    # simulate a slow cleanup that blows the timeout
                     await asyncio.sleep(0.5)
                     raise
 
             await boss.execute(slowexit(), 'slowexit', root)
             await evnt.wait()
 
-            self.false(await boss.shutdown(timeout=0.05, cancel_tasks=True))
+            self.false(await boss.shutdown(timeout=0.05, drain=False))
             self.false(boss.is_shutdown)
 
     async def test_boss_shutdown_shared_budget(self):

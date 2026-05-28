@@ -210,7 +210,7 @@ class CellApi(s_base.Base):
         pass
 
     @adminapi(log=True)
-    async def shutdown(self, timeout=None, drain=False):
+    async def shutdown(self, timeout=None, drain=True):
         return await self.cell.shutdown(timeout=timeout, drain=drain)
 
     @adminapi(log=True)
@@ -1693,13 +1693,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self._onFiniCellGuid()
         return retn
 
-    async def shutdown(self, timeout=None, drain=False):
+    async def shutdown(self, timeout=None, drain=True):
         '''
         Execute a graceful shutdown.
 
-        When ``drain`` is False, promoted boss tasks are awaited until they
-        complete. When ``drain`` is True, promoted boss tasks are cancelled
-        and then awaited.
+        When ``drain`` is True (the default), promoted boss tasks are awaited
+        until they complete. When ``drain`` is False, promoted boss tasks are
+        cancelled and then awaited.
 
         The ``timeout`` argument bounds the entire operation. Demote and task
         reaping share the single timeout value; no sub-phase may exceed the
@@ -1732,7 +1732,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning('...timeout reached before tasks phase. Aborting shutdown.', extra=extra)
             return False
 
-        if not await self.boss.shutdown(timeout=remaining(), cancel_tasks=drain):
+        if not await self.boss.shutdown(timeout=remaining(), drain=drain):
             logger.warning('...tasks did not complete within timeout. Aborting shutdown.', extra=extra)
             return False
 

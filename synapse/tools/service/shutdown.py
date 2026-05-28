@@ -12,8 +12,8 @@ any non-background tasks will be allowed to complete while ensuring
 no new tasks are created. Without a timeout, it can block forever if
 tasks do not exit.
 
-When --drain is provided, the service may drain itself of tasks that it is
-running, allowing the operator to bound shutdown wall time. Demote is still
+When --no-drain is provided, promoted tasks are cancelled instead of
+awaited, allowing the operator to bound shutdown wall time. Demote is still
 attempted within the timeout; only the task-wait phase changes.
 
 The --timeout value bounds the entire operation. Demote discovery, demote,
@@ -40,8 +40,8 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--timeout', default=None, type=int,
                         help='An optional timeout in seconds. If timeout is reached, the shutdown is aborted.')
 
-    pars.add_argument('--drain', default=False, action='store_true',
-                        help='Drain the service of running tasks instead of awaiting them.')
+    pars.add_argument('--no-drain', dest='drain', default=True, action='store_false',
+                        help='Cancel promoted tasks instead of awaiting them.')
 
     opts = pars.parse_args(argv)
 
@@ -53,13 +53,13 @@ async def main(argv, outp=s_output.stdout):
 
                 kwargs = {'timeout': opts.timeout}
 
-                if opts.drain:
+                if not opts.drain:
                     supported = proxy._hasTeleFeat('shutdowndrain', vers=1)
                     if not supported:
-                        outp.printf(f'Service at {opts.url} does not support the --drain feature.')
+                        outp.printf(f'Service at {opts.url} does not support the --no-drain feature.')
                         return 2
 
-                    kwargs['drain'] = True
+                    kwargs['drain'] = False
 
                 if await proxy.shutdown(**kwargs):
                     return 0

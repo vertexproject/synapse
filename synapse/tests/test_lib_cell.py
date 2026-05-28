@@ -3615,14 +3615,14 @@ class CellTest(s_t_utils.SynTest):
             seen = {}
             orig = cell.boss.shutdown
 
-            async def spy(timeout=None, cancel_tasks=False):
+            async def spy(timeout=None, drain=True):
                 seen['timeout'] = timeout
-                seen['cancel_tasks'] = cancel_tasks
-                return await orig(timeout=timeout, cancel_tasks=cancel_tasks)
+                seen['drain'] = drain
+                return await orig(timeout=timeout, drain=drain)
 
             with mock.patch.object(cell.boss, 'shutdown', spy):
-                self.true(await cell.shutdown(timeout=5, drain=True))
+                self.true(await cell.shutdown(timeout=5, drain=False))
 
-            self.true(seen['cancel_tasks'])
+            self.false(seen['drain'])
             self.lt(seen['timeout'], 5.0)
             self.gt(seen['timeout'], 0.0)
