@@ -1,0 +1,10 @@
+---
+desc: Added a ``--no-drain`` argument to the ``synapse.tools.service.shutdown`` tool.
+  This argument causes running tasks to be cancelled when the service is shutdown, instead
+  of waiting for them to finish. The tool now has an exit code of ``2`` for unexpected
+  errors, distinguishing them from a graceful shutdown aborted due to timeout
+  (exit code ``1``).
+desc:literal: false
+prs: []
+type: feat
+...
