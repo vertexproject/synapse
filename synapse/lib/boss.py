@@ -25,7 +25,7 @@ class Boss(s_base.Base):
         self.shutdown_lock = asyncio.Lock()
         self.onfini(self._onBossFini)
 
-    async def shutdown(self, timeout=None):
+    async def shutdown(self, timeout=None, cancel_tasks=False):
         # when a boss is "shutting down" it should not promote any new tasks,
         # but await the completion of any which are already underway...
 
@@ -33,17 +33,18 @@ class Boss(s_base.Base):
 
         async with self.shutdown_lock:
 
-            for task in list(self.tasks.values()):
+            toplevel = [task for task in self.tasks.values()
+                        if task.root is None and not task.background]
 
-                # do not wait on child tasks
-                if task.root is not None:
-                    continue
+            if cancel_tasks:
+                for task in toplevel:
+                    task.task.cancel()
 
-                # do not wait on background tasks
-                if task.background:
-                    continue
+            remaining = s_coro.deadline(timeout)
 
-                if not await s_coro.waittask(task.task, timeout=timeout):
+            for task in toplevel:
+
+                if not await s_coro.waittask(task.task, timeout=remaining()):
                     return False
 
             self.is_shutdown = True

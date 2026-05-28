@@ -210,8 +210,8 @@ class CellApi(s_base.Base):
         pass
 
     @adminapi(log=True)
-    async def shutdown(self, timeout=None):
-        return await self.cell.shutdown(timeout=timeout)
+    async def shutdown(self, timeout=None, cancel_tasks=False):
+        return await self.cell.shutdown(timeout=timeout, cancel_tasks=cancel_tasks)
 
     @adminapi(log=True)
     async def freeze(self, timeout=30):
@@ -1217,7 +1217,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'tellready': 1,
             'dynmirror': 1,
             'tasks': 1,
-            'issuewait': 1
+            'issuewait': 1,
+            'shutdowncancel': 1,
         }
 
         self.safemode = self.conf.req('safemode')
@@ -1692,23 +1693,50 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self._onFiniCellGuid()
         return retn
 
-    async def shutdown(self, timeout=None):
+    async def shutdown(self, timeout=None, cancel_tasks=False):
         '''
-        Execute a graceful shutdown by allowing any promoted boss tasks to complete
-        and prevents the boss from accepting additional tasks.
+        Execute a graceful shutdown.
+
+        When ``cancel_tasks`` is False, promoted boss tasks are awaited until they
+        complete. When ``cancel_tasks`` is True, promoted boss tasks are cancelled
+        and then awaited.
+
+        The ``timeout`` argument bounds the entire operation. Demote and task
+        reaping share a single budget; no sub-phase may exceed the time
+        remaining when it starts.
+
+        Returns:
+            bool: True if the shutdown was initiated, False if the timeout was
+            exhausted before completion.
         '''
         extra = self.getLogExtra()
         logger.warning('Graceful shutdown initiated...', extra=extra)
 
+        remaining = s_coro.deadline(timeout)
+
         # if we're the leader, lets see if we can handoff...
         if self.isactive and self.ahaclient is not None:
-            peers = await self._getDemotePeers(timeout=timeout)
+
+            if timeout is not None and remaining() == 0.0:
+                logger.warning('...budget exhausted before demote phase. Aborting shutdown.', extra=extra)
+                return False
+
+            try:
+                peers = await self._getDemotePeers(timeout=remaining())
+            except TimeoutError:
+                logger.warning('...budget exhausted finding demote peers. Aborting shutdown.', extra=extra)
+                return False
+
             if peers:
-                if not await self.demote(peers=peers, timeout=timeout): # pragma: no cover
+                if not await self.demote(peers=peers, timeout=remaining()): # pragma: no cover
                     logger.warning('...we are the leader and failed to demote. Aborting shutdown.', extra=extra)
                     return False
 
-        if not await self.boss.shutdown(timeout=timeout):
+        if timeout is not None and remaining() == 0.0:
+            logger.warning('...budget exhausted before tasks phase. Aborting shutdown.', extra=extra)
+            return False
+
+        if not await self.boss.shutdown(timeout=remaining(), cancel_tasks=cancel_tasks):
             logger.warning('...tasks did not complete within timeout. Aborting shutdown.', extra=extra)
             return False
 

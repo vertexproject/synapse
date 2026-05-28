@@ -137,6 +137,40 @@ async def waittask(task, timeout=None):
     finally:
         task.remove_done_callback(futu.set_result)
 
+def deadline(timeout):
+    '''
+    Return a callable that yields the seconds remaining until ``timeout``
+    seconds from now have elapsed.
+
+    The returned callable yields ``None`` if ``timeout`` is ``None``
+    (unbounded), otherwise ``max(0.0, <seconds until deadline>)``.
+
+    This is useful for sharing a single timeout budget across multiple
+    awaited operations.
+
+    Examples:
+
+        Compute a shared budget across multiple operations::
+
+            remaining = s_coro.deadline(timeout)
+
+            await opOne(timeout=remaining())
+            await opTwo(timeout=remaining())
+
+    Notes:
+        Must be called from within a running event loop.
+    '''
+    if timeout is None:
+        return lambda: None
+
+    loop = asyncio.get_running_loop()
+    end = loop.time() + timeout
+
+    def remaining():
+        return max(0.0, end - loop.time())
+
+    return remaining
+
 async def ornot(func, *args, **kwargs):
     '''
     Calls func and awaits it if a returns a coroutine.

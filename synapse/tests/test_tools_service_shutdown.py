@@ -24,7 +24,7 @@ class ShutdownToolTest(s_test.SynTest):
 
             argv = ['--url', core.getLocalUrl(), '--timeout', '0']
 
-            self.eq(1, await s_t_shutdown.main(argv))
+            self.eq(2, await s_t_shutdown.main(argv))
 
             for task in core.boss.ps():
                 if task.name == 'storm':
@@ -69,6 +69,26 @@ class ShutdownToolTest(s_test.SynTest):
                 argv = ['--url', cell01.getLocalUrl(), '--timeout', '12']
                 self.eq(0, await s_t_shutdown.main(argv, outp=outp))
                 self.true(await cell01.waitfini(timeout=12))
+
+    async def test_tool_shutdown_cancel_tasks(self):
+
+        async with self.getTestCore() as core:
+
+            argv = ['--url', core.getLocalUrl(), '--timeout', '5', '--cancel-tasks']
+            self.eq(0, await s_t_shutdown.main(argv))
+
+            self.true(await core.waitfini(timeout=5))
+
+    async def test_tool_shutdown_cancel_tasks_unsupported(self):
+
+        async with self.getTestCore() as core:
+
+            core.features.pop('shutdowncancel')
+
+            outp = self.getTestOutp()
+            argv = ['--url', core.getLocalUrl(), '--timeout', '5', '--cancel-tasks']
+            self.eq(1, await s_t_shutdown.main(argv, outp=outp))
+            outp.expect('does not support the --cancel-tasks feature')
 
     async def test_tool_shutdown_no_features(self):
 

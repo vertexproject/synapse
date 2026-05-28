@@ -3584,3 +3584,45 @@ class CellTest(s_t_utils.SynTest):
                         break
 
                 await task
+
+    async def test_cell_shutdown_demote_peers_timeout(self):
+
+        async with self.getTestCell() as cell:
+
+            async def boom(*args, **kwargs):
+                raise TimeoutError()
+
+            cell.isactive = True
+            cell.ahaclient = mock.Mock()
+
+            with mock.patch.object(cell, '_getDemotePeers', boom):
+                with self.getLoggerStream('synapse.lib.cell') as stream:
+                    self.false(await cell.shutdown(timeout=5))
+                await stream.expect('budget exhausted finding demote peers')
+
+    async def test_cell_shutdown_budget_exhausted(self):
+
+        async with self.getTestCell() as cell:
+
+            with self.getLoggerStream('synapse.lib.cell') as stream:
+                self.false(await cell.shutdown(timeout=0))
+            await stream.expect('budget exhausted before tasks phase')
+
+    async def test_cell_shutdown_cancel_tasks_plumbed(self):
+
+        async with self.getTestCell() as cell:
+
+            seen = {}
+            orig = cell.boss.shutdown
+
+            async def spy(timeout=None, cancel_tasks=False):
+                seen['timeout'] = timeout
+                seen['cancel_tasks'] = cancel_tasks
+                return await orig(timeout=timeout, cancel_tasks=cancel_tasks)
+
+            with mock.patch.object(cell.boss, 'shutdown', spy):
+                self.true(await cell.shutdown(timeout=5, cancel_tasks=True))
+
+            self.true(seen['cancel_tasks'])
+            self.lt(seen['timeout'], 5.0)
+            self.gt(seen['timeout'], 0.0)

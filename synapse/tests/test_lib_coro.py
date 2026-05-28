@@ -80,6 +80,31 @@ class CoroTest(s_t_utils.SynTest):
         # Ensure a generic coroutine is executed on the ioloop thread
         self.eq(s_glob._glob_thrd.ident, await afunc())
 
+    async def test_lib_coro_deadline(self):
+
+        remaining = s_coro.deadline(None)
+        self.none(remaining())
+        self.none(remaining())
+
+        remaining = s_coro.deadline(0.5)
+        first = remaining()
+        self.isinstance(first, float)
+        self.true(0.0 < first <= 0.5)
+
+        await asyncio.sleep(0.1)
+        second = remaining()
+        self.true(second < first)
+
+        remaining = s_coro.deadline(0.01)
+        await asyncio.sleep(0.05)
+        self.eq(0.0, remaining())
+
+        remaining = s_coro.deadline(0)
+        self.eq(0.0, remaining())
+
+        with self.raises(RuntimeError):
+            await s_coro.executor(s_coro.deadline, 1.0)
+
     async def test_lib_coro_create_task(self):
 
         async def sleep(n):

@@ -69,3 +69,73 @@ class BossTest(s_test.SynTest):
             boss.is_shutdown = True
             with self.raises(s_exc.ShuttingDown):
                 boss.reqNotShut()
+
+    async def test_boss_shutdown_cancel_tasks(self):
+
+        async with self.getTestCell(BossCell) as bcell:
+            boss = bcell.cboss
+            root = await bcell.auth.getUserByName('root')
+
+            evnt = asyncio.Event()
+
+            async def stuck():
+                evnt.set()
+                while True:
+                    await asyncio.sleep(10)
+
+            await boss.execute(stuck(), 'stuck', root)
+            await evnt.wait()
+
+            self.len(1, boss.ps())
+
+            self.true(await boss.shutdown(timeout=2, cancel_tasks=True))
+            self.true(boss.is_shutdown)
+
+    async def test_boss_shutdown_cancel_slowexit(self):
+
+        async with self.getTestCell(BossCell) as bcell:
+            boss = bcell.cboss
+            root = await bcell.auth.getUserByName('root')
+
+            evnt = asyncio.Event()
+
+            async def slowexit():
+                evnt.set()
+                try:
+                    await asyncio.sleep(60)
+                except asyncio.CancelledError:
+                    # simulate a slow cleanup that blows the budget
+                    await asyncio.sleep(0.5)
+                    raise
+
+            await boss.execute(slowexit(), 'slowexit', root)
+            await evnt.wait()
+
+            self.false(await boss.shutdown(timeout=0.05, cancel_tasks=True))
+            self.false(boss.is_shutdown)
+
+    async def test_boss_shutdown_shared_budget(self):
+
+        async with self.getTestCell(BossCell) as bcell:
+            boss = bcell.cboss
+            root = await bcell.auth.getUserByName('root')
+
+            evnt0 = asyncio.Event()
+            evnt1 = asyncio.Event()
+
+            async def slow(evnt):
+                evnt.set()
+                await asyncio.sleep(10)
+
+            await boss.execute(slow(evnt0), 'slow0', root)
+            await boss.execute(slow(evnt1), 'slow1', root)
+            await evnt0.wait()
+            await evnt1.wait()
+
+            start = asyncio.get_running_loop().time()
+            self.false(await boss.shutdown(timeout=0.2))
+            elapsed = asyncio.get_running_loop().time() - start
+
+            # shared budget: total wall time must respect timeout, not 2*timeout
+            self.lt(elapsed, 0.4)
+            self.false(boss.is_shutdown)
