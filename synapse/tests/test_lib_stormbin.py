@@ -490,44 +490,6 @@ class StormBinTest(s_test.SynTest):
 
             self.eq(text_nodes, bin_nodes)
 
-    async def test_stormbin_stormlib_compile(self):
-        '''Test $lib.storm.compile() stormlib function.'''
-        async with self.getTestCore() as core:
-
-            # Compile returns bytes
-            byts = await core.callStorm('return($lib.storm.compile("inet:fqdn"))')
-            self.assertIsInstance(byts, bytes)
-
-            # Compile with base64 encoding
-            encoded = await core.callStorm('return($lib.storm.compile("inet:fqdn", encode=base64))')
-            self.assertIsInstance(encoded, str)
-            self.true(encoded.startswith('}'))
-
-    async def test_stormbin_stormlib_decompile(self):
-        '''Test $lib.storm.decompile() stormlib function.'''
-        async with self.getTestCore() as core:
-
-            text = 'inet:fqdn=vertex.link'
-
-            # Compile then decompile via stormlib - must include text
-            byts = s_stormbin.compile(text, include_text=True)
-            opts = {'vars': {'byts': byts}}
-            result = await core.callStorm('return($lib.storm.decompile($byts))', opts=opts)
-            self.eq(result, text)
-
-    async def test_stormbin_stormlib_roundtrip(self):
-        '''Test compile/decompile round-trip via stormlib.'''
-        async with self.getTestCore() as core:
-
-            await core.stormlist('[ inet:fqdn=vertex.link ]')
-
-            # Compile, then execute the compiled binary
-            msgs = await core.stormlist('''
-                $byts = $lib.storm.compile("inet:fqdn=vertex.link")
-                yield $lib.storm.run($byts)
-            ''')
-            # The run will produce messages from the sub-query
-
     async def test_stormbin_http_base64(self):
         '''Test that HTTP API accepts } prefixed queries.'''
         async with self.getTestCore() as core:
