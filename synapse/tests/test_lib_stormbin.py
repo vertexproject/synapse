@@ -258,29 +258,13 @@ class StormBinTest(s_test.SynTest):
         self.false(s_stormbin.isCompiled(42))
         self.false(s_stormbin.isCompiled(None))
 
-    def test_stormbin_include_text(self):
-        '''Test compile with include_text preserves source.'''
-        text = 'inet:fqdn=vertex.link'
-        byts = s_stormbin.compile(text, include_text=True)
-        query = s_stormbin.decompile(byts)
-
-        # When text is included, the query text should be recoverable
-        self.eq(query.text, text)
-
     def test_stormbin_addpos(self):
-        '''Test compile with addpos preserves position info.'''
+        '''Test compile with addpos round-trips.'''
         text = 'inet:fqdn=vertex.link'
-        byts = s_stormbin.compile(text, include_text=True, addpos=True)
+        byts = s_stormbin.compile(text, addpos=True)
         query = s_stormbin.decompile(byts)
-        self.eq(query.text, text)
-
-    def test_stormbin_no_text(self):
-        '''Test compile without text strips source.'''
-        text = 'inet:fqdn=vertex.link'
-        byts = s_stormbin.compile(text, include_text=False)
-        query = s_stormbin.decompile(byts)
-        # Without included text, query text is empty
-        self.eq(query.text, '')
+        orig = s_parser.parseQuery(text)
+        self._assertAstEqual(orig, query)
 
     def test_stormbin_invalid_version(self):
         '''Test that future versions are rejected.'''

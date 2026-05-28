@@ -162,13 +162,12 @@ def en(node, addpos=False):
 
     return (typeid, kids, meta)
 
-def un(data, text=None, depth=0):
+def un(data, depth=0):
     '''
     Deserialize an AST node tree from a compact tuple format.
 
     Args:
         data (tuple): Serialized AST node tuple.
-        text (str): Original source text (if available).
         depth (int): Current recursion depth.
 
     Returns:
@@ -199,12 +198,12 @@ def un(data, text=None, depth=0):
     if 'pos' in meta:
         pos = meta['pos']
         soff, eoff, sline, eline, scol, ecol, isterm = pos
-        astinfo = s_parser.AstInfo(text or '', soff, eoff, sline, eline, scol, ecol, isterm)
+        astinfo = s_parser.AstInfo('', soff, eoff, sline, eline, scol, ecol, isterm)
     else:
-        astinfo = s_parser.AstInfo(text or '', 0, 0, 0, 0, 0, 0, False)
+        astinfo = s_parser.AstInfo('', 0, 0, 0, 0, 0, 0, False)
 
     # Deserialize children
-    childnodes = [un(k, text=text, depth=depth + 1) for k in kids]
+    childnodes = [un(k, depth=depth + 1) for k in kids]
 
     # Build constructor kwargs from _bin_attrs defined on the AST class
     kwargs = {}
@@ -233,14 +232,13 @@ def un(data, text=None, depth=0):
 
     return node
 
-def compile(text, mode='storm', include_text=False, addpos=False):
+def compile(text, mode='storm', addpos=False):
     '''
     Compile a Storm query string into the binary format.
 
     Args:
         text (str): Storm query text to compile.
         mode (str): Parse mode (storm, lookup, autoadd, search).
-        include_text (bool): Include original source text in metadata.
         addpos (bool): Include position info for error reporting.
 
     Returns:
@@ -257,8 +255,6 @@ def compile(text, mode='storm', include_text=False, addpos=False):
     meta = {}
     if mode != 'storm':
         meta['mode'] = mode
-    if include_text:
-        meta['source'] = text
 
     envelope = (FORMAT_VERSION, tree, meta)
     return s_msgpack.en(envelope)
@@ -305,13 +301,7 @@ def decompile(byts):
         mesg = f'Invalid stormbin mode: {mode}'
         raise s_exc.BadArg(mesg=mesg)
 
-    text = meta.get('source')
-
-    query = un(tree, text=text)
-
-    # Restore query text from source metadata if available
-    if text is not None and hasattr(query, 'text'):
-        query.text = text
+    query = un(tree)
 
     return query
 
