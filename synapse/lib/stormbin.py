@@ -17,7 +17,6 @@ Attribute keys use short names (e.g. ``a`` instead of ``attrs``,
 ``v`` instead of ``valu``) to minimize serialized size.
 '''
 import base64
-import decimal
 import logging
 import hashlib
 
@@ -38,13 +37,6 @@ MAX_DEPTH = 256
 BASE64_PREFIX = '}'
 
 validModes = {'storm', 'lookup', 'autoadd', 'search'}
-
-# Value type constants for tagged tuple encoding.
-VALU_PRIM = 0
-VALU_DECIMAL = 1
-VALU_TUPLE = 2
-VALU_LIST = 3
-VALU_DICT = 4
 
 # AST class <-> integer ID mapping.
 # IDs are defined via _bin_id class variables on each AST class.
@@ -77,52 +69,6 @@ def _initRegistry():
 
 _initRegistry()
 
-def _enValu(valu):
-    '''Encode a value into a tagged (type_int, encoded_value) tuple.'''
-    if isinstance(valu, (str, int, float, bool)) or valu is None:
-        return (VALU_PRIM, valu)
-
-    if isinstance(valu, tuple):
-        return (VALU_TUPLE, [_enValu(v) for v in valu])
-
-    if isinstance(valu, list):
-        return (VALU_LIST, [_enValu(v) for v in valu])
-
-    if isinstance(valu, dict):
-        return (VALU_DICT, {k: _enValu(v) for k, v in valu.items()})
-
-    if isinstance(valu, decimal.Decimal):
-        return (VALU_DECIMAL, str(valu))
-
-    mesg = f'Cannot encode value of type {type(valu).__name__}'
-    raise s_exc.BadArg(mesg=mesg)
-
-def _unValu(raw):
-    '''Decode a tagged (type_int, encoded_value) tuple back to a value.'''
-    if not isinstance(raw, (list, tuple)) or len(raw) != 2:
-        mesg = 'Invalid encoded value: expected 2-element tuple'
-        raise s_exc.BadArg(mesg=mesg)
-
-    typeid, val = raw
-
-    if typeid == VALU_PRIM:
-        return val
-
-    if typeid == VALU_TUPLE:
-        return tuple(_unValu(v) for v in val)
-
-    if typeid == VALU_LIST:
-        return [_unValu(v) for v in val]
-
-    if typeid == VALU_DICT:
-        return {k: _unValu(v) for k, v in val.items()}
-
-    if typeid == VALU_DECIMAL:
-        return decimal.Decimal(val)
-
-    mesg = f'Unknown value type ID: {typeid}'
-    raise s_exc.BadArg(mesg=mesg)
-
 def en(node, addpos=False):
     '''
     Serialize an AST node tree into a compact tuple format.
@@ -151,7 +97,7 @@ def en(node, addpos=False):
     for attrname, key, default in cls._bin_attrs:
         val = getattr(node, attrname, default)
         if val is not default and val != default:
-            attrdict[key] = _enValu(val)
+            attrdict[key] = val
 
     if attrdict:
         meta['a'] = attrdict
@@ -211,7 +157,7 @@ def un(data, depth=0):
     if attrs:
         for attrname, key, default in cls._bin_attrs:
             if key in attrs:
-                val = _unValu(attrs[key])
+                val = attrs[key]
             else:
                 val = default
             kwargs[attrname] = val
@@ -277,7 +223,7 @@ def decompile(byts):
             raise s_exc.BadArg(mesg=mesg)
 
     try:
-        envelope = s_msgpack.un(byts)
+        envelope = s_msgpack.un(byts, use_list=True)
     except Exception as e:
         mesg = f'Failed to decode stormbin data: {e}'
         raise s_exc.BadArg(mesg=mesg) from e

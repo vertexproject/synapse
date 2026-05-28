@@ -356,49 +356,6 @@ class StormBinTest(s_test.SynTest):
         with self.raises(s_exc.BadArg):
             s_stormbin.decompile('inet:fqdn')
 
-    def test_stormbin_valu_encode(self):
-        '''Test tagged tuple encode/decode round-trips for all value types.'''
-        # Primitives (str, int, float, bool, None) all use VALU_PRIM
-        for valu in ('hello', 42, 3.14, True, False, None):
-            encoded = s_stormbin._enValu(valu)
-            self.eq(encoded, (s_stormbin.VALU_PRIM, valu))
-            self.eq(s_stormbin._unValu(encoded), valu)
-
-        # decimal.Decimal
-        d = decimal.Decimal('3.14159')
-        self.eq(s_stormbin._enValu(d), (s_stormbin.VALU_DECIMAL, '3.14159'))
-        self.eq(s_stormbin._unValu((s_stormbin.VALU_DECIMAL, '3.14159')), d)
-        self.assertIsInstance(s_stormbin._unValu((s_stormbin.VALU_DECIMAL, '3.14159')), decimal.Decimal)
-
-        # tuple
-        t = (1, 'two', 3)
-        encoded = s_stormbin._enValu(t)
-        self.eq(encoded[0], s_stormbin.VALU_TUPLE)
-        decoded = s_stormbin._unValu(encoded)
-        self.eq(decoded, t)
-        self.assertIsInstance(decoded, tuple)
-
-        # list
-        lst = [1, 'two', 3]
-        encoded = s_stormbin._enValu(lst)
-        self.eq(encoded[0], s_stormbin.VALU_LIST)
-        decoded = s_stormbin._unValu(encoded)
-        self.eq(decoded, lst)
-        self.assertIsInstance(decoded, list)
-
-        # nested combinations
-        valu = (42, 'hello', [decimal.Decimal('2.5'), True, None], (1, 2))
-        decoded = s_stormbin._unValu(s_stormbin._enValu(valu))
-        self.eq(decoded, valu)
-        self.assertIsInstance(decoded, tuple)
-        self.assertIsInstance(decoded[2], list)
-        self.assertIsInstance(decoded[2][0], decimal.Decimal)
-        self.assertIsInstance(decoded[3], tuple)
-
-        # unknown type ID raises BadArg
-        with self.raises(s_exc.BadArg):
-            s_stormbin._unValu((999, 'bad'))
-
     def test_stormbin_hash(self):
         '''Test stormbinHash function.'''
         byts = s_stormbin.compile('inet:fqdn')
