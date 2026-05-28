@@ -1701,19 +1701,20 @@ The ``macro.del`` command deletes the specified macro from a Cortex.
 max
 ---
 
-The ``max`` command returns the node from a given set that contains the highest value for a specified
-secondary property, tag interval, or variable.
+The ``max`` command returns the node(s) from a given set that contain the highest value(s) for a specified
+secondary property, tag interval, or variable. By default a single node is returned. Use ``--size`` to
+return more than one node; results are yielded in descending order.
 
 **Syntax:**
 
 .. storm-cli:: max --help
-    
+
 
 **Examples:**
 
 - Return the DNS A record for woot.com with the most recent ``.seen`` value:
 
-.. storm-pre:: [(inet:dns:a=(woot.com,107.21.53.159) .seen=(2014/08/13,2014/08/14)) (inet:dns:a=(woot.com,75.101.146.4) .seen=(2013/09/21,2013/09/22))] 
+.. storm-pre:: [(inet:dns:a=(woot.com,107.21.53.159) .seen=(2014/08/13,2014/08/14)) (inet:dns:a=(woot.com,75.101.146.4) .seen=(2013/09/21,2013/09/22))]
 .. storm-cli:: inet:dns:a:fqdn=woot.com | max .seen
 
 
@@ -1721,6 +1722,11 @@ secondary property, tag interval, or variable.
 
 .. storm-pre:: [inet:whois:rec=(woot.com,2018/05/22) :text="domain name: woot.com"]
 .. storm-cli:: inet:whois:rec:fqdn=woot.com | max :asof
+
+
+- Return the two most recent DNS A records for woot.com, in descending order by ``.seen``:
+
+.. storm-cli:: inet:dns:a:fqdn=woot.com | max .seen --size 2
 
 
 .. _storm-merge:
@@ -1745,8 +1751,9 @@ See the :ref:`storm-view` and :ref:`storm-layer` commands for working with views
 min
 ---
 
-The ``min`` command returns the node from a given set that contains the lowest value for a specified
-secondary property, tag interval, or variable.
+The ``min`` command returns the node(s) from a given set that contain the lowest value(s) for a specified
+secondary property, tag interval, or variable. By default a single node is returned. Use ``--size`` to
+return more than one node; results are yielded in ascending order.
 
 **Syntax:**
 
@@ -1763,6 +1770,11 @@ secondary property, tag interval, or variable.
 - Return the oldest WHOIS record for domain woot.com:
 
 .. storm-cli:: inet:whois:rec:fqdn=woot.com | min :asof
+
+
+- Return the two oldest DNS A records for woot.com, in ascending order by ``.seen``:
+
+.. storm-cli:: inet:dns:a:fqdn=woot.com | min .seen --size 2
 
 
 .. _storm-model:

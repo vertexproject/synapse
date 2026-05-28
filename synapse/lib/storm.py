@@ -1,3 +1,4 @@
+import heapq
 import regex
 import types
 import pprint
@@ -31,6 +32,8 @@ import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+MINMAX_SIZE_MAX = 100
 
 addtriggerdescr = '''
 Add a trigger to the cortex.
@@ -4230,7 +4233,7 @@ class UniqCmd(Cmd):
 
 class MaxCmd(Cmd):
     '''
-    Consume nodes and yield only the one node with the highest value for an expression.
+    Consume nodes and yield the nodes with the highest values for an expression.
 
     Examples:
 
@@ -4243,6 +4246,9 @@ class MaxCmd(Cmd):
         // Yield the it:dev:str node with the longest length
         it:dev:str | max $lib.len($node.value())
 
+        // Yield the two most recent inet:dns:ns records (descending order)
+        inet:fqdn=vertex.link -> inet:dns:ns | max .seen --size 2
+
     '''
 
     name = 'max'
@@ -4251,16 +4257,28 @@ class MaxCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('valu', help='The property or variable to use for comparison.')
+        pars.add_argument('--size', default=1,
+                          help=f'The number of nodes to yield (max {MINMAX_SIZE_MAX}). Nodes are yielded in descending order.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        maxvalu = None
-        maxitem = None
+        size = await s_stormtypes.toint(self.opts.size)
+        if size < 1:
+            mesg = f'Specified size ({size}) is below the minimum (1).'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if size > MINMAX_SIZE_MAX:
+            mesg = f'Specified size ({size}) is above the maximum ({MINMAX_SIZE_MAX}).'
+            raise s_exc.BadArg(mesg=mesg)
 
         ivaltype = self.runt.snap.core.model.type('ival')
 
-        async for item in genr:
+        # min-heap of (valu, counter, (node, path)) — smallest valu at root so we can evict it
+        heap = []
+        counter = 0
+
+        async for node, path in genr:
 
             valu = await s_stormtypes.toprim(self.opts.valu)
             if valu is None:
@@ -4275,16 +4293,19 @@ class MaxCmd(Cmd):
 
             valu = s_stormtypes.intify(valu)
 
-            if maxvalu is None or valu > maxvalu:
-                maxvalu = valu
-                maxitem = item
+            if len(heap) < size:
+                heapq.heappush(heap, (valu, counter, (node, path)))
+            elif valu > heap[0][0]:
+                heapq.heapreplace(heap, (valu, counter, (node, path)))
 
-        if maxitem:
-            yield maxitem
+            counter += 1
+
+        for _, _, item in sorted(heap, key=lambda x: x[0], reverse=True):
+            yield item
 
 class MinCmd(Cmd):
     '''
-    Consume nodes and yield only the one node with the lowest value for an expression.
+    Consume nodes and yield the nodes with the lowest values for an expression.
 
     Examples:
 
@@ -4297,6 +4318,9 @@ class MinCmd(Cmd):
         // Yield the it:dev:str node with the shortest length
         it:dev:str | min $lib.len($node.value())
 
+        // Yield the two oldest inet:dns:ns records (ascending order)
+        inet:fqdn=vertex.link -> inet:dns:ns | min .seen --size 2
+
     '''
     name = 'min'
     readonly = True
@@ -4304,14 +4328,26 @@ class MinCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('valu', help='The property or variable to use for comparison.')
+        pars.add_argument('--size', default=1,
+                          help=f'The number of nodes to yield (max {MINMAX_SIZE_MAX}). Nodes are yielded in ascending order.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        minvalu = None
-        minitem = None
+        size = await s_stormtypes.toint(self.opts.size)
+        if size < 1:
+            mesg = f'Specified size ({size}) is below the minimum (1).'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if size > MINMAX_SIZE_MAX:
+            mesg = f'Specified size ({size}) is above the maximum ({MINMAX_SIZE_MAX}).'
+            raise s_exc.BadArg(mesg=mesg)
 
         ivaltype = self.runt.snap.core.model.type('ival')
+
+        # max-heap via negated valu — largest valu at root so we can evict it when we find something smaller
+        heap = []
+        counter = 0
 
         async for node, path in genr:
 
@@ -4328,12 +4364,15 @@ class MinCmd(Cmd):
 
             valu = s_stormtypes.intify(valu)
 
-            if minvalu is None or valu < minvalu:
-                minvalu = valu
-                minitem = (node, path)
+            if len(heap) < size:
+                heapq.heappush(heap, (-valu, counter, (node, path)))
+            elif valu < -heap[0][0]:
+                heapq.heapreplace(heap, (-valu, counter, (node, path)))
 
-        if minitem:
-            yield minitem
+            counter += 1
+
+        for _, _, item in sorted(heap, key=lambda x: x[0], reverse=True):
+            yield item
 
 class DelNodeCmd(Cmd):
     '''

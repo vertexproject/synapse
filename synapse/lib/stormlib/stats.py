@@ -43,6 +43,8 @@ class StatsCountByCmd(s_storm.Cmd):
                           dest='yieldnodes', help='Yield inbound nodes.')
         pars.add_argument('--by-name', default=False, action='store_true',
                           help='Print stats sorted by name instead of count.')
+        pars.add_argument('--percent', default=False, action='store_true',
+                          help='Include a percent column after the count column.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -58,6 +60,7 @@ class StatsCountByCmd(s_storm.Cmd):
             raise s_exc.BadArg(mesg=mesg)
 
         byname = await s_stormtypes.tobool(self.opts.by_name)
+        percent = await s_stormtypes.tobool(self.opts.percent)
 
         counts = collections.defaultdict(int)
 
@@ -113,14 +116,23 @@ class StatsCountByCmd(s_storm.Cmd):
             if size:
                 values = values[len(values) - size:]
 
+        pctstrs = {}
+        if percent:
+            totalcount = sum(counts.values())
+            pctstrs = {name: f'{(count / totalcount) * 100.0:.2f}%' for (name, count) in values}
+
         namewidth = 0
         countwidth = 0
+        pctwidth = 0
         for (name, count) in values:
             if (namelen := len(str(name))) > namewidth:
                 namewidth = namelen
 
             if (countlen := len(str(count))) > countwidth:
                 countwidth = countlen
+
+            if percent and (pctlen := len(pctstrs[name])) > pctwidth:
+                pctwidth = pctlen
 
         if labelwidth is not None:
             namewidth = min(labelwidth, namewidth)
@@ -129,7 +141,10 @@ class StatsCountByCmd(s_storm.Cmd):
 
             barsize = int((count / maxv) * barwidth)
             bar = ''.ljust(barsize, char)
-            line = f'{name[0:namewidth].rjust(namewidth)} | {count:>{countwidth}} | {bar}'
+            if percent:
+                line = f'{name[0:namewidth].rjust(namewidth)} | {count:>{countwidth}} | {pctstrs[name]:>{pctwidth}} | {bar}'
+            else:
+                line = f'{name[0:namewidth].rjust(namewidth)} | {count:>{countwidth}} | {bar}'
 
             await runt.printf(line)
 

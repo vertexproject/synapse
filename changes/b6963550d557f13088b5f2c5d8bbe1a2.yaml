@@ -1,0 +1,7 @@
+---
+desc: Added the ``--percent`` option to the ``stats.countby`` Storm command to include
+  a percent column in the output.
+desc:literal: false
+prs: []
+type: feat
+...
