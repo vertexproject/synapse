@@ -9,6 +9,7 @@ import contextlib
 
 logger = logging.getLogger(__name__)
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 
@@ -162,6 +163,10 @@ def deadline(timeout):
     '''
     if timeout is None:
         return lambda: None
+
+    if timeout < 0:
+        mesg = f'timeout must be non-negative, got {timeout}.'
+        raise s_exc.BadArg(mesg=mesg)
 
     loop = asyncio.get_running_loop()
     end = loop.time() + timeout

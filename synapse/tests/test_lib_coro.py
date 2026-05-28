@@ -1,6 +1,7 @@
 import asyncio
 import threading
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 
 import synapse.lib.coro as s_coro
@@ -101,6 +102,12 @@ class CoroTest(s_t_utils.SynTest):
 
         remaining = s_coro.deadline(0)
         self.eq(0.0, remaining())
+
+        with self.raises(s_exc.BadArg):
+            s_coro.deadline(-1)
+
+        with self.raises(s_exc.BadArg):
+            s_coro.deadline(-0.5)
 
         with self.raises(RuntimeError):
             await s_coro.executor(s_coro.deadline, 1.0)
