@@ -1717,10 +1717,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # if we're the leader, lets see if we can handoff...
         if self.isactive and self.ahaclient is not None:
 
-            if timeout is not None and remaining() == 0.0:
-                logger.warning('...timeout reached before demote phase. Aborting shutdown.', extra=extra)
-                return False
-
             try:
                 peers = await self._getDemotePeers(timeout=remaining())
             except TimeoutError:
