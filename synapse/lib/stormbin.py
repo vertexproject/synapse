@@ -50,7 +50,7 @@ def _initRegistry():
     queue = list(s_ast.AstNode.__subclasses__())
     while queue:
         cls = queue.pop()
-        if cls in seen:
+        if cls in seen: # pragma: no cover
             continue
         seen.add(cls)
         queue.extend(cls.__subclasses__())

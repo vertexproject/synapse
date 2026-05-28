@@ -357,6 +357,70 @@ class StormBinTest(s_test.SynTest):
         with self.raises(s_exc.BadArg):
             s_stormbin.decompile(b'\xff\xff\xff')
 
+    def test_stormbin_en_unknown_class(self):
+        '''en() rejects an AST node whose class has no _bin_id.'''
+        astinfo = s_parser.AstInfo('', 0, 0, 0, 0, 0, 0, False)
+        node = s_ast.Value(astinfo)
+        with self.raises(s_exc.BadArg) as cm:
+            s_stormbin.en(node)
+        self.isin('Unknown AST class', cm.exception.errinfo.get('mesg'))
+
+    def test_stormbin_invalid_node_meta_type(self):
+        '''un() rejects a node whose meta is not a dict.'''
+        import synapse.lib.msgpack as s_msgpack
+        queryid = s_stormbin.classToId[s_ast.Query]
+        tree = (queryid, [], 'notadict')
+        envelope = (1, tree, {})
+        byts = s_msgpack.en(envelope)
+        with self.raises(s_exc.BadArg) as cm:
+            s_stormbin.decompile(byts)
+        self.isin('Invalid AST node metadata', cm.exception.errinfo.get('mesg'))
+
+    def test_stormbin_missing_pos(self):
+        '''un() rejects a node whose meta is missing pos.'''
+        import synapse.lib.msgpack as s_msgpack
+        queryid = s_stormbin.classToId[s_ast.Query]
+        tree = (queryid, [], {})
+        envelope = (1, tree, {})
+        byts = s_msgpack.en(envelope)
+        with self.raises(s_exc.BadArg) as cm:
+            s_stormbin.decompile(byts)
+        self.isin('missing pos info', cm.exception.errinfo.get('mesg'))
+
+    def test_stormbin_attr_default(self):
+        '''un() falls back to the default when an attr key is absent.'''
+        import synapse.lib.msgpack as s_msgpack
+        # Lookup has _bin_attrs = (('autoadd', 'a', False),). Encode with attrs
+        # containing some unrelated key so the missing-key branch fires.
+        lookupid = s_stormbin.classToId[s_ast.Lookup]
+        pos = (0, 0, 0, 0, 0, 0, False)
+        meta = {'a': {'unused': True}, 'pos': pos}
+        tree = (lookupid, [], meta)
+        envelope = (1, tree, {'mode': 'lookup'})
+        byts = s_msgpack.en(envelope)
+        query = s_stormbin.decompile(byts)
+        self.assertIsInstance(query, s_ast.Lookup)
+        self.false(query.autoadd)
+
+    def test_stormbin_duplicate_bin_id(self):
+        '''_initRegistry() raises if two AST classes share a _bin_id.'''
+        # Patch an existing class to use a known-taken id, then re-run init.
+        keep_class = s_stormbin.idToClass[s_ast.Query._bin_id]
+        keep_attr = s_ast.Lookup._bin_id
+        try:
+            s_ast.Lookup._bin_id = s_ast.Query._bin_id
+            with self.raises(s_exc.BadArg) as cm:
+                s_stormbin._initRegistry()
+            self.isin('Duplicate _bin_id', cm.exception.errinfo.get('mesg'))
+        finally:
+            s_ast.Lookup._bin_id = keep_attr
+            # Restore the registry to a clean state.
+            s_stormbin.classToId.clear()
+            s_stormbin.idToClass.clear()
+            s_stormbin._initRegistry()
+        # Sanity check: the registry round-trips a query after restoration.
+        self.eq(keep_class, s_stormbin.idToClass[s_ast.Query._bin_id])
+
     def test_stormbin_decompile_plain_string(self):
         '''Test that decompile rejects plain strings.'''
         with self.raises(s_exc.BadArg):
