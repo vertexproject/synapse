@@ -116,7 +116,10 @@ class StatsCountByCmd(s_storm.Cmd):
             if size:
                 values = values[len(values) - size:]
 
-        totalcount = sum(counts.values())
+        pctstrs = {}
+        if percent:
+            totalcount = sum(counts.values())
+            pctstrs = {name: f'{(count / totalcount) * 100.0:.2f}%' for (name, count) in values}
 
         namewidth = 0
         countwidth = 0
@@ -128,10 +131,8 @@ class StatsCountByCmd(s_storm.Cmd):
             if (countlen := len(str(count))) > countwidth:
                 countwidth = countlen
 
-            if percent:
-                pct = (count / totalcount) * 100.0
-                if (pctlen := len(f'{pct:.2f}%')) > pctwidth:
-                    pctwidth = pctlen
+            if percent and (pctlen := len(pctstrs[name])) > pctwidth:
+                pctwidth = pctlen
 
         if labelwidth is not None:
             namewidth = min(labelwidth, namewidth)
@@ -141,8 +142,7 @@ class StatsCountByCmd(s_storm.Cmd):
             barsize = int((count / maxv) * barwidth)
             bar = ''.ljust(barsize, char)
             if percent:
-                pctstr = f'{(count / totalcount) * 100.0:.2f}%'
-                line = f'{name[0:namewidth].rjust(namewidth)} | {count:>{countwidth}} | {pctstr:>{pctwidth}} | {bar}'
+                line = f'{name[0:namewidth].rjust(namewidth)} | {count:>{countwidth}} | {pctstrs[name]:>{pctwidth}} | {bar}'
             else:
                 line = f'{name[0:namewidth].rjust(namewidth)} | {count:>{countwidth}} | {bar}'
 
