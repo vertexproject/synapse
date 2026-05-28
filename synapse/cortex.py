@@ -6548,7 +6548,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         text, mode = args
         try:
             if s_stormbin.isCompiled(text):
-                query = s_stormbin.decompile(text)
+                query = s_stormbin.load(text)
             else:
                 query = copy.deepcopy(await s_parser.querycache.aget(args))
         except s_exc.FatalErr: # pragma: no cover

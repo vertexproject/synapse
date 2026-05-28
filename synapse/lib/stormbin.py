@@ -202,9 +202,9 @@ def compile(text, mode='storm'):
     envelope = (FORMAT_VERSION, tree, meta)
     return s_msgpack.en(envelope)
 
-def decompile(byts):
+def load(byts):
     '''
-    Decompile a binary format back into an AST Query node.
+    Load a compiled binary stormbin payload into an AST Query node.
 
     Args:
         byts (bytes): Compiled binary data.

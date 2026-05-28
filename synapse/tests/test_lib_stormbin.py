@@ -46,7 +46,7 @@ class StormBinTest(s_test.SynTest):
             self._assertAstEqual(k1, k2)
 
     def test_stormbin_roundtrip_basic(self):
-        '''Test round-trip compile/decompile for basic queries.'''
+        '''Test round-trip compile/load for basic queries.'''
         queries = [
             'inet:fqdn',
             'inet:fqdn=vertex.link',
@@ -62,7 +62,7 @@ class StormBinTest(s_test.SynTest):
             byts = s_stormbin.compile(text)
             self.assertIsInstance(byts, bytes)
 
-            query = s_stormbin.decompile(byts)
+            query = s_stormbin.load(byts)
             orig = s_parser.parseQuery(text)
             self._assertAstEqual(orig, query)
 
@@ -116,7 +116,7 @@ class StormBinTest(s_test.SynTest):
         ]
         for text in queries:
             byts = s_stormbin.compile(text)
-            query = s_stormbin.decompile(byts)
+            query = s_stormbin.load(byts)
             orig = s_parser.parseQuery(text)
             self._assertAstEqual(orig, query)
 
@@ -130,7 +130,7 @@ class StormBinTest(s_test.SynTest):
         ]
         for text in queries:
             byts = s_stormbin.compile(text)
-            query = s_stormbin.decompile(byts)
+            query = s_stormbin.load(byts)
             orig = s_parser.parseQuery(text)
             self._assertAstEqual(orig, query)
 
@@ -142,7 +142,7 @@ class StormBinTest(s_test.SynTest):
         ]
         for text in queries:
             byts = s_stormbin.compile(text)
-            query = s_stormbin.decompile(byts)
+            query = s_stormbin.load(byts)
             orig = s_parser.parseQuery(text)
             self._assertAstEqual(orig, query)
 
@@ -156,7 +156,7 @@ class StormBinTest(s_test.SynTest):
         ]
         for text in queries:
             byts = s_stormbin.compile(text)
-            query = s_stormbin.decompile(byts)
+            query = s_stormbin.load(byts)
             orig = s_parser.parseQuery(text)
             self._assertAstEqual(orig, query)
 
@@ -164,25 +164,25 @@ class StormBinTest(s_test.SynTest):
         '''Test value preservation for different types.'''
         # int
         byts = s_stormbin.compile('$x = 42')
-        query = s_stormbin.decompile(byts)
+        query = s_stormbin.load(byts)
         orig = s_parser.parseQuery('$x = 42')
         self._assertAstEqual(orig, query)
 
         # string
         byts = s_stormbin.compile('$x = "hello"')
-        query = s_stormbin.decompile(byts)
+        query = s_stormbin.load(byts)
         orig = s_parser.parseQuery('$x = "hello"')
         self._assertAstEqual(orig, query)
 
         # bool
         byts = s_stormbin.compile('$x = $lib.true')
-        query = s_stormbin.decompile(byts)
+        query = s_stormbin.load(byts)
         orig = s_parser.parseQuery('$x = $lib.true')
         self._assertAstEqual(orig, query)
 
         # None
         byts = s_stormbin.compile('$x = $lib.null')
-        query = s_stormbin.decompile(byts)
+        query = s_stormbin.load(byts)
         orig = s_parser.parseQuery('$x = $lib.null')
         self._assertAstEqual(orig, query)
 
@@ -190,14 +190,14 @@ class StormBinTest(s_test.SynTest):
         '''Test storm parse mode.'''
         text = 'inet:fqdn=vertex.link'
         byts = s_stormbin.compile(text, mode='storm')
-        query = s_stormbin.decompile(byts)
+        query = s_stormbin.load(byts)
         self.assertIsInstance(query, s_ast.Query)
 
     def test_stormbin_mode_lookup(self):
         '''Test lookup parse mode.'''
         text = 'vertex.link'
         byts = s_stormbin.compile(text, mode='lookup')
-        query = s_stormbin.decompile(byts)
+        query = s_stormbin.load(byts)
         self.assertIsInstance(query, s_ast.Lookup)
         self.false(query.autoadd)
 
@@ -205,7 +205,7 @@ class StormBinTest(s_test.SynTest):
         '''Test autoadd parse mode.'''
         text = 'vertex.link'
         byts = s_stormbin.compile(text, mode='autoadd')
-        query = s_stormbin.decompile(byts)
+        query = s_stormbin.load(byts)
         self.assertIsInstance(query, s_ast.Lookup)
         self.true(query.autoadd)
 
@@ -213,7 +213,7 @@ class StormBinTest(s_test.SynTest):
         '''Test search parse mode.'''
         text = 'hello world'
         byts = s_stormbin.compile(text, mode='search')
-        query = s_stormbin.decompile(byts)
+        query = s_stormbin.load(byts)
         self.assertIsInstance(query, s_ast.Search)
 
     def test_stormbin_base64_roundtrip(self):
@@ -228,17 +228,17 @@ class StormBinTest(s_test.SynTest):
         decoded = s_stormbin.unBase64(encoded)
         self.eq(byts, decoded)
 
-        query = s_stormbin.decompile(decoded)
+        query = s_stormbin.load(decoded)
         orig = s_parser.parseQuery(text)
         self._assertAstEqual(orig, query)
 
-    def test_stormbin_base64_decompile(self):
-        '''Test that decompile accepts } strings directly.'''
+    def test_stormbin_base64_load(self):
+        '''Test that load accepts } strings directly.'''
         text = 'inet:fqdn=vertex.link'
         byts = s_stormbin.compile(text)
         encoded = s_stormbin.enBase64(byts)
 
-        query = s_stormbin.decompile(encoded)
+        query = s_stormbin.load(encoded)
         orig = s_parser.parseQuery(text)
         self._assertAstEqual(orig, query)
 
@@ -259,10 +259,10 @@ class StormBinTest(s_test.SynTest):
         self.false(s_stormbin.isCompiled(None))
 
     def test_stormbin_pos_preserved(self):
-        '''Position info round-trips through compile/decompile.'''
+        '''Position info round-trips through compile/load.'''
         text = 'inet:fqdn=vertex.link'
         byts = s_stormbin.compile(text)
-        query = s_stormbin.decompile(byts)
+        query = s_stormbin.load(byts)
         orig = s_parser.parseQuery(text)
         self.eq(query.astinfo.soff, orig.astinfo.soff)
         self.eq(query.astinfo.eoff, orig.astinfo.eoff)
@@ -278,7 +278,7 @@ class StormBinTest(s_test.SynTest):
         envelope = (999, (0, [], {}), {})
         byts = s_msgpack.en(envelope)
         with self.raises(s_exc.BadArg) as cm:
-            s_stormbin.decompile(byts)
+            s_stormbin.load(byts)
         self.isin('Unsupported stormbin version', cm.exception.errinfo.get('mesg'))
 
     def test_stormbin_invalid_envelope(self):
@@ -288,12 +288,12 @@ class StormBinTest(s_test.SynTest):
         # Too few elements
         byts = s_msgpack.en((1, 2))
         with self.raises(s_exc.BadArg):
-            s_stormbin.decompile(byts)
+            s_stormbin.load(byts)
 
         # Invalid meta type
         byts = s_msgpack.en((1, (0, [], {}), 'notadict'))
         with self.raises(s_exc.BadArg):
-            s_stormbin.decompile(byts)
+            s_stormbin.load(byts)
 
     def test_stormbin_invalid_typeid(self):
         '''Test that unknown type IDs raise BadArg.'''
@@ -303,7 +303,7 @@ class StormBinTest(s_test.SynTest):
         envelope = (1, tree, {})
         byts = s_msgpack.en(envelope)
         with self.raises(s_exc.BadArg) as cm:
-            s_stormbin.decompile(byts)
+            s_stormbin.load(byts)
         self.isin('Unknown AST type ID', cm.exception.errinfo.get('mesg'))
 
     def test_stormbin_invalid_node_format(self):
@@ -314,7 +314,7 @@ class StormBinTest(s_test.SynTest):
         envelope = (1, tree, {})
         byts = s_msgpack.en(envelope)
         with self.raises(s_exc.BadArg) as cm:
-            s_stormbin.decompile(byts)
+            s_stormbin.load(byts)
         self.isin('Invalid AST node format', cm.exception.errinfo.get('mesg'))
 
     def test_stormbin_depth_limit(self):
@@ -341,7 +341,7 @@ class StormBinTest(s_test.SynTest):
         envelope = (1, tree, {'mode': 'invalid'})
         byts = s_msgpack.en(envelope)
         with self.raises(s_exc.BadArg) as cm:
-            s_stormbin.decompile(byts)
+            s_stormbin.load(byts)
         self.isin('Invalid stormbin mode', cm.exception.errinfo.get('mesg'))
 
     def test_stormbin_bad_base64(self):
@@ -355,7 +355,7 @@ class StormBinTest(s_test.SynTest):
     def test_stormbin_bad_msgpack(self):
         '''Test that invalid msgpack data raises BadArg.'''
         with self.raises(s_exc.BadArg):
-            s_stormbin.decompile(b'\xff\xff\xff')
+            s_stormbin.load(b'\xff\xff\xff')
 
     def test_stormbin_en_unknown_class(self):
         '''en() rejects an AST node whose class has no _bin_id.'''
@@ -373,7 +373,7 @@ class StormBinTest(s_test.SynTest):
         envelope = (1, tree, {})
         byts = s_msgpack.en(envelope)
         with self.raises(s_exc.BadArg) as cm:
-            s_stormbin.decompile(byts)
+            s_stormbin.load(byts)
         self.isin('Invalid AST node metadata', cm.exception.errinfo.get('mesg'))
 
     def test_stormbin_missing_pos(self):
@@ -384,7 +384,7 @@ class StormBinTest(s_test.SynTest):
         envelope = (1, tree, {})
         byts = s_msgpack.en(envelope)
         with self.raises(s_exc.BadArg) as cm:
-            s_stormbin.decompile(byts)
+            s_stormbin.load(byts)
         self.isin('missing pos info', cm.exception.errinfo.get('mesg'))
 
     def test_stormbin_attr_default(self):
@@ -398,7 +398,7 @@ class StormBinTest(s_test.SynTest):
         tree = (lookupid, [], meta)
         envelope = (1, tree, {'mode': 'lookup'})
         byts = s_msgpack.en(envelope)
-        query = s_stormbin.decompile(byts)
+        query = s_stormbin.load(byts)
         self.assertIsInstance(query, s_ast.Lookup)
         self.false(query.autoadd)
 
@@ -421,10 +421,10 @@ class StormBinTest(s_test.SynTest):
         # Sanity check: the registry round-trips a query after restoration.
         self.eq(keep_class, s_stormbin.idToClass[s_ast.Query._bin_id])
 
-    def test_stormbin_decompile_plain_string(self):
-        '''Test that decompile rejects plain strings.'''
+    def test_stormbin_load_plain_string(self):
+        '''Test that load rejects plain strings.'''
         with self.raises(s_exc.BadArg):
-            s_stormbin.decompile('inet:fqdn')
+            s_stormbin.load('inet:fqdn')
 
     async def test_stormbin_cortex_binary(self):
         '''Test that cortex.storm() accepts compiled binary input.'''
