@@ -54,11 +54,7 @@ async def main(argv, outp=s_output.stdout):
                 kwargs = {'timeout': opts.timeout}
 
                 if opts.cancel_tasks:
-                    try:
-                        supported = proxy._hasTeleFeat('shutdowncancel', vers=1)
-                    except s_exc.NoSuchMeth:
-                        supported = False
-
+                    supported = proxy._hasTeleFeat('shutdowncancel', vers=1)
                     if not supported:
                         outp.printf(f'Service at {opts.url} does not support the --cancel-tasks feature.')
                         return 1
