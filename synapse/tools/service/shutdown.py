@@ -22,10 +22,10 @@ the time remaining when it starts.
 
 Exit codes:
   0 - graceful shutdown was initiated successfully
-  1 - an unexpected error occurred
-  2 - the shutdown was aborted because the timeout was reached; the
+  1 - the shutdown was aborted because the timeout was reached; the
       service may be in a partially shutdown state as a result of this
       timeout.
+  2 - an unexpected error occurred
 
 NOTE: This will also demote the service if run on a leader with mirrors.
 '''
@@ -57,19 +57,19 @@ async def main(argv, outp=s_output.stdout):
                     supported = proxy._hasTeleFeat('shutdowncancel', vers=1)
                     if not supported:
                         outp.printf(f'Service at {opts.url} does not support the --cancel-tasks feature.')
-                        return 1
+                        return 2
 
                     kwargs['cancel_tasks'] = True
 
                 if await proxy.shutdown(**kwargs):
                     return 0
 
-                return 2
+                return 1
 
         except Exception as e:
             text = s_exc.reprexc(e)
             outp.printf(f'Error while attempting graceful shutdown: {text}')
-            return 1
+            return 2
 
 if __name__ == '__main__': # pragma: no cover
     s_cmd.exitmain(main)
