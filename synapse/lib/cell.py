@@ -210,8 +210,8 @@ class CellApi(s_base.Base):
         pass
 
     @adminapi(log=True)
-    async def shutdown(self, timeout=None, cancel_tasks=False):
-        return await self.cell.shutdown(timeout=timeout, cancel_tasks=cancel_tasks)
+    async def shutdown(self, timeout=None, drain=False):
+        return await self.cell.shutdown(timeout=timeout, drain=drain)
 
     @adminapi(log=True)
     async def freeze(self, timeout=30):
@@ -1218,7 +1218,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'dynmirror': 1,
             'tasks': 1,
             'issuewait': 1,
-            'shutdowncancel': 1,
+            'shutdowndrain': 1,
         }
 
         self.safemode = self.conf.req('safemode')
@@ -1693,12 +1693,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self._onFiniCellGuid()
         return retn
 
-    async def shutdown(self, timeout=None, cancel_tasks=False):
+    async def shutdown(self, timeout=None, drain=False):
         '''
         Execute a graceful shutdown.
 
-        When ``cancel_tasks`` is False, promoted boss tasks are awaited until they
-        complete. When ``cancel_tasks`` is True, promoted boss tasks are cancelled
+        When ``drain`` is False, promoted boss tasks are awaited until they
+        complete. When ``drain`` is True, promoted boss tasks are cancelled
         and then awaited.
 
         The ``timeout`` argument bounds the entire operation. Demote and task
@@ -1732,7 +1732,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning('...timeout reached before tasks phase. Aborting shutdown.', extra=extra)
             return False
 
-        if not await self.boss.shutdown(timeout=remaining(), cancel_tasks=cancel_tasks):
+        if not await self.boss.shutdown(timeout=remaining(), cancel_tasks=drain):
             logger.warning('...tasks did not complete within timeout. Aborting shutdown.', extra=extra)
             return False
 

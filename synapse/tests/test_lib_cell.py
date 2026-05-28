@@ -3608,7 +3608,7 @@ class CellTest(s_t_utils.SynTest):
                 self.false(await cell.shutdown(timeout=0))
             await stream.expect('timeout reached before tasks phase')
 
-    async def test_cell_shutdown_cancel_tasks_plumbed(self):
+    async def test_cell_shutdown_drain_plumbed(self):
 
         async with self.getTestCell() as cell:
 
@@ -3621,7 +3621,7 @@ class CellTest(s_t_utils.SynTest):
                 return await orig(timeout=timeout, cancel_tasks=cancel_tasks)
 
             with mock.patch.object(cell.boss, 'shutdown', spy):
-                self.true(await cell.shutdown(timeout=5, cancel_tasks=True))
+                self.true(await cell.shutdown(timeout=5, drain=True))
 
             self.true(seen['cancel_tasks'])
             self.lt(seen['timeout'], 5.0)

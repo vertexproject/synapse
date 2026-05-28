@@ -70,25 +70,25 @@ class ShutdownToolTest(s_test.SynTest):
                 self.eq(0, await s_t_shutdown.main(argv, outp=outp))
                 self.true(await cell01.waitfini(timeout=12))
 
-    async def test_tool_shutdown_cancel_tasks(self):
+    async def test_tool_shutdown_drain(self):
 
         async with self.getTestCore() as core:
 
-            argv = ['--url', core.getLocalUrl(), '--timeout', '5', '--cancel-tasks']
+            argv = ['--url', core.getLocalUrl(), '--timeout', '5', '--drain']
             self.eq(0, await s_t_shutdown.main(argv))
 
             self.true(await core.waitfini(timeout=5))
 
-    async def test_tool_shutdown_cancel_tasks_unsupported(self):
+    async def test_tool_shutdown_drain_unsupported(self):
 
         async with self.getTestCore() as core:
 
-            core.features.pop('shutdowncancel')
+            core.features.pop('shutdowndrain')
 
             outp = self.getTestOutp()
-            argv = ['--url', core.getLocalUrl(), '--timeout', '5', '--cancel-tasks']
+            argv = ['--url', core.getLocalUrl(), '--timeout', '5', '--drain']
             self.eq(2, await s_t_shutdown.main(argv, outp=outp))
-            outp.expect('does not support the --cancel-tasks feature')
+            outp.expect('does not support the --drain feature')
 
     async def test_tool_shutdown_no_features(self):
 
