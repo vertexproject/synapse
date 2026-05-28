@@ -14,17 +14,18 @@ tasks do not exit.
 
 When --cancel-tasks is provided, promoted tasks are cancelled instead of
 awaited, allowing the operator to bound shutdown wall time. Demote is still
-attempted within the timeout budget; only the task-wait phase changes.
+attempted within the timeout; only the task-wait phase changes.
 
 The --timeout value bounds the entire operation. Demote discovery, demote,
-and task reaping share a single budget; no sub-phase may exceed the time
-remaining when it starts.
+and task reaping share the single timeout value; no sub-phase may exceed
+the time remaining when it starts.
 
 Exit codes:
   0 - graceful shutdown was initiated successfully
   1 - an unexpected error occurred
-  2 - the shutdown was aborted because the timeout was exhausted; the
-      service has resumed normal operation
+  2 - the shutdown was aborted because the timeout was reached; the
+      service may be in a partially shutdown state as a result of this
+      timeout.
 
 NOTE: This will also demote the service if run on a leader with mirrors.
 '''

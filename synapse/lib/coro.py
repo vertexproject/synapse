@@ -146,12 +146,12 @@ def deadline(timeout):
     The returned callable yields ``None`` if ``timeout`` is ``None``
     (unbounded), otherwise ``max(0.0, <seconds until deadline>)``.
 
-    This is useful for sharing a single timeout budget across multiple
-    awaited operations.
+    This is useful for sharing a single timeout across multiple awaited
+    operations.
 
     Examples:
 
-        Compute a shared budget across multiple operations::
+        Share a single timeout across multiple operations::
 
             remaining = s_coro.deadline(timeout)
 

@@ -33,16 +33,16 @@ class Boss(s_base.Base):
         Background tasks and child tasks are not awaited or cancelled.
 
         Args:
-            timeout: Optional total time budget in seconds for reaping tasks.
-                The budget is shared across all tasks; if it is exhausted
+            timeout: Optional total timeout in seconds for reaping tasks.
+                The timeout is shared across all tasks; if it is reached
                 before every task is reaped the shutdown is aborted. ``None``
                 blocks indefinitely.
             cancel_tasks: If True, cancel top-level tasks before awaiting them.
                 If False, top-level tasks are only awaited.
 
         Returns:
-            bool: True if all eligible tasks were reaped before the budget
-            was exhausted; False otherwise.
+            bool: True if all eligible tasks were reaped before the timeout
+            was reached; False otherwise.
         '''
         self.reqNotShut()
 

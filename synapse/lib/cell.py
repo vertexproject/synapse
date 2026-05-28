@@ -1702,8 +1702,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         and then awaited.
 
         The ``timeout`` argument bounds the entire operation. Demote and task
-        reaping share a single budget; no sub-phase may exceed the time
-        remaining when it starts.
+        reaping share the single timeout value; no sub-phase may exceed the
+        time remaining when it starts.
 
         Returns:
             bool: True if the shutdown was initiated, False if the timeout was
@@ -1718,13 +1718,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.isactive and self.ahaclient is not None:
 
             if timeout is not None and remaining() == 0.0:
-                logger.warning('...budget exhausted before demote phase. Aborting shutdown.', extra=extra)
+                logger.warning('...timeout reached before demote phase. Aborting shutdown.', extra=extra)
                 return False
 
             try:
                 peers = await self._getDemotePeers(timeout=remaining())
             except TimeoutError:
-                logger.warning('...budget exhausted finding demote peers. Aborting shutdown.', extra=extra)
+                logger.warning('...timeout reached while finding demote peers. Aborting shutdown.', extra=extra)
                 return False
 
             if peers:
@@ -1733,7 +1733,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     return False
 
         if timeout is not None and remaining() == 0.0:
-            logger.warning('...budget exhausted before tasks phase. Aborting shutdown.', extra=extra)
+            logger.warning('...timeout reached before tasks phase. Aborting shutdown.', extra=extra)
             return False
 
         if not await self.boss.shutdown(timeout=remaining(), cancel_tasks=cancel_tasks):

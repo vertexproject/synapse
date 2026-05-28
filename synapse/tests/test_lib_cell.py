@@ -3598,7 +3598,7 @@ class CellTest(s_t_utils.SynTest):
             with mock.patch.object(cell, '_getDemotePeers', boom):
                 with self.getLoggerStream('synapse.lib.cell') as stream:
                     self.false(await cell.shutdown(timeout=5))
-                await stream.expect('budget exhausted finding demote peers')
+                await stream.expect('timeout reached while finding demote peers')
 
     async def test_cell_shutdown_budget_exhausted(self):
 
@@ -3606,7 +3606,7 @@ class CellTest(s_t_utils.SynTest):
 
             with self.getLoggerStream('synapse.lib.cell') as stream:
                 self.false(await cell.shutdown(timeout=0))
-            await stream.expect('budget exhausted before tasks phase')
+            await stream.expect('timeout reached before tasks phase')
 
     async def test_cell_shutdown_cancel_tasks_plumbed(self):
 
