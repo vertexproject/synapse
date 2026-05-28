@@ -1,6 +1,5 @@
 from unittest import mock
 
-import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
 

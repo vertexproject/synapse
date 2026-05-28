@@ -9,6 +9,7 @@ import unittest.mock as mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 
@@ -121,9 +122,9 @@ class LinkTest(s_test.SynTest):
         self.eq(msg0, ('what', {'k': 1}))
         evt.set()
         await asyncio.sleep(0)
-        with self.getAsyncLoggerStream('synapse.lib.link', 'rx closed unexpectedly') as stream:
+        with self.getLoggerStream('synapse.lib.link') as stream:
             msg1 = await link.rx()
-            self.true(await stream.wait(6))
+            await stream.expect('rx closed unexpectedly', timeout=6)
         self.none(msg1)
 
     async def test_link_file(self):
@@ -341,3 +342,20 @@ class LinkTest(s_test.SynTest):
                 self.eq(item.get('addr'), fp)
                 self.eq(item.get('family'), 'unix')
             server.close()
+
+    async def test_link_unixwait(self):
+        base = await s_base.Base.anit()
+        with self.getTestDir() as dirn:
+            sockpath = s_common.genpath(dirn, 'sock')
+
+            async def onlink(link):
+                await link.fini()
+
+            task = base.schedCoro(s_link.unixwait(sockpath))
+            await asyncio.sleep(0.05)
+            server = await s_link.unixlisten(sockpath, onlink=onlink)
+            try:
+                await asyncio.wait_for(task, timeout=6)
+            finally:
+                server.close()
+        await base.fini()

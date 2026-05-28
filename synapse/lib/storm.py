@@ -105,6 +105,7 @@ Notes:
         - HH:MM (24-hour format, e.g., 14:30 for 2:30 PM)
         - HH (hour only, minute defaults to 0)
         - :MM (minute only, for hourly periods)
+        - :MM,MM,... (comma-separated minutes, e.g., :15,45 runs at minute 15 and 45)
 
 Examples:
     # Run every day at midnight UTC
@@ -119,6 +120,9 @@ Examples:
     # Run every hour at minute 25
     cron.add --period hourly@:25 { $lib.print(hourly) }
 
+    # Run every hour at minute 24 and minute 45
+    cron.add --period hourly@:24,45 { $lib.print(hourly) }
+
     # Run every Monday and Wednesday at 10:00 UTC
     cron.add --period weekly/mon,wed@10:00 { $lib.print(weekly) }
 
@@ -130,6 +134,21 @@ Examples:
 
     # Run every year on January 1st at midnight UTC
     cron.add --period yearly { $lib.print(yearly) }
+
+    # Run every year on January 1st at 07:00 UTC
+    cron.add --period yearly@07 { $lib.print(yearly) }
+
+    # Run every year on January 1st at 12:21 UTC
+    cron.add --period yearly@12:21 { $lib.print(yearly) }
+
+    # Run every year on May 14th at midnight UTC
+    cron.add --period yearly/05-14 { $lib.print(yearly) }
+
+    # Run every year on November 12th at 13:43 UTC
+    cron.add --period yearly/11-14@13:43 { $lib.print(yearly) }
+
+    # Run every year on July 1st at 04:44 UTC, November 12th at 15:00 UTC, and January 4th at midnight UTC
+    cron.add --period yearly/07-01@04:44,11-12@15,01-04 { $lib.print(yearly) }
 '''
 
 modcrondescr = '''
@@ -1268,16 +1287,16 @@ class StormDmon(s_base.Base):
         self.onfini(self.stop)
 
     async def stop(self):
-        logger.debug(f'Stopping Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Stopping Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
         if self.task is not None:
             self.task.cancel()
         self.task = None
-        logger.debug(f'Stopped Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Stopped Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
     async def run(self):
         if self.task:  # pragma: no cover
             raise s_exc.SynErr(mesg=f'Dmon - {self.iden} - has a current task and cannot start a new one.',
-                               iden=self.iden)
+                               extra=self.core.getLogExtra(iden=self.iden))
         self.task = self.schedCoro(self.dmonloop())
 
     async def bump(self):
@@ -1299,7 +1318,7 @@ class StormDmon(s_base.Base):
 
     async def dmonloop(self):
 
-        logger.debug(f'Starting Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+        logger.debug(f'Starting Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
         s_scope.set('user', self.user)
         s_scope.set('storm:dmon', self.iden)
@@ -1320,26 +1339,26 @@ class StormDmon(s_base.Base):
         def dmonPrint(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.info(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
+            logger.info(f'Dmon - {self.iden} - {mesg}', extra=self.core.getLogExtra(iden=self.iden))
 
         def dmonWarn(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.warning(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
+            logger.warning(f'Dmon - {self.iden} - {mesg}', extra=self.core.getLogExtra(iden=self.iden))
 
         while not self.isfini:
 
             if self.user.info.get('locked'):
                 self.status = 'fatal error: user locked'
                 logger.warning(f'Dmon user is locked. Stopping Dmon {self.iden}.',
-                               extra={'synapse': {'iden': self.iden}})
+                               extra=self.core.getLogExtra(iden=self.iden))
                 return
 
             view = self.core.getView(viewiden, user=self.user)
             if view is None:
                 self.status = 'fatal error: invalid view'
                 logger.warning(f'Dmon View is invalid. Stopping Dmon {self.iden}.',
-                               extra={'synapse': {'iden': self.iden}})
+                               extra=self.core.getLogExtra(iden=self.iden))
                 return
 
             try:
@@ -1357,7 +1376,7 @@ class StormDmon(s_base.Base):
                         self.count += 1
                         await asyncio.sleep(0)
 
-                    logger.warning(f'Dmon query exited: {self.iden}', extra={'synapse': {'iden': self.iden}})
+                    logger.warning(f'Dmon query exited: {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
                     self.status = 'sleeping'
 
@@ -1370,7 +1389,7 @@ class StormDmon(s_base.Base):
 
             except Exception as e:
                 self._runLogAdd(('err', s_common.excinfo(e)))
-                logger.exception(f'Dmon error ({self.iden})', extra={'synapse': {'iden': self.iden}})
+                logger.exception(f'Dmon error ({self.iden})', extra=self.core.getLogExtra(iden=self.iden))
                 self.status = f'error: {e}'
                 self.err_evnt.set()
 
@@ -1410,8 +1429,6 @@ class Runtime(s_base.Base):
         self.funcscope = False
 
         self.query = query
-
-        self.spawn_log_conf = await self.snap.core._getSpawnLogConf()
 
         self.readonly = opts.get('readonly', False)  # EXPERIMENTAL: Make it safe to run untrusted queries
         self.model = snap.core.getDataModel()
@@ -2342,11 +2359,11 @@ class Parser:
 
         first = helplst[0][min_space:]
         wrap_first = self._wrap_text(first, wrap_w)
-        self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+        self._printf(f'{base:<{base_w - 2}}: {wrap_first[0]}')
 
         if (deprecated := argdef.get('deprecated')) is not None:
             mesg = deprmesg(names[0], deprecated)
-            self._printf(f'{"":<{base_w-2}}  Deprecated: {mesg}')
+            self._printf(f'{"":<{base_w - 2}}  Deprecated: {mesg}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:
@@ -2937,7 +2954,7 @@ class HelpCmd(Cmd):
             syncmds = pkgcmds.pop('synapse', [])
             if syncmds:
 
-                await runt.printf(f'package: synapse')
+                await runt.printf('package: synapse')
 
                 for cmd in syncmds:
                     await runt.printf(cmd)
@@ -3885,6 +3902,10 @@ class MoveNodesCmd(Cmd):
                 if layr not in layridens:
                     mesg = f'No layer with iden {layr} in this view, cannot be used to specify precedence.'
                     raise s_exc.BadOperArg(mesg=mesg, layr=layr)
+                if layr not in layrlist:
+                    mesg = f'Layer {layr} in precedence is not in the set of source/destination layers.'
+                    raise s_exc.StormRuntimeError(mesg=mesg, layr=layr)
+
                 layrlist.remove(layr)
 
             if len(layrlist) > 0:

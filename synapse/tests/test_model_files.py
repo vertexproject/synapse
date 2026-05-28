@@ -56,19 +56,58 @@ class FileTest(s_t_utils.SynTest):
             self.stormIsInErr(f'invalid file:bytes sha256 value: Non-hexadecimal digit found - valu={badv}', msgs)
 
             msgs = await core.stormlist('[file:bytes=base64:foo]')
-            self.stormIsInErr(f'invalid file:bytes base64 value: Incorrect padding - valu=foo', msgs)
+            self.stormIsInErr('invalid file:bytes base64 value: Incorrect padding - valu=foo', msgs)
 
             msgs = await core.stormlist('[file:bytes=hex:foo]')
-            self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
+            self.stormIsInErr('invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
 
             msgs = await core.stormlist('[file:bytes=hex:foo]')
-            self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
+            self.stormIsInErr('invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
 
             msgs = await core.stormlist('[file:bytes=guid:foo]')
-            self.stormIsInErr(f'guid is not a guid - valu=foo', msgs)
+            self.stormIsInErr('guid is not a guid - valu=foo', msgs)
 
             msgs = await core.stormlist('[file:bytes=newp:foo]')
-            self.stormIsInErr(f'unable to norm as file:bytes - valu=newp:foo', msgs)
+            self.stormIsInErr('unable to norm as file:bytes - valu=newp:foo', msgs)
+
+    async def test_model_filebytes_ssdeeps(self):
+
+        async with self.getTestCore() as core:
+            h1 = '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL'
+            h2 = '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLLo:iglLlsHSfxVYVLs'
+            h3 = '24:eMPMHYRQBUuJT+Xv51ivpeaxWbktsgWXfSY+Xv51ivpeaxWb00XVFfOrzWXfS:eMPEPUuiUeaOMSqDUeaO0YOOK'
+            sha = 'a' * 64
+
+            # Set multiple ssdeep hashes on a file:bytes node
+            nodes = await core.nodes(
+                '[ file:bytes=$sha :ssdeeps=($h1, $h2, $h3) ]',
+                opts={'vars': {'sha': sha, 'h1': h1, 'h2': h2, 'h3': h3}})
+            self.len(1, nodes)
+            node = nodes[0]
+
+            # Values are stored uniq and sorted
+            ssdeeps = node.get('ssdeeps')
+            self.eq(ssdeeps, tuple(sorted({h1, h2, h3})))
+
+            # Lift by array element value
+            self.len(1, await core.nodes('file:bytes:ssdeeps*[=$h]', opts={'vars': {'h': h1}}))
+            self.len(1, await core.nodes('file:bytes:ssdeeps*[=$h]', opts={'vars': {'h': h2}}))
+
+            # Pivot from file:bytes to hash:ssdeep
+            self.len(3, await core.nodes('file:bytes :ssdeeps -> hash:ssdeep'))
+
+            # Invalid ssdeep hash is rejected
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(
+                    '[ file:bytes=$sha :ssdeeps=(notanssdeep,) ]',
+                    opts={'vars': {'sha': sha}})
+
+            # Duplicates are deduped, sorted order is maintained
+            nodes = await core.nodes(
+                '[ file:bytes=$sha :ssdeeps=($h1, $h1, $h2) ]',
+                opts={'vars': {'sha': sha, 'h1': h1, 'h2': h2}})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ssdeeps'), tuple(sorted({h1, h2})))
 
     async def test_model_filebytes_pe(self):
         # test to make sure pe metadata is well formed
@@ -163,7 +202,7 @@ class FileTest(s_t_utils.SynTest):
 
             # uuid
             opts = {'vars': {'file': fnode.get('sha256')}}
-            uuid = await core.nodes(f'''[
+            uuid = await core.nodes('''[
                 file:mime:macho:uuid=*
                     :file=$file
                     :type=27
@@ -176,7 +215,7 @@ class FileTest(s_t_utils.SynTest):
             self.eq('sha256:' + file0, uuid.get('file'))
 
             # version
-            ver = await core.nodes(f'''[
+            ver = await core.nodes('''[
                 file:mime:macho:version=*
                     :file=$file
                     :type=42
@@ -194,7 +233,7 @@ class FileTest(s_t_utils.SynTest):
             # segment
             seghash = 'e' * 64
             opts = {'vars': {'file': file0, 'sha256': seghash}}
-            seg = await core.nodes(f'''[
+            seg = await core.nodes('''[
                 file:mime:macho:segment=*
                     :file=$file
                     :type=1
@@ -218,7 +257,7 @@ class FileTest(s_t_utils.SynTest):
 
             # section
             opts = {'vars': {'seg': seg.ndef[1]}}
-            sect = await core.nodes(f'''[
+            sect = await core.nodes('''[
                 file:mime:macho:section=*
                     :segment=$seg
                     :name="__text"
@@ -496,7 +535,7 @@ class FileTest(s_t_utils.SynTest):
                 self.eq((38.9582839, -77.358946), n.get('latlong'))
                 self.eq(6371137800, n.get('altitude'))
 
-            nodes = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 ps:contact=$conguid
                     :name="Steve Rogers"
                     :title="Captain"

@@ -18,6 +18,7 @@ import synapse.glob as s_glob
 
 import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
+import synapse.lib.logging as s_logging
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ def _fini_atexit():  # pragma: no cover
             if __debug__:
                 logger.debug(f'At exit: Missing fini for {item}')
                 for depth, call in enumerate(item.call_stack[:-2]):
-                    logger.debug(f'{depth+1:3}: {call.strip()}')
+                    logger.debug(f'{depth + 1:3}: {call.strip()}')
             continue
 
         try:
@@ -475,7 +476,7 @@ class Base:
 
     def schedCoro(self, coro):
         '''
-        Schedules a free-running coroutine to run on this base's event loop.  Kills the coroutine if Base is fini'd.
+        Schedules a free-running coroutine to run on this base's event loop.
         It does not pend on coroutine completion.
 
         Args:
@@ -484,6 +485,7 @@ class Base:
         Notes:
             This function is *not* threadsafe and must be run on the Base's event loop.
             Tasks created by this function do inherit the synapse.lib.scope Scope from the current task.
+            Raises IsFini if the Base has already been fini'd.
 
         Returns:
             asyncio.Task: An asyncio.Task object.
@@ -493,6 +495,10 @@ class Base:
             assert inspect.isawaitable(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
+
+        if self.isfini:
+            coro.close()
+            raise s_exc.IsFini(mesg=f'Cannot schedCoro on a fini Base: {self}')
 
         if self._active_tasks is None:
             self._active_tasks = set()
@@ -546,11 +552,18 @@ class Base:
         Notes:
             This method may be run outside the event loop on a different thread.
             This function will break any task scoping done with synapse.lib.scope.
+            If the Base is fini'd before or at the time of dispatch, the coroutine is closed.
 
         Returns:
             concurrent.futures.Future: A Future representing the eventual coroutine execution.
         '''
-        return self.loop.call_soon_threadsafe(self.schedCoro, coro)
+        def _safecall():
+            if self.isfini:
+                coro.close()
+                return
+            self.schedCoro(coro)
+
+        return self.loop.call_soon_threadsafe(_safecall)
 
     def schedCoroSafePend(self, coro):
         '''
@@ -599,6 +612,9 @@ class Base:
         '''
         await self.addSignalHandlers()
         await self.waitfini()
+        # shutdown logging to allow it to drain any queued messages it has, swapping in a stream handler,
+        # and then cancellling the task so we do not have to await the pump task in bg tasks.
+        await s_logging.shutdown()
         await s_coro.await_bg_tasks(timeout)
 
     def waiter(self, count, *names, timeout=None):

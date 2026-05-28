@@ -1,9 +1,0 @@
----
-desc: Added optimization tracking to the ``getCellInfo()`` API. When the ``onboot:optimize``
-  option is used, the time and directory size before and after the optimization are
-  recorded and included in the ``getCellInfo()`` response under the ``optimized``
-  key.
-desc:literal: false
-prs: []
-type: feat
-...

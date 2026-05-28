@@ -8,8 +8,6 @@ import regex
 import synapse.exc as s_exc
 import synapse.data as s_data
 
-import synapse.common as s_common
-
 import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
@@ -2170,6 +2168,9 @@ class ItModule(s_module.CoreModule):
 
                     ('id', ('str', {'strip': True}), {
                         'doc': 'An ID for the software.'}),
+
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The tag used to annotate nodes that are associated with the software.'}),
 
                     ('name', ('it:prod:softname', {}), {
                         'alts': ('names',),

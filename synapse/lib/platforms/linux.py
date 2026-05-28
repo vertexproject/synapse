@@ -137,7 +137,7 @@ def getAvailableMemory():
     '''
     # Prefer MemAvailable over MemFree.  (MemAvailable is not available on older kernels)
 
-    with open(f'/proc/meminfo') as f:
+    with open('/proc/meminfo') as f:
         for line in f:
             if line.startswith('MemFree'):
                 free = int(line.split()[1]) * s_const.kibibyte

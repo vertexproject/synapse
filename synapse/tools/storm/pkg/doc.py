@@ -115,10 +115,16 @@ async def buildPkgDocs(outp, pkgpath: str, rst_only: bool =False):
             _ = fd.write(buf.encode())
 
         logger.info(f'Converting {builtrst} to markdown')
+        # Target GFM (the spec downstream consumers like Optic implement) and
+        # add pandoc's ``definition_lists`` extension for the term/def syntax
+        # used by stormpackage docs. Plain ``gfm`` emits pipe tables, leaves
+        # ``$var`` unescaped, and avoids the spurious ``\-`` / ``\'`` escaping
+        # the broader ``markdown`` writer produces.
+        target = 'gfm+definition_lists'
         if name == 'stormpackage.rst':
-            args = ['pandoc', '--filter', PANDOC_FILTER, '-f', 'rst', '-t', 'markdown', '-o', builtmd, builtrst]
+            args = ['pandoc', '--filter', PANDOC_FILTER, '-f', 'rst', '-t', target, '-o', builtmd, builtrst]
         else:
-            args = ['pandoc', '-f', 'rst', '-t', 'markdown', '-o', builtmd, builtrst]
+            args = ['pandoc', '-f', 'rst', '-t', target, '-o', builtmd, builtrst]
 
         r = subprocess.run(args, capture_output=True)
 
@@ -171,6 +177,5 @@ async def main(argv, outp=s_output.stdout):
     return 0
 
 if __name__ == '__main__':  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
     logging.getLogger('vcr').setLevel(logging.WARNING)
     s_cmd.exitmain(main)

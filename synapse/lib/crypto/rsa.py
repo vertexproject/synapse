@@ -2,10 +2,9 @@ import hashlib
 
 import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.serialization as c_ser
-import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
+import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa  # noqa: F401
 import cryptography.hazmat.primitives.asymmetric.padding as c_padding
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.msgpack as s_msgpack
 

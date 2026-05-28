@@ -1,11 +1,7 @@
-import sys
-import time
 import asyncio
 import threading
 
-import synapse.exc as s_exc
 import synapse.glob as s_glob
-import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.tests.utils as s_t_utils

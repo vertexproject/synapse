@@ -138,7 +138,7 @@ For the specialized use case of :ref:`raw-pivot-syntax`, the target of the pivot
   ``inet:fqdn=vertex.link -> inet:dns:a +:ipv4=127.0.0.1``
 
 Depending on the kind of pivot operation, you may need to specify a **source property** for the pivot as
-well; see the discussion of :ref:`implicit-pivot-syntax` below.
+well; see the discussion of :ref:`explicit-implicit-pivot-syntax` below.
 
 While there are a few specialized use cases (such as pivoting to or from tags), most pivots involve navigating
 between the following kinds of properties:
@@ -159,10 +159,10 @@ Primary to primary property pivots are a specialized use case that is commonly h
   :ref:`gloss-type-aware` to simplify pivot operations and identify relationships among nodes.
 
 
-.. _implicit-pivot-syntax:
+.. _explicit-implicit-pivot-syntax:
 
-Implicit Pivot Syntax
-+++++++++++++++++++++
+Explicit vs. Implicit Pivot Syntax
+++++++++++++++++++++++++++++++++++
 
 Pivot operations in Storm can always be executed by **explicitly** specifying the source and target
 properties for the pivot. This is referred to as **explicit pivot syntax** or "explicit syntax" for

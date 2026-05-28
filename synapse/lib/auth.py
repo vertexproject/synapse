@@ -29,6 +29,52 @@ def textFromRule(rule):
         text = '!' + text
     return text
 
+_emailtype = None
+
+def _getEmailType():
+    global _emailtype
+    if _emailtype is None:
+        # Lazy load a full data model so non-Cortex cells can reuse the
+        # canonical inet:email normalization.
+        import synapse.datamodel as s_datamodel
+        import synapse.lib.modules as s_modules
+        import synapse.lib.dyndeps as s_dyndeps
+
+        modl = s_datamodel.Model()
+        mdefs = []
+        for ctor in s_modules.coremods:
+            cls = s_dyndeps.reqDynLocal(ctor)
+            mdefs.extend(cls.getModelDefs(None))
+        modl.addDataModels(mdefs)
+        _emailtype = modl.type('inet:email')
+
+    return _emailtype
+
+def normEmail(email):
+    '''
+    Normalize an email address for use as a unique key via the inet:email type.
+
+    Returns the normalized form or None if the input is None or normalizes
+    to an empty string. Raises BadArg if the value is not a string or does
+    not parse as an email address.
+    '''
+    if email is None:
+        return None
+
+    if not isinstance(email, str):
+        raise s_exc.BadArg(mesg='email must be a string', name='email')
+
+    valu = email.strip()
+    if valu == '':
+        return None
+
+    try:
+        norm, _info = _getEmailType().norm(valu)
+    except s_exc.BadTypeValu as e:
+        raise s_exc.BadArg(mesg=e.get('mesg'), name='email') from None
+
+    return norm
+
 @dataclasses.dataclass(slots=True)
 class _allowedReason:
     value: Union[bool | None]
@@ -143,8 +189,10 @@ class Auth(s_nexus.Pusher):
 
         self.userdefs = self.stor.getSubKeyVal('user:info:')
         self.useridenbyname = self.stor.getSubKeyVal('user:name:')
+        self.useridenbyemail = self.stor.getSubKeyVal('user:email:')
         self.userbyidencache = s_cache.FixedCache(self._getUser, size=1000)
         self.useridenbynamecache = s_cache.FixedCache(self._getUserIden, size=1000)
+        self.useridenbyemailcache = s_cache.FixedCache(self._getUserIdenByEmail, size=1000)
 
         self.roledefs = self.stor.getSubKeyVal('role:info:')
         self.roleidenbyname = self.stor.getSubKeyVal('role:name:')
@@ -176,10 +224,18 @@ class Auth(s_nexus.Pusher):
             userinfo = self.userdefs.get(useriden)
             yield User(userinfo, self)
 
+    def useridens(self):
+        for useriden in self.useridenbyname.values():
+            yield useriden
+
     def roles(self):
         for roleiden in self.roleidenbyname.values():
             roleinfo = self.roledefs.get(roleiden)
             yield Role(roleinfo, self)
+
+    def roleidens(self):
+        for roleiden in self.roleidenbyname.values():
+            yield roleiden
 
     def role(self, iden):
         return self.rolebyidencache.get(iden)
@@ -255,6 +311,34 @@ class Auth(s_nexus.Pusher):
 
     def _getUserIden(self, name):
         return self.useridenbyname.get(name)
+
+    async def getUserByEmail(self, email):
+        '''
+        Get a user by their email address.
+
+        Args:
+            email (str): Email of the user to get. Normalized before lookup.
+
+        Returns:
+            User: A User. May return None if there is no user with the requested email.
+        '''
+        norm = normEmail(email)
+        if norm is None:
+            return None
+
+        useriden = self.useridenbyemailcache.get(norm)
+        if useriden is not None:
+            return self.user(useriden)
+
+    async def getUserIdenByEmail(self, email):
+        norm = normEmail(email)
+        if norm is None:
+            return None
+
+        return self.useridenbyemailcache.get(norm)
+
+    def _getUserIdenByEmail(self, normemail):
+        return self.useridenbyemail.get(normemail)
 
     async def getRoleByName(self, name):
         roleiden = self.roleidenbynamecache.get(name)
@@ -405,6 +489,17 @@ class Auth(s_nexus.Pusher):
         if name in ('locked', 'archived') and not valu:
             self.checkUserLimit()
 
+        if name == 'email' and gateiden is None:
+            newnorm = normEmail(valu)
+            if newnorm == user.info.get('email'):
+                return
+
+            if newnorm is not None:
+                existing = self.useridenbyemail.get(newnorm)
+                if existing is not None and existing != iden:
+                    raise s_exc.DupUserEmail(mesg=f'Duplicate email, email={newnorm!r} already exists.',
+                                         email=newnorm)
+
         await self._push('user:info', iden, name, valu, gateiden=gateiden, logged=logged, mesg=mesg)
 
     @s_nexus.Pusher.onPush('user:info')
@@ -447,6 +542,29 @@ class Auth(s_nexus.Pusher):
                 user.info['authgates'][gateiden] = info
 
             self.userdefs.set(iden, user.info)
+
+        elif name == 'email' and self.nexsroot and self.nexsroot.cell.nexsvers >= (2, 243):
+            newnorm = normEmail(valu)
+            oldnorm = user.info.get('email')
+            if newnorm == oldnorm:
+                return
+
+            if newnorm is not None:
+                existing = self.useridenbyemail.get(newnorm)
+                if existing is not None and existing != iden:
+                    raise s_exc.DupUserEmail(mesg=f'Duplicate email, email={newnorm!r} already exists.',
+                                         email=newnorm)
+
+                self.useridenbyemail.set(newnorm, iden)
+                self.useridenbyemailcache.put(newnorm, iden)
+
+            if oldnorm is not None and oldnorm != newnorm:
+                self.useridenbyemail.delete(oldnorm)
+                self.useridenbyemailcache.pop(oldnorm)
+
+            user.info['email'] = newnorm
+            self.userdefs.set(iden, user.info)
+
         else:
             user.info[name] = s_msgpack.deepcopy(valu)
             self.userdefs.set(iden, user.info)
@@ -608,6 +726,12 @@ class Auth(s_nexus.Pusher):
         if self.useridenbynamecache.get(name) is not None:
             raise s_exc.DupUserName(mesg=f'Duplicate username, {name=} already exists.', name=name)
 
+        if email is not None:
+            normnew = normEmail(email)
+            if normnew is not None and self.useridenbyemail.get(normnew) is not None:
+                raise s_exc.DupUserEmail(mesg=f'Duplicate email, email={normnew!r} already exists.',
+                                     email=normnew)
+
         if iden is None:
             iden = s_common.guid()
         else:
@@ -737,6 +861,11 @@ class Auth(s_nexus.Pusher):
         self.userbyidencache.pop(user.iden)
         self.useridenbynamecache.pop(user.name)
 
+        email = user.info.get('email')
+        if email is not None:
+            self.useridenbyemail.delete(email)
+            self.useridenbyemailcache.pop(email)
+
         for gateiden in user.authgates.keys():
             gate = self.getAuthGate(gateiden)
             if gate is not None:
@@ -791,6 +920,7 @@ class Auth(s_nexus.Pusher):
         '''
         self.userbyidencache.clear()
         self.useridenbynamecache.clear()
+        self.useridenbyemailcache.clear()
         self.rolebyidencache.clear()
         self.roleidenbynamecache.clear()
         self.authgates.clear()
@@ -1458,8 +1588,7 @@ class User(Ruler):
                 if expires >= s_common.now():
                     if await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow):
                         await self.auth.setUserInfo(self.iden, 'onepass', None)
-                        logger.debug(f'Used one time password for {self.name}',
-                                     extra={'synapse': {'user': self.iden, 'username': self.name}})
+                        logger.debug(f'Used one time password for {self.name}')
                         return True
             else:
                 # Backwards compatible password handling
@@ -1467,8 +1596,7 @@ class User(Ruler):
                 if expires >= s_common.now():
                     if s_common.guid((params, passwd)) == hashed:
                         await self.auth.setUserInfo(self.iden, 'onepass', None)
-                        logger.debug(f'Used one time password for {self.name}',
-                                     extra={'synapse': {'user': self.iden, 'username': self.name}})
+                        logger.debug(f'Used one time password for {self.name}')
                         return True
 
         shadow = self.info.get('passwd')
@@ -1493,15 +1621,15 @@ class User(Ruler):
 
                         if self.iden == self.auth.rootuser.iden:
                             mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}),. Cannot lock {self.name} user.'
-                            extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, }}
-                            logger.error(mesg, extra=extra)
+                            logger.error(mesg, extra=self.auth.nexsroot.cell.getLogExtra(target_user=self.iden, target_username=self.name))
                             return False
 
                         await self.auth.nexsroot.cell.setUserLocked(self.iden, True)
 
-                        mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}), locking their account.'
-                        extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, 'status': 'MODIFY'}}
-                        logger.warning(mesg, extra=extra)
+                        mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}), locked their account.'
+                        logger.warning(mesg, extra=self.auth.nexsroot.cell.getLogExtra(target_user=self.iden,
+                                                                                      target_username=self.name,
+                                                                                      status='MODIFY'))
 
                     return False
 
@@ -1510,8 +1638,7 @@ class User(Ruler):
         # Backwards compatible password handling
         salt, hashed = shadow
         if s_common.guid((salt, passwd)) == hashed:
-            logger.debug(f'Migrating password to shadowv2 format for user {self.name}',
-                         extra={'synapse': {'user': self.iden, 'username': self.name}})
+            logger.debug(f'Migrating password to shadowv2 format for user {self.name}')
             # Update user to new password hashing scheme. We cannot enforce policy
             # when migrating an existing password.
             await self.setPasswd(passwd=passwd, nexs=nexs, enforce_policy=False)

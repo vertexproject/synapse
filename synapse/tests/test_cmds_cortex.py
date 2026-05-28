@@ -10,9 +10,6 @@ import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
 
-from synapse.tests.utils import alist
-
-
 class CmdCoreTest(s_t_utils.SynTest):
 
     async def test_storm(self):
@@ -29,7 +26,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('help storm')
             outp.expect(help_msg)
-            outp.expect('WARNING: "cmdr" is deprecated in 2.164.0 and will be removed in 3.0.0')
+            outp.expect('WARNING: cmdr is deprecated in 2.164.0 and will be removed in 3.0.0')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -199,7 +196,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             # Color test
             outp.clear()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            await cmdr.runCmdLine(f'storm test:{"x"*50} -> * -> $')
+            await cmdr.runCmdLine(f'storm test:{"x" * 50} -> * -> $')
             outp.expect('-> *')
             outp.expect('Syntax Error')
 
@@ -332,10 +329,9 @@ class CmdCoreTest(s_t_utils.SynTest):
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log --on --nodes-only')
                 cmdr.locs['log:fmt'] = 'newp'
-                with self.getAsyncLoggerStream('synapse.cmds.cortex',
-                                               'Unknown encoding format: newp') as stream:
+                with self.getLoggerStream('synapse.cmds.cortex') as stream:
                     await cmdr.runCmdLine('storm test:str')
-                    self.true(await stream.wait(2))
+                    await stream.expect('Unknown encoding format: newp', timeout=2)
 
                 await cmdr.fini()
 

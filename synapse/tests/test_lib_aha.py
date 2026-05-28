@@ -13,6 +13,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.logging as s_logging
 
 import synapse.tools.aha.list as s_a_list
 
@@ -167,9 +168,9 @@ class AhaTest(s_test.SynTest):
                     # Tear down the Aha cell.
                     await aha.__aexit__(None, None, None)
 
-            with self.getAsyncLoggerStream('synapse.lib.aha', f'Set [0.cell.synapse] offline.') as stream:
+            with self.getLoggerStream('synapse.lib.aha') as stream:
                 async with self.getTestAha(dirn=dirn) as aha:
-                    self.true(await asyncio.wait_for(stream.wait(), timeout=12))
+                    await stream.expect('Set [0.cell.synapse] offline.', timeout=12)
                     svc = await aha.getAhaSvc('0.cell...')
                     self.notin('online', svc.get('svcinfo'))
 
@@ -498,6 +499,41 @@ class AhaTest(s_test.SynTest):
                     async with await s_telepath.openurl('aha://0.cell...') as proxy:
                         self.nn(await proxy.getCellIden())
 
+    async def test_lib_aha_logging(self):
+
+        s_logging.setup()
+
+        # AHA service does not register as an AHA service so make sure
+        # it sets the 'service' log key directly. The default test AHA
+        # has 'aha:network' set to 'synapse' and 'dns:name' set but no
+        # 'aha:name', so the service log key falls back to 'dns:name'
+        # while 'ahasvcname' stays None.
+        async with self.getTestAha() as aha:
+            self.none(aha.ahasvcname)
+            self.eq(aha.getSvcName(), '00.aha.loop.vertex.link')
+
+            with self.getLoggerStream('synapse.lib.aha') as stream:
+                s_aha.logger.warning('aha test message')
+                mesg = stream.jsonlines()[0]
+                self.eq(mesg['service'], '00.aha.loop.vertex.link')
+
+        # An explicit 'aha:name' uses the standard '{name}.{network}' form.
+        conf = {'aha:name': 'aha00'}
+        async with self.getTestAha(conf=conf) as aha:
+            self.eq(aha.ahasvcname, 'aha00.synapse')
+            self.eq(aha.getSvcName(), 'aha00.synapse')
+
+            with self.getLoggerStream('synapse.lib.aha') as stream:
+                s_aha.logger.warning('aha test message')
+                mesg = stream.jsonlines()[0]
+                self.eq(mesg['service'], 'aha00.synapse')
+
+        # When neither 'aha:name' nor 'dns:name' is set the key is unset.
+        conf = {'dns:name': None}
+        async with self.getTestAha(conf=conf) as aha:
+            self.none(aha.ahasvcname)
+            self.none(aha.getSvcName())
+
     async def test_lib_aha_bootstrap(self):
 
         with self.getTestDir() as dirn:
@@ -627,7 +663,7 @@ class AhaTest(s_test.SynTest):
                     self.none(yamlconf.get('aha:admin'))
 
                     self.eq(await aha.getAhaUrls(), yamlconf.get('aha:registry'))
-                    self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.synapse&ca=synapse', yamlconf.get('dmon:listen'))
+                    self.eq('ssl://0.0.0.0:0?hostname=00.axon.synapse&ca=synapse', yamlconf.get('dmon:listen'))
 
                     unfo = await axon.addUser('visi')
 
@@ -691,21 +727,19 @@ class AhaTest(s_test.SynTest):
                 s_common.yamlsave(overconf, axonpath, 'cell.mods.yaml')
 
                 # force a re-provision... (because the providen is different)
-                with self.getAsyncLoggerStream('synapse.lib.cell',
-                                               'Provisioning axon from AHA service') as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
                     async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
-                        self.true(await stream.wait(6))
-                        self.ne(axon.conf.get('dmon:listen'),
-                                'tcp://0.0.0.0:0')
+                        await stream.expect('Provisioning axon from AHA service', timeout=6)
+                        self.ne(axon.conf.get('dmon:listen'), 'tcp://0.0.0.0:0')
+
                 overconf2 = s_common.yamlload(axonpath, 'cell.mods.yaml')
                 self.eq(overconf2, {'nexslog:async': True})
 
                 # tests startup logic that recognizes it's already done
-                with self.getAsyncLoggerStream('synapse.lib.cell', ) as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
                     async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
                         pass
-                    stream.seek(0)
-                    self.notin('Provisioning axon from AHA service', stream.read())
+                    self.notin('Provisioning axon from AHA service', stream.getvalue())
 
                 async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
                     # testing second run...

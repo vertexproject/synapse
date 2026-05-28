@@ -22,6 +22,26 @@ class CryptoModule(s_module.CoreModule):
 
             'types': (
 
+                ('crypto:currency:chain', ('guid', {}), {
+                    'props': (
+
+                        # TODO: 3.0 this should become base:id
+                        ('id', ('str', {'strip': True}), {
+                            'ex': 'eip155:8453',
+                            'doc': 'An ID for the chain.'}),
+
+                        # TODO: 3.0 this should become base:name
+                        ('name', ('str', {'strip': True, 'lower': True}), {
+                            'ex': 'ethereum',
+                            'doc': 'The name of the chain.'}),
+
+                        # TODO: 3.0 this should become econ:currency
+                        ('symbol', ('crypto:currency:coin', {}), {
+                            'ex': 'eth',
+                            'doc': 'The symbol associated with the native currency of the chain.'}),
+                    ),
+                    'doc': 'A crypto currency chain.'}),
+
                 ('crypto:currency:transaction', ('guid', {}), {
                     'doc': 'An individual crypto currency transaction recorded on the blockchain.',
                 }),
@@ -126,6 +146,11 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'A hex encoded Microsoft Windows NTLM password hash.',
                     'ex': ex_md5
                 }),
+                ('hash:ssdeep', ('str', {'strip': True,
+                                         'regex': r'^([3-9]|[1-9]\d+):[A-Za-z0-9+/]{1,64}:[A-Za-z0-9+/]{1,64}$'}), {
+                    'doc': 'A fuzzy hash of a file in ssdeep format.',
+                    'ex': '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL',
+                }),
 
                 ('rsa:key', ('comp', {'fields': (('mod', 'hex'), ('pub:exp', 'int')), }), {
                     'doc': 'An RSA keypair modulus and public exponent.'
@@ -178,6 +203,8 @@ class CryptoModule(s_module.CoreModule):
             'forms': (
 
                 ('crypto:payment:input', {}, (
+                    ('index', ('int', {}), {
+                        'doc': 'The index of this input in the array of inputs for the transaction.'}),
                     ('transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'The transaction the payment was input to.'}),
                     ('address', ('crypto:currency:address', {}), {
@@ -186,6 +213,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The value of the currency paid into the transaction.'}),
                 )),
                 ('crypto:payment:output', {}, (
+                    ('index', ('int', {}), {
+                        'doc': 'The index of this output in the array of outputs for the transaction.'}),
                     ('transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'The transaction the payment was output from.'}),
                     ('address', ('crypto:currency:address', {}), {
@@ -204,6 +233,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The coin/blockchain of the block which records this transaction.'}),
                     ('block:offset', ('int', {}), {
                         'doc': 'The offset of the block which records this transaction.'}),
+                    ('block:chain', ('crypto:currency:chain', {}), {
+                        'doc': 'The chain where the transaction is recorded.'}),
 
                     ('success', ('bool', {}), {
                         'doc': 'Set to true if the transaction was successfully executed and recorded.'}),
@@ -254,6 +285,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The address which mined the block.'}),
                     ('time', ('time', {}), {
                         'doc': 'Time timestamp embedded in the block by the miner.'}),
+                    ('chain', ('crypto:currency:chain', {}), {
+                        'doc': 'The chain where the block is recorded.'}),
                 )),
 
                 ('crypto:smart:contract', {}, (
@@ -374,6 +407,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The coin specific address identifier.', 'ro': True, }),
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the address.'}),
+                    ('chain', ('crypto:currency:chain', {}), {
+                        'doc': 'The chain where the address is defined.'}),
                 )),
 
                 ('crypto:algorithm', {}, ()),
@@ -443,6 +478,7 @@ class CryptoModule(s_module.CoreModule):
                 ('hash:sha256', {}, ()),
                 ('hash:sha384', {}, ()),
                 ('hash:sha512', {}, ()),
+                ('hash:ssdeep', {}, ()),
                 # TODO deprecate rsa:key and add fields to crypto:key
                 ('rsa:key', {}, (
                     ('mod', ('hex', {}), {'ro': True,

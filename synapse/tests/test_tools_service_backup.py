@@ -119,4 +119,4 @@ class BackupTest(s_t_utils.SynTest):
                 self.false(os.path.exists(s_common.genpath(dirn2, 'layers', layriden)))
 
                 self.true(os.path.exists(s_common.genpath(dirn2, 'slabs', 'cell.lmdb')))
-                self.isin(f'/slabs/cell.lmdb/data.mdb', fpset)
+                self.isin('/slabs/cell.lmdb/data.mdb', fpset)

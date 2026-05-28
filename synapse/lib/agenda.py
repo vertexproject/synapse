@@ -17,6 +17,8 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.logging as s_logging
+import synapse.lib.schemas as s_schemas
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -364,7 +366,8 @@ class _Appt:
             'laststarttime': self.laststarttime,
             'lastfinishtime': self.lastfinishtime,
             'lastresult': self.lastresult,
-            'lasterrs': list(self.lasterrs[:5])
+            'lasterrs': list(self.lasterrs[:5]),
+            'loglevel': self.loglevel
         }
 
     @classmethod
@@ -431,7 +434,7 @@ class _Appt:
     async def edits(self, edits):
         for name, valu in edits.items():
             if name not in self.__class__._synced_attrs:
-                extra = await self.stor.core.getLogExtra(name=name, valu=valu)
+                extra = self.stor.core.getLogExtra(name=name, valu=valu)
                 logger.warning('_Appt.edits() Invalid attribute received: %s = %r', name, valu, extra=extra)
                 continue
 
@@ -625,6 +628,7 @@ class Agenda(s_base.Base):
         view = cdef.get('view')
         created = cdef.get('created')
         loglevel = cdef.get('loglevel', 'WARNING')
+        s_schemas.reqValidLoglevel(loglevel)
 
         pool = cdef.get('pool', False)
         affinity = cdef.get('affinity')
@@ -842,22 +846,18 @@ class Agenda(s_base.Base):
                 if appt.isrunning:  # pragma: no cover
                     mesg = f'Appointment {appt.iden} {appt.name} is still running from previous time when scheduled' \
                            f' to run. Skipping.'
-                    logger.warning(mesg,
-                                   extra={'synapse': {'iden': appt.iden, 'name': appt.name}})
+                    logger.warning(mesg, extra=self.core.getLogExtra(iden=appt.iden, name=appt.name))
                 else:
                     try:
                         await self._execute(appt)
                     except Exception as e:
-                        extra = {'iden': appt.iden, 'name': appt.name, 'user': appt.creator, 'view': appt.view}
-                        user = self.core.auth.user(appt.creator)
-                        if user is not None:
-                            extra['username'] = user.name
+                        extra = {'iden': appt.iden, 'name': appt.name, 'view': appt.view}
                         if isinstance(e, s_exc.SynErr):
                             mesg = e.get('mesg', str(e))
                         else:  # pragma: no cover
                             mesg = str(e)
                         logger.exception(f'Agenda error running appointment {appt.iden} {appt.name}: {mesg}',
-                                         extra={'synapse': extra})
+                                         extra=self.core.getLogExtra(**extra))
                         await self._markfailed(appt, f'error: {e}')
 
     async def _execute(self, appt):
@@ -867,23 +867,21 @@ class Agenda(s_base.Base):
         user = self.core.auth.user(appt.creator)
         if user is None:
             logger.warning(f'Unknown user {appt.creator} in stored appointment {appt.iden} {appt.name}',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator}})
+                           extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, user=appt.creator))
             await self._markfailed(appt, 'unknown user')
             return
 
         locked = user.info.get('locked')
         if locked:
             logger.warning(f'Cron {appt.iden} {appt.name} failed because creator {user.name} is locked',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
-                                              'username': user.name}})
+                           extra=self.core.getLogExtra(iden=appt.iden, name=appt.name))
             await self._markfailed(appt, 'locked user')
             return
 
         view = self.core.getView(iden=appt.view, user=user)
         if view is None:
             logger.warning(f'Unknown view {appt.view} in stored appointment {appt.iden} {appt.name}',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
-                                              'username': user.name, 'view': appt.view}})
+                           extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, view=appt.view))
             await self._markfailed(appt, 'unknown view')
             return
 
@@ -891,6 +889,7 @@ class Agenda(s_base.Base):
 
         coro = self._runJob(user, appt)
         task = self.core.runActiveTask(coro)
+        task._syn_scope['user'] = user
 
         appt.task = await self.core.boss.promotetask(task, f'Cron {appt.iden}', user, info=info)
         async def fini():
@@ -912,8 +911,10 @@ class Agenda(s_base.Base):
     async def _getAffinityProxy(self, appt, timeout=10):
         '''
         Attempt to get a telepath proxy to the affinity service.
-        Returns None if the service is unavailable.
+        Returns None if the service is unavailable or affinity is set to None.
         '''
+        if appt.affinity is None:
+            return None
         try:
             prox = await s_telepath.openurl(f'aha://{appt.affinity}', timeout=timeout)
             return prox
@@ -935,7 +936,7 @@ class Agenda(s_base.Base):
         try:
             yield proxy.storm(appt.query, opts=opts)
         finally:
-            proxy.fini()
+            await proxy.fini()
 
     async def _runJob(self, user, appt):
         '''
@@ -950,12 +951,11 @@ class Agenda(s_base.Base):
         await self.core.addCronEdits(appt.iden, edits)
 
         logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
-                    extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
-                                       'username': user.name, 'view': appt.view}})
+                    extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, text=appt.query, view=appt.view))
         starttime = self._getNowTick()
 
         success = False
-        loglevel = s_common.normLogLevel(appt.loglevel)
+        loglevel = s_logging.normLogLevel(appt.loglevel)
 
         try:
             opts = {
@@ -980,8 +980,10 @@ class Agenda(s_base.Base):
 
                     elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
                         text = mesg[1].get('mesg', '<missing message>')
-                        extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
-                        logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
+                        _params = mesg[1]
+                        _params['iden'] = appt.iden
+                        logger.warning(f'Cron job {appt.iden} issued warning: {text}',
+                                       extra=self.core.getLogExtra(**_params))
 
                     elif mesg[0] == 'err':
                         excname, errinfo = mesg[1]
@@ -997,7 +999,7 @@ class Agenda(s_base.Base):
         except Exception as e:
             result = f'raised exception {e}'
             logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
-                             extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
+                             extra=self.core.getLogExtra(iden=appt.iden, name=appt.name),
                              )
         else:
             success = True
@@ -1021,8 +1023,7 @@ class Agenda(s_base.Base):
                    f'took {took:.3f}s'
             if not self.core.isactive:
                 mesg = mesg + ' Agenda status will not be saved since the Cortex is no longer the leader.'
-            logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
-                                                 'result': result, 'username': user.name, 'took': took}})
+            logger.info(mesg, extra=self.core.getLogExtra(iden=appt.iden, name=appt.name, result=result, took=took))
             edits = {
                 'lastfinishtime': finishtime,
                 'isrunning': False,

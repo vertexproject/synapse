@@ -151,7 +151,7 @@ async def main(argv, outp=s_output.stdout):
                     if check_sync_status(group_status):
                         outp.printf('Group Status: In Sync')
                     else:
-                        outp.printf(f'Group Status: Out of Sync')
+                        outp.printf('Group Status: Out of Sync')
                         if opts.wait:
                             leader_nexs = None
                             for status in group_status:

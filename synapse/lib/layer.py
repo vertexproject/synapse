@@ -2274,7 +2274,7 @@ class Layer(s_nexus.Pusher):
         self.meta.set('version', 5)
         self.layrvers = 5
 
-        logger.warning(f'...complete!')
+        logger.warning('...complete!')
 
     async def _layrV4toV5(self):
 
@@ -2308,7 +2308,7 @@ class Layer(s_nexus.Pusher):
         self.meta.set('version', 5)
         self.layrvers = 5
 
-        logger.warning(f'...complete!')
+        logger.warning('...complete!')
 
     async def _v5ToV7Buid(self, buid):
 
@@ -2670,7 +2670,7 @@ class Layer(s_nexus.Pusher):
         self.meta.set('version', 10)
         self.layrvers = 10
 
-        logger.warning(f'...complete!')
+        logger.warning('...complete!')
 
     async def _layrV10toV11(self):
 
@@ -4171,6 +4171,17 @@ class Layer(s_nexus.Pusher):
 
         for _, lval in self.layrslab.scanByDups(verb.encode(), db=self.byverb):
             yield (s_common.ehex(lval[:32]), verb, s_common.ehex(lval[32:]))
+
+    async def getTagsByPref(self, pref, depth=0):
+        try:
+            abrv = self.getPropAbrv('syn:tag', None)
+        except s_exc.NoSuchAbrv:
+            return
+
+        fullpref = abrv + pref.encode()
+
+        async for lkey in self.layrslab.scanKeysByHierPref(fullpref, depth=depth, db=self.byprop, nodup=True):
+            yield lkey[8:].decode()
 
     async def _delNodeEdges(self, buid):
         for lkey, n2buid in self.layrslab.scanByPref(buid, db=self.edgesn1):

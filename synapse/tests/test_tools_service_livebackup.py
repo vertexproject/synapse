@@ -19,5 +19,5 @@ class LivebackupTest(s_test.SynTest):
             outp = s_output.OutPutStr()
             self.eq(0, await s_t_livebackup.main(argv, outp=outp))
             self.isin(f'Running backup of: {svcurl}', str(outp))
-            self.isin(f'...backup created: visi123', str(outp))
+            self.isin('...backup created: visi123', str(outp))
             self.true(os.path.isfile(s_common.genpath(core.dirn, 'backups', 'visi123', 'cell.guid')))

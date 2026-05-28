@@ -920,7 +920,7 @@ async def format(opts: s_cmd.argparse.Namespace,
                 outp.printf(f'Wrote model changes to {fp}')
                 if opts.model_doc_git:  # pragma: no cover
                     if opts.verbose:
-                        outp.printf(f'Adding file to git.')
+                        outp.printf('Adding file to git.')
                     argv = ['git', 'add', fp]
                     ret = subprocess.run(argv, capture_output=True)
                     if opts.verbose:
@@ -930,7 +930,7 @@ async def format(opts: s_cmd.argparse.Namespace,
                 else:
                     outp.printf('Not adding model changes to git.')
         else:
-            outp.printf(f'No model changes detected.')
+            outp.printf('No model changes detected.')
 
     for key, header in s_schemas._changelogTypes.items():
         dataz = entries.get(key)

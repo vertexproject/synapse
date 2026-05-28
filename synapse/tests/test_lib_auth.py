@@ -7,7 +7,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.auth as s_auth
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -172,6 +171,90 @@ class AuthTest(s_test.SynTest):
 
             with self.raises(s_exc.InconsistentStorage):
                 await auth.addAuthGate(core.view.iden, 'newp')
+
+    async def test_auth_email_unique(self):
+
+        async with self.getTestCore() as core:
+
+            auth = core.auth
+
+            alice = await auth.addUser('alice', email='alice@example.com')
+            bob = await auth.addUser('bob')
+
+            self.eq('alice@example.com', alice.info.get('email'))
+            self.eq(alice, await auth.getUserByEmail('alice@example.com'))
+            self.eq(alice.iden, await auth.getUserIdenByEmail('alice@example.com'))
+
+            self.eq(alice, await auth.getUserByEmail('ALICE@EXAMPLE.COM'))
+            self.eq(alice, await auth.getUserByEmail('  alice@example.com  '))
+
+            self.none(await auth.getUserByEmail(None))
+            self.none(await auth.getUserByEmail(''))
+            self.none(await auth.getUserByEmail('nobody@example.com'))
+
+            with self.raises(s_exc.DupUserEmail):
+                await auth.addUser('alice2', email='alice@example.com')
+
+            with self.raises(s_exc.DupUserEmail):
+                await auth.addUser('alice3', email='ALICE@example.com')
+
+            with self.raises(s_exc.DupUserEmail):
+                await auth.setUserInfo(bob.iden, 'email', 'alice@example.com')
+
+            indx = await core.getNexsIndx()
+            await auth.setUserInfo(alice.iden, 'email', 'alice@example.com')
+            self.eq(indx, await core.getNexsIndx())
+
+            indx = await core.getNexsIndx()
+            await auth.setUserInfo(alice.iden, 'email', 'ALICE@EXAMPLE.COM')
+            self.eq(indx, await core.getNexsIndx())
+            self.eq('alice@example.com', alice.info.get('email'))
+
+            await auth.setUserInfo(alice.iden, 'email', 'Alice@Example.org')
+            self.eq('alice@example.org', alice.info.get('email'))
+            self.none(await auth.getUserByEmail('alice@example.com'))
+            self.eq(alice, await auth.getUserByEmail('alice@example.org'))
+
+            charlie = await auth.addUser('charlie', email='alice@example.com')
+            self.eq(charlie, await auth.getUserByEmail('alice@example.com'))
+
+            await auth.setUserInfo(charlie.iden, 'email', None)
+            self.none(await auth.getUserByEmail('alice@example.com'))
+            self.none(charlie.info.get('email'))
+
+            await auth.setUserInfo(bob.iden, 'email', 'bob@example.com')
+            self.eq(bob, await auth.getUserByEmail('bob@example.com'))
+
+            await auth.setUserInfo(bob.iden, 'email', '')
+            self.none(await auth.getUserByEmail('bob@example.com'))
+            self.none(bob.info.get('email'))
+
+            with self.raises(s_exc.BadArg):
+                await auth.setUserInfo(bob.iden, 'email', 'notanemail')
+
+            with self.raises(s_exc.BadArg):
+                await auth.addUser('dave', email='notanemail')
+
+            with self.raises(s_exc.BadArg):
+                await auth.setUserInfo(bob.iden, 'email', 1234)
+
+            await auth.setUserInfo(alice.iden, 'email', 'alice@example.org')
+            await auth.delUser(alice.iden)
+            self.none(await auth.getUserByEmail('alice@example.org'))
+
+            eve = await auth.addUser('eve', email='alice@example.org')
+            self.eq(eve, await auth.getUserByEmail('alice@example.org'))
+
+            # Exercise the nexus handler email branches directly. The public
+            # setUserInfo pre-check normally catches no-ops and duplicates
+            # before _push, but the handler also guards both for replay safety.
+            frank = await auth.addUser('frank', email='frank@example.com')
+            await auth._push('user:info', frank.iden, 'email', 'frank@example.com')
+            self.eq('frank@example.com', frank.info.get('email'))
+
+            grace = await auth.addUser('grace')
+            with self.raises(s_exc.DupUserEmail):
+                await auth._push('user:info', grace.iden, 'email', 'frank@example.com')
 
     async def test_hive_tele_auth(self):
 

@@ -266,7 +266,7 @@ class BaseTest(s_t_utils.SynTest):
             await core.nodes('[(edge:refs=($ndef, (test:int, (1234))))]', opts={'vars': {'ndef': node.ndef}})
 
             # Gather up all the nodes in the cluster
-            nodes = await core.nodes(f'graph:cluster=$valu -+> edge:refs -+> * | uniq', opts={'vars': {'valu': guid}})
+            nodes = await core.nodes('graph:cluster=$valu -+> edge:refs -+> * | uniq', opts={'vars': {'valu': guid}})
             self.len(5, nodes)
 
     async def test_model_base_rules(self):
@@ -291,6 +291,7 @@ class BaseTest(s_t_utils.SynTest):
                     :created=20200202 :updated=20220401 :author=*
                     :name=" My  Rule" :desc="My cool rule"
                     :type=foo.bar
+                    :status=disabled.falsepos
                     :text="while TRUE { BAD }"
                     :ext:id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
                     <(has)+ { meta:ruleset }
@@ -301,6 +302,7 @@ class BaseTest(s_t_utils.SynTest):
 
             self.nn(nodes[0].get('author'))
             self.eq(nodes[0].get('type'), 'foo.bar.')
+            self.eq(nodes[0].get('status'), 'disabled.falsepos.')
             self.eq(nodes[0].get('created'), 1580601600000)
             self.eq(nodes[0].get('updated'), 1648771200000)
             self.eq(nodes[0].get('name'), 'my rule')
@@ -413,6 +415,37 @@ class BaseTest(s_t_utils.SynTest):
             self.eq('bottles.', nodes[0].get('type'))
             self.eq(1706832000000, nodes[0].get('time'))
             self.len(1, await core.nodes('meta:aggregate -> meta:aggregate:type:taxonomy'))
+
+    async def test_model_cluster(self):
+
+        async with self.getTestCore() as core:
+
+            org0 = s_common.guid()
+
+            nodes = await core.nodes('''[
+                meta:cluster=*
+                    :id=" 1234-5678 "
+                    :ids=(" alt-id-1 ", " alt-id-2 ")
+                    :name="activity cluster 1"
+                    :names=("cluster one", "cluster alpha")
+                    :type=fraud.scam
+                    :desc="A cluster of scam-related addresses."
+                    :tag=rep.vertex.cluster.1234
+                    :reporter=$org
+                    :reporter:name=vertex
+            ]''', opts={'vars': {'org': org0}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('id'), '1234-5678')
+            self.eq(node.get('ids'), ('alt-id-1', 'alt-id-2'))
+            self.eq(node.get('name'), 'activity cluster 1')
+            self.eq(node.get('names'), ('cluster alpha', 'cluster one'))
+            self.eq(node.get('type'), 'fraud.scam.')
+            self.eq(node.get('desc'), 'A cluster of scam-related addresses.')
+            self.eq(node.get('tag'), 'rep.vertex.cluster.1234')
+            self.eq(node.get('reporter'), org0)
+            self.eq(node.get('reporter:name'), 'vertex')
+            self.len(1, await core.nodes('meta:cluster -> meta:cluster:type:taxonomy'))
 
     async def test_model_feed(self):
 

@@ -40,29 +40,14 @@ class LibStormTest(s_test.SynTest):
                 await core.callStorm('$lib.storm.eval( "{$lib.auth.users.add(readonly)}" )', opts={'readonly': True})
 
             with self.getLoggerStream('synapse.storm') as stream:
-                q = '''{
-                    $lib.log.info(hehe)
-                    [test:str=omg]
-                    $lib.log.info($node)
-                    fini { return(wow) }
-                }
-                '''
-
                 core.stormlog = True
-                opts = {'vars': {'q': q}}
+                opts = {'vars': {'q': 'woot'}}
                 ret = await core.callStorm('return( $lib.storm.eval($q) )', opts=opts)
-                self.eq(ret, 'wow')
-                self.len(1, await core.nodes('test:str=omg'))
+                self.eq(ret, 'woot')
 
                 # Check that we saw the logs
-                stream.seek(0)
-                data = stream.read()
-
-                mesg = 'Executing storm query {return( $lib.storm.eval($q) )} as [root]'
-                self.isin(mesg, data)
-
-                mesg = f'Executing storm query via $lib.storm.eval() {{{q}}} as [root]'
-                self.isin(mesg, data)
+                await stream.expect('Executing storm query via $lib.storm.eval() {woot} as [root]')
+                await stream.expect('Executing storm query {return( $lib.storm.eval($q) )} as [root]')
 
     async def test_lib_stormlib_storm(self):
 
@@ -147,7 +132,7 @@ class LibStormTest(s_test.SynTest):
 
     async def test_lib_stormlib_storm_tasks(self):
 
-        with self.getStructuredAsyncLoggerStream('synapse') as stream:
+        with self.getLoggerStream('synapse') as stream:
 
             async with self.getTestCore() as core:
 
@@ -202,6 +187,6 @@ class LibStormTest(s_test.SynTest):
         msgs = stream.jsonlines()
         self.gt(len(msgs), 0)
 
-        msgs = [(k.get('message'), k.get('text')) for k in msgs]
+        msgs = [(k.get('message'), k['params'].get('text')) for k in msgs]
         self.isin(('Storm runtime cancelled.', '$lib.time.sleep(120)'), msgs)
         self.isin(('Storm runtime cancelled.', q), msgs)

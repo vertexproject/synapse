@@ -25,7 +25,7 @@ import synapse.lib.spooled as s_spooled
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
-from synapse.lib.stormtypes import tobool, toint, toprim, tostr, tonumber, tocmprvalu, undef
+from synapse.lib.stormtypes import tobool, toprim, tostr, tonumber, tocmprvalu, undef
 
 SET_ALWAYS = 0
 SET_UNSET = 1

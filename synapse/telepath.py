@@ -6,7 +6,6 @@ import os
 import ssl
 import copy
 import time
-import yaml
 import asyncio
 import logging
 import contextlib
@@ -22,7 +21,6 @@ import synapse.lib.queue as s_queue
 import synapse.lib.certdir as s_certdir
 import synapse.lib.threads as s_threads
 import synapse.lib.urlhelp as s_urlhelp
-import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
@@ -933,6 +931,9 @@ class Proxy(s_base.Base):
             sharinfo = mesg[1].get('sharinfo')
             await self._putPoolLink(link)
             return await Share.anit(self, iden, sharinfo)
+
+        await link.fini()
+        raise s_exc.BadMesgFormat(mesg=f'Telepath protocol violation: unexpected message type: {mesg[0]}')
 
     async def task(self, todo, name=None):
 

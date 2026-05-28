@@ -316,7 +316,7 @@ Git Hook & Syntax Checking
 --------------------------
 
 A set of helper scripts are available for doing python syntax checking.
-Basic syntax checking can be run with the ``pycodestyle`` tool; while a
+Basic syntax checking can be run with the ``ruff`` tool; while a
 a git pre-commit hook; and a script to run autopep8 on staged git files
 also exist to make life easier.
 
@@ -328,17 +328,16 @@ data from cells. This results in cleaner diffs for .ipynb files over time.
 
    ::
 
-      ~/git/synapse$ python -m pycodestyle
-      ./synapse/tests/test_lib_types.py:397: [E226] missing whitespace around arithmetic operator
-      ./synapse/tests/test_lib_types.py:398: [E226] missing whitespace around arithmetic operator
+      ~/git/synapse$ ruff check
+      synapse/tests/test_lib_types.py:397:29: E226 Missing whitespace around arithmetic operator
+      synapse/tests/test_lib_types.py:398:29: E226 Missing whitespace around arithmetic operator
 
 
 #. Installing the git hook is easy:
 
    ::
 
-      cp scripts/githooks/pre-commit .git/hooks/pre-commit
-      chmod +x .git/hooks/pre-commit
+      ln -s ../../scripts/githooks/pre-commit .git/hooks/pre-commit
 
 
 #. After installing the hook, attempting a commit with a syntax error will fail

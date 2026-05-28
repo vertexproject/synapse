@@ -141,7 +141,7 @@ class StormCliTest(s_test.SynTest):
             self.isin('ERROR:', str(outp))
 
             outp = s_output.OutPutStr()
-            await s_t_storm.main((lurl, f'!runfile --help'), outp=outp)
+            await s_t_storm.main((lurl, '!runfile --help'), outp=outp)
             self.isin('Run a local storm file', str(outp))
 
             with self.getTestDir() as dirn:
@@ -157,14 +157,14 @@ class StormCliTest(s_test.SynTest):
                 self.isin('woot', str(outp))
 
                 outp = s_output.OutPutStr()
-                ret = await s_t_storm.main((lurl, f'!runfile /newp.storm'), outp=outp)
+                ret = await s_t_storm.main((lurl, '!runfile /newp.storm'), outp=outp)
                 self.eq(ret, 1)
-                self.isin(f'no such file: /newp.storm', str(outp))
+                self.isin('no such file: /newp.storm', str(outp))
 
                 outp = s_output.OutPutStr()
-                ret = await s_t_storm.main((lurl, f'!pushfile /newp'), outp=outp)
+                ret = await s_t_storm.main((lurl, '!pushfile /newp'), outp=outp)
                 self.eq(ret, 1)
-                self.isin(f'no such file: /newp', str(outp))
+                self.isin('no such file: /newp', str(outp))
 
                 outp = s_output.OutPutStr()
                 await s_t_storm.main((lurl, f'!pushfile {path}'), outp=outp)
@@ -271,7 +271,7 @@ class StormCliTest(s_test.SynTest):
             view = await core.callStorm('$view = $lib.view.get() $fork=$view.fork() return ( $fork.iden )')
 
             outp = s_output.OutPutStr()
-            await s_t_storm.main(('--view', view, url, f'[file:bytes={"a"*64}]'), outp=outp)
+            await s_t_storm.main(('--view', view, url, f'[file:bytes={"a" * 64}]'), outp=outp)
             self.len(0, await core.nodes('file:bytes'))
             self.len(1, await core.nodes('file:bytes', opts={'view': view}))
 

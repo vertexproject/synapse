@@ -22,6 +22,7 @@ class Task(s_base.Base):
             info = {}
 
         self.boss = boss
+        self.protected = False
         self.background = False
 
         task._syn_task = self
@@ -67,27 +68,34 @@ class Task(s_base.Base):
         return 'task: %s (%s) %r' % (self.iden, user, self.info)
 
     def _onTaskDone(self, t):
-        if not self.isfini:
-            self.boss.schedCoroSafe(self.fini())
+        if self.isfini or self.boss.isfini:
+            return
+        self.boss.schedCoroSafe(self.fini())
 
     async def _onTaskFini(self):
 
         for task in list(self.kids.values()):
             await task.fini()
 
-        self.task.cancel()
+        if asyncio.current_task() is not self.task:
+            # Only cancel/await for non-promoted (worker) tasks. If the current
+            # asyncio task is self.task, we're inside a promoted task running its
+            # own fini chain — cancelling ourselves here would inject a spurious
+            # CancelledError at the next await point outside this method.
+            self.task.cancel()
 
-        try:
-            await self.task
-        except asyncio.CancelledError:
-            pass
-        except Exception:  # pragma:  no cover
-            logger.exception(f'Task {self.name} completed with exception')
+            try:
+                await self.task
+            except asyncio.CancelledError:
+                pass
+            except Exception:  # pragma:  no cover
+                logger.exception(f'Task {self.name} completed with exception')
 
         if self.root is not None:
             self.root.kids.pop(self.iden)
 
         self.boss.tasks.pop(self.iden)
+        self.task._syn_task = None
 
     async def worker(self, coro, name='worker'):
 
@@ -96,7 +104,9 @@ class Task(s_base.Base):
 
         self.kids[synt.iden] = synt
 
-    async def kill(self):
+    async def kill(self, safe=True):
+        if safe and self.protected:
+            raise s_exc.SynErr(mesg=f'Task {self.name} is protected.', iden=self.iden)
         # task kill and fini are the same...
         await self.fini()
 
@@ -124,6 +134,8 @@ class Task(s_base.Base):
             'tick': self.tick,
             'user': self.user.iden,
             'username': self.user.name,
+            'protected': self.protected,
+            'background': self.background,
             'kids': {i: k.packv2() for i, k in self.kids.items()},
         }
 

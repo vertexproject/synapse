@@ -104,9 +104,9 @@ class StormLibPkgTest(s_test.SynTest):
                 }
             }
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz requirement') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
+                await stream.expect('bazfaz requirement', timeout=1)
 
             pkgdef = {
                 'name': 'bazfaz',
@@ -118,9 +118,9 @@ class StormLibPkgTest(s_test.SynTest):
                 }
             }
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz optional requirement') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
+                await stream.expect('bazfaz optional requirement', timeout=1)
 
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
@@ -240,15 +240,14 @@ class StormLibPkgTest(s_test.SynTest):
             # because the pkg hasn't changed so no loading occurs
             waiter = core.waiter(1, 'core:pkg:onload:complete')
 
-            with self.getAsyncLoggerStream('synapse.cortex') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v1/pkgtestraw/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
-            stream.seek(0)
-            buf = stream.read()
+            buf = stream.getvalue()
             self.isin("testload onload output: teststring", buf)
             self.isin("testload onload output: testwarn", buf)
             self.isin("No var with name: newp", buf)
@@ -359,6 +358,37 @@ class StormLibPkgTest(s_test.SynTest):
                     for $kv in $lib.pkg.vars(pkg1) { $kvs.append($kv) }
                     return($kvs)
                 '''))
+
+    async def test_storm_pkg_var_no_op_nexus(self):
+
+        async with self.getTestCore() as core:
+
+            ind = core.nexsroot.nexslog.index()
+
+            # new set emits one nexus entry
+            await core.setStormPkgVar('pkg0', 'key', 1)
+            self.eq(ind + 1, core.nexsroot.nexslog.index())
+
+            # identical set is a no-op — no nexus entry
+            await core.setStormPkgVar('pkg0', 'key', 1)
+            self.eq(ind + 1, core.nexsroot.nexslog.index())
+
+            # changed value emits an entry
+            await core.setStormPkgVar('pkg0', 'key', 2)
+            self.eq(ind + 2, core.nexsroot.nexslog.index())
+
+            # pop on an absent key is a no-op — no nexus entry
+            await core.popStormPkgVar('pkg0', 'missing')
+            self.eq(ind + 2, core.nexsroot.nexslog.index())
+
+            # pop on a present key emits an entry
+            await core.popStormPkgVar('pkg0', 'key')
+            self.eq(ind + 3, core.nexsroot.nexslog.index())
+
+            # pop returns the default when key is absent
+            retn = await core.popStormPkgVar('pkg0', 'missing', default='fallback')
+            self.eq('fallback', retn)
+            self.eq(ind + 3, core.nexsroot.nexslog.index())
 
     async def test_stormlib_pkg_queues(self):
         with self.getTestDir() as dirn:

@@ -16,6 +16,8 @@ docs:
       path: docs/_build/foo.md
     - title: Bar
       path: docs/_build/bar.md
+    - title: Tables
+      path: docs/_build/tables.md
     - title: Package Documentation
       path: docs/_build/stormpackage.md
 

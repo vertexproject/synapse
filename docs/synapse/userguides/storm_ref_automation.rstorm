@@ -718,25 +718,19 @@ The Storm for this trigger is broken down below (with comments) for clarity:
 ::
   
   // Set the variable $attack to the risk:attack node for later use
-  $attack=$node
-  
-  // Use a subquery to traverse all 'uses' edges to any / all forms
-  {
-     -(uses)> *
-     
-     // Filter to the n2 node that was just linked, as referenced by the
-     // trigger-specific $auto.opts.n2iden variable
-     +$auto.opts.n2iden
-     
-     // Pivot to the syn:tag nodes associated with any tags on n2
-     -> #
-     
-     // Pivot to any techniques associated with any tags
-     -> ou:technique:tag
-     
-     // Create a 'uses' edge between the technique(s) and the risk:attack node
-     [ <(uses)+ { yield $attack } ]
-  }
+  $attack=$node | spin |
+
+  // Lift the n2node that was just linked
+  iden $auto.opts.n2iden
+
+  // Pivot to the syn:tag nodes associated with any tags on n2
+  -> #
+
+  // Pivot to any techniques associated with those tags
+  -> ou:technique:tag
+
+  // Create a 'uses' edge between the technique(s) and the risk:attack node
+  [ <(uses)+ $attack ]
 
 
 **tag:add example**

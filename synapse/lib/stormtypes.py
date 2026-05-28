@@ -1800,7 +1800,7 @@ class LibBase(Lib):
         for line in lines:
             fline = f'{prefix}{line}'
             if clamp and len(fline) > clamp:
-                await self.runt.printf(f'{fline[:clamp-3]}...')
+                await self.runt.printf(f'{fline[:clamp - 3]}...')
             else:
                 await self.runt.printf(fline)
 
@@ -3023,20 +3023,47 @@ class LibLift(Lib):
                       {'name': 'name', 'desc': 'The name to of the nodedata key to lift by.', 'type': 'str', },
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields nodes to the pipeline. '
-                                      'This must be used in conjunction with the ``yield`` keyword.', }}},
+                              'desc': 'Yields nodes with the given nodedata name.'}}},
+        {'name': 'tagsByPref',
+         'desc': '''
+            Lift syn:tag nodes by prefix.
+
+            Notes:
+                By default this will only return tags at the depth specified in the prefix.
+                The depth argument may be provided to indicate the number of additional levels
+                in the tag hierarchy to include.
+            ''',
+         'type': {'type': 'function', '_funcname': '_tagsByPref',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str', 'desc': 'The prefix to search for.'},
+                      {'name': 'depth', 'type': 'int', 'default': 0,
+                       'desc': 'The number of additional levels in the tag hierarchy to include.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields syn:tag nodes with the given prefix.'}}},
     )
     _storm_lib_path = ('lift',)
 
     def getObjLocals(self):
         return {
             'byNodeData': self._byNodeData,
+            'tagsByPref': self._tagsByPref,
         }
 
     @stormfunc(readonly=True)
     async def _byNodeData(self, name):
         async for node in self.runt.snap.nodesByDataName(name):
             yield node
+
+    @stormfunc(readonly=True)
+    async def _tagsByPref(self, prefix, depth=0):
+        prefix = await tostr(prefix)
+        depth = await toint(depth)
+
+        snap = self.runt.snap
+        async for name in snap.view.getTagsByPref(prefix, depth=depth):
+            if (node := await snap.getNodeByNdef(('syn:tag', name))) is not None:
+                yield node
 
 @registry.registerLib
 class LibTime(Lib):
@@ -5431,10 +5458,10 @@ class List(Prim):
                   'returns': {'type': 'list', 'desc': 'The slice of the list.'}}},
 
         {'name': 'extend', 'desc': '''
-            Extend a list using another iterable.
+            Extend a list using another iterable. If ``(null)`` is provided, this is a no-op.
 
             Examples:
-                Populate a list by extending it with to other lists::
+                Populate a list by extending it with other lists::
 
                     $list = ()
 
@@ -5445,10 +5472,16 @@ class List(Prim):
                     $list.extend($bar)
 
                     // $list is now (f, o, o, b, a, r)
+
+                Safely extend a list with a value that may be null::
+
+                    $list = ()
+
+                    $list.extend($attrs.foo.bar.baz)
             ''',
          'type': {'type': 'function', '_funcname': '_methListExtend',
                   'args': (
-                      {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable.'},
+                      {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable. If ``(null)``, this is a no-op.'},
                   ),
                   'returns': {'type': 'null'}}},
         {'name': 'unique', 'desc': 'Get a copy of the list containing unique items.',
@@ -5583,7 +5616,7 @@ class List(Prim):
         return self.valu[start:end]
 
     async def _methListExtend(self, valu):
-        async for item in toiter(valu):
+        async for item in toiter(valu, noneok=True):
             self.valu.append(item)
 
     async def value(self, use_list=False):
@@ -9722,6 +9755,89 @@ class LibCron(Lib):
 
         return None
 
+    def _parseTimePart(self, timepart):
+        reqs = {}
+        if ':' in timepart:
+            h, m = timepart.split(':')
+            if h:
+                try:
+                    reqs['hour'] = int(h)
+                except ValueError:
+                    mesg = f'Invalid hour value: {h}'
+                    raise s_exc.BadTime(mesg=mesg)
+            if m:
+                try:
+                    if ',' in m:
+                        reqs['minute'] = [int(v) for v in m.split(',')]
+                    else:
+                        reqs['minute'] = int(m)
+                except ValueError:
+                    mesg = f'Invalid minute value: {m}'
+                    raise s_exc.BadTime(mesg=mesg)
+        else:
+            try:
+                reqs['hour'] = int(timepart)
+            except ValueError:
+                mesg = f'Invalid hour value: {timepart}'
+                raise s_exc.BadTime(mesg=mesg)
+
+        return reqs
+
+    def _validateFields(self, reqs):
+        for field, fieldname in (
+            ('hour', 'hour'),
+            ('minute', 'minute'),
+            ('dayofmonth', 'day of month'),
+            ('month', 'month'),
+        ):
+            if field not in reqs:
+                continue
+            timeunit = s_agenda.TimeUnit.fromString(field)
+            minval, maxval = s_agenda._UnitBounds[timeunit][0]
+            vals = reqs[field]
+            if not isinstance(vals, (list, tuple)):
+                vals = (vals,)
+            for v in vals:
+                if not (minval <= v <= maxval):
+                    mesg = f'Invalid {fieldname} value: {v} (must be {minval}-{maxval})'
+                    raise s_exc.BadConfValu(mesg=mesg)
+
+    def _parsePeriodYearly(self, text):
+        reqs = []
+
+        vals = None
+
+        if '/' in text:
+            _, vals = text.split('/', 1)
+            for dtstr in vals.split(','):
+                req = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+                parts = dtstr.split('@')
+
+                dmstr = parts[0]
+                if '@' in dtstr:
+                    tstr = parts[1]
+                    req.update(self._parseTimePart(tstr))
+
+                try:
+                    mstr, dstr = dmstr.split('-')
+                    req['month'] = int(mstr)
+                    req['dayofmonth'] = int(dstr)
+                except ValueError:
+                    mesg = f'Invalid month-day value for yearly period: {dtstr}'
+                    raise s_exc.BadTime(mesg=mesg)
+                self._validateFields(req)
+
+                reqs.append(req)
+        elif '@' in text:
+            _, tstr = text.split('@', 1)
+            reqs = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+            reqs.update(self._parseTimePart(tstr))
+            self._validateFields(reqs)
+        else:
+            reqs = {'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0}
+
+        return reqs, 'year', 1
+
     def _parsePeriod(self, text):
         '''
         Parse a period string into requirements, increment unit, and increment values.
@@ -9732,29 +9848,6 @@ class LibCron(Lib):
 
         parts = text.split('@', 1)
         base = parts[0]
-        timepart = parts[1] if len(parts) > 1 else None
-
-        if timepart:
-            if ':' in timepart:
-                h, m = timepart.split(':')
-                if h:
-                    try:
-                        reqs['hour'] = int(h, 10)
-                    except ValueError:
-                        mesg = f'Invalid hour value: {h}'
-                        raise s_exc.BadTime(mesg=mesg)
-                if m:
-                    try:
-                        reqs['minute'] = int(m, 10)
-                    except ValueError:
-                        mesg = f'Invalid minute value: {m}'
-                        raise s_exc.BadTime(mesg=mesg)
-            else:
-                try:
-                    reqs['hour'] = int(timepart, 10)
-                except ValueError:
-                    mesg = f'Invalid hour value: {timepart}'
-                    raise s_exc.BadTime(mesg=mesg)
 
         if '/' in base:
             period, vals = base.split('/', 1)
@@ -9763,6 +9856,13 @@ class LibCron(Lib):
             vals = None
 
         period = period.lower()
+        if period == 'yearly':
+            return self._parsePeriodYearly(text)
+
+        timepart = parts[1] if len(parts) > 1 else None
+
+        if timepart:
+            reqs.update(self._parseTimePart(timepart))
 
         if period == 'hourly':
             if timepart is None:
@@ -9826,34 +9926,11 @@ class LibCron(Lib):
                 reqs['dayofmonth'] = 1
             incvals = 1
 
-        elif period == 'yearly':
-            incunit = 'year'
-            incvals = 1
-            reqs['month'] = 1
-            reqs['dayofmonth'] = 1
-            reqs.setdefault('hour', 0)
-            reqs.setdefault('minute', 0)
         else:
             mesg = f'Unknown period: {period}'
             raise s_exc.BadConfValu(mesg=mesg)
 
-        for field, fieldname in (
-            ('hour', 'hour'),
-            ('minute', 'minute'),
-            ('dayofmonth', 'day of month'),
-            ('month', 'month'),
-        ):
-            if field not in reqs:
-                continue
-            timeunit = s_agenda.TimeUnit.fromString(field)
-            minval, maxval = s_agenda._UnitBounds[timeunit][0]
-            vals = reqs[field]
-            if not isinstance(vals, (list, tuple)):
-                vals = (vals,)
-            for v in vals:
-                if not (minval <= v <= maxval):
-                    mesg = f'Invalid {fieldname} value: {v} (must be {minval}-{maxval})'
-                    raise s_exc.BadConfValu(mesg=mesg)
+        self._validateFields(reqs)
 
         return reqs, incunit, incvals
 
@@ -9881,6 +9958,8 @@ class LibCron(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         query = await tostr(query)
+
+        loglevel = kwargs.get('loglevel', 'WARNING')
 
         period = kwargs.get('period')
         if not period:
@@ -9991,7 +10070,8 @@ class LibCron(Lib):
                 'affinity': affinity,
                 'incunit': incunit,
                 'incvals': incval,
-                'creator': self.runt.user.iden
+                'creator': self.runt.user.iden,
+                'loglevel': loglevel
                 }
 
         iden = kwargs.get('iden')
@@ -10019,6 +10099,8 @@ class LibCron(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         query = await tostr(query)
+
+        loglevel = kwargs.get('loglevel', 'WARNING')
 
         affinity = kwargs.get('affinity')
         if affinity is not None:
@@ -10071,6 +10153,7 @@ class LibCron(Lib):
             reqdicts.append({'now': True})
 
         cdef = {'storm': query,
+                'loglevel': loglevel,
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
