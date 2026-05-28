@@ -26,9 +26,24 @@ class Boss(s_base.Base):
         self.onfini(self._onBossFini)
 
     async def shutdown(self, timeout=None, cancel_tasks=False):
-        # when a boss is "shutting down" it should not promote any new tasks,
-        # but await the completion of any which are already underway...
+        '''
+        Initiate a shutdown of the Boss by stopping promotion of any new tasks
+        and either awaiting or cancelling top-level promoted tasks.
 
+        Background tasks and child tasks are not awaited or cancelled.
+
+        Args:
+            timeout: Optional total time budget in seconds for reaping tasks.
+                The budget is shared across all tasks; if it is exhausted
+                before every task is reaped the shutdown is aborted. ``None``
+                blocks indefinitely.
+            cancel_tasks: If True, cancel top-level tasks before awaiting them.
+                If False, top-level tasks are only awaited.
+
+        Returns:
+            bool: True if all eligible tasks were reaped before the budget
+            was exhausted; False otherwise.
+        '''
         self.reqNotShut()
 
         async with self.shutdown_lock:
