@@ -258,13 +258,19 @@ class StormBinTest(s_test.SynTest):
         self.false(s_stormbin.isCompiled(42))
         self.false(s_stormbin.isCompiled(None))
 
-    def test_stormbin_addpos(self):
-        '''Test compile with addpos round-trips.'''
+    def test_stormbin_pos_preserved(self):
+        '''Position info round-trips through compile/decompile.'''
         text = 'inet:fqdn=vertex.link'
-        byts = s_stormbin.compile(text, addpos=True)
+        byts = s_stormbin.compile(text)
         query = s_stormbin.decompile(byts)
         orig = s_parser.parseQuery(text)
-        self._assertAstEqual(orig, query)
+        self.eq(query.astinfo.soff, orig.astinfo.soff)
+        self.eq(query.astinfo.eoff, orig.astinfo.eoff)
+        self.eq(query.astinfo.sline, orig.astinfo.sline)
+        self.eq(query.astinfo.eline, orig.astinfo.eline)
+        self.eq(query.astinfo.scol, orig.astinfo.scol)
+        self.eq(query.astinfo.ecol, orig.astinfo.ecol)
+        self.eq(query.astinfo.isterm, orig.astinfo.isterm)
 
     def test_stormbin_invalid_version(self):
         '''Test that future versions are rejected.'''

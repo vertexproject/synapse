@@ -69,13 +69,12 @@ def _initRegistry():
 
 _initRegistry()
 
-def en(node, addpos=False):
+def en(node):
     '''
     Serialize an AST node tree into a compact tuple format.
 
     Args:
         node: An AstNode instance.
-        addpos (bool): Include position info in metadata.
 
     Returns:
         tuple: Serialized AST node tuple.
@@ -87,7 +86,7 @@ def en(node, addpos=False):
         raise s_exc.BadArg(mesg=mesg)
 
     # Recurse into children
-    kids = [en(kid, addpos=addpos) for kid in node.kids]
+    kids = [en(kid) for kid in node.kids]
 
     # Build per-node metadata
     meta = {}
@@ -102,9 +101,8 @@ def en(node, addpos=False):
     if attrdict:
         meta['a'] = attrdict
 
-    if addpos:
-        info = node.astinfo
-        meta['pos'] = (info.soff, info.eoff, info.sline, info.eline, info.scol, info.ecol, info.isterm)
+    info = node.astinfo
+    meta['pos'] = (info.soff, info.eoff, info.sline, info.eline, info.scol, info.ecol, info.isterm)
 
     return (typeid, kids, meta)
 
@@ -141,12 +139,13 @@ def un(data, depth=0):
         raise s_exc.BadArg(mesg=mesg)
 
     # Reconstruct AstInfo
-    if 'pos' in meta:
-        pos = meta['pos']
-        soff, eoff, sline, eline, scol, ecol, isterm = pos
-        astinfo = s_parser.AstInfo('', soff, eoff, sline, eline, scol, ecol, isterm)
-    else:
-        astinfo = s_parser.AstInfo('', 0, 0, 0, 0, 0, 0, False)
+    pos = meta.get('pos')
+    if pos is None:
+        mesg = 'Invalid AST node metadata: missing pos info'
+        raise s_exc.BadArg(mesg=mesg)
+
+    soff, eoff, sline, eline, scol, ecol, isterm = pos
+    astinfo = s_parser.AstInfo('', soff, eoff, sline, eline, scol, ecol, isterm)
 
     # Deserialize children
     childnodes = [un(k, depth=depth + 1) for k in kids]
@@ -178,14 +177,13 @@ def un(data, depth=0):
 
     return node
 
-def compile(text, mode='storm', addpos=False):
+def compile(text, mode='storm'):
     '''
     Compile a Storm query string into the binary format.
 
     Args:
         text (str): Storm query text to compile.
         mode (str): Parse mode (storm, lookup, autoadd, search).
-        addpos (bool): Include position info for error reporting.
 
     Returns:
         bytes: Compiled binary representation.
@@ -196,7 +194,7 @@ def compile(text, mode='storm', addpos=False):
 
     query = s_parser.parseQuery(text, mode=mode)
 
-    tree = en(query, addpos=addpos)
+    tree = en(query)
 
     meta = {}
     if mode != 'storm':
