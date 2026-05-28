@@ -100,7 +100,7 @@ def _enValu(valu):
 def _unValu(raw):
     '''Decode a tagged (type_int, encoded_value) tuple back to a value.'''
     if not isinstance(raw, (list, tuple)) or len(raw) != 2:
-        mesg = f'Invalid encoded value: expected 2-element tuple'
+        mesg = 'Invalid encoded value: expected 2-element tuple'
         raise s_exc.BadArg(mesg=mesg)
 
     typeid, val = raw
@@ -179,7 +179,7 @@ def un(data, text=None, depth=0):
         raise s_exc.BadArg(mesg=mesg)
 
     if not isinstance(data, (tuple, list)) or len(data) != 3:
-        mesg = f'Invalid AST node format: expected 3-element tuple'
+        mesg = 'Invalid AST node format: expected 3-element tuple'
         raise s_exc.BadArg(mesg=mesg)
 
     typeid, kids, meta = data

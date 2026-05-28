@@ -5,7 +5,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.version as s_version
-import synapse.lib.stormbin as s_stormbin
 
 import synapse.tests.utils as s_test
 import synapse.tests.files as s_files
