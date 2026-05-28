@@ -79,11 +79,6 @@ class BackupAlreadyRunning(SynErr):
     '''
     Only one backup may be running at a time
     '''
-class BackupFailure(SynErr):
-    '''
-    Raised by a service from iterNewBackupArchive when it cannot currently
-    be backed up (e.g. the service is in a known-bad state).
-    '''
 class StormPkgRequires(SynErr): pass
 class StormPkgConflicts(SynErr): pass
 
