@@ -6545,10 +6545,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return astvalu
 
     async def _getStormQuery(self, args):
+        text, mode = args
         try:
-            query = copy.deepcopy(await s_parser.querycache.aget(args))
+            if s_stormbin.isCompiled(text):
+                query = s_stormbin.decompile(text)
+            else:
+                query = copy.deepcopy(await s_parser.querycache.aget(args))
         except s_exc.FatalErr: # pragma: no cover
-            logger.exception(f'Fatal error while parsing [{args}]', extra=self.getLogExtra(text=args[0]))
+            logger.exception(f'Fatal error while parsing [{args}]', extra=self.getLogExtra(text=text))
             await self.fini()
             raise
         query.init(self)
@@ -6556,11 +6560,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return query
 
     async def getStormQuery(self, text, mode='storm'):
-        if s_stormbin.isCompiled(text):
-            query = s_stormbin.decompile(text)
-            query.init(self)
-            await asyncio.sleep(0)
-            return query
         return await self.querycache.aget((text, mode))
 
     @contextlib.asynccontextmanager
