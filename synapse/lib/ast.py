@@ -1602,10 +1602,13 @@ class CaseEntry(AstNode):
 class LiftOper(Oper):
 
     _bin_id = 61
+    # reverse is set after __init__ via reverseLift() when the parser sees
+    # the reverse-lift sigil, so it needs to round-trip via _bin_attrs.
+    _bin_attrs = (('reverse', 'r', False),)
 
-    def __init__(self, astinfo, kids=()):
+    def __init__(self, astinfo, kids=(), reverse=False):
         Oper.__init__(self, astinfo, kids=kids)
-        self.reverse = False
+        self.reverse = reverse
 
     def reverseLift(self, astinfo):
         self.astinfo = astinfo

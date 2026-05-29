@@ -42,6 +42,9 @@ class StormBinTest(s_test.SynTest):
         if isinstance(node1, s_ast.Lookup):
             self.eq(node1.autoadd, node2.autoadd)
 
+        if isinstance(node1, s_ast.LiftOper):
+            self.eq(node1.reverse, node2.reverse)
+
         if isinstance(node1, s_ast.CaseEntry):
             self.eq(node1.defcase, node2.defcase)
 
@@ -136,6 +139,29 @@ class StormBinTest(s_test.SynTest):
             query = s_stormbin.load(byts)
             orig = s_parser.parseQuery(text)
             self._assertAstEqual(orig, query)
+
+    def test_stormbin_roundtrip_reverse_lift(self):
+        '''Reverse-lift queries round-trip with .reverse preserved.'''
+        queries = [
+            'reverse(inet:fqdn)',
+            'reverse(inet:fqdn=vertex.link)',
+            'reverse(#foo.bar)',
+        ]
+        for text in queries:
+            orig = s_parser.parseQuery(text)
+            byts = s_stormbin.compile(text)
+            query = s_stormbin.load(byts)
+            self._assertAstEqual(orig, query)
+            # Find the LiftOper and confirm reverse survived.
+            def find_lift(node):
+                if isinstance(node, s_ast.LiftOper):
+                    return node
+                for k in node.kids:
+                    lift = find_lift(k)
+                    if lift is not None:
+                        return lift
+                return None
+            self.true(find_lift(query).reverse)
 
     def test_stormbin_roundtrip_walks(self):
         '''Test round-trip for walk operations.'''
