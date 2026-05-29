@@ -96,7 +96,7 @@ def en(node):
     attrdict = {}
     for attrname, key, default in cls._bin_attrs:
         val = getattr(node, attrname, default)
-        if val is not default and val != default:
+        if val != default:
             attrdict[key] = val
 
     if attrdict:
