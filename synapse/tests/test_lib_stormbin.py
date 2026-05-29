@@ -435,6 +435,18 @@ class StormBinTest(s_test.SynTest):
             s_stormbin.load(byts)
         self.isin('missing pos info', cm.exception.errinfo.get('mesg'))
 
+    def test_stormbin_bad_pos_length(self):
+        '''un() rejects a node whose pos tuple isn't 7 elements.'''
+        import synapse.lib.msgpack as s_msgpack
+        queryid = s_stormbin.classToId[s_ast.Query]
+        # 6 elements instead of 7
+        tree = (queryid, [], {'pos': (0, 0, 0, 0, 0, 0)})
+        envelope = (1, tree, {})
+        byts = s_msgpack.en(envelope)
+        with self.raises(s_exc.BadArg) as cm:
+            s_stormbin.load(byts)
+        self.isin('Invalid AST node pos info', cm.exception.errinfo.get('mesg'))
+
     def test_stormbin_attr_default(self):
         '''un() falls back to the default when an attr key is absent.'''
         import synapse.lib.msgpack as s_msgpack

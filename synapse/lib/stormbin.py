@@ -145,6 +145,10 @@ def un(data, depth=0):
         mesg = 'Invalid AST node metadata: missing pos info'
         raise s_exc.BadArg(mesg=mesg)
 
+    if len(pos) != 7:
+        mesg = f'Invalid AST node pos info: expected 7-element tuple, got {len(pos)}'
+        raise s_exc.BadArg(mesg=mesg)
+
     soff, eoff, sline, eline, scol, ecol, isterm = pos
     astinfo = s_parser.AstInfo('', soff, eoff, sline, eline, scol, ecol, isterm)
 
