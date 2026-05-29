@@ -175,13 +175,10 @@ def un(data, depth=0):
         if childnodes:
             node.valu = dump(childnodes[0], ascii=True)
 
-    # SubQuery.hasyield is set after construction. Like EmbedQuery, populate
-    # .text with the compiled form so any consumer that reads it round-trips
-    # through getStormQuery() on the fast path.
+    # Like EmbedQuery, populate .text with the compiled form so any consumer
+    # that reads it round-trips through getStormQuery() on the fast path.
     elif cls is s_ast.SubQuery:
-        hasyield = kwargs.pop('hasyield', False)
         node = cls(astinfo, kids=childnodes, **kwargs)
-        node.hasyield = hasyield
         if childnodes:
             node.text = dump(childnodes[0], ascii=True)
 

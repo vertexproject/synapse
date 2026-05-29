@@ -806,9 +806,9 @@ class SubQuery(Oper):
     _bin_id = 96
     _bin_attrs = (('hasyield', 'y', False),)
 
-    def __init__(self, astinfo, kids=()):
+    def __init__(self, astinfo, kids=(), hasyield=False):
         Oper.__init__(self, astinfo, kids)
-        self.hasyield = False
+        self.hasyield = hasyield
         self.hasretn = self.hasAstClass(Return)
 
         self.text = ''
