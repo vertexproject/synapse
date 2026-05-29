@@ -153,14 +153,9 @@ def un(data, depth=0):
 
     # Build constructor kwargs from _bin_attrs defined on the AST class
     kwargs = {}
-
     if attrs:
         for attrname, key, default in cls._bin_attrs:
-            if key in attrs:
-                val = attrs[key]
-            else:
-                val = default
-            kwargs[attrname] = val
+            kwargs[attrname] = attrs.get(key, default)
 
     # EmbedQuery.valu is normally the source text of the embedded query.
     # Synthesize a compiled-form (}-prefixed base64) so consumers that
