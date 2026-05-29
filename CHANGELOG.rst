@@ -14,7 +14,7 @@ Features and Enhancements
 - Added a ``--size`` option to the ``min`` and ``max`` Storm commands. When
   specified, the top-N nodes are yielded in sorted order.
   (`#4953 <https://github.com/vertexproject/synapse/pull/4953>`_)
-- Added the ``--percent`` option to the ``stats.countby`` Storm command to
+- Added a ``--percent`` option to the ``stats.countby`` Storm command to
   include a percent column in the output.
   (`#4961 <https://github.com/vertexproject/synapse/pull/4961>`_)
 - Added a ``--no-drain`` argument to the ``synapse.tools.service.shutdown``
