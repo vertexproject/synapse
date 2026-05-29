@@ -245,6 +245,25 @@ class StormBinTest(s_test.SynTest):
         orig = s_parser.parseQuery(text)
         self._assertAstEqual(orig, query)
 
+    def test_stormbin_dump(self):
+        '''dump() round-trips an AST node back through load() in both modes.'''
+        text = 'inet:fqdn=vertex.link'
+        query = s_parser.parseQuery(text)
+
+        # ascii=False returns bytes
+        byts = s_stormbin.dump(query)
+        self.assertIsInstance(byts, bytes)
+        self.eq(query.__class__, s_stormbin.load(byts).__class__)
+
+        # ascii=True returns a }-prefixed base64 string
+        enc = s_stormbin.dump(query, ascii=True)
+        self.assertIsInstance(enc, str)
+        self.true(enc.startswith('}'))
+        self.eq(query.__class__, s_stormbin.load(enc).__class__)
+
+        # The two outputs encode the same payload.
+        self.eq(byts, s_stormbin.unBase64(enc))
+
     def test_stormbin_iscompiled(self):
         '''Test compiled input detection.'''
         # Raw bytes are compiled

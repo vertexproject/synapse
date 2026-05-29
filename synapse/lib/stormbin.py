@@ -173,7 +173,7 @@ def un(data, depth=0):
     elif cls is s_ast.EmbedQuery:
         node = cls(astinfo, None, kids=childnodes)
         if childnodes:
-            node.valu = _compileChild(childnodes[0])
+            node.valu = dump(childnodes[0], ascii=True)
 
     # SubQuery.hasyield is set after construction. Like EmbedQuery, populate
     # .text with the compiled form so any consumer that reads it round-trips
@@ -183,24 +183,37 @@ def un(data, depth=0):
         node = cls(astinfo, kids=childnodes, **kwargs)
         node.hasyield = hasyield
         if childnodes:
-            node.text = _compileChild(childnodes[0])
+            node.text = dump(childnodes[0], ascii=True)
 
     # Query.text is what ArgvQuery.compute() returns for command-arg
     # subqueries (background, batch, view.exec). Populate it with the
     # compiled-form so those commands execute via the compiled fast path.
     elif cls is s_ast.Query:
         node = cls(astinfo, kids=childnodes, **kwargs)
-        node.text = _compileChild(node)
+        node.text = dump(node, ascii=True)
 
     else:
         node = cls(astinfo, kids=childnodes, **kwargs)
 
     return node
 
-def _compileChild(node):
-    '''Re-serialize an AST node into an ASCII-encoded stormbin payload.'''
+def dump(node, ascii=False):
+    '''
+    Dump an AST node into a stormbin payload.
+
+    Args:
+        node: An AstNode instance.
+        ascii (bool): If True, return a ``}``-prefixed base64 string. If
+                      False (default), return raw bytes.
+
+    Returns:
+        bytes or str: A stormbin payload that can be passed to ``load()``.
+    '''
     envelope = (FORMAT_VERSION, en(node), {})
-    return enBase64(s_msgpack.en(envelope))
+    byts = s_msgpack.en(envelope)
+    if ascii:
+        return enBase64(byts)
+    return byts
 
 def compile(text, mode='storm'):
     '''
