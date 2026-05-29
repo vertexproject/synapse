@@ -157,31 +157,11 @@ def un(data, depth=0):
         for attrname, key, default in cls._bin_attrs:
             kwargs[attrname] = attrs.get(key, default)
 
-    # EmbedQuery.valu is normally the source text of the embedded query.
-    # Synthesize a compiled-form (}-prefixed base64) so consumers that
-    # round-trip through getStormQuery() pick up the fast path.
-    if cls is s_ast.EmbedQuery:
-        node = cls(astinfo, kids=childnodes)
-        if childnodes:
-            node.valu = dump(childnodes[0], ascii=True)
-
-    # Like EmbedQuery, populate .text with the compiled form so any consumer
-    # that reads it round-trips through getStormQuery() on the fast path.
-    elif cls is s_ast.SubQuery:
-        node = cls(astinfo, kids=childnodes, **kwargs)
-        if childnodes:
-            node.text = dump(childnodes[0], ascii=True)
-
-    # Query.text is what ArgvQuery.compute() returns for command-arg
-    # subqueries (background, batch, view.exec). Populate it with the
-    # compiled-form so those commands execute via the compiled fast path.
-    elif cls is s_ast.Query:
-        node = cls(astinfo, kids=childnodes, **kwargs)
-        node.text = dump(node, ascii=True)
-
-    else:
-        node = cls(astinfo, kids=childnodes, **kwargs)
-
+    node = cls(astinfo, kids=childnodes, **kwargs)
+    # Subclasses (Query/SubQuery/EmbedQuery) override hydrate() to populate a
+    # compiled-form text representation so consumers that round-trip through
+    # getStormQuery() pick up the compiled fast path.
+    node.hydrate()
     return node
 
 def dump(node, ascii=False):

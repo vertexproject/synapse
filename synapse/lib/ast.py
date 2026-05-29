@@ -68,6 +68,15 @@ class AstNode:
             return ''
         return self.astinfo.text[self.astinfo.soff:self.astinfo.eoff]
 
+    def hydrate(self):
+        '''
+        Called by stormbin.un() after construction. Override on subclasses
+        that need to populate a derived attribute (e.g., a compiled-form
+        text representation of this subtree) that isn't carried via
+        _bin_attrs.
+        '''
+        pass
+
     def getPosInfo(self):
         return {
             'hash': s_common.queryhash(self.astinfo.text),
@@ -220,6 +229,10 @@ class Query(AstNode):
         # for options parsed from the query itself
         self.opts = {}
         self.text = self.getAstText()
+
+    def hydrate(self):
+        import synapse.lib.stormbin as s_stormbin
+        self.text = s_stormbin.dump(self, ascii=True)
 
     async def run(self, runt, genr):
 
@@ -814,6 +827,11 @@ class SubQuery(Oper):
         self.text = ''
         if len(kids):
             self.text = kids[0].getAstText()
+
+    def hydrate(self):
+        if self.kids:
+            import synapse.lib.stormbin as s_stormbin
+            self.text = s_stormbin.dump(self.kids[0], ascii=True)
 
     def isRuntSafe(self, runt):
         return True
@@ -4169,6 +4187,11 @@ class EmbedQuery(Const):
     _bin_attrs = ()
 
     runtopaque = True
+
+    def hydrate(self):
+        if self.kids:
+            import synapse.lib.stormbin as s_stormbin
+            self.valu = s_stormbin.dump(self.kids[0], ascii=True)
 
     def validate(self, runt):
         # var scope validation occurs in the sub-runtime
