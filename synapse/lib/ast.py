@@ -55,15 +55,20 @@ class AstRegistry(type):
     and rejects duplicate ids before the class is created.
     '''
     def __new__(mcs, name, bases, namespace):
+
         binid = namespace.get('_bin_id', s_common.novalu)
+
         if binid is not s_common.novalu and binid in idToClass:
             existing = idToClass[binid]
             mesg = f'Duplicate _bin_id {binid}: {name} and {existing.__name__}'
             raise s_exc.BadArg(mesg=mesg)
+
         cls = super().__new__(mcs, name, bases, namespace)
+
         if binid is not s_common.novalu:
             classToId[cls] = binid
             idToClass[binid] = cls
+
         return cls
 
 class AstNode(metaclass=AstRegistry):
