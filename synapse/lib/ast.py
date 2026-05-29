@@ -4068,7 +4068,7 @@ class Const(Value):
     _bin_id = 15
     _bin_attrs = (('valu', 'v', s_common.novalu),)
 
-    def __init__(self, astinfo, valu, kids=()):
+    def __init__(self, astinfo, valu=s_common.novalu, kids=()):
         Value.__init__(self, astinfo, kids=kids)
         self.isconst = True
         self.valu = valu

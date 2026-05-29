@@ -162,16 +162,11 @@ def un(data, depth=0):
                 val = default
             kwargs[attrname] = val
 
-    # Const-family takes valu as a positional arg
-    if cls in (s_ast.Const, s_ast.Bool, s_ast.VarList, s_ast.Cmpr):
-        valu = kwargs.pop('valu', None)
-        node = cls(astinfo, valu, kids=childnodes, **kwargs)
-
     # EmbedQuery.valu is normally the source text of the embedded query.
     # Synthesize a compiled-form (}-prefixed base64) so consumers that
     # round-trip through getStormQuery() pick up the fast path.
-    elif cls is s_ast.EmbedQuery:
-        node = cls(astinfo, None, kids=childnodes)
+    if cls is s_ast.EmbedQuery:
+        node = cls(astinfo, kids=childnodes)
         if childnodes:
             node.valu = dump(childnodes[0], ascii=True)
 
