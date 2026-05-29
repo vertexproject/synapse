@@ -25,25 +25,42 @@ class Boss(s_base.Base):
         self.shutdown_lock = asyncio.Lock()
         self.onfini(self._onBossFini)
 
-    async def shutdown(self, timeout=None):
-        # when a boss is "shutting down" it should not promote any new tasks,
-        # but await the completion of any which are already underway...
+    async def shutdown(self, timeout=None, drain=True):
+        '''
+        Initiate a shutdown of the Boss by stopping promotion of any new tasks
+        and either awaiting or cancelling top-level promoted tasks.
 
+        Background tasks and child tasks are not awaited or cancelled.
+
+        Args:
+            timeout: Optional total timeout in seconds for reaping tasks.
+                The timeout is shared across all tasks; if it is reached
+                before every task is reaped the shutdown is aborted. ``None``
+                blocks indefinitely.
+            drain: If True (the default), top-level tasks are awaited until
+                they complete on their own. If False, top-level tasks are
+                cancelled before being awaited.
+
+        Returns:
+            bool: True if all eligible tasks were reaped before the timeout
+            was reached; False otherwise.
+        '''
         self.reqNotShut()
 
         async with self.shutdown_lock:
 
-            for task in list(self.tasks.values()):
+            toplevel = [task for task in self.tasks.values()
+                        if task.root is None and not task.background]
 
-                # do not wait on child tasks
-                if task.root is not None:
-                    continue
+            if not drain:
+                for task in toplevel:
+                    task.task.cancel()
 
-                # do not wait on background tasks
-                if task.background:
-                    continue
+            remaining = s_coro.deadline(timeout)
 
-                if not await s_coro.waittask(task.task, timeout=timeout):
+            for task in toplevel:
+
+                if not await s_coro.waittask(task.task, timeout=remaining()):
                     return False
 
             self.is_shutdown = True

@@ -463,7 +463,7 @@ commands:
 jobs:
 
   python311:
-    resource_class: xlarge
+    resource_class: xlarge.gen2
     docker:
       - image: cimg/python:3.11
         environment:
@@ -483,7 +483,7 @@ jobs:
       - test_steps_python
 
   python311_replay:
-    resource_class: xlarge
+    resource_class: xlarge.gen2
     docker:
       - image: cimg/python:3.11
         environment:
@@ -502,6 +502,7 @@ jobs:
       - test_steps_python
 
   doctests:
+    resource_class: medium.gen2
     docker:
       - image: cimg/python:3.11
         environment:
@@ -540,6 +541,7 @@ jobs:
       - deploy_pypi_upload
 
   build_docker_branch:
+    resource_class: medium.gen2
     docker:
       - image: docker:24.0.2
     steps:
@@ -551,6 +553,7 @@ jobs:
           secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}
 
   build_docker_tag:
+    resource_class: medium.gen2
     docker:
       - image: docker:24.0.2
     # Use a shell override to force a login shell that loads profile for each step.
