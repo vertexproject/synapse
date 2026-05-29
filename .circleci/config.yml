@@ -118,6 +118,8 @@ commands:
             latest_model_path="${MODEL_DIR%/}/$latest_model"
             echo "Found latest model: $latest_model_path"
             . venv/bin/activate
+            # Add a canary file to ./changes to ensure we always have at least one valid file.
+            python -m synapse.tools.changelog gen --type note --pr 1234 'CI Canary note'
             SYNDEV_CELL_DRIVE_NOSPAWN=1 python -m synapse.tools.changelog format --version v2.999.999 --model-ref $latest_model_path --model-doc-dir ./docs/synapse/userguides/model_updates/
 
       - run:
