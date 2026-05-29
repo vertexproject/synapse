@@ -24,8 +24,8 @@ import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
 import synapse.lib.const as s_const
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.parser as s_parser
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
