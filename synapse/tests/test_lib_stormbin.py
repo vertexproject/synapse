@@ -463,23 +463,11 @@ class StormBinTest(s_test.SynTest):
         self.false(query.autoadd)
 
     def test_stormbin_duplicate_bin_id(self):
-        '''_initRegistry() raises if two AST classes share a _bin_id.'''
-        # Patch an existing class to use a known-taken id, then re-run init.
-        keep_class = s_stormbin.idToClass[s_ast.Query._bin_id]
-        keep_attr = s_ast.Lookup._bin_id
-        try:
-            s_ast.Lookup._bin_id = s_ast.Query._bin_id
-            with self.raises(s_exc.BadArg) as cm:
-                s_stormbin._initRegistry()
-            self.isin('Duplicate _bin_id', cm.exception.errinfo.get('mesg'))
-        finally:
-            s_ast.Lookup._bin_id = keep_attr
-            # Restore the registry to a clean state.
-            s_stormbin.classToId.clear()
-            s_stormbin.idToClass.clear()
-            s_stormbin._initRegistry()
-        # Sanity check: the registry round-trips a query after restoration.
-        self.eq(keep_class, s_stormbin.idToClass[s_ast.Query._bin_id])
+        '''AstRegistry raises immediately if a new subclass takes an existing _bin_id.'''
+        with self.raises(s_exc.BadArg) as cm:
+            class _Duplicate(s_ast.AstNode):
+                _bin_id = s_ast.Query._bin_id
+        self.isin('Duplicate _bin_id', cm.exception.errinfo.get('mesg'))
 
     def test_stormbin_load_plain_string(self):
         '''Test that load rejects plain strings.'''

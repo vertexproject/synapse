@@ -39,36 +39,11 @@ BASE64_PREFIX = s_const.STORMBIN_BASE64_PREFIX
 
 validModes = {'storm', 'lookup', 'autoadd', 'search'}
 
-# AST class <-> integer ID mapping.
-# IDs are defined via _bin_id class variables on each AST class.
-# Build the lookup dicts by scanning all AstNode subclasses.
-classToId = {}
-idToClass = {}
-
-def _initRegistry():
-    '''Scan all AstNode subclasses for _bin_id and build the registry.'''
-    seen = set()
-    queue = list(s_ast.AstNode.__subclasses__())
-    while queue:
-        cls = queue.pop()
-        if cls in seen: # pragma: no cover
-            continue
-        seen.add(cls)
-        queue.extend(cls.__subclasses__())
-
-        # Only register classes that directly define _bin_id
-        binid = cls._bin_id
-        if binid is s_common.novalu:
-            continue
-
-        if binid in idToClass:
-            mesg = f'Duplicate _bin_id {binid}: {cls.__name__} and {idToClass[binid].__name__}'
-            raise s_exc.BadArg(mesg=mesg)
-
-        classToId[cls] = binid
-        idToClass[binid] = cls
-
-_initRegistry()
+# AST class <-> integer ID mapping. The registry is populated by
+# s_ast.AstRegistry as each AstNode subclass is defined; we re-export
+# both dicts under the legacy names for back-compat.
+classToId = s_ast.classToId
+idToClass = s_ast.idToClass
 
 def en(node):
     '''

@@ -43,7 +43,30 @@ logger = logging.getLogger(__name__)
 def parseNumber(x):
     return s_stormtypes.Number(x) if '.' in x else s_stormtypes.intify(x)
 
-class AstNode:
+# AST class <-> integer ID mapping. Populated by AstRegistry on each class
+# definition; consumed by synapse.lib.stormbin's en() and un().
+classToId = {}
+idToClass = {}
+
+class AstRegistry(type):
+    '''
+    Metaclass that registers any AstNode subclass declaring a non-novalu
+    _bin_id in the classToId / idToClass mappings as the class is defined,
+    and rejects duplicate ids before the class is created.
+    '''
+    def __new__(mcs, name, bases, namespace):
+        binid = namespace.get('_bin_id', s_common.novalu)
+        if binid is not s_common.novalu and binid in idToClass:
+            existing = idToClass[binid]
+            mesg = f'Duplicate _bin_id {binid}: {name} and {existing.__name__}'
+            raise s_exc.BadArg(mesg=mesg)
+        cls = super().__new__(mcs, name, bases, namespace)
+        if binid is not s_common.novalu:
+            classToId[cls] = binid
+            idToClass[binid] = cls
+        return cls
+
+class AstNode(metaclass=AstRegistry):
     '''
     Base class for all nodes in the Storm abstract syntax tree.
     '''
