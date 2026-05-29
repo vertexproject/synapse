@@ -93,11 +93,6 @@ def tryLoadPkgProto(fp, opticdir=None, readonly=False, compiled=False):
     except s_exc.NoSuchFile:
         return loadPkgProto(fp, opticdir=opticdir, no_docs=True, readonly=readonly, compiled=compiled)
 
-def _compileStormField(text, mode='storm'):
-    '''Compile a Storm text field into a base64-encoded stormbin string.'''
-    byts = s_stormbin.compile(text, mode=mode)
-    return s_stormbin.enBase64(byts)
-
 def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False, compiled=False):
     '''
     Get a Storm Package definition from disk.
@@ -249,23 +244,23 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False, compiled=Fa
         for mod in pkgdef.get('modules', ()):
             text = mod.get('storm')
             if text is not None:
-                mod['storm'] = _compileStormField(text)
+                mod['storm'] = s_stormbin.compile(text, ascii=True)
 
         for cmd in pkgdef.get('commands', ()):
             text = cmd.get('storm')
             if text is not None:
-                cmd['storm'] = _compileStormField(text)
+                cmd['storm'] = s_stormbin.compile(text, ascii=True)
 
         onload = pkgdef.get('onload')
         if onload is not None:
-            pkgdef['onload'] = _compileStormField(onload)
+            pkgdef['onload'] = s_stormbin.compile(onload, ascii=True)
 
         inits = pkgdef.get('inits')
         if inits is not None:
             for initdef in inits.get('versions', ()):
                 text = initdef.get('query')
                 if text is not None:
-                    initdef['query'] = _compileStormField(text)
+                    initdef['query'] = s_stormbin.compile(text, ascii=True)
 
     s_schemas.reqValidPkgdef(pkgdef)
 

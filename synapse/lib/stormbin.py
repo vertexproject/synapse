@@ -215,16 +215,18 @@ def dump(node, ascii=False):
         return enBase64(byts)
     return byts
 
-def compile(text, mode='storm'):
+def compile(text, mode='storm', ascii=False):
     '''
     Compile a Storm query string into the binary format.
 
     Args:
         text (str): Storm query text to compile.
         mode (str): Parse mode (storm, lookup, autoadd, search).
+        ascii (bool): If True, return a ``}``-prefixed base64 string. If
+                      False (default), return raw bytes.
 
     Returns:
-        bytes: Compiled binary representation.
+        bytes or str: Compiled stormbin payload.
     '''
     if mode not in validModes:
         mesg = f'Invalid storm mode: {mode}'
@@ -239,7 +241,10 @@ def compile(text, mode='storm'):
         meta['mode'] = mode
 
     envelope = (FORMAT_VERSION, tree, meta)
-    return s_msgpack.en(envelope)
+    byts = s_msgpack.en(envelope)
+    if ascii:
+        return enBase64(byts)
+    return byts
 
 def load(byts):
     '''
