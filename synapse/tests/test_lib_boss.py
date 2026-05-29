@@ -106,7 +106,7 @@ class BossTest(s_test.SynTest):
                 except asyncio.CancelledError:
                     # simulate a slow cleanup that blows the timeout
                     await asyncio.sleep(0.5)
-                    raise
+                    raise  # pragma: no cover
 
             await boss.execute(slowexit(), 'slowexit', root)
             await evnt.wait()
