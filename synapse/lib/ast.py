@@ -17,6 +17,7 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
@@ -60,6 +61,11 @@ class AstNode:
         [self.addKid(k) for k in kids]
 
     def getAstText(self):
+        # The astinfo offsets are meaningful only for original Storm source.
+        # If text happens to be a compiled stormbin payload, slicing it would
+        # return garbage; return an empty string instead.
+        if self.astinfo.text.startswith(s_const.STORMBIN_BASE64_PREFIX):
+            return ''
         return self.astinfo.text[self.astinfo.soff:self.astinfo.eoff]
 
     def getPosInfo(self):
@@ -4154,6 +4160,10 @@ class Bool(Const):
 class EmbedQuery(Const):
 
     _bin_id = 35
+    # valu is the source text of the embedded query, which gets synthesized
+    # to an ASCII-encoded stormbin payload at load time so consumers can pass
+    # it back through getStormQuery without re-parsing.
+    _bin_attrs = ()
 
     runtopaque = True
 

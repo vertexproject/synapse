@@ -23,6 +23,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.parser as s_parser
 
@@ -32,8 +33,9 @@ FORMAT_VERSION = 1
 
 MAX_DEPTH = 256
 
-# Use a closing brace to ensure an older Storm parser will fail immediately on this prefix.
-BASE64_PREFIX = '}'
+# Closing brace used as a base64 envelope marker so that an older Storm parser
+# fails immediately on this prefix.
+BASE64_PREFIX = s_const.STORMBIN_BASE64_PREFIX
 
 validModes = {'storm', 'lookup', 'autoadd', 'search'}
 
@@ -161,20 +163,44 @@ def un(data, depth=0):
             kwargs[attrname] = val
 
     # Const-family takes valu as a positional arg
-    if cls in (s_ast.Const, s_ast.Bool, s_ast.EmbedQuery, s_ast.VarList, s_ast.Cmpr):
+    if cls in (s_ast.Const, s_ast.Bool, s_ast.VarList, s_ast.Cmpr):
         valu = kwargs.pop('valu', None)
         node = cls(astinfo, valu, kids=childnodes, **kwargs)
 
-    # SubQuery.hasyield is set after construction, not a constructor kwarg
+    # EmbedQuery.valu is normally the source text of the embedded query.
+    # Synthesize a compiled-form (}-prefixed base64) so consumers that
+    # round-trip through getStormQuery() pick up the fast path.
+    elif cls is s_ast.EmbedQuery:
+        node = cls(astinfo, None, kids=childnodes)
+        if childnodes:
+            node.valu = _compileChild(childnodes[0])
+
+    # SubQuery.hasyield is set after construction. Like EmbedQuery, populate
+    # .text with the compiled form so any consumer that reads it round-trips
+    # through getStormQuery() on the fast path.
     elif cls is s_ast.SubQuery:
         hasyield = kwargs.pop('hasyield', False)
         node = cls(astinfo, kids=childnodes, **kwargs)
         node.hasyield = hasyield
+        if childnodes:
+            node.text = _compileChild(childnodes[0])
+
+    # Query.text is what ArgvQuery.compute() returns for command-arg
+    # subqueries (background, batch, view.exec). Populate it with the
+    # compiled-form so those commands execute via the compiled fast path.
+    elif cls is s_ast.Query:
+        node = cls(astinfo, kids=childnodes, **kwargs)
+        node.text = _compileChild(node)
 
     else:
         node = cls(astinfo, kids=childnodes, **kwargs)
 
     return node
+
+def _compileChild(node):
+    '''Re-serialize an AST node into an ASCII-encoded stormbin payload.'''
+    envelope = (FORMAT_VERSION, en(node), {})
+    return enBase64(s_msgpack.en(envelope))
 
 def compile(text, mode='storm'):
     '''

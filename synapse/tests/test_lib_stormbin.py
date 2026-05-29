@@ -16,7 +16,10 @@ class StormBinTest(s_test.SynTest):
         self.eq(len(node1.kids), len(node2.kids))
 
         # Check class-specific attributes
-        if isinstance(node1, s_ast.Const):
+        if isinstance(node1, s_ast.Const) and not isinstance(node1, s_ast.EmbedQuery):
+            # EmbedQuery.valu is rewritten to a compiled stormbin payload at
+            # load time, so the raw valu strings won't match. Class + kids
+            # equality is enough — kids round-trip is asserted recursively.
             self.eq(node1.valu, node2.valu)
             if isinstance(node1.valu, decimal.Decimal):
                 self.assertIsInstance(node2.valu, decimal.Decimal)
@@ -509,3 +512,70 @@ class StormBinTest(s_test.SynTest):
                     result = await resp.json()
                     self.eq(result.get('status'), 'ok')
                     self.eq(result.get('result'), 42)
+
+    async def test_stormbin_cortex_background(self):
+        '''background { ... } executes correctly after compile/load.'''
+        async with self.getTestCore() as core:
+
+            byts = s_stormbin.compile('''
+                $lib.queue.add(bgq)
+                background {
+                    [ it:dev:str=haha ]
+                    fini { $lib.queue.get(bgq).put(done) }
+                }
+            ''')
+
+            await core.stormlist(byts)
+
+            # Wait for the background coro to run.
+            self.eq((0, 'done'), await core.callStorm('return($lib.queue.get(bgq).get())'))
+            self.len(1, await core.nodes('it:dev:str=haha'))
+
+    async def test_stormbin_cortex_batch(self):
+        '''batch { ... } executes correctly after compile/load.'''
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:fqdn=woot.com inet:fqdn=vertex.link ]')
+
+            byts = s_stormbin.compile('''
+                inet:fqdn
+                batch $lib.true --size 5 {
+                    [ it:dev:str=batchran ]
+                }
+            ''')
+
+            await core.stormlist(byts)
+            self.len(1, await core.nodes('it:dev:str=batchran'))
+
+    async def test_stormbin_cortex_view_exec(self):
+        '''view.exec runs its inner storm after compile/load.'''
+        async with self.getTestCore() as core:
+
+            viden = core.view.iden
+            byts = s_stormbin.compile(f'view.exec {viden} {{ [ it:dev:str=viewexec ] }}')
+
+            await core.stormlist(byts)
+            self.len(1, await core.nodes('it:dev:str=viewexec'))
+
+    async def test_stormbin_cortex_embed_query(self):
+        '''${ ... } embedded queries execute after compile/load.'''
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:fqdn=vertex.link ]')
+
+            byts = s_stormbin.compile('''
+                $q = ${ inet:fqdn=vertex.link }
+                $q.exec()
+            ''')
+            msgs = await core.stormlist(byts)
+            self.stormHasNoWarnErr(msgs)
+
+            # And the embedded query yields nodes as expected when iterated.
+            byts = s_stormbin.compile('''
+                $q = ${ inet:fqdn=vertex.link }
+                yield $q
+            ''')
+            msgs = await core.stormlist(byts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('inet:fqdn', 'vertex.link'))

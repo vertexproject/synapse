@@ -54,3 +54,8 @@ MAX_FIELD_SIZE = kibibyte * 64
 
 # Socket constants
 UNIX_SOCKET_PATH_MAX = 103
+
+# Storm compiled-binary (stormbin) base64 envelope prefix. Defined here so that
+# both synapse.lib.ast and synapse.lib.stormbin can reference it without
+# introducing a circular import.
+STORMBIN_BASE64_PREFIX = '}'
