@@ -1,7 +1,0 @@
----
-desc: Added a ``--size`` option to the ``min`` and ``max`` Storm commands. When specified, the
-  top-N nodes are yielded in sorted order.
-desc:literal: false
-prs: []
-type: feat
-...
