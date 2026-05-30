@@ -108,7 +108,7 @@ def resource(uri, name=None, desc=None, mimeType='application/json', perm=None, 
 
     return wrap
 
-def prompt(name=None, desc=None, arguments=None, perm=None):
+def prompt(name=None, desc=None, arguments=(), perm=None):
     '''
     Decorate a method to expose it as an MCP prompt (rendered via ``prompts/get``).
 
@@ -127,7 +127,7 @@ def prompt(name=None, desc=None, arguments=None, perm=None):
         func._mcp_prompt = {
             'name': name if name is not None else func.__name__,
             'desc': desc,
-            'arguments': arguments if arguments is not None else [],
+            'arguments': arguments,
             'perm': perm,
         }
         return func
