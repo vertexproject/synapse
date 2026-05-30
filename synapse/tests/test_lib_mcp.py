@@ -1,4 +1,5 @@
 import http
+import base64
 
 import synapse.exc as s_exc
 import synapse.lib.cell as s_cell
@@ -43,8 +44,50 @@ class TstMcp(s_mcp.CellMcp):
     async def addone(self, x):
         return x + 1
 
+    @s_mcp.resource(uri='syn://text', name='text', desc='A text resource.', mimeType='text/plain')
+    async def _resText(self):
+        return 'hello text'
+
+    @s_mcp.resource(uri='syn://bytes', name='bytes', mimeType='application/octet-stream')
+    async def _resBytes(self):
+        return b'\x00\x01\x02'
+
+    @s_mcp.resource(uri='syn://secret', name='secret', perm=('mcp', 'secret'))
+    async def _resSecret(self):
+        return {'secret': True}
+
+    @s_mcp.resource(uri='syn://thing/{tid}', name='thing', completers={'tid': 'things'})
+    async def _resThing(self, tid):
+        return {'tid': tid}
+
+    @s_mcp.prompt(name='greet', desc='Greet someone.',
+                  arguments=[{'name': 'who', 'description': 'who to greet', 'required': True, 'complete': 'names'}])
+    async def _promptGreet(self, who):
+        return f'Say hello to {who}'
+
+    @s_mcp.prompt(name='convo', desc='A two message prompt.')
+    async def _promptConvo(self):
+        return [{'role': 'user', 'content': {'type': 'text', 'text': 'hi'}},
+                {'role': 'assistant', 'content': {'type': 'text', 'text': 'hello'}}]
+
+    @s_mcp.prompt(name='ghost', arguments=[{'name': 'g', 'complete': 'nosuchcompleter'}])
+    async def _promptGhost(self, g=None):
+        return 'boo'
+
+    @s_mcp.completer(name='names')
+    async def _completeNames(self, value, context):
+        return [n for n in ('alice', 'bob', 'carol') if n.startswith(value)]
+
+    @s_mcp.completer(name='things')
+    async def _completeThings(self, value, context):
+        return [f'thing{i}' for i in range(150) if f'thing{i}'.startswith(value)]
+
 class TstMcpCell(s_cell.Cell):
     _mcp_ctor = TstMcp
+
+class BareMcpCell(s_cell.Cell):
+    # Mounts the base CellMcp (which has a tool + a resource, but no prompts/completers).
+    _mcp_ctor = s_mcp.CellMcp
 
 class McpTest(s_tests.SynTest):
 
@@ -374,6 +417,40 @@ class McpTest(s_tests.SynTest):
                 self.isin('node', streamed)
                 self.false(mesgs[-1]['result'].get('isError'))
 
+                # Cortex resources
+                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://model'})
+                self.isin('types', s_json.loads(data['result']['contents'][0]['text']))
+
+                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://stormdocs'})
+                self.isin('libraries', s_json.loads(data['result']['contents'][0]['text']))
+
+                status, data = await self._rpc(sess, url, sid, 'resources/read',
+                                               params={'uri': 'syn://model/form/inet:ipv4'})
+                self.eq('inet:ipv4', s_json.loads(data['result']['contents'][0]['text'])['name'])
+
+                status, data = await self._rpc(sess, url, sid, 'resources/read',
+                                               params={'uri': 'syn://model/form/nosuchform'})
+                self.eq(s_mcp.RESOURCE_NOT_FOUND, data['error']['code'])
+
+                # Cortex prompt (with and without the optional args)
+                status, data = await self._rpc(sess, url, sid, 'prompts/get',
+                                               params={'name': 'storm-query',
+                                                       'arguments': {'form': 'inet:ipv4', 'typename': 'inet:ipv4'}})
+                self.isin('inet:ipv4', data['result']['messages'][0]['content']['text'])
+                status, data = await self._rpc(sess, url, sid, 'prompts/get', params={'name': 'storm-query'})
+                self.len(1, data['result']['messages'])
+
+                # Cortex completers
+                status, data = await self._rpc(sess, url, sid, 'completion/complete',
+                                               params={'ref': {'type': 'ref/resource', 'uri': 'syn://model/form/{name}'},
+                                                       'argument': {'name': 'name', 'value': 'inet:ipv'}})
+                self.isin('inet:ipv4', data['result']['completion']['values'])
+
+                status, data = await self._rpc(sess, url, sid, 'completion/complete',
+                                               params={'ref': {'type': 'ref/prompt', 'name': 'storm-query'},
+                                                       'argument': {'name': 'typename', 'value': 'inet:ipv'}})
+                self.isin('inet:ipv4', data['result']['completion']['values'])
+
             # a non-admin cannot impersonate another user via opts
             async with self.getHttpSess(auth=('lowuser', 'low'), port=port) as sess:
                 sid, _ = await self._handshake(sess, url)
@@ -381,3 +458,228 @@ class McpTest(s_tests.SynTest):
                                                 {'query': 'return((1))', 'opts': {'user': root.iden}})
                 self.true(data['result'].get('isError'))
                 self.isin('impersonate', data['result']['content'][0]['text'])
+
+    async def test_mcp_capabilities(self):
+
+        # Cortex advertises every capability
+        async with self.getTestCore() as core:
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/v1/mcp'
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                _, result = await self._handshake(sess, url)
+                caps = result['capabilities']
+                for name in ('tools', 'logging', 'resources', 'prompts', 'completions'):
+                    self.isin(name, caps)
+
+        # A bare CellMcp has a tool + a resource, but no prompts/completers
+        async with self.getTestCell(BareMcpCell) as cell:
+            host, port = await cell.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/v1/mcp'
+            root = await cell.auth.getUserByName('root')
+            await root.setPasswd('secret')
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                _, result = await self._handshake(sess, url)
+                caps = result['capabilities']
+                self.isin('resources', caps)
+                self.isin('logging', caps)
+                self.notin('prompts', caps)
+                self.notin('completions', caps)
+
+    async def test_mcp_resources(self):
+
+        async with self.getTestCell(TstMcpCell) as cell:
+
+            host, port = await cell.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/v1/mcp'
+
+            root = await cell.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            lowuser = await cell.auth.addUser('lowuser')
+            await lowuser.setPasswd('low')
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                sid, _ = await self._handshake(sess, url)
+
+                # resources/list contains static resources but not templates
+                status, data = await self._rpc(sess, url, sid, 'resources/list')
+                uris = [r['uri'] for r in data['result']['resources']]
+                self.isin('syn://cellinfo', uris)
+                self.isin('syn://text', uris)
+                self.isin('syn://bytes', uris)
+                self.notin('syn://thing/{tid}', uris)
+
+                # resources/templates/list contains only templates
+                status, data = await self._rpc(sess, url, sid, 'resources/templates/list')
+                self.eq(['syn://thing/{tid}'], [r['uriTemplate'] for r in data['result']['resourceTemplates']])
+
+                # text content
+                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://text'})
+                content = data['result']['contents'][0]
+                self.eq('hello text', content['text'])
+                self.eq('text/plain', content['mimeType'])
+
+                # bytes content -> base64 blob
+                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://bytes'})
+                self.eq(base64.b64encode(b'\x00\x01\x02').decode(), data['result']['contents'][0]['blob'])
+
+                # dict content -> json text
+                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://cellinfo'})
+                self.isin('cell', s_json.loads(data['result']['contents'][0]['text']))
+
+                # template content read
+                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://thing/abc'})
+                content = data['result']['contents'][0]
+                self.eq('syn://thing/abc', content['uri'])
+                self.eq('abc', s_json.loads(content['text'])['tid'])
+
+                # unknown resource -> -32002
+                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://nope'})
+                self.eq(s_mcp.RESOURCE_NOT_FOUND, data['error']['code'])
+
+                # a uri that is the right shape but does not match the template literal -> -32002
+                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://other/x'})
+                self.eq(s_mcp.RESOURCE_NOT_FOUND, data['error']['code'])
+
+                # missing uri -> -32002
+                status, data = await self._rpc(sess, url, sid, 'resources/read', params={})
+                self.eq(s_mcp.RESOURCE_NOT_FOUND, data['error']['code'])
+
+                # perm-gated resource allowed for admin
+                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://secret'})
+                self.isin('secret', s_json.loads(data['result']['contents'][0]['text']))
+
+            # perm-gated resource denied for a non-admin
+            async with self.getHttpSess(auth=('lowuser', 'low'), port=port) as sess:
+                sid, _ = await self._handshake(sess, url)
+                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://secret'})
+                self.eq(s_jsrpc.ACCESS_DENIED, data['error']['code'])
+
+    async def test_mcp_prompts(self):
+
+        async with self.getTestCell(TstMcpCell) as cell:
+
+            host, port = await cell.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/v1/mcp'
+
+            root = await cell.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                sid, _ = await self._handshake(sess, url)
+
+                status, data = await self._rpc(sess, url, sid, 'prompts/list')
+                prompts = {p['name']: p for p in data['result']['prompts']}
+                self.isin('greet', prompts)
+                self.isin('convo', prompts)
+                self.eq('who', prompts['greet']['arguments'][0]['name'])
+                self.true(prompts['greet']['arguments'][0]['required'])
+
+                # str return -> a single user message
+                status, data = await self._rpc(sess, url, sid, 'prompts/get',
+                                               params={'name': 'greet', 'arguments': {'who': 'sam'}})
+                msgs = data['result']['messages']
+                self.len(1, msgs)
+                self.isin('sam', msgs[0]['content']['text'])
+
+                # list return -> messages used directly
+                status, data = await self._rpc(sess, url, sid, 'prompts/get', params={'name': 'convo'})
+                self.len(2, data['result']['messages'])
+
+                # missing required argument
+                status, data = await self._rpc(sess, url, sid, 'prompts/get',
+                                               params={'name': 'greet', 'arguments': {}})
+                self.eq(s_jsrpc.INVALID_PARAMS, data['error']['code'])
+
+                # unknown prompt
+                status, data = await self._rpc(sess, url, sid, 'prompts/get', params={'name': 'nope'})
+                self.eq(s_jsrpc.INVALID_PARAMS, data['error']['code'])
+
+                # unexpected argument -> bind error
+                status, data = await self._rpc(sess, url, sid, 'prompts/get',
+                                               params={'name': 'greet', 'arguments': {'who': 'x', 'extra': 1}})
+                self.eq(s_jsrpc.INVALID_PARAMS, data['error']['code'])
+
+    async def test_mcp_completions(self):
+
+        async with self.getTestCell(TstMcpCell) as cell:
+
+            host, port = await cell.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/v1/mcp'
+
+            root = await cell.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                sid, _ = await self._handshake(sess, url)
+
+                async def complete(ref, argument, context=None):
+                    params = {'ref': ref, 'argument': argument}
+                    if context is not None:
+                        params['context'] = context
+                    _, data = await self._rpc(sess, url, sid, 'completion/complete', params=params)
+                    return data['result']['completion']
+
+                # prompt argument completion
+                comp = await complete({'type': 'ref/prompt', 'name': 'greet'}, {'name': 'who', 'value': 'a'})
+                self.eq(['alice'], comp['values'])
+
+                # resource template variable completion, with context, capped at 100
+                comp = await complete({'type': 'ref/resource', 'uri': 'syn://thing/{tid}'},
+                                      {'name': 'tid', 'value': 'thing'}, context={'arguments': {}})
+                self.len(100, comp['values'])
+                self.eq(150, comp['total'])
+                self.true(comp['hasMore'])
+
+                # lenient empties: unknown prompt, unknown resource, unknown arg, unknown ref type,
+                # malformed ref, and a referenced-but-unregistered completer
+                self.eq([], (await complete({'type': 'ref/prompt', 'name': 'nope'}, {'name': 'who', 'value': 'a'}))['values'])
+                self.eq([], (await complete({'type': 'ref/resource', 'uri': 'syn://nope'}, {'name': 'x', 'value': ''}))['values'])
+                self.eq([], (await complete({'type': 'ref/prompt', 'name': 'greet'}, {'name': 'nope', 'value': ''}))['values'])
+                self.eq([], (await complete({'type': 'ref/bogus'}, {'name': 'x', 'value': ''}))['values'])
+                self.eq([], (await complete('notadict', {'name': 'x', 'value': ''}))['values'])
+                self.eq([], (await complete({'type': 'ref/prompt', 'name': 'ghost'}, {'name': 'g', 'value': ''}))['values'])
+
+    async def test_mcp_logging(self):
+
+        # unit coverage of the storm message -> log level mapping
+        self.eq('warning', s_mcp.CortexMcp._streamItemLevel(None, {'type': 'warn'}))
+        self.eq('error', s_mcp.CortexMcp._streamItemLevel(None, {'type': 'err'}))
+        self.eq('info', s_mcp.CortexMcp._streamItemLevel(None, {'type': 'node'}))
+        self.eq('info', s_mcp.CortexMcp._streamItemLevel(None, 'notadict'))
+        self.eq('info', s_mcp.CellMcp._streamItemLevel(None, {'type': 'warn'}))
+
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/v1/mcp'
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                sid, _ = await self._handshake(sess, url)
+
+                # invalid level
+                status, data = await self._rpc(sess, url, sid, 'logging/setLevel', params={'level': 'bogus'})
+                self.eq(s_jsrpc.INVALID_PARAMS, data['error']['code'])
+
+                # raise the minimum level to warning
+                status, data = await self._rpc(sess, url, sid, 'logging/setLevel', params={'level': 'warning'})
+                self.eq({}, data['result'])
+
+                # streamed info-level messages are suppressed, warn is delivered
+                mesgs = await self._toolSse(sess, url, sid, 'storm',
+                                            {'query': '$lib.warn("omg") [ inet:ipv4=1.2.3.4 ]'})
+                notifs = [m for m in mesgs if m.get('method') == 'notifications/message']
+                levels = {m['params']['level'] for m in notifs}
+                self.notin('info', levels)
+                self.isin('warning', levels)
+                self.true(any(m['params']['data'].get('type') == 'warn' for m in notifs))
+                self.false(mesgs[-1]['result'].get('isError'))

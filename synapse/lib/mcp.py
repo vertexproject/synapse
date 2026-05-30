@@ -14,7 +14,13 @@ in to MCP by setting the ``_mcp_ctor`` class attribute, which the base Cell moun
 Tools are declared with the ``@s_mcp.tool`` decorator and dispatched only via
 ``tools/call``. Async generator tools stream their results to the caller as Server-Sent
 Events when the request carries an ``Accept: text/event-stream`` header.
+
+In addition to tools, handlers may expose **resources** (``@s_mcp.resource``, readable
+URI-addressed content), **prompts** (``@s_mcp.prompt``, user-selectable templates), and
+argument **completions** (``@s_mcp.completer``). Server **logging** is supported via
+``logging/setLevel`` and ``notifications/message`` emitted on the SSE stream.
 '''
+import base64
 import asyncio
 import inspect
 import logging
@@ -36,6 +42,15 @@ SUPPORTED_VERSIONS = ('2025-06-18', '2025-03-26')
 
 # Idle timeout (in seconds) before an MCP session is considered expired.
 SESSION_TIMEOUT = 3600
+
+# RFC 5424 syslog severities, in ascending order, used by MCP logging.
+LOG_LEVELS = ('debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency')
+
+# JSON-RPC error code MCP uses for a resource which does not exist.
+RESOURCE_NOT_FOUND = -32002
+
+def _logEnabled(minlevel, level):
+    return LOG_LEVELS.index(level) >= LOG_LEVELS.index(minlevel)
 
 def tool(name=None, desc=None, schema=None, perm=None):
     '''
@@ -61,6 +76,75 @@ def tool(name=None, desc=None, schema=None, perm=None):
             'perm': perm,
             'genr': inspect.isasyncgenfunction(func),
         }
+        return func
+
+    return wrap
+
+def resource(uri, name=None, desc=None, mimeType='application/json', perm=None, completers=None):
+    '''
+    Decorate a method to expose it as an MCP resource (read via ``resources/read``).
+
+    Args:
+        uri (str): The resource URI. A URI containing ``{var}`` segments is a template
+            (listed via ``resources/templates/list``); the method receives the captured
+            segments as keyword arguments.
+        name (str): An optional resource name. Defaults to the function name.
+        desc (str): A human readable description of the resource.
+        mimeType (str): The MIME type of the resource contents.
+        perm (tuple): An optional Synapse permission tuple the calling user must be allowed.
+        completers (dict): For templates, maps a template variable name to a completer name.
+    '''
+    def wrap(func):
+        func._mcp_resource = {
+            'uri': uri,
+            'name': name if name is not None else func.__name__,
+            'desc': desc,
+            'mimeType': mimeType,
+            'perm': perm,
+            'completers': completers if completers is not None else {},
+            'template': '{' in uri,
+        }
+        return func
+
+    return wrap
+
+def prompt(name=None, desc=None, arguments=None, perm=None):
+    '''
+    Decorate a method to expose it as an MCP prompt (rendered via ``prompts/get``).
+
+    Args:
+        name (str): An optional prompt name. Defaults to the function name.
+        desc (str): A human readable description of the prompt.
+        arguments (list): A list of argument descriptors, each a dict with ``name`` and
+            optional ``description``, ``required``, and ``complete`` (a completer name).
+        perm (tuple): An optional Synapse permission tuple the calling user must be allowed.
+
+    Notes:
+        The method receives the prompt arguments as keyword arguments and returns either a
+        string (a single user text message) or a list of MCP prompt messages.
+    '''
+    def wrap(func):
+        func._mcp_prompt = {
+            'name': name if name is not None else func.__name__,
+            'desc': desc,
+            'arguments': arguments if arguments is not None else [],
+            'perm': perm,
+        }
+        return func
+
+    return wrap
+
+def completer(name=None):
+    '''
+    Decorate a method as a named argument completer.
+
+    The method has the signature ``async def(self, value, context) -> list[str]`` where
+    ``value`` is the partial value being completed and ``context`` is a dict of already
+    resolved argument values. It is referenced by name from prompt arguments
+    (``complete``) and resource template variables (``completers``).
+    '''
+    def wrap(func):
+        func._mcp_completer = {'name': name if name is not None else func.__name__}
         return func
 
     return wrap
@@ -105,6 +189,45 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         cls._mcp_tools = tools
         return tools
+
+    @classmethod
+    def _mcpRegistry(cls, marker, cachekey, keyattr):
+        # Build (and cache on the class) a registry of decorated members. Mirrors the
+        # caching used by getToolInfo / s_jsrpc.getMethInfo.
+        reg = cls.__dict__.get(cachekey)
+        if reg is not None:
+            return reg
+
+        reg = {}
+        for attrname in dir(cls):
+
+            attr = getattr(cls, attrname, None)
+            if not callable(attr):
+                continue
+
+            info = getattr(attr, marker, None)
+            if info is None:
+                continue
+
+            reg[info.get(keyattr)] = {'attr': attrname, 'info': info}
+
+        setattr(cls, cachekey, reg)
+        return reg
+
+    @classmethod
+    def getResourceInfo(cls):
+        '''Return the MCP resource registry, keyed by URI.'''
+        return cls._mcpRegistry('_mcp_resource', '_mcp_resources', 'uri')
+
+    @classmethod
+    def getPromptInfo(cls):
+        '''Return the MCP prompt registry, keyed by name.'''
+        return cls._mcpRegistry('_mcp_prompt', '_mcp_prompts', 'name')
+
+    @classmethod
+    def getCompleterInfo(cls):
+        '''Return the argument completer registry, keyed by name.'''
+        return cls._mcpRegistry('_mcp_completer', '_mcp_completers', 'name')
 
     async def handleBasicAuth(self):
         # In addition to the inherited Basic auth, accept an Authorization: Bearer <token>
@@ -166,6 +289,8 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             session = self._reqSession(user)
             if session is None:
                 return
+
+            self.mcpsess = session
 
             if method == 'notifications/initialized':
                 session['initialized'] = True
@@ -253,6 +378,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
                 'user': user.iden,
                 'version': resp['result'].get('protocolVersion'),
                 'initialized': False,
+                'loglevel': 'info',
                 'touched': s_common.now(),
             }
             self.set_header('Mcp-Session-Id', sid)
@@ -264,9 +390,19 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
     @s_jsrpc.method(name='initialize')
     async def _initialize(self, protocolVersion=None, capabilities=None, clientInfo=None, **info):
         vers = protocolVersion if protocolVersion in self.SUPPORTED_VERSIONS else self.PROTOCOL_VERSION
+
+        # Advertise only the capabilities this handler class actually provides.
+        caps = {'tools': {'listChanged': False}, 'logging': {}}
+        if self.getResourceInfo():
+            caps['resources'] = {}
+        if self.getPromptInfo():
+            caps['prompts'] = {'listChanged': False}
+        if self.getCompleterInfo():
+            caps['completions'] = {}
+
         return {
             'protocolVersion': vers,
-            'capabilities': {'tools': {'listChanged': False}},
+            'capabilities': caps,
             'serverInfo': {
                 'name': f'synapse-{self.cell.getCellType()}',
                 'version': self.cell.VERSTRING,
@@ -289,6 +425,212 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             })
 
         return {'tools': tools}
+
+    # --- resources ---
+
+    @s_jsrpc.method(name='resources/list')
+    async def _resourcesList(self, cursor=None):
+        resources = []
+        for uri, entry in sorted(self.getResourceInfo().items()):
+            info = entry.get('info')
+            if info.get('template'):
+                continue
+            resources.append({
+                'uri': uri,
+                'name': info.get('name'),
+                'description': info.get('desc'),
+                'mimeType': info.get('mimeType'),
+            })
+
+        return {'resources': resources}
+
+    @s_jsrpc.method(name='resources/templates/list')
+    async def _resourcesTemplatesList(self, cursor=None):
+        templates = []
+        for uri, entry in sorted(self.getResourceInfo().items()):
+            info = entry.get('info')
+            if not info.get('template'):
+                continue
+            templates.append({
+                'uriTemplate': uri,
+                'name': info.get('name'),
+                'description': info.get('desc'),
+                'mimeType': info.get('mimeType'),
+            })
+
+        return {'resourceTemplates': templates}
+
+    @s_jsrpc.method(name='resources/read')
+    async def _resourcesRead(self, uri=None):
+        resolved = self._resolveResource(uri)
+        if resolved is None:
+            raise s_exc.JsonRpcError.init(RESOURCE_NOT_FOUND, f'Resource not found: {uri}', data={'uri': uri})
+
+        entry, kwargs = resolved
+        info = entry.get('info')
+        self._reqPerm(info.get('perm'))
+
+        meth = getattr(self, entry.get('attr'))
+        valu = meth(**kwargs)
+        if inspect.isawaitable(valu):
+            valu = await valu
+
+        return {'contents': [self._resourceContent(uri, info.get('mimeType'), valu)]}
+
+    def _resolveResource(self, uri):
+        if uri is None:
+            return None
+
+        resources = self.getResourceInfo()
+
+        entry = resources.get(uri)
+        if entry is not None and not entry.get('info').get('template'):
+            return (entry, {})
+
+        for tmpl, entry in resources.items():
+            if not entry.get('info').get('template'):
+                continue
+            kwargs = self._matchTemplate(tmpl, uri)
+            if kwargs is not None:
+                return (entry, kwargs)
+
+        return None
+
+    def _matchTemplate(self, tmpl, uri):
+        tparts = tmpl.split('/')
+        uparts = uri.split('/')
+        if len(tparts) != len(uparts):
+            return None
+
+        kwargs = {}
+        for tpart, upart in zip(tparts, uparts):
+            if tpart.startswith('{') and tpart.endswith('}'):
+                kwargs[tpart[1:-1]] = upart
+            elif tpart != upart:
+                return None
+
+        return kwargs
+
+    def _resourceContent(self, uri, mimeType, valu):
+        if isinstance(valu, bytes):
+            return {'uri': uri, 'mimeType': mimeType, 'blob': base64.b64encode(valu).decode()}
+
+        if isinstance(valu, str):
+            return {'uri': uri, 'mimeType': mimeType, 'text': valu}
+
+        return {'uri': uri, 'mimeType': mimeType, 'text': s_json.dumps(valu).decode()}
+
+    # --- prompts ---
+
+    @s_jsrpc.method(name='prompts/list')
+    async def _promptsList(self, cursor=None):
+        prompts = []
+        for name, entry in sorted(self.getPromptInfo().items()):
+            info = entry.get('info')
+            arguments = [{'name': a.get('name'), 'description': a.get('description'),
+                          'required': a.get('required', False)} for a in info.get('arguments')]
+            prompts.append({'name': name, 'description': info.get('desc'), 'arguments': arguments})
+
+        return {'prompts': prompts}
+
+    @s_jsrpc.method(name='prompts/get')
+    async def _promptsGet(self, name=None, arguments=None):
+        entry = self.getPromptInfo().get(name)
+        if entry is None:
+            raise s_exc.JsonRpcError.init(s_jsrpc.INVALID_PARAMS, f'Unknown prompt: {name}')
+
+        if arguments is None:
+            arguments = {}
+
+        info = entry.get('info')
+        for arg in info.get('arguments'):
+            if arg.get('required') and arg.get('name') not in arguments:
+                raise s_exc.JsonRpcError.init(s_jsrpc.INVALID_PARAMS, f'Missing required argument: {arg.get("name")}')
+
+        meth = getattr(self, entry.get('attr'))
+        try:
+            inspect.signature(meth).bind(**arguments)
+        except TypeError as e:
+            raise s_exc.JsonRpcError.init(s_jsrpc.INVALID_PARAMS, f'Invalid arguments: {e}')
+
+        self._reqPerm(info.get('perm'))
+
+        valu = meth(**arguments)
+        if inspect.isawaitable(valu):
+            valu = await valu
+
+        if isinstance(valu, str):
+            valu = [{'role': 'user', 'content': {'type': 'text', 'text': valu}}]
+
+        return {'description': info.get('desc'), 'messages': valu}
+
+    # --- completions ---
+
+    @s_jsrpc.method(name='completion/complete')
+    async def _completionComplete(self, ref=None, argument=None, context=None):
+        values = await self._resolveCompletion(ref, argument, context)
+        total = len(values)
+        values = values[:100]
+        return {'completion': {'values': values, 'total': total, 'hasMore': total > len(values)}}
+
+    async def _resolveCompletion(self, ref, argument, context):
+        if not isinstance(ref, dict) or not isinstance(argument, dict):
+            return []
+
+        cname = self._completerName(ref, argument.get('name'))
+        if cname is None:
+            return []
+
+        entry = self.getCompleterInfo().get(cname)
+        if entry is None:
+            return []
+
+        ctxargs = context.get('arguments') if isinstance(context, dict) else None
+        meth = getattr(self, entry.get('attr'))
+        return await meth(argument.get('value') or '', ctxargs if ctxargs is not None else {})
+
+    def _completerName(self, ref, argname):
+        rtype = ref.get('type')
+
+        if rtype == 'ref/prompt':
+            entry = self.getPromptInfo().get(ref.get('name'))
+            if entry is None:
+                return None
+            for arg in entry.get('info').get('arguments'):
+                if arg.get('name') == argname:
+                    return arg.get('complete')
+            return None
+
+        if rtype == 'ref/resource':
+            entry = self.getResourceInfo().get(ref.get('uri'))
+            if entry is None:
+                return None
+            return entry.get('info').get('completers').get(argname)
+
+        return None
+
+    # --- logging ---
+
+    @s_jsrpc.method(name='logging/setLevel')
+    async def _loggingSetLevel(self, level=None):
+        if level not in LOG_LEVELS:
+            raise s_exc.JsonRpcError.init(s_jsrpc.INVALID_PARAMS, f'Invalid log level: {level}')
+
+        self.mcpsess['loglevel'] = level
+        return {}
+
+    def _streamItemLevel(self, item):
+        # Overridable: the log level at which a streamed tool item is emitted.
+        return 'info'
+
+    def _reqPerm(self, perm):
+        if perm is None:
+            return
+
+        user = s_scope.get('user')
+        if user is None or not user.allowed(tuple(perm)):
+            raise s_exc.JsonRpcError.init(s_jsrpc.ACCESS_DENIED,
+                                          f'Permission denied: {".".join(perm)}', data={'perm': list(perm)})
 
     # --- tool dispatch ---
 
@@ -375,12 +717,16 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         self.set_header('Content-Type', 'text/event-stream')
         self.set_header('Cache-Control', 'no-cache')
 
+        minlevel = self.mcpsess.get('loglevel', 'info')
+
         items = []
         try:
             async for item in meth(**arguments):
                 items.append(item)
-                await self._sendSse({'jsonrpc': '2.0', 'method': 'notifications/message',
-                                     'params': {'level': 'info', 'data': item}})
+                level = self._streamItemLevel(item)
+                if _logEnabled(minlevel, level):
+                    await self._sendSse({'jsonrpc': '2.0', 'method': 'notifications/message',
+                                         'params': {'level': level, 'data': item}})
 
             result = self._toolResult(items, stream=True)
 
@@ -410,10 +756,14 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
     def _toolErrResp(self, reqid, exc):
         return {'jsonrpc': '2.0', 'id': reqid, 'result': self._toolError(exc)}
 
-    # --- tools ---
+    # --- tools and resources ---
 
     @tool(name='getCellInfo', desc='Return metadata about the cell.')
     async def getCellInfo(self):
+        return await self.cell.getCellInfo()
+
+    @resource(uri='syn://cellinfo', name='cellinfo', desc='Metadata about the cell.')
+    async def _resCellInfo(self):
         return await self.cell.getCellInfo()
 
 class CortexMcp(CellMcp):
@@ -459,3 +809,60 @@ class CortexMcp(CellMcp):
     @tool(name='getModel', desc='Return the Cortex data model definition.')
     async def getModel(self):
         return await self.cell.getModelDict()
+
+    def _streamItemLevel(self, item):
+        # Map Storm message types to MCP log levels for streamed storm() output.
+        if isinstance(item, dict):
+            mtype = item.get('type')
+            if mtype == 'warn':
+                return 'warning'
+            if mtype == 'err':
+                return 'error'
+
+        return 'info'
+
+    # --- resources ---
+
+    @resource(uri='syn://model', name='datamodel', desc='The Cortex data model definition.')
+    async def _resModel(self):
+        return await self.cell.getModelDict()
+
+    @resource(uri='syn://stormdocs', name='stormdocs', desc='Storm library, type, and command documentation.')
+    async def _resStormDocs(self):
+        return await self.cell.getStormDocs()
+
+    @resource(uri='syn://model/form/{name}', name='form', desc='A single data model form definition.',
+              completers={'name': 'formnames'})
+    async def _resForm(self, name):
+        mdef = await self.cell.getModelDict()
+        form = mdef['forms'].get(name)
+        if form is None:
+            raise s_exc.JsonRpcError.init(RESOURCE_NOT_FOUND, f'No such form: {name}',
+                                          data={'uri': f'syn://model/form/{name}'})
+        return form
+
+    # --- prompts ---
+
+    @prompt(name='storm-query', desc='Draft a Storm query.',
+            arguments=[{'name': 'form', 'description': 'A form to focus the query on.',
+                        'required': False, 'complete': 'formnames'},
+                       {'name': 'typename', 'description': 'A model type to reference.',
+                        'required': False, 'complete': 'typenames'}])
+    async def _promptStormQuery(self, form=None, typename=None):
+        text = 'Write a Storm query'
+        if form:
+            text += f' that lifts and operates on {form} nodes'
+        if typename:
+            text += f' involving the {typename} type'
+        text += '. Consult the syn://model resource for the available data model.'
+        return text
+
+    # --- completers ---
+
+    @completer(name='formnames')
+    async def _completeForms(self, value, context):
+        return self.cell.model.getFormsByPrefix(value)
+
+    @completer(name='typenames')
+    async def _completeTypes(self, value, context):
+        return sorted(name for name in self.cell.model.types if name.startswith(value))
