@@ -237,7 +237,9 @@ class JsonRpcError(SynErr):
     This should contain a numeric ``code`` and a ``mesg``. An optional ``data`` value
     may be provided to convey additional structured information to the caller.
     '''
-    pass
+    @classmethod
+    def init(cls, code, mesg, **kwargs):
+        return cls(code=code, mesg=mesg, **kwargs)
 
 class ShuttingDown(SynErr): pass
 

@@ -146,7 +146,7 @@ class Handler(s_httpapi.Handler):
         try:
             mesg = s_json.loads(self.request.body)
         except Exception:
-            exc = s_exc.JsonRpcError(code=PARSE_ERROR, mesg='Parse error')
+            exc = s_exc.JsonRpcError.init(PARSE_ERROR, 'Parse error')
             self._sendResp(self._errResp(None, exc))
             return
 
@@ -176,7 +176,7 @@ class Handler(s_httpapi.Handler):
     async def _handleBatch(self, batch):
 
         if len(batch) == 0:
-            exc = s_exc.JsonRpcError(code=INVALID_REQUEST, mesg='Invalid Request')
+            exc = s_exc.JsonRpcError.init(INVALID_REQUEST, 'Invalid Request')
             self._sendResp(self._errResp(None, exc))
             return
 
@@ -204,7 +204,7 @@ class Handler(s_httpapi.Handler):
         if not self._isValidReq(req):
             # The validity of the request is in question, so the id cannot be trusted and
             # the JSON-RPC spec requires the response id to be null.
-            exc = s_exc.JsonRpcError(code=INVALID_REQUEST, mesg='Invalid Request')
+            exc = s_exc.JsonRpcError.init(INVALID_REQUEST, 'Invalid Request')
             return ('resp', self._errResp(None, exc))
 
         hasid = 'id' in req
@@ -215,7 +215,7 @@ class Handler(s_httpapi.Handler):
         try:
             entry = self.meths.get(name)
             if entry is None:
-                raise s_exc.JsonRpcError(code=METHOD_NOT_FOUND, mesg=f'Method not found: {name}')
+                raise s_exc.JsonRpcError.init(METHOD_NOT_FOUND, f'Method not found: {name}')
 
             args, kwargs = self._bindParams(params)
 
@@ -223,21 +223,21 @@ class Handler(s_httpapi.Handler):
             try:
                 inspect.signature(meth).bind(*args, **kwargs)
             except TypeError as e:
-                raise s_exc.JsonRpcError(code=INVALID_PARAMS, mesg=f'Invalid params: {e}')
+                raise s_exc.JsonRpcError.init(INVALID_PARAMS, f'Invalid params: {e}')
 
             validator = entry.get('validator')
             if validator is not None:
                 try:
                     validator(params)
                 except s_exc.SchemaViolation as e:
-                    raise s_exc.JsonRpcError(code=INVALID_PARAMS, mesg=e.get('mesg', str(e)))
+                    raise s_exc.JsonRpcError.init(INVALID_PARAMS, e.get('mesg', str(e)))
 
             perm = entry.get('info').get('perm')
             if perm is not None:
                 user = s_scope.get('user')
                 if user is None or not user.allowed(tuple(perm)):
                     mesg = f'Permission denied: {".".join(perm)}'
-                    raise s_exc.JsonRpcError(code=ACCESS_DENIED, mesg=mesg, data={'perm': list(perm)})
+                    raise s_exc.JsonRpcError.init(ACCESS_DENIED, mesg, data={'perm': list(perm)})
 
             if entry.get('info').get('genr'):
 
@@ -301,7 +301,7 @@ class Handler(s_httpapi.Handler):
         if isinstance(params, dict):
             return (), dict(params)
 
-        raise s_exc.JsonRpcError(code=INVALID_PARAMS, mesg='Params must be an array or object.')
+        raise s_exc.JsonRpcError.init(INVALID_PARAMS, 'Params must be an array or object.')
 
     def _errResp(self, reqid, exc):
 

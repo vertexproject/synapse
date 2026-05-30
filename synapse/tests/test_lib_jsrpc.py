@@ -67,7 +67,7 @@ class FakeShare:
 
     @s_jsrpc.method(name='app.error')
     def apperr(self):
-        raise s_exc.JsonRpcError(code=-32050, mesg='app failure', data={'why': 'because'})
+        raise s_exc.JsonRpcError.init(-32050, 'app failure', data={'why': 'because'})
 
 class JsRpcTest(s_tests.SynTest):
 
