@@ -52,7 +52,7 @@ RESOURCE_NOT_FOUND = -32002
 def _logEnabled(minlevel, level):
     return LOG_LEVELS.index(level) >= LOG_LEVELS.index(minlevel)
 
-def tool(name=None, desc=None, schema=None, perm=None):
+def tool(name=None, desc=None, schema=None):
     '''
     Decorate a method to expose it as an MCP tool (invoked via ``tools/call``).
 
@@ -60,10 +60,10 @@ def tool(name=None, desc=None, schema=None, perm=None):
         name (str): An optional tool name override. Defaults to the function name.
         desc (str): A human readable description of the tool.
         schema (dict): An optional JSON Schema for the tool arguments (the MCP inputSchema).
-        perm (tuple): An optional Synapse permission tuple the calling user must be allowed.
 
     Notes:
-        Only methods decorated with this decorator are exposed as tools.
+        Only methods decorated with this decorator are exposed as tools. A tool that
+        requires permissions enforces them itself within its method body.
     '''
     if schema is None:
         schema = {'type': 'object', 'properties': {}, 'additionalProperties': False}
@@ -73,14 +73,13 @@ def tool(name=None, desc=None, schema=None, perm=None):
             'name': name if name is not None else func.__name__,
             'desc': desc,
             'schema': schema,
-            'perm': perm,
             'genr': inspect.isasyncgenfunction(func),
         }
         return func
 
     return wrap
 
-def resource(uri, name=None, desc=None, mimeType='application/json', perm=None, completers=None):
+def resource(uri, name=None, desc=None, mimeType='application/json', completers=None):
     '''
     Decorate a method to expose it as an MCP resource (read via ``resources/read``).
 
@@ -91,8 +90,10 @@ def resource(uri, name=None, desc=None, mimeType='application/json', perm=None, 
         name (str): An optional resource name. Defaults to the function name.
         desc (str): A human readable description of the resource.
         mimeType (str): The MIME type of the resource contents.
-        perm (tuple): An optional Synapse permission tuple the calling user must be allowed.
         completers (dict): For templates, maps a template variable name to a completer name.
+
+    Notes:
+        A resource that requires permissions enforces them itself within its method body.
     '''
     def wrap(func):
         func._mcp_resource = {
@@ -100,7 +101,6 @@ def resource(uri, name=None, desc=None, mimeType='application/json', perm=None, 
             'name': name if name is not None else func.__name__,
             'desc': desc,
             'mimeType': mimeType,
-            'perm': perm,
             'completers': completers if completers is not None else {},
             'template': '{' in uri,
         }
@@ -108,7 +108,7 @@ def resource(uri, name=None, desc=None, mimeType='application/json', perm=None, 
 
     return wrap
 
-def prompt(name=None, desc=None, arguments=(), perm=None):
+def prompt(name=None, desc=None, arguments=()):
     '''
     Decorate a method to expose it as an MCP prompt (rendered via ``prompts/get``).
 
@@ -117,18 +117,17 @@ def prompt(name=None, desc=None, arguments=(), perm=None):
         desc (str): A human readable description of the prompt.
         arguments (list): A list of argument descriptors, each a dict with ``name`` and
             optional ``description``, ``required``, and ``complete`` (a completer name).
-        perm (tuple): An optional Synapse permission tuple the calling user must be allowed.
 
     Notes:
         The method receives the prompt arguments as keyword arguments and returns either a
-        string (a single user text message) or a list of MCP prompt messages.
+        string (a single user text message) or a list of MCP prompt messages. A prompt that
+        requires permissions enforces them itself within its method body.
     '''
     def wrap(func):
         func._mcp_prompt = {
             'name': name if name is not None else func.__name__,
             'desc': desc,
             'arguments': arguments,
-            'perm': perm,
         }
         return func
 
@@ -468,7 +467,6 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         entry, kwargs = resolved
         info = entry.get('info')
-        self._reqPerm(info.get('perm'))
 
         meth = getattr(self, entry.get('attr'))
         valu = meth(**kwargs)
@@ -553,8 +551,6 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         except TypeError as e:
             raise s_exc.JsonRpcError.init(s_jsrpc.INVALID_PARAMS, f'Invalid arguments: {e}')
 
-        self._reqPerm(info.get('perm'))
-
         valu = meth(**arguments)
         if inspect.isawaitable(valu):
             valu = await valu
@@ -623,15 +619,6 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         # Overridable: the log level at which a streamed tool item is emitted.
         return 'info'
 
-    def _reqPerm(self, perm):
-        if perm is None:
-            return
-
-        user = s_scope.get('user')
-        if user is None or not user.allowed(tuple(perm)):
-            raise s_exc.JsonRpcError.init(s_jsrpc.ACCESS_DENIED,
-                                          f'Permission denied: {".".join(perm)}', data={'perm': list(perm)})
-
     # --- tool dispatch ---
 
     async def _handleToolsCall(self, mesg):
@@ -677,14 +664,6 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             except s_exc.SchemaViolation as e:
                 self._sendResp(self._errResp(reqid, s_exc.JsonRpcError.init(
                     s_jsrpc.INVALID_PARAMS, e.get('mesg', str(e)))))
-                return
-
-        perm = info.get('perm')
-        if perm is not None:
-            user = s_scope.get('user')
-            if user is None or not user.allowed(tuple(perm)):
-                self._sendResp(self._errResp(reqid, s_exc.JsonRpcError.init(
-                    s_jsrpc.ACCESS_DENIED, f'Permission denied: {".".join(perm)}', data={'perm': list(perm)})))
                 return
 
         if info.get('genr'):

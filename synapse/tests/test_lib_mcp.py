@@ -31,10 +31,6 @@ class TstMcp(s_mcp.CellMcp):
         yield 1
         raise ValueError('streamfail')
 
-    @s_mcp.tool(name='needsperm', perm=('mcp', 'secret'))
-    async def needsperm(self):
-        return 'ok'
-
     @s_mcp.tool(name='addone', schema={
         'type': 'object',
         'properties': {'x': {'type': 'integer'}},
@@ -51,10 +47,6 @@ class TstMcp(s_mcp.CellMcp):
     @s_mcp.resource(uri='syn://bytes', name='bytes', mimeType='application/octet-stream')
     async def _resBytes(self):
         return b'\x00\x01\x02'
-
-    @s_mcp.resource(uri='syn://secret', name='secret', perm=('mcp', 'secret'))
-    async def _resSecret(self):
-        return {'secret': True}
 
     @s_mcp.resource(uri='syn://thing/{tid}', name='thing', completers={'tid': 'things'})
     async def _resThing(self, tid):
@@ -289,9 +281,6 @@ class McpTest(s_tests.SynTest):
             root = await cell.auth.getUserByName('root')
             await root.setPasswd('secret')
 
-            lowuser = await cell.auth.addUser('lowuser')
-            await lowuser.setPasswd('low')
-
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
 
                 sid, _ = await self._handshake(sess, url)
@@ -367,13 +356,6 @@ class McpTest(s_tests.SynTest):
                 mesgs = await self._toolSse(sess, url, sid, 'genboom')
                 self.eq(1, mesgs[0]['params']['data'])
                 self.true(mesgs[-1]['result'].get('isError'))
-
-            # permission gated tool is denied for a non-admin without the perm
-            async with self.getHttpSess(auth=('lowuser', 'low'), port=port) as sess:
-                sid, _ = await self._handshake(sess, url)
-                status, data = await self._tool(sess, url, sid, 'needsperm')
-                self.eq(s_jsrpc.ACCESS_DENIED, data.get('error').get('code'))
-                self.eq(['mcp', 'secret'], data['error']['data']['perm'])
 
     async def test_mcp_cortex_tools(self):
 
@@ -497,9 +479,6 @@ class McpTest(s_tests.SynTest):
             root = await cell.auth.getUserByName('root')
             await root.setPasswd('secret')
 
-            lowuser = await cell.auth.addUser('lowuser')
-            await lowuser.setPasswd('low')
-
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
 
                 sid, _ = await self._handshake(sess, url)
@@ -547,16 +526,6 @@ class McpTest(s_tests.SynTest):
                 # missing uri -> -32002
                 status, data = await self._rpc(sess, url, sid, 'resources/read', params={})
                 self.eq(s_mcp.RESOURCE_NOT_FOUND, data['error']['code'])
-
-                # perm-gated resource allowed for admin
-                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://secret'})
-                self.isin('secret', s_json.loads(data['result']['contents'][0]['text']))
-
-            # perm-gated resource denied for a non-admin
-            async with self.getHttpSess(auth=('lowuser', 'low'), port=port) as sess:
-                sid, _ = await self._handshake(sess, url)
-                status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://secret'})
-                self.eq(s_jsrpc.ACCESS_DENIED, data['error']['code'])
 
     async def test_mcp_prompts(self):
 
