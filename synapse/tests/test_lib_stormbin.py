@@ -367,7 +367,7 @@ class StormBinTest(s_test.SynTest):
 
     def test_stormbin_depth_limit(self):
         '''Test that excessive nesting is rejected.'''
-        queryid = s_stormbin.classToId[s_ast.Query]
+        queryid = s_ast.Query._bin_id
 
         # Call un directly with excessive depth
         tree = (queryid, [], {})
@@ -384,7 +384,7 @@ class StormBinTest(s_test.SynTest):
     def test_stormbin_invalid_mode_int(self):
         '''Test that invalid mode values in meta are rejected.'''
         import synapse.lib.msgpack as s_msgpack
-        queryid = s_stormbin.classToId[s_ast.Query]
+        queryid = s_ast.Query._bin_id
         tree = (queryid, [], {})
         envelope = (1, tree, {'mode': 'invalid'})
         byts = s_msgpack.en(envelope)
@@ -416,7 +416,7 @@ class StormBinTest(s_test.SynTest):
     def test_stormbin_invalid_node_meta_type(self):
         '''un() rejects a node whose meta is not a dict.'''
         import synapse.lib.msgpack as s_msgpack
-        queryid = s_stormbin.classToId[s_ast.Query]
+        queryid = s_ast.Query._bin_id
         tree = (queryid, [], 'notadict')
         envelope = (1, tree, {})
         byts = s_msgpack.en(envelope)
@@ -427,7 +427,7 @@ class StormBinTest(s_test.SynTest):
     def test_stormbin_missing_pos(self):
         '''un() rejects a node whose meta is missing pos.'''
         import synapse.lib.msgpack as s_msgpack
-        queryid = s_stormbin.classToId[s_ast.Query]
+        queryid = s_ast.Query._bin_id
         tree = (queryid, [], {})
         envelope = (1, tree, {})
         byts = s_msgpack.en(envelope)
@@ -438,7 +438,7 @@ class StormBinTest(s_test.SynTest):
     def test_stormbin_bad_pos_length(self):
         '''un() rejects a node whose pos tuple isn't 7 elements.'''
         import synapse.lib.msgpack as s_msgpack
-        queryid = s_stormbin.classToId[s_ast.Query]
+        queryid = s_ast.Query._bin_id
         # 6 elements instead of 7
         tree = (queryid, [], {'pos': (0, 0, 0, 0, 0, 0)})
         envelope = (1, tree, {})
@@ -452,7 +452,7 @@ class StormBinTest(s_test.SynTest):
         import synapse.lib.msgpack as s_msgpack
         # Lookup has _bin_attrs = (('autoadd', 'a', False),). Encode with attrs
         # containing some unrelated key so the missing-key branch fires.
-        lookupid = s_stormbin.classToId[s_ast.Lookup]
+        lookupid = s_ast.Lookup._bin_id
         pos = (0, 0, 0, 0, 0, 0, False)
         meta = {'a': {'unused': True}, 'pos': pos}
         tree = (lookupid, [], meta)

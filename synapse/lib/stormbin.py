@@ -39,10 +39,8 @@ BASE64_PREFIX = s_const.STORMBIN_BASE64_PREFIX
 
 validModes = {'storm', 'lookup', 'autoadd', 'search'}
 
-# AST class <-> integer ID mapping. The registry is populated by
-# s_ast.AstRegistry as each AstNode subclass is defined; we re-export
-# both dicts under the legacy names for back-compat.
-classToId = s_ast.classToId
+# _bin_id -> AST class mapping. Populated by s_ast.AstRegistry as each
+# AstNode subclass is defined; re-exported here for back-compat.
 idToClass = s_ast.idToClass
 
 def en(node):
