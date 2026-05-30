@@ -937,6 +937,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     cellapi = CellApi
 
+    # Subclasses may set this to an s_mcp.CellMcp subclass to mount an MCP endpoint.
+    _mcp_ctor = None
+
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
     confbase = {
         'safemode': {
@@ -3816,6 +3819,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.addHttpApi('/api/v1/auth/onepass/issue', s_httpapi.OnePassIssueV1, {'cell': self})
 
         self.addHttpApi('/api/v1/behold', s_httpapi.BeholdSockV1, {'cell': self})
+
+        if self._mcp_ctor is not None:
+            self._mcp_sessions = {}
+            self.addHttpApi('/api/v1/mcp', self._mcp_ctor, {'cell': self})
 
     def addHttpApi(self, path, ctor, info):
         self.wapp.add_handlers('.*', (
