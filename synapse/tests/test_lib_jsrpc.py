@@ -18,7 +18,7 @@ class FakeRpcHandler(s_jsrpc.JsonRpcHandler):
         return 'nope'
 
     @s_jsrpc.method(desc='Echo a value back.')
-    def echo(self, valu):
+    async def echo(self, valu):
         return valu
 
     @s_jsrpc.method(name='add.numbers')
@@ -30,7 +30,7 @@ class FakeRpcHandler(s_jsrpc.JsonRpcHandler):
         return s_scope.get('user').iden
 
     @s_jsrpc.method(perm=('jsrpc', 'secret'))
-    def secret(self):
+    async def secret(self):
         return 'sssh'
 
     @s_jsrpc.method(params={
@@ -39,7 +39,7 @@ class FakeRpcHandler(s_jsrpc.JsonRpcHandler):
         'required': ['name'],
         'additionalProperties': False,
     }, returns={'type': 'string'})
-    def greet(self, name):
+    async def greet(self, name):
         return f'hello {name}'
 
     @s_jsrpc.method()
@@ -48,11 +48,11 @@ class FakeRpcHandler(s_jsrpc.JsonRpcHandler):
             yield i
 
     @s_jsrpc.method()
-    def boom(self):
+    async def boom(self):
         raise s_exc.BadArg(mesg='boom', extra='nope')
 
     @s_jsrpc.method()
-    def pyboom(self):
+    async def pyboom(self):
         raise ValueError('plain python error')
 
     @s_jsrpc.method()
@@ -62,11 +62,11 @@ class FakeRpcHandler(s_jsrpc.JsonRpcHandler):
         raise s_exc.BadArg(mesg='stream broke')
 
     @s_jsrpc.method()
-    def badinfo(self):
+    async def badinfo(self):
         raise s_exc.BadArg(mesg='badinfo', obj=object())
 
     @s_jsrpc.method(name='app.error')
-    def apperr(self):
+    async def apperr(self):
         raise s_exc.JsonRpcError.init(-32050, 'app failure', data={'why': 'because'})
 
 class JsRpcTest(s_tests.SynTest):
@@ -118,6 +118,13 @@ class JsRpcTest(s_tests.SynTest):
         self.isin('greet', names)
         greet = [d for d in descr if d.get('name') == 'greet'][0]
         self.eq('string', greet.get('returns').get('type'))
+
+        # a non-async method is rejected at registration
+        with self.raises(s_exc.BadArg):
+            class BadHandler(s_jsrpc.JsonRpcHandler):
+                @s_jsrpc.method()
+                def notasync(self):
+                    return 1
 
     async def test_jsrpc_calls(self):
 

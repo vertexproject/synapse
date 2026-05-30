@@ -62,8 +62,12 @@ def method(name=None, desc=None, params=None, returns=None, perm=None):
 
     Notes:
         Only methods decorated with this decorator are exposed; it is an opt-in allowlist.
+        The decorated method must be a coroutine function or an async generator function.
     '''
     def wrap(func):
+        if not (inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)):
+            raise s_exc.BadArg(mesg=f'jsrpc method must be async: {func.__qualname__}')
+
         func._jsrpc_method = {
             'name': name if name is not None else func.__name__,
             'desc': desc,
@@ -251,9 +255,7 @@ class JsonRpcHandler(s_httpapi.Handler):
                 result = [item async for item in agen]
 
             else:
-                result = meth(*args, **kwargs)
-                if inspect.isawaitable(result):
-                    result = await result
+                result = await meth(*args, **kwargs)
 
         except s_exc.JsonRpcError as e:
             if not hasid:

@@ -441,6 +441,28 @@ class McpTest(s_tests.SynTest):
                 self.true(data['result'].get('isError'))
                 self.isin('impersonate', data['result']['content'][0]['text'])
 
+    async def test_mcp_async_required(self):
+
+        with self.raises(s_exc.BadArg):
+            @s_mcp.tool(name='x')
+            def synctool(self):
+                return 1
+
+        with self.raises(s_exc.BadArg):
+            @s_mcp.resource(uri='syn://x')
+            def syncres(self):
+                return 1
+
+        with self.raises(s_exc.BadArg):
+            @s_mcp.prompt(name='x')
+            def syncprompt(self):
+                return 'x'
+
+        with self.raises(s_exc.BadArg):
+            @s_mcp.completer(name='x')
+            def synccompleter(self, value, context):
+                return []
+
     async def test_mcp_capabilities(self):
 
         # Cortex advertises every capability

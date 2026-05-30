@@ -69,6 +69,9 @@ def tool(name=None, desc=None, schema=None):
         schema = {'type': 'object', 'properties': {}, 'additionalProperties': False}
 
     def wrap(func):
+        if not (inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)):
+            raise s_exc.BadArg(mesg=f'mcp tool must be async: {func.__qualname__}')
+
         func._mcp_tool = {
             'name': name if name is not None else func.__name__,
             'desc': desc,
@@ -94,8 +97,12 @@ def resource(uri, name=None, desc=None, mimeType='application/json', completers=
 
     Notes:
         A resource that requires permissions enforces them itself within its method body.
+        The decorated method must be a coroutine function.
     '''
     def wrap(func):
+        if not inspect.iscoroutinefunction(func):
+            raise s_exc.BadArg(mesg=f'mcp resource must be async: {func.__qualname__}')
+
         func._mcp_resource = {
             'uri': uri,
             'name': name if name is not None else func.__name__,
@@ -121,9 +128,13 @@ def prompt(name=None, desc=None, arguments=()):
     Notes:
         The method receives the prompt arguments as keyword arguments and returns either a
         string (a single user text message) or a list of MCP prompt messages. A prompt that
-        requires permissions enforces them itself within its method body.
+        requires permissions enforces them itself within its method body. The decorated
+        method must be a coroutine function.
     '''
     def wrap(func):
+        if not inspect.iscoroutinefunction(func):
+            raise s_exc.BadArg(mesg=f'mcp prompt must be async: {func.__qualname__}')
+
         func._mcp_prompt = {
             'name': name if name is not None else func.__name__,
             'desc': desc,
@@ -143,6 +154,9 @@ def completer(name=None):
     (``complete``) and resource template variables (``completers``).
     '''
     def wrap(func):
+        if not inspect.iscoroutinefunction(func):
+            raise s_exc.BadArg(mesg=f'mcp completer must be async: {func.__qualname__}')
+
         func._mcp_completer = {'name': name if name is not None else func.__name__}
         return func
 
@@ -469,9 +483,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         info = entry.get('info')
 
         meth = getattr(self, entry.get('attr'))
-        valu = meth(**kwargs)
-        if inspect.isawaitable(valu):
-            valu = await valu
+        valu = await meth(**kwargs)
 
         return {'contents': [self._resourceContent(uri, info.get('mimeType'), valu)]}
 
@@ -551,9 +563,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         except TypeError as e:
             raise s_exc.JsonRpcError.init(s_jsrpc.INVALID_PARAMS, f'Invalid arguments: {e}')
 
-        valu = meth(**arguments)
-        if inspect.isawaitable(valu):
-            valu = await valu
+        valu = await meth(**arguments)
 
         if isinstance(valu, str):
             valu = [{'role': 'user', 'content': {'type': 'text', 'text': valu}}]
@@ -682,9 +692,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             return
 
         try:
-            valu = meth(**arguments)
-            if inspect.isawaitable(valu):
-                valu = await valu
+            valu = await meth(**arguments)
         except Exception as e:
             self._sendResp(self._toolErrResp(reqid, e))
             return
