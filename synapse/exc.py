@@ -229,6 +229,16 @@ class IsFini(SynErr): pass
 class IsReadOnly(SynErr): pass
 class IsDeprLocked(SynErr): pass
 class IsRuntForm(SynErr): pass
+
+class JsonRpcError(SynErr):
+    '''
+    A JSON-RPC error carrying an application-defined code (and optional data).
+
+    This should contain a numeric ``code`` and a ``mesg``. An optional ``data`` value
+    may be provided to convey additional structured information to the caller.
+    '''
+    pass
+
 class ShuttingDown(SynErr): pass
 
 class LayerInUse(SynErr): pass
