@@ -1,20 +1,27 @@
 '''
 A reusable JSON-RPC 2.0 server implementation for the Synapse Tornado web server.
 
-This module exposes an arbitrary Python object whose methods have been decorated with
-``@s_jsrpc.method`` as a JSON-RPC 2.0 endpoint. It is intentionally generic: it knows
-nothing about any specific protocol built on top of it (such as MCP).
+This module provides ``JsonRpcHandler``, a Tornado handler which exposes its own
+``@s_jsrpc.method`` decorated methods as a JSON-RPC 2.0 endpoint. It is intentionally
+generic: it knows nothing about any specific protocol built on top of it (such as MCP).
 
-To share an object, mount the Handler on a Cell using the existing addHttpApi machinery::
+To use it, extend ``JsonRpcHandler``, implement the decorated methods directly, and mount
+it on a Cell using the existing addHttpApi machinery::
 
-    cell.addHttpApi('/api/v1/jsonrpc', s_jsrpc.Handler, {'cell': cell, 'item': obj})
+    class FooApi(s_jsrpc.JsonRpcHandler):
+
+        @s_jsrpc.method()
+        async def echo(self, valu):
+            return valu
+
+    cell.addHttpApi('/api/v1/jsonrpc', FooApi, {'cell': cell})
 
 The decorated methods may be plain (sync) functions, coroutine functions, or async
 generator functions. Async generator methods may stream their results to the caller as
 Server-Sent Events when the request carries an ``Accept: text/event-stream`` header.
 
 The calling user is placed into the task local scope for the duration of dispatch, so a
-shared method may recover it via ``s_scope.get('user')``.
+method may recover it via ``s_scope.get('user')`` (in addition to the handler APIs).
 '''
 import asyncio
 import inspect
@@ -69,71 +76,66 @@ def method(name=None, desc=None, params=None, returns=None, perm=None):
 
     return wrap
 
-def getMethInfo(item):
+class JsonRpcHandler(s_httpapi.Handler):
     '''
-    Introspect a shared object and return its JSON-RPC method registry.
+    A Tornado handler which exposes its own decorated methods as a JSON-RPC 2.0 endpoint.
 
-    Returns:
-        dict: A mapping of JSON-RPC method name to ``{'meth': bound, 'info': info,
-        'validator': validator}`` where validator is a compiled params validator or None.
+    Subclass this and implement methods decorated with ``@s_jsrpc.method``.
     '''
-    cached = getattr(item, '_syn_jsrpc_meths', None)
-    if cached is not None:
-        return cached
+    @classmethod
+    def getMethInfo(cls):
+        '''
+        Introspect the handler class and return its JSON-RPC method registry.
 
-    meths = {}
-    for attrname in dir(item):
+        Returns:
+            dict: A mapping of JSON-RPC method name to ``{'attr': attrname, 'info': info,
+            'validator': validator}`` where validator is a compiled params validator or None.
+        '''
+        meths = cls.__dict__.get('_syn_jsrpc_meths')
+        if meths is not None:
+            return meths
 
-        attr = getattr(item, attrname, None)
-        if not callable(attr):
-            continue
+        meths = {}
+        for attrname in dir(cls):
 
-        info = getattr(attr, '_jsrpc_method', None)
-        if info is None:
-            continue
+            attr = getattr(cls, attrname, None)
+            if not callable(attr):
+                continue
 
-        validator = None
-        if info.get('params') is not None:
-            validator = s_config.getJsValidator(info.get('params'))
+            info = getattr(attr, '_jsrpc_method', None)
+            if info is None:
+                continue
 
-        meths[info.get('name')] = {'meth': attr, 'info': info, 'validator': validator}
+            validator = None
+            if info.get('params') is not None:
+                validator = s_config.getJsValidator(info.get('params'))
 
-    try:
-        item._syn_jsrpc_meths = meths
-    except Exception:  # pragma: no cover
-        logger.exception(f'Failed to cache jsrpc method info on {item!r}')
+            meths[info.get('name')] = {'attr': attrname, 'info': info, 'validator': validator}
 
-    return meths
+        cls._syn_jsrpc_meths = meths
+        return meths
 
-def descrMethods(item):
-    '''
-    Return a JSON safe listing of the methods exposed by a shared object.
+    @classmethod
+    def descrMethods(cls):
+        '''
+        Return a JSON safe listing of the methods exposed by the handler class.
 
-    This is intended for building higher level introspection or discovery APIs without
-    coupling this module to any particular protocol.
-    '''
-    meths = getMethInfo(item)
+        This is intended for building higher level introspection or discovery APIs without
+        coupling this module to any particular protocol.
+        '''
+        meths = cls.getMethInfo()
 
-    retn = []
-    for name in sorted(meths):
-        info = meths.get(name).get('info')
-        retn.append({
-            'name': name,
-            'desc': info.get('desc'),
-            'params': info.get('params'),
-            'returns': info.get('returns'),
-        })
+        retn = []
+        for name in sorted(meths):
+            info = meths.get(name).get('info')
+            retn.append({
+                'name': name,
+                'desc': info.get('desc'),
+                'params': info.get('params'),
+                'returns': info.get('returns'),
+            })
 
-    return retn
-
-class Handler(s_httpapi.Handler):
-    '''
-    A Tornado handler which exposes a shared object as a JSON-RPC 2.0 endpoint.
-    '''
-    def initialize(self, cell, item):
-        s_httpapi.Handler.initialize(self, cell)
-        self.item = item
-        self.meths = getMethInfo(item)
+        return retn
 
     async def post(self):
 
@@ -213,13 +215,13 @@ class Handler(s_httpapi.Handler):
         params = req.get('params')
 
         try:
-            entry = self.meths.get(name)
+            entry = self.getMethInfo().get(name)
             if entry is None:
                 raise s_exc.JsonRpcError.init(METHOD_NOT_FOUND, f'Method not found: {name}')
 
             args, kwargs = self._bindParams(params)
 
-            meth = entry.get('meth')
+            meth = getattr(self, entry.get('attr'))
             try:
                 inspect.signature(meth).bind(*args, **kwargs)
             except TypeError as e:

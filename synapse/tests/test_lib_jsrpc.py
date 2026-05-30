@@ -7,9 +7,9 @@ import synapse.lib.scope as s_scope
 
 import synapse.tests.utils as s_tests
 
-class FakeShare:
+class FakeRpcHandler(s_jsrpc.JsonRpcHandler):
     '''
-    A sample shared object exercising the various jsrpc method shapes.
+    A sample handler exercising the various jsrpc method shapes.
     '''
     def _private(self):  # not exposed (no decorator)
         return 'nope'
@@ -91,29 +91,28 @@ class JsRpcTest(s_tests.SynTest):
 
     async def test_jsrpc_metadata(self):
 
-        item = FakeShare()
-
-        info = item.echo._jsrpc_method
+        info = FakeRpcHandler.echo._jsrpc_method
         self.eq('echo', info.get('name'))
         self.eq('Echo a value back.', info.get('desc'))
         self.false(info.get('genr'))
 
-        self.true(item.counter._jsrpc_method.get('genr'))
-        self.eq('add.numbers', item.addNumbers._jsrpc_method.get('name'))
+        self.true(FakeRpcHandler.counter._jsrpc_method.get('genr'))
+        self.eq('add.numbers', FakeRpcHandler.addNumbers._jsrpc_method.get('name'))
 
-        # getMethInfo only exposes decorated methods and caches on the instance
-        meths = s_jsrpc.getMethInfo(item)
+        # getMethInfo only exposes decorated methods and caches on the class
+        meths = FakeRpcHandler.getMethInfo()
         self.isin('echo', meths)
         self.isin('add.numbers', meths)
         self.notin('undecorated', meths)
         self.notin('_private', meths)
-        self.true(s_jsrpc.getMethInfo(item) is meths)
+        self.eq('addNumbers', meths.get('add.numbers').get('attr'))
+        self.true(FakeRpcHandler.getMethInfo() is meths)
 
         # greet has a compiled params validator
         self.nn(meths.get('greet').get('validator'))
         self.none(meths.get('echo').get('validator'))
 
-        descr = s_jsrpc.descrMethods(item)
+        descr = FakeRpcHandler.descrMethods()
         names = [d.get('name') for d in descr]
         self.eq(names, sorted(names))
         self.isin('greet', names)
@@ -124,7 +123,7 @@ class JsRpcTest(s_tests.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.addHttpApi('/api/v1/jsrpc', s_jsrpc.Handler, {'cell': core, 'item': FakeShare()})
+            core.addHttpApi('/api/v1/jsrpc', FakeRpcHandler, {'cell': core})
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
             url = f'https://localhost:{port}/api/v1/jsrpc'
@@ -160,7 +159,7 @@ class JsRpcTest(s_tests.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.addHttpApi('/api/v1/jsrpc', s_jsrpc.Handler, {'cell': core, 'item': FakeShare()})
+            core.addHttpApi('/api/v1/jsrpc', FakeRpcHandler, {'cell': core})
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
             url = f'https://localhost:{port}/api/v1/jsrpc'
@@ -243,7 +242,7 @@ class JsRpcTest(s_tests.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.addHttpApi('/api/v1/jsrpc', s_jsrpc.Handler, {'cell': core, 'item': FakeShare()})
+            core.addHttpApi('/api/v1/jsrpc', FakeRpcHandler, {'cell': core})
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
             url = f'https://localhost:{port}/api/v1/jsrpc'
@@ -275,7 +274,7 @@ class JsRpcTest(s_tests.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.addHttpApi('/api/v1/jsrpc', s_jsrpc.Handler, {'cell': core, 'item': FakeShare()})
+            core.addHttpApi('/api/v1/jsrpc', FakeRpcHandler, {'cell': core})
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
             url = f'https://localhost:{port}/api/v1/jsrpc'
@@ -330,7 +329,7 @@ class JsRpcTest(s_tests.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.addHttpApi('/api/v1/jsrpc', s_jsrpc.Handler, {'cell': core, 'item': FakeShare()})
+            core.addHttpApi('/api/v1/jsrpc', FakeRpcHandler, {'cell': core})
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
             url = f'https://localhost:{port}/api/v1/jsrpc'
