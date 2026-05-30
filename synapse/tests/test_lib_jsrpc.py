@@ -29,10 +29,6 @@ class FakeRpcHandler(s_jsrpc.JsonRpcHandler):
     async def whoami(self):
         return s_scope.get('user').iden
 
-    @s_jsrpc.method(perm=('jsrpc', 'secret'))
-    async def secret(self):
-        return 'sssh'
-
     @s_jsrpc.method(params={
         'type': 'object',
         'properties': {'name': {'type': 'string'}},
@@ -244,38 +240,6 @@ class JsRpcTest(s_tests.SynTest):
                 self.eq(s_jsrpc.INTERNAL_ERROR, retn.get('error').get('code'))
                 self.eq('plain python error', retn.get('error').get('message'))
                 self.none(retn.get('error').get('data'))
-
-    async def test_jsrpc_perms(self):
-
-        async with self.getTestCore() as core:
-
-            core.addHttpApi('/api/v1/jsrpc', FakeRpcHandler, {'cell': core})
-
-            host, port = await core.addHttpsPort(0, host='127.0.0.1')
-            url = f'https://localhost:{port}/api/v1/jsrpc'
-
-            root = await core.auth.getUserByName('root')
-            await root.setPasswd('secret')
-
-            lowuser = await core.auth.addUser('lowuser')
-            await lowuser.setPasswd('lowpass')
-
-            # admin is allowed the perm-gated method
-            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
-                retn = await self._call(sess, url, {'jsonrpc': '2.0', 'id': 1, 'method': 'secret'})
-                self.eq('sssh', retn.get('result'))
-
-            # non-admin without the perm is denied
-            async with self.getHttpSess(auth=('lowuser', 'lowpass'), port=port) as sess:
-                retn = await self._call(sess, url, {'jsonrpc': '2.0', 'id': 2, 'method': 'secret'})
-                self.eq(s_jsrpc.ACCESS_DENIED, retn.get('error').get('code'))
-                self.eq(['jsrpc', 'secret'], retn.get('error').get('data').get('perm'))
-
-            # grant the perm and confirm access
-            await lowuser.addRule((True, ('jsrpc', 'secret')))
-            async with self.getHttpSess(auth=('lowuser', 'lowpass'), port=port) as sess:
-                retn = await self._call(sess, url, {'jsonrpc': '2.0', 'id': 3, 'method': 'secret'})
-                self.eq('sssh', retn.get('result'))
 
     async def test_jsrpc_notifications_and_batch(self):
 

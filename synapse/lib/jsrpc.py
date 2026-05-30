@@ -44,11 +44,7 @@ METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 INTERNAL_ERROR = -32603
 
-# Server defined error code (within the reserved -32000 to -32099 range) used to
-# indicate that the calling user lacks the permission required by a method.
-ACCESS_DENIED = -32000
-
-def method(name=None, desc=None, params=None, returns=None, perm=None):
+def method(name=None, desc=None, params=None, returns=None):
     '''
     Decorate a method to expose it as a remotely callable JSON-RPC method.
 
@@ -58,7 +54,6 @@ def method(name=None, desc=None, params=None, returns=None, perm=None):
         desc (str): A human readable description of the method.
         params (dict): An optional JSON Schema used to validate the request params.
         returns (dict): An optional JSON Schema describing the result for introspection.
-        perm (tuple): An optional Synapse permission tuple the calling user must be allowed.
 
     Notes:
         Only methods decorated with this decorator are exposed; it is an opt-in allowlist.
@@ -73,7 +68,6 @@ def method(name=None, desc=None, params=None, returns=None, perm=None):
             'desc': desc,
             'params': params,
             'returns': returns,
-            'perm': perm,
             'genr': inspect.isasyncgenfunction(func),
         }
         return func
@@ -237,13 +231,6 @@ class JsonRpcHandler(s_httpapi.Handler):
                     validator(params)
                 except s_exc.SchemaViolation as e:
                     raise s_exc.JsonRpcError.init(INVALID_PARAMS, e.get('mesg', str(e)))
-
-            perm = entry.get('info').get('perm')
-            if perm is not None:
-                user = s_scope.get('user')
-                if user is None or not user.allowed(tuple(perm)):
-                    mesg = f'Permission denied: {".".join(perm)}'
-                    raise s_exc.JsonRpcError.init(ACCESS_DENIED, mesg, data={'perm': list(perm)})
 
             if entry.get('info').get('genr'):
 
