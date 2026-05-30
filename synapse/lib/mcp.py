@@ -819,7 +819,7 @@ class CortexMcp(CellMcp):
         return await self.cell.getStormDocs()
 
     @resource(uri='syn://model/form/{name}', name='form', desc='A single data model form definition.',
-              completers={'name': 'formnames'})
+              completers={'name': 'model:forms'})
     async def _resForm(self, name):
         mdef = await self.cell.getModelDict()
         form = mdef['forms'].get(name)
@@ -832,9 +832,9 @@ class CortexMcp(CellMcp):
 
     @prompt(name='storm-query', desc='Draft a Storm query.',
             arguments=[{'name': 'form', 'description': 'A form to focus the query on.',
-                        'required': False, 'complete': 'formnames'},
+                        'required': False, 'complete': 'model:forms'},
                        {'name': 'typename', 'description': 'A model type to reference.',
-                        'required': False, 'complete': 'typenames'}])
+                        'required': False, 'complete': 'model:types'}])
     async def _promptStormQuery(self, form=None, typename=None):
         text = 'Write a Storm query'
         if form:
@@ -846,10 +846,10 @@ class CortexMcp(CellMcp):
 
     # --- completers ---
 
-    @completer(name='formnames')
+    @completer(name='model:forms')
     async def _completeForms(self, value, context):
         return self.cell.model.getFormsByPrefix(value)
 
-    @completer(name='typenames')
+    @completer(name='model:types')
     async def _completeTypes(self, value, context):
         return sorted(name for name in self.cell.model.types if name.startswith(value))
