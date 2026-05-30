@@ -793,7 +793,7 @@ class CortexMcp(CellMcp):
         opts = self._stormOpts(opts)
         return await self.cell.callStorm(query, opts=opts)
 
-    @tool(name='getModel', desc='Return the Cortex data model definition.')
+    @tool(name='getModel', desc='Return the Synapse data model definition.')
     async def getModel(self):
         return await self.cell.getModelDict()
 
@@ -810,7 +810,7 @@ class CortexMcp(CellMcp):
 
     # --- resources ---
 
-    @resource(uri='syn://model', name='datamodel', desc='The Cortex data model definition.')
+    @resource(uri='syn://model', name='datamodel', desc='The Synapse data model definition.')
     async def _resModel(self):
         return await self.cell.getModelDict()
 
