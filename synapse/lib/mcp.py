@@ -195,24 +195,6 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         return tools
 
     @classmethod
-    def _getMarkedMethods(cls, marker):
-        # Return a list of (attrname, info) for callable members carrying the given marker.
-        retn = []
-        for attrname in dir(cls):
-
-            attr = getattr(cls, attrname, None)
-            if not callable(attr):
-                continue
-
-            info = getattr(attr, marker, None)
-            if info is None:
-                continue
-
-            retn.append((attrname, info))
-
-        return retn
-
-    @classmethod
     def _mcpRegistry(cls, marker, cachekey, keyattr):
         # Build (and cache on the class) a registry of decorated members. Mirrors the
         # caching used by getToolInfo / s_jsrpc.loadMethodDefs.

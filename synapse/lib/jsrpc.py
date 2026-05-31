@@ -80,6 +80,27 @@ class JsonRpcHandler(s_httpapi.Handler):
     Subclass this and implement methods decorated with ``@s_jsrpc.method``.
     '''
     @classmethod
+    def _getMarkedMethods(cls, marker):
+        '''
+        Return a list of ``(attrname, info)`` for callable members carrying the given
+        marker attribute (set by a registration decorator).
+        '''
+        retn = []
+        for attrname in dir(cls):
+
+            attr = getattr(cls, attrname, None)
+            if not callable(attr):
+                continue
+
+            info = getattr(attr, marker, None)
+            if info is None:
+                continue
+
+            retn.append((attrname, info))
+
+        return retn
+
+    @classmethod
     def loadMethodDefs(cls):
         '''
         Introspect the handler class and return its JSON-RPC method registry.
@@ -97,15 +118,7 @@ class JsonRpcHandler(s_httpapi.Handler):
 
         meths = {}
         validators = {}
-        for attrname in dir(cls):
-
-            attr = getattr(cls, attrname, None)
-            if not callable(attr):
-                continue
-
-            info = getattr(attr, '_jsrpc_method', None)
-            if info is None:
-                continue
+        for attrname, info in cls._getMarkedMethods('_jsrpc_method'):
 
             meths[info.get('name')] = {'attr': attrname, 'info': info}
 
