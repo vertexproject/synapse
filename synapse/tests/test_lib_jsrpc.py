@@ -109,8 +109,8 @@ class JsRpcTest(s_tests.SynTest):
 
         # the registry is JSON compatible; validators are stored separately
         self.nn(s_json.dumps(meths))
-        self.nn(FakeRpcHandler.getValidators().get('greet'))
-        self.none(FakeRpcHandler.getValidators().get('echo'))
+        self.nn(FakeRpcHandler._syn_jsrpc_validators.get('greet'))
+        self.none(FakeRpcHandler._syn_jsrpc_validators.get('echo'))
 
         # a non-async method is rejected at registration
         with self.raises(s_exc.BadArg):

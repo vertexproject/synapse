@@ -88,8 +88,8 @@ class JsonRpcHandler(s_httpapi.Handler):
             dict: A JSON compatible mapping of JSON-RPC method name to ``{'attr': attrname,
             'info': info}`` where info is the method definition (name, desc, params,
             returns, genr). The registry is cached on the class; the compiled params
-            validators are stored separately (see getValidators) so it remains JSON
-            serializable and suitable for higher level introspection or discovery APIs.
+            validators are stored separately in the ``_syn_jsrpc_validators`` class local
+            so it remains JSON serializable and suitable for higher level introspection.
         '''
         meths = cls.__dict__.get('_syn_jsrpc_meths')
         if meths is not None:
@@ -115,14 +115,6 @@ class JsonRpcHandler(s_httpapi.Handler):
         cls._syn_jsrpc_meths = meths
         cls._syn_jsrpc_validators = validators
         return meths
-
-    @classmethod
-    def getValidators(cls):
-        '''
-        Return the compiled params validators keyed by JSON-RPC method name.
-        '''
-        cls.loadMethodDefs()
-        return cls.__dict__['_syn_jsrpc_validators']
 
     async def post(self):
 
@@ -214,7 +206,7 @@ class JsonRpcHandler(s_httpapi.Handler):
             except TypeError as e:
                 raise s_exc.JsonRpcError.init(INVALID_PARAMS, f'Invalid params: {e}')
 
-            validator = self.getValidators().get(name)
+            validator = self._syn_jsrpc_validators.get(name)
             if validator is not None:
                 try:
                     validator(params)
