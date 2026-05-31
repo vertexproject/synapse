@@ -843,6 +843,15 @@ class CortexMcp(CellMcp):
         'additionalProperties': False,
     }
 
+    _view_set_schema = {
+        'type': 'object',
+        'properties': {
+            'view': {'type': 'string', 'description': 'The iden of the view to set as active.'},
+        },
+        'required': ['view'],
+        'additionalProperties': False,
+    }
+
     def _stormOpts(self, opts):
         user = s_scope.get('user')
 
@@ -850,6 +859,11 @@ class CortexMcp(CellMcp):
             opts = {}
 
         opts.setdefault('user', user.iden)
+
+        view = self.mcpsess.get('view')
+        if view is not None:
+            opts.setdefault('view', view)
+
         if opts.get('user') != user.iden:
             if not user.allowed(('impersonate',)):
                 raise s_exc.AuthDeny(mesg='Impersonation requires the impersonate permission.',
@@ -880,6 +894,35 @@ class CortexMcp(CellMcp):
     @tool(desc='Return the Synapse data model definition.')
     async def get_model(self):
         return await self.cell.getModelDict()
+
+    @tool(desc='List the views this user can read.')
+    async def view_list(self):
+        user = s_scope.get('user')
+
+        views = []
+        for view in self.cell.listViews():
+            if not user.allowed(('view', 'read'), gateiden=view.iden):
+                continue
+
+            vdef = await view.pack()
+            views.append({'iden': view.iden, 'name': vdef.get('name'), 'parent': vdef.get('parent')})
+
+        return {'views': views}
+
+    @tool(desc='Set the active view for this session, used by subsequent storm tools.',
+          schema=_view_set_schema)
+    async def view_set(self, view):
+        user = s_scope.get('user')
+
+        if self.cell.getView(view, user=user) is None:
+            raise s_exc.NoSuchView(mesg=f'No such view: {view}', iden=view)
+
+        self.mcpsess['view'] = view
+        return {'view': view}
+
+    @tool(desc='Get the view currently set as active for this session.')
+    async def view_get(self):
+        return {'view': self.mcpsess.get('view')}
 
     def _streamItemLevel(self, item):
         # Map Storm message types to MCP log levels for streamed storm() output.

@@ -360,6 +360,70 @@ class McpTest(s_tests.SynTest):
                 self.eq(1, mesgs[0]['params']['data'])
                 self.true(mesgs[-1]['result'].get('isError'))
 
+    async def test_mcp_cortex_views(self):
+
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/v1/mcp'
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            mainiden = core.view.iden
+            forkview = await core.view.fork()
+            forkiden = forkview.get('iden')
+
+            lowuser = await core.auth.addUser('lowuser')
+            await lowuser.setPasswd('low')
+            # lowuser may read the main view but not the fork
+            await lowuser.addRule((True, ('view', 'read')), gateiden=mainiden)
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                sid, _ = await self._handshake(sess, url)
+
+                # view_get is null before any view_set
+                status, data = await self._tool(sess, url, sid, 'view_get')
+                self.none(data['result']['structuredContent']['view'])
+
+                # view_list (admin sees all views, including the fork)
+                status, data = await self._tool(sess, url, sid, 'view_list')
+                idens = [v['iden'] for v in data['result']['structuredContent']['views']]
+                self.isin(mainiden, idens)
+                self.isin(forkiden, idens)
+
+                # view_set returns both content and structuredContent; view_get round-trips it
+                status, data = await self._tool(sess, url, sid, 'view_set', {'view': forkiden})
+                self.eq(forkiden, data['result']['structuredContent']['view'])
+                self.nn(data['result']['content'][0]['text'])
+
+                status, data = await self._tool(sess, url, sid, 'view_get')
+                self.eq(forkiden, data['result']['structuredContent']['view'])
+
+                # the session view flows into subsequent storm tool calls
+                status, data = await self._tool(sess, url, sid, 'call_storm',
+                                                {'query': 'return($lib.view.get().iden)'})
+                self.eq(forkiden, s_json.loads(data['result']['content'][0]['text']))
+
+                # an unknown view is an error
+                status, data = await self._tool(sess, url, sid, 'view_set', {'view': 'nope'})
+                self.true(data['result']['isError'])
+
+            async with self.getHttpSess(auth=('lowuser', 'low'), port=port) as sess:
+
+                sid, _ = await self._handshake(sess, url)
+
+                # view_list filters out views the user cannot read
+                status, data = await self._tool(sess, url, sid, 'view_list')
+                idens = [v['iden'] for v in data['result']['structuredContent']['views']]
+                self.isin(mainiden, idens)
+                self.notin(forkiden, idens)
+
+                # view_set on an unreadable view is denied (returned as an error result)
+                status, data = await self._tool(sess, url, sid, 'view_set', {'view': forkiden})
+                self.true(data['result']['isError'])
+
     async def test_mcp_cortex_tools(self):
 
         async with self.getTestCore() as core:
