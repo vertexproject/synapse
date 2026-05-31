@@ -197,20 +197,35 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
     @classmethod
     def getResourceInfo(cls):
         '''Return the MCP resource registry, keyed by URI.'''
-        return {info.get('uri'): {'attr': attrname, 'info': info}
-                for attrname, info in cls._getMarkedMethods('_mcp_resource')}
+        resources = cls.__dict__.get('_mcp_resources')
+        if resources is None:
+            resources = {info.get('uri'): {'attr': attrname, 'info': info}
+                         for attrname, info in cls._getMarkedMethods('_mcp_resource')}
+            cls._mcp_resources = resources
+
+        return resources
 
     @classmethod
     def getPromptInfo(cls):
         '''Return the MCP prompt registry, keyed by name.'''
-        return {info.get('name'): {'attr': attrname, 'info': info}
-                for attrname, info in cls._getMarkedMethods('_mcp_prompt')}
+        prompts = cls.__dict__.get('_mcp_prompts')
+        if prompts is None:
+            prompts = {info.get('name'): {'attr': attrname, 'info': info}
+                       for attrname, info in cls._getMarkedMethods('_mcp_prompt')}
+            cls._mcp_prompts = prompts
+
+        return prompts
 
     @classmethod
     def getCompleterInfo(cls):
         '''Return the argument completer registry, keyed by name.'''
-        return {info.get('name'): {'attr': attrname, 'info': info}
-                for attrname, info in cls._getMarkedMethods('_mcp_completer')}
+        completers = cls.__dict__.get('_mcp_completers')
+        if completers is None:
+            completers = {info.get('name'): {'attr': attrname, 'info': info}
+                          for attrname, info in cls._getMarkedMethods('_mcp_completer')}
+            cls._mcp_completers = completers
+
+        return completers
 
     async def handleBasicAuth(self):
         # In addition to the inherited Basic auth, accept an Authorization: Bearer <token>

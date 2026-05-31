@@ -463,6 +463,13 @@ class McpTest(s_tests.SynTest):
             def synccompleter(self, value, context):
                 return []
 
+    async def test_mcp_registry_caching(self):
+        # the get*Info registries are built once and cached on the class
+        self.true(TstMcp.getToolInfo() is TstMcp.getToolInfo())
+        self.true(TstMcp.getResourceInfo() is TstMcp.getResourceInfo())
+        self.true(TstMcp.getPromptInfo() is TstMcp.getPromptInfo())
+        self.true(TstMcp.getCompleterInfo() is TstMcp.getCompleterInfo())
+
     async def test_mcp_capabilities(self):
 
         # Cortex advertises every capability
