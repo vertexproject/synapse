@@ -108,7 +108,7 @@ class JsRpcTest(s_tests.SynTest):
         self.nn(meths.get('greet').get('validator'))
         self.none(meths.get('echo').get('validator'))
 
-        descr = FakeRpcHandler.descrMethods()
+        descr = FakeRpcHandler.getMethodDefs()
         names = [d.get('name') for d in descr]
         self.eq(names, sorted(names))
         self.isin('greet', names)

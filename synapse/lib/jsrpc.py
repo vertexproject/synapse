@@ -113,7 +113,7 @@ class JsonRpcHandler(s_httpapi.Handler):
         return meths
 
     @classmethod
-    def descrMethods(cls):
+    def getMethodDefs(cls):
         '''
         Return a JSON safe listing of the methods exposed by the handler class.
 
