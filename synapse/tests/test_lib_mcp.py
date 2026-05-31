@@ -465,10 +465,10 @@ class McpTest(s_tests.SynTest):
 
     async def test_mcp_registry_caching(self):
         # the get*Info registries are built once and cached on the class
-        self.true(TstMcp.getToolInfo() is TstMcp.getToolInfo())
-        self.true(TstMcp.getResourceInfo() is TstMcp.getResourceInfo())
-        self.true(TstMcp.getPromptInfo() is TstMcp.getPromptInfo())
-        self.true(TstMcp.getCompleterInfo() is TstMcp.getCompleterInfo())
+        self.true(TstMcp.getMcpTools() is TstMcp.getMcpTools())
+        self.true(TstMcp.getMcpResources() is TstMcp.getMcpResources())
+        self.true(TstMcp.getMcpPrompts() is TstMcp.getMcpPrompts())
+        self.true(TstMcp.getMcpCompleters() is TstMcp.getMcpCompleters())
 
     async def test_mcp_list_caching(self):
 

@@ -170,7 +170,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
     SESSION_TIMEOUT = SESSION_TIMEOUT
 
     @classmethod
-    def getToolInfo(cls):
+    def getMcpTools(cls):
         '''
         Introspect the handler class and return its MCP tool registry.
 
@@ -195,7 +195,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         return tools
 
     @classmethod
-    def getResourceInfo(cls):
+    def getMcpResources(cls):
         '''Return the MCP resource registry, keyed by URI.'''
         resources = cls.__dict__.get('_mcp_resources')
         if resources is None:
@@ -206,7 +206,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         return resources
 
     @classmethod
-    def getPromptInfo(cls):
+    def getMcpPrompts(cls):
         '''Return the MCP prompt registry, keyed by name.'''
         prompts = cls.__dict__.get('_mcp_prompts')
         if prompts is None:
@@ -217,7 +217,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         return prompts
 
     @classmethod
-    def getCompleterInfo(cls):
+    def getMcpCompleters(cls):
         '''Return the argument completer registry, keyed by name.'''
         completers = cls.__dict__.get('_mcp_completers')
         if completers is None:
@@ -391,11 +391,11 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         # Advertise only the capabilities this handler class actually provides.
         caps = {'tools': {'listChanged': False}, 'logging': {}}
-        if self.getResourceInfo():
+        if self.getMcpResources():
             caps['resources'] = {}
-        if self.getPromptInfo():
+        if self.getMcpPrompts():
             caps['prompts'] = {'listChanged': False}
-        if self.getCompleterInfo():
+        if self.getMcpCompleters():
             caps['completions'] = {}
 
         return {
@@ -417,7 +417,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         result = cls.__dict__.get('_mcp_tools_list')
         if result is None:
             tools = []
-            for name, entry in sorted(self.getToolInfo().items()):
+            for name, entry in sorted(self.getMcpTools().items()):
                 info = entry.get('info')
                 tools.append({
                     'name': name,
@@ -437,7 +437,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         result = cls.__dict__.get('_mcp_resources_list')
         if result is None:
             resources = []
-            for uri, entry in sorted(self.getResourceInfo().items()):
+            for uri, entry in sorted(self.getMcpResources().items()):
                 info = entry.get('info')
                 if info.get('template'):
                     continue
@@ -458,7 +458,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         result = cls.__dict__.get('_mcp_resource_templates_list')
         if result is None:
             templates = []
-            for uri, entry in sorted(self.getResourceInfo().items()):
+            for uri, entry in sorted(self.getMcpResources().items()):
                 info = entry.get('info')
                 if not info.get('template'):
                     continue
@@ -491,7 +491,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         if uri is None:
             return None
 
-        resources = self.getResourceInfo()
+        resources = self.getMcpResources()
 
         entry = resources.get(uri)
         if entry is not None and not entry.get('info').get('template'):
@@ -538,7 +538,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         result = cls.__dict__.get('_mcp_prompts_list')
         if result is None:
             prompts = []
-            for name, entry in sorted(self.getPromptInfo().items()):
+            for name, entry in sorted(self.getMcpPrompts().items()):
                 info = entry.get('info')
                 arguments = [{'name': a.get('name'), 'description': a.get('description'),
                               'required': a.get('required', False)} for a in info.get('arguments')]
@@ -550,7 +550,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
     @s_jsrpc.method(name='prompts/get')
     async def _promptsGet(self, name=None, arguments=None):
-        entry = self.getPromptInfo().get(name)
+        entry = self.getMcpPrompts().get(name)
         if entry is None:
             raise s_exc.JsonRpcError.init(s_jsrpc.INVALID_PARAMS, f'Unknown prompt: {name}')
 
@@ -592,7 +592,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         if cname is None:
             return []
 
-        entry = self.getCompleterInfo().get(cname)
+        entry = self.getMcpCompleters().get(cname)
         if entry is None:
             return []
 
@@ -604,7 +604,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         rtype = ref.get('type')
 
         if rtype == 'ref/prompt':
-            entry = self.getPromptInfo().get(ref.get('name'))
+            entry = self.getMcpPrompts().get(ref.get('name'))
             if entry is None:
                 return None
             for arg in entry.get('info').get('arguments'):
@@ -613,7 +613,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             return None
 
         if rtype == 'ref/resource':
-            entry = self.getResourceInfo().get(ref.get('uri'))
+            entry = self.getMcpResources().get(ref.get('uri'))
             if entry is None:
                 return None
             return entry.get('info').get('completers').get(argname)
@@ -656,7 +656,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
                 s_jsrpc.INVALID_PARAMS, 'tools/call arguments must be an object.')))
             return
 
-        entry = self.getToolInfo().get(name)
+        entry = self.getMcpTools().get(name)
         if entry is None:
             self._sendResp(self._errResp(reqid, s_exc.JsonRpcError.init(
                 s_jsrpc.METHOD_NOT_FOUND, f'Unknown tool: {name}')))
