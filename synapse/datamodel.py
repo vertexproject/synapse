@@ -516,6 +516,7 @@ class Model:
         self.edgesbyn2 = collections.defaultdict(set)
 
         self.formprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
+        self.typeprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
 
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
@@ -664,6 +665,21 @@ class Model:
             forms.sort()
             self.formprefixcache[prefix] = forms
         return forms
+
+    def getTypesByPrefix(self, prefix):
+        types = self.typeprefixcache.get(prefix)
+        if types is not None:
+            return types
+
+        types = []
+        for name in self.types:
+            if name.startswith(prefix):
+                types.append(name)
+
+        if types:
+            types.sort()
+            self.typeprefixcache[prefix] = types
+        return types
 
     def reqProp(self, name, extra=None):
         prop = self.prop(name)
@@ -945,6 +961,7 @@ class Model:
 
         self.types[typename] = newtype
         self._modeldef['types'].append(newtype.getTypeDef())
+        self.typeprefixcache.clear()
 
     def _checkTypeDef(self, typ):
         if 'comp' in typ.info.get('bases', ()):
@@ -1102,6 +1119,7 @@ class Model:
         self.types.pop(typename, None)
         self.propsbytype.pop(typename, None)
         self.arraysbytype.pop(typename, None)
+        self.typeprefixcache.clear()
 
     def _addFormUniv(self, form, name, tdef, info):
 
@@ -1317,6 +1335,7 @@ class Model:
         ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
         self._modeldef['ctors'].append(((item.name, ctor, dict(item.opts), dict(item.info))))
         self.types[item.name] = item
+        self.typeprefixcache.clear()
 
     def type(self, name):
         '''

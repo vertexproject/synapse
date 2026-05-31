@@ -42,6 +42,27 @@ class DeprecatedModel(s_module.CoreModule):
 
 class DataModelTest(s_t_utils.SynTest):
 
+    async def test_model_types_by_prefix(self):
+        async with self.getTestCore() as core:
+            model = core.model
+
+            types = model.getTypesByPrefix('inet:dns:')
+            self.isin('inet:dns:a', types)
+            self.eq(types, sorted(types))
+
+            # the result is cached (the same object is returned on subsequent calls)
+            self.true(model.getTypesByPrefix('inet:dns:') is types)
+
+            # a non-matching prefix returns an empty list (and is not cached)
+            self.eq([], model.getTypesByPrefix('nosuchtypeprefix'))
+
+            # adding and removing a type invalidates the cache
+            model.addType('inet:dns:zzztest', 'str', {}, {})
+            self.isin('inet:dns:zzztest', model.getTypesByPrefix('inet:dns:'))
+
+            model.delType('inet:dns:zzztest')
+            self.notin('inet:dns:zzztest', model.getTypesByPrefix('inet:dns:'))
+
     async def test_datamodel_basics(self):
         async with self.getTestCore() as core:
             iface = core.model.ifaces.get('phys:object')

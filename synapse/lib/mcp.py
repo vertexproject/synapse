@@ -875,4 +875,4 @@ class CortexMcp(CellMcp):
 
     @completer(name='model:types')
     async def _completeTypes(self, value, context):
-        return sorted(name for name in self.cell.model.types if name.startswith(value))
+        return self.cell.model.getTypesByPrefix(value)
