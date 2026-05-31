@@ -782,8 +782,8 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
     # --- tools and resources ---
 
-    @tool(name='get_service_info', desc='Return metadata about the service.')
-    async def getCellInfo(self):
+    @tool(desc='Return metadata about the service.')
+    async def get_service_info(self):
         return await self.cell.getCellInfo()
 
     @resource(uri='syn://cellinfo', name='cellinfo', desc='Metadata about the cell.')
@@ -818,20 +818,19 @@ class CortexMcp(CellMcp):
 
         return opts
 
-    @tool(name='storm', desc='Run a Storm query and stream the result messages.', schema=_storm_schema)
+    @tool(desc='Run a Storm query and stream the result messages.', schema=_storm_schema)
     async def storm(self, query, opts=None):
         opts = self._stormOpts(opts)
         async for mesg in self.cell.storm(query, opts=opts):
             yield {'type': mesg[0], 'data': mesg[1]}
 
-    @tool(name='call_storm', desc='Run a Storm query and return the value from its return() statement.',
-          schema=_storm_schema)
-    async def callStorm(self, query, opts=None):
+    @tool(desc='Run a Storm query and return the value from its return() statement.', schema=_storm_schema)
+    async def call_storm(self, query, opts=None):
         opts = self._stormOpts(opts)
         return await self.cell.callStorm(query, opts=opts)
 
-    @tool(name='get_model', desc='Return the Synapse data model definition.')
-    async def getModel(self):
+    @tool(desc='Return the Synapse data model definition.')
+    async def get_model(self):
         return await self.cell.getModelDict()
 
     def _streamItemLevel(self, item):
