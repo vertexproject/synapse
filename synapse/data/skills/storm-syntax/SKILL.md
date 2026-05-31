@@ -48,7 +48,7 @@ Filters keep (`+`) or drop (`-`) nodes already in the pipeline:
 inet:dns:a +:fqdn=vertex.link        // keep where :fqdn equals
 inet:dns:a -:fqdn=vertex.link        // drop where :fqdn equals
 inet:ipv4 +#cno.mal                  // keep tagged nodes
-inet:fqdn +:issuffix=$lib.true
+inet:fqdn +:issuffix=(true)
 inet:ipv4 +($node.value() > 16909060)
 ```
 
@@ -81,7 +81,7 @@ Edits live inside square brackets and create/modify nodes:
 ```storm
 [ inet:fqdn=vertex.link ]                       // create (or make current)
 [ inet:dns:a=(vertex.link, 1.2.3.4) :asof=now ] // create with a property
-inet:fqdn=vertex.link [ :iszone=$lib.true ]     // set a property
+inet:fqdn=vertex.link [ :iszone=(true) ]        // set a property
 [ inet:ipv4=1.2.3.4 +#cno.mal.redtree ]         // add a tag
 inet:ipv4=1.2.3.4 [ -#cno.mal.redtree ]         // remove a tag
 [ media:news=* :title="hello" ]                 // * generates a guid
