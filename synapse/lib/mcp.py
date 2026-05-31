@@ -33,6 +33,7 @@ provides. A method that requires permissions enforces them itself within its bod
 ``logging`` notifications (``notifications/message``) are emitted on the SSE stream and
 filtered by the per-session level set via ``logging/setLevel``.
 '''
+import re
 import base64
 import inspect
 import logging
@@ -61,6 +62,16 @@ LOG_LEVELS = ('debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert'
 # JSON-RPC error code MCP uses for a resource which does not exist.
 RESOURCE_NOT_FOUND = -32002
 
+# The strictest tool/prompt name pattern currently known to be compatible everywhere: it
+# must start with an ASCII letter or underscore (Gemini/Vertex reject other leading chars)
+# and otherwise contain only ASCII letters, digits, and underscores (avoiding the dash, dot,
+# and slash that various clients and function-calling backends reject), max length 64.
+_NAME_REGEX = re.compile(r'^[A-Za-z_][A-Za-z0-9_]{0,63}$')
+
+def _reqValidName(name):
+    if _NAME_REGEX.match(name) is None:
+        raise s_exc.BadArg(mesg=f'MCP name must match {_NAME_REGEX.pattern}: {name}')
+
 def _logEnabled(minlevel, level):
     return LOG_LEVELS.index(level) >= LOG_LEVELS.index(minlevel)
 
@@ -84,8 +95,11 @@ def tool(name=None, desc=None, schema=None):
         if not (inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)):
             raise s_exc.BadArg(mesg=f'mcp tool must be async: {func.__qualname__}')
 
+        toolname = name if name is not None else func.__name__
+        _reqValidName(toolname)
+
         func._mcp_tool = {
-            'name': name if name is not None else func.__name__,
+            'name': toolname,
             'desc': desc,
             'schema': schema,
             'genr': inspect.isasyncgenfunction(func),
@@ -147,8 +161,11 @@ def prompt(name=None, desc=None, arguments=()):
         if not inspect.iscoroutinefunction(func):
             raise s_exc.BadArg(mesg=f'mcp prompt must be async: {func.__qualname__}')
 
+        promptname = name if name is not None else func.__name__
+        _reqValidName(promptname)
+
         func._mcp_prompt = {
-            'name': name if name is not None else func.__name__,
+            'name': promptname,
             'desc': desc,
             'arguments': arguments,
         }
@@ -764,7 +781,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
     # --- tools and resources ---
 
-    @tool(name='getCellInfo', desc='Return metadata about the cell.')
+    @tool(name='get_cell_info', desc='Return metadata about the cell.')
     async def getCellInfo(self):
         return await self.cell.getCellInfo()
 
@@ -806,13 +823,13 @@ class CortexMcp(CellMcp):
         async for mesg in self.cell.storm(query, opts=opts):
             yield {'type': mesg[0], 'data': mesg[1]}
 
-    @tool(name='callStorm', desc='Run a Storm query and return the value from its return() statement.',
+    @tool(name='call_storm', desc='Run a Storm query and return the value from its return() statement.',
           schema=_storm_schema)
     async def callStorm(self, query, opts=None):
         opts = self._stormOpts(opts)
         return await self.cell.callStorm(query, opts=opts)
 
-    @tool(name='getModel', desc='Return the Synapse data model definition.')
+    @tool(name='get_model', desc='Return the Synapse data model definition.')
     async def getModel(self):
         return await self.cell.getModelDict()
 
@@ -851,7 +868,7 @@ class CortexMcp(CellMcp):
 
     # --- prompts ---
 
-    @prompt(name='storm-query', desc='Draft a Storm query.',
+    @prompt(name='storm_query', desc='Draft a Storm query.',
             arguments=[{'name': 'form', 'description': 'A form to focus the query on.',
                         'required': False, 'complete': 'model:forms'},
                        {'name': 'typename', 'description': 'A model type to reference.',

@@ -285,16 +285,16 @@ class McpTest(s_tests.SynTest):
 
                 sid, _ = await self._handshake(sess, url)
 
-                # tools/list exposes the inherited getCellInfo tool with an inputSchema
+                # tools/list exposes the inherited get_cell_info tool with an inputSchema
                 status, data = await self._rpc(sess, url, sid, 'tools/list')
                 names = [t['name'] for t in data['result']['tools']]
-                self.isin('getCellInfo', names)
+                self.isin('get_cell_info', names)
                 self.isin('addone', names)
-                cellinfo = [t for t in data['result']['tools'] if t['name'] == 'getCellInfo'][0]
+                cellinfo = [t for t in data['result']['tools'] if t['name'] == 'get_cell_info'][0]
                 self.nn(cellinfo.get('inputSchema'))
 
-                # getCellInfo -> content + structuredContent (a dict)
-                status, data = await self._tool(sess, url, sid, 'getCellInfo')
+                # get_cell_info -> content + structuredContent (a dict)
+                status, data = await self._tool(sess, url, sid, 'get_cell_info')
                 result = data['result']
                 self.false(result.get('isError'))
                 self.isin('cell', result.get('structuredContent'))
@@ -377,15 +377,15 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._rpc(sess, url, sid, 'tools/list')
                 names = [t['name'] for t in data['result']['tools']]
                 self.isin('storm', names)
-                self.isin('callStorm', names)
-                self.isin('getModel', names)
+                self.isin('call_storm', names)
+                self.isin('get_model', names)
 
-                # callStorm returns a value
-                status, data = await self._tool(sess, url, sid, 'callStorm', {'query': 'return((1+2))'})
+                # call_storm returns a value
+                status, data = await self._tool(sess, url, sid, 'call_storm', {'query': 'return((1+2))'})
                 self.eq('3', data['result']['content'][0]['text'])
 
-                # getModel returns the model dict
-                status, data = await self._tool(sess, url, sid, 'getModel')
+                # get_model returns the model dict
+                status, data = await self._tool(sess, url, sid, 'get_model')
                 self.isin('types', data['result']['structuredContent'])
 
                 # storm tool, no SSE -> collected messages include a node
@@ -416,10 +416,10 @@ class McpTest(s_tests.SynTest):
 
                 # Cortex prompt (with and without the optional args)
                 status, data = await self._rpc(sess, url, sid, 'prompts/get',
-                                               params={'name': 'storm-query',
+                                               params={'name': 'storm_query',
                                                        'arguments': {'form': 'inet:ipv4', 'typename': 'inet:ipv4'}})
                 self.isin('inet:ipv4', data['result']['messages'][0]['content']['text'])
-                status, data = await self._rpc(sess, url, sid, 'prompts/get', params={'name': 'storm-query'})
+                status, data = await self._rpc(sess, url, sid, 'prompts/get', params={'name': 'storm_query'})
                 self.len(1, data['result']['messages'])
 
                 # Cortex completers
@@ -429,14 +429,14 @@ class McpTest(s_tests.SynTest):
                 self.isin('inet:ipv4', data['result']['completion']['values'])
 
                 status, data = await self._rpc(sess, url, sid, 'completion/complete',
-                                               params={'ref': {'type': 'ref/prompt', 'name': 'storm-query'},
+                                               params={'ref': {'type': 'ref/prompt', 'name': 'storm_query'},
                                                        'argument': {'name': 'typename', 'value': 'inet:ipv'}})
                 self.isin('inet:ipv4', data['result']['completion']['values'])
 
             # a non-admin cannot impersonate another user via opts
             async with self.getHttpSess(auth=('lowuser', 'low'), port=port) as sess:
                 sid, _ = await self._handshake(sess, url)
-                status, data = await self._tool(sess, url, sid, 'callStorm',
+                status, data = await self._tool(sess, url, sid, 'call_storm',
                                                 {'query': 'return((1))', 'opts': {'user': root.iden}})
                 self.true(data['result'].get('isError'))
                 self.isin('impersonate', data['result']['content'][0]['text'])
@@ -462,6 +462,27 @@ class McpTest(s_tests.SynTest):
             @s_mcp.completer(name='x')
             def synccompleter(self, value, context):
                 return []
+
+    async def test_mcp_name_validation(self):
+        # tool and prompt names must match the strict, broadly-compatible pattern
+        for badname in ('bad-name', 'bad.name', 'tools/call', '1leading', 'has space'):
+
+            with self.raises(s_exc.BadArg):
+                @s_mcp.tool(name=badname)
+                async def badtool(self):
+                    return None
+
+            with self.raises(s_exc.BadArg):
+                @s_mcp.prompt(name=badname)
+                async def badprompt(self):
+                    return 'x'
+
+        # a valid snake_case name is accepted
+        @s_mcp.tool(name='ok_name')
+        async def oktool(self):
+            return None
+
+        self.eq('ok_name', oktool._mcp_tool['name'])
 
     async def test_mcp_registry_caching(self):
         # the get*Info registries are built once and cached on the class
