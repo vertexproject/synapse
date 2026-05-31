@@ -541,6 +541,7 @@ class McpTest(s_tests.SynTest):
                 caps = result['capabilities']
                 for name in ('tools', 'logging', 'resources', 'prompts', 'completions'):
                     self.isin(name, caps)
+                self.isin('Storm', result.get('instructions'))
 
         # A bare CellMcp has a tool + a resource, but no prompts/completers
         async with self.getTestCell(BareMcpCell) as cell:

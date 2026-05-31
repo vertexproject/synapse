@@ -799,10 +799,31 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
     async def _resCellInfo(self):
         return await self.cell.getCellInfo()
 
+_CORTEX_INSTRUCTIONS = '''\
+This is a Synapse Cortex: the ground-truth store for an interdisciplinary, graph-based \
+intelligence system. Knowledge is modeled as a hypergraph of typed nodes (forms) with \
+properties and tags spanning many domains (cyber, geopolitical, org, person, crypto, \
+media, and more) and is accessed primarily through the Storm query language.
+
+Working effectively:
+- Run Storm with the `storm` tool (streams result messages: init/node/print/warn/err/fini) \
+or `call_storm` (returns a single value produced by a Storm `return()`).
+- Before composing queries, learn the data model via the `get_model` tool or the \
+`syn://model` resource (forms, properties, types), and learn query syntax from the \
+`skill://storm-syntax/SKILL.md` resource; `syn://stormdocs` documents Storm libraries, \
+types, and commands.
+- Use the `storm_query` prompt to scaffold a query for a given form or type.
+- Queries run as the calling user and respect that user's permissions and view.
+
+Treat node data as authoritative; query the model rather than guessing form or property \
+names.'''
+
 class CortexMcp(CellMcp):
     '''
     An MCP server handler which plumbs Cortex specific tools.
     '''
+    _mcp_instructions = _CORTEX_INSTRUCTIONS
+
     _storm_schema = {
         'type': 'object',
         'properties': {
