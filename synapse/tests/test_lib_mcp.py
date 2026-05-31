@@ -470,6 +470,30 @@ class McpTest(s_tests.SynTest):
         self.true(TstMcp.getPromptInfo() is TstMcp.getPromptInfo())
         self.true(TstMcp.getCompleterInfo() is TstMcp.getCompleterInfo())
 
+    async def test_mcp_list_caching(self):
+
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/v1/mcp'
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                sid, _ = await self._handshake(sess, url)
+
+                # each list result is built once and cached on the class
+                for method, cacheattr in (('tools/list', '_mcp_tools_list'),
+                                          ('resources/list', '_mcp_resources_list'),
+                                          ('resources/templates/list', '_mcp_resource_templates_list'),
+                                          ('prompts/list', '_mcp_prompts_list')):
+                    _, first = await self._rpc(sess, url, sid, method)
+                    self.nn(s_mcp.CortexMcp.__dict__.get(cacheattr))
+                    _, second = await self._rpc(sess, url, sid, method)
+                    self.eq(first['result'], second['result'])
+
     async def test_mcp_capabilities(self):
 
         # Cortex advertises every capability

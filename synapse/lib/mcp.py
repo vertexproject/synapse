@@ -413,50 +413,65 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
     @s_jsrpc.method(name='tools/list')
     async def _toolsList(self, cursor=None):
-        tools = []
-        for name, entry in sorted(self.getToolInfo().items()):
-            info = entry.get('info')
-            tools.append({
-                'name': name,
-                'description': info.get('desc'),
-                'inputSchema': info.get('schema'),
-            })
+        cls = type(self)
+        result = cls.__dict__.get('_mcp_tools_list')
+        if result is None:
+            tools = []
+            for name, entry in sorted(self.getToolInfo().items()):
+                info = entry.get('info')
+                tools.append({
+                    'name': name,
+                    'description': info.get('desc'),
+                    'inputSchema': info.get('schema'),
+                })
+            result = {'tools': tools}
+            cls._mcp_tools_list = result
 
-        return {'tools': tools}
+        return result
 
     # --- resources ---
 
     @s_jsrpc.method(name='resources/list')
     async def _resourcesList(self, cursor=None):
-        resources = []
-        for uri, entry in sorted(self.getResourceInfo().items()):
-            info = entry.get('info')
-            if info.get('template'):
-                continue
-            resources.append({
-                'uri': uri,
-                'name': info.get('name'),
-                'description': info.get('desc'),
-                'mimeType': info.get('mimeType'),
-            })
+        cls = type(self)
+        result = cls.__dict__.get('_mcp_resources_list')
+        if result is None:
+            resources = []
+            for uri, entry in sorted(self.getResourceInfo().items()):
+                info = entry.get('info')
+                if info.get('template'):
+                    continue
+                resources.append({
+                    'uri': uri,
+                    'name': info.get('name'),
+                    'description': info.get('desc'),
+                    'mimeType': info.get('mimeType'),
+                })
+            result = {'resources': resources}
+            cls._mcp_resources_list = result
 
-        return {'resources': resources}
+        return result
 
     @s_jsrpc.method(name='resources/templates/list')
     async def _resourcesTemplatesList(self, cursor=None):
-        templates = []
-        for uri, entry in sorted(self.getResourceInfo().items()):
-            info = entry.get('info')
-            if not info.get('template'):
-                continue
-            templates.append({
-                'uriTemplate': uri,
-                'name': info.get('name'),
-                'description': info.get('desc'),
-                'mimeType': info.get('mimeType'),
-            })
+        cls = type(self)
+        result = cls.__dict__.get('_mcp_resource_templates_list')
+        if result is None:
+            templates = []
+            for uri, entry in sorted(self.getResourceInfo().items()):
+                info = entry.get('info')
+                if not info.get('template'):
+                    continue
+                templates.append({
+                    'uriTemplate': uri,
+                    'name': info.get('name'),
+                    'description': info.get('desc'),
+                    'mimeType': info.get('mimeType'),
+                })
+            result = {'resourceTemplates': templates}
+            cls._mcp_resource_templates_list = result
 
-        return {'resourceTemplates': templates}
+        return result
 
     @s_jsrpc.method(name='resources/read')
     async def _resourcesRead(self, uri=None):
@@ -519,14 +534,19 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
     @s_jsrpc.method(name='prompts/list')
     async def _promptsList(self, cursor=None):
-        prompts = []
-        for name, entry in sorted(self.getPromptInfo().items()):
-            info = entry.get('info')
-            arguments = [{'name': a.get('name'), 'description': a.get('description'),
-                          'required': a.get('required', False)} for a in info.get('arguments')]
-            prompts.append({'name': name, 'description': info.get('desc'), 'arguments': arguments})
+        cls = type(self)
+        result = cls.__dict__.get('_mcp_prompts_list')
+        if result is None:
+            prompts = []
+            for name, entry in sorted(self.getPromptInfo().items()):
+                info = entry.get('info')
+                arguments = [{'name': a.get('name'), 'description': a.get('description'),
+                              'required': a.get('required', False)} for a in info.get('arguments')]
+                prompts.append({'name': name, 'description': info.get('desc'), 'arguments': arguments})
+            result = {'prompts': prompts}
+            cls._mcp_prompts_list = result
 
-        return {'prompts': prompts}
+        return result
 
     @s_jsrpc.method(name='prompts/get')
     async def _promptsGet(self, name=None, arguments=None):
