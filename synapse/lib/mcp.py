@@ -21,7 +21,6 @@ argument **completions** (``@s_mcp.completer``). Server **logging** is supported
 ``logging/setLevel`` and ``notifications/message`` emitted on the SSE stream.
 '''
 import base64
-import asyncio
 import inspect
 import logging
 from http import HTTPStatus
@@ -716,9 +715,6 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
                                          'params': {'level': level, 'data': item}})
 
             result = self._toolResult(items, stream=True)
-
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
 
         except Exception as e:
             result = self._toolError(e)

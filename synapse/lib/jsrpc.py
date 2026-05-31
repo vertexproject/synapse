@@ -23,7 +23,6 @@ Server-Sent Events when the request carries an ``Accept: text/event-stream`` hea
 The calling user is placed into the task local scope for the duration of dispatch, so a
 method may recover it via ``s_scope.get('user')`` (in addition to the handler APIs).
 '''
-import asyncio
 import inspect
 import logging
 from http import HTTPStatus
@@ -249,9 +248,6 @@ class JsonRpcHandler(s_httpapi.Handler):
                 return ('resp', None)
             return ('resp', self._errResp(reqid, e))
 
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
-
         except Exception as e:
             logger.exception(f'jsonrpc method error: {name}')
             if not hasid:
@@ -343,9 +339,6 @@ class JsonRpcHandler(s_httpapi.Handler):
                 await self._sendSse(mesg)
 
             resp = {'jsonrpc': '2.0', 'id': reqid, 'result': None}
-
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
 
         except Exception as e:
             logger.exception('jsonrpc stream error')
