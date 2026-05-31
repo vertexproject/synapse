@@ -1,24 +1,37 @@
 '''
 MCP (Model Context Protocol) server handlers for Synapse cells.
 
-MCP is JSON-RPC 2.0 over a Streamable HTTP transport with a fixed method vocabulary
-(``initialize``, ``notifications/initialized``, ``tools/list``, ``tools/call``) where the
-actual tools are nested under ``tools/call``. This module builds on the generic
-``synapse.lib.jsrpc.JsonRpcHandler``.
+MCP is JSON-RPC 2.0 over a Streamable HTTP transport. This module builds on the generic
+``synapse.lib.jsrpc.JsonRpcHandler`` to implement the MCP server methods: the lifecycle
+(``initialize``, ``notifications/initialized``, ``ping``), ``tools/list`` and
+``tools/call``, ``resources/list`` / ``resources/templates/list`` / ``resources/read``,
+``prompts/list`` / ``prompts/get``, ``completion/complete``, and ``logging/setLevel``.
 
-``CellMcp`` provides the MCP transport, session lifecycle, and tool dispatch and may be
-mounted on any cell. ``CortexMcp`` extends it to plumb Cortex specific tools. A cell opts
+``CellMcp`` provides the MCP transport (POST for messages, GET returns 405, DELETE ends a
+session), the session lifecycle, and dispatch, and may be mounted on any cell. ``CortexMcp``
+extends it to plumb Cortex specific tools, resources, prompts, and completers. A cell opts
 in to MCP by setting the ``_mcp_ctor`` class attribute, which the base Cell mounts at
 ``/api/v1/mcp`` during HTTP API initialization.
 
-Tools are declared with the ``@s_mcp.tool`` decorator and dispatched only via
-``tools/call``. Async generator tools stream their results to the caller as Server-Sent
-Events when the request carries an ``Accept: text/event-stream`` header.
+Sessions are stateful and bound to the authenticating user: ``initialize`` issues an
+``Mcp-Session-Id`` (returned as a response header and required on subsequent requests),
+held in memory with an idle timeout. Every request is authenticated via the inherited
+handler auth, which additionally accepts an ``Authorization: Bearer <token>`` API key.
 
-In addition to tools, handlers may expose **resources** (``@s_mcp.resource``, readable
-URI-addressed content), **prompts** (``@s_mcp.prompt``, user-selectable templates), and
-argument **completions** (``@s_mcp.completer``). Server **logging** is supported via
-``logging/setLevel`` and ``notifications/message`` emitted on the SSE stream.
+Server features are exposed via opt-in decorators, each requiring an async method:
+
+* ``@s_mcp.tool`` - a callable tool. Async generator tools stream their results as
+  Server-Sent Events when the request carries an ``Accept: text/event-stream`` header.
+* ``@s_mcp.resource`` - readable URI-addressed content; a URI with ``{var}`` segments is a
+  template whose captured segments are passed to the method as keyword arguments.
+* ``@s_mcp.prompt`` - a user-selectable prompt template.
+* ``@s_mcp.completer`` - a named argument completer for prompt arguments and resource
+  template variables.
+
+Capabilities are advertised dynamically based on which registries a handler class actually
+provides. A method that requires permissions enforces them itself within its body. Server
+``logging`` notifications (``notifications/message``) are emitted on the SSE stream and
+filtered by the per-session level set via ``logging/setLevel``.
 '''
 import base64
 import inspect
