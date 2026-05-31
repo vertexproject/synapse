@@ -80,19 +80,21 @@ class JsonRpcHandler(s_httpapi.Handler):
     Subclass this and implement methods decorated with ``@s_jsrpc.method``.
     '''
     @classmethod
-    def getMethInfo(cls):
+    def getMethodInfo(cls):
         '''
         Introspect the handler class and return its JSON-RPC method registry.
 
         Returns:
-            dict: A mapping of JSON-RPC method name to ``{'attr': attrname, 'info': info,
-            'validator': validator}`` where validator is a compiled params validator or None.
+            dict: A JSON compatible mapping of JSON-RPC method name to
+            ``{'attr': attrname, 'info': info}``. The compiled params validators are stored
+            separately (see getValidators) so this registry remains JSON serializable.
         '''
         meths = cls.__dict__.get('_syn_jsrpc_meths')
         if meths is not None:
             return meths
 
         meths = {}
+        validators = {}
         for attrname in dir(cls):
 
             attr = getattr(cls, attrname, None)
@@ -103,14 +105,22 @@ class JsonRpcHandler(s_httpapi.Handler):
             if info is None:
                 continue
 
-            validator = None
-            if info.get('params') is not None:
-                validator = s_config.getJsValidator(info.get('params'))
+            meths[info.get('name')] = {'attr': attrname, 'info': info}
 
-            meths[info.get('name')] = {'attr': attrname, 'info': info, 'validator': validator}
+            if info.get('params') is not None:
+                validators[info.get('name')] = s_config.getJsValidator(info.get('params'))
 
         cls._syn_jsrpc_meths = meths
+        cls._syn_jsrpc_validators = validators
         return meths
+
+    @classmethod
+    def getValidators(cls):
+        '''
+        Return the compiled params validators keyed by JSON-RPC method name.
+        '''
+        cls.getMethodInfo()
+        return cls.__dict__['_syn_jsrpc_validators']
 
     @classmethod
     def getMethodDefs(cls):
@@ -120,7 +130,7 @@ class JsonRpcHandler(s_httpapi.Handler):
         This is intended for building higher level introspection or discovery APIs without
         coupling this module to any particular protocol.
         '''
-        meths = cls.getMethInfo()
+        meths = cls.getMethodInfo()
 
         retn = []
         for name in sorted(meths):
@@ -212,7 +222,7 @@ class JsonRpcHandler(s_httpapi.Handler):
         params = req.get('params')
 
         try:
-            entry = self.getMethInfo().get(name)
+            entry = self.getMethodInfo().get(name)
             if entry is None:
                 raise s_exc.JsonRpcError.init(METHOD_NOT_FOUND, f'Method not found: {name}')
 
@@ -224,7 +234,7 @@ class JsonRpcHandler(s_httpapi.Handler):
             except TypeError as e:
                 raise s_exc.JsonRpcError.init(INVALID_PARAMS, f'Invalid params: {e}')
 
-            validator = entry.get('validator')
+            validator = self.getValidators().get(name)
             if validator is not None:
                 try:
                     validator(params)

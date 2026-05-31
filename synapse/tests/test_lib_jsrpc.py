@@ -95,18 +95,19 @@ class JsRpcTest(s_tests.SynTest):
         self.true(FakeRpcHandler.counter._jsrpc_method.get('genr'))
         self.eq('add.numbers', FakeRpcHandler.addNumbers._jsrpc_method.get('name'))
 
-        # getMethInfo only exposes decorated methods and caches on the class
-        meths = FakeRpcHandler.getMethInfo()
+        # getMethodInfo only exposes decorated methods and caches on the class
+        meths = FakeRpcHandler.getMethodInfo()
         self.isin('echo', meths)
         self.isin('add.numbers', meths)
         self.notin('undecorated', meths)
         self.notin('_private', meths)
         self.eq('addNumbers', meths.get('add.numbers').get('attr'))
-        self.true(FakeRpcHandler.getMethInfo() is meths)
+        self.true(FakeRpcHandler.getMethodInfo() is meths)
 
-        # greet has a compiled params validator
-        self.nn(meths.get('greet').get('validator'))
-        self.none(meths.get('echo').get('validator'))
+        # the registry is JSON compatible; validators are stored separately
+        self.nn(s_json.dumps(meths))
+        self.nn(FakeRpcHandler.getValidators().get('greet'))
+        self.none(FakeRpcHandler.getValidators().get('echo'))
 
         descr = FakeRpcHandler.getMethodDefs()
         names = [d.get('name') for d in descr]

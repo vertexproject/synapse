@@ -205,7 +205,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
     @classmethod
     def _mcpRegistry(cls, marker, cachekey, keyattr):
         # Build (and cache on the class) a registry of decorated members. Mirrors the
-        # caching used by getToolInfo / s_jsrpc.getMethInfo.
+        # caching used by getToolInfo / s_jsrpc.getMethodInfo.
         reg = cls.__dict__.get(cachekey)
         if reg is not None:
             return reg
