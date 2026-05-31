@@ -781,7 +781,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
     # --- tools and resources ---
 
-    @tool(name='get_cell_info', desc='Return metadata about the cell.')
+    @tool(name='get_service_info', desc='Return metadata about the service.')
     async def getCellInfo(self):
         return await self.cell.getCellInfo()
 

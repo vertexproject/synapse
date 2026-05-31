@@ -285,16 +285,16 @@ class McpTest(s_tests.SynTest):
 
                 sid, _ = await self._handshake(sess, url)
 
-                # tools/list exposes the inherited get_cell_info tool with an inputSchema
+                # tools/list exposes the inherited get_service_info tool with an inputSchema
                 status, data = await self._rpc(sess, url, sid, 'tools/list')
                 names = [t['name'] for t in data['result']['tools']]
-                self.isin('get_cell_info', names)
+                self.isin('get_service_info', names)
                 self.isin('addone', names)
-                cellinfo = [t for t in data['result']['tools'] if t['name'] == 'get_cell_info'][0]
+                cellinfo = [t for t in data['result']['tools'] if t['name'] == 'get_service_info'][0]
                 self.nn(cellinfo.get('inputSchema'))
 
-                # get_cell_info -> content + structuredContent (a dict)
-                status, data = await self._tool(sess, url, sid, 'get_cell_info')
+                # get_service_info -> content + structuredContent (a dict)
+                status, data = await self._tool(sess, url, sid, 'get_service_info')
                 result = data['result']
                 self.false(result.get('isError'))
                 self.isin('cell', result.get('structuredContent'))
