@@ -95,26 +95,22 @@ class JsRpcTest(s_tests.SynTest):
         self.true(FakeRpcHandler.counter._jsrpc_method.get('genr'))
         self.eq('add.numbers', FakeRpcHandler.addNumbers._jsrpc_method.get('name'))
 
-        # getMethodInfo only exposes decorated methods and caches on the class
-        meths = FakeRpcHandler.getMethodInfo()
+        # loadMethodDefs only exposes decorated methods and caches on the class
+        meths = FakeRpcHandler.loadMethodDefs()
         self.isin('echo', meths)
         self.isin('add.numbers', meths)
         self.notin('undecorated', meths)
         self.notin('_private', meths)
         self.eq('addNumbers', meths.get('add.numbers').get('attr'))
-        self.true(FakeRpcHandler.getMethodInfo() is meths)
+        self.true(FakeRpcHandler.loadMethodDefs() is meths)
+
+        # the method def carries its schemas for higher level introspection
+        self.eq('string', meths['greet']['info']['returns']['type'])
 
         # the registry is JSON compatible; validators are stored separately
         self.nn(s_json.dumps(meths))
         self.nn(FakeRpcHandler.getValidators().get('greet'))
         self.none(FakeRpcHandler.getValidators().get('echo'))
-
-        descr = FakeRpcHandler.getMethodDefs()
-        names = [d.get('name') for d in descr]
-        self.eq(names, sorted(names))
-        self.isin('greet', names)
-        greet = [d for d in descr if d.get('name') == 'greet'][0]
-        self.eq('string', greet.get('returns').get('type'))
 
         # a non-async method is rejected at registration
         with self.raises(s_exc.BadArg):

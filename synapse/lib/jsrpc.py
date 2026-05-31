@@ -80,14 +80,16 @@ class JsonRpcHandler(s_httpapi.Handler):
     Subclass this and implement methods decorated with ``@s_jsrpc.method``.
     '''
     @classmethod
-    def getMethodInfo(cls):
+    def loadMethodDefs(cls):
         '''
         Introspect the handler class and return its JSON-RPC method registry.
 
         Returns:
-            dict: A JSON compatible mapping of JSON-RPC method name to
-            ``{'attr': attrname, 'info': info}``. The compiled params validators are stored
-            separately (see getValidators) so this registry remains JSON serializable.
+            dict: A JSON compatible mapping of JSON-RPC method name to ``{'attr': attrname,
+            'info': info}`` where info is the method definition (name, desc, params,
+            returns, genr). The registry is cached on the class; the compiled params
+            validators are stored separately (see getValidators) so it remains JSON
+            serializable and suitable for higher level introspection or discovery APIs.
         '''
         meths = cls.__dict__.get('_syn_jsrpc_meths')
         if meths is not None:
@@ -119,30 +121,8 @@ class JsonRpcHandler(s_httpapi.Handler):
         '''
         Return the compiled params validators keyed by JSON-RPC method name.
         '''
-        cls.getMethodInfo()
+        cls.loadMethodDefs()
         return cls.__dict__['_syn_jsrpc_validators']
-
-    @classmethod
-    def getMethodDefs(cls):
-        '''
-        Return a JSON safe listing of the methods exposed by the handler class.
-
-        This is intended for building higher level introspection or discovery APIs without
-        coupling this module to any particular protocol.
-        '''
-        meths = cls.getMethodInfo()
-
-        retn = []
-        for name in sorted(meths):
-            info = meths.get(name).get('info')
-            retn.append({
-                'name': name,
-                'desc': info.get('desc'),
-                'params': info.get('params'),
-                'returns': info.get('returns'),
-            })
-
-        return retn
 
     async def post(self):
 
@@ -222,7 +202,7 @@ class JsonRpcHandler(s_httpapi.Handler):
         params = req.get('params')
 
         try:
-            entry = self.getMethodInfo().get(name)
+            entry = self.loadMethodDefs().get(name)
             if entry is None:
                 raise s_exc.JsonRpcError.init(METHOD_NOT_FOUND, f'Method not found: {name}')
 
