@@ -241,12 +241,14 @@ class JsonRpcHandler(s_httpapi.Handler):
         except s_exc.JsonRpcError as e:
             if not hasid:
                 return ('resp', None)
+
             return ('resp', self._errResp(reqid, e))
 
         except Exception as e:
             logger.exception(f'jsonrpc method error: {name}')
             if not hasid:
                 return ('resp', None)
+
             return ('resp', self._internalErrResp(reqid, e))
 
         if not hasid:

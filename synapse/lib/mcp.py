@@ -404,10 +404,13 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         # Advertise only the capabilities this handler class actually provides.
         caps = {'tools': {'listChanged': False}, 'logging': {}}
+
         if self.getMcpResources():
             caps['resources'] = {}
+
         if self.getMcpPrompts():
             caps['prompts'] = {'listChanged': False}
+
         if self.getMcpCompleters():
             caps['completions'] = {}
 
@@ -454,6 +457,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
                 info = entry.get('info')
                 if info.get('template'):
                     continue
+
                 resources.append({
                     'uri': uri,
                     'name': info.get('name'),
@@ -475,6 +479,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
                 info = entry.get('info')
                 if not info.get('template'):
                     continue
+
                 templates.append({
                     'uriTemplate': uri,
                     'name': info.get('name'),
@@ -513,6 +518,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         for tmpl, entry in resources.items():
             if not entry.get('info').get('template'):
                 continue
+
             kwargs = self._matchTemplate(tmpl, uri)
             if kwargs is not None:
                 return (entry, kwargs)
@@ -620,6 +626,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             entry = self.getMcpPrompts().get(ref.get('name'))
             if entry is None:
                 return None
+
             for arg in entry.get('info').get('arguments'):
                 if arg.get('name') == argname:
                     return arg.get('complete')
@@ -629,6 +636,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             entry = self.getMcpResources().get(ref.get('uri'))
             if entry is None:
                 return None
+
             return entry.get('info').get('completers').get(argname)
 
         return None
@@ -816,8 +824,10 @@ class CortexMcp(CellMcp):
         # Map Storm message types to MCP log levels for streamed storm() output.
         if isinstance(item, dict):
             mtype = item.get('type')
+
             if mtype == 'warn':
                 return 'warning'
+
             if mtype == 'err':
                 return 'error'
 
@@ -841,6 +851,7 @@ class CortexMcp(CellMcp):
         if form is None:
             raise s_exc.JsonRpcError.init(RESOURCE_NOT_FOUND, f'No such form: {name}',
                                           data={'uri': f'syn://model/form/{name}'})
+
         return form
 
     # --- prompts ---
@@ -852,10 +863,13 @@ class CortexMcp(CellMcp):
                         'required': False, 'complete': 'model:types'}])
     async def _promptStormQuery(self, form=None, typename=None):
         text = 'Write a Storm query'
+
         if form:
             text += f' that lifts and operates on {form} nodes'
+
         if typename:
             text += f' involving the {typename} type'
+
         text += '. Consult the syn://model resource for the available data model.'
         return text
 
