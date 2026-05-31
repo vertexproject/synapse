@@ -404,7 +404,6 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         # Advertise only the capabilities this handler class actually provides.
         caps = {'tools': {'listChanged': False}, 'logging': {}}
-
         if self.getMcpResources():
             caps['resources'] = {}
 
@@ -824,7 +823,6 @@ class CortexMcp(CellMcp):
         # Map Storm message types to MCP log levels for streamed storm() output.
         if isinstance(item, dict):
             mtype = item.get('type')
-
             if mtype == 'warn':
                 return 'warning'
 
@@ -863,7 +861,6 @@ class CortexMcp(CellMcp):
                         'required': False, 'complete': 'model:types'}])
     async def _promptStormQuery(self, form=None, typename=None):
         text = 'Write a Storm query'
-
         if form:
             text += f' that lifts and operates on {form} nodes'
 
