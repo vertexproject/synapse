@@ -414,6 +414,16 @@ class McpTest(s_tests.SynTest):
                                                params={'uri': 'syn://model/form/nosuchform'})
                 self.eq(s_mcp.RESOURCE_NOT_FOUND, data['error']['code'])
 
+                # the storm-syntax skill is served from disk as a markdown resource
+                status, data = await self._rpc(sess, url, sid, 'resources/list')
+                self.isin('skill://storm-syntax/SKILL.md', [r['uri'] for r in data['result']['resources']])
+
+                status, data = await self._rpc(sess, url, sid, 'resources/read',
+                                               params={'uri': 'skill://storm-syntax/SKILL.md'})
+                content = data['result']['contents'][0]
+                self.eq('text/markdown', content['mimeType'])
+                self.isin('# Storm Syntax', content['text'])
+
                 # Cortex prompt (with and without the optional args)
                 status, data = await self._rpc(sess, url, sid, 'prompts/get',
                                                params={'name': 'storm_query',

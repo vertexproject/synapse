@@ -40,6 +40,7 @@ import logging
 from http import HTTPStatus
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.json as s_json
@@ -854,6 +855,12 @@ class CortexMcp(CellMcp):
     @resource(uri='syn://stormdocs', name='stormdocs', desc='Storm library, type, and command documentation.')
     async def _resStormDocs(self):
         return await self.cell.getStormDocs()
+
+    @resource(uri='skill://storm-syntax/SKILL.md', name='storm-syntax',
+              desc='A skill describing the Storm query language syntax.', mimeType='text/markdown')
+    async def _resStormSyntaxSkill(self):
+        with open(s_data.path('skills', 'storm-syntax', 'SKILL.md')) as fd:
+            return fd.read()
 
     @resource(uri='syn://model/form/{name}', name='form', desc='A single data model form definition.',
               completers={'name': 'model:forms'})
