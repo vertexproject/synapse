@@ -200,6 +200,10 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
     SUPPORTED_VERSIONS = SUPPORTED_VERSIONS
     SESSION_TIMEOUT = SESSION_TIMEOUT
 
+    # Subclasses may set this to a server-wide instructions string returned in the MCP
+    # initialize response. If None, no instructions field is included.
+    _mcp_instructions = None
+
     @classmethod
     def getMcpTools(cls):
         '''
@@ -428,7 +432,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         if self.getMcpCompleters():
             caps['completions'] = {}
 
-        return {
+        result = {
             'protocolVersion': vers,
             'capabilities': caps,
             'serverInfo': {
@@ -436,6 +440,11 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
                 'version': self.cell.VERSTRING,
             },
         }
+
+        if self._mcp_instructions is not None:
+            result['instructions'] = self._mcp_instructions
+
+        return result
 
     @s_jsrpc.method(name='ping')
     async def _ping(self):

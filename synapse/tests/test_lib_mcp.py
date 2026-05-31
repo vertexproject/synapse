@@ -13,6 +13,8 @@ class TstMcp(s_mcp.CellMcp):
     '''
     A CellMcp subclass with extra tools to exercise the tool dispatch paths.
     '''
+    _mcp_instructions = 'Test MCP instructions.'
+
     @s_mcp.tool(name='boom', desc='Raise a non-SynErr.')
     async def boom(self):
         raise ValueError('kaboom')
@@ -156,6 +158,7 @@ class McpTest(s_tests.SynTest):
                 self.eq(s_mcp.PROTOCOL_VERSION, result.get('protocolVersion'))
                 self.isin('tools', result.get('capabilities'))
                 self.true(result.get('serverInfo').get('name').startswith('synapse-'))
+                self.eq('Test MCP instructions.', result.get('instructions'))
 
                 # ping works (before-init guard does not block ping)
                 status, data = await self._rpc(sess, url, sid, 'ping')
@@ -552,6 +555,8 @@ class McpTest(s_tests.SynTest):
                 self.isin('logging', caps)
                 self.notin('prompts', caps)
                 self.notin('completions', caps)
+                # no instructions are declared on the base CellMcp
+                self.notin('instructions', result)
 
     async def test_mcp_resources(self):
 
