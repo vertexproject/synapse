@@ -812,7 +812,7 @@ or `call_storm` (returns a single value produced by a Storm `return()`).
 `syn://model` resource (forms, properties, types), and learn query syntax from the \
 `skill://storm-syntax/SKILL.md` resource; `syn://stormdocs` documents Storm libraries, \
 types, and commands.
-- Use the `storm_query` prompt to scaffold a query for a given form or type.
+- Check a query with the `storm_validate` tool before running it.
 - Queries run as the calling user and respect that user's permissions and view.
 
 Treat node data as authoritative; query the model rather than guessing form or property \
@@ -963,30 +963,8 @@ class CortexMcp(CellMcp):
 
         return form
 
-    # --- prompts ---
-
-    @prompt(name='storm_query', desc='Draft a Storm query.',
-            arguments=[{'name': 'form', 'description': 'A form to focus the query on.',
-                        'required': False, 'complete': 'model:forms'},
-                       {'name': 'typename', 'description': 'A model type to reference.',
-                        'required': False, 'complete': 'model:types'}])
-    async def _promptStormQuery(self, form=None, typename=None):
-        text = 'Write a Storm query'
-        if form:
-            text += f' that lifts and operates on {form} nodes'
-
-        if typename:
-            text += f' involving the {typename} type'
-
-        text += '. Consult the syn://model resource for the available data model.'
-        return text
-
     # --- completers ---
 
     @completer(name='model:forms')
     async def _completeForms(self, value, context):
         return self.cell.model.getFormsByPrefix(value)
-
-    @completer(name='model:types')
-    async def _completeTypes(self, value, context):
-        return self.cell.model.getTypesByPrefix(value)

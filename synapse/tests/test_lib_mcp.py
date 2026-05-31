@@ -500,23 +500,10 @@ class McpTest(s_tests.SynTest):
                 self.eq('text/markdown', content['mimeType'])
                 self.isin('# Storm Syntax', content['text'])
 
-                # Cortex prompt (with and without the optional args)
-                status, data = await self._rpc(sess, url, sid, 'prompts/get',
-                                               params={'name': 'storm_query',
-                                                       'arguments': {'form': 'inet:ipv4', 'typename': 'inet:ipv4'}})
-                self.isin('inet:ipv4', data['result']['messages'][0]['content']['text'])
-                status, data = await self._rpc(sess, url, sid, 'prompts/get', params={'name': 'storm_query'})
-                self.len(1, data['result']['messages'])
-
-                # Cortex completers
+                # Cortex completer (model:forms via the form resource template)
                 status, data = await self._rpc(sess, url, sid, 'completion/complete',
                                                params={'ref': {'type': 'ref/resource', 'uri': 'syn://model/form/{name}'},
                                                        'argument': {'name': 'name', 'value': 'inet:ipv'}})
-                self.isin('inet:ipv4', data['result']['completion']['values'])
-
-                status, data = await self._rpc(sess, url, sid, 'completion/complete',
-                                               params={'ref': {'type': 'ref/prompt', 'name': 'storm_query'},
-                                                       'argument': {'name': 'typename', 'value': 'inet:ipv'}})
                 self.isin('inet:ipv4', data['result']['completion']['values'])
 
             # a non-admin cannot impersonate another user via opts
@@ -603,7 +590,7 @@ class McpTest(s_tests.SynTest):
 
     async def test_mcp_capabilities(self):
 
-        # Cortex advertises every capability
+        # Cortex advertises tools/logging/resources/completions (no prompts)
         async with self.getTestCore() as core:
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
             url = f'https://localhost:{port}/api/v1/mcp'
@@ -612,8 +599,10 @@ class McpTest(s_tests.SynTest):
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
                 _, result = await self._handshake(sess, url)
                 caps = result['capabilities']
-                for name in ('tools', 'logging', 'resources', 'prompts', 'completions'):
+                for name in ('tools', 'logging', 'resources', 'completions'):
                     self.isin(name, caps)
+                # CortexMcp exposes no prompts
+                self.notin('prompts', caps)
                 self.isin('Storm', result.get('instructions'))
 
         # A bare CellMcp has a tool + a resource, but no prompts/completers
