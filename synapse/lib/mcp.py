@@ -195,34 +195,22 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         return tools
 
     @classmethod
-    def _mcpRegistry(cls, marker, cachekey, keyattr):
-        # Build (and cache on the class) a registry of decorated members. Mirrors the
-        # caching used by getToolInfo / s_jsrpc.loadMethodDefs.
-        reg = cls.__dict__.get(cachekey)
-        if reg is not None:
-            return reg
-
-        reg = {}
-        for attrname, info in cls._getMarkedMethods(marker):
-            reg[info.get(keyattr)] = {'attr': attrname, 'info': info}
-
-        setattr(cls, cachekey, reg)
-        return reg
-
-    @classmethod
     def getResourceInfo(cls):
         '''Return the MCP resource registry, keyed by URI.'''
-        return cls._mcpRegistry('_mcp_resource', '_mcp_resources', 'uri')
+        return {info.get('uri'): {'attr': attrname, 'info': info}
+                for attrname, info in cls._getMarkedMethods('_mcp_resource')}
 
     @classmethod
     def getPromptInfo(cls):
         '''Return the MCP prompt registry, keyed by name.'''
-        return cls._mcpRegistry('_mcp_prompt', '_mcp_prompts', 'name')
+        return {info.get('name'): {'attr': attrname, 'info': info}
+                for attrname, info in cls._getMarkedMethods('_mcp_prompt')}
 
     @classmethod
     def getCompleterInfo(cls):
         '''Return the argument completer registry, keyed by name.'''
-        return cls._mcpRegistry('_mcp_completer', '_mcp_completers', 'name')
+        return {info.get('name'): {'attr': attrname, 'info': info}
+                for attrname, info in cls._getMarkedMethods('_mcp_completer')}
 
     async def handleBasicAuth(self):
         # In addition to the inherited Basic auth, accept an Authorization: Bearer <token>
