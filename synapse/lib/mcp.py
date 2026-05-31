@@ -834,6 +834,15 @@ class CortexMcp(CellMcp):
         'additionalProperties': False,
     }
 
+    _storm_validate_schema = {
+        'type': 'object',
+        'properties': {
+            'query': {'type': 'string', 'description': 'The Storm query to validate.'},
+        },
+        'required': ['query'],
+        'additionalProperties': False,
+    }
+
     def _stormOpts(self, opts):
         user = s_scope.get('user')
 
@@ -858,6 +867,15 @@ class CortexMcp(CellMcp):
     async def call_storm(self, query, opts=None):
         opts = self._stormOpts(opts)
         return await self.cell.callStorm(query, opts=opts)
+
+    @tool(desc='Validate the syntax of a Storm query without executing it.', schema=_storm_validate_schema)
+    async def storm_validate(self, query):
+        valid, info = await self.cell.isValidStorm(query)
+        if valid:
+            return {'valid': True}
+
+        errname, errinfo = info
+        return {'valid': False, 'err': errname, 'mesg': errinfo.get('mesg')}
 
     @tool(desc='Return the Synapse data model definition.')
     async def get_model(self):

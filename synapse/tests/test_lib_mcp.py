@@ -382,10 +382,19 @@ class McpTest(s_tests.SynTest):
                 self.isin('storm', names)
                 self.isin('call_storm', names)
                 self.isin('get_model', names)
+                self.isin('storm_validate', names)
 
                 # call_storm returns a value
                 status, data = await self._tool(sess, url, sid, 'call_storm', {'query': 'return((1+2))'})
                 self.eq('3', data['result']['content'][0]['text'])
+
+                # storm_validate parses without executing
+                status, data = await self._tool(sess, url, sid, 'storm_validate', {'query': 'inet:ipv4=1.2.3.4'})
+                self.true(data['result']['structuredContent']['valid'])
+
+                status, data = await self._tool(sess, url, sid, 'storm_validate', {'query': '[ inet:ipv4=1.2.3.4'})
+                self.false(data['result']['structuredContent']['valid'])
+                self.nn(data['result']['structuredContent'].get('mesg'))
 
                 # get_model returns the model dict
                 status, data = await self._tool(sess, url, sid, 'get_model')
