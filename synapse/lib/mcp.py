@@ -183,15 +183,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             return tools
 
         tools = {}
-        for attrname in dir(cls):
-
-            attr = getattr(cls, attrname, None)
-            if not callable(attr):
-                continue
-
-            info = getattr(attr, '_mcp_tool', None)
-            if info is None:
-                continue
+        for attrname, info in cls._getMarkedMethods('_mcp_tool'):
 
             validator = None
             if info.get('schema') is not None:
@@ -203,14 +195,9 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         return tools
 
     @classmethod
-    def _mcpRegistry(cls, marker, cachekey, keyattr):
-        # Build (and cache on the class) a registry of decorated members. Mirrors the
-        # caching used by getToolInfo / s_jsrpc.loadMethodDefs.
-        reg = cls.__dict__.get(cachekey)
-        if reg is not None:
-            return reg
-
-        reg = {}
+    def _getMarkedMethods(cls, marker):
+        # Return a list of (attrname, info) for callable members carrying the given marker.
+        retn = []
         for attrname in dir(cls):
 
             attr = getattr(cls, attrname, None)
@@ -221,6 +208,20 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             if info is None:
                 continue
 
+            retn.append((attrname, info))
+
+        return retn
+
+    @classmethod
+    def _mcpRegistry(cls, marker, cachekey, keyattr):
+        # Build (and cache on the class) a registry of decorated members. Mirrors the
+        # caching used by getToolInfo / s_jsrpc.loadMethodDefs.
+        reg = cls.__dict__.get(cachekey)
+        if reg is not None:
+            return reg
+
+        reg = {}
+        for attrname, info in cls._getMarkedMethods(marker):
             reg[info.get(keyattr)] = {'attr': attrname, 'info': info}
 
         setattr(cls, cachekey, reg)
