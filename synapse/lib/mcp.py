@@ -968,3 +968,9 @@ class CortexMcp(CellMcp):
     @completer(name='model:forms')
     async def _completeForms(self, value, context):
         return self.cell.model.getFormsByPrefix(value)
+
+    # Kept as an example completer; not yet referenced by a prompt argument or resource
+    # template variable, but ready to wire up.
+    @completer(name='model:types')
+    async def _completeTypes(self, value, context):
+        return self.cell.model.getTypesByPrefix(value)

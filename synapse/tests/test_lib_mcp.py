@@ -360,6 +360,19 @@ class McpTest(s_tests.SynTest):
                 self.eq(1, mesgs[0]['params']['data'])
                 self.true(mesgs[-1]['result'].get('isError'))
 
+    async def test_mcp_example_completer(self):
+
+        # model:types is registered as an example completer (not yet wired to a ref)
+        self.isin('model:types', s_mcp.CortexMcp.getMcpCompleters())
+
+        async with self.getTestCore() as core:
+
+            class _stub:
+                cell = core
+
+            vals = await s_mcp.CortexMcp._completeTypes(_stub(), 'inet:ipv', {})
+            self.isin('inet:ipv4', vals)
+
     async def test_mcp_cortex_views(self):
 
         async with self.getTestCore() as core:
