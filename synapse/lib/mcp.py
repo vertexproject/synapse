@@ -334,19 +334,16 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         sid = self.request.headers.get('Mcp-Session-Id')
         if sid is not None:
-            self._sessions().pop(sid, None)
+            self.cell._mcp_sessions.pop(sid, None)
 
         self.set_status(HTTPStatus.OK)
 
     # --- session management ---
-
-    def _sessions(self):
-        # The session store is created by Cell._initCellHttpApis when the MCP endpoint
-        # is mounted (whenever _mcp_ctor is set).
-        return self.cell._mcp_sessions
+    # The session store (self.cell._mcp_sessions) is created by Cell._initCellHttpApis
+    # when the MCP endpoint is mounted (whenever _mcp_ctor is set).
 
     def _getSession(self, sid):
-        sessions = self._sessions()
+        sessions = self.cell._mcp_sessions
         session = sessions.get(sid)
         if session is None:
             return None
@@ -384,7 +381,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         if resp.get('result') is not None:
             sid = s_common.guid()
-            self._sessions()[sid] = {
+            self.cell._mcp_sessions[sid] = {
                 'iden': sid,
                 'user': user.iden,
                 'version': resp['result'].get('protocolVersion'),
