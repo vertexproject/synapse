@@ -62,16 +62,11 @@ def en(node):
     # Recurse into children
     kids = [en(kid) for kid in node.kids]
 
-    # Build per-node metadata
+    # Build per-node metadata. Subclasses with non-trivial attribute encoding
+    # (e.g., Const unwrapping Number to its inner Decimal) override dehydrate().
     meta = {}
 
-    # Collect non-default attributes into meta (defined via _bin_attrs on AST classes)
-    attrdict = {}
-    for attrname, key, default in cls._bin_attrs:
-        val = getattr(node, attrname, default)
-        if val != default:
-            attrdict[key] = val
-
+    attrdict = node.dehydrate()
     if attrdict:
         meta['a'] = attrdict
 

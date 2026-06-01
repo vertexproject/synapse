@@ -103,6 +103,24 @@ class AstNode(metaclass=AstRegistry):
         '''
         pass
 
+    def dehydrate(self):
+        '''
+        Return the {key: value} dict to serialize for this node. The
+        default emits each _bin_attrs entry whose live value differs
+        from its declared default. Subclasses override to transform
+        values before msgpack encoding.
+        '''
+        attrdict = {}
+
+        for attrname, key, default in self._bin_attrs:
+
+            val = getattr(self, attrname, default)
+
+            if val != default:
+                attrdict[key] = val
+
+        return attrdict
+
     def getPosInfo(self):
         return {
             'hash': s_common.queryhash(self.astinfo.text),
@@ -4116,6 +4134,22 @@ class Const(Value):
         Value.__init__(self, astinfo, kids=kids)
         self.isconst = True
         self.valu = valu
+
+    def hydrate(self):
+        # dehydrate() unwraps Number to its inner Decimal so msgpack can
+        # encode it; on load the Decimal comes back via ext code 2, so we
+        # rewrap it here to match the parser's Number-typed valu.
+        if isinstance(self.valu, decimal.Decimal):
+            self.valu = s_stormtypes.Number(self.valu)
+
+    def dehydrate(self):
+        attrdict = super().dehydrate()
+
+        valu = attrdict.get('v')
+        if isinstance(valu, s_stormtypes.Number):
+            attrdict['v'] = valu.valu
+
+        return attrdict
 
     def repr(self):
         return f'{self.__class__.__name__}: {self.valu}'
