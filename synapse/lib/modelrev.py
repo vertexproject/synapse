@@ -2476,6 +2476,16 @@ class ModelMigration_0_2_37(ModelMigrationBase):
 
                     formvalu = formvalu[0]
 
+                    # The affected codepoints are all non-ascii, which the previous idna
+                    # stored as "xn--" punycode a-labels; a value without one can not have
+                    # drifted, so skip the expensive decode/re-encode for plaintext fqdns.
+                    # NOTE: this is an in-scan filter rather than an indexed lift because
+                    # fqdns are indexed reversed (StorTypeFqdn) for suffix/zone scans, and
+                    # an a-label may appear in any label (e.g. foo.xn--bar.com) not just the
+                    # leading one.
+                    if 'xn--' not in str(formvalu):
+                        continue
+
                     try:
                         newvalu, _ = form.type.norm(self._correctValu(form.type, formvalu))
                     except s_exc.BadTypeValu:  # pragma: no cover

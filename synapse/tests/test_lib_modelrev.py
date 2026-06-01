@@ -2139,6 +2139,10 @@ class ModelRevTest(s_tests.SynTest):
                 # an ascii fqdn that must be left untouched
                 self.len(1, await core.nodes('[ inet:fqdn=vertex.link +#keep ]'))
 
+                # a legitimate (non-drifting) IDN a-label: it passes the xn-- prefilter
+                # but re-normalizes to itself, so it must also be left untouched
+                self.len(1, await core.nodes('[ inet:fqdn=xn--tst-6la.link +#keep ]'))
+
                 # the drifting fqdn with a tag, nodedata, and N1/N2 edges
                 nodes = await core.nodes(f'[ inet:fqdn={drift} +#test.foo ]')
                 self.len(1, nodes)
@@ -2199,8 +2203,9 @@ class ModelRevTest(s_tests.SynTest):
                 self.len(0, await core.nodes(f'inet:download:fqdn={drift}'))
                 self.len(1, await core.nodes(f'inet:download:fqdn={fixed}'))
 
-                # the ascii fqdn was left untouched
+                # the ascii fqdn and the non-drifting IDN were left untouched
                 self.len(1, await core.nodes('inet:fqdn=vertex.link +#keep'))
+                self.len(1, await core.nodes('inet:fqdn=xn--tst-6la.link +#keep'))
 
         # a cortex with no drifting fqdn nodes exercises the empty early-return
         with self.getTestDir() as dirn:
