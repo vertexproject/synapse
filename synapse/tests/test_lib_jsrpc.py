@@ -310,6 +310,11 @@ class JsRpcTest(s_tests.SynTest):
                 retn = await self._call(sess, url, {'jsonrpc': '2.0', 'id': 1, 'method': 'counter', 'params': [3]})
                 self.eq([0, 1, 2], retn.get('result'))
 
+                # a non-streaming generator result that exceeds the cap is an error
+                toobig = s_jsrpc.MAX_RESULT_ITEMS + 1
+                retn = await self._call(sess, url, {'jsonrpc': '2.0', 'id': 9, 'method': 'counter', 'params': [toobig]})
+                self.eq(s_jsrpc.RESULT_TOO_LARGE, retn.get('error').get('code'))
+
                 # generator as a notification is drained and produces no response
                 status, body = await self._post(sess, url, item={'jsonrpc': '2.0', 'method': 'counter', 'params': [3]})
                 self.eq(status, http.HTTPStatus.NO_CONTENT)

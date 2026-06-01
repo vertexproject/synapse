@@ -42,6 +42,14 @@ METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 INTERNAL_ERROR = -32603
 
+# Server-defined error returned when a non-streaming caller invokes a generator method
+# whose result set exceeds MAX_RESULT_ITEMS.
+RESULT_TOO_LARGE = -32000
+
+# Maximum number of items collected for a generator method when the caller is not
+# streaming; beyond this the caller must use SSE (Accept: text/event-stream).
+MAX_RESULT_ITEMS = 10000
+
 def method(name=None, desc=None, params=None, returns=None):
     '''
     Decorate a method to expose it as a remotely callable JSON-RPC method.
@@ -227,7 +235,16 @@ class JsonRpcHandler(s_httpapi.Handler):
                 if hasid and allow_stream and self._wantsStream():
                     return ('stream', reqid, agen)
 
-                result = [item async for item in agen]
+                # Without streaming we must buffer the whole result; cap it so a large
+                # generator result set cannot exhaust memory.
+                result = []
+                async for item in agen:
+                    if len(result) >= MAX_RESULT_ITEMS:
+                        await agen.aclose()
+                        raise s_exc.JsonRpcError.init(RESULT_TOO_LARGE,
+                            'Result set too large; retry with SSE streaming (Accept: text/event-stream).')
+
+                    result.append(item)
 
             else:
                 result = await meth(*args, **kwargs)
