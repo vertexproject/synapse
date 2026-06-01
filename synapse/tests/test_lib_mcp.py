@@ -112,11 +112,14 @@ class McpTest(s_tests.SynTest):
         body = {'jsonrpc': '2.0', 'id': _id, 'method': method}
         if params is not None:
             body['params'] = params
+
         hdrs = {}
         if sid is not None:
             hdrs['Mcp-Session-Id'] = sid
+
         if headers:
             hdrs.update(headers)
+
         async with sess.post(url, json=body, headers=hdrs) as resp:
             return resp.status, await resp.json()
 
@@ -124,12 +127,14 @@ class McpTest(s_tests.SynTest):
         params = {'name': name}
         if arguments is not None:
             params['arguments'] = arguments
+
         return await self._rpc(sess, url, sid, 'tools/call', params=params, _id=_id)
 
     async def _toolSse(self, sess, url, sid, name, arguments=None):
         params = {'name': name}
         if arguments is not None:
             params['arguments'] = arguments
+
         body = {'jsonrpc': '2.0', 'id': 7, 'method': 'tools/call', 'params': params}
         hdrs = {'Mcp-Session-Id': sid, 'Accept': 'text/event-stream'}
         async with sess.post(url, json=body, headers=hdrs) as resp:
@@ -764,6 +769,7 @@ class McpTest(s_tests.SynTest):
                     params = {'ref': ref, 'argument': argument}
                     if context is not None:
                         params['context'] = context
+
                     _, data = await self._rpc(sess, url, sid, 'completion/complete', params=params)
                     return data['result']['completion']
 

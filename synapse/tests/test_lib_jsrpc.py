@@ -70,8 +70,10 @@ class JsRpcTest(s_tests.SynTest):
         kwargs = {}
         if item is not None:
             kwargs['json'] = item
+
         if data is not None:
             kwargs['data'] = data
+
         if headers is not None:
             kwargs['headers'] = headers
 

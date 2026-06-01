@@ -679,6 +679,7 @@ class Model:
         if types:
             types.sort()
             self.typeprefixcache[prefix] = types
+
         return types
 
     def reqProp(self, name, extra=None):
