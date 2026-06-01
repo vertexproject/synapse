@@ -16,7 +16,7 @@ in to MCP by setting the ``_mcp_ctor`` class attribute, which the base Cell moun
 Sessions are stateful and bound to the authenticating user: ``initialize`` issues an
 ``Mcp-Session-Id`` (returned as a response header and required on subsequent requests),
 held in memory with an idle timeout. Every request is authenticated via the inherited
-handler auth, which additionally accepts an ``Authorization: Bearer <token>`` API key.
+handler auth (session cookie, HTTP Basic, or an ``X-API-KEY`` header).
 
 Server features are exposed via opt-in decorators, each requiring an async method:
 
@@ -260,27 +260,6 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             cls._mcp_completers = completers
 
         return completers
-
-    async def handleBasicAuth(self):
-        # In addition to the inherited Basic auth, accept an Authorization: Bearer <token>
-        # header by treating the token as a Synapse user API key (MCP client convention).
-        auth = self.request.headers.get('Authorization')
-        if auth is not None and auth.startswith('Bearer '):
-
-            _, key = auth.split(None, 1)
-
-            authcell = self.getAuthCell()
-            isok, info = await authcell.checkUserApiKey(key)
-            if not isok:
-                self.logAuthIssue(mesg=info.get('mesg'))
-                return None
-
-            udef = info.get('udef')
-            self.web_useriden = udef.get('iden')
-            self.web_username = udef.get('name')
-            return self.web_useriden
-
-        return await s_jsrpc.JsonRpcHandler.handleBasicAuth(self)
 
     # --- transport ---
 

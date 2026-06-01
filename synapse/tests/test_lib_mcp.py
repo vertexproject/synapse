@@ -257,7 +257,7 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._rpc(s2, url, sid, 'tools/list')
                 self.eq(status, http.HTTPStatus.NOT_FOUND)
 
-    async def test_mcp_bearer_auth(self):
+    async def test_mcp_apikey_auth(self):
 
         async with self.getTestCell(TstMcpCell) as cell:
 
@@ -267,15 +267,15 @@ class McpTest(s_tests.SynTest):
             root = await cell.auth.getUserByName('root')
             apikey, kdef = await cell.addUserApiKey(root.iden, 'mcp')
 
-            # no cookie/basic auth - authenticate purely via Authorization: Bearer
+            # no cookie/basic auth - authenticate purely via the X-API-KEY header
             async with self.getHttpSess() as sess:
-                status, sid, data = await self._initOnly(sess, url, headers={'Authorization': f'Bearer {apikey}'})
+                status, sid, data = await self._initOnly(sess, url, headers={'X-API-KEY': apikey})
                 self.eq(status, http.HTTPStatus.OK)
                 self.nn(sid)
 
-                # a bad bearer token is rejected
+                # a bad api key is rejected
                 async with sess.post(url, json=self._initBody(),
-                                     headers={'Authorization': 'Bearer notavalidkey'}) as resp:
+                                     headers={'X-API-KEY': 'notavalidkey'}) as resp:
                     self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
 
     async def test_mcp_tools(self):
