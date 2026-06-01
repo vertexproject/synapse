@@ -29,9 +29,8 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.link as s_link
-import synapse.lib.drive as s_drive
+import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
-import synapse.lib.config as s_config
 import synapse.lib.certdir as s_certdir
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
@@ -176,43 +175,6 @@ async def altAuthCtor(cell):
     cell.onfini(auth.fini)
     return auth
 
-testDataSchema_v0 = {
-    'type': 'object',
-    'properties': {
-        'type': {'type': 'string'},
-        'size': {'type': 'number'},
-        'stuff': {'type': ['number', 'null'], 'default': None}
-    },
-    'required': ['type', 'size', 'stuff'],
-    'additionalProperties': False,
-}
-
-testDataSchema_v1 = {
-    'type': 'object',
-    'properties': {
-        'type': {'type': 'string'},
-        'size': {'type': 'number'},
-        'stuff': {'type': ['number', 'null'], 'default': None},
-        'woot': {'type': 'string'},
-        'blorp': {
-            'type': 'object',
-            'properties': {
-                'bleep': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'object',
-                        'properties': {
-                            'neato': {'type': 'string'}
-                        }
-                    }
-                }
-            }
-        }
-    },
-    'required': ['type', 'size', 'woot'],
-    'additionalProperties': False,
-}
-
 class CellTest(s_t_utils.SynTest):
 
     async def test_cell_getLocalUrl(self):
@@ -226,260 +188,6 @@ class CellTest(s_t_utils.SynTest):
 
                 url = cell.getLocalUrl(user='lowuser', share='*/view')
                 self.eq(url, f'cell://lowuser@{dirn}:*/view')
-
-    async def test_cell_drive(self):
-
-        with self.getTestDir() as dirn:
-            async with self.getTestCell(dirn=dirn) as cell:
-
-                with self.raises(s_exc.BadName):
-                    s_drive.reqValidName('A' * 512)
-
-                info = {'name': 'users'}
-                pathinfo = await cell.addDriveItem(info)
-
-                info = {'name': 'root'}
-                pathinfo = await cell.addDriveItem(info, path='users')
-
-                with self.raises(s_exc.DupIden):
-                    await cell.drive.addItemInfo(pathinfo[-1], path='users')
-
-                rootdir = pathinfo[-1].get('iden')
-                self.eq(0, pathinfo[-1].get('kids'))
-
-                info = {'name': 'win32k.sys', 'type': 'hehe'}
-                with self.raises(s_exc.NoSuchType):
-                    info = await cell.addDriveItem(info, reldir=rootdir)
-
-                infos = [i async for i in cell.getDriveKids(s_drive.rootdir)]
-                self.len(1, infos)
-                self.eq(1, infos[0].get('kids'))
-                self.eq('users', infos[0].get('name'))
-
-                # TODO how to handle iden match with additional property mismatch
-
-                self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0))
-                self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
-                self.false(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
-
-                with self.raises(s_exc.BadVersion):
-                    await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0)
-
-                info = {'name': 'win32k.sys', 'type': 'woot', 'perm': {'users': {}}}
-                info = await cell.addDriveItem(info, reldir=rootdir)
-                self.notin('perm', info)
-                self.eq(info[0]['permissions'], {
-                    'users': {},
-                    'roles': {}
-                })
-
-                iden = info[-1].get('iden')
-
-                tick = s_common.now()
-                rootuser = cell.auth.rootuser.iden
-                fooser = await cell.auth.addUser('foo')
-                neatrole = await cell.auth.addRole('neatrole')
-                await fooser.grant(neatrole.iden)
-
-                with self.raises(s_exc.SchemaViolation):
-                    versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
-                    await cell.setDriveData(iden, versinfo, {'newp': 'newp'})
-
-                versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
-                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 20, 'stuff': 12})
-                self.eq(info.get('version'), (1, 1, 0))
-                self.eq(versinfo.get('version'), (1, 1, 0))
-
-                versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
-                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0, 'stuff': 13})
-                self.eq(info.get('version'), (1, 1, 0))
-                self.eq(versinfo.get('version'), (1, 0, 0))
-
-                versinfo10, data10 = await cell.getDriveData(iden, vers=(1, 0, 0))
-                self.eq(versinfo10.get('updated'), tick)
-                self.eq(versinfo10.get('updater'), rootuser)
-                self.eq(versinfo10.get('version'), (1, 0, 0))
-
-                versinfo11, data11 = await cell.getDriveData(iden, vers=(1, 1, 0))
-                self.eq(versinfo11.get('updated'), tick + 10)
-                self.eq(versinfo11.get('updater'), rootuser)
-                self.eq(versinfo11.get('version'), (1, 1, 0))
-
-                versions = [vers async for vers in cell.getDriveDataVersions(iden)]
-                self.len(2, versions)
-                self.eq(versions[0], versinfo11)
-                self.eq(versions[1], versinfo10)
-
-                info = await cell.delDriveData(iden, vers=(0, 0, 0))
-
-                versions = [vers async for vers in cell.getDriveDataVersions(iden)]
-                self.len(2, versions)
-                self.eq(versions[0], versinfo11)
-                self.eq(versions[1], versinfo10)
-
-                info = await cell.delDriveData(iden, vers=(1, 1, 0))
-                self.eq(info.get('updated'), tick)
-                self.eq(info.get('version'), (1, 0, 0))
-
-                info = await cell.delDriveData(iden, vers=(1, 0, 0))
-                self.eq(info.get('size'), 0)
-                self.eq(info.get('version'), (0, 0, 0))
-                self.none(info.get('updated'))
-                self.none(info.get('updater'))
-
-                # repopulate a couple data versions to test migration and delete
-                versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
-                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0, 'stuff': 14})
-                versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
-                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17, 'stuff': 15})
-                self.eq(versinfo, (await cell.getDriveData(iden))[0])
-
-                await cell.setDriveItemProp(iden, versinfo, ('stuff',), 1234)
-                data = await cell.getDriveData(iden)
-                self.eq(data[1]['stuff'], 1234)
-
-                # This will be done by the cell in a cell storage version migration...
-                async def migrate_v1(info, versinfo, data):
-                    data['woot'] = 'woot'
-                    return data
-
-                await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
-
-                versinfo['version'] = (1, 1, 1)
-                await cell.setDriveItemProp(iden, versinfo, 'stuff', 3829)
-                data = await cell.getDriveData(iden)
-                self.eq(data[0]['version'], (1, 1, 1))
-                self.eq(data[1]['stuff'], 3829)
-
-                await self.asyncraises(s_exc.NoSuchIden, cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real'))
-
-                await self.asyncraises(s_exc.BadArg, cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'), 'my special string'))
-                data[1]['blorp'] = {
-                    'bleep': [{'neato': 'thing'}]
-                }
-                info, versinfo = await cell.setDriveData(iden, versinfo, data[1])
-                now = s_common.now()
-                versinfo['updated'] = now
-                await cell.setDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'), 'my special string')
-                data = await cell.getDriveData(iden)
-                self.eq(now, data[0]['updated'])
-                self.eq('my special string', data[1]['blorp']['bleep'][0]['neato'])
-
-                versinfo['version'] = (1, 2, 1)
-                await cell.delDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'))
-                vers, data = await cell.getDriveData(iden)
-                self.eq((1, 2, 1), vers['version'])
-                self.nn(data['blorp']['bleep'][0])
-                self.notin('neato', data['blorp']['bleep'][0])
-
-                await self.asyncraises(s_exc.NoSuchIden, cell.delDriveItemProp(s_common.guid(), versinfo, 'blorp'))
-
-                self.none(await cell.delDriveItemProp(iden, versinfo, ('lolnope', 'nopath')))
-
-                versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
-                self.eq('woot', data.get('woot'))
-
-                versinfo, data = await cell.getDriveData(iden, vers=(1, 1, 0))
-                self.eq('woot', data.get('woot'))
-
-                with self.raises(s_exc.NoSuchIden):
-                    await cell.reqDriveInfo('d7d6107b200e2c039540fc627bc5537d')
-
-                with self.raises(s_exc.TypeMismatch):
-                    await cell.getDriveInfo(iden, typename='newp')
-
-                self.nn(await cell.getDriveInfo(iden))
-                self.len(4, [vers async for vers in cell.getDriveDataVersions(iden)])
-
-                await cell.delDriveData(iden)
-                self.len(3, [vers async for vers in cell.getDriveDataVersions(iden)])
-
-                await cell.delDriveInfo(iden)
-
-                self.none(await cell.getDriveInfo(iden))
-                self.len(0, [vers async for vers in cell.getDriveDataVersions(iden)])
-
-                with self.raises(s_exc.NoSuchPath):
-                    await cell.getDrivePath('users/root/win32k.sys')
-
-                pathinfo = await cell.addDrivePath('foo/bar/baz')
-                self.len(3, pathinfo)
-                self.eq('foo', pathinfo[0].get('name'))
-                self.eq(1, pathinfo[0].get('kids'))
-                self.eq('bar', pathinfo[1].get('name'))
-                self.eq(1, pathinfo[1].get('kids'))
-                self.eq('baz', pathinfo[2].get('name'))
-                self.eq(0, pathinfo[2].get('kids'))
-
-                self.eq(pathinfo, await cell.addDrivePath('foo/bar/baz'))
-
-                baziden = pathinfo[2].get('iden')
-                self.eq(pathinfo, await cell.drive.getItemPath(baziden))
-
-                info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: s_cell.PERM_ADMIN}, 'roles': {}})
-                # make sure drive perms work with easy perms
-                self.true(cell._hasEasyPerm(info, cell.auth.rootuser, s_cell.PERM_ADMIN))
-                # defaults to READ
-                self.true(cell._hasEasyPerm(info, fooser, s_cell.PERM_READ))
-                self.false(cell._hasEasyPerm(info, fooser, s_cell.PERM_EDIT))
-
-                with self.raises(s_exc.NoSuchIden):
-                    # s_drive.rootdir is all 00s... ;)
-                    await cell.setDriveInfoPerm(s_drive.rootdir, {'users': {}, 'roles': {}})
-
-                await cell.addDrivePath('hehe/haha')
-                pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
-
-                self.eq('hoho', pathinfo[-1].get('name'))
-                self.eq(baziden, pathinfo[-1].get('iden'))
-
-                self.true(await cell.drive.hasPathInfo('hehe/haha/hoho'))
-                self.false(await cell.drive.hasPathInfo('foo/bar/baz'))
-
-                pathinfo = await cell.getDrivePath('foo/bar')
-                self.eq(0, pathinfo[-1].get('kids'))
-
-                pathinfo = await cell.getDrivePath('hehe/haha')
-                self.eq(1, pathinfo[-1].get('kids'))
-
-                with self.raises(s_exc.DupName):
-                    iden = pathinfo[-2].get('iden')
-                    name = pathinfo[-1].get('name')
-                    cell.drive.reqFreeStep(iden, name)
-
-                walks = [item async for item in cell.drive.walkPathInfo('hehe')]
-                self.len(3, walks)
-                # confirm walked paths are yielded depth first...
-                self.eq('hoho', walks[0].get('name'))
-                self.eq('haha', walks[1].get('name'))
-                self.eq('hehe', walks[2].get('name'))
-
-                iden = walks[2].get('iden')
-                walks = [item async for item in cell.drive.walkItemInfo(iden)]
-                self.len(3, walks)
-                self.eq('hoho', walks[0].get('name'))
-                self.eq('haha', walks[1].get('name'))
-                self.eq('hehe', walks[2].get('name'))
-
-                self.none(cell.drive.getTypeSchema('newp'))
-
-                cell.drive.validators.pop('woot')
-                self.nn(cell.drive.getTypeValidator('woot'))
-
-                # move to root dir
-                pathinfo = await cell.setDriveInfoPath(baziden, 'zipzop')
-                self.len(1, pathinfo)
-                self.eq(s_drive.rootdir, pathinfo[-1].get('parent'))
-
-                pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
-                self.len(3, pathinfo)
-
-            async with self.getTestCell(dirn=dirn) as cell:
-                data = {'type': 'woot', 'size': 20, 'stuff': 12, 'woot': 'woot'}
-                # explicitly clear out the cache JsValidators, otherwise we get the cached, pre-msgpack
-                # version of the validator, which will be correct and skip the point of this test.
-                s_config._JsValidators.clear()
-                cell.drive.reqValidData('woot', data)
 
     async def test_cell_auth(self):
 
@@ -716,44 +424,6 @@ class CellTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NeedConfValu):
                     await echo.reqAhaProxy()
 
-    async def test_cell_drive_perm_migration(self):
-        async with self.getRegrCore('drive-perm-migr') as core:
-            item = await core.getDrivePath('driveitemdefaultperms')
-            self.len(1, item)
-            self.notin('perm', item)
-            self.eq(item[0]['permissions'], {'users': {}, 'roles': {}})
-
-            ldog = await core.auth.getRoleByName('littledog')
-            bdog = await core.auth.getRoleByName('bigdog')
-
-            louis = await core.auth.getUserByName('lewis')
-            tim = await core.auth.getUserByName('tim')
-            mj = await core.auth.getUserByName('mj')
-
-            item = await core.getDrivePath('permfolder/driveitemwithperms')
-            self.len(2, item)
-            self.notin('perm', item[0])
-            self.notin('perm', item[1])
-            self.eq(item[0]['permissions'], {'users': {tim.iden: s_cell.PERM_ADMIN}, 'roles': {}})
-            self.eq(item[1]['permissions'], {
-                'users': {
-                    mj.iden: s_cell.PERM_ADMIN
-                },
-                'roles': {
-                    ldog.iden: s_cell.PERM_READ,
-                    bdog.iden: s_cell.PERM_EDIT,
-                },
-                'default': s_cell.PERM_DENY
-            })
-
-            # make sure it's all good with easy perms
-            self.true(core._hasEasyPerm(item[0], tim, s_cell.PERM_ADMIN))
-            self.false(core._hasEasyPerm(item[0], mj, s_cell.PERM_EDIT))
-
-            self.true(core._hasEasyPerm(item[1], mj, s_cell.PERM_ADMIN))
-            self.true(core._hasEasyPerm(item[1], tim, s_cell.PERM_READ))
-            self.true(core._hasEasyPerm(item[1], louis, s_cell.PERM_EDIT))
-
     async def test_cell_unix_sock(self):
 
         async with self.getTestCore() as core:
@@ -855,7 +525,7 @@ class CellTest(s_t_utils.SynTest):
         # but exercises the long-path failure inside of the cell's daemon
         # instead.
         with self.getTestDir() as dirn:
-            extrapath = 108 * 'A'
+            extrapath = s_const.UNIX_SOCKET_PATH_MAX * 'A'
             longdirn = s_common.genpath(dirn, extrapath)
             with self.getLoggerStream('synapse.lib.cell') as stream:
                 async with self.getTestCell(s_cell.Cell, dirn=longdirn) as cell:
@@ -1489,6 +1159,13 @@ class CellTest(s_t_utils.SynTest):
                     self.none(info['lastupload'])
                     self.none(info['lastexception'])
 
+                    # Verify currduration is a positive ms value while a backup is running
+                    core.backmonostart = time.monotonic() - 5.0
+                    info = await proxy.getBackupInfo()
+                    self.isinstance(info['currduration'], int)
+                    self.ge(info['currduration'], 5000)
+                    core.backmonostart = None
+
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup('../woot')
 
@@ -1678,6 +1355,149 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('faz', cell.conf.get('auth:conf')['baz'])
                 await cell.auth.addUser('visi')
                 await cell._storCellAuthMigration()
+                await cell._storUserEmailIndexMigration()
+
+    async def test_cell_user_email_migration(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+
+                authkv = cell.slab.getSafeKeyVal('auth')
+                userkv = authkv.getSubKeyVal('user:info:')
+                emailkv = authkv.getSubKeyVal('user:email:')
+
+                # Pin idens for the collision pair so alice's record is yielded
+                # by the slab first (lower lex order) and predictably wins.
+                alice = await cell.auth.addUser('alice', iden='aa' + '0' * 30)
+                bob = await cell.auth.addUser('bob', iden='bb' + '0' * 30)
+                charlie = await cell.auth.addUser('charlie')
+                doris = await cell.auth.addUser('doris')
+                eve = await cell.auth.addUser('eve')
+                frank = await cell.auth.addUser('frank')
+
+                ainfo = userkv.get(alice.iden)
+                ainfo['email'] = 'Shared@Example.com'
+                userkv.set(alice.iden, ainfo)
+
+                binfo = userkv.get(bob.iden)
+                binfo['email'] = 'shared@example.com'
+                userkv.set(bob.iden, binfo)
+
+                cinfo = userkv.get(charlie.iden)
+                cinfo['email'] = 'notanemail'
+                userkv.set(charlie.iden, cinfo)
+
+                dinfo = userkv.get(doris.iden)
+                dinfo['email'] = 12345
+                userkv.set(doris.iden, dinfo)
+
+                einfo = userkv.get(eve.iden)
+                einfo['email'] = ' UNIQUE@Example.com '
+                userkv.set(eve.iden, einfo)
+
+                finfo = userkv.get(frank.iden)
+                finfo['email'] = ''
+                userkv.set(frank.iden, finfo)
+
+                for norm in ('shared@example.com', 'unique@example.com'):
+                    emailkv.delete(norm)
+
+                with self.getLoggerStream('synapse.lib.cell') as stream:
+                    await cell._storUserEmailIndexMigration()
+
+                logs = stream.getvalue()
+                self.isin('Building user email index', logs)
+                self.isin('user email index for Cell', logs)
+                self.isin('Duplicate email', logs)
+                self.isin('invalid email', logs)
+
+                cell.auth.clearAuthCache()
+
+                self.eq('shared@example.com', userkv.get(alice.iden).get('email'))
+                self.eq(f'shared+{bob.iden}@example.com', userkv.get(bob.iden).get('email'))
+
+                self.none(userkv.get(charlie.iden).get('email'))
+                self.none(userkv.get(doris.iden).get('email'))
+                self.eq('unique@example.com', userkv.get(eve.iden).get('email'))
+                self.none(userkv.get(frank.iden).get('email'))
+
+                self.eq(alice.iden, await cell.auth.getUserIdenByEmail('shared@example.com'))
+                self.eq(bob.iden,
+                        await cell.auth.getUserIdenByEmail(f'shared+{bob.iden}@example.com'))
+                self.eq(eve.iden, await cell.auth.getUserIdenByEmail('unique@example.com'))
+                self.eq(eve.iden, await cell.auth.getUserIdenByEmail('UNIQUE@EXAMPLE.COM'))
+
+    async def test_cell_user_email_migration_mirror(self):
+
+        with self.getTestDir() as dirn:
+            path00 = s_common.gendir(dirn, 'cell00')
+            path01 = s_common.gendir(dirn, 'cell01')
+
+            with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 198)):
+
+                conf00 = {'dmon:listen': 'tcp://127.0.0.1:0/',
+                          'nexslog:en': True}
+
+                alice_iden = None
+                bob_iden = None
+
+                async with self.getTestCell(s_cell.Cell, dirn=path00, conf=conf00) as cell00:
+                    # Pin idens so alice is yielded by the slab first and predictably
+                    # wins the duplicate-email rewrite.
+                    alice = await cell00.auth.addUser('alice', iden='aa' + '0' * 30)
+                    bob = await cell00.auth.addUser('bob', iden='bb' + '0' * 30)
+                    alice_iden = alice.iden
+                    bob_iden = bob.iden
+
+                # Snapshot the leader for the follower to boot from.
+                s_tools_backup.backup(path00, path01)
+
+                async with self.getTestCell(s_cell.Cell, dirn=path00, conf=conf00) as cell00:
+
+                    conf01 = {'dmon:listen': 'tcp://127.0.0.1:0/',
+                              'mirror': cell00.getLocalUrl(),
+                              'nexslog:en': True}
+
+                    async with self.getTestCell(s_cell.Cell, dirn=path01, conf=conf01) as cell01:
+                        await cell01.sync()
+
+                        self.eq((2, 198), cell00.nexsvers)
+                        self.eq((2, 198), cell01.nexsvers)
+
+                        # Seed an identical duplicate-email state on both slabs to
+                        # simulate legacy data carried from before the uniqueness rule.
+                        # Direct slab writes are not replicated through nexus, so we
+                        # apply the same writes to both cells by hand.
+                        for cell in (cell00, cell01):
+                            userkv = cell.slab.getSafeKeyVal('auth').getSubKeyVal('user:info:')
+                            for iden in (alice_iden, bob_iden):
+                                info = userkv.get(iden)
+                                info['email'] = 'shared@example.com'
+                                userkv.set(iden, info)
+                            cell.auth.clearAuthCache()
+
+                        # Bump the nexus version on the leader; the follower replays.
+                        await cell00.setNexsVers((2, 243))
+                        await cell01.sync()
+
+                        self.eq((2, 243), cell00.nexsvers)
+                        self.eq((2, 243), cell01.nexsvers)
+
+                        # Leader and follower must end up with byte-identical user info
+                        # and email index entries.
+                        for iden in (alice_iden, bob_iden):
+                            i00 = cell00.slab.getSafeKeyVal('auth').getSubKeyVal('user:info:').get(iden)
+                            i01 = cell01.slab.getSafeKeyVal('auth').getSubKeyVal('user:info:').get(iden)
+                            self.eq(i00, i01)
+
+                        e00 = dict(cell00.slab.getSafeKeyVal('auth').getSubKeyVal('user:email:').items())
+                        e01 = dict(cell01.slab.getSafeKeyVal('auth').getSubKeyVal('user:email:').items())
+                        self.eq(e00, e01)
+
+                        # Alice's pinned iden sorts first so she wins the duplicate.
+                        self.eq(alice_iden, e00['shared@example.com'])
+                        self.eq(bob_iden, e00[f'shared+{bob_iden}@example.com'])
 
     async def test_cell_auth_userlimit(self):
         maxusers = 3
@@ -3764,3 +3584,45 @@ class CellTest(s_t_utils.SynTest):
                         break
 
                 await task
+
+    async def test_cell_shutdown_demote_peers_timeout(self):
+
+        async with self.getTestCell() as cell:
+
+            async def boom(*args, **kwargs):
+                raise TimeoutError()
+
+            cell.isactive = True
+            cell.ahaclient = mock.Mock()
+
+            with mock.patch.object(cell, '_getDemotePeers', boom):
+                with self.getLoggerStream('synapse.lib.cell') as stream:
+                    self.false(await cell.shutdown(timeout=5))
+                await stream.expect('timeout reached while finding demote peers')
+
+    async def test_cell_shutdown_budget_exhausted(self):
+
+        async with self.getTestCell() as cell:
+
+            with self.getLoggerStream('synapse.lib.cell') as stream:
+                self.false(await cell.shutdown(timeout=0))
+            await stream.expect('timeout reached before tasks phase')
+
+    async def test_cell_shutdown_drain_plumbed(self):
+
+        async with self.getTestCell() as cell:
+
+            seen = {}
+            orig = cell.boss.shutdown
+
+            async def spy(timeout=None, drain=True):
+                seen['timeout'] = timeout
+                seen['drain'] = drain
+                return await orig(timeout=timeout, drain=drain)
+
+            with mock.patch.object(cell.boss, 'shutdown', spy):
+                self.true(await cell.shutdown(timeout=5, drain=False))
+
+            self.false(seen['drain'])
+            self.lt(seen['timeout'], 5.0)
+            self.gt(seen['timeout'], 0.0)

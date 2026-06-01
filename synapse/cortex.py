@@ -944,7 +944,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.migration = False
         self._migration_lock = asyncio.Lock()
-        self._migration_evnt = asyncio.Event()
+        if __debug__:
+            self._migration_evnt = asyncio.Event()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -978,6 +979,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.jsonstor = None  # type: s_jsonstor.JsonStorApi
         self.axready = asyncio.Event()
         self.axoninfo = {}
+
+        self.nodeeditwindows = set()
 
         self.view = None  # The default/main view
 
@@ -1031,7 +1034,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._initCoreAxon()
         await self._initJsonStor()
 
-        self.nodeeditwindows = set()
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
@@ -1734,6 +1736,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceActive(self):
 
         await self.stormdmons.start()
+        await self.initStormPool()
 
         async def _runMigrations():
             await self.boss.promote('cortex:migration:layers', self.auth.rootuser, background=True, protected=True)
@@ -1741,28 +1744,33 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # Run migrations when this cortex becomes active. This is to prevent
             # migrations getting skipped in a zero-downtime upgrade path
             # (upgrade mirror, promote mirror).
-            await self._checkLayerModels()
+            try:
+                await self._checkLayerModels()
+            finally:
+                if __debug__:
+                    self._migration_evnt.set()
 
-            # Once migrations are complete, start the view and layer tasks.
-            for view in self.views.values():
-                await view.initTrigTask()
-                await view.initMergeTask()
+        if self.safemode:
+            if __debug__:
+                self._migration_evnt.set()
+            return
 
-            for layer in self.layers.values():
-                await layer.initLayerActive()
+        for view in self.views.values():
+            await view.initTrigTask()
+            await view.initMergeTask()
 
-            for pkgdef in list(self.stormpkgs.values()):
-                self._runStormPkgOnload(pkgdef)
+        for layer in self.layers.values():
+            await layer.initLayerActive()
 
-            self._migration_evnt.set()
-
-        await self.initStormPool()
+        for pkgdef in list(self.stormpkgs.values()):
+            self._runStormPkgOnload(pkgdef)
 
         self.runActiveTask(_runMigrations())
 
     async def initServicePassive(self):
 
-        self._migration_evnt.clear()
+        if __debug__:
+            self._migration_evnt.clear()
 
         await self.stormdmons.stop()
 
@@ -3165,8 +3173,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 curvers = -1
 
                 if inits is None:
-                    if await self.getStormPkgVar(name, verskey) is None:
-                        await self.setStormPkgVar(name, verskey, -1)
+                    await self.setStormPkgVar(name, verskey, -1)
 
                 else:
                     if (key := inits.get('key')) is not None:
@@ -3226,9 +3233,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         if not ok:
                             break
 
-                        curvers = max(vers, stored := await self.getStormPkgVar(name, verskey, default=-1))
-                        if curvers != stored:
-                            await self.setStormPkgVar(name, verskey, curvers)
+                        curvers = max(vers, await self.getStormPkgVar(name, verskey, default=-1))
+                        await self.setStormPkgVar(name, verskey, curvers)
                         logger.info(f'{name} finished init vers={vers}: {vname}', extra=logextra)
 
                 if onload is not None:
@@ -3507,13 +3513,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         pkgvars = self._getStormPkgVarKV(name)
         return pkgvars.get(key, defv=default)
 
-    @s_nexus.Pusher.onPushAuto('storm:pkg:var:pop')
     async def popStormPkgVar(self, name, key, default=None):
+        pkgvars = self._getStormPkgVarKV(name)
+        if pkgvars.get(key, defv=s_common.novalu) is s_common.novalu:
+            return default
+
+        return await self._push('storm:pkg:var:pop', name, key, default=default)
+
+    @s_nexus.Pusher.onPush('storm:pkg:var:pop')
+    async def _popStormPkgVar(self, name, key, default=None):
         pkgvars = self._getStormPkgVarKV(name)
         return pkgvars.pop(key, defv=default)
 
-    @s_nexus.Pusher.onPushAuto('storm:pkg:var:set')
     async def setStormPkgVar(self, name, key, valu):
+        pkgvars = self._getStormPkgVarKV(name)
+        if pkgvars.get(key, defv=s_common.novalu) == valu:
+            return
+
+        return await self._push('storm:pkg:var:set', name, key, valu)
+
+    @s_nexus.Pusher.onPush('storm:pkg:var:set')
+    async def _setStormPkgVar(self, name, key, valu):
         pkgvars = self._getStormPkgVarKV(name)
         return pkgvars.set(key, valu)
 
@@ -6832,7 +6852,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if ctor in self.modules:
             raise s_exc.ModAlreadyLoaded(mesg=f'{ctor} already loaded')
         try:
-            modu = s_dyndeps.tryDynFunc(ctor, self, conf=conf)
+            modu = s_dyndeps.reqDynFunc(ctor, self, conf=conf)
             self.modules[ctor] = modu
             return modu
 

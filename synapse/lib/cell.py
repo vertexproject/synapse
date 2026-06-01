@@ -2,6 +2,7 @@ import gc
 import os
 import ssl
 import copy
+import stat
 import time
 import fcntl
 import shutil
@@ -64,7 +65,7 @@ import synapse.tools.service.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
-NEXUS_VERSION = (2, 198)
+NEXUS_VERSION = (2, 243)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -209,8 +210,8 @@ class CellApi(s_base.Base):
         pass
 
     @adminapi(log=True)
-    async def shutdown(self, timeout=None):
-        return await self.cell.shutdown(timeout=timeout)
+    async def shutdown(self, timeout=None, drain=True):
+        return await self.cell.shutdown(timeout=timeout, drain=drain)
 
     @adminapi(log=True)
     async def freeze(self, timeout=30):
@@ -1188,6 +1189,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
+        self.sockdirn = s_common.gendir(dirn, 'sockets')
+
         self.runid = s_common.guid()
 
         self.auth = None
@@ -1214,7 +1217,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'tellready': 1,
             'dynmirror': 1,
             'tasks': 1,
-            'issuewait': 1
+            'issuewait': 1,
+            'shutdowndrain': 1,
         }
 
         self.safemode = self.conf.req('safemode')
@@ -1240,12 +1244,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initCellBoot()
 
         # we need to know this pretty early...
-        self.ahasvcname = None
-        ahaname = self.conf.get('aha:name')
-        ahanetw = self.conf.get('aha:network')
-        if ahaname is not None and ahanetw is not None:
-            self.ahasvcname = f'{ahaname}.{ahanetw}'
-            s_logging.setLogInfo('service', self.ahasvcname)
+        self.ahasvcname = self._getAhaSvcName()
+
+        svcname = self.getSvcName()
+        if svcname is not None:
+            s_logging.setLogInfo('service', svcname)
 
             # Update the processpool configuration as early as possible; before
             # we go through additional boot steps which may trigger pool workers
@@ -1553,15 +1556,96 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning(f'...Cell ({self.getCellType()}) auth migration complete!')
 
+    async def _storUserEmailIndexMigration(self):
+        if self.conf.get('auth:ctor') is not None:
+            return
+
+        logger.warning(f'Building user email index for Cell ({self.getCellType()})')
+
+        authkv = self.slab.getSafeKeyVal('auth')
+        userkv = authkv.getSubKeyVal('user:info:')
+        emailkv = authkv.getSubKeyVal('user:email:')
+
+        seen = {}
+
+        for iden, info in userkv.items():
+            raw = info.get('email')
+            if raw is None:
+                continue
+
+            try:
+                norm = s_auth.normEmail(raw)
+            except s_exc.BadArg:
+                logger.warning(f'User {iden} has invalid email {raw!r}; clearing.')
+                info['email'] = None
+                userkv.set(iden, info)
+                continue
+
+            if norm is None:
+                if info.get('email') is not None:
+                    info['email'] = None
+                    userkv.set(iden, info)
+                continue
+
+            if norm in seen:
+                local, _, domain = norm.partition('@')
+                candidate = f'{local}+{iden}@{domain}'
+                try:
+                    candidate = s_auth.normEmail(candidate)
+                except s_exc.BadArg:  # pragma: no cover
+                    candidate = None
+
+                if candidate is None or candidate in seen:  # pragma: no cover
+                    logger.warning(f'Could not deduplicate email for user {iden}; clearing.')
+                    info['email'] = None
+                    userkv.set(iden, info)
+                    continue
+
+                logger.warning(f'Duplicate email {raw!r} on user {iden}; rewriting to {candidate}.')
+                info['email'] = candidate
+                userkv.set(iden, info)
+                seen[candidate] = iden
+                emailkv.set(candidate, iden)
+                continue
+
+            if info.get('email') != norm:
+                info['email'] = norm
+                userkv.set(iden, info)
+            seen[norm] = iden
+            emailkv.set(norm, iden)
+
+        logger.warning(f'...user email index for Cell ({self.getCellType()}) complete!')
+
     async def _drivePermMigration(self):
-        for lkey, lval in self.slab.scanByPref(s_drive.LKEY_INFO, db=self.drive.dbname):
-            info = s_msgpack.un(lval)
-            perm = info.pop('perm', None)
-            if perm is not None:
-                perm.setdefault('users', {})
-                perm.setdefault('roles', {})
-                info['permissions'] = perm
-                self.slab.put(lkey, s_msgpack.en(info), db=self.drive.dbname)
+        async with await s_drive.Drive.anit(self.slab, 'celldrive') as olddrive:
+            for lkey, lval in self.slab.scanByPref(s_drive.LKEY_INFO, db=olddrive.dbname):
+                info = s_msgpack.un(lval)
+                perm = info.pop('perm', None)
+                if perm is not None:
+                    perm.setdefault('users', {})
+                    perm.setdefault('roles', {})
+                    info['permissions'] = perm
+                    self.slab.put(lkey, s_msgpack.en(info), db=olddrive.dbname)
+
+    async def _driveCellMigration(self):
+        logger.warning('Migrating Drive Slabs')
+
+        async with await s_drive.Drive.anit(self.slab, 'celldrive') as olddrive:
+
+            dbname = olddrive.dbname
+            newpath = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
+
+            if os.path.exists(newpath):
+                shutil.rmtree(newpath)
+
+            async with await s_lmdbslab.Slab.anit(newpath) as newslab:
+                rows = await self.slab.copydb(dbname, newslab, dbname)
+                logger.warning(f"Migrated {rows} rows")
+                newslab.forcecommit()
+
+            self.slab.dropdb(dbname)
+
+        logger.warning('...Drive migration complete!')
 
     def getPermDef(self, perm):
         perm = tuple(perm)
@@ -1609,23 +1693,46 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self._onFiniCellGuid()
         return retn
 
-    async def shutdown(self, timeout=None):
+    async def shutdown(self, timeout=None, drain=True):
         '''
-        Execute a graceful shutdown by allowing any promoted boss tasks to complete
-        and prevents the boss from accepting additional tasks.
+        Execute a graceful shutdown.
+
+        When ``drain`` is True (the default), promoted boss tasks are awaited
+        until they complete. When ``drain`` is False, promoted boss tasks are
+        cancelled and then awaited.
+
+        The ``timeout`` argument bounds the entire operation. Demote and task
+        reaping share the single timeout value; no sub-phase may exceed the
+        time remaining when it starts.
+
+        Returns:
+            bool: True if the shutdown was initiated, False if the timeout was
+            exhausted before completion.
         '''
         extra = self.getLogExtra()
         logger.warning('Graceful shutdown initiated...', extra=extra)
 
+        remaining = s_coro.deadline(timeout)
+
         # if we're the leader, lets see if we can handoff...
         if self.isactive and self.ahaclient is not None:
-            peers = await self._getDemotePeers(timeout=timeout)
+
+            try:
+                peers = await self._getDemotePeers(timeout=remaining())
+            except TimeoutError:
+                logger.warning('...timeout reached while finding demote peers. Aborting shutdown.', extra=extra)
+                return False
+
             if peers:
-                if not await self.demote(peers=peers, timeout=timeout): # pragma: no cover
+                if not await self.demote(peers=peers, timeout=remaining()): # pragma: no cover
                     logger.warning('...we are the leader and failed to demote. Aborting shutdown.', extra=extra)
                     return False
 
-        if not await self.boss.shutdown(timeout=timeout):
+        if timeout is not None and remaining() == 0.0:
+            logger.warning('...timeout reached before tasks phase. Aborting shutdown.', extra=extra)
+            return False
+
+        if not await self.boss.shutdown(timeout=remaining(), drain=drain):
             logger.warning('...tasks did not complete within timeout. Aborting shutdown.', extra=extra)
             return False
 
@@ -1725,22 +1832,34 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         tdir = s_common.gendir(self.dirn, 'tmp')
 
         names = os.listdir(tdir)
-        if not names:
-            return
+        if names:
+            logger.warning(f'Removing {len(names)} temporary files/folders in: {tdir}')
 
-        logger.warning(f'Removing {len(names)} temporary files/folders in: {tdir}')
+            for name in names:
 
-        for name in names:
+                path = os.path.join(tdir, name)
 
-            path = os.path.join(tdir, name)
+                if os.path.isfile(path):
+                    os.unlink(path)
+                    continue
 
-            if os.path.isfile(path):
-                os.unlink(path)
-                continue
+                if os.path.isdir(path):
+                    shutil.rmtree(path, ignore_errors=True)
+                    continue
 
-            if os.path.isdir(path):
-                shutil.rmtree(path, ignore_errors=True)
-                continue
+        names = os.listdir(self.sockdirn)
+        if names:
+            logger.info(f'Removing {len(names)} old sockets in: {self.sockdirn}')
+            for name in names:
+                path = os.path.join(self.sockdirn, name)
+                try:
+                    if stat.S_ISSOCK(os.stat(path).st_mode):
+                        os.unlink(path)
+                except OSError: # pragma: no cover
+                    pass
+
+        shutil.rmtree(self.sockdirn, ignore_errors=True)
+        self.sockdirn = s_common.gendir(self.dirn, 'sockets')
 
     async def _execCellUpdates(self):
         # implement to apply updates to a fully initialized active cell
@@ -1774,6 +1893,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     userkv.set(iden, info)
 
             # Clear the auth caches so the changes get picked up by the already running auth subsystem
+            self.auth.clearAuthCache()
+
+        if self.nexsvers < (2, 243) and newvers >= (2, 243) and self.conf.get('auth:ctor') is None:
+            # Build the unique user email index and rewrite any pre-existing duplicates. Driven
+            # through the nexus log so mirrors apply the same writes at the same offset.
+            await self._storUserEmailIndexMigration()
             self.auth.clearAuthCache()
 
     async def configNexsVers(self):
@@ -1952,10 +2077,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pass
 
     async def initCellStorage(self):
-        self.drive = await s_drive.Drive.anit(self.slab, 'celldrive')
         await self._bumpCellVers('drive:storage', (
             (1, self._drivePermMigration),
+            (2, self._driveCellMigration),
         ), nexs=False)
+
+        path = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
+        sockpath = s_common.genpath(self.sockdirn, 'drive')
+
+        if s_common.envbool('SYNDEV_CELL_DRIVE_NOSPAWN'):
+            self.drive_slab = await self._initSlabFile(path)
+            self.drive = await s_drive.Drive.anit(self.drive_slab, s_drive.CELLDRIVE)
+        else:
+            spawner = s_drive.FileDrive.spawner(base=self, sockpath=sockpath)
+            self.drive = await spawner(path)
 
         self.onfini(self.drive.fini)
 
@@ -1975,7 +2110,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # replay safety...
         iden = info.get('iden')
-        if self.drive.hasItemInfo(iden): # pragma: no cover
+        if await self.drive.hasItemInfo(iden): # pragma: no cover
             return await self.drive.getItemPath(iden)
 
         # TODO: Remove this in synapse-3xx
@@ -1988,10 +2123,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return await self.drive.addItemInfo(info, path=path, reldir=reldir)
 
     async def getDriveInfo(self, iden, typename=None):
-        return self.drive.getItemInfo(iden, typename=typename)
+        return await self.drive.getItemInfo(iden, typename=typename)
 
-    def reqDriveInfo(self, iden, typename=None):
-        return self.drive.reqItemInfo(iden, typename=typename)
+    async def reqDriveInfo(self, iden, typename=None):
+        return await self.drive.reqItemInfo(iden, typename=typename)
 
     async def getDrivePath(self, path, reldir=s_drive.rootdir):
         '''
@@ -2014,15 +2149,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         tick = s_common.now()
         user = self.auth.rootuser.iden
-        path = self.drive.getPathNorm(path)
+        path = await self.drive.getPathNorm(path)
 
         if perm is None:
             perm = {'users': {}, 'roles': {}}
 
         for name in path:
 
-            info = self.drive.getStepInfo(reldir, name)
-            await asyncio.sleep(0)
+            info = await self.drive.getStepInfo(reldir, name)
 
             if info is not None:
                 reldir = info.get('iden')
@@ -2045,7 +2179,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Return the data associated with the drive item by iden.
         If vers is specified, return that specific version.
         '''
-        return self.drive.getItemData(iden, vers=vers)
+        return await self.drive.getItemData(iden, vers=vers)
 
     async def getDriveDataVersions(self, iden):
         async for item in self.drive.getItemDataVersions(iden):
@@ -2053,12 +2187,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPushAuto('drive:del')
     async def delDriveInfo(self, iden):
-        if self.drive.getItemInfo(iden) is not None:
+        if await self.drive.getItemInfo(iden) is not None:
             await self.drive.delItemInfo(iden)
 
     @s_nexus.Pusher.onPushAuto('drive:set:perm')
     async def setDriveInfoPerm(self, iden, perm):
-        return self.drive.setItemPerm(iden, perm)
+        return await self.drive.setItemPerm(iden, perm)
 
     @s_nexus.Pusher.onPushAuto('drive:data:path:set')
     async def setDriveItemProp(self, iden, vers, path, valu):
@@ -2107,9 +2241,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPushAuto('drive:set:path')
     async def setDriveInfoPath(self, iden, path):
 
-        path = self.drive.getPathNorm(path)
+        path = await self.drive.getPathNorm(path)
         pathinfo = await self.drive.getItemPath(iden)
-        if path == [p.get('name') for p in pathinfo]:
+        if [str(p) for p in path] == [p.get('name', '') for p in pathinfo]:
             return pathinfo
 
         return await self.drive.setItemPath(iden, path)
@@ -2120,13 +2254,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def delDriveData(self, iden, vers=None):
         if vers is None:
-            info = self.drive.reqItemInfo(iden)
+            info = await self.drive.reqItemInfo(iden)
             vers = info.get('version')
         return await self._push('drive:data:del', iden, vers)
 
     @s_nexus.Pusher.onPush('drive:data:del')
     async def _delDriveData(self, iden, vers):
-        return self.drive.delItemData(iden, vers)
+        return await self.drive.delItemData(iden, vers)
 
     async def getDriveKids(self, iden):
         async for info in self.drive.getItemKids(iden):
@@ -2224,6 +2358,27 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
         return ahainfo
+
+    def _getAhaSvcName(self):
+        '''
+        Return the AHA service identifier used for the ``ahasvcname``
+        attribute. Returns None when the cell is not configured as
+        an AHA service.
+        '''
+        ahaname = self.conf.get('aha:name')
+        ahanetw = self.conf.get('aha:network')
+        if ahaname is not None and ahanetw is not None:
+            return f'{ahaname}.{ahanetw}'
+
+        return None
+
+    def getSvcName(self):
+        '''
+        Return the name used as the ``service`` key for log entries.
+        Defaults to the AHA service identifier. Returns None when
+        no name is available.
+        '''
+        return self._getAhaSvcName()
 
     async def _initAhaService(self):
 
@@ -2791,7 +2946,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Gets information about recent backup activity
         '''
-        running = int(time.monotonic() - self.backmonostart * 1000) if self.backmonostart else None
+        running = int((time.monotonic() - self.backmonostart) * 1000) if self.backmonostart is not None else None
 
         retn = {
             'currduration': running,
@@ -2828,6 +2983,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             async with self.nexslock:
 
                 logger.debug('Syncing LMDB Slabs')
+
+                await self.drive.sync()
 
                 while True:
                     await s_lmdbslab.Slab.syncLoopOnce()
@@ -3272,16 +3429,53 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if user is not None:
             return user.pack(packroles=True)
 
+    async def getUserIdenByName(self, name):
+        user = await self.auth.getUserByName(name)
+        if user is not None:
+            return user.iden
+
+    async def getUserIdenByEmail(self, email):
+        user = await self.auth.getUserByEmail(email)
+        if user is not None:
+            return user.iden
+
+    async def getUserRoles(self, iden):
+        user = self.auth.user(iden)
+        if user is None:
+            return
+
+        for role in user.getRoles():
+            yield role
+
     async def getRoleDefByName(self, name):
         role = await self.auth.getRoleByName(name)
         if role is not None:
             return role.pack()
 
+    async def getRoleIdenByName(self, name):
+        role = await self.auth.getRoleByName(name)
+        if role is not None:
+            return role.iden
+
     async def getUserDefs(self):
         return [u.pack(packroles=True) for u in self.auth.users()]
 
+    def hasUserIden(self, iden):
+        return self.auth.user(iden) is not None
+
+    async def getUserIdens(self):
+        for useriden in self.auth.useridens():
+            yield useriden
+
     async def getRoleDefs(self):
         return [r.pack() for r in self.auth.roles()]
+
+    def hasRoleIden(self, iden):
+        return self.auth.role(iden) is not None
+
+    async def getRoleIdens(self):
+        for roleiden in self.auth.roleidens():
+            yield roleiden
 
     async def getAuthUsers(self, archived=False):
         return [u.pack() for u in self.auth.users() if archived or not u.info.get('archived')]
@@ -5409,6 +5603,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         try:
 
             logger.warning('...committing pending transactions.')
+
+            await self.drive.sync()
             await self.slab.syncLoopOnce()
 
             logger.warning('...flushing dirty buffers to disk.')

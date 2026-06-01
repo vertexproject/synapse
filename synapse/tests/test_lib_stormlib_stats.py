@@ -114,6 +114,28 @@ chartipv4_byname = '''
  0.0.0.1 | 1 | ##################################################
 '''.strip()
 
+chartpercent = '''
+ 6 | 5 | 33.33% | ##################################################
+13 | 4 | 26.67% | ########################################
+ 3 | 3 | 20.00% | ##############################
+10 | 2 | 13.33% | ####################
+ 0 | 1 |  6.67% | ##########
+'''.strip()
+
+chartpercent_size = '''
+ 6 | 5 | 33.33% | ##################################################
+13 | 4 | 26.67% | ########################################
+ 3 | 3 | 20.00% | ##############################
+'''.strip()
+
+chartpercent_rev_byname = '''
+ 0 | 1 |  6.67% | ##########
+ 3 | 3 | 20.00% | ##############################
+ 6 | 5 | 33.33% | ##################################################
+10 | 2 | 13.33% | ####################
+13 | 4 | 26.67% | ########################################
+'''.strip()
+
 
 class StatsTest(s_test.SynTest):
 
@@ -183,6 +205,15 @@ class StatsTest(s_test.SynTest):
             msgs = await core.stormlist(
                 'inet:ipv4=0.0.0.1 inet:ipv4=0.0.0.2 inet:ipv4=0.0.0.6 inet:ipv4=0.0.0.10 | stats.countby --by-name')
             self.stormIsInPrint(chartipv4_byname, msgs)
+
+            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --percent')
+            self.stormIsInPrint(chartpercent, msgs)
+
+            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --percent --size 3')
+            self.stormIsInPrint(chartpercent_size, msgs)
+
+            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --percent --reverse --by-name')
+            self.stormIsInPrint(chartpercent_rev_byname, msgs)
 
             msgs = await core.stormlist('stats.countby foo')
             self.stormIsInPrint('No values to display!', msgs)

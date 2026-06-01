@@ -6,6 +6,187 @@
 Synapse Changelog
 *****************
 
+v2.244.0 - 2026-05-29
+=====================
+
+Features and Enhancements
+-------------------------
+- Added a ``--size`` option to the ``min`` and ``max`` Storm commands. When
+  specified, the top-N nodes are yielded in sorted order.
+  (`#4953 <https://github.com/vertexproject/synapse/pull/4953>`_)
+- Added a ``--percent`` option to the ``stats.countby`` Storm command to
+  include a percent column in the output.
+  (`#4961 <https://github.com/vertexproject/synapse/pull/4961>`_)
+- Added a ``--no-drain`` argument to the ``synapse.tools.service.shutdown``
+  tool. This argument causes running tasks to be cancelled when the service is
+  shutdown, instead of waiting for them to finish. The tool now has an exit
+  code of ``2`` for unexpected errors, distinguishing them from a graceful
+  shutdown aborted due to timeout (exit code ``1``).
+  (`#4962 <https://github.com/vertexproject/synapse/pull/4962>`_)
+
+Bugfixes
+--------
+- Added a missing admin check to ``$lib.aha.callPeerApi()`` and
+  ``$lib.aha.callPeerGenr()``.
+  (`#4951 <https://github.com/vertexproject/synapse/pull/4951>`_)
+- Updated the ``Aha`` service to set the ``service`` key in its log entries
+  directly since it does not register as an ``Aha`` service.
+  (`#4952 <https://github.com/vertexproject/synapse/pull/4952>`_)
+- Fixed an issue where ``$lib.lift.tagsByPref()`` could raise an exception due
+  to the cursor being closed.
+  (`#4955 <https://github.com/vertexproject/synapse/pull/4955>`_)
+- Fixed a bug in the ``Cell.shutdown()`` API where the ``timeout`` argument was
+  not bounding the total runtime of the API. That timeout argument is now
+  applied across the entire function.
+  (`#4962 <https://github.com/vertexproject/synapse/pull/4962>`_)
+
+v2.243.0 - 2026-05-15
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated existing ``econ:pay:card`` nodes with a ``:pan`` property to also
+  create the corresponding ``econ:pay:pan`` node.
+  (`#4944 <https://github.com/vertexproject/synapse/pull/4944>`_)
+- Added a migration that builds a unique user email index. Pre-existing
+  duplicate emails are rewritten to ``user+<iden>@domain.com`` form, and
+  invalid or empty values are cleared.
+  (`#4946 <https://github.com/vertexproject/synapse/pull/4946>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added the ``econ:pay:pan`` form to represent a Primary Account Number (PAN).
+  The form includes read-only ``:mii`` and ``:iin`` secondary properties
+  automatically populated from the PAN value.
+  (`#4944 <https://github.com/vertexproject/synapse/pull/4944>`_)
+- See :ref:`userguide_model_v2_243_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added the ``$lib.auth.users.byemail()`` Storm function. User emails are now
+  normalized via the ``inet:email`` type and must be unique.
+  (`#4946 <https://github.com/vertexproject/synapse/pull/4946>`_)
+
+Bugfixes
+--------
+- Fixed an issue where Storm package variable operations could generate
+  unnecessary Nexus log entries when no value was actually changed.
+  (`#4943 <https://github.com/vertexproject/synapse/pull/4943>`_)
+
+Notes
+-----
+- Pinned the stix2-validator dependency to less than version 3.3.0 due to a
+  packaging issue in version 3.3.1 that causes all STIX bundle validation to
+  fail.
+  (`#4945 <https://github.com/vertexproject/synapse/pull/4945>`_)
+- Updated the allowed versions of the ``cryptography`` library.
+  (`#4949 <https://github.com/vertexproject/synapse/pull/4949>`_)
+
+v2.242.0 - 2026-05-08
+=====================
+
+Features and Enhancements
+-------------------------
+- Adjusted ``$lib.auth`` Storm APIs to avoid retrieving full user definitions
+  when not necessary.
+  (`#4941 <https://github.com/vertexproject/synapse/pull/4941>`_)
+
+Bugfixes
+--------
+- Fixed an issue in the ``synapse.utils.stormcov`` plugin where AST nodes
+  inside ``$lib.pipe.gen(${...})`` blocks were mapped to incorrect line
+  numbers, causing those lines to never appear as covered.
+  (`#4939 <https://github.com/vertexproject/synapse/pull/4939>`_)
+
+Notes
+-----
+- Updated the allowed versions of the ``cryptography`` and ``xxhash``
+  libraries.
+  (`#4927 <https://github.com/vertexproject/synapse/pull/4927>`_)
+- Updated ``synapse.tools.storm.pkg.doc`` so package docs are now emitted as
+  GitHub flavored markdown.
+  (`#4940 <https://github.com/vertexproject/synapse/pull/4940>`_)
+
+v2.241.0 - 2026-05-01
+=====================
+
+Model Changes
+-------------
+- Marked the ``risk:threat -(uses)> inet:service:app`` edge definition as
+  deprecated, and added the ``risk:threat -(uses)> inet:service:platform`` edge
+  definition to replace it.
+  (`#4930 <https://github.com/vertexproject/synapse/pull/4930>`_)
+  (`#4933 <https://github.com/vertexproject/synapse/pull/4933>`_)
+- See :ref:`userguide_model_v2_241_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added a ``getRawHeaders()`` method to the ``inet:http:resp`` Storm type to
+  allow users to access all values for multi-value HTTP response headers, such
+  as ``Set-Cookie``.
+  (`#4925 <https://github.com/vertexproject/synapse/pull/4925>`_)
+- Cortex view triggers, view merges, layer mirror and upstream sync loops, and
+  Storm package onloads now start concurrently with live model migrations on
+  cortex startup or mirror promotion, so automation is no longer silently
+  disabled while migrations run.
+  (`#4932 <https://github.com/vertexproject/synapse/pull/4932>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the Storm ``cron.add`` command did not support comma-
+  separated minutes in the hourly ``--period`` time specification (e.g.,
+  hourly@:24,45).
+  (`#4926 <https://github.com/vertexproject/synapse/pull/4926>`_)
+
+v2.240.1 - 2026-04-24
+=====================
+
+Bugfixes
+--------
+- Fixed an issue where cancelled Storm tasks could show up in task list
+  output.
+  (`#4915 <https://github.com/vertexproject/synapse/pull/4915>`_)
+- Fixed an issue where scheduling a coroutine on a fini'd Base object could
+  create orphaned asyncio tasks that were never cancelled or awaited.
+  (`#4915 <https://github.com/vertexproject/synapse/pull/4915>`_)
+
+v2.240.0 - 2026-04-21
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated cell drive data into a dedicated slab.
+  (`#4567 <https://github.com/vertexproject/synapse/pull/4567>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added the ``hash:ssdeep`` form and type to allow users to record ssdeep fuzzy
+  hashes as nodes. Added the ``file:bytes:ssdeeps`` array property to allow
+  users to capture one or more ssdeep fuzzy hashes for a given file.
+  (`#4901 <https://github.com/vertexproject/synapse/pull/4901>`_)
+- See :ref:`userguide_model_v2_240_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added a dedicated IO worker for the drive subsystem to offload operations
+  into a separate process.
+  (`#4567 <https://github.com/vertexproject/synapse/pull/4567>`_)
+
+Bugfixes
+--------
+- Fixed a bug in ``Cell.getBackupInfo()`` where ``currduration`` could be a
+  negative value while a backup was in progress, due to operator precedence in
+  the elapsed-time calculation.
+  (`#4898 <https://github.com/vertexproject/synapse/pull/4898>`_)
+
+Improved documentation
+----------------------
+- Updated the documentation for the ``layer.del`` permission to note that it is
+  on the Layer gate and not the Cortex.
+  (`#4892 <https://github.com/vertexproject/synapse/pull/4892>`_)
+
 v2.239.0 - 2026-04-14
 =====================
 

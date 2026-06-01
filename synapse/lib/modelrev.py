@@ -16,7 +16,7 @@ import synapse.models.infotech as s_infotech
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 35)
+maxvers = (0, 2, 36)
 
 class ModelRev:
 
@@ -57,6 +57,7 @@ class ModelRev:
             ((0, 2, 33), self.revModel_0_2_33),
             ((0, 2, 34), self.revModel_0_2_34),
             ((0, 2, 35), self.revModel_0_2_35),
+            ((0, 2, 36), self.revModel_0_2_36),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -836,6 +837,9 @@ class ModelRev:
     async def revModel_0_2_35(self, layers):
         migr = await ModelMigration_0_2_35.anit(self.core, layers)
         await migr.revModel_0_2_35()
+
+    async def revModel_0_2_36(self, layers):
+        await self._typeToForm(layers, 'econ:pay:pan', 'econ:pay:pan')
 
     async def runStorm(self, text, opts=None):
         '''

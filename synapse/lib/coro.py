@@ -9,6 +9,7 @@ import contextlib
 
 logger = logging.getLogger(__name__)
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 
@@ -136,6 +137,44 @@ async def waittask(task, timeout=None):
         return False
     finally:
         task.remove_done_callback(futu.set_result)
+
+def deadline(timeout):
+    '''
+    Return a callable that yields the seconds remaining until ``timeout``
+    seconds from now have elapsed.
+
+    The returned callable yields ``None`` if ``timeout`` is ``None``
+    (unbounded), otherwise ``max(0.0, <seconds until deadline>)``.
+
+    This is useful for sharing a single timeout across multiple awaited
+    operations.
+
+    Examples:
+
+        Share a single timeout across multiple operations::
+
+            remaining = s_coro.deadline(timeout)
+
+            await opOne(timeout=remaining())
+            await opTwo(timeout=remaining())
+
+    Notes:
+        Must be called from within a running event loop.
+    '''
+    if timeout is None:
+        return lambda: None
+
+    if timeout < 0:
+        mesg = f'timeout must be non-negative, got {timeout}.'
+        raise s_exc.BadArg(mesg=mesg)
+
+    loop = asyncio.get_running_loop()
+    end = loop.time() + timeout
+
+    def remaining():
+        return max(0.0, end - loop.time())
+
+    return remaining
 
 async def ornot(func, *args, **kwargs):
     '''

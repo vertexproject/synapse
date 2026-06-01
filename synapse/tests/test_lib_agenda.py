@@ -165,10 +165,10 @@ class AgendaTest(s_t_utils.SynTest):
         def looptime():
             return unixtime - MONO_DELT
 
-        loop = asyncio.get_running_loop()
-        with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime), self.getTestDir() as dirn:
+        async with self.getTestCore() as core:
 
-            async with self.getTestCore() as core:
+            loop = asyncio.get_running_loop()
+            with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
 
                 visi = await core.auth.addUser('visi')
                 await visi.setAdmin(True)
@@ -778,14 +778,14 @@ class AgendaTest(s_t_utils.SynTest):
                 core01conf = {'mirror': url}
 
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
-                    core00.agenda._addTickOff(55)
-
                     mesgs = []
-                    async for mesg in core00.behold():
-                        mesgs.append(mesg)
-                        core00.agenda._addTickOff(30)
-                        if len(mesgs) == 2:
-                            break
+                    async with core00.beholder() as wind:
+                        core00.agenda._addTickOff(55)
+                        async for mesg in wind:
+                            mesgs.append(mesg)
+                            core00.agenda._addTickOff(30)
+                            if len(mesgs) == 2:
+                                break
 
                     await core01.sync()
 
@@ -1611,6 +1611,18 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(incunit, 'month')
                 self.eq(incval, 1)
 
+            # test hourly period with multiple minutes
+            msgs = await core.stormlist('cron.add --period hourly@:24,45 { $lib.print(multi_minute) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            multi_min_cron = [c for c in crons if c['query'] == '$lib.print(multi_minute)'][0]
+            self.len(2, multi_min_cron['recs'])
+            minutes = sorted(rec[0]['minute'] for rec in multi_min_cron['recs'])
+            self.eq(minutes, [24, 45])
+            for reqdict, incunit, incval in multi_min_cron['recs']:
+                self.eq(incunit, 'hour')
+                self.eq(incval, 1)
+
             # test hourly@00:MM period is equivalent to hourly@:MM
             msgs = await core.stormlist('cron.add --period hourly@00:25 { $lib.print(ok) }')
             self.stormHasNoWarnErr(msgs)
@@ -1713,6 +1725,7 @@ class AgendaTest(s_t_utils.SynTest):
                 ('cron.add --period hourly/2 { $lib.print(err) }', 'Hourly period requires explicit minute'),
                 ('cron.add --period hourly@10:00 { $lib.print(err) }', 'Cannot specify hour for hourly period'),
                 ('cron.add --period hourly/newp@:00 { $lib.print(err) }', 'Invalid increment value for hourly period'),
+                ('cron.add --period hourly@:24,newp { $lib.print(err) }', 'Invalid minute value'),
                 ('cron.add --period daily/newp { $lib.print(err) }', 'Invalid increment value for daily period: newp'),
                 ('cron.add --period daily --hour 10 { $lib.print(err) }', 'Cannot mix --period with legacy time arguments'),
                 ('cron.add --period monthly/1,newp@10:00 { $lib.print(err) }', 'Invalid day of month value in monthly period: 1,newp'),
