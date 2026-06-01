@@ -6547,7 +6547,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _getStormQuery(self, args):
         text, mode = args
         try:
-            if s_stormbin.isCompiled(text):
+            if mode == 'storm' and s_stormbin.isCompiled(text):
                 query = s_stormbin.load(text)
             else:
                 query = copy.deepcopy(await s_parser.querycache.aget(args))
