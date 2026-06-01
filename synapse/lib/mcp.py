@@ -730,8 +730,18 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
                 await self._streamToolCall(reqid, meth, arguments)
                 return
 
+            agen = meth(**arguments)
+            items = []
             try:
-                items = [item async for item in meth(**arguments)]
+                async for item in agen:
+                    if len(items) >= s_jsrpc.MAX_RESULT_ITEMS:
+                        await agen.aclose()
+                        self._sendResp(self._errResp(reqid, s_exc.JsonRpcError.init(
+                            s_jsrpc.RESULT_TOO_LARGE,
+                            'Result set too large; retry with SSE streaming (Accept: text/event-stream).')))
+                        return
+
+                    items.append(item)
             except Exception as e:
                 self._sendResp(self._toolErrResp(reqid, e))
                 return

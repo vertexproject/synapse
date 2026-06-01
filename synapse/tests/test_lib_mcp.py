@@ -23,7 +23,11 @@ class TstMcp(s_mcp.CellMcp):
     async def synboom(self):
         raise s_exc.BadArg(mesg='bad arg tool')
 
-    @s_mcp.tool(name='gen', desc='Yield a few integers.')
+    @s_mcp.tool(name='gen', desc='Yield a few integers.', schema={
+        'type': 'object',
+        'properties': {'n': {'type': 'integer'}},
+        'additionalProperties': False,
+    })
     async def gen(self, n=3):
         for i in range(n):
             yield i
@@ -343,6 +347,10 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._tool(sess, url, sid, 'gen')
                 self.eq([0, 1, 2], data['result']['structuredContent']['items'])
                 self.false(data['result'].get('isError'))
+
+                # generator tool, no SSE, exceeding the cap -> error directing to streaming
+                status, data = await self._tool(sess, url, sid, 'gen', {'n': s_jsrpc.MAX_RESULT_ITEMS + 1})
+                self.eq(s_jsrpc.RESULT_TOO_LARGE, data['error']['code'])
 
                 # generator tool that raises mid-collect -> isError
                 status, data = await self._tool(sess, url, sid, 'genboom')
