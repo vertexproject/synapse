@@ -16,12 +16,12 @@ it on a Cell using the existing addHttpApi machinery::
 
     cell.addHttpApi('/api/v1/jsonrpc', FooApi, {'cell': cell})
 
-The decorated methods may be plain (sync) functions, coroutine functions, or async
-generator functions. Async generator methods may stream their results to the caller as
-Server-Sent Events when the request carries an ``Accept: text/event-stream`` header.
+The decorated methods must be coroutine functions or async generator functions. Async
+generator methods may stream their results to the caller as Server-Sent Events when the
+request carries an ``Accept: text/event-stream`` header.
 
-The calling user is placed into the task local scope for the duration of dispatch, so a
-method may recover it via ``s_scope.get('user')`` (in addition to the handler APIs).
+A method recovers the calling user through the handler auth APIs (e.g. ``self.web_useriden``
+or ``self.getAuthCell()``), which work whether auth is local or delegated to a remote cell.
 '''
 import inspect
 import logging
@@ -30,7 +30,6 @@ from http import HTTPStatus
 import synapse.exc as s_exc
 
 import synapse.lib.json as s_json
-import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.httpapi as s_httpapi
 
@@ -134,9 +133,6 @@ class JsonRpcHandler(s_httpapi.Handler):
         if not await self.reqAuthUser():
             return
 
-        useriden = await self.useriden()
-        user = self.getAuthCell().auth.user(useriden)
-
         try:
             mesg = s_json.loads(self.request.body)
         except Exception:
@@ -144,12 +140,10 @@ class JsonRpcHandler(s_httpapi.Handler):
             self._sendResp(self._errResp(None, exc))
             return
 
-        with s_scope.enter({'user': user}):
-
-            if isinstance(mesg, list):
-                await self._handleBatch(mesg)
-            else:
-                await self._handleSingle(mesg)
+        if isinstance(mesg, list):
+            await self._handleBatch(mesg)
+        else:
+            await self._handleSingle(mesg)
 
     async def _handleSingle(self, req):
 

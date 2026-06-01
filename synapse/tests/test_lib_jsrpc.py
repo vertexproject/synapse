@@ -3,7 +3,6 @@ import http
 import synapse.exc as s_exc
 import synapse.lib.json as s_json
 import synapse.lib.jsrpc as s_jsrpc
-import synapse.lib.scope as s_scope
 
 import synapse.tests.utils as s_tests
 
@@ -27,7 +26,7 @@ class FakeRpcHandler(s_jsrpc.JsonRpcHandler):
 
     @s_jsrpc.method()
     async def whoami(self):
-        return s_scope.get('user').iden
+        return self.web_useriden
 
     @s_jsrpc.method(params={
         'type': 'object',
