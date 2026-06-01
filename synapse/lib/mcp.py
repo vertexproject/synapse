@@ -44,7 +44,6 @@ import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.json as s_json
-import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.jsrpc as s_jsrpc
 
@@ -290,8 +289,10 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         if not await self.reqAuthUser():
             return
 
+        # Authentication may be delegated to a remote cell via getAuthCell() (a telepath
+        # proxy), so we carry the authenticated user iden and run permission checks through
+        # getAuthCell()'s telepath-safe APIs rather than resolving a local user object.
         useriden = await self.useriden()
-        user = self.getAuthCell().auth.user(useriden)
 
         vers = self.request.headers.get('MCP-Protocol-Version')
         if vers is not None and vers not in self.SUPPORTED_VERSIONS:
@@ -313,38 +314,36 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         method = mesg.get('method') if isinstance(mesg, dict) else None
 
-        with s_scope.enter({'user': user}):
+        if method == 'initialize':
+            await self._handleInitialize(mesg, useriden)
+            return
 
-            if method == 'initialize':
-                await self._handleInitialize(mesg, user)
-                return
+        session = self._reqSession(useriden)
+        if session is None:
+            return
 
-            session = self._reqSession(user)
-            if session is None:
-                return
+        self.mcpsess = session
 
-            self.mcpsess = session
+        if method == 'notifications/initialized':
+            session['initialized'] = True
+            self.set_status(HTTPStatus.ACCEPTED)
+            return
 
-            if method == 'notifications/initialized':
-                session['initialized'] = True
-                self.set_status(HTTPStatus.ACCEPTED)
-                return
+        if not session.get('initialized') and method != 'ping':
+            self._sendResp(self._errResp(mesg.get('id'), s_exc.JsonRpcError.init(
+                s_jsrpc.INVALID_REQUEST, 'Session is not initialized.')))
+            return
 
-            if not session.get('initialized') and method != 'ping':
-                self._sendResp(self._errResp(mesg.get('id'), s_exc.JsonRpcError.init(
-                    s_jsrpc.INVALID_REQUEST, 'Session is not initialized.')))
-                return
+        if method == 'tools/call':
+            await self._handleToolsCall(mesg)
+            return
 
-            if method == 'tools/call':
-                await self._handleToolsCall(mesg)
-                return
+        _, resp = await self._dispatch(mesg, allow_stream=False)
+        if resp is None:
+            self.set_status(HTTPStatus.ACCEPTED)
+            return
 
-            _, resp = await self._dispatch(mesg, allow_stream=False)
-            if resp is None:
-                self.set_status(HTTPStatus.ACCEPTED)
-                return
-
-            self._sendResp(resp)
+        self._sendResp(resp)
 
     async def get(self):
         # We do not offer a server-initiated SSE stream.
@@ -376,7 +375,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         return session
 
-    def _reqSession(self, user):
+    def _reqSession(self, useriden):
         sid = self.request.headers.get('Mcp-Session-Id')
         if sid is None:
             self.set_status(HTTPStatus.BAD_REQUEST)
@@ -385,7 +384,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             return None
 
         session = self._getSession(sid)
-        if session is None or session.get('user') != user.iden:
+        if session is None or session.get('user') != useriden:
             self.set_status(HTTPStatus.NOT_FOUND)
             self._sendResp(self._errResp(None, s_exc.JsonRpcError.init(
                 s_jsrpc.INVALID_REQUEST, 'Unknown or expired MCP session.')))
@@ -394,7 +393,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         session['touched'] = s_common.now()
         return session
 
-    async def _handleInitialize(self, mesg, user):
+    async def _handleInitialize(self, mesg, useriden):
 
         _, resp = await self._dispatch(mesg, allow_stream=False)
         if resp is None:
@@ -405,7 +404,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             sid = s_common.guid()
             self.cell._mcp_sessions[sid] = {
                 'iden': sid,
-                'user': user.iden,
+                'user': useriden,
                 'version': resp['result'].get('protocolVersion'),
                 'initialized': False,
                 'loglevel': 'info',
@@ -852,34 +851,34 @@ class CortexMcp(CellMcp):
         'additionalProperties': False,
     }
 
-    def _stormOpts(self, opts):
-        user = s_scope.get('user')
+    async def _stormOpts(self, opts):
+        useriden = self.web_useriden
 
         if opts is None:
             opts = {}
 
-        opts.setdefault('user', user.iden)
+        opts.setdefault('user', useriden)
 
         view = self.mcpsess.get('view')
         if view is not None:
             opts.setdefault('view', view)
 
-        if opts.get('user') != user.iden:
-            if not user.allowed(('impersonate',)):
+        if opts.get('user') != useriden:
+            if not await self.getAuthCell().isUserAllowed(useriden, ('impersonate',)):
                 raise s_exc.AuthDeny(mesg='Impersonation requires the impersonate permission.',
-                                     user=user.iden, username=user.name, perm='impersonate')
+                                     user=useriden, perm='impersonate')
 
         return opts
 
     @tool(desc='Run a Storm query and stream the result messages.', schema=_storm_schema)
     async def storm(self, query, opts=None):
-        opts = self._stormOpts(opts)
+        opts = await self._stormOpts(opts)
         async for mesg in self.cell.storm(query, opts=opts):
             yield {'type': mesg[0], 'data': mesg[1]}
 
     @tool(desc='Run a Storm query and return the value from its return() statement.', schema=_storm_schema)
     async def call_storm(self, query, opts=None):
-        opts = self._stormOpts(opts)
+        opts = await self._stormOpts(opts)
         return await self.cell.callStorm(query, opts=opts)
 
     @tool(desc='Validate the syntax of a Storm query without executing it.', schema=_storm_validate_schema)
@@ -897,11 +896,11 @@ class CortexMcp(CellMcp):
 
     @tool(desc='List the views this user can read.')
     async def view_list(self):
-        user = s_scope.get('user')
+        authcell = self.getAuthCell()
 
         views = []
         for view in self.cell.listViews():
-            if not user.allowed(('view', 'read'), gateiden=view.iden):
+            if not await authcell.isUserAllowed(self.web_useriden, ('view', 'read'), gateiden=view.iden):
                 continue
 
             vdef = await view.pack()
@@ -912,10 +911,12 @@ class CortexMcp(CellMcp):
     @tool(desc='Set the active view for this session, used by subsequent storm tools.',
           schema=_view_set_schema)
     async def view_set(self, view):
-        user = s_scope.get('user')
-
-        if self.cell.getView(view, user=user) is None:
+        if self.cell.getView(view) is None:
             raise s_exc.NoSuchView(mesg=f'No such view: {view}', iden=view)
+
+        if not await self.getAuthCell().isUserAllowed(self.web_useriden, ('view', 'read'), gateiden=view):
+            raise s_exc.AuthDeny(mesg=f'User may not read view {view}.',
+                                 user=self.web_useriden, perm='view.read')
 
         self.mcpsess['view'] = view
         return {'view': view}
