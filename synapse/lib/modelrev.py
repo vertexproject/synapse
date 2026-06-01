@@ -12,11 +12,12 @@ import synapse.lib.types as s_types
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 
+import synapse.models.inet as s_inet
 import synapse.models.infotech as s_infotech
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 36)
+maxvers = (0, 2, 37)
 
 class ModelRev:
 
@@ -58,6 +59,7 @@ class ModelRev:
             ((0, 2, 34), self.revModel_0_2_34),
             ((0, 2, 35), self.revModel_0_2_35),
             ((0, 2, 36), self.revModel_0_2_36),
+            ((0, 2, 37), self.revModel_0_2_37),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -840,6 +842,10 @@ class ModelRev:
 
     async def revModel_0_2_36(self, layers):
         await self._typeToForm(layers, 'econ:pay:pan', 'econ:pay:pan')
+
+    async def revModel_0_2_37(self, layers):
+        migr = await ModelMigration_0_2_37.anit(self.core, layers)
+        await migr.revModel_0_2_37()
 
     async def runStorm(self, text, opts=None):
         '''
@@ -2383,3 +2389,206 @@ class ModelMigration_0_2_35(ModelMigrationBase):
         await self._flushEdits()
 
         logger.info(f'Finished processing bare IPv6 address nodes: {migrated} migrated, {removed} removed')
+
+class ModelMigration_0_2_37(ModelMigrationBase):
+    '''
+    Updating the idna dependency changed UTS46 normalization for a small set of rare
+    unicode codepoints. inet:fqdn stores the normalized value, so re-norming the stored
+    value is a no-op (it is already an a-label) and the standard comp re-norm recursion
+    in moveNode() can not detect the drift either. The change is only visible by decoding
+    the stored value back to its unicode form and re-encoding it with the current idna.
+
+    This migration corrects every form whose primary value embeds an inet:fqdn (the
+    inet:fqdn form itself and the comp forms that nest it, e.g. inet:dns:a, inet:email,
+    inet:url, inet:whois:rec). Forms are processed leaf-first (by fqdn nesting depth) so
+    that moveNode() reference handling never targets an already-migrated node.
+    '''
+
+    queuename = 'model_0_2_37:nodes'
+
+    def _typeFqdnDepth(self, _type):
+        # Return the nesting depth of an inet:fqdn within a type, or None if it has none.
+        # NOTE: inet:url and the inet:addr family (inet:server/inet:client) textually embed
+        # an fqdn in a primary string that can not be safely reconstructed here; their
+        # inet:fqdn sub properties are still corrected via moveNode() reference handling.
+        if isinstance(_type, s_inet.Fqdn):
+            return 0
+
+        if isinstance(_type, s_inet.Email):
+            return 1
+
+        if isinstance(_type, s_types.Comp):
+            depths = []
+            for fname, _ in _type.opts.get('fields', ()):
+                depth = self._typeFqdnDepth(_type.tcache[fname])
+                if depth is not None:
+                    depths.append(depth)
+
+            if depths:
+                return 1 + max(depths)
+
+        return None
+
+    def _correctValu(self, _type, valu):
+        # Decode and re-encode any inet:fqdn embedded in valu, recursing through comps and emails.
+        if isinstance(_type, s_inet.Fqdn):
+            return _type.norm(_type.repr(valu))[0]
+
+        if isinstance(_type, s_inet.Email):
+            user, fqdn = valu.split('@', 1)
+            fqdntype = self.core.model.type('inet:fqdn')
+            return f'{user}@{self._correctValu(fqdntype, fqdn)}'
+
+        if isinstance(_type, s_types.Comp):
+            norm, info = _type.norm(valu)
+            subs = info.get('subs', {})
+            newvalu = []
+            for fname, _ in _type.opts.get('fields', ()):
+                newvalu.append(self._correctValu(_type.tcache[fname], subs.get(fname)))
+
+            return tuple(newvalu)
+
+        return valu
+
+    async def revModel_0_2_37(self):
+
+        # Collect the fqdn-bearing forms ordered leaf-first by fqdn nesting depth.
+        forms = []
+        for form in self.core.model.forms.values():
+            depth = self._typeFqdnDepth(form.type)
+            if depth is not None:
+                forms.append((depth, form.name))
+
+        forms = [name for _, name in sorted(forms)]
+
+        logger.info(f'Collecting {len(forms)} fqdn-bearing forms in {len(self.layers)} layers')
+
+        for formname in forms:
+            form = self.core.model.form(formname)
+
+            for idx, layer in enumerate(self.layers):
+                logger.debug('Scanning %s nodes in layer %s %s', formname, idx, layer.iden)
+
+                async for buid, sode in layer.getStorNodesByForm(formname):
+
+                    if (formvalu := sode.get('valu')) is None:  # pragma: no cover
+                        continue
+
+                    formvalu = formvalu[0]
+
+                    try:
+                        newvalu, _ = form.type.norm(self._correctValu(form.type, formvalu))
+                    except s_exc.BadTypeValu:  # pragma: no cover
+                        logger.error('Encountered un-normable node valu: %s=%s', formname, formvalu)
+                        continue
+
+                    if newvalu == formvalu:
+                        continue
+
+                    node = self.getNode(buid)
+                    node['formvalu'] = formvalu
+                    node['formname'] = formname
+                    layers = list(node['layers'])
+                    layers.append(layer.iden)
+                    node['layers'] = layers
+
+                    await self.nodes.set(buid, node)
+
+        total = len(self.nodes)
+        logger.info(f'Processing {total} fqdn-bearing nodes in {len(self.layers)} layers')
+
+        if total == 0:
+            await self.todos.fini()
+            await self.nodes.fini()
+            return
+
+        # Load full node info
+        for idx, layer in enumerate(self.layers):
+            logger.debug('Loading node info in layer %s %s', idx, layer.iden)
+
+            async for buid, node in s_coro.pause(self.nodes.items()):
+                await self._loadNode(layer, buid, node=node)
+                await self.nodes.set(buid, node)
+
+        # Load node refs
+        for idx, layer in enumerate(self.layers):
+            logger.debug('Loading node refs in layer %s %s', idx, layer.iden)
+
+            async for buid, node in s_coro.pause(self.nodes.items()):
+                formvalu = node.get('formvalu')
+                formname = node.get('formname')
+                formndef = (formname, formvalu)
+
+                refs = node['refs'].get(layer.iden, [])
+
+                for refinfo in self.getRefInfo(formname):
+                    (refform, refprop, reftype, isarray, isro) = refinfo
+
+                    # Read-only fqdn references are the primary-value sub properties of
+                    # the fqdn-bearing forms themselves; those subs are recomputed via the
+                    # node's own moveNode() newsubs. We must not collect them here because
+                    # moveNode() would treat a read-only reference from a non-comp form
+                    # (inet:email, inet:url, inet:addr) as a comp and remove the node.
+                    if isro:
+                        continue
+
+                    if reftype == 'ndef':
+                        propvalu = formndef
+                    else:
+                        propvalu = formvalu
+
+                    async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
+                        refs.append((s_common.ehex(refbuid), refinfo))
+
+                        await self.todos.add(('getvalu', (refbuid, True)))
+
+                if refs:
+                    node['refs'][layer.iden] = refs
+
+                await self.nodes.set(buid, node)
+
+        logger.info('Processing fqdn-bearing node references (this may happen multiple times)')
+        await self._collectReferences()
+
+        logger.info(f'Migrating {total} fqdn-bearing nodes')
+
+        formset = set(forms)
+
+        count = 0
+        migrated = 0
+        removed = 0
+        async for buid, node in s_coro.pause(self.nodes.items()):
+
+            formname = node.get('formname')
+            formvalu = node.get('formvalu')
+
+            if formname is None or formvalu is None:  # pragma: no cover
+                continue
+
+            # Only process the fqdn-bearing forms; plain prop and ndef refs are handled by moveNode()
+            if formname not in formset:
+                continue
+
+            form = self.core.model.form(formname)
+
+            try:
+                newvalu, newinfo = form.type.norm(self._correctValu(form.type, formvalu))
+            except Exception:  # pragma: no cover
+                logger.debug('Failed to re-normalize %s=%s, removing', formname, formvalu)
+                await self.removeNode(buid)
+                removed += 1
+                continue
+
+            await self.moveNode(buid, newvalu, newsubs=newinfo.get('subs'))
+            migrated += 1
+
+            count = migrated + removed
+            if count % 1000 == 0:  # pragma: no cover
+                logger.info(f'Processed {count} fqdn-bearing nodes')
+
+        await self._flushEdits()
+
+        logger.info(f'Finished processing fqdn-bearing nodes: {migrated} migrated, {removed} removed')
+
+        await self.todos.fini()
+        await self.nodes.fini()

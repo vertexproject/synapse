@@ -1,0 +1,10 @@
+---
+desc: Added a model migration to re-normalize ``inet:fqdn`` values, and the
+  ``inet:email``, ``inet:dns:*``, and ``inet:whois:*`` forms that embed them, which
+  were affected by the updated ``idna`` UTS46 normalization of a small set of rare
+  unicode codepoints. Affected fqdns textually embedded in ``inet:url`` and the
+  ``inet:server``/``inet:client`` primary values are not rewritten.
+desc:literal: false
+prs: []
+type: migration
+...

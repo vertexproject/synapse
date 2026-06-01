@@ -1,0 +1,7 @@
+---
+desc: Updated the ``idna`` dependency to ``>=3.17,<3.18`` to address CVE-2024-3651
+  and CVE-2026-45409.
+desc:literal: false
+prs: []
+type: note
+...

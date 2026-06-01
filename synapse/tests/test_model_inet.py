@@ -724,6 +724,138 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('zone'), 'foo.com')
 
+    async def test_fqdn_idna_drift(self):
+        # Demonstrate the inet:fqdn normalization drift introduced by updating the idna
+        # dependency. UTS46 mapping changed for a small set of rare unicode codepoints
+        # (e.g. U+A7F1 LATIN EPIGRAPHIC LETTER SIDEWAYS I), so a value stored as an
+        # a-label under the previous idna is no longer reachable by the unicode form
+        # that originally produced it: the same unicode input now normalizes elsewhere.
+        async with self.getTestCore() as core:
+
+            # The unicode IDN label, written as an escape for the obscure codepoint.
+            unicode_fqdn = 'a\ua7f1a.link'
+
+            # Under the previous idna, encoding the unicode label above failed uts46 and
+            # fell back to the IDNA2003 codec, storing this a-label. The current idna
+            # instead maps the codepoint, normalizing the same input to 'asa.link'.
+            legacy_value = 'xn--aa-g88h.link'
+            current_value = 'asa.link'
+
+            opts = {'vars': {'uni': unicode_fqdn, 'legacy': legacy_value}}
+
+            # A node ingested today from the unicode form normalizes to the new value.
+            nodes = await core.nodes('[ inet:fqdn=$uni ]', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', current_value))
+
+            # A node carried over from a deployment on the previous idna keeps its
+            # a-label primary value (re-norming an a-label is a no-op).
+            nodes = await core.nodes('[ inet:fqdn=$legacy ]', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', legacy_value))
+
+            # The drift: lifting by the unicode form resolves to the new node, not the
+            # legacy-stored one, so the two representations exist as separate nodes.
+            nodes = await core.nodes('inet:fqdn=$uni', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', current_value))
+            self.len(0, await core.nodes('inet:fqdn=$uni +inet:fqdn=$legacy', opts=opts))
+
+            # Both labels now live under the same zone as duplicate hosts.
+            nodes = await core.nodes('inet:fqdn:domain=link')
+            self.len(2, nodes)
+            self.eq({current_value, legacy_value}, {n.ndef[1] for n in nodes})
+
+            # Recall: repr() round-trips the legacy a-label back to the unicode form, but
+            # re-norming that unicode form today points at the new node, not the stored one.
+            nodes = await core.nodes('inet:fqdn=$legacy', opts=opts)
+            self.eq(unicode_fqdn, nodes[0].repr())
+            self.eq(current_value, (await core.nodes('inet:fqdn=$repr', opts={'vars': {'repr': nodes[0].repr()}}))[0].ndef[1])
+
+    async def test_fqdn_idna_drift_codepoints(self):
+        # The full set of unicode codepoints whose inet:fqdn normalization changed when
+        # the idna dependency was updated. Each row is (codepoint, the a-label the
+        # previous idna stored for the label 'a<cp>a.link', the value the current idna
+        # produces). These are the labels the model migration must repair; the drift is
+        # only observable by decoding the stored a-label and re-encoding it.
+        drift = (
+            (0x0115F, 'xn--aa-iuk.link', 'aa.link'),  # HANGUL CHOSEONG FILLER
+            (0x01160, 'xn--aa-luk.link', 'aa.link'),  # HANGUL JUNGSEONG FILLER
+            (0x017B4, 'xn--aa-gto.link', 'aa.link'),  # KHMER VOWEL INHERENT AQ
+            (0x017B5, 'xn--aa-jto.link', 'aa.link'),  # KHMER VOWEL INHERENT AA
+            (0x03164, 'xn--aa-luk.link', 'aa.link'),  # HANGUL FILLER
+            (0x0A7CB, 'xn--aa-648h.link', 'xn--aa-sgb.link'),  # LATIN CAPITAL LETTER RAMS HORN
+            (0x0A7D2, 'xn--aa-s58h.link', 'xn--aa-v58h.link'),  # LATIN CAPITAL LETTER DOUBLE THORN
+            (0x0A7D4, 'xn--aa-y58h.link', 'xn--aa-158h.link'),  # LATIN CAPITAL LETTER DOUBLE WYNN
+            (0x0A7DC, 'xn--aa-n68h.link', 'xn--aa-kya.link'),  # LATIN CAPITAL LETTER LAMBDA WITH STROKE
+            (0x0A7F1, 'xn--aa-g88h.link', 'asa.link'),  # MODIFIER LETTER CAPITAL S
+            (0x0FFA0, 'xn--aa-luk.link', 'aa.link'),  # HALFWIDTH HANGUL FILLER
+            (0x1CCD6, 'xn--aa-ev20a.link', 'aaa.link'),  # OUTLINED LATIN CAPITAL LETTER A
+            (0x1CCD7, 'xn--aa-hv20a.link', 'aba.link'),  # OUTLINED LATIN CAPITAL LETTER B
+            (0x1CCD8, 'xn--aa-kv20a.link', 'aca.link'),  # OUTLINED LATIN CAPITAL LETTER C
+            (0x1CCD9, 'xn--aa-nv20a.link', 'ada.link'),  # OUTLINED LATIN CAPITAL LETTER D
+            (0x1CCDA, 'xn--aa-qv20a.link', 'aea.link'),  # OUTLINED LATIN CAPITAL LETTER E
+            (0x1CCDB, 'xn--aa-tv20a.link', 'afa.link'),  # OUTLINED LATIN CAPITAL LETTER F
+            (0x1CCDC, 'xn--aa-wv20a.link', 'aga.link'),  # OUTLINED LATIN CAPITAL LETTER G
+            (0x1CCDD, 'xn--aa-zv20a.link', 'aha.link'),  # OUTLINED LATIN CAPITAL LETTER H
+            (0x1CCDE, 'xn--aa-2v20a.link', 'aia.link'),  # OUTLINED LATIN CAPITAL LETTER I
+            (0x1CCDF, 'xn--aa-5v20a.link', 'aja.link'),  # OUTLINED LATIN CAPITAL LETTER J
+            (0x1CCE0, 'xn--aa-8v20a.link', 'aka.link'),  # OUTLINED LATIN CAPITAL LETTER K
+            (0x1CCE1, 'xn--aa-cw20a.link', 'ala.link'),  # OUTLINED LATIN CAPITAL LETTER L
+            (0x1CCE2, 'xn--aa-fw20a.link', 'ama.link'),  # OUTLINED LATIN CAPITAL LETTER M
+            (0x1CCE3, 'xn--aa-iw20a.link', 'ana.link'),  # OUTLINED LATIN CAPITAL LETTER N
+            (0x1CCE4, 'xn--aa-lw20a.link', 'aoa.link'),  # OUTLINED LATIN CAPITAL LETTER O
+            (0x1CCE5, 'xn--aa-ow20a.link', 'apa.link'),  # OUTLINED LATIN CAPITAL LETTER P
+            (0x1CCE6, 'xn--aa-rw20a.link', 'aqa.link'),  # OUTLINED LATIN CAPITAL LETTER Q
+            (0x1CCE7, 'xn--aa-uw20a.link', 'ara.link'),  # OUTLINED LATIN CAPITAL LETTER R
+            (0x1CCE8, 'xn--aa-xw20a.link', 'asa.link'),  # OUTLINED LATIN CAPITAL LETTER S
+            (0x1CCE9, 'xn--aa-0w20a.link', 'ata.link'),  # OUTLINED LATIN CAPITAL LETTER T
+            (0x1CCEA, 'xn--aa-3w20a.link', 'aua.link'),  # OUTLINED LATIN CAPITAL LETTER U
+            (0x1CCEB, 'xn--aa-6w20a.link', 'ava.link'),  # OUTLINED LATIN CAPITAL LETTER V
+            (0x1CCEC, 'xn--aa-9w20a.link', 'awa.link'),  # OUTLINED LATIN CAPITAL LETTER W
+            (0x1CCED, 'xn--aa-dx20a.link', 'axa.link'),  # OUTLINED LATIN CAPITAL LETTER X
+            (0x1CCEE, 'xn--aa-gx20a.link', 'aya.link'),  # OUTLINED LATIN CAPITAL LETTER Y
+            (0x1CCEF, 'xn--aa-jx20a.link', 'aza.link'),  # OUTLINED LATIN CAPITAL LETTER Z
+            (0x1CCF0, 'xn--aa-mx20a.link', 'a0a.link'),  # OUTLINED DIGIT ZERO
+            (0x1CCF1, 'xn--aa-px20a.link', 'a1a.link'),  # OUTLINED DIGIT ONE
+            (0x1CCF2, 'xn--aa-sx20a.link', 'a2a.link'),  # OUTLINED DIGIT TWO
+            (0x1CCF3, 'xn--aa-vx20a.link', 'a3a.link'),  # OUTLINED DIGIT THREE
+            (0x1CCF4, 'xn--aa-yx20a.link', 'a4a.link'),  # OUTLINED DIGIT FOUR
+            (0x1CCF5, 'xn--aa-1x20a.link', 'a5a.link'),  # OUTLINED DIGIT FIVE
+            (0x1CCF6, 'xn--aa-4x20a.link', 'a6a.link'),  # OUTLINED DIGIT SIX
+            (0x1CCF7, 'xn--aa-7x20a.link', 'a7a.link'),  # OUTLINED DIGIT SEVEN
+            (0x1CCF8, 'xn--aa-by20a.link', 'a8a.link'),  # OUTLINED DIGIT EIGHT
+            (0x1CCF9, 'xn--aa-ey20a.link', 'a9a.link'),  # OUTLINED DIGIT NINE
+        )
+
+        async with self.getTestCore() as core:
+
+            fqdn = core.model.type('inet:fqdn')
+
+            for cp, legacy, current in drift:
+
+                label = f'a{chr(cp)}a.link'
+                mesg = f'U+{cp:05X}'
+
+                # the unicode form now normalizes to the new value
+                self.eq(current, fqdn.norm(label)[0], mesg)
+
+                # which differs from what the previous idna stored (the drift)
+                self.ne(legacy, current)
+
+                # the legacy a-label is still valid and idempotent under the current idna,
+                # so a plain re-norm migration would not detect the change...
+                self.eq(legacy, fqdn.norm(legacy)[0], mesg)
+
+                # ...but decoding it and re-encoding recovers the new value, which is what
+                # the inet:fqdn model migration relies on.
+                self.eq(current, fqdn.norm(fqdn.repr(legacy))[0], mesg)
+
+                # the unicode label is usable in Storm and creates the new node
+                nodes = await core.nodes('[ inet:fqdn=$valu ]', opts={'vars': {'valu': label}})
+                self.len(1, nodes)
+                self.eq(('inet:fqdn', current), nodes[0].ndef, mesg)
+
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
 

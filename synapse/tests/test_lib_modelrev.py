@@ -2115,3 +2115,102 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq(4, nodes[0].get('mii'))
             self.eq(402400, nodes[0].get('iin'))
+
+    async def test_modelrev_0_2_37(self):
+
+        # Updating the idna dependency changed UTS46 normalization for a small set of
+        # rare unicode codepoints. The stored value 'xn--aa-g88h.link' decodes back to
+        # the unicode form 'a꟱a.link' which re-encodes to 'asa.link' under the
+        # current idna. Re-norming the stored a-label alone is a no-op, so the migration
+        # decodes then re-encodes the value before moving the node.
+        drift = 'xn--aa-g88h.link'
+        fixed = 'asa.link'
+        drift_user = f'visi@{drift}'
+        fixed_user = f'visi@{fixed}'
+
+        # sanity check the version delta is exercised
+        self.eq((0, 2, 37), s_modelrev.maxvers)
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+                layr = core.getLayer()
+
+                # an ascii fqdn that must be left untouched
+                self.len(1, await core.nodes('[ inet:fqdn=vertex.link +#keep ]'))
+
+                # the drifting fqdn with a tag, nodedata, and N1/N2 edges
+                nodes = await core.nodes(f'[ inet:fqdn={drift} +#test.foo ]')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('host'), 'xn--aa-g88h')
+
+                await core.nodes(f'inet:fqdn={drift} $node.data.set(woot, hehe)')
+                await core.nodes(f'inet:fqdn={drift} [ +(refs)> {{[ inet:ipv4=1.2.3.4 ]}} ]')
+                await core.nodes(f'[ inet:ipv4=5.6.7.8 ] [ +(refs)> {{ inet:fqdn={drift} }} ]')
+
+                # a comp form embedding the fqdn, an email (custom composite), a nested
+                # comp embedding both an fqdn and an email, and a plain prop reference
+                self.len(1, await core.nodes(f'[ inet:dns:a=({drift}, 1.2.3.4) ]'))
+                self.len(1, await core.nodes(f'[ inet:email=visi@{drift} ]'))
+                self.len(1, await core.nodes(f'[ inet:whois:email=({drift}, visi@{drift}) ]'))
+                self.len(1, await core.nodes(f'[ inet:download=* :fqdn={drift} ]'))
+
+                self.len(1, await core.nodes(f'inet:dns:a:fqdn={drift}'))
+                self.len(1, await core.nodes(f'inet:email={drift_user}'))
+                self.len(1, await core.nodes(f'inet:download:fqdn={drift}'))
+
+                # roll the model version back so the migration runs on the next startup
+                await layr.setModelVers((0, 2, 36))
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                await self.waitForActiveMigration(core)
+                self.eq(s_modelrev.maxvers, await core.getLayer().getModelVers())
+
+                # the old node is gone and the re-normalized node exists with fixed subs
+                self.len(0, await core.nodes(f'inet:fqdn={drift}'))
+                nodes = await core.nodes(f'inet:fqdn={fixed}')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('host'), 'asa')
+                self.eq(nodes[0].get('domain'), 'link')
+
+                # tags, nodedata, and edges were carried over
+                self.nn(nodes[0].get('#test.foo'))
+                self.eq('hehe', await nodes[0].getData('woot'))
+                self.len(1, await core.nodes(f'inet:fqdn={fixed} -(refs)> inet:ipv4'))
+                self.len(1, await core.nodes(f'inet:fqdn={fixed} <(refs)- inet:ipv4'))
+
+                # the comp form embedding the fqdn was migrated
+                self.len(0, await core.nodes(f'inet:dns:a:fqdn={drift}'))
+                self.len(1, await core.nodes(f'inet:dns:a:fqdn={fixed}'))
+                self.len(1, await core.nodes(f'inet:dns:a=({fixed}, 1.2.3.4)'))
+
+                # the email (custom composite type) was migrated
+                self.len(0, await core.nodes(f'inet:email={drift_user}'))
+                self.len(1, await core.nodes(f'inet:email={fixed_user}'))
+                nodes = await core.nodes(f'inet:email={fixed_user}')
+                self.eq(nodes[0].get('fqdn'), fixed)
+
+                # the nested comp embedding both fqdn and email was migrated
+                self.len(1, await core.nodes(f'inet:whois:email=({fixed}, {fixed_user})'))
+                self.len(0, await core.nodes(f'inet:whois:email:fqdn={drift}'))
+
+                # the plain (non read-only) prop reference was updated by moveNode
+                self.len(0, await core.nodes(f'inet:download:fqdn={drift}'))
+                self.len(1, await core.nodes(f'inet:download:fqdn={fixed}'))
+
+                # the ascii fqdn was left untouched
+                self.len(1, await core.nodes('inet:fqdn=vertex.link +#keep'))
+
+        # a cortex with no drifting fqdn nodes exercises the empty early-return
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+                layr = core.getLayer()
+                self.len(1, await core.nodes('[ inet:fqdn=vertex.link ]'))
+                await layr.setModelVers((0, 2, 36))
+
+            async with self.getTestCore(dirn=dirn) as core:
+                await self.waitForActiveMigration(core)
+                self.eq(s_modelrev.maxvers, await core.getLayer().getModelVers())
+                self.len(1, await core.nodes('inet:fqdn=vertex.link'))
