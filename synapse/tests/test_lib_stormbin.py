@@ -492,12 +492,6 @@ class StormBinTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][0], ('inet:fqdn', 'vertex.link'))
 
-    async def test_stormbin_cortex_decimal_literal(self):
-        '''Decimal literal Const.valu round-trips through compile + execute.'''
-        async with self.getTestCore() as core:
-            byts = s_stormbin.compile('$x = (1.5) return($x)')
-            self.eq('1.5', str(await core.callStorm(byts)))
-
     async def test_stormbin_cortex_base64(self):
         '''Test that cortex.storm() accepts } prefixed input.'''
         async with self.getTestCore() as core:
@@ -519,6 +513,11 @@ class StormBinTest(s_test.SynTest):
             byts = s_stormbin.compile('return((42))')
             result = await core.callStorm(byts)
             self.eq(result, 42)
+
+            # Decimal literal Const.valu (a stormtypes.Number) round-trips
+            # via Const.dehydrate / hydrate.
+            byts = s_stormbin.compile('$x = (1.5) return($x)')
+            self.eq('1.5', str(await core.callStorm(byts)))
 
     async def test_stormbin_cortex_reqvalidstorm(self):
         '''Test that reqValidStorm works with compiled binary.'''
