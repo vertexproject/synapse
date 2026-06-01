@@ -103,6 +103,26 @@ commands:
           key: v6-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
+          name: Run changelog tool
+          command: |
+            set -x
+            MODEL_DIR=./changes/modelrefs/
+            latest_model=$( find "$MODEL_DIR" -maxdepth 1 -type f -name 'model_*_*.yaml.gz' -printf '%f\n' \
+                | sort -t '_' -k2 -V \
+                | tail -n 1
+            )
+            if [[ -z "$latest_model" ]]; then
+                echo "No model archive found in $MODEL_DIR" >&2
+                exit 1
+            fi
+            latest_model_path="${MODEL_DIR%/}/$latest_model"
+            echo "Found latest model: $latest_model_path"
+            . venv/bin/activate
+            # Add a canary file to ./changes to ensure we always have at least one valid file.
+            python -m synapse.tools.changelog gen --type note --pr 1234 'CI Canary note'
+            SYNDEV_CELL_DRIVE_NOSPAWN=1 python -m synapse.tools.changelog format --version v2.999.999 --model-ref $latest_model_path --model-doc-dir ./docs/synapse/userguides/model_updates/
+
+      - run:
           name: executing docs test / build
           command: |
             . venv/bin/activate
@@ -445,7 +465,7 @@ commands:
 jobs:
 
   python311:
-    resource_class: xlarge
+    resource_class: xlarge.gen2
     docker:
       - image: cimg/python:3.11
         environment:
@@ -465,7 +485,7 @@ jobs:
       - test_steps_python
 
   python311_replay:
-    resource_class: xlarge
+    resource_class: xlarge.gen2
     docker:
       - image: cimg/python:3.11
         environment:
@@ -484,6 +504,7 @@ jobs:
       - test_steps_python
 
   doctests:
+    resource_class: medium.gen2
     docker:
       - image: cimg/python:3.11
         environment:
@@ -522,6 +543,7 @@ jobs:
       - deploy_pypi_upload
 
   build_docker_branch:
+    resource_class: medium.gen2
     docker:
       - image: docker:24.0.2
     steps:
@@ -533,6 +555,7 @@ jobs:
           secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}
 
   build_docker_tag:
+    resource_class: medium.gen2
     docker:
       - image: docker:24.0.2
     # Use a shell override to force a login shell that loads profile for each step.
