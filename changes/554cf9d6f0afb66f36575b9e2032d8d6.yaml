@@ -1,0 +1,7 @@
+---
+desc: Lowered the upper bound of the ``aiohttp`` library due to a compatibility issue
+  with the ``vcrpy`` library.
+desc:literal: false
+prs: []
+type: note
+...
