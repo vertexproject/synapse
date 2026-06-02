@@ -11,6 +11,10 @@ description: >-
 
 TRIGGER: When writing, editing, reviewing, validating, debugging, or running Storm (.storm) files, Storm queries, Storm packages, or Synapse query language code. Also triggered when fixing BadSyntax exceptions, troubleshooting Storm parse errors, or running Storm queries against a Cortex.
 
+## Language Overview
+
+Storm is an async pipeline-based graph query language for Synapse. Queries are chains of operations and commands that transform streams of `(node, path)` tuples lazily. Storm files use `/* */` and `//` comments. Inline commands must end with `|` to return to storm operator syntax.
+
 ## Validating and Running Storm
 
 **IMPORTANT: Claude MUST validate ALL Storm query logic it generates using the MCP tools below. Every Storm query written to a file, embedded in a test, or included in a Storm package MUST be validated before being considered complete. No exceptions.**
@@ -46,19 +50,24 @@ Queries run as the calling user and respect that user's permissions and active v
 
 ### Selecting a View
 
-The `storm` / `call_storm` tools run in the session's active view. Manage it with:
-- `view_list` -- list the views the user can read (`{iden, name, parent}`).
-- `view_set` -- set the active view for the session by `view` iden; subsequent `storm` / `call_storm` calls use it.
-- `view_get` -- return the iden of the currently active view.
+The `storm` / `call_storm` MCP tools run in the session's active view. Manage it with:
+- `view_list` MCP tool -- list the views the user can read (`{iden, name, parent}`).
+- `view_set` MCP tool -- set the active view for the session by `view` iden; subsequent `storm` / `call_storm` calls use it.
+- `view_get` MCP tool -- return the active view iden. If no view has been set for the session, this returns the calling user's default view.
+- `view_fork` MCP tool -- fork a view (defaults to the active session view), creating a child view with its own writable top layer. If the forked view is the active session view, the session is automatically switched into the new fork so subsequent `storm` calls run inside it.
+- `view_del` MCP tool -- delete a view (defaults to the active session view); its layers are not deleted. If the deleted view is the active session view, the session falls back to the deleted view's parent.
+- `view_merge` MCP tool -- merge a forked view's changes down into its parent (defaults to the active session view; the fork itself is not deleted). If the merged view is the active session view, the session switches to the parent.
 
-To test changes without affecting the underlying data, fork a view in Storm (e.g. `$view = $lib.view.get().fork()`), `view_set` to the fork's iden, then delete the fork when finished. A `view` may also be passed per-call via the `opts` argument.
+A `view` may also be passed per-call to `storm` / `call_storm` via the `opts` argument.
+
+**Developing ingest logic (do this for ANY node-editing work):** a `view_fork` followed by a `view_del` is the safe way to test logic that edits nodes. Fork your view (`view_fork` switches the session into the fork), run the ingest with the `storm` MCP tool, inspect the results, then `view_del` the fork to discard every change -- the underlying data is never touched. Strongly prefer this workflow whenever developing or iterating on ingest or other node-editing Storm. Use `view_merge` instead of `view_del` only once the logic is verified and you want to keep the changes.
 
 ### Discovering the Data Model
 
 Do not guess form or property names. Use:
-- the `get_model` tool (or the `syn://model` resource) for the full Synapse data model (forms, properties, types, univs, tagprops, edges, interfaces);
-- the `syn://model/form/{name}` resource for a single form definition;
-- the `syn://stormdocs` resource for Storm library, type, and command documentation.
+- the `get_model` MCP tool (or the `syn://model` MCP resource) for the full Synapse data model (forms, properties, types, univs, tagprops, edges, interfaces);
+- the `syn://model/form/{name}` MCP resource for a single form definition;
+- the `syn://stormdocs` MCP resource for Storm library, type, and command documentation.
 
 ## Reading BadSyntax Errors
 
@@ -70,10 +79,6 @@ A `BadSyntax` exception (surfaced via `storm_validate` or an `err` message) cont
 - **`highlight`**: Dict with `hash`, `lines`, `columns`, `offsets` for precise source mapping
 
 The parser converts Lark errors to friendly messages using `terminalEnglishMap` in `synapse/lib/parser.py`.
-
-## Language Overview
-
-Storm is an async pipeline-based graph query language for Synapse. Queries are chains of operations and commands that transform streams of `(node, path)` tuples lazily. Storm files use `/* */` and `//` comments. Inline commands must end with `|` to return to storm operator syntax.
 
 ## Syntax Quick Reference
 
@@ -243,6 +248,24 @@ return($value)                                // return from function
 stop                                          // terminate an emitter function
 emit $value                                   // emit data to caller
 ```
+
+**Prefer the pipeline over control flow.** Control flow logic (`if`/`elif`/`else`,
+`switch`, `for`, `while`) should ONLY be used when the work cannot be expressed with inline
+Storm pipeline operations or subquery filters. Storm authors should strongly prefer inline
+pipe operations -- filters, subqueries, and conditional edits -- over control flow, because
+they run per-node, read more clearly, and stay lazy. Reach for `if`/`switch`/`for` only when
+no pipeline/subquery filter can do the job.
+
+```storm
+// AVOID -- control flow operating on node properties
+if ($node.props.foo) { $node.props.baz=faz }
+
+// PREFER -- a subquery filter plus a conditional edit in the pipeline
+{ +:foo [ :baz=faz ] }
+```
+
+The subquery `{ +:foo [ :baz=faz ] }` keeps only nodes that have `:foo` set and edits
+`:baz` on them, without removing the other nodes from the outer pipeline.
 
 ### Functions
 
@@ -656,7 +679,7 @@ $func("positional", key=1)
 
 5. **Verify end-to-end** -- once the syntax is valid, run the query with the `storm` tool and inspect the streamed `node` / `print` / `warn` / `err` messages to confirm it produces the expected results.
 
-6. **Runtime errors vs parse errors** -- if the query parses but fails at runtime, the error is likely a `NoSuchForm`, `NoSuchProp`, `BadTypeValu`, or `AuthDeny`, not `BadSyntax`. Use the `get_model` tool (or `syn://model` resource) for valid form/property names.
+6. **Runtime errors vs parse errors** -- if the query parses but fails at runtime, the error is likely a `NoSuchForm`, `NoSuchProp`, `BadTypeValu`, or `AuthDeny`, not `BadSyntax`. Use the `get_model` MCP tool (or `syn://model` MCP resource) for valid form/property names.
 
 ## Key Tools & Files
 
@@ -664,13 +687,9 @@ $func("positional", key=1)
 |-------------|---------|
 | `storm_validate` MCP tool | Validate Storm syntax without executing a query |
 | `storm` / `call_storm` MCP tools | Run Storm queries against the Cortex (stream messages / return a value) |
-| `view_list` / `view_set` / `view_get` MCP tools | List and set the session's active view |
-| `get_model` tool, `syn://model` resource | Discover forms, properties, and types |
-| `syn://stormdocs` resource | Storm library, type, and command documentation |
-| `synapse/lib/parser.py` | Storm parser, AST converter, error handling |
+| `view_list` / `view_set` / `view_get` MCP tools | List, set, and read the session's active view |
+| `view_fork` / `view_del` / `view_merge` MCP tools | Fork, delete, and merge views (use fork+del to safely test ingest) |
+| `get_model` MCP tool, `syn://model` MCP resource | Discover forms, properties, and types |
+| `syn://model/form/{name}` MCP resource | A single data model form definition |
+| `syn://stormdocs` MCP resource | Storm library, type, and command documentation |
 | `synapse/data/lark/storm.lark` | Lark grammar definition |
-| `synapse/lib/ast.py` | AST node classes |
-| `synapse/lib/storm.py` | Storm runtime execution |
-| `synapse/exc.py` | `BadSyntax` and other exception classes |
-| `synapse/lib/stormtypes.py` | Storm type system and some `$lib` implementations |
-| `synapse/lib/stormlib/*.py` | Additional Storm `$lib` implementations |

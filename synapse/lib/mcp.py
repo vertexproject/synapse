@@ -840,6 +840,35 @@ class CortexMcp(CellMcp):
         'additionalProperties': False,
     }
 
+    _view_fork_schema = {
+        'type': 'object',
+        'properties': {
+            'view': {'type': 'string',
+                     'description': 'The iden of the view to fork. Defaults to the active session view.'},
+            'name': {'type': 'string', 'description': 'An optional name for the new fork view.'},
+        },
+        'additionalProperties': False,
+    }
+
+    _view_del_schema = {
+        'type': 'object',
+        'properties': {
+            'view': {'type': 'string',
+                     'description': 'The iden of the view to delete. Defaults to the active session view.'},
+        },
+        'additionalProperties': False,
+    }
+
+    _view_merge_schema = {
+        'type': 'object',
+        'properties': {
+            'view': {'type': 'string',
+                     'description': 'The iden of the forked view to merge. Defaults to the active session view.'},
+            'force': {'type': 'boolean', 'description': 'Force the merge past optional merge checks.'},
+        },
+        'additionalProperties': False,
+    }
+
     async def _stormOpts(self, opts):
         useriden = self.web_useriden
 
@@ -858,6 +887,32 @@ class CortexMcp(CellMcp):
                                      user=useriden, perm='impersonate')
 
         return opts
+
+    async def _userViewIden(self):
+        # Resolve the calling user's default view: their cortex:view profile setting if set
+        # and readable, otherwise the Cortex default view. Uses getAuthCell() so it works
+        # whether auth is local or delegated to a remote cell.
+        viewiden = await self.getAuthCell().getUserProfInfo(self.web_useriden, 'cortex:view')
+        if viewiden is not None and self.cell.getView(viewiden) is not None:
+            return viewiden
+
+        return self.cell.view.iden
+
+    async def _sessionViewIden(self):
+        # The view subsequent storm tools run in: the session view if one has been set with
+        # view_set, otherwise the calling user's default view.
+        viewiden = self.mcpsess.get('view')
+        if viewiden is not None:
+            return viewiden
+
+        return await self._userViewIden()
+
+    async def _viewTarget(self, view):
+        # Resolve the target view for a view_* operation, defaulting to the session view.
+        if view is not None:
+            return view
+
+        return await self._sessionViewIden()
 
     @tool(desc='Run a Storm query and stream the result messages.', schema=_storm_schema)
     async def storm(self, query, opts=None):
@@ -910,9 +965,111 @@ class CortexMcp(CellMcp):
         self.mcpsess['view'] = view
         return {'view': view}
 
-    @tool(desc='Get the view currently set as active for this session.')
+    @tool(desc='Get the view active for this session. If no view has been set for the '
+               'session with view_set, this returns the calling user\'s default view.')
     async def view_get(self):
-        return {'view': self.mcpsess.get('view')}
+        return {'view': await self._sessionViewIden()}
+
+    @tool(desc='Fork a view, creating a new child view with its own writable top layer; '
+               'defaults to the active session view. If the forked view is the active '
+               'session view, the session view is automatically switched to the new fork '
+               'so subsequent storm tools run inside it. A view_fork followed (after '
+               'testing) by a view_del is the safe way to develop ingest logic that edits '
+               'nodes: fork the view, run the ingest in the fork, inspect the results, then '
+               'view_del the fork to discard every change. ALWAYS develop and test '
+               'node-editing or ingest logic this way so it never touches the underlying '
+               'data.',
+          schema=_view_fork_schema)
+    async def view_fork(self, view=None, name=None):
+        useriden = self.web_useriden
+        iden = await self._viewTarget(view)
+
+        authcell = self.getAuthCell()
+        if not await authcell.isUserAllowed(useriden, ('view', 'add')):
+            raise s_exc.AuthDeny(mesg='Forking a view requires the view.add permission.',
+                                 user=useriden, perm='view.add')
+
+        if not await authcell.isUserAllowed(useriden, ('view', 'read'), gateiden=iden):
+            raise s_exc.AuthDeny(mesg=f'User may not read view {iden}.',
+                                 user=useriden, perm='view.read')
+
+        if not await authcell.isUserAllowed(useriden, ('view', 'fork'), gateiden=iden):
+            raise s_exc.AuthDeny(mesg=f'User may not fork view {iden}.',
+                                 user=useriden, perm='view.fork')
+
+        srcview = self.cell.reqView(iden)
+
+        vdef = {'creator': useriden}
+        if name is not None:
+            vdef['name'] = name
+
+        newv = await srcview.fork(ldef={'creator': useriden}, vdef=vdef)
+        forkiden = newv.get('iden')
+
+        # If we forked the active session view, switch the session to the new fork.
+        if iden == await self._sessionViewIden():
+            self.mcpsess['view'] = forkiden
+
+        return {'view': forkiden, 'parent': iden, 'session_view': await self._sessionViewIden()}
+
+    @tool(desc='Delete a view (its layers are not deleted); defaults to the active session '
+               'view. If the deleted view is the active session view, the session view is '
+               'changed to the deleted view\'s parent once the deletion completes. Combined '
+               'with view_fork this is the safe way to develop ingest logic that edits '
+               'nodes: view_fork your view, run the ingest in the fork, then view_del the '
+               'fork to discard every change.',
+          schema=_view_del_schema)
+    async def view_del(self, view=None):
+        useriden = self.web_useriden
+        iden = await self._viewTarget(view)
+
+        target = self.cell.reqView(iden)
+        parent = target.parent.iden if target.parent is not None else None
+
+        if not await self.getAuthCell().isUserAllowed(useriden, ('view', 'del'), gateiden=iden):
+            raise s_exc.AuthDeny(mesg=f'User may not delete view {iden}.',
+                                 user=useriden, perm='view.del')
+
+        wascur = iden == await self._sessionViewIden()
+
+        await self.cell.delView(iden)
+
+        # If we deleted the active session view, fall back to its parent view.
+        if wascur:
+            if parent is not None:
+                self.mcpsess['view'] = parent
+            else:
+                self.mcpsess.pop('view', None)
+
+        return {'deleted': iden, 'parent': parent, 'session_view': await self._sessionViewIden()}
+
+    @tool(desc='Merge a forked view\'s changes down into its parent view (the fork itself '
+               'is not deleted); defaults to the active session view. The view must be a '
+               'fork whose parent does not require quorum voting. If the merged view is the '
+               'active session view, the session view is changed to the parent once the '
+               'merge completes.',
+          schema=_view_merge_schema)
+    async def view_merge(self, view=None, force=False):
+        useriden = self.web_useriden
+        iden = await self._viewTarget(view)
+
+        target = self.cell.reqView(iden)
+        if target.parent is None:
+            raise s_exc.BadArg(mesg=f'View {iden} is not a fork and cannot be merged.')
+
+        parent = target.parent.iden
+        target.reqNoParentQuorum()
+
+        wascur = iden == await self._sessionViewIden()
+
+        # view.merge() enforces the caller's merge permissions via mergeAllowed().
+        await target.merge(useriden=useriden, force=force)
+
+        # If we merged the active session view, switch the session to its parent.
+        if wascur:
+            self.mcpsess['view'] = parent
+
+        return {'merged': iden, 'parent': parent, 'session_view': await self._sessionViewIden()}
 
     def _streamItemLevel(self, item):
         # Map Storm message types to MCP log levels for streamed storm() output.

@@ -409,9 +409,20 @@ class McpTest(s_tests.SynTest):
 
                 sid, _ = await self._handshake(sess, url)
 
-                # view_get is null before any view_set
+                # view_get returns the user's default view before any view_set
                 status, data = await self._tool(sess, url, sid, 'view_get')
-                self.none(data['result']['structuredContent']['view'])
+                self.eq(mainiden, data['result']['structuredContent']['view'])
+
+                # view_get honors the user's cortex:view profile default when set
+                await root.setProfileValu('cortex:view', forkiden)
+                status, data = await self._tool(sess, url, sid, 'view_get')
+                self.eq(forkiden, data['result']['structuredContent']['view'])
+
+                # an unknown/unreadable profile default falls back to the cortex default view
+                await root.setProfileValu('cortex:view', 'nope')
+                status, data = await self._tool(sess, url, sid, 'view_get')
+                self.eq(mainiden, data['result']['structuredContent']['view'])
+                await root.popProfileValu('cortex:view')
 
                 # view_list (admin sees all views, including the fork)
                 status, data = await self._tool(sess, url, sid, 'view_list')
@@ -436,6 +447,82 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._tool(sess, url, sid, 'view_set', {'view': 'nope'})
                 self.true(data['result']['isError'])
 
+                # forking the active session view switches the session into the new fork
+                status, data = await self._tool(sess, url, sid, 'view_fork', {'name': 'ingest test'})
+                forkres = data['result']['structuredContent']
+                ingestiden = forkres['view']
+                self.eq(forkiden, forkres['parent'])
+                self.eq(ingestiden, forkres['session_view'])
+
+                status, data = await self._tool(sess, url, sid, 'view_get')
+                self.eq(ingestiden, data['result']['structuredContent']['view'])
+
+                # edits made while testing ingest stay isolated in the fork
+                await self._tool(sess, url, sid, 'call_storm', {'query': '[ inet:fqdn=ingest.test ]'})
+
+                # deleting the active session view falls back to its parent
+                status, data = await self._tool(sess, url, sid, 'view_del')
+                delres = data['result']['structuredContent']
+                self.eq(ingestiden, delres['deleted'])
+                self.eq(forkiden, delres['parent'])
+                self.eq(forkiden, delres['session_view'])
+                self.none(core.getView(ingestiden))
+
+                # the discarded edits never reached the parent view
+                cq = 'inet:fqdn=ingest.test return($node.repr())'
+                status, data = await self._tool(sess, url, sid, 'call_storm', {'query': cq})
+                self.none(s_json.loads(data['result']['content'][0]['text']))
+
+                # merging a forked session view applies its edits to the parent
+                status, data = await self._tool(sess, url, sid, 'view_fork')
+                mergeiden = data['result']['structuredContent']['view']
+                self.eq(mergeiden, data['result']['structuredContent']['session_view'])
+
+                await self._tool(sess, url, sid, 'call_storm', {'query': '[ inet:fqdn=merge.test ]'})
+
+                status, data = await self._tool(sess, url, sid, 'view_merge')
+                mres = data['result']['structuredContent']
+                self.eq(mergeiden, mres['merged'])
+                self.eq(forkiden, mres['parent'])
+                self.eq(forkiden, mres['session_view'])
+
+                # the merged node is now present in the parent (session) view
+                cq = 'inet:fqdn=merge.test return($node.repr())'
+                status, data = await self._tool(sess, url, sid, 'call_storm', {'query': cq})
+                self.eq('merge.test', s_json.loads(data['result']['content'][0]['text']))
+
+                # view_merge does not delete the fork; deleting a non-session view leaves the session
+                status, data = await self._tool(sess, url, sid, 'view_del', {'view': mergeiden})
+                self.eq(forkiden, data['result']['structuredContent']['session_view'])
+                self.none(core.getView(mergeiden))
+
+                # a non-fork view cannot be merged
+                status, data = await self._tool(sess, url, sid, 'view_merge', {'view': mainiden})
+                self.true(data['result']['isError'])
+
+                # merging a non-session fork leaves the session view unchanged
+                fork2iden = (await core.view.fork()).get('iden')
+                status, data = await self._tool(sess, url, sid, 'view_merge', {'view': fork2iden})
+                self.eq(forkiden, data['result']['structuredContent']['session_view'])
+                self.eq(mainiden, data['result']['structuredContent']['parent'])
+                await self._tool(sess, url, sid, 'view_del', {'view': fork2iden})
+
+                # forking a view other than the session view leaves the session unchanged
+                status, data = await self._tool(sess, url, sid, 'view_fork', {'view': mainiden})
+                otherfork = data['result']['structuredContent']
+                self.eq(mainiden, otherfork['parent'])
+                self.eq(forkiden, otherfork['session_view'])
+                await self._tool(sess, url, sid, 'view_del', {'view': otherfork['view']})
+
+                # deleting a parentless session view clears it back to the user default
+                topiden = (await core.addView({'layers': [(await core.addLayer()).get('iden')]})).get('iden')
+                await self._tool(sess, url, sid, 'view_set', {'view': topiden})
+                status, data = await self._tool(sess, url, sid, 'view_del')
+                tres = data['result']['structuredContent']
+                self.eq(topiden, tres['deleted'])
+                self.none(tres['parent'])
+                self.eq(mainiden, tres['session_view'])
+
             async with self.getHttpSess(auth=('lowuser', 'low'), port=port) as sess:
 
                 sid, _ = await self._handshake(sess, url)
@@ -448,6 +535,24 @@ class McpTest(s_tests.SynTest):
 
                 # view_set on an unreadable view is denied (returned as an error result)
                 status, data = await self._tool(sess, url, sid, 'view_set', {'view': forkiden})
+                self.true(data['result']['isError'])
+
+                # forking requires the view.add permission
+                status, data = await self._tool(sess, url, sid, 'view_fork', {'view': mainiden})
+                self.true(data['result']['isError'])
+
+                await lowuser.addRule((True, ('view', 'add')))
+
+                # lowuser cannot read the fork in order to fork it
+                status, data = await self._tool(sess, url, sid, 'view_fork', {'view': forkiden})
+                self.true(data['result']['isError'])
+
+                # lowuser may read main but lacks the view.fork permission on it
+                status, data = await self._tool(sess, url, sid, 'view_fork', {'view': mainiden})
+                self.true(data['result']['isError'])
+
+                # deleting requires the view.del permission
+                status, data = await self._tool(sess, url, sid, 'view_del', {'view': mainiden})
                 self.true(data['result']['isError'])
 
     async def test_mcp_cortex_tools(self):
