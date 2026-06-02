@@ -6,6 +6,15 @@
 Synapse Changelog
 *****************
 
+v2.244.1 - 2026-06-02
+=====================
+
+Notes
+-----
+- Lowered the upper bound of the ``aiohttp`` library due to a compatibility
+  issue with the ``vcrpy`` library.
+  (`#4970 <https://github.com/vertexproject/synapse/pull/4970>`_)
+
 v2.244.0 - 2026-05-29
 =====================
 
