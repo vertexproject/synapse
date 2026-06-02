@@ -1,5 +1,5 @@
 ---
-name: storm-syntax
+name: storm
 description: >-
   Reference for the Storm query language used by the Synapse Cortex: lifting,
   filtering, pivoting and traversal, editing nodes, tags, variables and types,

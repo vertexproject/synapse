@@ -798,7 +798,7 @@ Working effectively:
 or `call_storm` (returns a single value produced by a Storm `return()`).
 - Before composing queries, learn the data model via the `get_model` tool or the \
 `syn://model` resource (forms, properties, types), and learn query syntax from the \
-`skill://storm-syntax/SKILL.md` resource; `syn://stormdocs` documents Storm libraries, \
+`skill://storm/SKILL.md` resource; `syn://stormdocs` documents Storm libraries, \
 types, and commands.
 - Check a query with the `storm_validate` tool before running it.
 - Queries run as the calling user and respect that user's permissions and view.
@@ -936,10 +936,10 @@ class CortexMcp(CellMcp):
     async def _resStormDocs(self):
         return await self.cell.getStormDocs()
 
-    @resource(uri='skill://storm-syntax/SKILL.md', name='storm-syntax',
+    @resource(uri='skill://storm/SKILL.md', name='storm',
               desc='A skill describing the Storm query language syntax.', mimeType='text/markdown')
     async def _resStormSyntaxSkill(self):
-        with open(s_data.path('skills', 'storm-syntax', 'SKILL.md')) as fd:
+        with open(s_data.path('skills', 'storm', 'SKILL.md')) as fd:
             return fd.read()
 
     @resource(uri='syn://model/form/{name}', name='form', desc='A single data model form definition.',
