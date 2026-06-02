@@ -524,7 +524,7 @@ class McpTest(s_tests.SynTest):
                                                params={'uri': 'skill://storm-syntax/SKILL.md'})
                 content = data['result']['contents'][0]
                 self.eq('text/markdown', content['mimeType'])
-                self.isin('# Storm Syntax', content['text'])
+                self.isin('# Storm Query Language Skill', content['text'])
 
                 # Cortex completer (model:forms via the form resource template)
                 status, data = await self._rpc(sess, url, sid, 'completion/complete',
