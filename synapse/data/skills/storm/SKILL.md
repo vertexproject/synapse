@@ -32,7 +32,7 @@ The `storm_validate` MCP tool validates Storm syntax without executing the query
 
 ### Running Storm Queries
 
-The `storm` MCP tool runs a Storm query against the Cortex and streams the result messages. Each message is `{"type": <type>, "data": <data>}` (e.g. `node`, `print`, `warn`, `err`, `fini`). Use it to create or inspect nodes and to see the full output of a query.
+The `storm` MCP tool runs a Storm query against the Cortex and streams the result messages. Each message is a `(<type>, <info>)` tuple as yielded by the Storm runtime (e.g. `node`, `print`, `warn`, `err`, `fini`). Use it to create or inspect nodes and to see the full output of a query.
 
 The `call_storm` MCP tool runs a query and returns only the value from its `return()` statement. Use it when the query is written as a single function-style query that returns one value.
 
@@ -78,7 +78,7 @@ A `BadSyntax` exception (surfaced via `storm_validate` or an `err` message) cont
 - **`at`**: Character offset in query text
 - **`highlight`**: Dict with `hash`, `lines`, `columns`, `offsets` for precise source mapping
 
-The parser converts Lark errors to friendly messages using `terminalEnglishMap` in `synapse/lib/parser.py`.
+The parser converts raw Lark token names into friendly English descriptions in its error messages.
 
 ## Syntax Quick Reference
 
@@ -267,6 +267,21 @@ if ($node.props.foo) { $node.props.baz=faz }
 The subquery `{ +:foo [ :baz=faz ] }` keeps only nodes that have `:foo` set and edits
 `:baz` on them, without removing the other nodes from the outer pipeline.
 
+**Wrap loops that run with nodes in the pipeline.** A `for`/`while` loop runs its body once
+per loop iteration for each inbound node, so the loop re-emits each inbound node and the
+output count becomes `node_count * iteration_count` (e.g. 2 nodes x a 3-item loop yields 6).
+To run a loop without polluting the outer pipeline with these duplicates, wrap it in a
+subquery -- `{ for $foo in $bar { ... } }` -- which executes the loop (including any edits or
+side effects) but isolates the outer pipeline, leaving the inbound nodes unchanged.
+
+```storm
+// AVOID -- multiplies the pipeline: 2 inbound nodes x 3 iterations = 6 nodes out
+inet:ipv4 for $i in (1, 2, 3) { $lib.print($i) }
+
+// PREFER -- the loop still runs, but the outer pipeline still has just the 2 inbound nodes
+inet:ipv4 { for $i in (1, 2, 3) { $lib.print($i) } }
+```
+
 ### Functions
 
 ```storm
@@ -339,10 +354,8 @@ max :prop                                     // keep max by property
 min :prop                                     // keep min by property
 tee { query1 } { query2 }                   // branch pipeline
 once                                          // deduplicate per-query
-divert $cmdopts.yield --size $cmdopts.size $mod.enrich($node)  // divert pipeline
 delnode                                       // delete nodes
 movetag old.tag new.tag                      // rename tags
-graph                                         // generate subgraph
 help [command]                                // show help
 iden $iden                                    // lift node by iden
 background { query }                         // run query in background
@@ -350,12 +363,9 @@ batch --size 100 { query }                   // batch pipeline processing
 copyto $layer                                // copy nodes to layer
 diff                                          // yield added/changed nodes
 edges.del                                     // delete light edges
-intersect { query }                          // intersect pipelines
-lift.byverb $verb                            // lift by edge verb
 merge --apply                                // merge layer changes
 movenodes --srclayer $src --destlayer $dst   // move nodes between layers
 parallel { query }                           // parallel execution
-reindex                                       // reindex nodes
 runas --user $user { query }                 // run as another user
 scrape --refs $text                          // scrape indicators
 sleep $seconds                               // pause execution
@@ -419,7 +429,6 @@ $lib.auth.easyperm.confirm($obj, $lvl)       // check easyperm
 
 // Model
 $lib.model.form($formname)                   // get form object
-$lib.gen._riskVulnByCve($cve, ...)           // generate risk:vuln
 
 // Vault
 $lib.vault.add($name, $type, $scope, $owner, $secrets, $configs)
@@ -646,14 +655,13 @@ $func("positional", key=1)
 
 - Use `/* */` block comments for module headers, `//` for inline comments
 - Private/internal functions use `_` prefix: `function _helperFunc()`
-- Double-underscore `__` prefix for privsep-internal functions: `function __getJson()`
+- Double-underscore `__` prefix for module-internal variables and functions: they cannot be accessed from outside the module that defines them (e.g. `function __getJson()`)
 - Module variables at top level: `$setup = $lib.import(...)`, `$srcnode = (null)`
 - Format strings with backticks for interpolation: `` `text {$var}` ``
-- Parenthesize boolean expressions: `if ($a = null)`, `$x = (true)`, `$list = ([])`
+- Parenthesize values and conditions so Storm evaluates them as typed expressions rather than bare strings or edit syntax: `(true)` / `(false)` / `(null)` (not `$lib.true` / `$lib.false` / `$lib.null`), numbers `(42)`, collections `([])` / `({})`, and comparisons like `if ($a = null)`
 - Use `$lib.raise(ErrName, "message")` for errors, `$lib.exit("message")` for fatal exits
 - Use `return()` with empty parens to return `(null)`
 - Comparison uses single `=` (not `==`): `if ($code = 200)`
-- Use `(true)`, `(false)`, `(null)` -- not `$lib.true`, `$lib.false`, `$lib.null`
 - Prefer structured relationships such as property pivots or verb specific pivots over wild cards.
 - Use the most specific syntax which makes sense. (`-(refs)> inet:fqdn` is better than `--> *`)
 
@@ -675,7 +683,7 @@ $func("positional", key=1)
    inet:fqdn=example.com +:zone=1 -> inet:dns:a
    ```
 
-4. **Check the grammar** -- the Lark grammar is at `synapse/data/lark/storm.lark`. The `terminalEnglishMap` in `synapse/lib/parser.py` maps token names to readable descriptions.
+4. **Check the grammar** -- read the raw Lark grammar from the `syn://storm/grammar` MCP resource. Storm's error messages already map raw token names to readable descriptions.
 
 5. **Verify end-to-end** -- once the syntax is valid, run the query with the `storm` tool and inspect the streamed `node` / `print` / `warn` / `err` messages to confirm it produces the expected results.
 
@@ -692,4 +700,4 @@ $func("positional", key=1)
 | `get_model` MCP tool, `syn://model` MCP resource | Discover forms, properties, and types |
 | `syn://model/form/{name}` MCP resource | A single data model form definition |
 | `syn://stormdocs` MCP resource | Storm library, type, and command documentation |
-| `synapse/data/lark/storm.lark` | Lark grammar definition |
+| `syn://storm/grammar` MCP resource | The raw Lark grammar for the Storm query language |

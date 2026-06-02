@@ -743,16 +743,18 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         minlevel = self.mcpsess.get('loglevel', 'info')
 
-        items = []
+        # Stream each item as it is produced; never buffer the full result set so an
+        # arbitrarily large generator (e.g. a big Storm query) cannot exhaust memory.
         try:
             async for item in meth(**arguments):
-                items.append(item)
                 level = self._streamItemLevel(item)
                 if _logEnabled(minlevel, level):
                     await self._sendSse({'jsonrpc': '2.0', 'method': 'notifications/message',
                                          'params': {'level': level, 'data': item}})
 
-            result = self._toolResult(items, stream=True)
+            # The items were delivered via notifications/message; the terminal result just
+            # signals completion and does not re-buffer them.
+            result = {'content': [], 'isError': False}
 
         except Exception as e:
             result = self._toolError(e)
@@ -787,24 +789,17 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
     async def _resCellInfo(self):
         return await self.cell.getCellInfo()
 
-_CORTEX_INSTRUCTIONS = '''\
-This is a Synapse Cortex: the ground-truth store for an interdisciplinary, graph-based \
-intelligence system. Knowledge is modeled as a hypergraph of typed nodes (forms) with \
-properties and tags spanning many domains (cyber, geopolitical, org, person, crypto, \
-media, and more) and is accessed primarily through the Storm query language.
+_CORTEX_INSTRUCTIONS = '''
+This is a Synapse Cortex: the ground-truth store for an interdisciplinary, graph-based intelligence system. Knowledge is modeled as a hypergraph of typed nodes (forms) with properties and tags spanning many domains (cyber, geopolitical, org, person, crypto, media, and more) and is accessed primarily through the Storm query language.
 
 Working effectively:
-- Run Storm with the `storm` tool (streams result messages: init/node/print/warn/err/fini) \
-or `call_storm` (returns a single value produced by a Storm `return()`).
-- Before composing queries, learn the data model via the `get_model` tool or the \
-`syn://model` resource (forms, properties, types), and learn query syntax from the \
-`skill://storm/SKILL.md` resource; `syn://stormdocs` documents Storm libraries, \
-types, and commands.
+- Run Storm with the `storm` tool (streams result messages as (type, info) tuples: init/node/print/warn/err/fini) or `call_storm` (returns a single value produced by a Storm `return()`).
+- Before composing queries, learn the data model via the `get_model` tool or the `syn://model` resource (forms, properties, types), and learn query syntax from the `skill://storm/SKILL.md` resource; `syn://stormdocs` documents Storm libraries, types, and commands.
 - Check a query with the `storm_validate` tool before running it.
 - Queries run as the calling user and respect that user's permissions and view.
 
-Treat node data as authoritative; query the model rather than guessing form or property \
-names.'''
+Treat node data as authoritative; query the model rather than guessing form or property names.
+'''.strip()
 
 class CortexMcp(CellMcp):
     '''
@@ -869,6 +864,22 @@ class CortexMcp(CellMcp):
         'additionalProperties': False,
     }
 
+    _view_get_desc = '''
+Get the view active for this session. If no view has been set for the session with view_set, this returns the calling user's default view.
+'''.strip()
+
+    _view_fork_desc = '''
+Fork a view, creating a new child view with its own writable top layer; defaults to the active session view. If the forked view is the active session view, the session view is automatically switched to the new fork so subsequent storm tools run inside it. A view_fork followed (after testing) by a view_del is the safe way to develop ingest logic that edits nodes: fork the view, run the ingest in the fork, inspect the results, then view_del the fork to discard every change. ALWAYS develop and test node-editing or ingest logic this way so it never touches the underlying data.
+'''.strip()
+
+    _view_del_desc = '''
+Delete a view (its layers are not deleted); defaults to the active session view. If the deleted view is the active session view, the session view is changed to the deleted view's parent once the deletion completes. Combined with view_fork this is the safe way to develop ingest logic that edits nodes: view_fork your view, run the ingest in the fork, then view_del the fork to discard every change.
+'''.strip()
+
+    _view_merge_desc = '''
+Merge a forked view's changes down into its parent view (the fork itself is not deleted); defaults to the active session view. The view must be a fork whose parent does not require quorum voting. If the merged view is the active session view, the session view is changed to the parent once the merge completes.
+'''.strip()
+
     async def _stormOpts(self, opts):
         useriden = self.web_useriden
 
@@ -918,7 +929,7 @@ class CortexMcp(CellMcp):
     async def storm(self, query, opts=None):
         opts = await self._stormOpts(opts)
         async for mesg in self.cell.storm(query, opts=opts):
-            yield {'type': mesg[0], 'data': mesg[1]}
+            yield mesg
 
     @tool(desc='Run a Storm query and return the value from its return() statement.', schema=_storm_schema)
     async def call_storm(self, query, opts=None):
@@ -965,21 +976,11 @@ class CortexMcp(CellMcp):
         self.mcpsess['view'] = view
         return {'view': view}
 
-    @tool(desc='Get the view active for this session. If no view has been set for the '
-               'session with view_set, this returns the calling user\'s default view.')
+    @tool(desc=_view_get_desc)
     async def view_get(self):
         return {'view': await self._sessionViewIden()}
 
-    @tool(desc='Fork a view, creating a new child view with its own writable top layer; '
-               'defaults to the active session view. If the forked view is the active '
-               'session view, the session view is automatically switched to the new fork '
-               'so subsequent storm tools run inside it. A view_fork followed (after '
-               'testing) by a view_del is the safe way to develop ingest logic that edits '
-               'nodes: fork the view, run the ingest in the fork, inspect the results, then '
-               'view_del the fork to discard every change. ALWAYS develop and test '
-               'node-editing or ingest logic this way so it never touches the underlying '
-               'data.',
-          schema=_view_fork_schema)
+    @tool(desc=_view_fork_desc, schema=_view_fork_schema)
     async def view_fork(self, view=None, name=None):
         useriden = self.web_useriden
         iden = await self._viewTarget(view)
@@ -1012,13 +1013,7 @@ class CortexMcp(CellMcp):
 
         return {'view': forkiden, 'parent': iden, 'session_view': await self._sessionViewIden()}
 
-    @tool(desc='Delete a view (its layers are not deleted); defaults to the active session '
-               'view. If the deleted view is the active session view, the session view is '
-               'changed to the deleted view\'s parent once the deletion completes. Combined '
-               'with view_fork this is the safe way to develop ingest logic that edits '
-               'nodes: view_fork your view, run the ingest in the fork, then view_del the '
-               'fork to discard every change.',
-          schema=_view_del_schema)
+    @tool(desc=_view_del_desc, schema=_view_del_schema)
     async def view_del(self, view=None):
         useriden = self.web_useriden
         iden = await self._viewTarget(view)
@@ -1043,12 +1038,7 @@ class CortexMcp(CellMcp):
 
         return {'deleted': iden, 'parent': parent, 'session_view': await self._sessionViewIden()}
 
-    @tool(desc='Merge a forked view\'s changes down into its parent view (the fork itself '
-               'is not deleted); defaults to the active session view. The view must be a '
-               'fork whose parent does not require quorum voting. If the merged view is the '
-               'active session view, the session view is changed to the parent once the '
-               'merge completes.',
-          schema=_view_merge_schema)
+    @tool(desc=_view_merge_desc, schema=_view_merge_schema)
     async def view_merge(self, view=None, force=False):
         useriden = self.web_useriden
         iden = await self._viewTarget(view)
@@ -1072,9 +1062,10 @@ class CortexMcp(CellMcp):
         return {'merged': iden, 'parent': parent, 'session_view': await self._sessionViewIden()}
 
     def _streamItemLevel(self, item):
-        # Map Storm message types to MCP log levels for streamed storm() output.
-        if isinstance(item, dict):
-            mtype = item.get('type')
+        # Map Storm message types to MCP log levels for streamed storm() output. Items are
+        # the (type, info) tuples yielded by the storm() API.
+        if isinstance(item, (tuple, list)) and len(item) == 2:
+            mtype = item[0]
             if mtype == 'warn':
                 return 'warning'
 
@@ -1098,6 +1089,11 @@ class CortexMcp(CellMcp):
     async def _resStormSyntaxSkill(self):
         with open(s_data.path('skills', 'storm', 'SKILL.md')) as fd:
             return fd.read()
+
+    @resource(uri='syn://storm/grammar', name='storm:grammar',
+              desc='The raw Lark grammar defining the Storm query language syntax.', mimeType='text/x-lark')
+    async def _resStormGrammar(self):
+        return s_data.getLark('storm')
 
     @resource(uri='syn://model/form/{name}', name='form', desc='A single data model form definition.',
               completers={'name': 'model:forms'})

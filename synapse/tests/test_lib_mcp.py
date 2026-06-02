@@ -362,11 +362,14 @@ class McpTest(s_tests.SynTest):
                 self.true(data['result'].get('isError'))
                 self.eq('streamfail', data['result']['content'][0]['text'])
 
-                # generator tool with SSE -> notifications + terminal result
+                # generator tool with SSE -> items stream as notifications, not buffered
                 mesgs = await self._toolSse(sess, url, sid, 'gen')
                 self.eq([0, 1, 2], [m['params']['data'] for m in mesgs[:3]])
                 self.eq('notifications/message', mesgs[0]['method'])
-                self.eq([0, 1, 2], mesgs[-1]['result']['structuredContent']['items'])
+                # the terminal result signals completion without re-buffering the items
+                self.eq([], mesgs[-1]['result']['content'])
+                self.false(mesgs[-1]['result'].get('isError'))
+                self.notin('structuredContent', mesgs[-1]['result'])
 
                 # generator tool that raises mid-stream -> terminal isError
                 mesgs = await self._toolSse(sess, url, sid, 'genboom')
@@ -595,14 +598,14 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._tool(sess, url, sid, 'get_model')
                 self.isin('types', data['result']['structuredContent'])
 
-                # storm tool, no SSE -> collected messages include a node
+                # storm tool, no SSE -> collected (type, info) messages include a node
                 status, data = await self._tool(sess, url, sid, 'storm', {'query': '[ inet:ipv4=1.2.3.4 ]'})
                 items = data['result']['structuredContent']['items']
-                self.isin('node', [i['type'] for i in items])
+                self.isin('node', [i[0] for i in items])
 
                 # storm tool with SSE -> streamed messages + terminal result
                 mesgs = await self._toolSse(sess, url, sid, 'storm', {'query': '[ inet:ipv4=5.6.7.8 ]'})
-                streamed = [m['params']['data']['type'] for m in mesgs if 'params' in m]
+                streamed = [m['params']['data'][0] for m in mesgs if 'params' in m]
                 self.isin('node', streamed)
                 self.false(mesgs[-1]['result'].get('isError'))
 
@@ -612,6 +615,16 @@ class McpTest(s_tests.SynTest):
 
                 status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://stormdocs'})
                 self.isin('libraries', s_json.loads(data['result']['contents'][0]['text']))
+
+                # the raw Storm Lark grammar is served as a text resource
+                status, data = await self._rpc(sess, url, sid, 'resources/list')
+                self.isin('syn://storm/grammar', [r['uri'] for r in data['result']['resources']])
+
+                status, data = await self._rpc(sess, url, sid, 'resources/read',
+                                               params={'uri': 'syn://storm/grammar'})
+                content = data['result']['contents'][0]
+                self.eq('text/x-lark', content['mimeType'])
+                self.isin('Grammar for the Storm Query Language', content['text'])
 
                 status, data = await self._rpc(sess, url, sid, 'resources/read',
                                                params={'uri': 'syn://model/form/inet:ipv4'})
@@ -900,12 +913,12 @@ class McpTest(s_tests.SynTest):
 
     async def test_mcp_logging(self):
 
-        # unit coverage of the storm message -> log level mapping
-        self.eq('warning', s_mcp.CortexMcp._streamItemLevel(None, {'type': 'warn'}))
-        self.eq('error', s_mcp.CortexMcp._streamItemLevel(None, {'type': 'err'}))
-        self.eq('info', s_mcp.CortexMcp._streamItemLevel(None, {'type': 'node'}))
-        self.eq('info', s_mcp.CortexMcp._streamItemLevel(None, 'notadict'))
-        self.eq('info', s_mcp.CellMcp._streamItemLevel(None, {'type': 'warn'}))
+        # unit coverage of the storm (type, info) message -> log level mapping
+        self.eq('warning', s_mcp.CortexMcp._streamItemLevel(None, ('warn', {})))
+        self.eq('error', s_mcp.CortexMcp._streamItemLevel(None, ('err', {})))
+        self.eq('info', s_mcp.CortexMcp._streamItemLevel(None, ('node', {})))
+        self.eq('info', s_mcp.CortexMcp._streamItemLevel(None, 'notatuple'))
+        self.eq('info', s_mcp.CellMcp._streamItemLevel(None, ('warn', {})))
 
         async with self.getTestCore() as core:
 
@@ -934,5 +947,5 @@ class McpTest(s_tests.SynTest):
                 levels = {m['params']['level'] for m in notifs}
                 self.notin('info', levels)
                 self.isin('warning', levels)
-                self.true(any(m['params']['data'].get('type') == 'warn' for m in notifs))
+                self.true(any(m['params']['data'][0] == 'warn' for m in notifs))
                 self.false(mesgs[-1]['result'].get('isError'))
