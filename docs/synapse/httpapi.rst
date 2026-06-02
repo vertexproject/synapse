@@ -824,7 +824,7 @@ The endpoint may be registered with an MCP client such as Claude Code using the 
 command. The ``--header`` option supplies the API key used to authenticate::
 
     claude mcp add --transport http synapse \
-        https://localhost:4443/api/v1/mcp \
+        https://cortex.intel-sharing.vertex.link/api/v1/mcp \
         --header "X-API-KEY: XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA="
 
 /api/ext/*

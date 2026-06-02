@@ -194,7 +194,9 @@ $match = ($str ~= "pattern")
 
 **Operator precedence** (low->high): `or` -> `and` -> `not` -> comparisons -> `+/-` -> `*/%` -> unary `-` -> `**`
 
-### Strings
+### Type Specific Behavior
+
+#### Strings
 
 ```storm
 inet:fqdn=example.com                        // unquoted (no spaces)
@@ -205,6 +207,32 @@ string'''                                    // triple-quoted
 
 `format string {$var} and {:prop}`           // backtick format string
 `result: {$x + 1} name: {$node.repr()}`     // expressions in {}
+```
+
+#### Dicts
+
+Dereference directly by key, and iterate as `($name, $valu)` tuples:
+
+```storm
+$dict = ({"foo": "bar"})
+$lib.print($dict.foo)                        // dereference a key -> bar
+
+for ($name, $valu) in $dict {                // iterate key/value pairs
+    $lib.print(`{$name}={$valu}`)
+}
+```
+
+#### Lists / Arrays
+
+Index directly (indexes are zero-based), and iterate:
+
+```storm
+$list = (["foo", "bar", "baz"])
+$lib.print($list.2)                          // index directly, 0-based -> baz
+
+for $item in $list {                         // iterate the items
+    $lib.print($item)
+}
 ```
 
 ### Control Flow
