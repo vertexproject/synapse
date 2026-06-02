@@ -182,9 +182,11 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._rpc(sess, url, None, 'tools/list')
                 self.eq(status, http.HTTPStatus.BAD_REQUEST)
 
-                # unknown session id -> 404
-                status, data = await self._rpc(sess, url, 'nosuchsession', 'tools/list')
+                # unknown session id -> 404, and the error echoes the request id
+                status, data = await self._rpc(sess, url, 'nosuchsession', 'tools/list', _id=42)
                 self.eq(status, http.HTTPStatus.NOT_FOUND)
+                self.eq(42, data['id'])
+                self.eq(s_jsrpc.INVALID_REQUEST, data['error']['code'])
 
                 # unsupported protocol version header -> 400
                 status, data = await self._rpc(sess, url, sid, 'ping',
@@ -260,6 +262,23 @@ class McpTest(s_tests.SynTest):
             # a different user may not use root's session
             async with self.getHttpSess(auth=('user2', 'secret2'), port=port) as s2:
                 status, data = await self._rpc(s2, url, sid, 'tools/list')
+                self.eq(status, http.HTTPStatus.NOT_FOUND)
+
+                # ...nor may they DELETE (terminate) root's session
+                async with s2.delete(url, headers={'Mcp-Session-Id': sid}) as resp:
+                    self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as s1:
+
+                # root's session survived the foreign DELETE attempt
+                status, data = await self._rpc(s1, url, sid, 'tools/list')
+                self.eq(status, http.HTTPStatus.OK)
+
+                # the owner may DELETE their own session
+                async with s1.delete(url, headers={'Mcp-Session-Id': sid}) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+
+                status, data = await self._rpc(s1, url, sid, 'tools/list')
                 self.eq(status, http.HTTPStatus.NOT_FOUND)
 
     async def test_mcp_apikey_auth(self):
@@ -375,19 +394,6 @@ class McpTest(s_tests.SynTest):
                 mesgs = await self._toolSse(sess, url, sid, 'genboom')
                 self.eq(1, mesgs[0]['params']['data'])
                 self.true(mesgs[-1]['result'].get('isError'))
-
-    async def test_mcp_example_completer(self):
-
-        # model:types is registered as an example completer (not yet wired to a ref)
-        self.isin('model:types', s_mcp.CortexMcp.getMcpCompleters())
-
-        async with self.getTestCore() as core:
-
-            class _stub:
-                cell = core
-
-            vals = await s_mcp.CortexMcp._completeTypes(_stub(), 'inet:ipv', {})
-            self.isin('inet:ipv4', vals)
 
     async def test_mcp_cortex_views(self):
 

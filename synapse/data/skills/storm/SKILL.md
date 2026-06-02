@@ -671,15 +671,15 @@ $func("positional", key=1)
 
 2. **Check the error location** -- the `storm_validate` result (and `BadSyntax`) provides `line` and `column`. Look at that exact position in the query.
 
-3. **Validate incrementally** -- for complex queries, validate each pipeline stage separately with `storm_validate`:
+3. **Build up incrementally and check the output at each step** -- for complex queries, construct the query one pipeline stage at a time, running each stage with the `storm` tool and confirming it yields the expected nodes/output before adding the next operation. This pins down which stage changes the results. The focus here is verifying the expected output at each step; you can also `storm_validate` each stage for syntax, or do both:
    ```storm
-   // Test lift alone
+   // Run the lift alone and confirm the expected nodes come back
    inet:fqdn=example.com
 
-   // Then add filter
+   // Add the filter and confirm the result set narrows as expected
    inet:fqdn=example.com +:zone=1
 
-   // Then add pivot
+   // Add the pivot and confirm it lands on the expected nodes
    inet:fqdn=example.com +:zone=1 -> inet:dns:a
    ```
 

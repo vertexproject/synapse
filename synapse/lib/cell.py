@@ -1199,6 +1199,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.auth = None
         self.cellparent = parent
         self.sessions = {}
+        self._mcp_sessions = {}  # MCP server session state, keyed by Mcp-Session-Id
         self.paused = False
         self.isactive = False
         self.activebase = None
@@ -3821,7 +3822,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.addHttpApi('/api/v1/behold', s_httpapi.BeholdSockV1, {'cell': self})
 
         if self._mcp_ctor is not None:
-            self._mcp_sessions = {}
             self.addHttpApi('/api/v1/mcp', self._mcp_ctor, {'cell': self})
 
     def addHttpApi(self, path, ctor, info):

@@ -292,12 +292,13 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             return
 
         method = mesg.get('method') if isinstance(mesg, dict) else None
+        reqid = mesg.get('id') if isinstance(mesg, dict) else None
 
         if method == 'initialize':
             await self._handleInitialize(mesg, useriden)
             return
 
-        session = self._reqSession(useriden)
+        session = self._reqSession(useriden, reqid)
         if session is None:
             return
 
@@ -332,10 +333,15 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         if not await self.reqAuthUser():
             return
 
-        sid = self.request.headers.get('Mcp-Session-Id')
-        if sid is not None:
-            self.cell._mcp_sessions.pop(sid, None)
+        useriden = await self.useriden()
 
+        sid = self.request.headers.get('Mcp-Session-Id')
+        session = self._getSession(sid) if sid is not None else None
+        if session is None or session.get('user') != useriden:
+            self.set_status(HTTPStatus.NOT_FOUND)
+            return
+
+        self.cell._mcp_sessions.pop(sid, None)
         self.set_status(HTTPStatus.OK)
 
     # --- session management ---
@@ -354,18 +360,18 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         return session
 
-    def _reqSession(self, useriden):
+    def _reqSession(self, useriden, reqid=None):
         sid = self.request.headers.get('Mcp-Session-Id')
         if sid is None:
             self.set_status(HTTPStatus.BAD_REQUEST)
-            self._sendResp(self._errResp(None, s_exc.JsonRpcError.init(
+            self._sendResp(self._errResp(reqid, s_exc.JsonRpcError.init(
                 s_jsrpc.INVALID_REQUEST, 'Missing Mcp-Session-Id header.')))
             return None
 
         session = self._getSession(sid)
         if session is None or session.get('user') != useriden:
             self.set_status(HTTPStatus.NOT_FOUND)
-            self._sendResp(self._errResp(None, s_exc.JsonRpcError.init(
+            self._sendResp(self._errResp(reqid, s_exc.JsonRpcError.init(
                 s_jsrpc.INVALID_REQUEST, 'Unknown or expired MCP session.')))
             return None
 
@@ -1111,9 +1117,3 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
     @completer(name='model:forms')
     async def _completeForms(self, value, context):
         return self.cell.model.getFormsByPrefix(value)
-
-    # Kept as an example completer; not yet referenced by a prompt argument or resource
-    # template variable, but ready to wire up.
-    @completer(name='model:types')
-    async def _completeTypes(self, value, context):
-        return self.cell.model.getTypesByPrefix(value)
