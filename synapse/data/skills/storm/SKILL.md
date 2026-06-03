@@ -151,6 +151,8 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 [ -:asn ]                                     // delete property
 [ :prop ?= value ]                            // try-set (ignore type errors)
 [ :prop*unset= value ]                        // set only if unset (conditional)
+[ :prop={ foo:bar } ]                         // assign from a subquery (yields a node; its value is assigned)
+[ :prop={[ foo:bar=baz ]} ]                   // the subquery may create the node to assign
 
 // Tag operations
 [ +#tag.name ]                                // add tag
@@ -165,6 +167,7 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 [ +(refs)> { inet:ipv4=1.2.3.4 } ]          // add edge via subquery
 [ -(refs)> { inet:ipv4=1.2.3.4 } ]          // remove edge via subquery
 [ <(seen)+ $srcnode ]                         // add N2 edge to variable
+// a subquery that returns no nodes (or a $srcnode of (null)) is valid and makes no changes
 
 // Parenthesized edit context only edits nodes created in the same parens context
 // All other nodes in the pipeline are not affected
@@ -234,6 +237,76 @@ for $item in $list {                         // iterate the items
     $lib.print($item)
 }
 ```
+
+#### Null
+
+Dereferencing something that does not exist yields `(null)` (rather than raising):
+
+```storm
+$dict = ({"foo": "bar"})
+$lib.print($dict.nope)                       // missing key -> (null)
+```
+
+Iterating over `(null)` safely produces zero iterations, so a guard is unnecessary -- a
+`for` loop over a missing/`(null)` value simply does not run:
+
+```storm
+// no need to guard with `if $foo.bar { ... }` first
+for $item in $foo.bar {                      // if $foo.bar is (null), this runs 0 times
+    ...
+}
+```
+
+#### Guids
+
+A `guid` form has an opaque, randomly-distributed primary value. To create or deconflict one
+from meaningful data, pass a dict (a guid constructor, aka a "gutor") whose keys are
+secondary properties. Those properties both generate a stable guid -- repeating the same
+dict resolves to the same node -- and are set on the node. This is especially valuable when
+you need to **deconflict on multiple secondary properties** at once:
+
+```storm
+// deconflict a risk:threat on both :name and :reporter:name
+[ risk:threat=({"name": "apt1", "reporter:name": "mandiant"}) ]
+```
+
+The deconfliction set is order-independent: the same keys/values always resolve to the same
+node regardless of dict ordering.
+
+Two reserved keys control the rest of the construction:
+
+- `$props` -- a dict of additional properties to set that do NOT participate in
+  deconfliction (they do not affect the generated guid):
+
+```storm
+[ risk:threat=({"name": "apt1", "reporter:name": "mandiant",
+                "$props": {"desc": "Comment Crew"}}) ]
+```
+
+- `$try` -- when `(true)`, values in `$props` that fail type validation are skipped instead
+  of raising; the node is still created with its valid properties:
+
+```storm
+[ risk:threat=({"name": "apt1", "reporter:name": "mandiant",
+                "$try": (true), "$props": {"reporter:published": "not a date"}}) ]
+// the node is created; the invalid reporter:published is simply not set
+```
+
+Properties declared with alternates (`alts`) are also consulted during the deconfliction
+pass, so a deconf value will match an existing node even when that value is stored on one of
+the property's alternate properties.
+
+A guid form can also be generated from an **array of seed values**, producing a stable,
+re-encounterable guid -- the same values always resolve to the same node. Unlike a gutor
+dict, the seed values are NOT stored as properties; they only determine the guid:
+
+```storm
+// the same (vendor, id) tuple always resolves to the same node
+[ foo:bar=(acme, $foo.id) ]
+```
+
+Use an array seed when a node is uniquely identified by a fixed set of positional inputs;
+use a gutor dict when you want to deconflict on (and record) named secondary properties.
 
 ### Control Flow
 
