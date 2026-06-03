@@ -876,9 +876,9 @@ expression, returning the matching subset of the model. The `pattern` is used as
 case-sensitive regex (use an inline `(?i)` flag for case-insensitive matching) and is
 searched (not full-matched) against the name and doc of each type, form, form property, and
 interface. The result is `{"types": {...}, "forms": {...}, "interfaces": {...}}` containing
-only the matching entries (forms include only their matching properties unless the form
-itself matched). Use this to discover the relevant forms/properties for a topic before
-composing Storm; use the `syn://model` resource for the full model.
+only the matching entries; a match on a form's name, doc, or any of its properties includes
+the entire form definition. Use this to discover the relevant forms/properties for a topic
+before composing Storm; use the `syn://model` resource for the full model.
 '''.strip()
 
     _storm_cursor_schema = {
@@ -1180,20 +1180,19 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
 
             # forms carry their doc on the same-named type
             formdoc = mdef.get('types', {}).get(name, {}).get('info', {}).get('doc') or ''
-            formmatch = regx.search(name) is not None or regx.search(formdoc) is not None
+            matched = regx.search(name) is not None or regx.search(formdoc) is not None
 
-            props = {}
-            for pname, pdef in fdef.get('props', {}).items():
-                await asyncio.sleep(0)
-                pfull = pdef.get('full') or pname
-                if regx.search(pfull) or regx.search(pdef.get('doc') or ''):
-                    props[pname] = pdef
+            # a match on any property includes the entire form definition
+            if not matched:
+                for pname, pdef in fdef.get('props', {}).items():
+                    await asyncio.sleep(0)
+                    pfull = pdef.get('full') or pname
+                    if regx.search(pfull) or regx.search(pdef.get('doc') or ''):
+                        matched = True
+                        break
 
-            if formmatch:
+            if matched:
                 forms[name] = fdef
-            elif props:
-                # only some props matched; return the form with just those props
-                forms[name] = {**fdef, 'props': props}
 
         return {'types': types, 'forms': forms, 'interfaces': ifaces}
 

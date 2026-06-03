@@ -674,11 +674,12 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._tool(sess, url, sid, 'model_find', {'pattern': '(?i)IPv4 address'})
                 self.isin('inet:ipv4', data['result']['structuredContent']['types'])
 
-                # a property-only match returns the form narrowed to the matching props
+                # a property-only match returns the entire form definition
                 status, data = await self._tool(sess, url, sid, 'model_find', {'pattern': 'dns:a:fqdn'})
                 res = data['result']['structuredContent']
+                self.isin('inet:dns:a', res['forms'])
                 self.isin('fqdn', res['forms']['inet:dns:a']['props'])
-                self.notin('ipv4', res['forms']['inet:dns:a']['props'])
+                self.isin('ipv4', res['forms']['inet:dns:a']['props'])
 
                 # an interface match
                 status, data = await self._tool(sess, url, sid, 'model_find', {'pattern': 'doc:document'})
