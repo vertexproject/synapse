@@ -24,32 +24,6 @@ class TstMcp(s_mcp.CellMcp):
     async def synboom(self):
         raise s_exc.BadArg(mesg='bad arg tool')
 
-    @s_mcp.tool(name='gen', desc='Yield a few integers.', schema={
-        'type': 'object',
-        'properties': {'n': {'type': 'integer'}},
-        'additionalProperties': False,
-    })
-    async def gen(self, n=3):
-        for i in range(n):
-            yield i
-
-    @s_mcp.tool(name='genboom', desc='Stream then raise.')
-    async def genboom(self):
-        yield 1
-        raise ValueError('streamfail')
-
-    def _streamItemLevel(self, item):
-        if item in ('warning', 'error'):
-            return item
-
-        return 'info'
-
-    @s_mcp.tool(name='levelgen', desc='Yield items at various log levels.')
-    async def levelgen(self):
-        yield 'info-one'
-        yield 'warning'
-        yield 'error'
-
     @s_mcp.tool(name='addone', schema={
         'type': 'object',
         'properties': {'x': {'type': 'integer'}},
@@ -142,19 +116,6 @@ class McpTest(s_tests.SynTest):
             params['arguments'] = arguments
 
         return await self._rpc(sess, url, sid, 'tools/call', params=params, _id=_id)
-
-    async def _toolSse(self, sess, url, sid, name, arguments=None):
-        params = {'name': name}
-        if arguments is not None:
-            params['arguments'] = arguments
-
-        body = {'jsonrpc': '2.0', 'id': 7, 'method': 'tools/call', 'params': params}
-        hdrs = {'Mcp-Session-Id': sid, 'Accept': 'text/event-stream'}
-        async with sess.post(url, json=body, headers=hdrs) as resp:
-            self.eq(resp.status, http.HTTPStatus.OK)
-            self.isin('text/event-stream', resp.headers.get('Content-Type'))
-            text = await resp.text()
-        return [s_json.loads(line[6:]) for line in text.splitlines() if line.startswith('data: ')]
 
     async def test_mcp_lifecycle_and_sessions(self):
 
@@ -379,34 +340,6 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._tool(sess, url, sid, 'synboom')
                 self.true(data['result'].get('isError'))
                 self.eq('bad arg tool', data['result']['content'][0]['text'])
-
-                # generator tool, no SSE -> collected into structuredContent items
-                status, data = await self._tool(sess, url, sid, 'gen')
-                self.eq([0, 1, 2], data['result']['structuredContent']['items'])
-                self.false(data['result'].get('isError'))
-
-                # generator tool, no SSE, exceeding the cap -> error directing to streaming
-                status, data = await self._tool(sess, url, sid, 'gen', {'n': s_jsrpc.MAX_RESULT_ITEMS + 1})
-                self.eq(s_jsrpc.RESULT_TOO_LARGE, data['error']['code'])
-
-                # generator tool that raises mid-collect -> isError
-                status, data = await self._tool(sess, url, sid, 'genboom')
-                self.true(data['result'].get('isError'))
-                self.eq('streamfail', data['result']['content'][0]['text'])
-
-                # generator tool with SSE -> items stream as notifications, not buffered
-                mesgs = await self._toolSse(sess, url, sid, 'gen')
-                self.eq([0, 1, 2], [m['params']['data'] for m in mesgs[:3]])
-                self.eq('notifications/message', mesgs[0]['method'])
-                # the terminal result signals completion without re-buffering the items
-                self.eq([], mesgs[-1]['result']['content'])
-                self.false(mesgs[-1]['result'].get('isError'))
-                self.notin('structuredContent', mesgs[-1]['result'])
-
-                # generator tool that raises mid-stream -> terminal isError
-                mesgs = await self._toolSse(sess, url, sid, 'genboom')
-                self.eq(1, mesgs[0]['params']['data'])
-                self.true(mesgs[-1]['result'].get('isError'))
 
     async def test_mcp_cortex_views(self):
 
@@ -850,6 +783,12 @@ class McpTest(s_tests.SynTest):
             def synctool(self):
                 return 1
 
+        # tools must be coroutine functions, not async generators
+        with self.raises(s_exc.BadArg):
+            @s_mcp.tool(name='genr')
+            async def genrtool(self):
+                yield 1
+
         with self.raises(s_exc.BadArg):
             @s_mcp.resource(uri='syn://x')
             def syncres(self):
@@ -919,7 +858,7 @@ class McpTest(s_tests.SynTest):
 
     async def test_mcp_capabilities(self):
 
-        # Cortex advertises tools/logging/resources/completions (no prompts)
+        # Cortex advertises tools/resources/completions (no prompts)
         async with self.getTestCore() as core:
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
             url = f'https://localhost:{port}/api/v1/mcp'
@@ -928,10 +867,11 @@ class McpTest(s_tests.SynTest):
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
                 _, result = await self._handshake(sess, url)
                 caps = result['capabilities']
-                for name in ('tools', 'logging', 'resources', 'completions'):
+                for name in ('tools', 'resources', 'completions'):
                     self.isin(name, caps)
-                # CortexMcp exposes no prompts
+                # CortexMcp exposes no prompts (and no logging capability)
                 self.notin('prompts', caps)
+                self.notin('logging', caps)
                 self.isin('Storm', result.get('instructions'))
 
         # A bare CellMcp has a tool + a resource, but no prompts/completers
@@ -944,7 +884,6 @@ class McpTest(s_tests.SynTest):
                 _, result = await self._handshake(sess, url)
                 caps = result['capabilities']
                 self.isin('resources', caps)
-                self.isin('logging', caps)
                 self.notin('prompts', caps)
                 self.notin('completions', caps)
                 # no instructions are declared on the base CellMcp
@@ -1095,40 +1034,3 @@ class McpTest(s_tests.SynTest):
                 self.eq([], (await complete({'type': 'ref/bogus'}, {'name': 'x', 'value': ''}))['values'])
                 self.eq([], (await complete('notadict', {'name': 'x', 'value': ''}))['values'])
                 self.eq([], (await complete({'type': 'ref/prompt', 'name': 'ghost'}, {'name': 'g', 'value': ''}))['values'])
-
-    async def test_mcp_logging(self):
-
-        # unit coverage of the streamed item -> log level mapping (default + override)
-        self.eq('info', s_mcp.CellMcp._streamItemLevel(None, ('warn', {})))
-        self.eq('warning', TstMcp._streamItemLevel(None, 'warning'))
-        self.eq('error', TstMcp._streamItemLevel(None, 'error'))
-        self.eq('info', TstMcp._streamItemLevel(None, 'info-one'))
-
-        async with self.getTestCell(TstMcpCell) as cell:
-
-            host, port = await cell.addHttpsPort(0, host='127.0.0.1')
-            url = f'https://localhost:{port}/api/v1/mcp'
-
-            root = await cell.auth.getUserByName('root')
-            await root.setPasswd('secret')
-
-            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
-
-                sid, _ = await self._handshake(sess, url)
-
-                # invalid level
-                status, data = await self._rpc(sess, url, sid, 'logging/setLevel', params={'level': 'bogus'})
-                self.eq(s_jsrpc.INVALID_PARAMS, data['error']['code'])
-
-                # raise the minimum level to warning
-                status, data = await self._rpc(sess, url, sid, 'logging/setLevel', params={'level': 'warning'})
-                self.eq({}, data['result'])
-
-                # streamed info-level items are suppressed; warning/error are delivered
-                mesgs = await self._toolSse(sess, url, sid, 'levelgen')
-                notifs = [m for m in mesgs if m.get('method') == 'notifications/message']
-                levels = {m['params']['level'] for m in notifs}
-                self.notin('info', levels)
-                self.isin('warning', levels)
-                self.isin('error', levels)
-                self.false(mesgs[-1]['result'].get('isError'))

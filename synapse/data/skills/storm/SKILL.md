@@ -802,7 +802,7 @@ $func("positional", key=1)
 
 4. **Check the grammar** -- read the raw Lark grammar from the `syn://storm/grammar` MCP resource. Storm's error messages already map raw token names to readable descriptions.
 
-5. **Verify end-to-end** -- once the syntax is valid, run the query with the `storm` tool and inspect the streamed `node` / `print` / `warn` / `err` messages to confirm it produces the expected results.
+5. **Verify end-to-end** -- once the syntax is valid, run the query with the `storm` tool and inspect the returned `node` / `print` / `warn` / `err` messages to confirm it produces the expected results.
 
 6. **Runtime errors vs parse errors** -- if the query parses but fails at runtime, the error is likely a `NoSuchForm`, `NoSuchProp`, `BadTypeValu`, or `AuthDeny`, not `BadSyntax`. Use the `model_find` MCP tool (or `syn://model` MCP resource) for valid form/property names.
 
@@ -811,7 +811,7 @@ $func("positional", key=1)
 | Tool / File | Purpose |
 |-------------|---------|
 | `storm_validate` MCP tool | Validate Storm syntax without executing a query |
-| `storm` / `call_storm` MCP tools | Run Storm queries against the Cortex (stream messages / return a value) |
+| `storm` / `call_storm` MCP tools | Run Storm queries against the Cortex (page of result messages / return a value) |
 | `view_list` / `view_set` / `view_get` MCP tools | List, set, and read the session's active view |
 | `view_fork` / `view_del` / `view_merge` MCP tools | Fork, delete, and merge views (use fork+del to safely test ingest) |
 | `model_find` MCP tool, `syn://model` MCP resource | Search / discover forms, properties, and types |

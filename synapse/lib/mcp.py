@@ -5,7 +5,9 @@ MCP is JSON-RPC 2.0 over a Streamable HTTP transport. This module builds on the 
 ``synapse.lib.jsrpc.JsonRpcHandler`` to implement the MCP server methods: the lifecycle
 (``initialize``, ``notifications/initialized``, ``ping``), ``tools/list`` and
 ``tools/call``, ``resources/list`` / ``resources/templates/list`` / ``resources/read``,
-``prompts/list`` / ``prompts/get``, ``completion/complete``, and ``logging/setLevel``.
+``prompts/list`` / ``prompts/get``, and ``completion/complete``. Every method returns a
+single JSON response (no server-initiated SSE; large Storm results paginate via the
+``storm`` / ``storm_continue`` / ``storm_cancel`` tools).
 
 ``CellMcp`` provides the MCP transport (POST for messages, GET returns 405, DELETE ends a
 session), the session lifecycle, and dispatch, and may be mounted on any cell. ``CortexMcp``
@@ -18,10 +20,9 @@ Sessions are stateful and bound to the authenticating user: ``initialize`` issue
 held in memory with an idle timeout. Every request is authenticated via the inherited
 handler auth (session cookie, HTTP Basic, or an ``X-API-KEY`` header).
 
-Server features are exposed via opt-in decorators, each requiring an async method:
+Server features are exposed via opt-in decorators, each requiring a coroutine method:
 
-* ``@s_mcp.tool`` - a callable tool. Async generator tools stream their results as
-  Server-Sent Events when the request carries an ``Accept: text/event-stream`` header.
+* ``@s_mcp.tool`` - a callable tool (invoked via ``tools/call``).
 * ``@s_mcp.resource`` - readable URI-addressed content; a URI with ``{var}`` segments is a
   template whose captured segments are passed to the method as keyword arguments.
 * ``@s_mcp.prompt`` - a user-selectable prompt template.
@@ -29,9 +30,7 @@ Server features are exposed via opt-in decorators, each requiring an async metho
   template variables.
 
 Capabilities are advertised dynamically based on which registries a handler class actually
-provides. A method that requires permissions enforces them itself within its body. Server
-``logging`` notifications (``notifications/message``) are emitted on the SSE stream and
-filtered by the per-session level set via ``logging/setLevel``.
+provides. A method that requires permissions enforces them itself within its body.
 '''
 import re
 import base64
@@ -64,9 +63,6 @@ STORM_PAGE_SIZE = 100
 STORM_CURSOR_TIMEOUT = 300
 STORM_MAX_CURSORS = 8
 
-# RFC 5424 syslog severities, in ascending order, used by MCP logging.
-LOG_LEVELS = ('debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency')
-
 # JSON-RPC error code MCP uses for a resource which does not exist.
 RESOURCE_NOT_FOUND = -32002
 
@@ -79,9 +75,6 @@ _NAME_REGEX = re.compile(r'^[A-Za-z_][A-Za-z0-9_]{0,63}$')
 def _reqValidName(name):
     if _NAME_REGEX.match(name) is None:
         raise s_exc.BadArg(mesg=f'MCP name must match {_NAME_REGEX.pattern}: {name}')
-
-def _logEnabled(minlevel, level):
-    return LOG_LEVELS.index(level) >= LOG_LEVELS.index(minlevel)
 
 def tool(name=None, desc=None, schema=None):
     '''
@@ -100,8 +93,8 @@ def tool(name=None, desc=None, schema=None):
         schema = {'type': 'object', 'properties': {}, 'additionalProperties': False}
 
     def wrap(func):
-        if not (inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)):
-            raise s_exc.BadArg(mesg=f'mcp tool must be async: {func.__qualname__}')
+        if not inspect.iscoroutinefunction(func):
+            raise s_exc.BadArg(mesg=f'mcp tool must be a coroutine function: {func.__qualname__}')
 
         toolname = name if name is not None else func.__name__
         _reqValidName(toolname)
@@ -110,7 +103,6 @@ def tool(name=None, desc=None, schema=None):
             'name': toolname,
             'desc': desc,
             'schema': schema,
-            'genr': inspect.isasyncgenfunction(func),
         }
         return func
 
@@ -420,7 +412,6 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
                 'user': useriden,
                 'version': resp['result'].get('protocolVersion'),
                 'initialized': False,
-                'loglevel': 'info',
                 'touched': s_common.now(),
             }
             self.set_header('Mcp-Session-Id', sid)
@@ -434,7 +425,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         vers = protocolVersion if protocolVersion in self.SUPPORTED_VERSIONS else self.PROTOCOL_VERSION
 
         # Advertise only the capabilities this handler class actually provides.
-        caps = {'tools': {'listChanged': False}, 'logging': {}}
+        caps = {'tools': {'listChanged': False}}
         if self.getMcpResources():
             caps['resources'] = {}
 
@@ -676,20 +667,6 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         return None
 
-    # --- logging ---
-
-    @s_jsrpc.method(name='logging/setLevel')
-    async def _loggingSetLevel(self, level=None):
-        if level not in LOG_LEVELS:
-            raise s_exc.JsonRpcError.init(s_jsrpc.INVALID_PARAMS, f'Invalid log level: {level}')
-
-        self.mcpsess['loglevel'] = level
-        return {}
-
-    def _streamItemLevel(self, item):
-        # Overridable: the log level at which a streamed tool item is emitted.
-        return 'info'
-
     # --- tool dispatch ---
 
     async def _handleToolsCall(self, mesg):
@@ -718,7 +695,6 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
                 s_jsrpc.METHOD_NOT_FOUND, f'Unknown tool: {name}')))
             return
 
-        info = entry.get('info')
         meth = getattr(self, entry.get('attr'))
 
         try:
@@ -737,69 +713,15 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
                     s_jsrpc.INVALID_PARAMS, e.get('mesg', str(e)))))
                 return
 
-        if info.get('genr'):
-
-            if self._wantsStream():
-                await self._streamToolCall(reqid, meth, arguments)
-                return
-
-            agen = meth(**arguments)
-            items = []
-            try:
-                async for item in agen:
-                    if len(items) >= s_jsrpc.MAX_RESULT_ITEMS:
-                        await agen.aclose()
-                        self._sendResp(self._errResp(reqid, s_exc.JsonRpcError.init(
-                            s_jsrpc.RESULT_TOO_LARGE,
-                            'Result set too large; retry with SSE streaming (Accept: text/event-stream).')))
-                        return
-
-                    items.append(item)
-            except Exception as e:
-                self._sendResp(self._toolErrResp(reqid, e))
-                return
-
-            self._sendResp({'jsonrpc': '2.0', 'id': reqid, 'result': self._toolResult(items, stream=True)})
-            return
-
         try:
             valu = await meth(**arguments)
         except Exception as e:
             self._sendResp(self._toolErrResp(reqid, e))
             return
 
-        self._sendResp({'jsonrpc': '2.0', 'id': reqid, 'result': self._toolResult(valu, stream=False)})
+        self._sendResp({'jsonrpc': '2.0', 'id': reqid, 'result': self._toolResult(valu)})
 
-    async def _streamToolCall(self, reqid, meth, arguments):
-
-        self.set_header('Content-Type', 'text/event-stream')
-        self.set_header('Cache-Control', 'no-cache')
-
-        minlevel = self.mcpsess.get('loglevel', 'info')
-
-        # Stream each item as it is produced; never buffer the full result set so an
-        # arbitrarily large generator (e.g. a big Storm query) cannot exhaust memory.
-        try:
-            async for item in meth(**arguments):
-                level = self._streamItemLevel(item)
-                if _logEnabled(minlevel, level):
-                    await self._sendSse({'jsonrpc': '2.0', 'method': 'notifications/message',
-                                         'params': {'level': level, 'data': item}})
-
-            # The items were delivered via notifications/message; the terminal result just
-            # signals completion and does not re-buffer them.
-            result = {'content': [], 'isError': False}
-
-        except Exception as e:
-            result = self._toolError(e)
-
-        await self._sendSse({'jsonrpc': '2.0', 'id': reqid, 'result': result})
-
-    def _toolResult(self, valu, stream=False):
-        if stream:
-            text = s_json.dumps(valu).decode()
-            return {'content': [{'type': 'text', 'text': text}], 'structuredContent': {'items': valu}, 'isError': False}
-
+    def _toolResult(self, valu):
         result = {'content': [{'type': 'text', 'text': s_json.dumps(valu).decode()}], 'isError': False}
         if isinstance(valu, dict):
             result['structuredContent'] = valu
