@@ -1163,31 +1163,30 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
         mdef = await self.getCore().getModelDict()
 
         types = {}
-        for name, tdef in mdef.get('types', {}).items():
+        for name, tdef in mdef['types'].items():
             await asyncio.sleep(0)
-            if regx.search(name) or regx.search(tdef.get('info', {}).get('doc') or ''):
+            if regx.search(name) or regx.search(tdef['info'].get('doc', '')):
                 types[name] = tdef
 
         ifaces = {}
-        for name, idef in mdef.get('interfaces', {}).items():
+        for name, idef in mdef['interfaces'].items():
             await asyncio.sleep(0)
-            if regx.search(name) or regx.search(idef.get('doc') or ''):
+            if regx.search(name) or regx.search(idef.get('doc', '')):
                 ifaces[name] = idef
 
         forms = {}
-        for name, fdef in mdef.get('forms', {}).items():
+        for name, fdef in mdef['forms'].items():
             await asyncio.sleep(0)
 
             # forms carry their doc on the same-named type
-            formdoc = mdef.get('types', {}).get(name, {}).get('info', {}).get('doc') or ''
+            formdoc = mdef['types'][name]['info'].get('doc', '')
             matched = regx.search(name) is not None or regx.search(formdoc) is not None
 
             # a match on any property includes the entire form definition
             if not matched:
-                for pname, pdef in fdef.get('props', {}).items():
+                for pdef in fdef['props'].values():
                     await asyncio.sleep(0)
-                    pfull = pdef.get('full') or pname
-                    if regx.search(pfull) or regx.search(pdef.get('doc') or ''):
+                    if regx.search(pdef['full']) or regx.search(pdef.get('doc', '')):
                         matched = True
                         break
 
