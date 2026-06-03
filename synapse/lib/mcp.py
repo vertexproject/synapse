@@ -203,6 +203,13 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
     # initialize response. If None, no instructions field is included.
     _mcp_instructions = None
 
+    def getCore(self):
+        # Abstraction (mirrors s_httpapi.StormHandler.getCore) which allows subclasses to
+        # dictate how a reference to the cortex is returned from the handler. Defaults to the
+        # cell the handler is mounted on; a subclass (e.g. mounted on Optic) may override this
+        # to return a telepath proxy to a remote cortex.
+        return self.cell
+
     @classmethod
     def getMcpTools(cls):
         '''
@@ -789,11 +796,11 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
     @tool(desc='Return metadata about the service.')
     async def get_service_info(self):
-        return await self.cell.getCellInfo()
+        return await self.getCore().getCellInfo()
 
     @resource(uri='syn://cellinfo', name='cellinfo', desc='Metadata about the cell.')
     async def _resCellInfo(self):
-        return await self.cell.getCellInfo()
+        return await self.getCore().getCellInfo()
 
 _CORTEX_INSTRUCTIONS = '''
 This is a Synapse Cortex: the ground-truth store for an interdisciplinary, graph-based intelligence system. Knowledge is modeled as a hypergraph of typed nodes (forms) with properties and tags spanning many domains (cyber, geopolitical, org, person, crypto, media, and more) and is accessed primarily through the Storm query language.
@@ -905,15 +912,21 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
 
         return opts
 
-    async def _userViewIden(self):
-        # Resolve the calling user's default view: their cortex:view profile setting if set
-        # and readable, otherwise the Cortex default view. Uses getAuthCell() so it works
-        # whether auth is local or delegated to a remote cell.
-        viewiden = await self.getAuthCell().getUserProfInfo(self.web_useriden, 'cortex:view')
-        if viewiden is not None and self.cell.getView(viewiden) is not None:
-            return viewiden
+    def _coreOpts(self, **varz):
+        # Storm opts used to run view operations on getCore() as the calling user. Running
+        # them via $lib.view (rather than live View objects) keeps them telepath-safe and
+        # lets Storm enforce the view permissions uniformly, whether getCore() is the local
+        # cortex or a remote telepath proxy.
+        opts = {'user': self.web_useriden}
+        if varz:
+            opts['vars'] = varz
 
-        return self.cell.view.iden
+        return opts
+
+    async def _userViewIden(self):
+        # The calling user's effective default view, honoring their cortex:view profile.
+        # Resolved on the cortex via getCore() so it works for a local or remote cortex.
+        return await self.getCore().callStorm('return($lib.view.get().iden)', opts=self._coreOpts())
 
     async def _sessionViewIden(self):
         # The view subsequent storm tools run in: the session view if one has been set with
@@ -934,17 +947,17 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
     @tool(desc='Run a Storm query and stream the result messages.', schema=_storm_schema)
     async def storm(self, query, opts=None):
         opts = await self._stormOpts(opts)
-        async for mesg in self.cell.storm(query, opts=opts):
+        async for mesg in self.getCore().storm(query, opts=opts):
             yield mesg
 
     @tool(desc='Run a Storm query and return the value from its return() statement.', schema=_storm_schema)
     async def call_storm(self, query, opts=None):
         opts = await self._stormOpts(opts)
-        return await self.cell.callStorm(query, opts=opts)
+        return await self.getCore().callStorm(query, opts=opts)
 
     @tool(desc='Validate the syntax of a Storm query without executing it.', schema=_storm_validate_schema)
     async def storm_validate(self, query):
-        valid, info = await self.cell.isValidStorm(query)
+        valid, info = await self.getCore().isValidStorm(query)
         if valid:
             return {'valid': True}
 
@@ -953,31 +966,33 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
 
     @tool(desc='Return the Synapse data model definition.')
     async def get_model(self):
-        return await self.cell.getModelDict()
+        return await self.getCore().getModelDict()
 
     @tool(desc='List the views this user can read.')
     async def view_list(self):
-        authcell = self.getAuthCell()
-
-        views = []
-        for view in self.cell.listViews():
-            if not await authcell.isUserAllowed(self.web_useriden, ('view', 'read'), gateiden=view.iden):
-                continue
-
-            vdef = await view.pack()
-            views.append({'iden': view.iden, 'name': vdef.get('name'), 'parent': vdef.get('parent')})
-
-        return {'views': views}
+        query = '''
+        $views = ([])
+        for $view in $lib.view.list() {
+            if $lib.user.allowed("view.read", gateiden=$view.iden) {
+                $views.append(({"iden": $view.iden, "name": $view.get(name), "parent": $view.parent}))
+            }
+        }
+        return($views)
+        '''
+        return {'views': await self.getCore().callStorm(query, opts=self._coreOpts())}
 
     @tool(desc='Set the active view for this session, used by subsequent storm tools.',
           schema=_view_set_schema)
     async def view_set(self, view):
-        if self.cell.getView(view) is None:
-            raise s_exc.NoSuchView(mesg=f'No such view: {view}', iden=view)
-
-        if not await self.getAuthCell().isUserAllowed(self.web_useriden, ('view', 'read'), gateiden=view):
-            raise s_exc.AuthDeny(mesg=f'User may not read view {view}.',
-                                 user=self.web_useriden, perm='view.read')
+        # Confirm the view exists (NoSuchView if not) and that the user can read it.
+        query = '''
+        $iden = $lib.view.get($iden).iden
+        if (not $lib.user.allowed("view.read", gateiden=$iden)) {
+            $lib.raise(AuthDeny, `User may not read view {$iden}.`)
+        }
+        return($iden)
+        '''
+        await self.getCore().callStorm(query, opts=self._coreOpts(iden=view))
 
         self.mcpsess['view'] = view
         return {'view': view}
@@ -988,30 +1003,11 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
 
     @tool(desc=_view_fork_desc, schema=_view_fork_schema)
     async def view_fork(self, view=None, name=None):
-        useriden = self.web_useriden
         iden = await self._viewTarget(view)
 
-        authcell = self.getAuthCell()
-        if not await authcell.isUserAllowed(useriden, ('view', 'add')):
-            raise s_exc.AuthDeny(mesg='Forking a view requires the view.add permission.',
-                                 user=useriden, perm='view.add')
-
-        if not await authcell.isUserAllowed(useriden, ('view', 'read'), gateiden=iden):
-            raise s_exc.AuthDeny(mesg=f'User may not read view {iden}.',
-                                 user=useriden, perm='view.read')
-
-        if not await authcell.isUserAllowed(useriden, ('view', 'fork'), gateiden=iden):
-            raise s_exc.AuthDeny(mesg=f'User may not fork view {iden}.',
-                                 user=useriden, perm='view.fork')
-
-        srcview = self.cell.reqView(iden)
-
-        vdef = {'creator': useriden}
-        if name is not None:
-            vdef['name'] = name
-
-        newv = await srcview.fork(ldef={'creator': useriden}, vdef=vdef)
-        forkiden = newv.get('iden')
+        # $lib.view fork enforces view.add / view.read / view.fork as the calling user.
+        query = 'return($lib.view.get($iden).fork(name=$name).iden)'
+        forkiden = await self.getCore().callStorm(query, opts=self._coreOpts(iden=iden, name=name))
 
         # If we forked the active session view, switch the session to the new fork.
         if iden == await self._sessionViewIden():
@@ -1021,19 +1017,17 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
 
     @tool(desc=_view_del_desc, schema=_view_del_schema)
     async def view_del(self, view=None):
-        useriden = self.web_useriden
         iden = await self._viewTarget(view)
 
-        target = self.cell.reqView(iden)
-        parent = target.parent.iden if target.parent is not None else None
-
-        if not await self.getAuthCell().isUserAllowed(useriden, ('view', 'del'), gateiden=iden):
-            raise s_exc.AuthDeny(mesg=f'User may not delete view {iden}.',
-                                 user=useriden, perm='view.del')
+        # $lib.view.get() raises NoSuchView if missing and enforces read perm; we need the
+        # parent iden for the session fallback before deleting.
+        parent = await self.getCore().callStorm('return($lib.view.get($iden).parent)',
+                                                opts=self._coreOpts(iden=iden))
 
         wascur = iden == await self._sessionViewIden()
 
-        await self.cell.delView(iden)
+        # $lib.view.del enforces the caller's view.del permission.
+        await self.getCore().callStorm('$lib.view.del($iden)', opts=self._coreOpts(iden=iden))
 
         # If we deleted the active session view, fall back to its parent view.
         if wascur:
@@ -1046,20 +1040,18 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
 
     @tool(desc=_view_merge_desc, schema=_view_merge_schema)
     async def view_merge(self, view=None, force=False):
-        useriden = self.web_useriden
         iden = await self._viewTarget(view)
 
-        target = self.cell.reqView(iden)
-        if target.parent is None:
+        parent = await self.getCore().callStorm('return($lib.view.get($iden).parent)',
+                                                opts=self._coreOpts(iden=iden))
+        if parent is None:
             raise s_exc.BadArg(mesg=f'View {iden} is not a fork and cannot be merged.')
-
-        parent = target.parent.iden
-        target.reqNoParentQuorum()
 
         wascur = iden == await self._sessionViewIden()
 
-        # view.merge() enforces the caller's merge permissions via mergeAllowed().
-        await target.merge(useriden=useriden, force=force)
+        # $lib.view merge enforces the caller's merge permissions and quorum rules.
+        await self.getCore().callStorm('$lib.view.get($iden).merge(force=$force)',
+                                       opts=self._coreOpts(iden=iden, force=force))
 
         # If we merged the active session view, switch the session to its parent.
         if wascur:
@@ -1084,11 +1076,11 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
 
     @resource(uri='syn://model', name='datamodel', desc='The Synapse data model definition.')
     async def _resModel(self):
-        return await self.cell.getModelDict()
+        return await self.getCore().getModelDict()
 
     @resource(uri='syn://stormdocs', name='stormdocs', desc='Storm library, type, and command documentation.')
     async def _resStormDocs(self):
-        return await self.cell.getStormDocs()
+        return (await self.getCore().getCoreInfoV2()).get('stormdocs')
 
     @resource(uri='skill://storm/SKILL.md', name='storm',
               desc='A skill describing the Storm query language syntax.', mimeType='text/markdown')
@@ -1104,7 +1096,7 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
     @resource(uri='syn://model/form/{name}', name='form', desc='A single data model form definition.',
               completers={'name': 'model:forms'})
     async def _resForm(self, name):
-        mdef = await self.cell.getModelDict()
+        mdef = await self.getCore().getModelDict()
         form = mdef['forms'].get(name)
         if form is None:
             raise s_exc.JsonRpcError.init(RESOURCE_NOT_FOUND, f'No such form: {name}',
@@ -1116,4 +1108,4 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
 
     @completer(name='model:forms')
     async def _completeForms(self, value, context):
-        return self.cell.model.getFormsByPrefix(value)
+        return await self.getCore().getFormsByPrefix(value)

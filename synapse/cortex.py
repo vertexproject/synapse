@@ -231,6 +231,15 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
+    async def getFormsByPrefix(self, prefix):
+        '''
+        Return a list of form names which start with the given prefix.
+
+        Returns:
+            (list): A sorted list of matching form names.
+        '''
+        return await self.cell.getFormsByPrefix(prefix)
+
     async def getModelDefs(self):
         return await self.cell.getModelDefs()
 
@@ -5086,6 +5095,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def getModelDict(self):
         return self.model.getModelDict()
+
+    async def getFormsByPrefix(self, prefix):
+        return self.model.getFormsByPrefix(prefix)
 
     async def getModelDefs(self):
         return self.model.getModelDefs()

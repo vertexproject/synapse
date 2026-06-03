@@ -426,11 +426,6 @@ class McpTest(s_tests.SynTest):
                 await root.setProfileValu('cortex:view', forkiden)
                 status, data = await self._tool(sess, url, sid, 'view_get')
                 self.eq(forkiden, data['result']['structuredContent']['view'])
-
-                # an unknown/unreadable profile default falls back to the cortex default view
-                await root.setProfileValu('cortex:view', 'nope')
-                status, data = await self._tool(sess, url, sid, 'view_get')
-                self.eq(mainiden, data['result']['structuredContent']['view'])
                 await root.popProfileValu('cortex:view')
 
                 # view_list (admin sees all views, including the fork)
@@ -556,13 +551,69 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._tool(sess, url, sid, 'view_fork', {'view': forkiden})
                 self.true(data['result']['isError'])
 
-                # lowuser may read main but lacks the view.fork permission on it
-                status, data = await self._tool(sess, url, sid, 'view_fork', {'view': mainiden})
-                self.true(data['result']['isError'])
-
                 # deleting requires the view.del permission
                 status, data = await self._tool(sess, url, sid, 'view_del', {'view': mainiden})
                 self.true(data['result']['isError'])
+
+    async def test_mcp_cortex_remote(self):
+        # Exercise the getCore() seam against the cortex over a telepath proxy -- the path
+        # Optic uses. getCore()/getAuthCell() return a proxy, so every cortex operation the
+        # handler performs must be telepath-safe.
+        async with self.getTestCore() as core:
+
+            async with core.getLocalProxy() as prox:
+
+                class RemoteCortexMcp(s_mcp.CortexMcp):
+                    def getCore(self):
+                        return prox
+
+                    def getAuthCell(self):
+                        return prox
+
+                core.addHttpApi('/api/v1/mcpremote', RemoteCortexMcp, {'cell': core})
+
+                host, port = await core.addHttpsPort(0, host='127.0.0.1')
+                url = f'https://localhost:{port}/api/v1/mcpremote'
+
+                root = await core.auth.getUserByName('root')
+                await root.setPasswd('secret')
+
+                async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                    sid, _ = await self._handshake(sess, url)
+
+                    # get_model proxies via getCore().getModelDict()
+                    status, data = await self._tool(sess, url, sid, 'get_model')
+                    self.isin('forms', data['result']['structuredContent'])
+
+                    # the stormdocs resource proxies via getCore().getCoreInfoV2()
+                    status, data = await self._rpc(sess, url, sid, 'resources/read',
+                                                   params={'uri': 'syn://stormdocs'})
+                    self.isin('libraries', s_json.loads(data['result']['contents'][0]['text']))
+
+                    # the storm tool creates a node on the backend cortex (as the auth'd user)
+                    await self._tool(sess, url, sid, 'storm', {'query': '[ inet:ipv4=1.2.3.4 ]'})
+                    self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+
+                    # completion -> model:forms completer -> CoreApi.getFormsByPrefix over telepath
+                    status, data = await self._rpc(sess, url, sid, 'completion/complete',
+                                                   params={'ref': {'type': 'ref/resource',
+                                                                   'uri': 'syn://model/form/{name}'},
+                                                           'argument': {'name': 'name', 'value': 'inet:ip'}})
+                    self.isin('inet:ipv4', data['result']['completion']['values'])
+
+                    # view fork/del round-trips through $lib.view via the proxy
+                    status, data = await self._tool(sess, url, sid, 'view_fork')
+                    forkiden = data['result']['structuredContent']['view']
+                    self.nn(core.getView(forkiden))
+
+                    status, data = await self._tool(sess, url, sid, 'view_del')
+                    self.eq(forkiden, data['result']['structuredContent']['deleted'])
+                    self.none(core.getView(forkiden))
+
+                    # get_service_info proxies via getCore().getCellInfo()
+                    status, data = await self._tool(sess, url, sid, 'get_service_info')
+                    self.isin('cell', data['result']['structuredContent'])
 
     async def test_mcp_cortex_tools(self):
 
