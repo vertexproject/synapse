@@ -66,6 +66,17 @@ STORM_MAX_CURSORS = 8
 # JSON-RPC error code MCP uses for a resource which does not exist.
 RESOURCE_NOT_FOUND = -32002
 
+# Shared guidance appended to the storm / call_storm tool descriptions about choosing a view.
+_VIEW_GUIDANCE = '''
+IMPORTANT -- views: the query runs in a single view. Set "view" in the opts dict to the iden
+of the intended view (e.g. opts={"view": "<iden>"}); obtain view idens from the view_list
+tool and reuse the chosen iden on every subsequent storm / call_storm call. If "view" is
+omitted, the query runs in the calling user's default view. Running a query in the WRONG view
+can be VERY BAD -- it can create, modify, or destroy data in the wrong place. When you are not
+certain which view the user intends, do NOT guess: use view_list and ask the user to confirm
+which view to use first.
+'''.strip()
+
 # The strictest tool/prompt name pattern currently known to be compatible everywhere: it
 # must start with an ASCII letter or underscore (Gemini/Vertex reject other leading chars)
 # and otherwise contain only ASCII letters, digits, and underscores (avoiding the dash, dot,
@@ -75,6 +86,58 @@ _NAME_REGEX = re.compile(r'^[A-Za-z_][A-Za-z0-9_]{0,63}$')
 def _reqValidName(name):
     if _NAME_REGEX.match(name) is None:
         raise s_exc.BadArg(mesg=f'MCP name must match {_NAME_REGEX.pattern}: {name}')
+
+async def _finiStormCursor(info):
+    # Cancel a storm cursor's background producer task. Cancellation propagates into the
+    # producer's "async for" loop, whose finally block explicitly closes the storm generator
+    # (tearing down its open runtime) before the task unwinds.
+    info['task'].cancel()
+    try:
+        await info['task']
+    except asyncio.CancelledError:
+        pass
+    except Exception:  # pragma: no cover
+        logger.exception('error closing storm cursor task')
+
+async def _reapMcpSessionsOnce(cell):
+    # Evict idle MCP sessions and idle storm cursors. A session that has gone idle is dropped
+    # along with all of its cursors; cursors that have gone idle within a live session are
+    # dropped individually. Either way the cursor's producer task (and its storm generator)
+    # is cancelled immediately. Factored out from _reapMcpSessions() so a single reap pass can
+    # be driven deterministically from tests.
+    now = s_common.now()
+    for sid in list(cell._mcp_sessions):
+
+        sess = cell._mcp_sessions.get(sid)
+        if sess is None:  # pragma: no cover
+            continue
+
+        if now - sess.get('touched', 0) > SESSION_TIMEOUT * 1000:
+            cell._mcp_sessions.pop(sid, None)
+            for info in sess.pop('cursors', {}).values():
+                await _finiStormCursor(info)
+            continue
+
+        cursors = sess.get('cursors', {})
+        for iden in list(cursors):
+            info = cursors.get(iden)
+            if info is not None and now - info['touched'] > STORM_CURSOR_TIMEOUT * 1000:
+                cursors.pop(iden, None)
+                await _finiStormCursor(info)
+
+async def _reapMcpSessions(cell):
+    # Background task (one per cell) which periodically reaps idle MCP sessions/cursors so an
+    # abandoned paginated storm query does not hold a runtime open until the cell shuts down.
+    # Started via cell.schedCoro(), so the cell's fini cancels and awaits it automatically.
+    while not cell.isfini:
+        await cell.waitfini(timeout=STORM_CURSOR_TIMEOUT)
+        if cell.isfini:
+            break
+
+        try:
+            await _reapMcpSessionsOnce(cell)
+        except Exception:  # pragma: no cover
+            logger.exception('error reaping mcp sessions')
 
 def tool(name=None, desc=None, schema=None):
     '''
@@ -356,13 +419,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         # Release any long-lived async resources a session is holding (e.g. open storm
         # pagination cursor producer tasks) when the session ends.
         for info in session.pop('cursors', {}).values():
-            info['task'].cancel()
-            try:
-                await info['task']
-            except asyncio.CancelledError:
-                pass
-            except Exception:  # pragma: no cover
-                logger.exception('error closing mcp session cursor')
+            await _finiStormCursor(info)
 
     # --- session management ---
     # The session store (self.cell._mcp_sessions) is created by Cell._initCellHttpApis
@@ -376,6 +433,8 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         if s_common.now() - session.get('touched') > self.SESSION_TIMEOUT * 1000:
             sessions.pop(sid, None)
+            for info in session.pop('cursors', {}).values():
+                self.cell.schedCoro(_finiStormCursor(info))
             return None
 
         return session
@@ -415,6 +474,9 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
                 'touched': s_common.now(),
             }
             self.set_header('Mcp-Session-Id', sid)
+
+            if self.cell._mcp_sess_reaper is None:
+                self.cell._mcp_sess_reaper = self.cell.schedCoro(_reapMcpSessions(self.cell))
 
         self._sendResp(resp)
 
@@ -820,7 +882,12 @@ MUST either drain it by calling storm_continue(cursor) repeatedly until it retur
 cursor, or release it by calling storm_cancel(cursor). Never abandon a query with a non-null
 cursor -- doing so holds a Storm runtime open on the server until it times out. When "cursor"
 is null the query is complete and fully drained; nothing further is required.
-'''.strip()
+'''.strip() + '\n\n' + _VIEW_GUIDANCE
+
+    _call_storm_desc = '''
+Run a Storm query and return the single value produced by its return() statement (no
+pagination). Use this for function-style queries that compute one value.
+'''.strip() + '\n\n' + _VIEW_GUIDANCE
 
     _storm_continue_desc = '''
 Fetch the next page of messages from a running Storm query started by the storm tool. Takes
@@ -836,20 +903,11 @@ read so its server-side Storm runtime is torn down immediately rather than waiti
 out.
 '''.strip()
 
-    _view_set_schema = {
-        'type': 'object',
-        'properties': {
-            'view': {'type': 'string', 'description': 'The iden of the view to set as active.'},
-        },
-        'required': ['view'],
-        'additionalProperties': False,
-    }
-
     _view_fork_schema = {
         'type': 'object',
         'properties': {
             'view': {'type': 'string',
-                     'description': 'The iden of the view to fork. Defaults to the active session view.'},
+                     'description': "The iden of the view to fork. Defaults to the user's default view."},
             'name': {'type': 'string', 'description': 'An optional name for the new fork view.'},
         },
         'additionalProperties': False,
@@ -859,7 +917,7 @@ out.
         'type': 'object',
         'properties': {
             'view': {'type': 'string',
-                     'description': 'The iden of the view to delete. Defaults to the active session view.'},
+                     'description': "The iden of the view to delete. Defaults to the user's default view."},
         },
         'additionalProperties': False,
     }
@@ -868,26 +926,37 @@ out.
         'type': 'object',
         'properties': {
             'view': {'type': 'string',
-                     'description': 'The iden of the forked view to merge. Defaults to the active session view.'},
+                     'description': "The iden of the forked view to merge. Defaults to the user's default view."},
             'force': {'type': 'boolean', 'description': 'Force the merge past optional merge checks.'},
         },
         'additionalProperties': False,
     }
 
     _view_get_desc = '''
-Get the view active for this session. If no view has been set for the session with view_set, this returns the calling user's default view.
+Return the iden of the calling user's default view. To run a query in a specific view, pass it
+as "view" in the opts of the storm / call_storm tools; use view_list to discover other views.
 '''.strip()
 
     _view_fork_desc = '''
-Fork a view, creating a new child view with its own writable top layer; defaults to the active session view. If the forked view is the active session view, the session view is automatically switched to the new fork so subsequent storm tools run inside it. A view_fork followed (after testing) by a view_del is the safe way to develop ingest logic that edits nodes: fork the view, run the ingest in the fork, inspect the results, then view_del the fork to discard every change. ALWAYS develop and test node-editing or ingest logic this way so it never touches the underlying data.
+Fork a view, creating a new child view with its own writable top layer; defaults to the user's
+default view. Returns the new fork's iden. A view_fork followed (after testing) by a view_del
+is the safe way to develop ingest logic that edits nodes: fork a view, run the ingest in the
+fork by passing the fork iden as "view" in the storm opts, inspect the results, then view_del
+the fork to discard every change. ALWAYS develop and test node-editing or ingest logic this
+way so it never touches the underlying data.
 '''.strip()
 
     _view_del_desc = '''
-Delete a view (its layers are not deleted); defaults to the active session view. If the deleted view is the active session view, the session view is changed to the deleted view's parent once the deletion completes. Combined with view_fork this is the safe way to develop ingest logic that edits nodes: view_fork your view, run the ingest in the fork, then view_del the fork to discard every change.
+Delete a view (its layers are not deleted); defaults to the user's default view. Combined with
+view_fork this is the safe way to develop ingest logic that edits nodes: view_fork a view, run
+the ingest in the fork (via the "view" storm opt), then view_del the fork to discard every
+change.
 '''.strip()
 
     _view_merge_desc = '''
-Merge a forked view's changes down into its parent view (the fork itself is not deleted); defaults to the active session view. The view must be a fork whose parent does not require quorum voting. If the merged view is the active session view, the session view is changed to the parent once the merge completes.
+Merge a forked view's changes down into its parent view (the fork itself is not deleted);
+defaults to the user's default view. The view must be a fork whose parent does not require
+quorum voting.
 '''.strip()
 
     async def _stormOpts(self, opts):
@@ -897,10 +966,6 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
             opts = {}
 
         opts.setdefault('user', useriden)
-
-        view = self.mcpsess.get('view')
-        if view is not None:
-            opts.setdefault('view', view)
 
         if opts.get('user') != useriden:
             if not await self.getAuthCell().isUserAllowed(useriden, ('impersonate',)):
@@ -925,21 +990,12 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
         # Resolved on the cortex via getCore() so it works for a local or remote cortex.
         return await self.getCore().callStorm('return($lib.view.get().iden)', opts=self._coreOpts())
 
-    async def _sessionViewIden(self):
-        # The view subsequent storm tools run in: the session view if one has been set with
-        # view_set, otherwise the calling user's default view.
-        viewiden = self.mcpsess.get('view')
-        if viewiden is not None:
-            return viewiden
-
-        return await self._userViewIden()
-
     async def _viewTarget(self, view):
-        # Resolve the target view for a view_* operation, defaulting to the session view.
+        # Resolve the target view for a view_* operation, defaulting to the user's default view.
         if view is not None:
             return view
 
-        return await self._sessionViewIden()
+        return await self._userViewIden()
 
     # --- storm pagination cursors (session-scoped, idle-evicted) ---
     #
@@ -949,19 +1005,10 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
     # so it cannot be suspended in one request and resumed in another. The bounded queue also
     # provides backpressure so a slow client cannot make the producer buffer the whole result.
 
-    async def _finiStormCursor(self, info):
-        info['task'].cancel()
-        try:
-            await info['task']
-        except asyncio.CancelledError:
-            pass
-        except Exception:  # pragma: no cover
-            logger.exception('error closing storm cursor task')
-
     async def _closeStormCursor(self, cursors, iden):
         info = cursors.pop(iden, None)
         if info is not None:
-            await self._finiStormCursor(info)
+            await _finiStormCursor(info)
 
     async def _sweepStormCursors(self, cursors):
         now = s_common.now()
@@ -980,10 +1027,11 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
 
         core = self.getCore()
         queue = asyncio.Queue(maxsize=STORM_PAGE_SIZE * 2)
+        agen = core.storm(query, opts=opts)
 
         async def produce():
             try:
-                async for mesg in core.storm(query, opts=opts):
+                async for mesg in agen:
                     await queue.put(('mesg', mesg))
 
                 await queue.put(('done', None))
@@ -993,6 +1041,12 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
 
             except Exception as e:
                 await queue.put(('err', e))
+
+            finally:
+                # Explicitly shut down the storm generator (closing its runtime) immediately,
+                # rather than waiting on garbage collection, whenever the producer task ends --
+                # including when it is cancelled because the cursor or session is reaped.
+                await agen.aclose()
 
         iden = s_common.guid()
         cursors[iden] = {'queue': queue, 'task': self.cell.schedCoro(produce()), 'touched': s_common.now()}
@@ -1009,6 +1063,8 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
             await self._closeStormCursor(cursors, cursor)
             raise s_exc.BadArg(mesg=f'Storm cursor expired: {cursor}')
 
+        # Refresh on access so an in-flight storm_continue is not reaped while paging.
+        info['touched'] = s_common.now()
         return info
 
     async def _stormCursorPage(self, cursor):
@@ -1061,7 +1117,7 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
         await self._closeStormCursor(cursors, cursor)
         return {'cancelled': cursor}
 
-    @tool(desc='Run a Storm query and return the value from its return() statement.', schema=_storm_schema)
+    @tool(desc=_call_storm_desc, schema=_storm_schema)
     async def call_storm(self, query, opts=None):
         opts = await self._stormOpts(opts)
         return await self.getCore().callStorm(query, opts=opts)
@@ -1130,25 +1186,9 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
         '''
         return {'views': await self.getCore().callStorm(query, opts=self._coreOpts())}
 
-    @tool(desc='Set the active view for this session, used by subsequent storm tools.',
-          schema=_view_set_schema)
-    async def view_set(self, view):
-        # Confirm the view exists (NoSuchView if not) and that the user can read it.
-        query = '''
-        $iden = $lib.view.get($iden).iden
-        if (not $lib.user.allowed("view.read", gateiden=$iden)) {
-            $lib.raise(AuthDeny, `User may not read view {$iden}.`)
-        }
-        return($iden)
-        '''
-        await self.getCore().callStorm(query, opts=self._coreOpts(iden=view))
-
-        self.mcpsess['view'] = view
-        return {'view': view}
-
     @tool(desc=_view_get_desc)
     async def view_get(self):
-        return {'view': await self._sessionViewIden()}
+        return {'view': await self._userViewIden()}
 
     @tool(desc=_view_fork_desc, schema=_view_fork_schema)
     async def view_fork(self, view=None, name=None):
@@ -1158,34 +1198,20 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
         query = 'return($lib.view.get($iden).fork(name=$name).iden)'
         forkiden = await self.getCore().callStorm(query, opts=self._coreOpts(iden=iden, name=name))
 
-        # If we forked the active session view, switch the session to the new fork.
-        if iden == await self._sessionViewIden():
-            self.mcpsess['view'] = forkiden
-
-        return {'view': forkiden, 'parent': iden, 'session_view': await self._sessionViewIden()}
+        return {'view': forkiden, 'parent': iden}
 
     @tool(desc=_view_del_desc, schema=_view_del_schema)
     async def view_del(self, view=None):
         iden = await self._viewTarget(view)
 
-        # $lib.view.get() raises NoSuchView if missing and enforces read perm; we need the
-        # parent iden for the session fallback before deleting.
+        # $lib.view.get() raises NoSuchView if missing; capture the parent for the result.
         parent = await self.getCore().callStorm('return($lib.view.get($iden).parent)',
                                                 opts=self._coreOpts(iden=iden))
-
-        wascur = iden == await self._sessionViewIden()
 
         # $lib.view.del enforces the caller's view.del permission.
         await self.getCore().callStorm('$lib.view.del($iden)', opts=self._coreOpts(iden=iden))
 
-        # If we deleted the active session view, fall back to its parent view.
-        if wascur:
-            if parent is not None:
-                self.mcpsess['view'] = parent
-            else:
-                self.mcpsess.pop('view', None)
-
-        return {'deleted': iden, 'parent': parent, 'session_view': await self._sessionViewIden()}
+        return {'deleted': iden, 'parent': parent}
 
     @tool(desc=_view_merge_desc, schema=_view_merge_schema)
     async def view_merge(self, view=None, force=False):
@@ -1196,17 +1222,11 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
         if parent is None:
             raise s_exc.BadArg(mesg=f'View {iden} is not a fork and cannot be merged.')
 
-        wascur = iden == await self._sessionViewIden()
-
         # $lib.view merge enforces the caller's merge permissions and quorum rules.
         await self.getCore().callStorm('$lib.view.get($iden).merge(force=$force)',
                                        opts=self._coreOpts(iden=iden, force=force))
 
-        # If we merged the active session view, switch the session to its parent.
-        if wascur:
-            self.mcpsess['view'] = parent
-
-        return {'merged': iden, 'parent': parent, 'session_view': await self._sessionViewIden()}
+        return {'merged': iden, 'parent': parent}
 
     # --- resources ---
 

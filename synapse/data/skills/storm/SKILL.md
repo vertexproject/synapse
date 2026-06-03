@@ -40,9 +40,9 @@ The `call_storm` MCP tool runs a query and returns only the value from its `retu
 
 `storm` and `call_storm` accept:
 - `query` (required): the Storm query text.
-- `opts` (optional): Storm query opts, e.g. `{"vars": {...}}`, `{"view": <iden>}`, or `{"limit": <n>}`.
+- `opts` (optional): Storm query opts, e.g. `{"vars": {...}}`, `{"view": <iden>}`, or `{"limit": <n>}`. Setting `"view"` is important -- see [Selecting a View](#selecting-a-view).
 
-`storm_continue` and `storm_cancel` take a single `cursor` argument. Queries run as the calling user and respect that user's permissions and active view.
+`storm_continue` and `storm_cancel` take a single `cursor` argument. Queries run as the calling user and respect that user's permissions; the view is whatever `opts["view"]` specifies, else the user's default view.
 
 **Use cases:**
 - Verify that a query produces the expected nodes and output (`storm`).
@@ -52,17 +52,34 @@ The `call_storm` MCP tool runs a query and returns only the value from its `retu
 
 ### Selecting a View
 
-The `storm` / `call_storm` MCP tools run in the session's active view. Manage it with:
-- `view_list` MCP tool -- list the views the user can read (`{iden, name, parent}`).
-- `view_set` MCP tool -- set the active view for the session by `view` iden; subsequent `storm` / `call_storm` calls use it.
-- `view_get` MCP tool -- return the active view iden. If no view has been set for the session, this returns the calling user's default view.
-- `view_fork` MCP tool -- fork a view (defaults to the active session view), creating a child view with its own writable top layer. If the forked view is the active session view, the session is automatically switched into the new fork so subsequent `storm` calls run inside it.
-- `view_del` MCP tool -- delete a view (defaults to the active session view); its layers are not deleted. If the deleted view is the active session view, the session falls back to the deleted view's parent.
-- `view_merge` MCP tool -- merge a forked view's changes down into its parent (defaults to the active session view; the fork itself is not deleted). If the merged view is the active session view, the session switches to the parent.
+A query always runs in exactly one view. There is no "active session view" -- the view is
+chosen **per call** by setting `"view"` in the `opts` of `storm` / `call_storm`
+(e.g. `opts={"view": "<iden>"}`). If `"view"` is omitted, the query runs in the calling
+user's default view.
 
-A `view` may also be passed per-call to `storm` / `call_storm` via the `opts` argument.
+**Running a query in the wrong view can be VERY BAD** -- it can create, modify, or destroy
+data in the wrong place. When you are not certain which view the user intends, do NOT guess:
+call `view_list`, show the choices, and ask the user to confirm which view to use. Once
+chosen, reuse that view iden in the `opts` of every subsequent `storm` / `call_storm` call.
 
-**Developing ingest logic (do this for ANY node-editing work):** a `view_fork` followed by a `view_del` is the safe way to test logic that edits nodes. Fork your view (`view_fork` switches the session into the fork), run the ingest with the `storm` MCP tool, inspect the results, then `view_del` the fork to discard every change -- the underlying data is never touched. Strongly prefer this workflow whenever developing or iterating on ingest or other node-editing Storm. Use `view_merge` instead of `view_del` only once the logic is verified and you want to keep the changes.
+View MCP tools:
+- `view_list` -- list the views the user can read, as `{iden, name, parent}`. Take the
+  `iden` of the intended view and pass it as `opts={"view": "<iden>"}` on later calls.
+- `view_get` -- return the iden of the user's default view (the one used when `opts` omits a
+  view).
+- `view_fork` -- fork a view (defaults to the user's default view), creating a child view
+  with its own writable top layer; returns the new fork's iden.
+- `view_del` -- delete a view (its layers are not deleted).
+- `view_merge` -- merge a forked view's changes down into its parent (the fork is not
+  deleted; the view must be a fork without parent quorum voting).
+
+**Developing ingest logic (do this for ANY node-editing work):** a `view_fork` followed by a
+`view_del` is the safe way to test logic that edits nodes. `view_fork` a view to get a fork
+iden, run the ingest by passing that iden as `opts={"view": "<fork-iden>"}` to the `storm`
+tool, inspect the results, then `view_del` the fork to discard every change -- the underlying
+data is never touched. Strongly prefer this workflow whenever developing or iterating on
+ingest or other node-editing Storm. Use `view_merge` instead of `view_del` only once the logic
+is verified and you want to keep the changes.
 
 ### Discovering the Data Model
 
@@ -812,7 +829,7 @@ $func("positional", key=1)
 |-------------|---------|
 | `storm_validate` MCP tool | Validate Storm syntax without executing a query |
 | `storm` / `call_storm` MCP tools | Run Storm queries against the Cortex (page of result messages / return a value) |
-| `view_list` / `view_set` / `view_get` MCP tools | List, set, and read the session's active view |
+| `view_list` / `view_get` MCP tools | List views (for the `view` storm opt) and read the user's default view |
 | `view_fork` / `view_del` / `view_merge` MCP tools | Fork, delete, and merge views (use fork+del to safely test ingest) |
 | `model_find` MCP tool, `syn://model` MCP resource | Search / discover forms, properties, and types |
 | `syn://model/form/{name}` MCP resource | A single data model form definition |

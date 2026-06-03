@@ -1,8 +1,10 @@
 import http
 import base64
+import asyncio
 import unittest.mock as mock
 
 import synapse.exc as s_exc
+import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.json as s_json
 import synapse.lib.mcp as s_mcp
@@ -364,7 +366,7 @@ class McpTest(s_tests.SynTest):
 
                 sid, _ = await self._handshake(sess, url)
 
-                # view_get returns the user's default view before any view_set
+                # view_get returns the user's default view
                 status, data = await self._tool(sess, url, sid, 'view_get')
                 self.eq(mainiden, data['result']['structuredContent']['view'])
 
@@ -380,98 +382,63 @@ class McpTest(s_tests.SynTest):
                 self.isin(mainiden, idens)
                 self.isin(forkiden, idens)
 
-                # view_set returns both content and structuredContent; view_get round-trips it
-                status, data = await self._tool(sess, url, sid, 'view_set', {'view': forkiden})
-                self.eq(forkiden, data['result']['structuredContent']['view'])
-                self.nn(data['result']['content'][0]['text'])
+                # view_fork with no view defaults to the user's default view
+                status, data = await self._tool(sess, url, sid, 'view_fork')
+                defres = data['result']['structuredContent']
+                self.eq(mainiden, defres['parent'])
+                self.notin('session_view', defres)
+                await self._tool(sess, url, sid, 'view_del', {'view': defres['view']})
 
-                status, data = await self._tool(sess, url, sid, 'view_get')
-                self.eq(forkiden, data['result']['structuredContent']['view'])
-
-                # the session view flows into subsequent storm tool calls
+                # storm runs in the view named by opts; without it, the user's default view
                 status, data = await self._tool(sess, url, sid, 'call_storm',
-                                                {'query': 'return($lib.view.get().iden)'})
+                                                {'query': 'return($lib.view.get().iden)', 'opts': {'view': forkiden}})
                 self.eq(forkiden, s_json.loads(data['result']['content'][0]['text']))
 
-                # an unknown view is an error
-                status, data = await self._tool(sess, url, sid, 'view_set', {'view': 'nope'})
-                self.true(data['result']['isError'])
-
-                # forking the active session view switches the session into the new fork
-                status, data = await self._tool(sess, url, sid, 'view_fork', {'name': 'ingest test'})
+                # view_fork with no view forks the user's default view; result has no session_view
+                status, data = await self._tool(sess, url, sid, 'view_fork', {'view': forkiden, 'name': 'ingest test'})
                 forkres = data['result']['structuredContent']
                 ingestiden = forkres['view']
                 self.eq(forkiden, forkres['parent'])
-                self.eq(ingestiden, forkres['session_view'])
+                self.notin('session_view', forkres)
 
-                status, data = await self._tool(sess, url, sid, 'view_get')
-                self.eq(ingestiden, data['result']['structuredContent']['view'])
+                # ingest edits made in the fork (via the view opt) stay isolated from the parent
+                await self._tool(sess, url, sid, 'call_storm',
+                                 {'query': '[ inet:fqdn=ingest.test ]', 'opts': {'view': ingestiden}})
+                cq = 'inet:fqdn=ingest.test return($node.repr())'
+                status, data = await self._tool(sess, url, sid, 'call_storm', {'query': cq, 'opts': {'view': forkiden}})
+                self.none(s_json.loads(data['result']['content'][0]['text']))
 
-                # edits made while testing ingest stay isolated in the fork
-                await self._tool(sess, url, sid, 'call_storm', {'query': '[ inet:fqdn=ingest.test ]'})
-
-                # deleting the active session view falls back to its parent
-                status, data = await self._tool(sess, url, sid, 'view_del')
+                # view_del removes the fork (and its isolated edits)
+                status, data = await self._tool(sess, url, sid, 'view_del', {'view': ingestiden})
                 delres = data['result']['structuredContent']
                 self.eq(ingestiden, delres['deleted'])
                 self.eq(forkiden, delres['parent'])
-                self.eq(forkiden, delres['session_view'])
                 self.none(core.getView(ingestiden))
 
-                # the discarded edits never reached the parent view
-                cq = 'inet:fqdn=ingest.test return($node.repr())'
-                status, data = await self._tool(sess, url, sid, 'call_storm', {'query': cq})
-                self.none(s_json.loads(data['result']['content'][0]['text']))
-
-                # merging a forked session view applies its edits to the parent
-                status, data = await self._tool(sess, url, sid, 'view_fork')
+                # view_merge applies a fork's edits to its parent
+                status, data = await self._tool(sess, url, sid, 'view_fork', {'view': forkiden})
                 mergeiden = data['result']['structuredContent']['view']
-                self.eq(mergeiden, data['result']['structuredContent']['session_view'])
+                await self._tool(sess, url, sid, 'call_storm',
+                                 {'query': '[ inet:fqdn=merge.test ]', 'opts': {'view': mergeiden}})
 
-                await self._tool(sess, url, sid, 'call_storm', {'query': '[ inet:fqdn=merge.test ]'})
-
-                status, data = await self._tool(sess, url, sid, 'view_merge')
+                status, data = await self._tool(sess, url, sid, 'view_merge', {'view': mergeiden})
                 mres = data['result']['structuredContent']
                 self.eq(mergeiden, mres['merged'])
                 self.eq(forkiden, mres['parent'])
-                self.eq(forkiden, mres['session_view'])
 
-                # the merged node is now present in the parent (session) view
+                # the merged node is now present in the parent view
                 cq = 'inet:fqdn=merge.test return($node.repr())'
-                status, data = await self._tool(sess, url, sid, 'call_storm', {'query': cq})
+                status, data = await self._tool(sess, url, sid, 'call_storm', {'query': cq, 'opts': {'view': forkiden}})
                 self.eq('merge.test', s_json.loads(data['result']['content'][0]['text']))
 
-                # view_merge does not delete the fork; deleting a non-session view leaves the session
+                # view_merge does not delete the fork; remove it explicitly
                 status, data = await self._tool(sess, url, sid, 'view_del', {'view': mergeiden})
-                self.eq(forkiden, data['result']['structuredContent']['session_view'])
+                self.eq(mergeiden, data['result']['structuredContent']['deleted'])
                 self.none(core.getView(mergeiden))
 
                 # a non-fork view cannot be merged
                 status, data = await self._tool(sess, url, sid, 'view_merge', {'view': mainiden})
                 self.true(data['result']['isError'])
-
-                # merging a non-session fork leaves the session view unchanged
-                fork2iden = (await core.view.fork()).get('iden')
-                status, data = await self._tool(sess, url, sid, 'view_merge', {'view': fork2iden})
-                self.eq(forkiden, data['result']['structuredContent']['session_view'])
-                self.eq(mainiden, data['result']['structuredContent']['parent'])
-                await self._tool(sess, url, sid, 'view_del', {'view': fork2iden})
-
-                # forking a view other than the session view leaves the session unchanged
-                status, data = await self._tool(sess, url, sid, 'view_fork', {'view': mainiden})
-                otherfork = data['result']['structuredContent']
-                self.eq(mainiden, otherfork['parent'])
-                self.eq(forkiden, otherfork['session_view'])
-                await self._tool(sess, url, sid, 'view_del', {'view': otherfork['view']})
-
-                # deleting a parentless session view clears it back to the user default
-                topiden = (await core.addView({'layers': [(await core.addLayer()).get('iden')]})).get('iden')
-                await self._tool(sess, url, sid, 'view_set', {'view': topiden})
-                status, data = await self._tool(sess, url, sid, 'view_del')
-                tres = data['result']['structuredContent']
-                self.eq(topiden, tres['deleted'])
-                self.none(tres['parent'])
-                self.eq(mainiden, tres['session_view'])
 
             async with self.getHttpSess(auth=('lowuser', 'low'), port=port) as sess:
 
@@ -482,10 +449,6 @@ class McpTest(s_tests.SynTest):
                 idens = [v['iden'] for v in data['result']['structuredContent']['views']]
                 self.isin(mainiden, idens)
                 self.notin(forkiden, idens)
-
-                # view_set on an unreadable view is denied (returned as an error result)
-                status, data = await self._tool(sess, url, sid, 'view_set', {'view': forkiden})
-                self.true(data['result']['isError'])
 
                 # forking requires the view.add permission
                 status, data = await self._tool(sess, url, sid, 'view_fork', {'view': mainiden})
@@ -553,7 +516,7 @@ class McpTest(s_tests.SynTest):
                     forkiden = data['result']['structuredContent']['view']
                     self.nn(core.getView(forkiden))
 
-                    status, data = await self._tool(sess, url, sid, 'view_del')
+                    status, data = await self._tool(sess, url, sid, 'view_del', {'view': forkiden})
                     self.eq(forkiden, data['result']['structuredContent']['deleted'])
                     self.none(core.getView(forkiden))
 
@@ -775,6 +738,92 @@ class McpTest(s_tests.SynTest):
                     self.nn(data['result']['structuredContent']['cursor'])
                     async with sess.delete(url, headers={'Mcp-Session-Id': sid}) as resp:
                         self.eq(resp.status, http.HTTPStatus.OK)
+
+    async def test_mcp_storm_reaper(self):
+
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/v1/mcp'
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            query = 'for $i in $lib.range(12) { $lib.print(`m{$i}`) }'
+
+            # the reaper task is started lazily on the first MCP session
+            self.none(core._mcp_sess_reaper)
+
+            with mock.patch.object(s_mcp, 'STORM_PAGE_SIZE', 5):
+
+                async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                    sid, _ = await self._handshake(sess, url)
+                    reaper = core._mcp_sess_reaper
+                    self.nn(reaper)
+
+                    # a second session does not start a second reaper
+                    sid2, _ = await self._handshake(sess, url)
+                    self.eq(reaper, core._mcp_sess_reaper)
+
+                    # a single reaper pass evicts an idle cursor and shuts down its producer
+                    # task (and therefore its storm generator)
+                    _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
+                    cursor = data['result']['structuredContent']['cursor']
+                    task = core._mcp_sessions[sid]['cursors'][cursor]['task']
+                    core._mcp_sessions[sid]['cursors'][cursor]['touched'] = 0
+                    await s_mcp._reapMcpSessionsOnce(core)
+                    self.notin(cursor, core._mcp_sessions[sid]['cursors'])
+                    self.true(task.done())
+
+                    # an idle session is dropped along with all of its cursors
+                    _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
+                    ctask = core._mcp_sessions[sid]['cursors'][data['result']['structuredContent']['cursor']]['task']
+                    core._mcp_sessions[sid]['touched'] = 0
+                    await s_mcp._reapMcpSessionsOnce(core)
+                    self.notin(sid, core._mcp_sessions)
+                    self.true(ctask.done())
+
+                    # _getSession drops an idle session on access and cleans up its cursors
+                    _, data = await self._tool(sess, url, sid2, 'storm', {'query': query})
+                    gtask = core._mcp_sessions[sid2]['cursors'][data['result']['structuredContent']['cursor']]['task']
+                    core._mcp_sessions[sid2]['touched'] = 0
+                    status, _ = await self._rpc(sess, url, sid2, 'tools/list')
+                    self.eq(status, http.HTTPStatus.NOT_FOUND)
+                    self.notin(sid2, core._mcp_sessions)
+                    for _ in range(100):
+                        if gtask.done():
+                            break
+                        await asyncio.sleep(0.01)
+                    self.true(gtask.done())
+
+                    # the running reaper loop evicts an idle cursor on its own schedule
+                    sid3, _ = await self._handshake(sess, url)
+                    _, data = await self._tool(sess, url, sid3, 'storm', {'query': query})
+                    rcursor = data['result']['structuredContent']['cursor']
+                    core._mcp_sessions[sid3]['cursors'][rcursor]['touched'] = 0
+
+                    with mock.patch.object(s_mcp, 'STORM_CURSOR_TIMEOUT', 0.1):
+                        loop_task = asyncio.get_running_loop().create_task(s_mcp._reapMcpSessions(core))
+                        try:
+                            for _ in range(200):
+                                if rcursor not in core._mcp_sessions[sid3]['cursors']:
+                                    break
+                                await asyncio.sleep(0.02)
+                            self.notin(rcursor, core._mcp_sessions[sid3]['cursors'])
+                        finally:
+                            loop_task.cancel()
+                            await asyncio.gather(loop_task, return_exceptions=True)
+
+        # the reaper loop exits cleanly when its cell finis (in addition to the automatic
+        # cancel+await that cell.schedCoro() provides for the live reaper)
+        base = await s_base.Base.anit()
+        base._mcp_sessions = {}
+        loop_task = asyncio.get_running_loop().create_task(s_mcp._reapMcpSessions(base))
+        await asyncio.sleep(0)
+        await base.fini()
+        await asyncio.wait_for(loop_task, timeout=5)
+        self.true(loop_task.done())
 
     async def test_mcp_async_required(self):
 

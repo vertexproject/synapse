@@ -1200,6 +1200,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellparent = parent
         self.sessions = {}
         self._mcp_sessions = {}  # MCP server session state, keyed by Mcp-Session-Id
+        self._mcp_sess_reaper = None  # background task that evicts idle MCP sessions/cursors
         self.paused = False
         self.isactive = False
         self.activebase = None
