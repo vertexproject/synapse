@@ -1,5 +1,6 @@
 import http
 import base64
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.lib.cell as s_cell
@@ -36,6 +37,18 @@ class TstMcp(s_mcp.CellMcp):
     async def genboom(self):
         yield 1
         raise ValueError('streamfail')
+
+    def _streamItemLevel(self, item):
+        if item in ('warning', 'error'):
+            return item
+
+        return 'info'
+
+    @s_mcp.tool(name='levelgen', desc='Yield items at various log levels.')
+    async def levelgen(self):
+        yield 'info-one'
+        yield 'warning'
+        yield 'error'
 
     @s_mcp.tool(name='addone', schema={
         'type': 'object',
@@ -655,16 +668,12 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._tool(sess, url, sid, 'get_model')
                 self.isin('types', data['result']['structuredContent'])
 
-                # storm tool, no SSE -> collected (type, info) messages include a node
+                # storm tool returns a page of (type, info) messages; small query is fully
+                # drained in one page (cursor is null)
                 status, data = await self._tool(sess, url, sid, 'storm', {'query': '[ inet:ipv4=1.2.3.4 ]'})
-                items = data['result']['structuredContent']['items']
-                self.isin('node', [i[0] for i in items])
-
-                # storm tool with SSE -> streamed messages + terminal result
-                mesgs = await self._toolSse(sess, url, sid, 'storm', {'query': '[ inet:ipv4=5.6.7.8 ]'})
-                streamed = [m['params']['data'][0] for m in mesgs if 'params' in m]
-                self.isin('node', streamed)
-                self.false(mesgs[-1]['result'].get('isError'))
+                res = data['result']['structuredContent']
+                self.none(res['cursor'])
+                self.isin('node', [m[0] for m in res['messages']])
 
                 # Cortex resources
                 status, data = await self._rpc(sess, url, sid, 'resources/read', params={'uri': 'syn://model'})
@@ -714,6 +723,98 @@ class McpTest(s_tests.SynTest):
                                                 {'query': 'return((1))', 'opts': {'user': root.iden}})
                 self.true(data['result'].get('isError'))
                 self.isin('impersonate', data['result']['content'][0]['text'])
+
+    async def test_mcp_storm_pagination(self):
+
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/v1/mcp'
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            # a query producing 14 messages (init + 12 print + fini)
+            query = 'for $i in $lib.range(12) { $lib.print(`m{$i}`) }'
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                sid, _ = await self._handshake(sess, url)
+
+                with mock.patch.object(s_mcp, 'STORM_PAGE_SIZE', 5):
+
+                    # the first page returns STORM_PAGE_SIZE messages and a cursor
+                    _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
+                    res = data['result']['structuredContent']
+                    self.len(5, res['messages'])
+                    self.nn(res['cursor'])
+
+                    # drain the rest via storm_continue until the cursor is null
+                    cursor = res['cursor']
+                    msgs = list(res['messages'])
+                    while cursor is not None:
+                        _, data = await self._tool(sess, url, sid, 'storm_continue', {'cursor': cursor})
+                        res = data['result']['structuredContent']
+                        msgs.extend(res['messages'])
+                        cursor = res['cursor']
+
+                    self.len(12, [m for m in msgs if m[0] == 'print'])
+
+                    # an unknown/drained cursor is a tool error
+                    _, data = await self._tool(sess, url, sid, 'storm_continue', {'cursor': 'nope'})
+                    self.true(data['result']['isError'])
+
+                    # storm_cancel releases a running query
+                    _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
+                    cursor = data['result']['structuredContent']['cursor']
+                    self.nn(cursor)
+                    _, data = await self._tool(sess, url, sid, 'storm_cancel', {'cursor': cursor})
+                    self.eq(cursor, data['result']['structuredContent']['cancelled'])
+
+                    # cancelling it again is an error
+                    _, data = await self._tool(sess, url, sid, 'storm_cancel', {'cursor': cursor})
+                    self.true(data['result']['isError'])
+
+                    # an idle cursor expires and is reported as such
+                    _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
+                    cursor = data['result']['structuredContent']['cursor']
+                    core._mcp_sessions[sid]['cursors'][cursor]['touched'] = 0
+                    _, data = await self._tool(sess, url, sid, 'storm_continue', {'cursor': cursor})
+                    self.true(data['result']['isError'])
+
+                    # an idle cursor is also swept when a new query starts
+                    _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
+                    stale = data['result']['structuredContent']['cursor']
+                    core._mcp_sessions[sid]['cursors'][stale]['touched'] = 0
+                    await self._tool(sess, url, sid, 'storm', {'query': query})
+                    self.notin(stale, core._mcp_sessions[sid]['cursors'])
+
+                    # opening more than STORM_MAX_CURSORS evicts the oldest
+                    with mock.patch.object(s_mcp, 'STORM_MAX_CURSORS', 2):
+                        _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
+                        c1 = data['result']['structuredContent']['cursor']
+                        await self._tool(sess, url, sid, 'storm', {'query': query})
+                        await self._tool(sess, url, sid, 'storm', {'query': query})
+                        cursors = core._mcp_sessions[sid]['cursors']
+                        self.len(2, cursors)
+                        self.notin(c1, cursors)
+
+                    # a failure in the storm producer surfaces as a tool error and releases
+                    # the cursor
+                    async def boomstorm(query, opts=None):
+                        yield ('init', {})
+                        raise s_exc.BadArg(mesg='boomstorm')
+
+                    with mock.patch.object(core, 'storm', boomstorm):
+                        _, data = await self._tool(sess, url, sid, 'storm', {'query': 'x'})
+                        self.true(data['result']['isError'])
+                        self.isin('boomstorm', data['result']['content'][0]['text'])
+
+                    # ending the session releases any still-open cursors
+                    _, data = await self._tool(sess, url, sid, 'storm', {'query': query})
+                    self.nn(data['result']['structuredContent']['cursor'])
+                    async with sess.delete(url, headers={'Mcp-Session-Id': sid}) as resp:
+                        self.eq(resp.status, http.HTTPStatus.OK)
 
     async def test_mcp_async_required(self):
 
@@ -970,19 +1071,18 @@ class McpTest(s_tests.SynTest):
 
     async def test_mcp_logging(self):
 
-        # unit coverage of the storm (type, info) message -> log level mapping
-        self.eq('warning', s_mcp.CortexMcp._streamItemLevel(None, ('warn', {})))
-        self.eq('error', s_mcp.CortexMcp._streamItemLevel(None, ('err', {})))
-        self.eq('info', s_mcp.CortexMcp._streamItemLevel(None, ('node', {})))
-        self.eq('info', s_mcp.CortexMcp._streamItemLevel(None, 'notatuple'))
+        # unit coverage of the streamed item -> log level mapping (default + override)
         self.eq('info', s_mcp.CellMcp._streamItemLevel(None, ('warn', {})))
+        self.eq('warning', TstMcp._streamItemLevel(None, 'warning'))
+        self.eq('error', TstMcp._streamItemLevel(None, 'error'))
+        self.eq('info', TstMcp._streamItemLevel(None, 'info-one'))
 
-        async with self.getTestCore() as core:
+        async with self.getTestCell(TstMcpCell) as cell:
 
-            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            host, port = await cell.addHttpsPort(0, host='127.0.0.1')
             url = f'https://localhost:{port}/api/v1/mcp'
 
-            root = await core.auth.getUserByName('root')
+            root = await cell.auth.getUserByName('root')
             await root.setPasswd('secret')
 
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
@@ -997,12 +1097,11 @@ class McpTest(s_tests.SynTest):
                 status, data = await self._rpc(sess, url, sid, 'logging/setLevel', params={'level': 'warning'})
                 self.eq({}, data['result'])
 
-                # streamed info-level messages are suppressed, warn is delivered
-                mesgs = await self._toolSse(sess, url, sid, 'storm',
-                                            {'query': '$lib.warn("omg") [ inet:ipv4=1.2.3.4 ]'})
+                # streamed info-level items are suppressed; warning/error are delivered
+                mesgs = await self._toolSse(sess, url, sid, 'levelgen')
                 notifs = [m for m in mesgs if m.get('method') == 'notifications/message']
                 levels = {m['params']['level'] for m in notifs}
                 self.notin('info', levels)
                 self.isin('warning', levels)
-                self.true(any(m['params']['data'][0] == 'warn' for m in notifs))
+                self.isin('error', levels)
                 self.false(mesgs[-1]['result'].get('isError'))

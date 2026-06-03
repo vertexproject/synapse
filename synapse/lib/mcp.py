@@ -35,6 +35,7 @@ filtered by the per-session level set via ``logging/setLevel``.
 '''
 import re
 import base64
+import asyncio
 import inspect
 import logging
 from http import HTTPStatus
@@ -55,6 +56,13 @@ SUPPORTED_VERSIONS = ('2025-06-18', '2025-03-26')
 
 # Idle timeout (in seconds) before an MCP session is considered expired.
 SESSION_TIMEOUT = 3600
+
+# Storm tool pagination: the maximum number of messages returned per page, the idle timeout
+# (in seconds) before an open storm cursor is reclaimed, and the maximum number of open storm
+# cursors retained per session (the oldest is evicted past this).
+STORM_PAGE_SIZE = 100
+STORM_CURSOR_TIMEOUT = 300
+STORM_MAX_CURSORS = 8
 
 # RFC 5424 syslog severities, in ascending order, used by MCP logging.
 LOG_LEVELS = ('debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency')
@@ -349,7 +357,20 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             return
 
         self.cell._mcp_sessions.pop(sid, None)
+        await self._closeSessionResources(session)
         self.set_status(HTTPStatus.OK)
+
+    async def _closeSessionResources(self, session):
+        # Release any long-lived async resources a session is holding (e.g. open storm
+        # pagination cursor producer tasks) when the session ends.
+        for info in session.pop('cursors', {}).values():
+            info['task'].cancel()
+            try:
+                await info['task']
+            except asyncio.CancelledError:
+                pass
+            except Exception:  # pragma: no cover
+                logger.exception('error closing mcp session cursor')
 
     # --- session management ---
     # The session store (self.cell._mcp_sessions) is created by Cell._initCellHttpApis
@@ -806,7 +827,7 @@ _CORTEX_INSTRUCTIONS = '''
 This is a Synapse Cortex: the ground-truth store for an interdisciplinary, graph-based intelligence system. Knowledge is modeled as a hypergraph of typed nodes (forms) with properties and tags spanning many domains (cyber, geopolitical, org, person, crypto, media, and more) and is accessed primarily through the Storm query language.
 
 Working effectively:
-- Run Storm with the `storm` tool (streams result messages as (type, info) tuples: init/node/print/warn/err/fini) or `call_storm` (returns a single value produced by a Storm `return()`).
+- Run Storm with the `storm` tool, which returns a page of (type, info) result messages (init/node/print/warn/err/fini) plus a `cursor`; if the cursor is non-null you must drain it with `storm_continue` or release it with `storm_cancel`. Use `call_storm` for a single value produced by a Storm `return()`.
 - Before composing queries, learn the data model via the `get_model` tool or the `syn://model` resource (forms, properties, types), and learn query syntax from the `skill://storm/SKILL.md` resource; `syn://stormdocs` documents Storm libraries, types, and commands.
 - Check a query with the `storm_validate` tool before running it.
 - Queries run as the calling user and respect that user's permissions and view.
@@ -838,6 +859,39 @@ class CortexMcp(CellMcp):
         'required': ['query'],
         'additionalProperties': False,
     }
+
+    _storm_cursor_schema = {
+        'type': 'object',
+        'properties': {
+            'cursor': {'type': 'string', 'description': 'A cursor returned by the storm tool.'},
+        },
+        'required': ['cursor'],
+        'additionalProperties': False,
+    }
+
+    _storm_desc = '''
+Run a Storm query and return a page of result messages. The result is
+``{"messages": [(type, info), ...], "cursor": <str-or-null>}``. If "cursor" is non-null the
+query produced more messages than fit in one page and is still running on the server: you
+MUST either drain it by calling storm_continue(cursor) repeatedly until it returns a null
+cursor, or release it by calling storm_cancel(cursor). Never abandon a query with a non-null
+cursor -- doing so holds a Storm runtime open on the server until it times out. When "cursor"
+is null the query is complete and fully drained; nothing further is required.
+'''.strip()
+
+    _storm_continue_desc = '''
+Fetch the next page of messages from a running Storm query started by the storm tool. Takes
+the "cursor" from the previous storm or storm_continue result and returns the same
+``{"messages": [...], "cursor": <str-or-null>}`` shape. Keep calling storm_continue until the
+returned cursor is null, which means the query is complete and the cursor has been released.
+'''.strip()
+
+    _storm_cancel_desc = '''
+Release a running Storm query without draining the rest of its results, given the "cursor"
+from a storm or storm_continue result. Use this to abandon a query you do not intend to fully
+read so its server-side Storm runtime is torn down immediately rather than waiting to time
+out.
+'''.strip()
 
     _view_set_schema = {
         'type': 'object',
@@ -944,11 +998,125 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
 
         return await self._sessionViewIden()
 
-    @tool(desc='Run a Storm query and stream the result messages.', schema=_storm_schema)
+    # --- storm pagination cursors (session-scoped, idle-evicted) ---
+    #
+    # A storm query is driven by a background task (owned by the cell, not the request) which
+    # feeds a bounded queue; the cursor reads pages from that queue. This decouples the query
+    # from the request that started it -- the storm generator is bound to its producing task,
+    # so it cannot be suspended in one request and resumed in another. The bounded queue also
+    # provides backpressure so a slow client cannot make the producer buffer the whole result.
+
+    async def _finiStormCursor(self, info):
+        info['task'].cancel()
+        try:
+            await info['task']
+        except asyncio.CancelledError:
+            pass
+        except Exception:  # pragma: no cover
+            logger.exception('error closing storm cursor task')
+
+    async def _closeStormCursor(self, cursors, iden):
+        info = cursors.pop(iden, None)
+        if info is not None:
+            await self._finiStormCursor(info)
+
+    async def _sweepStormCursors(self, cursors):
+        now = s_common.now()
+        for iden in list(cursors):
+            if now - cursors[iden]['touched'] > STORM_CURSOR_TIMEOUT * 1000:
+                await self._closeStormCursor(cursors, iden)
+
+    async def _startStormCursor(self, query, opts):
+        cursors = self.mcpsess.setdefault('cursors', {})
+
+        await self._sweepStormCursors(cursors)
+
+        if len(cursors) >= STORM_MAX_CURSORS:
+            oldest = min(cursors, key=lambda i: cursors[i]['touched'])
+            await self._closeStormCursor(cursors, oldest)
+
+        core = self.getCore()
+        queue = asyncio.Queue(maxsize=STORM_PAGE_SIZE * 2)
+
+        async def produce():
+            try:
+                async for mesg in core.storm(query, opts=opts):
+                    await queue.put(('mesg', mesg))
+
+                await queue.put(('done', None))
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception as e:
+                await queue.put(('err', e))
+
+        iden = s_common.guid()
+        cursors[iden] = {'queue': queue, 'task': self.cell.schedCoro(produce()), 'touched': s_common.now()}
+        return iden
+
+    async def _reqStormCursor(self, cursor):
+        cursors = self.mcpsess.get('cursors', {})
+
+        info = cursors.get(cursor)
+        if info is None:
+            raise s_exc.BadArg(mesg=f'Unknown or expired storm cursor: {cursor}')
+
+        if s_common.now() - info['touched'] > STORM_CURSOR_TIMEOUT * 1000:
+            await self._closeStormCursor(cursors, cursor)
+            raise s_exc.BadArg(mesg=f'Storm cursor expired: {cursor}')
+
+        return info
+
+    async def _stormCursorPage(self, cursor):
+        cursors = self.mcpsess.get('cursors', {})
+        info = cursors[cursor]
+        queue = info['queue']
+
+        msgs = []
+        done = False
+        try:
+            while len(msgs) < STORM_PAGE_SIZE:
+                kind, item = await queue.get()
+                if kind == 'mesg':
+                    msgs.append(item)
+                    continue
+
+                if kind == 'err':
+                    raise item
+
+                done = True
+                break
+        except Exception:
+            await self._closeStormCursor(cursors, cursor)
+            raise
+
+        if done:
+            await self._closeStormCursor(cursors, cursor)
+            return {'messages': msgs, 'cursor': None}
+
+        info['touched'] = s_common.now()
+        return {'messages': msgs, 'cursor': cursor}
+
+    @tool(desc=_storm_desc, schema=_storm_schema)
     async def storm(self, query, opts=None):
         opts = await self._stormOpts(opts)
-        async for mesg in self.getCore().storm(query, opts=opts):
-            yield mesg
+        cursor = await self._startStormCursor(query, opts)
+        return await self._stormCursorPage(cursor)
+
+    @tool(desc=_storm_continue_desc, schema=_storm_cursor_schema)
+    async def storm_continue(self, cursor):
+        await self._reqStormCursor(cursor)
+        return await self._stormCursorPage(cursor)
+
+    @tool(desc=_storm_cancel_desc, schema=_storm_cursor_schema)
+    async def storm_cancel(self, cursor):
+        cursors = self.mcpsess.get('cursors', {})
+        if cursor not in cursors:
+            raise s_exc.BadArg(mesg=f'Unknown or expired storm cursor: {cursor}')
+
+        await self._closeStormCursor(cursors, cursor)
+        return {'cancelled': cursor}
 
     @tool(desc='Run a Storm query and return the value from its return() statement.', schema=_storm_schema)
     async def call_storm(self, query, opts=None):
@@ -1058,19 +1226,6 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
             self.mcpsess['view'] = parent
 
         return {'merged': iden, 'parent': parent, 'session_view': await self._sessionViewIden()}
-
-    def _streamItemLevel(self, item):
-        # Map Storm message types to MCP log levels for streamed storm() output. Items are
-        # the (type, info) tuples yielded by the storm() API.
-        if isinstance(item, (tuple, list)) and len(item) == 2:
-            mtype = item[0]
-            if mtype == 'warn':
-                return 'warning'
-
-            if mtype == 'err':
-                return 'error'
-
-        return 'info'
 
     # --- resources ---
 

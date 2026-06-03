@@ -32,15 +32,17 @@ The `storm_validate` MCP tool validates Storm syntax without executing the query
 
 ### Running Storm Queries
 
-The `storm` MCP tool runs a Storm query against the Cortex and streams the result messages. Each message is a `(<type>, <info>)` tuple as yielded by the Storm runtime (e.g. `node`, `print`, `warn`, `err`, `fini`). Use it to create or inspect nodes and to see the full output of a query.
+The `storm` MCP tool runs a Storm query against the Cortex and returns a **page** of result messages: `{"messages": [(<type>, <info>), ...], "cursor": <str-or-null>}`. Each message is a `(<type>, <info>)` tuple as yielded by the Storm runtime (e.g. `node`, `print`, `warn`, `err`, `fini`).
 
-The `call_storm` MCP tool runs a query and returns only the value from its `return()` statement. Use it when the query is written as a single function-style query that returns one value.
+**Each query must be fully drained or cancelled.** If `cursor` is non-null, the query produced more messages than one page and is still running on the server -- you MUST either call `storm_continue(cursor)` repeatedly until it returns a null cursor (fully drained), or call `storm_cancel(cursor)` to discard the rest. Never abandon a query with a non-null cursor: it holds a Storm runtime open on the server until it times out. A null cursor means the query is complete and nothing further is required.
 
-Both tools accept:
+The `call_storm` MCP tool runs a query and returns only the value from its `return()` statement (no pagination). Use it when the query is written as a single function-style query that returns one value.
+
+`storm` and `call_storm` accept:
 - `query` (required): the Storm query text.
 - `opts` (optional): Storm query opts, e.g. `{"vars": {...}}`, `{"view": <iden>}`, or `{"limit": <n>}`.
 
-Queries run as the calling user and respect that user's permissions and active view.
+`storm_continue` and `storm_cancel` take a single `cursor` argument. Queries run as the calling user and respect that user's permissions and active view.
 
 **Use cases:**
 - Verify that a query produces the expected nodes and output (`storm`).
