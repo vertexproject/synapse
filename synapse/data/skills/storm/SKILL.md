@@ -214,16 +214,26 @@ string'''                                    // triple-quoted
 
 #### Dicts
 
-Dereference directly by key, and iterate as `($name, $valu)` tuples:
+Dereference directly by key, assign by key, and iterate as `($name, $valu)` tuples. A key may
+be given literally or via a variable:
 
 ```storm
 $dict = ({"foo": "bar"})
-$lib.print($dict.foo)                        // dereference a key -> bar
+$lib.print($dict.foo)                        // dereference a literal key -> bar
+$dict.foo = baz                              // assign a literal key (creates or overwrites)
+
+$key = foo
+$lib.print($dict.$key)                       // dereference via a variable key -> baz
+$dict.$key = heya                            // assign via a variable key
 
 for ($name, $valu) in $dict {                // iterate key/value pairs
     $lib.print(`{$name}={$valu}`)
 }
 ```
+
+In a chained dereference, a `$`-prefixed element uses that variable's value as the key while a
+bare element is a literal key. So `$foo.$bar.baz` reads `$foo` at the key held by `$bar`, then
+reads the literal key `baz` from that result (i.e. `($foo[$bar])["baz"]`).
 
 #### Lists / Arrays
 
@@ -280,7 +290,7 @@ Two reserved keys control the rest of the construction:
 
 ```storm
 [ risk:threat=({"name": "apt1", "reporter:name": "mandiant",
-                "$props": {"desc": "Comment Crew"}}) ]
+                "$props": {"desc": "A state-sponsored cyber espionage group."}}) ]
 ```
 
 - `$try` -- when `(true)`, values in `$props` that fail type validation are skipped instead
@@ -474,6 +484,10 @@ tag.prune #tag                               // prune tag tree
 tree { query }                               // recursive traversal
 view.exec $view { query }                   // execute in view
 ```
+
+Any Storm command can be safely run with `--help` to print its usage/help output without
+executing it (e.g. `scrape --help`), which is the reliable way to discover a command's
+arguments and options.
 
 ### Key $lib Functions
 
