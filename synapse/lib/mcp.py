@@ -828,7 +828,7 @@ This is a Synapse Cortex: the ground-truth store for an interdisciplinary, graph
 
 Working effectively:
 - Run Storm with the `storm` tool, which returns a page of (type, info) result messages (init/node/print/warn/err/fini) plus a `cursor`; if the cursor is non-null you must drain it with `storm_continue` or release it with `storm_cancel`. Use `call_storm` for a single value produced by a Storm `return()`.
-- Before composing queries, learn the data model via the `get_model` tool or the `syn://model` resource (forms, properties, types), and learn query syntax from the `skill://storm/SKILL.md` resource; `syn://stormdocs` documents Storm libraries, types, and commands.
+- Before composing queries, learn the data model: search it with the `model_find` tool (regex over names/docs of forms, properties, types, and interfaces) or read the whole `syn://model` resource, and learn query syntax from the `skill://storm/SKILL.md` resource; `syn://stormdocs` documents Storm libraries, types, and commands.
 - Check a query with the `storm_validate` tool before running it.
 - Queries run as the calling user and respect that user's permissions and view.
 
@@ -859,6 +859,27 @@ class CortexMcp(CellMcp):
         'required': ['query'],
         'additionalProperties': False,
     }
+
+    _model_find_schema = {
+        'type': 'object',
+        'properties': {
+            'pattern': {'type': 'string',
+                        'description': 'A regular expression matched against model entity names and doc strings.'},
+        },
+        'required': ['pattern'],
+        'additionalProperties': False,
+    }
+
+    _model_find_desc = '''
+Search the Synapse data model for entities whose name or documentation matches a regular
+expression, returning the matching subset of the model. The `pattern` is used as a
+case-sensitive regex (use an inline `(?i)` flag for case-insensitive matching) and is
+searched (not full-matched) against the name and doc of each type, form, form property, and
+interface. The result is `{"types": {...}, "forms": {...}, "interfaces": {...}}` containing
+only the matching entries (forms include only their matching properties unless the form
+itself matched). Use this to discover the relevant forms/properties for a topic before
+composing Storm; use the `syn://model` resource for the full model.
+'''.strip()
 
     _storm_cursor_schema = {
         'type': 'object',
@@ -1132,9 +1153,49 @@ Merge a forked view's changes down into its parent view (the fork itself is not 
         errname, errinfo = info
         return {'valid': False, 'err': errname, 'mesg': errinfo.get('mesg')}
 
-    @tool(desc='Return the Synapse data model definition.')
-    async def get_model(self):
-        return await self.getCore().getModelDict()
+    @tool(desc=_model_find_desc, schema=_model_find_schema)
+    async def model_find(self, pattern):
+        try:
+            regx = re.compile(pattern)
+        except re.error as e:
+            raise s_exc.BadArg(mesg=f'Invalid model_find pattern: {e}') from None
+
+        mdef = await self.getCore().getModelDict()
+
+        types = {}
+        for name, tdef in mdef.get('types', {}).items():
+            await asyncio.sleep(0)
+            if regx.search(name) or regx.search(tdef.get('info', {}).get('doc') or ''):
+                types[name] = tdef
+
+        ifaces = {}
+        for name, idef in mdef.get('interfaces', {}).items():
+            await asyncio.sleep(0)
+            if regx.search(name) or regx.search(idef.get('doc') or ''):
+                ifaces[name] = idef
+
+        forms = {}
+        for name, fdef in mdef.get('forms', {}).items():
+            await asyncio.sleep(0)
+
+            # forms carry their doc on the same-named type
+            formdoc = mdef.get('types', {}).get(name, {}).get('info', {}).get('doc') or ''
+            formmatch = regx.search(name) is not None or regx.search(formdoc) is not None
+
+            props = {}
+            for pname, pdef in fdef.get('props', {}).items():
+                await asyncio.sleep(0)
+                pfull = pdef.get('full') or pname
+                if regx.search(pfull) or regx.search(pdef.get('doc') or ''):
+                    props[pname] = pdef
+
+            if formmatch:
+                forms[name] = fdef
+            elif props:
+                # only some props matched; return the form with just those props
+                forms[name] = {**fdef, 'props': props}
+
+        return {'types': types, 'forms': forms, 'interfaces': ifaces}
 
     @tool(desc='List the views this user can read.')
     async def view_list(self):

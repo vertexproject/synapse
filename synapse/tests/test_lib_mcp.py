@@ -595,9 +595,9 @@ class McpTest(s_tests.SynTest):
 
                     sid, _ = await self._handshake(sess, url)
 
-                    # get_model proxies via getCore().getModelDict()
-                    status, data = await self._tool(sess, url, sid, 'get_model')
-                    self.isin('forms', data['result']['structuredContent'])
+                    # model_find proxies via getCore().getModelDict()
+                    status, data = await self._tool(sess, url, sid, 'model_find', {'pattern': 'inet:ipv4'})
+                    self.isin('inet:ipv4', data['result']['structuredContent']['forms'])
 
                     # the stormdocs resource proxies via getCore().getCoreInfoV2()
                     status, data = await self._rpc(sess, url, sid, 'resources/read',
@@ -649,7 +649,7 @@ class McpTest(s_tests.SynTest):
                 names = [t['name'] for t in data['result']['tools']]
                 self.isin('storm', names)
                 self.isin('call_storm', names)
-                self.isin('get_model', names)
+                self.isin('model_find', names)
                 self.isin('storm_validate', names)
 
                 # call_storm returns a value
@@ -664,9 +664,35 @@ class McpTest(s_tests.SynTest):
                 self.false(data['result']['structuredContent']['valid'])
                 self.nn(data['result']['structuredContent'].get('mesg'))
 
-                # get_model returns the model dict
-                status, data = await self._tool(sess, url, sid, 'get_model')
-                self.isin('types', data['result']['structuredContent'])
+                # model_find returns the matching subset of the model (types/forms/interfaces)
+                status, data = await self._tool(sess, url, sid, 'model_find', {'pattern': 'inet:ipv4'})
+                res = data['result']['structuredContent']
+                self.isin('inet:ipv4', res['types'])
+                self.isin('inet:ipv4', res['forms'])
+
+                # a doc-only match (no name contains "address") still finds inet:ipv4 by its doc
+                status, data = await self._tool(sess, url, sid, 'model_find', {'pattern': '(?i)IPv4 address'})
+                self.isin('inet:ipv4', data['result']['structuredContent']['types'])
+
+                # a property-only match returns the form narrowed to the matching props
+                status, data = await self._tool(sess, url, sid, 'model_find', {'pattern': 'dns:a:fqdn'})
+                res = data['result']['structuredContent']
+                self.isin('fqdn', res['forms']['inet:dns:a']['props'])
+                self.notin('ipv4', res['forms']['inet:dns:a']['props'])
+
+                # an interface match
+                status, data = await self._tool(sess, url, sid, 'model_find', {'pattern': 'doc:document'})
+                self.isin('doc:document', data['result']['structuredContent']['interfaces'])
+
+                # no matches -> empty subsets
+                status, data = await self._tool(sess, url, sid, 'model_find', {'pattern': 'zzznosuchthingzzz'})
+                res = data['result']['structuredContent']
+                self.eq({}, res['types'])
+                self.eq({}, res['forms'])
+
+                # an invalid regex is a tool error
+                status, data = await self._tool(sess, url, sid, 'model_find', {'pattern': '('})
+                self.true(data['result']['isError'])
 
                 # storm tool returns a page of (type, info) messages; small query is fully
                 # drained in one page (cursor is null)

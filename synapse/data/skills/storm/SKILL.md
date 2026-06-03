@@ -67,7 +67,7 @@ A `view` may also be passed per-call to `storm` / `call_storm` via the `opts` ar
 ### Discovering the Data Model
 
 Do not guess form or property names. Use:
-- the `get_model` MCP tool (or the `syn://model` MCP resource) for the full Synapse data model (forms, properties, types, univs, tagprops, edges, interfaces);
+- the `model_find` MCP tool to search the data model by regex (matched against the names and docs of forms, properties, types, and interfaces), or the `syn://model` MCP resource for the full Synapse data model (forms, properties, types, univs, tagprops, edges, interfaces);
 - the `syn://model/form/{name}` MCP resource for a single form definition;
 - the `syn://stormdocs` MCP resource for Storm library, type, and command documentation.
 
@@ -804,7 +804,7 @@ $func("positional", key=1)
 
 5. **Verify end-to-end** -- once the syntax is valid, run the query with the `storm` tool and inspect the streamed `node` / `print` / `warn` / `err` messages to confirm it produces the expected results.
 
-6. **Runtime errors vs parse errors** -- if the query parses but fails at runtime, the error is likely a `NoSuchForm`, `NoSuchProp`, `BadTypeValu`, or `AuthDeny`, not `BadSyntax`. Use the `get_model` MCP tool (or `syn://model` MCP resource) for valid form/property names.
+6. **Runtime errors vs parse errors** -- if the query parses but fails at runtime, the error is likely a `NoSuchForm`, `NoSuchProp`, `BadTypeValu`, or `AuthDeny`, not `BadSyntax`. Use the `model_find` MCP tool (or `syn://model` MCP resource) for valid form/property names.
 
 ## Key Tools & Files
 
@@ -814,7 +814,7 @@ $func("positional", key=1)
 | `storm` / `call_storm` MCP tools | Run Storm queries against the Cortex (stream messages / return a value) |
 | `view_list` / `view_set` / `view_get` MCP tools | List, set, and read the session's active view |
 | `view_fork` / `view_del` / `view_merge` MCP tools | Fork, delete, and merge views (use fork+del to safely test ingest) |
-| `get_model` MCP tool, `syn://model` MCP resource | Discover forms, properties, and types |
+| `model_find` MCP tool, `syn://model` MCP resource | Search / discover forms, properties, and types |
 | `syn://model/form/{name}` MCP resource | A single data model form definition |
 | `syn://stormdocs` MCP resource | Storm library, type, and command documentation |
 | `syn://storm/grammar` MCP resource | The raw Lark grammar for the Storm query language |
