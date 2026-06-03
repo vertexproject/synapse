@@ -286,7 +286,7 @@ no pipeline/subquery filter can do the job.
 
 ```storm
 // AVOID -- control flow operating on node properties
-if ($node.props.foo) { $node.props.baz=faz }
+if $node.props.foo { $node.props.baz=faz }
 
 // PREFER -- a subquery filter plus a conditional edit in the pipeline
 { +:foo [ :baz=faz ] }
