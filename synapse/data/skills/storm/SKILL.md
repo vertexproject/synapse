@@ -523,7 +523,7 @@ $lib.pprint($data)                           // pretty-print data
 // Type operations
 $lib.trycast(typename, $value)               // returns ($ok, $valu)
 $lib.cast(typename, $value)                  // cast or raise
-$lib.utils.type($value)                      // get type name string
+$lib.vars.type($value)                       // get type name string
 $lib.len($collection)                        // length
 $lib.sorted($list)                           // sort
 
