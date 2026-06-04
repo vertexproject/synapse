@@ -87,6 +87,13 @@ def _reqValidName(name):
     if _NAME_REGEX.match(name) is None:
         raise s_exc.BadArg(mesg=f'MCP name must match {_NAME_REGEX.pattern}: {name}')
 
+def _methodArgSignature(func):
+    # The argument signature of a handler method as seen on its bound method (the leading
+    # 'self' parameter removed), used to validate tool / prompt call arguments. Computed once
+    # per registry entry rather than on every call, since inspect.signature() is not cheap.
+    sig = inspect.signature(func)
+    return sig.replace(parameters=list(sig.parameters.values())[1:])
+
 async def _finiStormCursor(info):
     # Cancel a storm cursor's background producer task. Cancellation propagates into the
     # producer's "async for" loop, whose finally block explicitly closes the storm generator
@@ -293,7 +300,8 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
             if info.get('schema') is not None:
                 validator = s_config.getJsValidator(info.get('schema'))
 
-            tools[info.get('name')] = {'attr': attrname, 'info': info, 'validator': validator}
+            tools[info.get('name')] = {'attr': attrname, 'info': info, 'validator': validator,
+                                       'signature': _methodArgSignature(getattr(cls, attrname))}
 
         cls._mcp_tools = tools
         return tools
@@ -314,7 +322,8 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         '''Return the MCP prompt registry, keyed by name.'''
         prompts = cls.__dict__.get('_mcp_prompts')
         if prompts is None:
-            prompts = {info.get('name'): {'attr': attrname, 'info': info}
+            prompts = {info.get('name'): {'attr': attrname, 'info': info,
+                                          'signature': _methodArgSignature(getattr(cls, attrname))}
                        for attrname, info in cls._getMarkedMethods('_mcp_prompt')}
             cls._mcp_prompts = prompts
 
@@ -671,7 +680,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
         meth = getattr(self, entry.get('attr'))
         try:
-            inspect.signature(meth).bind(**arguments)
+            entry.get('signature').bind(**arguments)
         except TypeError as e:
             raise s_exc.JsonRpcError.init(s_jsrpc.INVALID_PARAMS, f'Invalid arguments: {e}')
 
@@ -760,7 +769,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         meth = getattr(self, entry.get('attr'))
 
         try:
-            inspect.signature(meth).bind(**arguments)
+            entry.get('signature').bind(**arguments)
         except TypeError as e:
             self._sendResp(self._errResp(reqid, s_exc.JsonRpcError.init(
                 s_jsrpc.INVALID_PARAMS, f'Invalid arguments: {e}')))
