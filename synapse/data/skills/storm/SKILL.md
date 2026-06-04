@@ -587,7 +587,7 @@ $lib.lift.byPropsDict($form, $propsdict, errok=(false)) // lift by multiple prop
 $lib.lift.byNodeData($name)                  // lift nodes with a given nodedata key
 
 // Version
-$lib.version.synapse                         // synapse version tuple
+$lib.version.synapse()                       // synapse version tuple
 ```
 
 ### Node Object Attributes / Methods
