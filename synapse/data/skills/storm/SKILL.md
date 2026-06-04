@@ -114,7 +114,7 @@ entity:contact:names*[=example]    // by array contents
 reverse(inet:fqdn)                 // reverse lift order
 ```
 
-Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefix), `in`, `not in`
+Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefix), `@=` (time/interval)
 
 ### Filtering
 
@@ -207,7 +207,7 @@ $obj.key = "value"                           // item assignment
 // Arithmetic: +, -, *, /, %, **
 $result = (($x + $y) * 2)
 
-// Comparison: =, !=, <, >, <=, >=, ~=, ^=, in, not in
+// Comparison: =, !=, <, >, <=, >=, ~=, ^=
 $check = ($a > 5 and $b < 10)
 
 // Logical: and, or, not
@@ -336,6 +336,51 @@ dict, the seed values are NOT stored as properties; they only determine the guid
 
 Use an array seed when a node is uniquely identified by a fixed set of positional inputs;
 use a gutor dict when you want to deconflict on (and record) named secondary properties.
+
+#### Times
+
+A `time` property holds a single date/time. Time values accept flexible input: lower-resolution
+dates, wildcards, the `now` keyword, and relative offsets.
+
+```storm
+:time=2023/05/03                             // lower-resolution date
+:time="2023/05/03 21:09:04.000"              // full precision (quote when it has spaces)
+:time=2023/05*                               // wildcard
+:time=now                                    // the "now" keyword
+:time="-3 days"                              // relative to now
+```
+
+The `@=` comparator compares a time property against a single time or an interval `(min, max)`.
+An interval is min-inclusive and max-exclusive (`>= min and < max`):
+
+```storm
+inet:dns:request:time@=2023/05/03            // a single time is an exact match (same as =)
+inet:dns:request:time@=(2023/05/03, 2023/05/04)  // time falls within [min, max)
+.created@=(now, "-7 days")                   // created within the past 7 days
+```
+
+#### Intervals (ival)
+
+An `ival` property holds a `(min, max)` time window -- e.g. the universal `.seen` property or a
+tag's timestamps. Set it with a two-element `(min, max)` tuple:
+
+```storm
+[ inet:dns:a=(woot.com, 1.2.3.4) .seen=(2021/09/12, 2023/08/08) ]
+[ inet:fqdn=woot.com +#cno.threat.t20=(2020/01/01, 2020/06/01) ]   // a tag time window
+```
+
+The `@=` comparator compares an interval property against a single time (matches when the time
+falls within the property's window) or another interval (matches on ANY overlap):
+
+```storm
+inet:dns:a.seen@=2022/07/15                  // a time within the .seen window
+inet:dns:a.seen@=(2022/07/01, 2022/08/01)    // any overlap with the .seen window
+#cno.threat.t20@=(2020, 2021)                // lift by overlapping tag timestamps
+inet:fqdn#cno.threat.t20@=2020/03/01         // filter/lift by a time within tag timestamps
+```
+
+Time keywords (`now`) and relative offsets (`"-1 day"`, `"+30 days"`) may be used as interval
+bounds, e.g. `(now, "-1 day")`.
 
 ### Control Flow
 
@@ -540,8 +585,8 @@ $lib.tags.prefix($tags, $prefix)             // prefix tag list
 
 // HTTP
 $lib.inet.http.request($meth, $url,
-    headers=$headers, params=$params,
-    json=$json, ssl=$ssl, proxy=$proxy)      // HTTP request
+    headers=$headers, params=$params, json=$json,
+    ssl_verify=$ssl_verify, ssl_opts=$ssl_opts, proxy=$proxy)   // HTTP request
 $resp.code                                    // response code
 $resp.json()                                  // parse JSON body
 $resp.headers                                 // response headers
@@ -555,7 +600,8 @@ $hashes = $lib.axon.hashset($sha256)         // get hash set
 $lib.auth.users.get().iden                   // current user iden
 $lib.auth.users.get().vars.$key              // per-user variable
 $lib.auth.users.get().allowed($perm)         // check permission
-$lib.globals.$key                            // global variable
+$lib.globals.get($key)                       // get a global variable
+$lib.globals.set($key, $valu)                // set a global variable
 $lib.auth.users.get($iden)                   // get user by iden
 $lib.auth.users.byname($name)               // get user by name
 $lib.auth.roles.byname($name)               // get role by name
@@ -581,9 +627,6 @@ $lib.json.load($string)                      // parse JSON string
 $lib.json.save($data)                        // serialize to JSON string
 
 // Lift
-$lib.lift.byPropAlts($name, $valu, cmpr="=") // lift by prop value including alternates
-$lib.lift.byPropRefs($props, valu=$propvalu, cmpr="=") // lift nodes referenced by props
-$lib.lift.byPropsDict($form, $propsdict, errok=(false)) // lift by multiple prop values
 $lib.lift.byNodeData($name)                  // lift nodes with a given nodedata key
 
 // Version
@@ -602,15 +645,12 @@ $node.pack()                                 // pack node to dict
 $node.props                                  // property dict access
 $node.props.propname                         // specific property
 $node.isform(inet:fqdn)                      // check form type
-$node.isform($list)                          // check if form is in a list
 $node.tags()                                 // get tags dict
 $node.difftags($tags)                        // diff tags vs current
 $node.globtags(pattern)                      // match tags by glob
 $node.edges()                                // iterate light edges
 $node.addEdge($verb, $n2iden)                // add a light edge
 $node.delEdge($verb, $n2iden)                // delete a light edge
-$node.protocol()                             // get protocol name
-$node.protocols()                            // get all protocols
 $node.getByLayer()                           // get node per layer
 $node.getStorNodes()                         // get storage nodes
 $node.data.set("key", $value)                // set node data
