@@ -593,11 +593,10 @@ $lib.version.synapse                         // synapse version tuple
 ### Node Object Attributes / Methods
 
 ```storm
-$node.form                                   // form name string
-$node.ndef                                   // (form, value) tuple
-$node.iden                                   // node identity hash
-$node.nid                                    // node ID in the layer
-$node.value                                  // primary value
+$node.form()                                 // form name string
+$node.ndef()                                 // (form, value) tuple
+$node.iden()                                 // node identity hash
+$node.value()                                // primary value
 $node.repr()                                 // human representation
 $node.pack()                                 // pack node to dict
 $node.props                                  // property dict access
