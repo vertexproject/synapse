@@ -22,6 +22,29 @@ logger = logging.getLogger(__name__)
 
 wflownamere = regex.compile(r'^([\w-]+)\.yaml$')
 
+# TODO - Update this minversion before tagging the release to ensure that
+# our mininum required version for compilation is valid for the release.
+_MINVER_FOR_COMPILATION = (2, 244, 0)
+_MINVER_STR_FOR_COMPILATION = '.'.join([str(x) for x in _MINVER_FOR_COMPILATION])
+
+def _reqValidForCompilation(pkgdef):
+    pkgname = pkgdef.get('name')
+    reqversion = pkgdef.get('synapse_version')
+    if reqversion is not None:
+        if not s_version.verLteFloor(_MINVER_STR_FOR_COMPILATION, reqversion):
+            mesg = f'Storm package {pkgname} requires Synapse {reqversion} but ' \
+                   f'compiled Storm requires a minimum version of {_MINVER_STR_FOR_COMPILATION}'
+            raise s_exc.BadVersion(mesg=mesg)
+
+    elif (minversion := pkgdef.get('synapse_minversion')) is not None:
+        # This is for older packages that might not have the
+        # `synapse_version` field.
+        # TODO: Remove this whole else block after Synapse 3.0.0.
+        if tuple(minversion) < _MINVER_FOR_COMPILATION:
+            mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
+                   f'compiled Storm requires a minimum version of {_MINVER_STR_FOR_COMPILATION}'
+            raise s_exc.BadVersion(mesg=mesg)
+
 def getStormStr(fn):
     if not os.path.isfile(fn):
         raise s_exc.NoSuchFile(mesg='Storm file {} not found'.format(fn), path=fn)
@@ -128,6 +151,9 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False, compiled=Fa
     pkgdef['build'].setdefault('time', s_common.now())
     pkgdef['build'].setdefault('synapse:version', s_version.verstring)
     pkgdef['build'].setdefault('synapse:commit', s_version.commit)
+
+    # Allow the genopts to influence compilation
+    compiled = genopts.get('compiled', compiled)
 
     logodef = pkgdef.get('logo')
     if logodef is not None:
@@ -240,6 +266,8 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False, compiled=Fa
         loadOpticFiles(pkgdef, opticdir)
 
     if compiled:
+
+        _reqValidForCompilation(pkgdef)
 
         for mod in pkgdef.get('modules', ()):
             text = mod.get('storm')

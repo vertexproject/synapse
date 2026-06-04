@@ -220,6 +220,46 @@ def reqVersion(valu, reqver,
     if vers not in spec:
         raise exc(mesg=mesg, valu=valu, verstr=verstr, reqver=reqver)
 
+def verLteFloor(verstr, cmprvers):
+    '''
+    Check whether a version is less than or equal to the lowest version
+    allowed by a PEP 440 specifier.
+
+    The floor is taken from the most restrictive lower-bounding operator in the
+    specifier set (``>=``, ``>``, ``==`` or ``~=``). For an exclusive ``>``
+    bound the bound version itself is used, since every allowed version is
+    strictly greater than it. If the specifier imposes no lower bound this
+    returns False.
+
+    Args:
+        verstr (str): A version string, e.g. ``'2.244.0'``.
+        cmprvers (str): A PEP 440 specifier string, e.g. ``'>=2.244.0,<3.0.0'``.
+
+    Returns:
+        bool: True if ``verstr`` is at or below the specifier floor.
+    '''
+    target = p_version.Version(verstr)
+
+    floor = None
+    for spec in p_specifiers.SpecifierSet(cmprvers):
+        if spec.operator not in ('>=', '>', '==', '~='):
+            continue
+
+        try:
+            specver = p_version.Version(spec.version)
+        except p_version.InvalidVersion:
+            # e.g. a wildcard such as '==2.244.*'; ignore it so the gate stays
+            # fail-closed rather than treating it as a usable lower bound.
+            continue
+
+        if floor is None or specver > floor:
+            floor = specver
+
+    if floor is None:
+        return False
+
+    return target <= floor
+
 ##############################################################################
 # The following are touched during the release process by bumpversion.
 # Do not modify these directly.

@@ -207,3 +207,61 @@ class VersionTest(s_t_utils.SynTest):
         for s, e in data:
             r = s_version.parseSemver(s)
             self.eq(r, e)
+
+    def test_version_verLteFloor(self):
+        # (verstr, cmprvers, expected, description)
+        test_vectors = [
+            # -- True: target is at or below the specifier floor -------------------
+            ('2.244.0', '>=2.244.0,<3.0.0', True,
+             'gte: floor exactly equals target'),
+
+            ('2.244.0', '>=2.250.0,<3.0.0', True,
+             'gte: floor strictly above target'),
+
+            ('2.244.0', '>2.244.0,<3.0.0', True,
+             'gt: exclusive floor at target (all allowed versions exceed it)'),
+
+            ('2.244.0', '>2.245.0,<3.0.0', True,
+             'gt: exclusive floor above target'),
+
+            ('2.9.0', '>=2.10.0,<3.0.0', True,
+             'numeric comparison guards against lexicographic misread (2.9 < 2.10)'),
+
+            ('2.231.0', '>=2.244.0a1,<3.0.0', True,
+             'pre-release floor still above an older stable target'),
+
+            ('2.244.0', '==2.244.0', True,
+             'eq: pinned floor equals target'),
+
+            ('2.244.0', '~=2.244.0', True,
+             'compatible release: floor equals target'),
+
+            ('2.244.0', '>=2.0.0,>=2.244.0,<3.0.0', True,
+             'multiple lower bounds: max of bounds is used'),
+
+            # -- False: target is above the floor, or no floor exists --------------
+            ('2.244.0', '>=2.231.0,<3.0.0', False,
+             'gte: floor below target'),
+
+            ('2.244.0', '>2.243.0,<3.0.0', False,
+             'gt: exclusive floor below target allows older versions'),
+
+            ('2.245.0', '==2.244.0', False,
+             'eq: pinned floor below target'),
+
+            ('2.244.0', '<3.0.0', False,
+             'upper bound only: no floor'),
+
+            ('2.244.0', '!=2.0.0', False,
+             'exclusion only: no floor'),
+
+            ('2.244.0', '', False,
+             'empty specifier: no floor'),
+
+            ('2.244.0', '==2.244.*', False,
+             'wildcard floor is unparseable and ignored (fail-closed)'),
+        ]
+
+        for verstr, cmprvers, expected, description in test_vectors:
+            with self.subTest(description=description):
+                self.eq(s_version.verLteFloor(verstr, cmprvers), expected)
