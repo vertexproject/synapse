@@ -1,7 +1,0 @@
----
-desc: Fixed an issue where ``$lib.lift.tagsByPref()`` could raise an exception due to the cursor
-  being closed.
-desc:literal: false
-prs: []
-type: bug
-...

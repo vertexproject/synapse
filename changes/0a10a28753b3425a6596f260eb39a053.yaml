@@ -1,7 +1,0 @@
----
-desc: Updated the ``Aha`` service to set the ``service`` key in its log entries directly
-  since it does not register as an ``Aha`` service.
-desc:literal: false
-prs: []
-type: bug
-...

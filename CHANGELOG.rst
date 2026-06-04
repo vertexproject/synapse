@@ -6,6 +6,49 @@
 Synapse Changelog
 *****************
 
+v2.244.1 - 2026-06-02
+=====================
+
+Notes
+-----
+- Lowered the upper bound of the ``aiohttp`` library due to a compatibility
+  issue with the ``vcrpy`` library.
+  (`#4970 <https://github.com/vertexproject/synapse/pull/4970>`_)
+
+v2.244.0 - 2026-05-29
+=====================
+
+Features and Enhancements
+-------------------------
+- Added a ``--size`` option to the ``min`` and ``max`` Storm commands. When
+  specified, the top-N nodes are yielded in sorted order.
+  (`#4953 <https://github.com/vertexproject/synapse/pull/4953>`_)
+- Added a ``--percent`` option to the ``stats.countby`` Storm command to
+  include a percent column in the output.
+  (`#4961 <https://github.com/vertexproject/synapse/pull/4961>`_)
+- Added a ``--no-drain`` argument to the ``synapse.tools.service.shutdown``
+  tool. This argument causes running tasks to be cancelled when the service is
+  shutdown, instead of waiting for them to finish. The tool now has an exit
+  code of ``2`` for unexpected errors, distinguishing them from a graceful
+  shutdown aborted due to timeout (exit code ``1``).
+  (`#4962 <https://github.com/vertexproject/synapse/pull/4962>`_)
+
+Bugfixes
+--------
+- Added a missing admin check to ``$lib.aha.callPeerApi()`` and
+  ``$lib.aha.callPeerGenr()``.
+  (`#4951 <https://github.com/vertexproject/synapse/pull/4951>`_)
+- Updated the ``Aha`` service to set the ``service`` key in its log entries
+  directly since it does not register as an ``Aha`` service.
+  (`#4952 <https://github.com/vertexproject/synapse/pull/4952>`_)
+- Fixed an issue where ``$lib.lift.tagsByPref()`` could raise an exception due
+  to the cursor being closed.
+  (`#4955 <https://github.com/vertexproject/synapse/pull/4955>`_)
+- Fixed a bug in the ``Cell.shutdown()`` API where the ``timeout`` argument was
+  not bounding the total runtime of the API. That timeout argument is now
+  applied across the entire function.
+  (`#4962 <https://github.com/vertexproject/synapse/pull/4962>`_)
+
 v2.243.0 - 2026-05-15
 =====================
 

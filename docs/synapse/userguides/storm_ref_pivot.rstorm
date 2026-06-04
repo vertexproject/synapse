@@ -1320,19 +1320,6 @@ Unless otherwise specified, the target ( *<target>* ) of an edge traversal can b
 - a list of form names (e.g., ``( hash:sha256, file:bytes )``); or
 - a wildcard / asterisk ( ``*`` ).
 
-.. NOTE::
-  
-  The ability to specify a secondary property **and value** is supported in Synapse 2.x.x, but will be removed in 3.x.x.
-  You can obtain the same result by traversing to a form and property name, and then filtering on the value. For example,
-  the following Storm queries are equivalent:
-  
-  ``media:news -(refs)> inet:url:fqdn~=justice.gov``
-  
-  and
-  
-  ``media:news -(refs)> inet:url:fqdn +:fqdn~=justice.gov``
-
-
 .. _walk-single-edge:
 
 Traverse a Specific Edge
