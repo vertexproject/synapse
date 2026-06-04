@@ -324,6 +324,74 @@ class GenPkgTest(s_test.SynTest):
             msgs = await core.stormlist('$mod=$lib.import(testmod) $lib.print($mod)')
             self.stormIsInPrint('Imported Module testmod', msgs)
 
+    def test_genpkg_reqValidForCompilation(self):
+
+        # synapse_version floor at/above the compilation minimum is allowed
+        s_genpkg._reqValidForCompilation({'name': 'ok', 'synapse_version': '>=2.244.0,<3.0.0'})
+        s_genpkg._reqValidForCompilation({'name': 'ok', 'synapse_version': '>=2.250.0,<3.0.0'})
+
+        # synapse_version that permits cortexes below the minimum is rejected
+        with self.raises(s_exc.BadVersion):
+            s_genpkg._reqValidForCompilation({'name': 'old', 'synapse_version': '>=2.231.0,<3.0.0'})
+
+        # a specifier with no usable lower bound is rejected
+        with self.raises(s_exc.BadVersion):
+            s_genpkg._reqValidForCompilation({'name': 'nofloor', 'synapse_version': '<3.0.0'})
+
+        # legacy synapse_minversion handling
+        s_genpkg._reqValidForCompilation({'name': 'legacyok', 'synapse_minversion': (2, 244, 0)})
+
+        with self.raises(s_exc.BadVersion):
+            s_genpkg._reqValidForCompilation({'name': 'legacyold', 'synapse_minversion': (2, 231, 0)})
+
+        # no version fields at all is permitted (nothing to gate against)
+        s_genpkg._reqValidForCompilation({'name': 'none'})
+
+    async def test_genpkg_compiled_minversion(self):
+
+        with self.getTestDir() as dirn:
+
+            savepath = s_common.genpath(dirn, 'minpkg.json')
+
+            pkgdef = {
+                'name': 'minpkg',
+                'version': '0.0.1',
+                'modules': [
+                    {'name': 'minmod', 'storm': '$lib.print(hi)'},
+                ],
+            }
+
+            # synapse_version floor below the compilation minimum is rejected
+            pkgdef['synapse_version'] = '>=2.231.0,<3.0.0'
+            ymlpath = s_common.genpath(dirn, 'minpkg.yaml')
+            s_common.yamlsave(pkgdef, ymlpath)
+
+            with self.raises(s_exc.BadVersion):
+                await s_genpkg.main(('--compiled', '--save', savepath, ymlpath))
+
+            # bumping the floor to the compilation minimum compiles cleanly
+            pkgdef['synapse_version'] = '>=2.244.0,<3.0.0'
+            s_common.yamlsave(pkgdef, ymlpath)
+
+            await s_genpkg.main(('--compiled', '--save', savepath, ymlpath))
+            outdef = s_common.yamlload(savepath)
+            self.true(outdef['modules'][0]['storm'].startswith('}'))
+
+            # set the genopts flag for compiled storm
+            pkgdef['genopts'] = {'compiled': True}
+            s_common.yamlsave(pkgdef, ymlpath)
+
+            await s_genpkg.main(('--save', savepath, ymlpath))
+            outdef = s_common.yamlload(savepath)
+            self.true(outdef['modules'][0]['storm'].startswith('}'))
+
+            pkgdef['synapse_version'] = '>=2.231.0,<3.0.0'
+            s_common.yamlsave(pkgdef, ymlpath)
+
+            # synapse_version floor below the compilation minimum is rejected
+            with self.raises(s_exc.BadVersion):
+                await s_genpkg.main(('--save', savepath, ymlpath))
+
     async def test_genpkg_compiled_dotstorm(self):
 
         yamlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'dotstorm.yaml')
