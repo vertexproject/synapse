@@ -108,10 +108,11 @@ class JsRpcTest(s_tests.SynTest):
         # the method def carries its schemas for higher level introspection
         self.eq('string', meths['greet']['info']['returns']['type'])
 
-        # the registry is JSON compatible; validators are stored separately
+        # the registry is JSON compatible; validators and arg signatures are stored separately
         self.nn(s_json.dumps(meths))
         self.nn(FakeRpcHandler._syn_jsrpc_validators.get('greet'))
         self.none(FakeRpcHandler._syn_jsrpc_validators.get('echo'))
+        self.nn(FakeRpcHandler._syn_jsrpc_signatures.get('echo'))
 
         # a non-async method is rejected at registration
         with self.raises(s_exc.BadArg):

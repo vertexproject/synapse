@@ -80,6 +80,13 @@ def method(name=None, desc=None, params=None, returns=None):
 
     return wrap
 
+def _methodArgSignature(func):
+    # The argument signature of a handler method as seen on its bound method (the leading
+    # 'self' parameter removed), used to validate request params. Computed once per method
+    # registry entry rather than on every dispatch, since inspect.signature() is not cheap.
+    sig = inspect.signature(func)
+    return sig.replace(parameters=list(sig.parameters.values())[1:])
+
 class JsonRpcHandler(s_httpapi.Handler):
     '''
     A Tornado handler which exposes its own decorated methods as a JSON-RPC 2.0 endpoint.
@@ -116,8 +123,9 @@ class JsonRpcHandler(s_httpapi.Handler):
             dict: A JSON compatible mapping of JSON-RPC method name to ``{'attr': attrname,
             'info': info}`` where info is the method definition (name, desc, params,
             returns, genr). The registry is cached on the class; the compiled params
-            validators are stored separately in the ``_syn_jsrpc_validators`` class local
-            so it remains JSON serializable and suitable for higher level introspection.
+            validators and method arg signatures are stored separately (in the
+            ``_syn_jsrpc_validators`` and ``_syn_jsrpc_signatures`` class locals) so the
+            registry remains JSON serializable and suitable for higher level introspection.
         '''
         meths = cls.__dict__.get('_syn_jsrpc_meths')
         if meths is not None:
@@ -125,15 +133,18 @@ class JsonRpcHandler(s_httpapi.Handler):
 
         meths = {}
         validators = {}
+        signatures = {}
         for attrname, info in cls._getMarkedMethods('_jsrpc_method'):
 
             meths[info.get('name')] = {'attr': attrname, 'info': info}
+            signatures[info.get('name')] = _methodArgSignature(getattr(cls, attrname))
 
             if info.get('params') is not None:
                 validators[info.get('name')] = s_config.getJsValidator(info.get('params'))
 
         cls._syn_jsrpc_meths = meths
         cls._syn_jsrpc_validators = validators
+        cls._syn_jsrpc_signatures = signatures
         return meths
 
     async def post(self):
@@ -217,7 +228,7 @@ class JsonRpcHandler(s_httpapi.Handler):
 
             meth = getattr(self, entry.get('attr'))
             try:
-                inspect.signature(meth).bind(*args, **kwargs)
+                self._syn_jsrpc_signatures.get(name).bind(*args, **kwargs)
             except TypeError as e:
                 raise s_exc.JsonRpcError.init(INVALID_PARAMS, f'Invalid params: {e}')
 
