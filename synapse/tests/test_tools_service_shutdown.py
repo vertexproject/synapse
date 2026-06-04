@@ -35,7 +35,7 @@ class ShutdownToolTest(s_test.SynTest):
             self.true(await core.waitfini(timeout=1))
 
         outp = self.getTestOutp()
-        self.eq(1, await s_t_shutdown.main(['--url', 'newp://hehe'], outp=outp))
+        self.eq(2, await s_t_shutdown.main(['--url', 'newp://hehe'], outp=outp))
         outp.expect('Error while attempting graceful shutdown')
 
     async def test_tool_shutdown_leader(self):
@@ -70,6 +70,26 @@ class ShutdownToolTest(s_test.SynTest):
                 self.eq(0, await s_t_shutdown.main(argv, outp=outp))
                 self.true(await cell01.waitfini(timeout=12))
 
+    async def test_tool_shutdown_no_drain(self):
+
+        async with self.getTestCore() as core:
+
+            argv = ['--url', core.getLocalUrl(), '--timeout', '5', '--no-drain']
+            self.eq(0, await s_t_shutdown.main(argv))
+
+            self.true(await core.waitfini(timeout=5))
+
+    async def test_tool_shutdown_no_drain_unsupported(self):
+
+        async with self.getTestCore() as core:
+
+            core.features.pop('shutdowndrain')
+
+            outp = self.getTestOutp()
+            argv = ['--url', core.getLocalUrl(), '--timeout', '5', '--no-drain']
+            self.eq(2, await s_t_shutdown.main(argv, outp=outp))
+            outp.expect('does not support the --no-drain feature')
+
     async def test_tool_shutdown_no_features(self):
 
         async with self.getTestAha() as aha:
@@ -92,5 +112,5 @@ class ShutdownToolTest(s_test.SynTest):
                 outp = self.getTestOutp()
                 argv = ['--url', cell00.getLocalUrl(), '--timeout', '12']
                 with self.getLoggerStream('synapse.daemon') as stream:
-                    self.eq(1, await s_t_shutdown.main(argv, outp=outp))
+                    self.eq(2, await s_t_shutdown.main(argv, outp=outp))
                 await stream.expect('AHA server does not support feature: getAhaSvcsByIden >= 1')

@@ -263,6 +263,6 @@ def verLteFloor(verstr, cmprvers):
 ##############################################################################
 # The following are touched during the release process by bumpversion.
 # Do not modify these directly.
-version = (2, 243, 0)
+version = (2, 244, 1)
 verstring = '.'.join([str(x) for x in version])
 commit = ''
