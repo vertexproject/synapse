@@ -18,8 +18,8 @@ Features and Enhancements
   Storm and the Cortex data model. This endpoint is currently beta and subject
   to change.
   (`#4967 <https://github.com/vertexproject/synapse/pull/4967>`_)
-- Added the ``getFormsByPrefix`` API to the Cortex retrieve form names matching
-  a given prefix.
+- Added the ``getFormsByPrefix`` API to the Cortex to retrieve form names
+  matching a given prefix.
   (`#4967 <https://github.com/vertexproject/synapse/pull/4967>`_)
 
 Notes
