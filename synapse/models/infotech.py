@@ -2833,7 +2833,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The favicon of the rendered page.',
                     }),
                     ('page:components', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The software components included the rendered page.',
+                        'doc': 'The software components included in the rendered page.',
                     }),
                     ('http:request', ('inet:http:request', {}), {
                         'doc': 'The HTTP request made to retrieve the initial URL contents.',
