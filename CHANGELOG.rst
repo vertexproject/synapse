@@ -29,6 +29,11 @@ Notes
   Sent Events streaming for async-generator methods.
   (`#4967 <https://github.com/vertexproject/synapse/pull/4967>`_)
 
+Improved documentation
+----------------------
+- Added HTTP API documentation for the ``/api/v1/mcp`` Cortex endpoint.
+  (`#4967 <https://github.com/vertexproject/synapse/pull/4967>`_)
+
 v2.244.1 - 2026-06-02
 =====================
 
