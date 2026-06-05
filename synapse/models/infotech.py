@@ -2826,6 +2826,15 @@ class ItModule(s_module.CoreModule):
                     ('page:image', ('file:bytes', {}), {
                         'doc': 'The rendered DOM saved as an image.',
                     }),
+                    ('page:title', ('it:dev:str', {}), {
+                        'doc': 'The title of the rendered page.',
+                    }),
+                    ('page:favicon', ('file:bytes', {}), {
+                        'doc': 'The favicon of the rendered page.',
+                    }),
+                    ('page:components', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
+                        'doc': 'The software components detected on the rendered page.',
+                    }),
                     ('http:request', ('inet:http:request', {}), {
                         'doc': 'The HTTP request made to retrieve the initial URL contents.',
                     }),
