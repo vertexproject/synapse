@@ -5,5 +5,5 @@ desc: Added a generic JSON-RPC 2.0 server library at ``synapse.lib.jsrpc`` suppo
 desc:literal: false
 prs:
 - 4967
-type: feat
+type: note
 ...
