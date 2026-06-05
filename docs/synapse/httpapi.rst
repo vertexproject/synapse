@@ -794,6 +794,39 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
                 }
             }
 
+/api/v1/mcp
+~~~~~~~~~~~
+
+.. note::
+
+    The MCP endpoint is currently considered **beta** and is subject to change.
+
+This endpoint implements a `Model Context Protocol <https://modelcontextprotocol.io/>`_ (MCP) server
+over the MCP Streamable HTTP transport. It exposes the Cortex to MCP capable clients (such as LLM
+agents) as a set of tools and resources for running and validating Storm queries, browsing the
+Synapse data model, and managing views. Messages use JSON-RPC 2.0.
+
+*Method*
+    POST
+
+    An MCP client first sends an ``initialize`` request and then includes the ``Mcp-Session-Id``
+    returned in the response header on all subsequent requests. The endpoint is authenticated like
+    any other Cortex HTTP API; the simplest option for an MCP client is to provide a user API key via
+    the ``X-API-KEY`` header (see `Authentication`_). Tools execute as the authenticated user and
+    respect that user's permissions and view.
+
+A user can generate and print an API key for this purpose directly with Storm::
+
+    storm> $lib.print($lib.auth.users.get().genApiKey(claude).0)
+    XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
+
+The endpoint may be registered with an MCP client such as Claude Code using the ``claude mcp add``
+command. The ``--header`` option supplies the API key used to authenticate::
+
+    claude mcp add --transport http synapse \
+        https://cortex.intel-sharing.vertex.link/api/v1/mcp \
+        --header "X-API-KEY: XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA="
+
 /api/ext/*
 ~~~~~~~~~~
 

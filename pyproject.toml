@@ -88,6 +88,7 @@ include-package-data = true
     'data/lark/*.lark',
     'data/attack-flow/**',
     'data/jsonschemas/**',
+    'data/skills/**',
     'tests/files/**',
     'vendor/*/LICENSE'
 ]

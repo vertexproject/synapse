@@ -496,6 +496,11 @@ class Model:
     def __init__(self, core=None):
 
         self.core = core
+
+        # cache for getModelDict(); set on first call and invalidated (set to None) by any
+        # method which can edit the data model.
+        self._model_dict = None
+
         self.types = {}  # name: Type()
         self.forms = {}  # name: Form()
         self.props = {}  # (form,name): Prop() and full: Prop()
@@ -758,6 +763,15 @@ class Model:
         return [('all', mdef)]
 
     def getModelDict(self):
+        '''
+        Return a dict representation of the data model.
+
+        Note:
+            The returned value is a shared, cached structure. Callers MUST NOT mutate it.
+        '''
+        if self._model_dict is not None:
+            return self._model_dict
+
         retn = {
             'types': {},
             'forms': {},
@@ -782,6 +796,7 @@ class Model:
         for eobj in self.edges.values():
             retn['edges'].append(eobj.pack())
 
+        self._model_dict = retn
         return retn
 
     def addDataModels(self, mods):
@@ -890,6 +905,8 @@ class Model:
 
     def addEdge(self, edgetype, edgeinfo):
 
+        self._model_dict = None
+
         n1form, verb, n2form = edgetype
 
         if n1form is not None:
@@ -913,6 +930,9 @@ class Model:
         self.edgesbyn2[n2form].add(edge)
 
     def delEdge(self, edgetype):
+
+        self._model_dict = None
+
         if self.edges.get(edgetype) is None:
             return
 
@@ -929,6 +949,9 @@ class Model:
         return form
 
     def addType(self, typename, basename, typeopts, typeinfo, checks=True):
+
+        self._model_dict = None
+
         base = self.types.get(basename)
         if base is None:
             raise s_exc.NoSuchType(name=basename)
@@ -973,6 +996,8 @@ class Model:
                     logger.warning(mesg, extra=s_logging.getLogExtra(type=typ.name, field=fname, field_type=ftype.name))
 
     def addForm(self, formname, forminfo, propdefs, checks=True):
+
+        self._model_dict = None
 
         if not s_grammar.isFormName(formname):
             mesg = f'Invalid form name {formname}'
@@ -1045,6 +1070,8 @@ class Model:
 
     def delForm(self, formname):
 
+        self._model_dict = None
+
         form = self.forms.get(formname)
         if form is None:
             return
@@ -1078,9 +1105,12 @@ class Model:
 
     def addIface(self, name, info):
         # TODO should we add some meta-props here for queries?
+        self._model_dict = None
         self.ifaces[name] = info
 
     def delType(self, typename):
+
+        self._model_dict = None
 
         _type = self.types.get(typename)
         if _type is None:
@@ -1119,6 +1149,8 @@ class Model:
 
     def addUnivProp(self, name, tdef, info):
 
+        self._model_dict = None
+
         base = '.' + name
         univ = Prop(self, None, base, tdef, info)
 
@@ -1139,6 +1171,7 @@ class Model:
         return list(self.allunivs.get(name, ()))
 
     def addFormProp(self, formname, propname, tdef, info):
+        self._model_dict = None
         form = self.forms.get(formname)
         if form is None:
             raise s_exc.NoSuchForm.init(formname)
@@ -1257,9 +1290,11 @@ class Model:
                 self._delFormIface(form, ifname, subifaces=subifaces)
 
     def delTagProp(self, name):
+        self._model_dict = None
         return self.tagprops.pop(name)
 
     def addTagProp(self, name, tdef, info):
+        self._model_dict = None
         if name in self.tagprops:
             raise s_exc.DupTagPropName(mesg=name)
 
@@ -1277,6 +1312,8 @@ class Model:
         return self.tagprops.get(name)
 
     def delFormProp(self, formname, propname):
+
+        self._model_dict = None
 
         form = self.forms.get(formname)
         if form is None:
@@ -1298,6 +1335,8 @@ class Model:
 
     def delUnivProp(self, propname):
 
+        self._model_dict = None
+
         univname = '.' + propname
 
         univ = self.props.pop(univname, None)
@@ -1314,6 +1353,7 @@ class Model:
         '''
         Add a Type instance to the data model.
         '''
+        self._model_dict = None
         ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
         self._modeldef['ctors'].append(((item.name, ctor, dict(item.opts), dict(item.info))))
         self.types[item.name] = item

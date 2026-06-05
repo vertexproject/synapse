@@ -72,6 +72,26 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 core.model.reqForm('inet:asn').reqProp('newp')
 
+    async def test_datamodel_getmodeldict_cache(self):
+        async with self.getTestCore() as core:
+            model = core.model
+
+            # repeated calls return the same cached object (callers must not mutate it)
+            mdef = model.getModelDict()
+            self.true(model.getModelDict() is mdef)
+            self.notin('cachetst', mdef['tagprops'])
+
+            # a model mutation invalidates the cache; the next call rebuilds a new object
+            model.addTagProp('cachetst', ('int', {}), {})
+            nded = model.getModelDict()
+            self.false(nded is mdef)
+            self.isin('cachetst', nded['tagprops'])
+            self.true(model.getModelDict() is nded)
+
+            # deletion also invalidates the cache
+            model.delTagProp('cachetst')
+            self.notin('cachetst', model.getModelDict()['tagprops'])
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
