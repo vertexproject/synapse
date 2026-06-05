@@ -1,9 +1,0 @@
----
-desc: Added a generic JSON-RPC 2.0 server library at ``synapse.lib.jsrpc`` supporting
-  single, batch, and notification requests, with optional Server-Sent Events streaming
-  for async-generator methods.
-desc:literal: false
-prs:
-- 4967
-type: note
-...

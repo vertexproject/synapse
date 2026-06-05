@@ -1,8 +1,0 @@
----
-desc: Added the ``getFormsByPrefix`` API to the Cortex retrieve
-  form names matching a given prefix.
-desc:literal: false
-prs:
-- 4967
-type: feat
-...

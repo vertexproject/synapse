@@ -1,7 +1,0 @@
----
-desc: Added HTTP API documentation for the ``/api/v1/mcp`` Cortex endpoint.
-desc:literal: false
-prs:
-- 4967
-type: doc
-...

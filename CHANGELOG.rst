@@ -6,6 +6,29 @@
 Synapse Changelog
 *****************
 
+
+v2.245.0 - 2026-06-05
+=====================
+
+Features and Enhancements
+-------------------------
+- Added an MCP (Model Context Protocol) server that exposes Synapse services to
+  MCP-capable clients. Every Cortex now serves an MCP endpoint at
+  ``/api/v1/mcp`` providing tools, resources, and prompts for working with
+  Storm and the Cortex data model. This endpoint is currently beta and subject
+  to change.
+  (`#4967 <https://github.com/vertexproject/synapse/pull/4967>`_)
+- Added the ``getFormsByPrefix`` API to the Cortex retrieve form names matching
+  a given prefix.
+  (`#4967 <https://github.com/vertexproject/synapse/pull/4967>`_)
+
+Notes
+-----
+- Added a generic JSON-RPC 2.0 server library at ``synapse.lib.jsrpc``
+  supporting single, batch, and notification requests, with optional Server-
+  Sent Events streaming for async-generator methods.
+  (`#4967 <https://github.com/vertexproject/synapse/pull/4967>`_)
+
 v2.244.1 - 2026-06-02
 =====================
 
