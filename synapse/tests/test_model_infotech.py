@@ -1394,12 +1394,16 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'page:pdf': '*',
                 'page:html': '*',
                 'page:image': '*',
+                'page:title': 'Example Domain',
+                'page:favicon': '*',
+                'page:components': ('nginx', 'jquery'),
                 'browser': '*',
                 'client': addr4,
                 'sandbox:file': sandfile,
             }
             q = '''[(it:exec:url=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
                 :url=$p.url :page:pdf=$p."page:pdf" :page:html=$p."page:html" :page:image=$p."page:image"
+                :page:title=$p."page:title" :page:favicon=$p."page:favicon" :page:components=$p."page:components"
                 :browser=$p.browser :client=$p.client
                 :sandbox:file=$p."sandbox:file")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': u0, 'p': uprops}})
@@ -1418,11 +1422,16 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(node.get('page:pdf'))
             self.nn(node.get('page:html'))
             self.nn(node.get('page:image'))
+            self.eq(node.get('page:title'), 'Example Domain')
+            self.nn(node.get('page:favicon'))
+            self.eq(node.get('page:components'), ('jquery', 'nginx'))
             self.nn(node.get('browser'))
             opts = {'vars': {'guid': u0}}
             self.len(1, await core.nodes('it:exec:url=$guid :page:pdf -> file:bytes', opts=opts))
             self.len(1, await core.nodes('it:exec:url=$guid :page:html -> file:bytes', opts=opts))
             self.len(1, await core.nodes('it:exec:url=$guid :page:image -> file:bytes', opts=opts))
+            self.len(1, await core.nodes('it:exec:url=$guid :page:favicon -> file:bytes', opts=opts))
+            self.len(2, await core.nodes('it:exec:url=$guid :page:components -> it:prod:softname', opts=opts))
             self.len(1, await core.nodes('it:exec:url=$guid :browser -> it:prod:softver', opts=opts))
             self.len(1, await core.nodes('it:exec:url=$guid :sandbox:file -> file:bytes', opts=opts))
 
