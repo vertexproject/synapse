@@ -6,6 +6,15 @@
 Synapse Changelog
 *****************
 
+v2.246.0 - 2026-06-11
+=====================
+
+Model Changes
+-------------
+- Added ``:page:title``, ``:page:favicon``, and ``:page:components`` properties
+  to the ``it:exec:url`` form.
+  (`#4974 <https://github.com/vertexproject/synapse/pull/4974>`_)
+- See :ref:`userguide_model_v2_246_0` for more detailed model changes.
 
 v2.245.0 - 2026-06-05
 =====================
