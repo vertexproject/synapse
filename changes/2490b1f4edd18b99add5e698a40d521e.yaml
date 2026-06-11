@@ -1,7 +1,0 @@
----
-desc: Added ``:page:title``, ``:page:favicon``, and ``:page:components`` properties
-  to the ``it:exec:url`` form.
-desc:literal: false
-prs: []
-type: model
-...
