@@ -16,6 +16,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.mcp as s_mcp
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.chop as s_chop
@@ -229,6 +230,15 @@ class CoreApi(s_cell.CellApi):
             (dict): A model description dictionary.
         '''
         return await self.cell.getModelDict()
+
+    async def getFormsByPrefix(self, prefix):
+        '''
+        Return a list of form names which start with the given prefix.
+
+        Returns:
+            (list): A sorted list of matching form names.
+        '''
+        return await self.cell.getFormsByPrefix(prefix)
 
     async def getModelDefs(self):
         return await self.cell.getModelDefs()
@@ -911,6 +921,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     cellapi = CoreApi
     viewapi = s_view.ViewApi
     layerapi = s_layer.LayerApi
+
+    _mcp_ctor = s_mcp.CortexMcp
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
@@ -5083,6 +5095,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def getModelDict(self):
         return self.model.getModelDict()
+
+    async def getFormsByPrefix(self, prefix):
+        return self.model.getFormsByPrefix(prefix)
 
     async def getModelDefs(self):
         return self.model.getModelDefs()

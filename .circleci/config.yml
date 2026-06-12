@@ -6,33 +6,40 @@ version: 2.1
 
 orbs:
   gh-release: vertexproject/github-release@0
+  codecov: codecov/codecov@6.0.0
 
 commands:
-  do_report_coverage:
+
+  upload_coverage:
     description: "Codecov report upload"
+    parameters:
+      filename:
+        type: string
+      upload_name:
+        type: string
+
+    steps:
+      - codecov/upload:
+          upload_name: << parameters.upload_name >>
+          files: << parameters.filename >>
+          disable_search: true
+          disable_telem: true
+          fail_on_error: false
+          handle_no_reports_found: true
+          verbose: true
+
+  do_report_coverage:
+    description: "Codecov reporting"
     steps:
       - run:
-          name: Upload Coverage Results
+          name: Generate coverage results
           command: |
-            # Download and verify the codecov binary
-            curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --import # One-time step
-            curl -Os https://uploader.codecov.io/latest/linux/codecov
-            curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
-            curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
-            gpg --verify codecov.SHA256SUM.sig codecov.SHA256SUM
-            shasum -a 256 -c codecov.SHA256SUM
-            chmod +x codecov
-            # Activate our venv and generate a xml report
             . venv/bin/activate
-            python -m coverage xml
-            # Execute the binary...
-            ./codecov \
-              -t "${CODECOV_TOKEN}" \
-              -n "${CODECOV_PREFIX}${PYVERS}node${CIRCLE_NODE_INDEX}" \
-              -F "${CODECOV_FLAG}" \
-              -f ./coverage.xml \
-              -v \
-              -Z || echo 'Codecov upload failed'
+            python -m coverage xml || echo "No coverage files found, skipping"
+
+      - upload_coverage:
+          upload_name: "${CODECOV_PREFIX}${PYVERS}node${CIRCLE_NODE_INDEX}-${CIRCLE_JOB}"
+          filename: "coverage.xml"
 
   do_venv_setup:
     description: "Setup venv for testing"

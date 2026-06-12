@@ -6,6 +6,52 @@
 Synapse Changelog
 *****************
 
+v2.246.0 - 2026-06-11
+=====================
+
+Model Changes
+-------------
+- Added ``:page:title``, ``:page:favicon``, and ``:page:components`` properties
+  to the ``it:exec:url`` form.
+  (`#4974 <https://github.com/vertexproject/synapse/pull/4974>`_)
+- See :ref:`userguide_model_v2_246_0` for more detailed model changes.
+
+v2.245.0 - 2026-06-05
+=====================
+
+Features and Enhancements
+-------------------------
+- Added an MCP (Model Context Protocol) server that exposes Synapse services to
+  MCP-capable clients. Every Cortex now serves an MCP endpoint at
+  ``/api/v1/mcp`` providing tools, resources, and prompts for working with
+  Storm and the Cortex data model. This endpoint is currently beta and subject
+  to change.
+  (`#4967 <https://github.com/vertexproject/synapse/pull/4967>`_)
+- Added the ``getFormsByPrefix`` API to the Cortex to retrieve form names
+  matching a given prefix.
+  (`#4967 <https://github.com/vertexproject/synapse/pull/4967>`_)
+
+Notes
+-----
+- Added a generic JSON-RPC 2.0 server library at ``synapse.lib.jsrpc``
+  supporting single, batch, and notification requests, with optional Server-
+  Sent Events streaming for async-generator methods.
+  (`#4967 <https://github.com/vertexproject/synapse/pull/4967>`_)
+
+Improved documentation
+----------------------
+- Added HTTP API documentation for the ``/api/v1/mcp`` Cortex endpoint.
+  (`#4967 <https://github.com/vertexproject/synapse/pull/4967>`_)
+
+v2.244.1 - 2026-06-02
+=====================
+
+Notes
+-----
+- Lowered the upper bound of the ``aiohttp`` library due to a compatibility
+  issue with the ``vcrpy`` library.
+  (`#4970 <https://github.com/vertexproject/synapse/pull/4970>`_)
+
 v2.244.0 - 2026-05-29
 =====================
 
