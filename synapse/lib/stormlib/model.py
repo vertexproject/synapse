@@ -1126,11 +1126,10 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
             Recommended workflow for deduplication after $lib.layer.load:
 
-            When the loaded data arrives in a read-only bottom layer, run fuseNodes() in a view
-            whose write layer *is* the loaded layer (e.g., open or fork a view with that layer
-            as its top/write layer). This ensures src.delete() takes full effect, nexus entries
-            are recorded, and triggers fire. After deduplication, merge or promote that view as
-            needed.
+            Load the data into a write view (or fork the view with the loaded data as a write
+            layer), then run fuseNodes() there. This ensures src.delete() takes full effect,
+            nexus entries are recorded, and triggers fire. After deduplication, merge or promote
+            that view as needed.
 
             2.x layer limitation:
 
