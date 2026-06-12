@@ -909,11 +909,11 @@ class MigrationEditorMixin:
             runt.layerConfirm(('node', 'del', src.form.name))
 
         # Primary props — mirror _fusePrimaryProps filter/merge logic exactly.
+        # Ext props (name.startswith('_')) are included: copyExtProps calls
+        # proto.set which checks confirmPropSet at runtime, so the preflight
+        # must cover them too.
         form = src.form
         for name, valu in src.props.items():
-            if name.startswith('_'):  # pragma: no cover
-                continue
-
             prop = form.props.get(name)
             if prop.info.get('ro'):
                 continue

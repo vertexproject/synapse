@@ -1023,6 +1023,8 @@ class StormlibModelTest(s_test.SynTest):
 
             # --- Permissions: node.del on src form denied for low-privilege user ---
 
+            await core.addFormProp('test:str', '_pfext', ('str', {}), {})
+
             await core.nodes('[ test:str=p-src test:str=p-dst ]')
 
             lowuser = await core.auth.addUser('lowuser')
@@ -1053,6 +1055,25 @@ class StormlibModelTest(s_test.SynTest):
             nodes = await core.nodes('test:str=p-prop-src')
             self.len(1, nodes)
             self.eq('42', nodes[0].get('hehe'))
+
+            # --- Preflight: missing node.prop.set on src ext prop ---
+
+            await core.nodes('[ test:str=p-ext-src test:str=p-ext-dst ]')
+            await core.nodes('test:str=p-ext-src [ :_pfext=hello ]')
+
+            lowext = await core.auth.addUser('lowext')
+            await lowext.addRule((True, ('node', 'del')))
+            aslowext = {'user': lowext.iden}
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(
+                    'test:str=p-ext-src $n=$node -> { test:str=p-ext-dst $lib.model.migration.fuseNodes($n, $node) }',
+                    opts=aslowext)
+
+            self.isin('node.prop.set', ectx.exception.errinfo['perm'])
+            self.len(1, await core.nodes('test:str=p-ext-src'))
+            nodes = await core.nodes('test:str=p-ext-src')
+            self.eq('hello', nodes[0].get('_pfext'))
 
             # --- Preflight: missing node.tag.add when src has tags ---
 
