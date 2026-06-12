@@ -559,6 +559,18 @@ class AhaCell(s_cell.Cell):
     def getEnvPrefix(cls):
         return ('SYN_AHA', f'SYN_{cls.__name__.upper()}', )
 
+    def getSvcName(self):
+        # The AHA service does not register itself with AHA, so the
+        # default cell logic that derives the log service name from
+        # 'aha:name' + 'aha:network' will not produce a value when
+        # 'aha:name' is not configured. Fall back to 'dns:name' so
+        # the 'service' log key is still populated.
+        name = super().getSvcName()
+        if name is not None:
+            return name
+
+        return self.conf.get('dns:name')
+
     async def _initCellBoot(self):
 
         curl = self.conf.get('clone')
