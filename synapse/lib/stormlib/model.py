@@ -1094,7 +1094,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
             The following are copied from src to dst:
 
-            - Primary properties (src values overwrite conflicting dst values).
+            - Secondary properties (src values overwrite conflicting dst values).
             - Extended properties (src values overwrite conflicting dst values).
             - Tags and tag timestamps (tag intervals are always unioned).
             - Tag properties (src values overwrite conflicting dst values).
