@@ -937,12 +937,11 @@ class MigrationEditorMixin:
 
         # Edge-add — mirrors copyEdges; once per unique verb across N1 and N2.
         verbs = set()
-        async for (verb, _) in src.iterEdgesN1():
-            if verb not in verbs:
-                runt.layerConfirm(('node', 'edge', 'add', verb))
-                verbs.add(verb)
+        async for verb in src.iterEdgeVerbsN1():
+            runt.layerConfirm(('node', 'edge', 'add', verb))
+            verbs.add(verb)
 
-        async for (verb, _) in src.iterEdgesN2():
+        async for verb in src.iterEdgeVerbsN2():
             if verb not in verbs:
                 runt.layerConfirm(('node', 'edge', 'add', verb))
                 verbs.add(verb)

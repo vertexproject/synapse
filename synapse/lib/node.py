@@ -94,6 +94,22 @@ class Node:
         async for edge in self.snap.iterNodeEdgesN2(self.buid, verb=verb):
             yield edge
 
+    async def iterEdgeVerbsN1(self):
+        seen = set()
+        for layr in self.snap.layers:
+            async for verb in layr.iterNodeEdgeVerbsN1(self.buid):
+                if verb not in seen:
+                    seen.add(verb)
+                    yield verb
+
+    async def iterEdgeVerbsN2(self):
+        seen = set()
+        for layr in self.snap.layers:
+            async for verb in layr.iterNodeEdgeVerbsN2(self.buid):
+                if verb not in seen:
+                    seen.add(verb)
+                    yield verb
+
     async def iterEdgeVerbs(self, n2buid):
         async for verb in self.snap.iterEdgeVerbs(self.buid, n2buid):
             yield verb
