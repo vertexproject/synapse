@@ -157,6 +157,7 @@ class RiskModelTest(s_t_utils.SynTest):
 
                     :reporter=*
                     :reporter:name=vertex
+                    :reporter:url=https://vertex.link/advisory/vtx-000-1234
 
                     :timeline:exploited=2020-01-14
                     :timeline:discovered=2020-01-14
@@ -211,6 +212,7 @@ class RiskModelTest(s_t_utils.SynTest):
 
             self.nn(node.get('reporter'))
             self.eq(node.get('reporter:name'), 'vertex')
+            self.eq(node.get('reporter:url'), 'https://vertex.link/advisory/vtx-000-1234')
             self.eq(node.get('timeline:exploited'), 1578960000000)
             self.eq(node.get('timeline:discovered'), 1578960000000)
             self.eq(node.get('timeline:vendor:notified'), 1578960000000)
