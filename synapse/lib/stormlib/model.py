@@ -908,10 +908,7 @@ class MigrationEditorMixin:
         if src.bylayer['ndef'] == snap.wlyr.iden:
             runt.layerConfirm(('node', 'del', src.form.name))
 
-        # Primary props — mirror _fusePrimaryProps filter/merge logic exactly.
-        # Ext props (name.startswith('_')) are included: copyExtProps calls
-        # proto.set which checks confirmPropSet at runtime, so the preflight
-        # must cover them too.
+        # All props (primary and ext) — mirrors _fuseProps filter/merge logic exactly.
         form = src.form
         for name, valu in src.props.items():
             prop = form.props.get(name)
@@ -1012,8 +1009,7 @@ class MigrationEditorMixin:
 
         async with snap.getEditor() as editor:
             proto = editor.loadNode(dst)
-            await self._fusePrimaryProps(src, proto)
-            await self.copyExtProps(src, proto)
+            await self._fuseProps(src, proto)
             await self.copyTags(src, proto, overwrite=True)
             await self.copyEdges(editor, src, proto)
             await self._delOldN2Edges(editor, src)
@@ -1023,14 +1019,11 @@ class MigrationEditorMixin:
         if can_delete:
             await src.delete(force=True)
 
-    async def _fusePrimaryProps(self, src, proto):
+    async def _fuseProps(self, src, proto):
         form = src.form
 
         for name, valu in src.props.items():
             prop = form.props.get(name)
-            if name.startswith('_'):
-                continue
-
             if prop.info.get('ro'):
                 continue
 
