@@ -513,6 +513,9 @@ class RiskModule(s_module.CoreModule):
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the vulnerability.'}),
 
+                    ('reporter:url', ('inet:url', {}), {
+                        'doc': 'The URL for the vulnerability provided by the reporter.'}),
+
                     ('mitigated', ('bool', {}), {
                         'doc': 'Set to true if a mitigation/fix is available for the vulnerability.'}),
 
