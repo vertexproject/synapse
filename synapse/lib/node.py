@@ -95,20 +95,22 @@ class Node:
             yield edge
 
     async def iterEdgeVerbsN1(self):
-        seen = set()
-        for layr in self.snap.layers:
-            async for verb in layr.iterNodeEdgeVerbsN1(self.buid):
-                if verb not in seen:
-                    seen.add(verb)
-                    yield verb
+        last = None
+        gens = [layr.iterNodeEdgeVerbsN1(self.buid) for layr in self.snap.layers]
+        async for verb in s_common.merggenr2(gens):
+            if verb == last:  # pragma: no cover
+                continue
+            last = verb
+            yield verb
 
     async def iterEdgeVerbsN2(self):
-        seen = set()
-        for layr in self.snap.layers:
-            async for verb in layr.iterNodeEdgeVerbsN2(self.buid):
-                if verb not in seen:
-                    seen.add(verb)
-                    yield verb
+        last = None
+        gens = [layr.iterNodeEdgeVerbsN2(self.buid) for layr in self.snap.layers]
+        async for verb in s_common.merggenr2(gens):
+            if verb == last:  # pragma: no cover
+                continue
+            last = verb
+            yield verb
 
     async def iterEdgeVerbs(self, n2buid):
         async for verb in self.snap.iterEdgeVerbs(self.buid, n2buid):
