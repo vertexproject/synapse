@@ -1,0 +1,7 @@
+---
+desc: Add ``__slots__`` to ``synapse.lib.node.Node`` and ``synapse.lib.node.Path``
+  to reduce per-instance memory use.
+desc:literal: false
+prs: []
+type: feat
+...
