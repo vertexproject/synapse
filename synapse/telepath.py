@@ -393,7 +393,7 @@ class Share(s_base.Base):
         '''
         if s_threads.iden() == self.tid:
             raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
-
+        s_common.deprecated('synapse.telepath.Share - synchronous context manager usage.')
         self._ctxobj = self.schedCoroSafePend(self.__aenter__())
         return self
 
@@ -430,7 +430,7 @@ class Genr(Share):
             await self.fini()
 
     def __iter__(self):
-
+        s_common.deprecated('synaspe.telepath.Proxy - synchronous generator use.')
         try:
             while not self.isfini:
 
@@ -490,6 +490,7 @@ class GenrIter:
             await asyncio.sleep(0)
 
     def __iter__(self):
+        s_common.deprecated('synaspe.telepath.Proxy - synchronous generator use.')
         genr = s_glob.sync(self.proxy.task(self.todo, name=self.share))
         for item in genr:
             yield item
@@ -822,6 +823,7 @@ class Proxy(s_base.Base):
         '''
         if s_threads.iden() == self.tid:
             raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
+        s_common.deprecated('synapse.telepath.Proxy - synchronous context manager usage.')
         self._ctxobj = self.schedCoroSafePend(self.__aenter__())
         return self
 
