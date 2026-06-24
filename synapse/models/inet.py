@@ -3543,6 +3543,12 @@ class InetModule(s_module.CoreModule):
                         ('name', ('str', {}), {
                             'doc': 'The name assigned to the network by the registrant.'
                         }),
+                        ('org', ('ou:org', {}), {
+                            'doc': 'The organization that registered the network.'
+                        }),
+                        ('org:name', ('ou:name', {}), {
+                            'doc': 'The name of the organization that registered the network.'
+                        }),
                         ('parentid', ('inet:whois:regid', {}), {
                             'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'
                         }),

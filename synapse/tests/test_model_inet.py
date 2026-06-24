@@ -2682,6 +2682,7 @@ class InetModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             contact = s_common.guid()
             addlcontact = s_common.guid()
+            org = s_common.guid()
             rec_ipv4 = s_common.guid()
             props = {
                 'net4': '10.0.0.0/28',
@@ -2693,6 +2694,8 @@ class InetModelTest(s_t_utils.SynTest):
                 'asn': 12345,
                 'id': 'NET-10-0-0-0-1',
                 'name': 'vtx',
+                'org': org,
+                'org:name': ' VERTEX Project ',
                 'parentid': 'NET-10-0-0-0-0',
                 'registrant': contact,
                 'contacts': (addlcontact, ),
@@ -2702,9 +2705,9 @@ class InetModelTest(s_t_utils.SynTest):
                 'links': ('http://rdap.com/foo', 'http://rdap.net/bar'),
             }
             q = '''[(inet:whois:iprec=$valu :net4=$p.net4 :asof=$p.asof :created=$p.created :updated=$p.updated
-                :text=$p.text :desc=$p.desc :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
-                :registrant=$p.registrant :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
-                :links=$p.links)]'''
+                :text=$p.text :desc=$p.desc :asn=$p.asn :id=$p.id :name=$p.name :org=$p.org :org:name=$p."org:name"
+                :parentid=$p.parentid :registrant=$p.registrant :contacts=$p.contacts :country=$p.country
+                :status=$p.status :type=$p.type :links=$p.links)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv4, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2720,6 +2723,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('asn'), 12345)
             self.eq(node.get('id'), 'NET-10-0-0-0-1')
             self.eq(node.get('name'), 'vtx')
+            self.eq(node.get('org'), org)
+            self.eq(node.get('org:name'), 'vertex project')
             self.eq(node.get('parentid'), 'NET-10-0-0-0-0')
             self.eq(node.get('registrant'), contact)
             self.eq(node.get('contacts'), (addlcontact,))
