@@ -682,6 +682,37 @@ a new node with a different guid:
 .. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vertex.link" ] } )  ] ou:org:name='the vertex project' | uniq
 
 
+.. _guid-dictionary-special-keys:
+
+Special Keys
+++++++++++++
+
+Dictionary syntax recognizes the following special ``$``-prefixed keys in addition to the property names used for deconfliction.
+These keys are reserved and may not be used as property names in the deconfliction dictionary.
+
+**$props**
+
+``$props`` accepts a nested dictionary of property names and values to set on the resolved or created node.
+Properties listed in ``$props`` are *not* used for deconfliction, they are only applied after the node is found or created.
+This is useful for setting properties that should not influence which node is matched.
+
+``$props`` also accepts a nested ``$try`` key (see below) that overrides the top-level ``$try`` for the ``$props`` sub-dictionary.
+
+.. storm-pre:: ou:org:name='vertex project' | delnode
+
+.. storm-cli:: [ ou:org=( { "name": "vertex project", "$props": { "desc": "a great org", "phone": "15551234567" } } ) ]
+
+**$try**
+
+``$try`` accepts a boolean (``true`` / ``false``, default ``false``). When ``true``, any property in ``$props`` whose value fails
+type normalization is silently skipped rather than raising an error. It has no effect on properties in the deconfliction
+dictionary or on ``$unsets`` constraint validation.
+
+.. storm-pre:: ou:org:name='vertex project' | delnode
+
+.. storm-cli:: [ ou:org=( { "name": "vertex project", "$try": true, "$props": { "phone": "not-a-phone-number", "desc": "fine value" } } ) ]
+
+
 .. _guid-predictable:
 
 Predictable Guids
