@@ -3440,6 +3440,10 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The registrar name from the whois record.'
                         }),
                         ('registrant', ('inet:whois:reg', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :registrant:name.'
+                        }),
+                        ('registrant:name', ('ou:name', {}), {
                             'doc': 'The registrant name from the whois record.'
                         }),
                     )),
@@ -3548,7 +3552,10 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('registrant', ('inet:whois:ipcontact', {}), {
                             'deprecated': True,
-                            'doc': 'Deprecated. Add the registrant inet:whois:ipcontact to the :contacts array.'
+                            'doc': 'Deprecated. Please use :registrant:name.'
+                        }),
+                        ('registrant:name', ('ou:name', {}), {
+                            'doc': 'The name assigned to the network by the registrant.'
                         }),
                         ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional contacts from the record.',
