@@ -1,0 +1,6 @@
+---
+desc: Deprecate the ``inet:whois:rec:registrant`` property in favor of ``inet:whois:rec:registrant:name``.
+desc:literal: false
+prs: []
+type: deprecation
+...
