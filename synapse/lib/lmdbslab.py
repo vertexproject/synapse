@@ -1811,9 +1811,15 @@ class Slab(s_base.Base):
         return True
 
     def pop(self, lkey, db=None):
+        # an in-transaction delete can disrupt the live cursors of active scans
+        # and cause already-yielded rows to be re-emitted, so bump them to force
+        # a safe cursor resume on their next step
+        [scan.bump() for scan in self.scans]
         return self._xact_action(self.pop, lmdb.Transaction.pop, lkey, db=db)
 
     def delete(self, lkey, val=None, db=None):
+        # see pop(): bump active scans so a delete cannot corrupt their cursors
+        [scan.bump() for scan in self.scans]
         return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
 
     def put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):

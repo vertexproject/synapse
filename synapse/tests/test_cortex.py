@@ -3054,6 +3054,25 @@ class CortexTest(s_t_utils.SynTest):
         delta = time.time() - before
         self.lt(delta, 1.0)
 
+    async def test_storm_multinode_lift_edit(self):
+
+        # Editing nodes while iterating a lift that yields multiple nodes sharing
+        # the lifted value must not re-emit nodes. Overwriting an
+        # already-set indexed prop deletes that prop's old index entry on the
+        # same db the lift cursor walks; the storage layer must keep the lift
+        # cursor consistent so each node is yielded exactly once.
+        async with self.getTestCore() as core:
+
+            self.len(2, await core.nodes('''
+                [ inet:ipv4=1.2.3.4 :asn=10 :loc=us
+                  inet:ipv4=1.2.3.5 :asn=10 :loc=us ]
+            '''))
+
+            # the two nodes share :loc, so this prop-value lift yields two nodes;
+            # overwriting :asn deletes its old index entry mid-lift
+            self.len(2, await core.nodes('inet:ipv4:loc=us'))
+            self.len(2, await core.nodes('inet:ipv4:loc=us [ :asn=20 ]'))
+
     async def test_storm_pivprop(self):
 
         async with self.getTestCore() as core:
