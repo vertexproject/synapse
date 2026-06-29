@@ -2171,7 +2171,7 @@ class AstTest(s_test.SynTest):
 
             nodes = [m[1] for m in msgs if m[0] == 'node']
 
-            self.eq(nodes[0][0], ('test:int', 0))
+            self.eq(nodes[0][0], ('test:int', 2))
             self.eq(nodes[1][0], ('test:int', 2))
 
             nodes = await core.nodes('init { [ test:int=20 ] }')
@@ -2214,8 +2214,8 @@ class AstTest(s_test.SynTest):
             # Runtsafe init works and can yield nodes, this has inbound nodes as well
             q = '''
             test:str^=init
-            $hehe="const"
             init {
+                $hehe="const"
                 [test:str=$hehe]
             }
             '''
@@ -2267,7 +2267,22 @@ class AstTest(s_test.SynTest):
             firs = [m for m in msgs if m[0] == 'storm:fire']
             self.len(1, firs)
             evnt = firs[0]
-            self.eq(evnt[1].get('data'), {'total': 3})
+            self.eq(evnt[1].get('data'), {'total': 2})
+
+            # Init blocks always run first before anything else, but still retain their order
+            nodes = await core.nodes('''
+            for $x in $lib.range($cnt) {
+                [ test:int=$foo ]
+                init { $foo=$x }
+                init { $foo=($foo + 1) }
+            }
+            init { $cnt=(3) }
+            ''')
+
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 1))
+            self.eq(nodes[1].ndef, ('test:int', 2))
+            self.eq(nodes[2].ndef, ('test:int', 3))
 
     async def test_ast_emptyblock(self):
 
