@@ -14,8 +14,16 @@ A **subset** of the built-in variables / objects that support methods, along wit
 methods and examples, are listed below. For full detail, refer to the :ref:`stormtypes-prim-header`
 technical reference.
 
+.. _meth-lib:
+
+$lib
+----
+
 The built-in :ref:`vars-global-lib` variable is used to access Storm libraries. See the :ref:`stormtypes-libs-header`
 technical reference for additional detail on available libraries.
+
+`Optic`_ users can use the **Library Explorer** (located in the Help Tool) to examine available libraries.
+Libraries are listed without their ``$lib`` prefix (e.g., ``$lib.print()`` is listed under ``print(mesg)``).
 
 .. NOTE::
 
@@ -26,39 +34,42 @@ technical reference for additional detail on available libraries.
   In some examples the Storm :ref:`storm-spin` command is used to suppress display of the node itself.
   We do this for cases where displaying the node detracts from illustrating the value of the variable.
 
-In some instances we have included "use-case" examples, where the variable or method is used in a sample
-query to illustrate a possible practical use. These represent exemplar Storm queries for how a variable
-or method might be used in practice. While we have attempted to use relatively simple examples for clarity,
-some examples may leverage additional Storm features such as `subqueries`_, `subquery filters`_, or 
-`control flow`_ elements such as for loops or switch statements.
-
+In some instances we have included use-case examples, where the variable or method is used in a sample Storm
+query to illustrate a possible practical use. While we have attempted to use relatively simple examples for clarity,
+some examples may leverage additional Storm features such as :doc:`subqueries </synapse/userguides/storm_ref_subquery>`,
+:ref:`subquery filters <filter-subquery>`, or :doc:`control flow </synapse/userguides/storm_adv_control>`
+elements such as ``for`` loops or ``switch`` statements.
 
 .. _meth-node:
 
 $node
 -----
 
-:ref:`vars-node-node` is a built-in Storm variable that references **the current node in the Storm query pipeline.**
-``$node`` can be used as a variable on its own or with the example methods listed below. See the
-:ref:`stormprims-node-f527` section of the :ref:`stormtypes-prim-header` technical documentation
-for a full list.
+:ref:`vars-node-node` is a built-in Storm variable that references **the current node in the Storm query pipeline**.
+``$node`` can be used as a variable on its own or with the example methods listed below. See the :ref:`stormprims-node-f527`
+section of the :ref:`stormtypes-prim-header` technical documentation for a full list.
 
 .. NOTE::
 
   As the ``$node`` variable and related methods reference the current node in the Storm pipeline, any Storm
   logic referencing ``$node`` will fail to execute if the pipeline does not contain a node (i.e., based on
   previously executing Storm logic).
+  
+  Also, because ``$node`` always refers to the **current** node, use of the variable carries some risks in more
+  complex Storm queries and / or where the nodes in the pipeline are changing. (Use of ``$node`` is less risky
+  in smaller / more tightly scoped queries.) Ensure you know **exactly** which node ``$node`` is operating on,
+  or consider using alternatives such as a :ref:`vars-user` or a self-contained :doc:`function </synapse/userguides/storm_adv_functions>`.
 
 **Examples**
 
-- Print the value of ``$node`` for an ``inet:dns:a`` node:
+Print the value of ``$node`` for an ``inet:dns:a`` node:
 
-.. storm-pre:: [inet:dns:a=(woot.com,54.173.9.236) :seen=("2016/12/28 20:46:31.000","2016/12/28 20:46:31.001")]
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node) | spin
+.. storm-pre:: [ inet:dns:a=(woot.com, 54.173.9.236) :seen=('2016/12/28 20:46:31.000', '2016/12/28 20:46:31.001') ]
+.. storm-cli:: inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node) | spin
 
-- Print the value of ``$node`` for an ``inet:fqdn`` node with tags present:
+Print the value of ``$node`` for an ``inet:fqdn`` node with tags present:
 
-.. storm-pre:: [inet:fqdn=aunewsonline.com +#rep.mandiant.apt1 +#cno.infra.dns.sink.hole.kleissner=(2013/11/26,2016/11/26)]
+.. storm-pre:: [ inet:fqdn=aunewsonline.com +#rep.mandiant.apt1 +#cno.infra.dns.sink.hole.kleissner=(2013/11/26, 2016/11/26) ]
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node) | spin
 
 .. NOTE::
@@ -66,23 +77,26 @@ for a full list.
   The value of ``$node`` is the entire node object and associated properties and tags, as opposed to a specific
   aspect of the node, such as its iden or primary property value.
   
-  As demonstrated below, some node constructors can "intelligently" leverage the relevant aspects of the full
+  As demonstrated below, some node constructors can intelligently leverage the relevant aspects of the full
   node object (the value of the ``$node`` variable) when creating new nodes.
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
+Assign ``$node`` to the variable ``$ns`` and use it to set the ``:nameservers`` property of related WHOIS records:
 
-- Use the ``$node`` variable to create multiple whois name server records (``inet:whois:recns``) for the name
-  server ``ns1.somedomain.com`` from a set of inbound whois record nodes for the domain ``woot.com``:
+.. storm-pre:: [ inet:fqdn=ns1.example.com inet:whois:record=( { "fqdn": "example.com", "created": "2024/03/27 03:00", "updated": "2026/03/22 11:37" } ) inet:whois:record=( { "fqdn": "example.com", "created": "2024/03/27 03:00", "updated": "2024/09/18 22:46" } ) ]
+.. storm-cli:: inet:fqdn=ns1.example.com $ns=$node :zone -> inet:whois:record:fqdn [ :nameservers+=$ns ]
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ (inet:whois:rec=(woot.com,2019/06/13) :text=ns1.somedomain.com) (inet:whois:rec=(woot.com,2019/09/12) :text=ns1.somedomain.com) ]
-    .. storm-cli:: inet:whois:rec:fqdn=woot.com [ inet:whois:recns=(ns1.somedomain.com,$node) ]
+In the example above, the :ref:`meth-node-value` method could have been used instead of ``$node`` to set the
+``:nameservers`` property of the ``inet:whois:record`` nodes. In this case, the node constructor knows to
+use the primary property value from the ``inet:fqdn`` node to set the value.
 
-In the example above, the :ref:`meth-node-value` method could have been used instead of ``$node`` to create
-the ``inet:whois:recns`` nodes. In this case, the node constructor knows to use the primary property value
-from the ``inet:whois:rec`` nodes to create the ``inet:whois:recns`` nodes.
+Assign ``$node`` to the variable ``$actor`` and use it to set the ``:actor`` property of a ``risk:compromise`` node:
+
+.. storm-pre:: [ risk:threat=( { "name": "sparkling unicorn", "reporter:name": "vertex" } ) ]
+.. storm-cli:: risk:threat:name='sparkling unicorn' $actor=$node [ ( risk:compromise=( { "name": "very bad compromise", "reporter:name": "vertex" } ) :actor=$actor ) ]
+
+In the example above, ``:actor`` is a property that accepts multiple types (e.g., any form that implements the
+``entity:actor`` interface). To ensure the property is set to correctly, Synapse needs to know both the value
+**and** type (form), for the property. Both are obtained from the full ``$node`` object.
 
 .. _meth-node-form:
 
@@ -93,12 +107,10 @@ The ``$node.form`` attribute returns the **form** of the current node in the Sto
 
 **Examples**
 
-- Print the form of an ``inet:dns:a`` node:
-
+Print the form of an ``inet:dns:a`` node:
 
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.form) | spin
     
-
 .. _meth-node-globtags:
 
 $node.globtags()
@@ -124,95 +136,118 @@ See :ref:`meth-node-tags` to access full tags (vs. tag substrings).
 
 **Examples**
 
-- Print the set of top-level (root) tags from any tags applied to the current node:
+Print the set of top-level (root) tags from any tags applied to the current node:
 
-.. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags("*")) | spin
+.. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags('*')) | spin
 
 
-- Print the list of numbers associated with any threat group tags (e.g., such as ``cno.threat.t42.own``
-  or ``cno.threat.t127.use``) applied to the current node:
+Print the list of numbers associated with any threat group tags (e.g., such as ``cno.threat.t42.own`` or
+``cno.threat.t127.use``) applied to the current node:
 
 .. storm-pre:: [inet:fqdn=aunewsonline.com  +#rep.symantec.commentcrew +#rep.mcafee.commentcrew +#rep.crowdstrike.commentpanda +#cno.threat.t83.own +#foo.bar.baz +#faz.baz +#foo.derp]
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags(cno.threat.t*)) | spin
 
-In the example above, ``$node.globtags()`` returns the matching substring only ("83"), which is the
-portion matching the wildcard; it does not return the "t" character.
+In the example above, ``$node.globtags()`` returns the matching substring only (``83``), which is the
+portion matching the wildcard; it does not return the ``t`` character.
 
-
-- Print the list of organizations and associated names (e.g., threat group or malware family names) from
-  any third-party ("rep") tags applied to the current node:
+Print the list of organizations and associated names (e.g., threat group or malware family names) from any
+third-party (``rep``) tags applied to the current node:
 
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags(rep.*.*)) | spin
 
-
-- Print all sub-tags for any tags starting with "foo" applied to the current node:
+Print all sub-tags for any tags starting with ``foo`` applied to the current node:
 
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags(foo.**)) | spin
-    
 
-.. _meth-node-isform:
+.. _meth-node-is:
 
-$node.isform()
-++++++++++++++
+$node.is()
+++++++++++
 
-The ``$node.isform()`` method returns a Boolean value (true / false) for whether the current node in the Storm pipeline is of a specified form.
+The ``$node.is()`` method returns a Boolean value (true / false) for whether the current node in the Storm pipeline
+is of a specified form or implements a specified interface. 
 
-The method takes a single argument of a form name.
+The method takes either a single form or interface, or a list of forms and/or interfaces, and returns ``true`` if
+the node matches any of the parameters. ``$node.is()`` respects form inheritance, so will return ``true`` if the node's
+form extends a base form specified as a parameter.
 
 **Examples**
 
-- Print the Boolean value for whether a node is an ``inet:dns:a`` form:
+Print the Boolean value for whether a node is an ``inet:fqdn`` form:
 
+.. storm-cli:: inet:ip=54.173.9.236 $lib.print($node.is(inet:fqdn)) | spin
 
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.isform(inet:dns:a)) | spin
+Print the Boolean value for whether a node is either an ``inet:fqdn`` or an ``inet:ip`` form:
 
+.. storm-cli:: inet:ip=54.173.9.236 $lib.print($node.is((inet:fqdn, inet:ip))) | spin
 
-- Print the Boolean value for whether a node is an ``inet:fqdn`` form:
+Print the Boolean value for whether a node implements the ``entity:actor`` interface:
 
+.. storm-pre:: [ risk:threat=( { "name": "sparkling unicorn", "reporter:name": "vertex" } ) ]
+.. storm-cli:: risk:threat:name='sparkling unicorn' $lib.print($node.is(entity:actor)) | spin
 
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.isform(inet:fqdn))  | spin
-    
+Print the Boolean value for whether a node is an ``it:host:account`` form, or any form that
+extends that form:
+
+.. storm-pre:: [ it:host:windows:account=( { "username": "ron the cat", "home": "c:\\users\\ron the cat" } ) ]
+.. storm-cli:: it:host:windows:account:username='ron the cat' $lib.print($node.is(it:host:account)) | spin
+
+Because ``it:host:windows:account`` extends ``it:host:account``, the above query returns ``true``.
 
 .. _meth-node-ndef:
 
 $node.ndef
-++++++++++++
+++++++++++
 
-The ``$node.ndef`` attribute returns the :ref:`gloss-ndef` ("node definition") of the current node in the Storm pipeline.
+The ``$node.ndef`` attribute returns the :ref:`gloss-ndef` (node definition) of the current node in the Storm pipeline.
 
 **Examples**
 
-- Print the ndef of an ``inet:dns:a`` node:
+Print the ndef of an ``inet:dns:a`` node:
 
-
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.ndef) | spin
+.. storm-cli:: inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node.ndef) | spin
 
 .. _meth-node-repr:
 
 $node.repr()
 ++++++++++++
 
-The ``$node.repr()`` method returns the human-friendly :ref:`gloss-repr` ("representation") of the specified property of the current node in the Storm pipeline (as opposed to the raw value stored by Synapse).
+The ``$node.repr()`` method returns the human-friendly :ref:`gloss-repr` (representation) of the specified property
+of the current node in the Storm pipeline (as opposed to the raw value stored by Synapse).
 
 The method can optionally take one argument.
 
 - If no arguments are provided, the method returns the repr of the node's primary property value.
-- If an argument is provided, it should be the string of the secondary property name (i.e., without the leading colon ( ``:`` ) from relative property syntax).
-- If a meta property string is provided, it must be preceded by the dot / period ( ``.`` ) and enclosed in quotes in accordance with the use of :ref:`storm-literals`.
+- If an argument is provided, it should be the string of the secondary property name (i.e., without the leading colon
+  ( ``:`` ) from relative property syntax). Virtual properties of secondary properties should omit the leading
+  colon but include the dot ( ``.`` )preceding the virtual property name (e.g., ``$node.repr(server.ip)``).
+- If a meta property string or a virtual property of a primary property is provided, it must be preceded by the dot
+  ( ``.`` ) and enclosed in quotes in accordance with the use of :ref:`storm-literals`.
 
 See :ref:`meth-node-value` to return the raw value of a property.
 
 **Examples**
 
-- Print the repr of the primary property value of an ``inet:dns:a`` node:
+Print the repr of the primary property value of an ``inet:dns:a`` node:
 
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr())  | spin
+.. storm-cli:: inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node.repr())  | spin
 
+Print the repr of the ``:ip`` secondary property value of an ``inet:dns:a`` node:
 
-- Print the repr of the ``:ip`` secondary property value of an ``inet:dns:a`` node:
+.. storm-cli:: inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node.repr(ip)) | spin
 
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(ip)) | spin
+Print the repr of the ``.ip`` virtual property of an ``inet:server`` node:
 
+.. storm-pre:: $server={ [ inet:server=tcp://67.227.226.240:22 ] } [ inet:flow=( { "server": $server} ) ]
+.. storm-cli:: inet:server=tcp://67.227.226.240:22 $lib.print($node.repr('.ip')) | spin
+
+Print the repr of the ``:server.ip`` virtual property of an ``inet:flow`` node:
+
+.. storm-cli:: inet:flow:server=tcp://67.227.226.240:22 $lib.print($node.repr(server.ip)) | spin
+
+Print the repr of the ``.created`` meta property of an ``inet:dns:a`` node:
+
+.. storm-cli:: inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node.repr('.created')) | spin
 
 .. _meth-node-tags:
 
@@ -241,36 +276,31 @@ See :ref:`meth-node-globtags` to access tag substrings (vs. full tags).
 
 **Examples**
 
-- Print the list of all tags associated with an ``inet:fqdn`` node:
+Print the list of all tags associated with an ``inet:fqdn`` node:
 
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags()) | spin
 
-
-- Print the tag that exactly matches the string "cno" if present on an ``inet:fqdn`` node:
+Print the tag that exactly matches the string ``cno`` if present on an ``inet:fqdn`` node:
 
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags(cno)) | spin
 
-
-- Print the list of all tags two elements in length that start with "foo":
+Print the list of all tags two elements in length that start with ``foo``:
 
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags(foo.*)) | spin
     
-
-- Print the list of all tags of any length that start with "f":
+Print the list of all tags of any length that start with ``f``:
 
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags(f**)) | spin
 
-
-- Print the list of all tags of any length whose first element is "rep" and whose third element
-  starts with "comment":
+Print the list of all tags of any length whose first element is ``rep`` and whose third element starts with ``comment``:
 
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags(rep.*.comment*)) | spin
-    
+
 
 .. _meth-node-value:
 
 $node.value
-+++++++++++++
++++++++++++
 
 The ``$node.value`` attribute returns the raw value of the primary property of the current node in the Storm pipeline.
 
@@ -283,10 +313,9 @@ See :ref:`meth-node-repr` to return the human-friendly value of a property.
 
 **Examples**
 
-- Print the value of the primary property value of an ``inet:dns:a`` node:
+Print the raw value of the primary property value of an ``inet:dns:a`` node:
 
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.value) | spin
-    
+.. storm-cli:: inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node.value) | spin
 
 .. _meth-path:
 
@@ -311,17 +340,16 @@ The method takes no arguments.
 
 **Examples**
 
-- Print the list of links for the path of a single node through two pivots to a single end node:
+Print the list of links for the path of a single node through two pivots to a single end node:
 
-.. storm-pre:: [ (inet:dns:a=(aunewsonline.com,67.215.66.149)) (inet:dns:a=(aunewsonline.com,184.168.221.92)) (inet:dns:a=(aunewsonline.com,104.239.213.7)) ]
+.. storm-pre:: [ (inet:dns:a=(aunewsonline.com, 67.215.66.149)) (inet:dns:a=(aunewsonline.com, 184.168.221.92)) (inet:dns:a=(aunewsonline.com, 104.239.213.7)) ]
 .. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a +:ip=67.215.66.149 -> inet:ip $lib.print($path.links())
     
 The example above returns the node ids of the original ``inet:fqdn`` node and the ``inet:dns:a`` node with the
 specified IP, along with information about the pivot performed that linked the nodes.
 
-
-- Print the list of links for the path of a single node through two pivots to three different end nodes
-  (i.e., three paths):
+Print the list of links for the path of a single node through two pivots to three different end nodes
+(i.e., three paths):
 
 .. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a -> inet:ip $lib.print($path.links())
 
@@ -332,7 +360,4 @@ original node takes through the query.
 
   A lift operation contains no pivots (i.e., no "path"), so the method does not return any links.
 
-
-.. _subqueries: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_subquery.html
-.. _subquery filters: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_filter.html#subquery-filters
-.. _control flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html
+.. _Optic: {{SYN_DOCS_BASEURL}}/docs/optic/latest/index.html

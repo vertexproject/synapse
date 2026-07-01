@@ -26,7 +26,7 @@ class YamlTest(s_test.SynTest):
             self.eq(valu, 'baz: faz\nfoo: bar\n')
 
             valu = await core.callStorm('''
-                return($lib.yaml.save($lib.yaml.load($yaml00), sort_keys=$lib.false))
+                return($lib.yaml.save($lib.yaml.load($yaml00), sort_keys=(false)))
             ''', opts={'vars': {'yaml00': yaml00}})
             self.eq(valu, 'foo: bar\nbaz: faz\n')
 

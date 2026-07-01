@@ -14,11 +14,11 @@ class ViewTest(s_t_utils.SynTest):
 
     async def test_view_protected(self):
         async with self.getTestCore() as core:
-            view = await core.callStorm('return($lib.view.get().fork().iden)')
-            opts = {'view': view}
+            forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': forkiden}
 
             await core.nodes('[ ou:org=* ]', opts=opts)
-            await core.nodes('$lib.view.get().set(protected, $lib.true)', opts=opts)
+            await core.nodes('$lib.view.get().set(protected, (true))', opts=opts)
 
             with self.raises(s_exc.CantMergeView):
                 await core.nodes('$lib.view.get().merge()', opts=opts)
@@ -26,8 +26,10 @@ class ViewTest(s_t_utils.SynTest):
             with self.raises(s_exc.CantDelView):
                 await core.nodes('$lib.view.del($lib.view.get().iden)', opts=opts)
 
-            await core.nodes('$lib.view.get().set(protected, $lib.false)', opts=opts)
+            await core.nodes('$lib.view.get().set(protected, (false))', opts=opts)
+            forkview = core.getView(forkiden)
             await core.nodes('$lib.view.get().merge()', opts=opts)
+            self.true(await forkview.waitfini(timeout=5))
 
             self.len(1, await core.nodes('ou:org'))
 
@@ -99,13 +101,178 @@ class ViewTest(s_t_utils.SynTest):
             msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
             self.stormIsInErr('You may not set parent on a view which has more than one layer', msgs)
 
+    async def test_view_default_merge_readonly(self):
+
+        # default View.merge() flips the forking layer to read-only for the
+        # duration of the background task; the view and its top layer are
+        # removed once the merge completes.
+        async with self.getTestCore() as core:
+
+            vdef = await core.view.fork()
+            view = core.getView(vdef.get('iden'))
+            view_iden = view.iden
+
+            await core.nodes('[ test:int=1 test:int=2 ]', opts={'view': view_iden})
+
+            # Suppress background task scheduling so we can observe the
+            # mid-merge readonly state before completion races us.
+            orig_init = view.initMergeTask
+            view.initMergeTask = lambda: asyncio.sleep(0)
+
+            try:
+                mergeinfo = await view.merge()
+                self.nn(mergeinfo.get('iden'))
+                self.true(view.merging)
+                self.true(view.wlyr.readonly)
+
+                with self.raises(s_exc.IsReadOnly):
+                    await core.nodes('[ test:int=3 ]', opts={'view': view_iden})
+
+            finally:
+                view.initMergeTask = orig_init
+
+            await view.initMergeTask()
+            self.true(await view.waitfini(timeout=5))
+
+            # View and its top layer are removed by delView + delLayer.
+            self.none(core.getView(view_iden))
+
+            self.len(2, await core.nodes('test:int=1 test:int=2'))
+
+    async def test_view_default_merge_resume(self):
+
+        # Mid-merge cell restart should cleanly resume and finish.
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                vdef = await core.view.fork()
+                viewiden = vdef.get('iden')
+                view = core.getView(viewiden)
+
+                await core.nodes('[ test:int=$x ] for $i in $lib.range(50) {[ test:str=$i ]}',
+                                 opts={'view': viewiden, 'vars': {'x': 7}})
+
+                await view.finiMergeTask()  # prevent background task from running
+
+                await view.merge()
+
+                self.true(view.merging)
+                self.true(view.wlyr.readonly)
+
+            # Re-open: initServiceActive resumes the merge automatically.
+            async with self.getTestCore(dirn=dirn) as core:
+
+                view = core.getView(viewiden)
+                if view is not None:
+                    self.true(await view.waitfini(timeout=10))
+                self.none(core.getView(viewiden))
+
+                self.len(1, await core.nodes('test:int=7'))
+                self.len(50, await core.nodes('test:str'))
+
+    async def test_view_children_index(self):
+
+        # view.children() returns the in-memory list maintained alongside
+        # info['parent'] mutations. Exercise add / detach / delView /
+        # restart paths.
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                mainview = core.view
+
+                vdef1 = await mainview.fork()
+                child1 = core.getView(vdef1.get('iden'))
+                vdef2 = await mainview.fork()
+                child2 = core.getView(vdef2.get('iden'))
+
+                self.sorteq([child1.iden, child2.iden],
+                            [v.iden for v in mainview.children()])
+
+                # detach removes from parent.children()
+                await child1.detach()
+                self.eq((child2,), mainview.children())
+
+                # attach a fresh single-layer view via setViewInfo and
+                # confirm it shows up under mainview.children()
+                newlyr = await core.addLayer()
+                newviewinfo = await core.addView({'layers': (newlyr['iden'],)})
+                newview = core.getView(newviewinfo['iden'])
+                await newview.setViewInfo('parent', mainview.iden)
+                self.isin(newview.iden, [v.iden for v in mainview.children()])
+
+                # delete an intermediate view; its children get re-parented
+                middle = core.getView((await mainview.fork())['iden'])
+                leaf = core.getView((await middle.fork())['iden'])
+                self.eq((leaf,), middle.children())
+
+                middle_iden = middle.iden
+                await core.delView(middle_iden)
+                self.none(core.getView(middle_iden))
+                self.notin(middle_iden, [v.iden for v in mainview.children()])
+                self.isin(leaf.iden, [v.iden for v in mainview.children()])
+
+                pre_children = set(v.iden for v in mainview.children())
+
+            # restart: init2 should reconstitute the list from viewdefs
+            async with self.getTestCore(dirn=dirn) as core:
+                mainview = core.view
+                post_children = set(v.iden for v in mainview.children())
+                self.eq(pre_children, post_children)
+
+    async def test_view_merge_with_children(self):
+
+        # mergeAllowed no longer rejects views with children; _delView
+        # re-parents children to the merged view's parent automatically.
+        async with self.getTestCore() as core:
+
+            mainview = core.view
+            mid = core.getView((await mainview.fork())['iden'])
+            leaf = core.getView((await mid.fork())['iden'])
+
+            await core.nodes('[ ou:org=* :name=mergeme ]', opts={'view': mid.iden})
+
+            self.true(mid.hasKids())
+
+            await mid.merge()
+            self.true(await mid.waitfini(timeout=10))
+
+            self.none(core.getView(mid.iden))
+            self.eq(mainview.iden, leaf.parent.iden)
+            self.isin(leaf, mainview.children())
+            self.len(1, await core.nodes('ou:org:name=mergeme'))
+            self.notin(mid.wlyr.iden, [lyr.iden for lyr in leaf.layers])
+
+    async def test_view_default_merge_history(self):
+
+        # Non-quorum merges record a hist:merge entry on the parent view.
+        async with self.getTestCore() as core:
+
+            user = await core.auth.getUserByName('root')
+
+            vdef = await core.view.fork()
+            view = core.getView(vdef.get('iden'))
+            view_iden = view.iden
+
+            await core.nodes('[ ou:org=* :name=acme ]', opts={'view': view_iden})
+
+            mergeinfo = await view.merge(useriden=user.iden)
+            self.true(await view.waitfini(timeout=5))
+            self.none(core.getView(view_iden))
+
+            merges = [m async for m in core.view.getMerges()]
+            self.len(1, merges)
+            self.eq(merges[0].get('iden'), mergeinfo.get('iden'))
+            self.eq(merges[0].get('creator'), user.iden)
+
     async def test_view_fork_merge(self):
 
         async with self.getTestCore() as core:
             await core.nodes('[ test:int=8 +#faz ]')
             await core.nodes('[ test:int=9 test:int=10 ]')
             await core.auth.addUser('visi')
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
             self.eq(1, await core.count('test:int=8 +#faz'))
             self.eq(2, await core.count('test:int=9 test:int=10'))
@@ -168,9 +335,9 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:int=15 +#foo.bar'))
 
             # Add tag prop that will only exist in child
-            await alist(view2.eval('test:int=15 [+#faz:score=55]'))
-            self.len(1, await alist(view2.eval('test:int=15 +#faz:score=55')))
-            self.len(0, await core.nodes('test:int=15 +#faz:score=55'))
+            await alist(view2.eval('test:int=15 [+#faz:_score=55]'))
+            self.len(1, await alist(view2.eval('test:int=15 +#faz:_score=55')))
+            self.len(0, await core.nodes('test:int=15 +#faz:_score=55'))
 
             # Add nodedata that will only exist in child
             await alist(view2.eval('test:int=15 $node.data.set(spam, ham)'))
@@ -202,10 +369,7 @@ class ViewTest(s_t_utils.SynTest):
             view3_iden = vdef3.get('iden')
             view3 = core.getView(view3_iden)
 
-            # You can't delete a view or merge it if it has children
-            await self.asyncraises(s_exc.SynErr, view2.merge())
-            await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
-            await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
+            # Layer config remains frozen even with a child fork
             layr = await core.addLayer()
             layriden = layr['iden']
             await self.asyncraises(s_exc.SynErr, view2.addLayer(layriden))
@@ -218,9 +382,13 @@ class ViewTest(s_t_utils.SynTest):
             # The parent count is correct
             self.eq(7, (await core.view.getFormCounts()).get('test:int'))
 
-            # Merge the child back into the parent
+            # Merge the child back into the parent. The merge runs as a
+            # background task and ends by removing the forked view and its
+            # top layer.
+            view2_iden = view2.iden
             await view2.merge()
-            await view2.wipeLayer()
+            self.true(await view2.waitfini(timeout=5))
+            self.none(core.getView(view2_iden))
 
             # The parent counts includes all the nodes that were merged
             self.eq(24, (await core.view.getFormCounts()).get('test:int'))
@@ -233,10 +401,6 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:int=11')
             self.len(0, nodes)
 
-            # The child can still see the parent's pre-existing node
-            nodes = await view2.nodes('test:int=15')
-            self.len(1, nodes)
-
             # Prop that was only set in child is present in parent
             self.len(1, await core.nodes('test:int=15 +:loc=us'))
             self.len(1, await core.nodes('test:int:loc=us'))
@@ -246,8 +410,8 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:int#foo.bar'))
 
             # Tagprop that as only set in child is present in parent
-            self.len(1, await core.nodes('test:int=15 +#faz:score=55'))
-            self.len(1, await core.nodes('test:int#faz:score=55'))
+            self.len(1, await core.nodes('test:int=15 +#faz:_score=55'))
+            self.len(1, await core.nodes('test:int#faz:_score=55'))
 
             # Node data that was only set in child is present in parent
             self.len(1, await core.callStorm('test:int=15 return($node.data.list())'))
@@ -256,18 +420,6 @@ class ViewTest(s_t_utils.SynTest):
             # Edge that was only set in child present in parent
             self.len(2, await core.nodes('test:int -(refs)> *'))
 
-            # The child count includes all the nodes in the view
-            self.eq(24, (await view2.getFormCounts()).get('test:int'))
-
-            # The child can see nodes that got merged
-            nodes = await view2.nodes('test:int=12')
-            self.len(1, nodes)
-            nodes = await view2.nodes('test:int=1000')
-            self.len(1, nodes)
-            nodes = await view2.nodes('test:int=1019')
-            self.len(1, nodes)
-
-            await core.delView(view2.iden)
             await core.view.addLayer(layriden)
 
             # But not the same layer twice
@@ -281,19 +433,23 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=foo +(refs)> { for $i in $lib.range(102) { test:int=$i } } ]', opts=opts)
 
             strt = core.nexsroot.nexslog.index()
+            forkview = core.getView(opts['view'])
             await core.nodes('$lib.view.get().merge()', opts=opts)
+            self.true(await forkview.waitfini(timeout=5))
 
             self.len(102, await core.nodes('test:str=foo -(refs)> test:int'))
 
-            edits = [edit async for edit in core.nexsroot.nexslog.iter(strt)]
-            self.len(1, edits)
+            # The runViewMerge background task chunks edits into multiple
+            # nexslog 'edits' entries; locate the buid whose edge edits got
+            # split into the expected 100/2 sub-chunks by iterLayerNodeEdits.
+            edits = collections.defaultdict(list)
+            async for _, item in core.nexsroot.nexslog.iter(strt):
+                if item[1] != 'edits':
+                    continue
+                for nid, _, ne in item[2][0]:
+                    edits[nid].append(ne)
 
-            nodeedit = edits[0][1][2][0]
-
-            # We should have two chunks of edits for the same buid due to the number of edges
-            self.eq(nodeedit[0][0], nodeedit[1][0])
-            self.len(100, nodeedit[0][2])
-            self.len(2, nodeedit[1][2])
+            self.len(1, [v for v in edits.values() if len(v) == 2 and len(v[0]) == 100 and len(v[1]) == 2])
 
             await core.nodes('[ test:str=lowertag +#a.b=2020]')
 
@@ -313,8 +469,8 @@ class ViewTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            forkview = await core.callStorm('return($lib.view.get().fork().iden)')
-            forkopts = {'view': forkview}
+            forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkopts = {'view': forkiden}
 
             seen_maxval = (s_time.parse('2010'), s_time.parse('2020') + 1, 315532800000001)
             seen_midval = (s_time.parse('2010'), s_time.parse('2015'), 157766400000000)
@@ -349,7 +505,15 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=exival', opts=forkopts)
             self.propeq(nodes[0], 'seen', seen_exival)
 
+            # bad type (run before merging since the merge removes the fork)
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str=maxval [ :seen=newp ]', opts=forkopts))
+            await core.nodes('test:str=maxval [ :seen?=newp +#foo ]', opts=forkopts)
+            self.len(1, await core.nodes('test:str#foo', opts=forkopts))
+
+            forkview = core.getView(forkiden)
             await core.nodes('$lib.view.get().merge()', opts=forkopts)
+            self.true(await forkview.waitfini(timeout=5))
+            self.none(core.getView(forkiden))
 
             nodes = await core.nodes('test:str=maxval')
             self.propeq(nodes[0], 'seen', seen_maxval)
@@ -362,12 +526,6 @@ class ViewTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:str=exival')
             self.propeq(nodes[0], 'seen', seen_exival)
-
-            # bad type
-
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str=maxval [ :seen=newp ]', opts=forkopts))
-            await core.nodes('test:str=maxval [ :seen?=newp +#foo ]', opts=forkopts)
-            self.len(1, await core.nodes('test:str#foo', opts=forkopts))
 
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
@@ -441,13 +599,13 @@ class ViewTest(s_t_utils.SynTest):
             self.none(nodes[0].getTag('foo'))
             self.none(nodes[0].getTag('bar'))
 
+            view2_iden = view2.iden
             await view2.merge()
+            self.true(await view2.waitfini(timeout=5))
+            self.none(core.getView(view2_iden))
 
             # Trigger runs on merged nodes in main view
             self.len(1, await core.view.nodes('test:str=mainhit'))
-
-            await view2.fini()
-            await view2.delete()
 
     async def test_storm_editformat(self):
         async with self.getTestCore() as core:
@@ -484,7 +642,7 @@ class ViewTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('[test:str=virts :seen=2020 :polyarry={[test:str=foo1 test:str=foo3]}]')
             cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
-            self.eq(cmsgs[1][0][2][0][1][3], {'type': 'ival', 'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1})
+            self.eq(cmsgs[1][0][2][0][1][3], {'type': 'ival', 'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1, 'precision': 30})
             virts = cmsgs[2][0][2][0][1][3]
             self.eq(virts['size'], 2)
 
@@ -509,7 +667,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('ou:org', opts={'view': view}))
 
             nodeedits = []
-            async for offs, edits in layr.syncNodeEdits(0, wait=False):
+            async for offs, edits, meta in layr.syncNodeEdits(0, wait=False):
                 nodeedits.append(edits)
 
             await core.stormlist('''
@@ -529,7 +687,7 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('ou:org | delnode')
 
             nodeedits = []
-            async for offs, edits in layr.syncNodeEdits(nextoffs, wait=False):
+            async for offs, edits, meta in layr.syncNodeEdits(nextoffs, wait=False):
                 nodeedits.append(edits)
 
             await core.stormlist('''
@@ -565,7 +723,7 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('inet:ip=([4, 0]) | delnode')
 
             nodeedits = []
-            async for offs, edits in core.getView().wlyr.syncNodeEdits(0, wait=False):
+            async for offs, edits, meta in core.getView().wlyr.syncNodeEdits(0, wait=False):
                 nodeedits.extend(edits)
 
             user = await core.auth.addUser('user')
@@ -607,7 +765,7 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('test:int | delnode')
 
             nodeedits = []
-            async for offs, edits in core.getView().wlyr.syncNodeEdits(0, wait=False):
+            async for offs, edits, meta in core.getView().wlyr.syncNodeEdits(0, wait=False):
                 nodeedits.append(edits)
 
             user = await core.auth.addUser('user')
@@ -644,9 +802,9 @@ class ViewTest(s_t_utils.SynTest):
                 },
             }
 
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
-            await core.nodes('trigger.add node:del { $lib.globals.trig = $lib.true } --form test:str')
+            await core.nodes('trigger.add node:del { $lib.globals.trig = (true) } --form test:str')
 
             await core.nodes('[ test:str=foo :hehe=hifoo +#test ]')
             await core.nodes('[ test:arrayprop=$arrayguid :strs=(faz, baz) ]', opts=opts)
@@ -657,7 +815,7 @@ class ViewTest(s_t_utils.SynTest):
                     :hehe=hibar
                     :seen=2021
                     +#test
-                    +#test.foo:score=100
+                    +#test.foo:_score=100
                     <(refs)+ { test:str=foo }
                     +(refs)> { test:arrayprop=$arrayguid }
                 ]
@@ -685,7 +843,7 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('$lib.view.get().wipeLayer()', opts=opts)
 
             ecnt = 0
-            async for nexsoffs, edits in layr.syncNodeEdits(offs + 1, wait=False):
+            async for nexsoffs, edits, meta in layr.syncNodeEdits(offs + 1, wait=False):
                 ecnt += 1
 
             self.eq(nodecnt, ecnt) # one del nodeedit for each node
@@ -717,7 +875,10 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:str=chicken +:hehe=finger', opts={'view': forkviden}))
             self.len(0, await core.nodes('test:str=turkey', opts={'view': forkviden}))
 
-            await core.nodes('view.merge $forkviden --delete', opts={'vars': {'forkviden': forkviden}})
+            forkview = core.getView(forkviden)
+            await core.nodes('view.merge $forkviden', opts={'vars': {'forkviden': forkviden}})
+            self.true(await forkview.waitfini(timeout=5))
+            self.none(core.getView(forkviden))
 
             # can wipe through layer push/pull
 
@@ -782,7 +943,7 @@ class ViewTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
             baselayr = core.getLayer().iden
 
@@ -792,13 +953,13 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.addUserRule(useriden, (True, ('view', 'fork')))
 
-            forkview = await core.callStorm('return($lib.view.get().fork().iden)', opts=useropts)
-            viewopts = {**useropts, 'view': forkview}
+            forkiden = await core.callStorm('return($lib.view.get().fork().iden)', opts=useropts)
+            viewopts = {**useropts, 'view': forkiden}
 
             q = '''
             [ test:str=foo
                 :seen = now
-                +#seen:score = 5
+                +#seen:_score = 5
                 <(refs)+ { [ test:str=bar ] }
             ]
             $node.data.set(foo, bar)
@@ -835,14 +996,17 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.addUserRule(useriden, (True, ('node', 'edge', 'add')), gateiden=baselayr)
 
+            forkview = core.getView(forkiden)
             await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            self.true(await forkview.waitfini(timeout=5))
+            self.none(core.getView(forkiden))
 
             msgs = await core.stormlist('test:str=foo $node.data.load(foo)')
             podes = [n[1] for n in msgs if n[0] == 'node']
             self.len(1, podes)
             self.nn(podes[0][1]['props'].get('seen'))
             self.nn(podes[0][1]['tags'].get('seen'))
-            self.nn(podes[0][1]['tagprops']['seen']['score'])
+            self.nn(podes[0][1]['tagprops']['seen']['_score'])
             self.nn(podes[0][1]['nodedata'].get('foo'))
 
             await core.delUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
@@ -850,23 +1014,175 @@ class ViewTest(s_t_utils.SynTest):
             await core.addUserRule(useriden, (True, ('node', 'tag', 'del', 'seen')), gateiden=baselayr)
             await core.addUserRule(useriden, (True, ('node', 'tag', 'add', 'rep', 'foo')), gateiden=baselayr)
 
+            # re-fork now that the successful merge removed the previous view
+            forkiden = await core.callStorm('return($lib.view.get().fork().iden)', opts=useropts)
+            viewopts = {**useropts, 'view': forkiden}
+
             await core.nodes('test:str=foo [ -#seen +#rep.foo ]', opts=viewopts)
 
+            forkview = core.getView(forkiden)
             await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            self.true(await forkview.waitfini(timeout=5))
             nodes = await core.nodes('test:str=foo')
             self.nn(nodes[0].get('#rep.foo'))
 
             await core.nodes('test:str=foo [ -#rep ]')
 
+            # MergeCmd (merge --apply) is independent of View.merge() and
+            # remains a synchronous pipeline-driven merge that does not
+            # remove the fork.
+            forkiden = await core.callStorm('return($lib.view.get().fork().iden)', opts=useropts)
+            viewopts = {**useropts, 'view': forkiden}
+            await core.nodes('test:str=foo [ -#seen +#rep.foo ]', opts=viewopts)
             await core.nodes('test:str=foo | merge --apply', opts=viewopts)
             nodes = await core.nodes('test:str=foo')
             self.nn(nodes[0].get('#rep.foo'))
 
-            await core.nodes('test:str=foo [ -#rep ]')
-            await core.nodes('test:str=foo [ +#rep=now ]', opts=viewopts)
+            # The user lacks node.tag.add.seen on the base layer, so adding
+            # a tagprop under #seen in the fork must fail on merge.
+            await core.nodes('test:str=foo [ +#seen:_score=99 ]', opts=viewopts)
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('$lib.view.get().merge()', opts=viewopts)
+
+    async def test_lib_view_merge_perms_del(self):
+        # The background runViewMerge ends by deleting the forking view
+        # and its top layer with no user context, so mergeAllowed
+        # pre-checks view.del and layer.del to surface the AuthDeny
+        # synchronously to the caller.
+        async with self.getTestCore() as core:
+
+            user = await core.addUser('lurker')
+            useriden = user['iden']
+
+            # Root-forked view: 'lurker' has no admin grant on either gate.
+            forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkview = core.getView(forkiden)
+            forklayriden = forkview.wlyr.iden
+
+            await core.addUserRule(useriden, (True, ('view', 'read')), gateiden=forkiden)
+            await core.addUserRule(useriden, (True, ('node',)))
+
+            useropts = {'user': useriden, 'view': forkiden}
+
+            # Initially missing both view.del and layer.del. view.del is
+            # checked first so the synchronous AuthDeny names it.
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=useropts)
+            self.eq('view.del', cm.exception.errinfo['perm'])
+            self.false(forkview.wlyr.readonly)
+
+            await core.addUserRule(useriden, (True, ('view', 'del')), gateiden=forkiden)
+
+            # Now layer.del is the blocker.
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=useropts)
+            self.eq('layer.del', cm.exception.errinfo['perm'])
+            self.false(forkview.wlyr.readonly)
+
+            await core.addUserRule(useriden, (True, ('layer', 'del')), gateiden=forklayriden)
+
+            # With both perms the merge proceeds.
+            await core.nodes('$lib.view.get().merge()', opts=useropts)
+            self.true(await forkview.waitfini(timeout=5))
+            self.none(core.getView(forkiden))
+
+    async def test_view_protected_merge_gaps(self):
+        # mergeAllowed honors view.info['protected'] for the default merge
+        # path, but quorum-driven merges and the setViewInfo flag-flip
+        # used to slip past it. Verify each gap is now closed.
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            whippit = await core.auth.addUser('whippit')
+
+            vertex = await core.auth.addRole('vertex')
+            await visi.grant(vertex.iden)
+            await whippit.grant(vertex.iden)
+
+            await core.auth.allrole.addRule((True, ('view', 'add')))
+            await core.auth.allrole.addRule((True, ('view', 'fork')))
+            await core.auth.allrole.addRule((True, ('view', 'read')))
+            await core.auth.allrole.addRule((True, ('node',)))
+
+            # Enable quorum on the main view so we can exercise the quorum
+            # merge code paths.
+            await core.callStorm(
+                '$lib.view.get().set(quorum, ({"count": 1, "roles": [$role]}))',
+                opts={'vars': {'role': vertex.iden}}
+            )
+
+            # 1. setMergeRequest refuses on a fork that already has
+            # protected set.
+            fork00 = await core.callStorm(
+                'return($lib.view.get().fork().iden)',
+                opts={'user': visi.iden}
+            )
+            await core.callStorm(
+                '$lib.view.get($iden).set(protected, (true))',
+                opts={'vars': {'iden': fork00}}
+            )
+            with self.raises(s_exc.CantMergeView):
+                await core.callStorm(
+                    '$lib.view.get($iden).setMergeRequest(({}))',
+                    opts={'user': visi.iden, 'vars': {'iden': fork00}}
+                )
+
+            # 2. setViewInfo('protected', (true)) refuses when a quorum
+            # merge request is already pending. The request must survive
+            # the refusal.
+            fork01 = await core.callStorm(
+                'return($lib.view.get().fork().iden)',
+                opts={'user': visi.iden}
+            )
+            await core.callStorm(
+                '$lib.view.get($iden).setMergeRequest(({}))',
+                opts={'user': visi.iden, 'vars': {'iden': fork01}}
+            )
+            with self.raises(s_exc.BadState):
+                await core.callStorm(
+                    '$lib.view.get($iden).set(protected, (true))',
+                    opts={'vars': {'iden': fork01}}
+                )
+            self.nn(core.getView(fork01).getMergeRequest())
+
+            # Drop the quorum so the next fork can use the default merge
+            # path. setViewInfo's quorum=None branch will sweep the
+            # outstanding fork01 request.
+            await core.callStorm('$lib.view.get().set(quorum, (null))')
+
+            # 3. setViewInfo('protected', (true)) refuses while a
+            # default merge is in flight.
+            fork02 = await core.callStorm('return($lib.view.get().fork().iden)')
+            await core.nodes('[ test:int=1 test:int=2 ]', opts={'view': fork02})
+            view02 = core.getView(fork02)
+
+            # Suppress the background runViewMerge so view.merging stays
+            # True long enough to attempt the protected set.
+            orig_init = view02.initMergeTask
+            view02.initMergeTask = lambda: asyncio.sleep(0)
+            try:
+                mergeinfo = await view02.merge()
+                self.true(view02.merging)
+
+                # A second merge() while already merging is a no-op that
+                # returns the existing merge request rather than the new one.
+                again = await view02.merge()
+                self.eq(again['iden'], mergeinfo['iden'])
+                self.eq(again, view02.getMergeRequest())
+
+                with self.raises(s_exc.BadState):
+                    await core.callStorm(
+                        '$lib.view.get($iden).set(protected, (true))',
+                        opts={'vars': {'iden': fork02}}
+                    )
+
+            finally:
+                view02.initMergeTask = orig_init
+
+            await view02.initMergeTask()
+            self.true(await view02.waitfini(timeout=5))
+            self.none(core.getView(fork02))
 
     async def test_addNodes(self):
         async with self.getTestCore() as core:
@@ -877,7 +1193,8 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, await alist(view.addNodes(ndefs)))
 
             ndefs = (
-                (('test:str', 'hehe'), {'props': {'.created': 5, 'tick': 3}, 'tags': {'cool': (1, 2)}}, ),
+                (('test:str', 'hehe'),
+                 {'props': {'.created': 5, 'tick': ('test:time', 3)}, 'tags': {'cool': (1, 2)}}, ),
             )
             result = await alist(view.addNodes(ndefs))
             self.len(1, result)
@@ -1025,15 +1342,15 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, await alist(view0.eval('[ inet:ip=1.2.3.5 :asn=43 ]')))
             self.len(2, await alist(view1.eval('inet:ip:asn')))
 
-            await view0.core.addTagProp('score', ('int', {}), {})
+            await view0.core.addTagProp('_score', ('int', {}), {})
 
-            self.len(1, await alist(view1.eval('inet:ip=1.2.3.4 [ +#foo:score=42 ]')))
-            self.len(1, await alist(view0.eval('inet:ip=1.2.3.4 [ +#foo:score=42 ]')))
-            self.len(1, await alist(view0.eval('inet:ip=1.2.3.4 [ +#foo:score=99 ]')))
-            self.len(1, await alist(view0.eval('inet:ip=1.2.3.5 [ +#foo:score=43 ]')))
+            self.len(1, await alist(view1.eval('inet:ip=1.2.3.4 [ +#foo:_score=42 ]')))
+            self.len(1, await alist(view0.eval('inet:ip=1.2.3.4 [ +#foo:_score=42 ]')))
+            self.len(1, await alist(view0.eval('inet:ip=1.2.3.4 [ +#foo:_score=99 ]')))
+            self.len(1, await alist(view0.eval('inet:ip=1.2.3.5 [ +#foo:_score=43 ]')))
 
-            nodes = await alist(view1.eval('#foo:score'))
-            self.len(2, await alist(view1.eval('#foo:score')))
+            nodes = await alist(view1.eval('#foo:_score'))
+            self.len(2, await alist(view1.eval('#foo:_score')))
 
     async def test_clearcache(self):
 
@@ -1079,43 +1396,47 @@ class ViewTest(s_t_utils.SynTest):
             self.ne(id(original_node0), id(new_node0))
             self.notin('foo.bar.baz', new_node0.getTags())
 
+            # getNodeByNdef returns None when the form is not in the model
+            self.none(await view.getNodeByNdef(('not:a:real:form', 'node0')))
+
     async def test_cortex_lift_layers_bad_filter_tagprop(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result, with tagprops
         '''
         async with self._getTestCoreMultiLayer() as (view0, view1):
-            await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+            await view0.core.addTagProp('_score', ('int', {}), {'doc': 'hi there'})
 
-            self.len(1, await view0.nodes('[ test:int=10 +#woot:score=20 ]'))
-            self.len(1, await view1.nodes('#woot:score=20'))
-            self.len(1, await view1.nodes('[ test:int=10 +#woot:score=40 ]'))
+            self.len(1, await view0.nodes('[ test:int=10 +#woot:_score=20 ]'))
+            self.len(1, await view1.nodes('#woot:_score=20'))
+            self.len(1, await view1.nodes('[ test:int=10 +#woot:_score=40 ]'))
 
-            self.len(0, await view0.nodes('#woot:score=40'))
-            self.len(1, await view1.nodes('#woot:score=40'))
+            self.len(0, await view0.nodes('#woot:_score=40'))
+            self.len(1, await view1.nodes('#woot:_score=40'))
 
-            self.len(1, await view0.nodes('#woot:score=20'))
-            self.len(0, await view1.nodes('#woot:score=20'))
+            self.len(1, await view0.nodes('#woot:_score=20'))
+            self.len(0, await view1.nodes('#woot:_score=20'))
 
     async def test_cortex_lift_layers_dup_tagprop(self):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly
         '''
         async with self._getTestCoreMultiLayer() as (view0, view1):
-            await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+            await view0.core.addTagProp('_score', ('int', {}), {'doc': 'hi there'})
 
-            self.len(1, await view1.nodes('[ test:int=10 +#woot:score=20 ]'))
-            self.len(1, await view0.nodes('[ test:int=10 +#woot:score=20 ]'))
+            self.len(1, await view1.nodes('[ test:int=10 +#woot:_score=20 ]'))
+            self.len(1, await view0.nodes('[ test:int=10 +#woot:_score=20 ]'))
 
-            self.len(1, await view1.nodes('#woot:score=20'))
+            self.len(1, await view1.nodes('#woot:_score=20'))
 
-            self.len(1, await view0.nodes('[ test:int=10 +#woot:score=40 ]'))
+            self.len(1, await view0.nodes('[ test:int=10 +#woot:_score=40 ]'))
 
     async def test_cortex_lift_layers_ordering(self):
 
         async with self._getTestCoreMultiLayer() as (view0, view1):
 
-            await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
-            await view0.core.addTagProp('data', ('data', {}), {'doc': 'hi there'})
+            await view0.core.addTagProp('_score', ('int', {}), {'doc': 'hi there'})
+            with self.raises(s_exc.BadPropDef):
+                await view0.core.addTagProp('_bad_data', ('data', {}), {})
 
             await view0.nodes('[ inet:ip=1.1.1.4 ]')
             await view1.nodes('inet:ip=1.1.1.4 [+#tag]')
@@ -1123,10 +1444,10 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await view1.nodes('#tag | uniq')
             self.len(0, nodes)
 
-            await view0.nodes('[ inet:ip=1.1.1.4 :asn=4 +#woot:score=4] $node.data.set(woot, 4)')
-            await view0.nodes('[ inet:ip=1.1.1.1 :asn=1 +#woot:score=1] $node.data.set(woot, 1)')
-            await view1.nodes('[ inet:ip=1.1.1.2 :asn=2 +#woot:score=2] $node.data.set(woot, 2)')
-            await view0.nodes('[ inet:ip=1.1.1.3 :asn=3 +#woot:score=3] $node.data.set(woot, 3)')
+            await view0.nodes('[ inet:ip=1.1.1.4 :asn=4 +#woot:_score=4] $node.data.set(woot, 4)')
+            await view0.nodes('[ inet:ip=1.1.1.1 :asn=1 +#woot:_score=1] $node.data.set(woot, 1)')
+            await view1.nodes('[ inet:ip=1.1.1.2 :asn=2 +#woot:_score=2] $node.data.set(woot, 2)')
+            await view0.nodes('[ inet:ip=1.1.1.3 :asn=3 +#woot:_score=3] $node.data.set(woot, 3)')
 
             await view1.nodes('[ test:str=foo +#woot=2001 ]')
             await view0.nodes('[ test:str=foo +#woot=2001 ]')
@@ -1176,35 +1497,35 @@ class ViewTest(s_t_utils.SynTest):
                 self.lt(asn, last)
                 last = asn
 
-            nodes = await view1.nodes('#woot:score')
+            nodes = await view1.nodes('#woot:_score')
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                scor = node.getTagProp('woot', 'score')
+                scor = node.getTagProp('woot', '_score')
                 self.gt(scor, last)
                 last = scor
 
-            nodes = await view1.nodes('#woot:score>0')
+            nodes = await view1.nodes('#woot:_score>0')
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                scor = node.getTagProp('woot', 'score')
+                scor = node.getTagProp('woot', '_score')
                 self.gt(scor, last)
                 last = scor
 
-            nodes = await view1.nodes('#woot:score*in=(1,2,3,4)')
+            nodes = await view1.nodes('#woot:_score*in=(1,2,3,4)')
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                scor = node.getTagProp('woot', 'score')
+                scor = node.getTagProp('woot', '_score')
                 self.gt(scor, last)
                 last = scor
 
-            nodes = await view1.nodes('#woot:score*in=(4,3,2,1)')
+            nodes = await view1.nodes('#woot:_score*in=(4,3,2,1)')
             self.len(4, nodes)
             last = 5
             for node in nodes:
-                scor = node.getTagProp('woot', 'score')
+                scor = node.getTagProp('woot', '_score')
                 self.lt(scor, last)
                 last = scor
 
@@ -1219,10 +1540,11 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await view1.nodes('crypto:x509:cert:identities:fqdns*[="*.biz"]')
             self.len(4, nodes)
 
-            await view0.nodes('[ test:data=(123) :data=(123) +#woot:data=(123)]')
-            await view1.nodes('[ test:data=foo :data=foo +#woot:data=foo]')
-            await view0.nodes('[ test:data=(0) :data=(0) +#woot:data=(0)]')
-            await view0.nodes('[ test:data=bar :data=foo +#woot:data=foo]')
+            # test:data form/prop ordering (tagprop #woot:data removed; data type is mutable)
+            await view0.nodes('[ test:data=(123) :data=(123) ]')
+            await view1.nodes('[ test:data=foo :data=foo ]')
+            await view0.nodes('[ test:data=(0) :data=(0) ]')
+            await view0.nodes('[ test:data=bar :data=foo ]')
 
             nodes = await view1.nodes('test:data')
             self.len(4, nodes)
@@ -1236,12 +1558,6 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await view1.nodes('test:data:data=foo')
             self.len(2, nodes)
 
-            nodes = await view1.nodes('#woot:data')
-            self.len(4, nodes)
-
-            nodes = await view1.nodes('#woot:data=foo')
-            self.len(2, nodes)
-
     async def test_node_editor(self):
 
         async with self.getTestCore() as core:
@@ -1249,7 +1565,7 @@ class ViewTest(s_t_utils.SynTest):
             opts = {'vars': {'verbs': ('_pwns', '_foo')}}
             await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
-            await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
+            await core.nodes('$lib.model.ext.addTagProp(_test, (str, ({})), ({}))')
             await core.nodes('[ test:guid=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
             root = core.auth.rootuser
 
@@ -1281,9 +1597,9 @@ class ViewTest(s_t_utils.SynTest):
                 await news.setData('foo', 'bar')
                 self.true(await news.hasData('foo'))
 
-                self.false(news.hasTagProp('foo', 'test'))
-                await news.setTagProp('foo', 'test', 'bar')
-                self.true(news.hasTagProp('foo', 'test'))
+                self.false(news.hasTagProp('foo', '_test'))
+                await news.setTagProp('foo', '_test', 'bar')
+                self.true(news.hasTagProp('foo', '_test'))
 
             async with core.view.getEditor() as editor:
                 news = await editor.addNode('test:guid', '63381924986159aff183f0c85bd8ebad')
@@ -1300,12 +1616,12 @@ class ViewTest(s_t_utils.SynTest):
 
                 self.true(await news.hasData('foo'))
 
-                self.true(news.hasTagProp('foo', 'test'))
+                self.true(news.hasTagProp('foo', '_test'))
 
-                await news.delTagProp('foo', 'test')
-                await news.setTagProp('foo', 'test', 'baz')
-                await news.setTagProp('foo', 'test', 'bar')
-                self.true(news.hasTagProp('foo', 'test'))
+                await news.delTagProp('foo', '_test')
+                await news.setTagProp('foo', '_test', 'baz')
+                await news.setTagProp('foo', '_test', 'bar')
+                self.true(news.hasTagProp('foo', '_test'))
 
                 with self.raises(s_exc.NoSuchProp):
                     await news.pop('newp')
@@ -1329,7 +1645,7 @@ class ViewTest(s_t_utils.SynTest):
             with self.raises(s_exc.ReadOnlyProp):
                 await core.nodes('[ test:ro=foo :readable=haha ]')
 
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             view2 = core.getView(viewiden2)
@@ -1339,13 +1655,13 @@ class ViewTest(s_t_utils.SynTest):
             inet:ip=1.2.3.4
                 :asn=4
                 +#foo.tag=2024
-                +#bar.tag:score=5
+                +#bar.tag:_score=5
                 +(_foo)> {[ it:dev:str=n2 ]}
             ]
             $node.data.set(foodata, bar)
             '''
             await core.nodes(addq)
-            nodes = await core.nodes('inet:ip=1.2.3.4 [ +#baz.tag:score=6 ]', opts=viewopts2)
+            nodes = await core.nodes('inet:ip=1.2.3.4 [ +#baz.tag:_score=6 ]', opts=viewopts2)
 
             n2node = (await core.nodes('it:dev:str=n2'))[0]
             n2nid = n2node.nid
@@ -1356,18 +1672,18 @@ class ViewTest(s_t_utils.SynTest):
                 self.true(await node.addEdge('_foo', n2nid))
                 self.true(await node.delEdge('_foo', n2nid))
 
-                self.true(await node.setTagProp('cool.tag', 'score', 7))
-                self.isin('score', node.getTagProps('cool.tag'))
-                self.isin(('score', 0), node.getTagPropsWithLayer('cool.tag'))
-                self.eq(7, node.getTagProp('cool.tag', 'score'))
-                self.eq((7, 0), node.getTagPropWithLayer('cool.tag', 'score'))
+                self.true(await node.setTagProp('cool.tag', '_score', 7))
+                self.isin('_score', node.getTagProps('cool.tag'))
+                self.isin(('_score', 0), node.getTagPropsWithLayer('cool.tag'))
+                self.eq(7, node.getTagProp('cool.tag', '_score'))
+                self.eq((7, 0), node.getTagPropWithLayer('cool.tag', '_score'))
 
                 self.true(await node.delTag('bar.tag'))
                 self.true(await node.delTag('baz.tag'))
 
                 self.none(node.getTag('bar.tag'))
-                self.none(node.getTagProp('bar.tag', 'score'))
-                self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
+                self.none(node.getTagProp('bar.tag', '_score'))
+                self.eq((None, None), node.getTagPropWithLayer('bar.tag', '_score'))
 
                 self.true(await node.set('asn', 7))
                 self.true(await node.pop('asn'))
@@ -1382,7 +1698,7 @@ class ViewTest(s_t_utils.SynTest):
                 for x in range(1001):
                     await manynode.addEdge(f'_a{str(x)}', node.nid)
 
-                self.eq((None, None), manynode.getTagPropWithLayer('bar.tag', 'score'))
+                self.eq((None, None), manynode.getTagPropWithLayer('bar.tag', '_score'))
 
             self.len(0, await alist(nodes[0].iterEdgeVerbs(n2node.nid)))
 
@@ -1492,7 +1808,7 @@ class ViewTest(s_t_utils.SynTest):
             await view02.nodes('inet:fqdn=vertex.link [ +#foo ]')
 
             await view02.nodes('auth.user.addrule visi node --gate $lib.view.get().iden')
-            await view02.nodes('auth.user.mod visi --admin $lib.true --gate $lib.view.get().iden')
+            await view02.nodes('auth.user.mod visi --admin (true) --gate $lib.view.get().iden')
             userrules = visi.getRules(gateiden=view02.iden)
 
             await view02.nodes('auth.role.addrule ninjas node.add --gate $lib.view.get().iden')
@@ -1572,13 +1888,13 @@ class ViewTest(s_t_utils.SynTest):
             '''
 
             opts = {'vars': {'iden': view00.iden}}
-            self.eq([view01.iden], await core.callStorm(q, opts=opts))
+            self.sorteq([view01.iden], await core.callStorm(q, opts=opts))
 
             opts['vars']['iden'] = view01.iden
-            self.eq([view02.iden, view03.iden], await core.callStorm(q, opts=opts))
+            self.sorteq([view02.iden, view03.iden], await core.callStorm(q, opts=opts))
 
             opts['vars']['iden'] = view02.iden
-            self.eq([], await core.callStorm(q, opts=opts))
+            self.sorteq([], await core.callStorm(q, opts=opts))
 
     async def test_view_propvaluescmpr(self):
 
@@ -1687,10 +2003,10 @@ class ViewTest(s_t_utils.SynTest):
             async for item in view00.iterPropValuesWithCmpr('test:int', '=', 5):
                 self.nn(None)
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('yield $lib.lift.byPropRefs(entity:goal:desc, valu=newp)')
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('yield $lib.lift.byPropRefs((test:comp:hehe, test:int:type), valu=newp)')
 
             await core.nodes('for $i in $lib.range(10) { [test:int=$i :type=bar] }')

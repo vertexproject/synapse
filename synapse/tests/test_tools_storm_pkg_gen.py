@@ -167,8 +167,6 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pvault['schemas']['secrets']['properties']['quux']['minLength'], 2)
             self.eq(pvault['schemas']['secrets']['required'], ('quux',))
 
-            self.eq(pdef['optic']['files']['index.html']['file'], 'aGkK')
-
             self.eq(pdef['docs'][0]['title'], 'Foo Bar')
             self.eq(pdef['docs'][0]['content'], 'Hello!\n')
 
@@ -189,7 +187,7 @@ class GenPkgTest(s_test.SynTest):
             build = pdef.get('build')
             self.nn(build)
             self.nn(build.get('time'))
-            self.eq(build.get('synapse:version'), s_version.verstring)
+            self.eq(build.get('synapse:version'), s_version.version)
             self.eq(build.get('synapse:commit'), s_version.commit)
 
             ret = await core.callStorm('''

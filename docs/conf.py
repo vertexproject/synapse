@@ -19,6 +19,7 @@ import datetime
 sys.path.insert(0, os.path.abspath('..'))
 
 import synapse
+import synapse.common as s_common
 
 # -- Warning Filter Configuration --------------------------------------------
 
@@ -45,9 +46,9 @@ copyright = f'{datetime.datetime.now().year}, The Vertex Project, LLC'
 author = 'The Vertex Project'
 
 # The short X.Y version
-version = synapse.verstring
+version = synapse.version
 # The full version, including alpha/beta/rc tags
-release = synapse.verstring
+release = synapse.version
 
 
 # -- General configuration ---------------------------------------------------
@@ -327,7 +328,11 @@ def convert_rstorm(_):
                 took = (tock - tick) / 1000000
                 print(f'convert_rstorm: Rstorm {fn} execution took {took} seconds.')
 
+def _subst_docs_baseurl(app, docname, source):
+    source[0] = s_common.substDocsBaseUrl(source[0])
+
 def setup(app):
+    app.connect('source-read', _subst_docs_baseurl)
     app.connect('builder-inited', run_apidoc)
     app.connect('builder-inited', run_modeldoc)
     app.connect('builder-inited', run_confdocs)

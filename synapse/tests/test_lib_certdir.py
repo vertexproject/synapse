@@ -811,7 +811,7 @@ class CertDirTest(s_t_utils.SynTest):
                 pkgorig = s_msgpack.deepcopy(pkgdef)
 
                 opts = {'vars': {'pkgdef': pkgdef}}
-                self.none(await core.callStorm('return($lib.pkg.add($pkgdef, verify=$lib.true))', opts=opts))
+                self.none(await core.callStorm('return($lib.pkg.add($pkgdef, verify=(true)))', opts=opts))
 
                 with self.raises(s_exc.BadPkgDef) as exc:
                     pkgdef['version'] = '0.0.2'
@@ -820,7 +820,7 @@ class CertDirTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadPkgDef) as exc:
                     opts = {'vars': {'pkgdef': pkgdef}}
-                    await core.callStorm('return($lib.pkg.add($pkgdef, verify=$lib.true))', opts=opts)
+                    await core.callStorm('return($lib.pkg.add($pkgdef, verify=(true)))', opts=opts)
                 self.eq(exc.exception.get('mesg'), 'Storm package signature does not match!')
 
                 with self.raises(s_exc.BadPkgDef) as exc:

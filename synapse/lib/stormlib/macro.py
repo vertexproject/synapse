@@ -75,7 +75,7 @@ stormcmds = [
             $count = $(0)
             for ($name, $mdef) in $lib.macro.list() {
                 $user = $lib.auth.users.get($mdef.creator)
-                $username = $lib.null
+                $username = (null)
                 if (not $user) {
                     $username = `User not found ({$mdef.creator})`
                 } else {

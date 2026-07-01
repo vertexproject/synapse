@@ -1,4 +1,5 @@
 import gc
+import regex
 import asyncio
 import logging
 import contextlib
@@ -7,8 +8,11 @@ import unittest.mock as mock
 
 import synapse.exc as s_exc
 
+import synapse.common as s_common
+
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
+import synapse.lib.time as s_time
 import synapse.lib.logging as s_logging
 
 import synapse.tests.utils as s_test
@@ -34,6 +38,55 @@ class LoggingTest(s_test.SynTest):
 
         with self.raises(s_exc.BadArg):
             s_logging.normLogLevel({'key': 'newp'})
+
+    async def test_lib_logging_isotime(self):
+
+        isore = regex.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$')
+
+        # Structured logs default to ISO-8601 UTC timestamps with microsecond precision.
+        with self.getLoggerStream('synapse.tests.test_lib_logging') as stream:
+            logger.error('isostruct')
+            await stream.expect('isostruct')
+
+        item = stream.jsonlines()[-1]
+        self.nn(isore.fullmatch(item.get('time')))
+
+        # Unstructured logs use the same default timestamp format.
+        with self.getLoggerStream('synapse.tests.test_lib_logging', struct=False) as stream:
+            logger.error('isotext')
+            await stream.expect('isotext')
+
+        line = stream.getvalue().strip().splitlines()[-1]
+        self.nn(isore.fullmatch(line.split(' ', 1)[0]))
+
+        # A fixed timestamp renders deterministically in UTC.
+        record = logging.LogRecord('synapse.tests', logging.INFO, __file__, 0, 'mesg', (), None)
+        record.created = 1739443104.545123
+
+        fmtr = s_logging.JsonFormatter()
+        ret = fmtr.formatTime(record)
+        self.nn(isore.fullmatch(ret))
+        # This string also matches the output of s_time.repr() when there are no trailing zeros stripped.
+        self.eq(ret, s_time.repr(int(record.created * 1e6)))
+
+        # A custom datefmt still overrides the ISO-8601 default.
+        custom = fmtr.formatTime(record, datefmt='%d%m%Y %H:%M:%S')
+        self.notin('T', custom)
+        self.notin('Z', custom)
+        self.nn(regex.fullmatch(r'\d{8} \d{2}:\d{2}:\d{2}', custom))
+
+        # The custom datefmt path renders in UTC, matching the default path rather than the
+        # system local timezone, and ( unlike the stdlib time.strftime path ) supports %f for
+        # microsecond precision. record.created above is 2025-02-13T10:38:24.545123 UTC.
+        self.eq(fmtr.formatTime(record, datefmt='%Y-%m-%dT%H:%M:%S%z'), '2025-02-13T10:38:24+0000')
+        self.eq(fmtr.formatTime(record, datefmt='%Y-%m-%dT%H:%M:%S.%fZ'), '2025-02-13T10:38:24.545123Z')
+
+        # Stability assertion that the LogRecord.created, as an internal value derived from
+        # time.time_ns, doesn't change out from under us without warning!
+        now = s_common.now()
+        record = logging.LogRecord('synapse.tests', logging.INFO, __file__, 0, 'mesg', (), None)
+        rtime = int(record.created * 1e6)
+        self.lt(rtime - now, 1e3)
 
     async def test_lib_logging_base(self):
 

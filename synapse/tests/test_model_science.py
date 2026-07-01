@@ -15,7 +15,7 @@ class SciModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'type', 'physics.quantum.')
-            self.propeq(nodes[0], 'name', 'light travels as a wave')
+            self.propeq(nodes[0], 'name', 'Light travels as a WAVE')
             self.propeq(nodes[0], 'desc', 'Light travels as a wave not a particle.')
 
             nodes = await core.nodes('''

@@ -62,7 +62,7 @@ Autoadd
 -------
 
 Short for "automatic addition". Within Synapse, a feature of node creation where any secondary properties that
-are derived from a node's primary property are automatically set when the node is created. Because these secondary
+are computed from a node's primary property are automatically set when the node is created. Because these secondary
 properties are based on the node's primary property (which cannot be changed once set), the secondary properties
 are read-only.
 
@@ -211,6 +211,13 @@ Composite Form
 
 See :ref:`gloss-form-comp`.
 
+.. _gloss-computed-prop:
+
+Computed Property
+-----------------
+
+See :ref:`gloss-prop-computed`.
+
 .. _gloss-console-tool:
 
 Console Tool
@@ -244,7 +251,7 @@ Constructor, Guid
 
 A :ref:`gloss-constructor` used to create :ref:`gloss-guid` values. Sometimes shortened to :ref:`gloss-gutor`, the
 term refers specifically to the use of a JSON dictionary to deconflict guid nodes and construct a predictable guid
-value (i.e., "dictionary guid constructor syntax" or "dictionary syntax"). See the `insertion`_ section under :ref:`type-guid`
+value (i.e., "dictionary guid constructor syntax" or "dictionary syntax"). See the :ref:`insertion <guid-type-insertion>` section under :ref:`type-guid`
 in the :ref:`storm-ref-type-specific` for a detailed discussion of guids, guid form deconfliction, and methods for
 generating guid values.
 
@@ -344,13 +351,6 @@ When ``inet:fqdn=mail.somecompany.org`` is created via depadd, Synapse will set 
 ``inet:fqdn=somecompany.org`` if it does not exist, etc.)
 
 See also the related concept :ref:`gloss-autoadd`.
-
-.. _gloss-derived-prop:
-
-Derived Property
------------------
-
-See :ref:`gloss-prop-derived`.
 
 .. _gloss-directed-edge:
 
@@ -459,9 +459,9 @@ A number of data model elements in Synapse are designed to support entity resolu
   are reporting on "the same" threat, you can link them to an authoritative threat organization via their
   ``risk:threat:org`` property.
   
-- An ``ou:industryname`` node can capture a term used to refer to a commercial industry. You can link variations
-  of a name (e.g., "finance", "financial", "financial services", "banking and finance") to a single ``ou:industry``
-  via the ``ou:industry:name`` and ``ou:industry:names`` properties.
+- An ``ind:name`` node can capture a term used to refer to a commercial industry. You can link variations
+  of a name (e.g., "finance", "financial", "financial services", "banking and finance") to a single ``ind:industry``
+  via the ``ind:industry:name`` and ``ind:industry:names`` properties.
 
 .. _gloss-expression-syntax:
 
@@ -988,7 +988,7 @@ a third-party API along with the timestamp when the data was retrieved. If the s
 the same node within a specific time period, the Power-Up can use the cached node data instead of re-querying
 the API (helping to prevent using up any API query limits by re-querying the same data).
 
-Node data can be accessed using the `node:data`_ type.
+Node data can be accessed using the :ref:`node:data <stormprims-node-data-f527>` type.
 
 .. _gloss-node-def:
 
@@ -1162,19 +1162,18 @@ Property Column
 
 See :ref:`gloss-col-prop`.
 
-.. _gloss-prop-derived:
+.. _gloss-prop-computed:
 
-Property, Derived
------------------
+Property, Computed
+------------------
 
-Within Synapse, a derived property is a secondary property that can be extracted (derived) from a node's primary
-property. For example, the domain ``inet:fqdn=www.google.com`` can be used to derive ``inet:fqdn:domain=google.com``
-and ``inet:fqdn:host=www``; the DNS A record ``inet:dns:a=(woot.com, 1.2.3.4)`` can be used to derive 
-``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ip=1.2.3.4``. 
+Within Synapse, a computed property is a secondary property that can be computed (e.g., extracted or
+derived) from a node's primary property. For example, the DNS A record ``inet:dns:a=(woot.com, 1.2.3.4)``
+can be used to compute ``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ip=1.2.3.4``. 
 
-Synapse will automatically set (:ref:`gloss-autoadd`) any secondary properties that can be derived from a node's
-primary property. Because derived properties are based on primary property values, derived 
-secondary properties are always read-only (i.e., cannot be modified once set).
+Synapse will automatically set (:ref:`gloss-autoadd`) any secondary properties that can be computed from
+a node's primary property. Because computed properties are based on primary property values, computed 
+properties are always read-only (i.e., cannot be modified once set).
 
 
 .. _gloss-prop-extended:
@@ -1550,7 +1549,7 @@ Taxonomy
 In Synapse, a taxonomy is a user-defined set of hierarchical categories that can optionally be used to further
 classify particular objects (forms). Taxonomies use a dotted namespace (similar to tags). Forms that support
 a taxonomy will have a secondary property whose :ref:`gloss-type` is the taxonomy for that form (e.g., an
-``ou:industry`` form has a ``:type`` secondary property whose type is ``ou:industry:type:taxonomy``).
+``ind:industry`` form has a ``:type`` secondary property whose type is ``ind:industry:type:taxonomy``).
 
 .. _gloss-telepath:
 
@@ -1838,7 +1837,5 @@ Workspaces Tool
 
 See :ref:`gloss-tool-workspaces`.
 
-.. _insertion: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#id11
-.. _node:data: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_prims.html#node-data
 
 .. _`Docker containers`: https://www.docker.com/resources/what-container/

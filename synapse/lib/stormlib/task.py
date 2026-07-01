@@ -97,7 +97,7 @@ class LibTask(s_stormtypes.Lib):
         prefix = await s_stormtypes.tostr(prefix)
         if not prefix:
             mesg = 'An empty task iden prefix is not allowed.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+            raise s_exc.BadArg(mesg=mesg, iden=prefix)
 
         iden = None
         async for task in self.runt.view.core.getTasks():
@@ -107,10 +107,10 @@ class LibTask(s_stormtypes.Lib):
                     iden = taskiden
                 else:
                     mesg = 'Provided iden matches more than one task.'
-                    raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+                    raise s_exc.BadArg(mesg=mesg, iden=prefix)
 
         if iden is None:
             mesg = 'Provided iden does not match any tasks.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+            raise s_exc.BadArg(mesg=mesg, iden=prefix)
 
         return await self.runt.view.core.killTask(iden)

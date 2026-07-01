@@ -10,16 +10,15 @@ class VersionLib(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'synapse',
-         'desc': 'The synapse version tuple for the local Cortex.',
-         'type': {'type': 'gtor', '_gtorfunc': '_gtorSynVersion',
-                  'returns': {'type': 'list', 'desc': 'The version triple.', }}},
+         'desc': 'The synapse version string for the local Cortex.',
+         'type': 'str'},
         {'name': 'commit',
          'desc': 'The synapse commit hash for the local Cortex.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorSynCommit',
                   'returns': {'type': 'str', 'desc': 'The commit hash.', }}},
         {'name': 'matches',
          'desc': '''
-            Check if the given version triple meets the requirements string.
+            Check if the given version string or triple meets the requirements string.
 
             Examples:
                 Check if the synapse version is in a range::
@@ -31,7 +30,7 @@ class VersionLib(s_stormtypes.Lib):
             ''',
          'type': {'type': 'function', '_funcname': 'matches',
                   'args': (
-                      {'name': 'vertup', 'type': 'list', 'desc': 'Triple of major, minor, and patch version integers.', },
+                      {'name': 'vertup', 'type': ['str', 'list'], 'desc': 'A version string or list of version integers.', },
                       {'name': 'reqstr', 'type': 'str', 'desc': 'The version string to compare against.', },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the version meets the requirements, False otherwise.', }}},
@@ -42,12 +41,12 @@ class VersionLib(s_stormtypes.Lib):
         s_stormtypes.Lib.__init__(self, runt, name=name)
         self.gtors |= {
             'commit': self._gtorSynCommit,
-            'synapse': self._gtorSynVersion,
         }
 
     def getObjLocals(self):
         return {
             'matches': self.matches,
+            'synapse': s_version.version,
         }
 
     async def _gtorSynVersion(self):
@@ -59,9 +58,9 @@ class VersionLib(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def matches(self, vertup, reqstr):
         reqstr = await s_stormtypes.tostr(reqstr)
-        vertup = tuple(await s_stormtypes.toprim(vertup))
+        valu = await s_stormtypes.toprim(vertup)
         try:
-            s_version.reqVersion(vertup, reqstr)
+            s_version.reqVersion(valu, reqstr)
             return True
         except s_exc.BadVersion:
             return False

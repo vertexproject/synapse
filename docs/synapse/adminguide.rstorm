@@ -22,7 +22,7 @@ described in this guide; however, these methods are **not** covered here. Additi
 
 - :ref:`stormtypes-libs-header` that allow you to work with a broad range of objects in Synapse.
 - Synapse tools that can be used from the host CLI (as opposed to the Storm CLI). Tools are available in
-  the `synapse.tools`_ package of the :ref:`apidocs`. The :ref:`userguide` includes documentation on
+  the :mod:`synapse.tools` package of the :ref:`apidocs`. The :ref:`userguide` includes documentation on
   some of these :ref:`userguide_tools`.
 - The :ref:`http-api`.
 
@@ -149,15 +149,15 @@ Update the email address for user "Ron":
 Assign **admin** status to the user "ron_admin":
 
 .. storm-pre:: auth.user.add ron_admin
-.. storm-cli:: auth.user.mod ron_admin --admin $lib.true
+.. storm-cli:: auth.user.mod ron_admin --admin (true)
 
 Remove **admin** status from user "ron_admin":
 
-.. storm-cli:: auth.user.mod ron_admin --admin $lib.false
+.. storm-cli:: auth.user.mod ron_admin --admin (false)
 
 Lock the user account "ron_admin":
 
-.. storm-cli:: auth.user.mod ron_admin --locked $lib.true
+.. storm-cli:: auth.user.mod ron_admin --locked (true)
 
 .. WARNING::
   
@@ -596,7 +596,7 @@ Easy perms apply to specific objects. Where easy perms are available, the follow
 
 .. TIP::
   
-  `$lib.macro.grant`_ library is an example of where easy permissions can be used to assign permissions.
+  :ref:`$lib.macro.grant() <stormlibs-lib-macro-grant>` library is an example of where easy permissions can be used to assign permissions.
 
 .. _admin_bkd_views_layers:
 
@@ -1218,7 +1218,7 @@ to create highly specialized roles.
   related to malware/code families and malware ecosystems.
 - An organization's strategic analysts may be solely responsible for certain objects and related data. For
   example, a strategic team may be in charge of researching and creating organizations (``ou:org``) and
-  associated industries (``ou:industry``) in order to track victimology. Strategic analysts can ensure that
+  associated industries (``ind:industry``) in order to track victimology. Strategic analysts can ensure that
   these objects are created according to the team's standards and that organizations are assigned to the
   appropriate industries.
 
@@ -1267,7 +1267,7 @@ to create highly specialized roles.
 +--------------------------------------+--------------------------------------------------------------+
 | ``node.prop.set.ou:org:industries``  | Assign organizations to one or more industries               |
 +--------------------------------------+--------------------------------------------------------------+
-| ``node.add.ou:industry``             | Create industry nodes                                        |
+| ``node.add.ind:industry``            | Create industry nodes                                        |
 +--------------------------------------+--------------------------------------------------------------+
 
 
@@ -1306,11 +1306,11 @@ Power-Up Permissions
 
 Synapse **Power-Ups** have their own sets of permissions that must be granted to users or roles to allow them
 to use the Power-Up and any associated Storm commands. Specific permissions are documented in the **Admin Guide**
-section of the `Power-Up documentation`_ for the individual Power-Up.
+section of the :doc:`Power-Up documentation </synapse/power_ups>` for the individual Power-Up.
 
 .. TIP::
   
-  While most Vertex-provided Power-Ups are part of the commercial Synapse offering, the following `Rapid Power-Ups`_
+  While most Vertex-provided Power-Ups are part of the commercial Synapse offering, the following :ref:`Rapid Power-Ups <rapid-powerups>`
   are also available for use with the community (open source) version of Synapse:
   
   - `Synapse-MISP`_
@@ -1379,7 +1379,7 @@ See the :ref:`dev_rapid_power_ups` section of the :ref:`devguide` for additional
 Add Extended Model Elements
 ===========================
 
-The Synapse data model in a Cortex can be extended with custom `forms`_ or `properties`_ by using the model
+The Synapse data model in a Cortex can be extended with custom :ref:`forms <gloss-form-extended>` or :ref:`properties <gloss-prop-extended>` by using the model
 extension Storm Library (:ref:`stormlibs-lib-model-ext`). Extended model forms and properties must have names
 beginning with an underscore (``_``) to avoid potential naming conflicts with built-in model elements.
 
@@ -1410,7 +1410,7 @@ When adding a form, ``$lib.model.ext.addForm`` takes the following arguments:
 To add a new form named ``_foocorp:name``, which contains string values which will be normalized to
 lowercase, with whitespace stripped from the beginning/end::
 
-    $typeopts = ({'lower': $lib.true, 'strip': $lib.true})
+    $typeopts = ({'lower': true, 'strip': true})
     $typeinfo = ({'doc': 'Foocorp name.'})
 
     $lib.model.ext.addForm(_foocorp:name, str, $typeopts, $typeinfo)
@@ -1446,7 +1446,7 @@ To add a property named ``_score`` to the ``_foocorp:name`` form which contains 
 To add a property named ``_aliases`` to the ``_foocorp:name`` form which contains a unique array of
 ``base:name`` values::
 
-    $typeopts = ({'type': 'base:name', 'uniq': $lib.true})
+    $typeopts = ({'type': 'base:name', 'uniq': true})
     $propinfo = ({'doc': 'Aliases for this name.'})
 
     $lib.model.ext.addFormProp(_foocorp:name, _aliases, (array, $typeopts), $propinfo)
@@ -1514,8 +1514,8 @@ Configure a Mirrored Layer
 
 .. note::
 
-    Mirrored layers are deprecated in 2.x and will be removed in 3.0.0. The `layer.pull.add`_
-    and `layer.push.add`_ commands can be used to configure streaming edits to/from 
+    Mirrored layers are deprecated in 2.x and will be removed in 3.0.0. The :ref:`layer.pull.add <storm-layer-pull-add>`
+    and :ref:`layer.push.add <storm-layer-push-add>` commands can be used to configure streaming edits to/from 
     layers in a separate Cortex.
 
 Once a mirrored layer is configured, it will need to stream down the entire history of events from the upstream
@@ -1555,26 +1555,18 @@ you may track progress by calling the ``getMirrorStatus()`` API on the ``layer``
 
 
 
-.. _synapse.tools: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/synapse.tools.html
-.. _UI documentation: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
+.. _UI documentation: {{SYN_DOCS_BASEURL}}/docs/optic/latest/index.html
 
 .. _the blog post on Synapse Power-Ups: https://vertex.link/blogs/synapse-power-ups/
 .. _`Docker containers`: https://www.docker.com/resources/what-container/
 
-.. _`$lib.macro.grant`: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-macro-grant-name-scope-iden-level
-.. _`layer.pull.add`: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html#layer-pull-add
-.. _`layer.push.add`: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html#layer-push-add
-.. _`Power-Up documentation`: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
-.. _`Rapid Power-Ups`: https://synapse.docs.vertex.link/en/latest/synapse/power_ups/rapid_power_ups.html
-.. _`Optic Deployment Guide`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/deploymentguide.html
-.. _`Optic DevOps Guide`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/devopsguide.html
-.. _`Synapse-MISP`: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html
-.. _`Synapse-MITRE-ATT&CK`: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mitre-attack/index.html
-.. _`Synapse-PSL`: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-psl/index.html
-.. _`Synapse-TOR`: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-tor/index.html
+.. _`Optic Deployment Guide`: {{SYN_DOCS_BASEURL}}/docs/optic/latest/user_interface/deploymentguide.html
+.. _`Optic DevOps Guide`: {{SYN_DOCS_BASEURL}}/docs/optic/latest/user_interface/devopsguide.html
+.. _`Synapse-MISP`: {{SYN_DOCS_BASEURL}}/docs/synapse-misp/latest/index.html
+.. _`Synapse-MITRE-ATT&CK`: {{SYN_DOCS_BASEURL}}/docs/synapse-mitre-attack/latest/index.html
+.. _`Synapse-PSL`: {{SYN_DOCS_BASEURL}}/docs/synapse-psl/latest/index.html
+.. _`Synapse-TOR`: {{SYN_DOCS_BASEURL}}/docs/synapse-tor/latest/index.html
 
-.. _`forms`: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#form-extended
-.. _`properties`: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#property-extended
 
 .. _Synapse data model type: autodocs/datamodel_types.html
 

@@ -316,7 +316,7 @@ class OAuthTest(s_test.SynTest):
                 'awesome': 'possum',
             })
             $client = $lib.inet.http.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.http.oauth.v1.SIG_BODY)
-            return($client.sign($url, method='POST', headers=$lib.null, body=$body))
+            return($client.sign($url, method='POST', headers=(null), body=$body))
             '''
             url, headers, body = await core.callStorm(q)
             uri = yarl.URL(url)

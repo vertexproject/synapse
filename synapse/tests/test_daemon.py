@@ -308,21 +308,21 @@ class SvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
                             for $item in $lib.service.get($modconf.svciden).run() {
                                 {}
                             }
-                            return ($lib.null)
+                            return (null)
                         }
 
                         function run_break() {
                             for $i in $lib.service.get($modconf.svciden).run() {
-                                if ($i > $x) { return($lib.null) }
+                                if ($i > $x) { return((null)) }
                             }
-                            return($lib.null)
+                            return((null))
                         }
 
                         function run_err() {
                             for $i in $lib.service.get($modconf.svciden).run() {
                                 if ($i > $x) { [inet:newp=3] }
                             }
-                            return($lib.null)
+                            return((null))
                         }
                     '''
                 },

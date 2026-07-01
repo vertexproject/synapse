@@ -42,12 +42,12 @@ class LibSpooled(s_stormtypes.Lib):
         valu = list(vals)
         for item in valu:
             if s_stormtypes.ismutable(item):
-                mesg = f'{await s_stormtypes.torepr(item)} is mutable and cannot be used in a set.'
-                raise s_exc.StormRuntimeError(mesg=mesg)
+                mesg = f'{await s_stormtypes.torepr(item)} is mutable and cannot be used in a {self._storm_typename}.'
+                raise s_exc.BadArg(mesg=mesg)
 
             if not s_msgpack.isok(item):
-                mesg = f'{await s_stormtypes.torepr(item)} is not safe to be used in a SpooledSet.'
-                raise s_exc.StormRuntimeError(mesg=mesg)
+                mesg = f'{await s_stormtypes.torepr(item)} is not safe to be used in a {self._storm_typename}.'
+                raise s_exc.BadArg(mesg=mesg)
 
             await spool.add(item)
 
@@ -74,12 +74,12 @@ class SpooledSet(s_stormtypes.Set):
     async def _methSetAdd(self, *items):
         for i in items:
             if s_stormtypes.ismutable(i):
-                mesg = f'{await s_stormtypes.torepr(i)} is mutable and cannot be used in a set.'
-                raise s_exc.StormRuntimeError(mesg=mesg)
+                mesg = f'{await s_stormtypes.torepr(i)} is mutable and cannot be used in a {self._storm_typename}'
+                raise s_exc.BadArg(mesg=mesg)
 
             if not s_msgpack.isok(i):
-                mesg = f'{await s_stormtypes.torepr(i)} is not safe to be used in a SpooledSet.'
-                raise s_exc.StormRuntimeError(mesg=mesg)
+                mesg = f'{await s_stormtypes.torepr(i)} is not safe to be used in a {self._storm_typename}.'
+                raise s_exc.BadArg(mesg=mesg)
 
             await self.valu.add(i)
 
@@ -88,12 +88,12 @@ class SpooledSet(s_stormtypes.Set):
         for item in items:
             async for i in s_stormtypes.toiter(item):
                 if s_stormtypes.ismutable(i):
-                    mesg = f'{await s_stormtypes.torepr(i)} is mutable and cannot be used in a set.'
-                    raise s_exc.StormRuntimeError(mesg=mesg)
+                    mesg = f'{await s_stormtypes.torepr(i)} is mutable and cannot be used in a {self._storm_typename}.'
+                    raise s_exc.BadArg(mesg=mesg)
 
                 if not s_msgpack.isok(i):
-                    mesg = f'{await s_stormtypes.torepr(i)} is not safe to be used in a SpooledSet.'
-                    raise s_exc.StormRuntimeError(mesg=mesg)
+                    mesg = f'{await s_stormtypes.torepr(i)} is not safe to be used in a {self._storm_typename}.'
+                    raise s_exc.BadArg(mesg=mesg)
 
                 await self.valu.add(i)
 

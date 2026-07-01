@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 35)
+maxvers = (0, 2, 36)
 
 class ModelRev:
 
@@ -340,7 +340,7 @@ class ModelRev:
         $layers = $lib.set()
         $layers.adds($layridens)
 
-        for $view in $lib.view.list(deporder=$lib.true) {
+        for $view in $lib.view.list(deporder=(true)) {
 
             if (not $layers.has($view.layers.0.iden)) { continue }
 
@@ -369,7 +369,7 @@ class ModelRev:
         $layers = $lib.set()
         $layers.adds($layridens)
 
-        for $view in $lib.view.list(deporder=$lib.true) {
+        for $view in $lib.view.list(deporder=(true)) {
 
             if (not $layers.has($view.layers.0.iden)) { continue }
 

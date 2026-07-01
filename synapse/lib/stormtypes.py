@@ -40,9 +40,6 @@ import synapse.lib.stormctrl as s_stormctrl
 
 logger = logging.getLogger(__name__)
 
-AXON_MINVERS_PROXY = (2, 97, 0)
-AXON_MINVERS_PROXYTRUE = (2, 192, 0)
-
 class Undef:
     _storm_typename = 'undef'
     async def stormrepr(self):
@@ -110,33 +107,16 @@ async def resolveAxonProxyArg(valu):
         valu (str|bool): The proxy value.
 
     Returns:
-        tuple: A retn tuple where the proxy kwarg should not be set if ok=False, otherwise a proxy URL or None.
+        A proxy URL or boolean.
     '''
-    runt = s_scope.get('runt')
-
-    await runt.view.core.getAxon()
-
-    axonvers = runt.view.core.axoninfo['synapse']['version']
-    if axonvers < AXON_MINVERS_PROXY:
-        await runt.warnonce(f'Axon version does not support proxy argument: {axonvers} < {AXON_MINVERS_PROXY}')
-        return False, None
-
-    match valu:
-        case True:
-            if axonvers < AXON_MINVERS_PROXYTRUE:
-                return True, None
-            return True, True
-
-        case False:
-            runt.confirm(('inet', 'http', 'proxy'))
-            return True, False
-
-        case str():
-            runt.confirm(('inet', 'http', 'proxy'))
-            return True, valu
-
-        case _:
-            raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
+    if valu is True:
+        return True
+    elif valu is False or isinstance(valu, str):
+        runt = s_scope.get('runt')
+        runt.confirm(('inet', 'http', 'proxy'))
+        return valu
+    else:
+        raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
 
 class StormTypesRegistry:
     # The following types are currently undefined.
@@ -786,7 +766,13 @@ class LibDmon(Lib):
 
     @stormfunc(readonly=True)
     async def _libDmonList(self):
-        return await self.runt.view.core.getStormDmons()
+        ddefs = await self.runt.view.core.getStormDmons()
+        retn = []
+        for ddef in ddefs:
+            viewiden = ddef.get('stormopts', {}).get('view')
+            if self.runt.allowed(('view', 'read'), gateiden=viewiden):
+                retn.append(ddef)
+        return retn
 
     @stormfunc(readonly=True)
     async def _libDmonLog(self, iden):
@@ -1160,16 +1146,6 @@ class LibBase(Lib):
                       {'name': '**info', 'type': 'any', 'desc': 'Additional metadata to include in the exception.', },
                   ),
                   'returns': {'type': 'null', 'desc': 'This function does not return.', }}},
-        {'name': 'null', 'desc': '''
-            This constant represents a value of None that can be used in Storm.
-
-            Examples:
-                Create a dictionary object with a key whose value is null, and call ``$lib.fire()`` with it::
-
-                    storm> $d=({"key": $lib.null}) $lib.fire('demo', d=$d)
-                    ('storm:fire', {'type': 'demo', 'data': {'d': {'key': None}}})
-            ''',
-            'type': 'null', },
         {'name': 'undef', 'desc': '''
             This constant can be used to unset variables and derefs.
 
@@ -1187,25 +1163,6 @@ class LibBase(Lib):
                     $foo.0 = $lib.undef
             ''',
             'type': 'undef', },
-        {'name': 'true', 'desc': '''
-            This constant represents a value of True that can be used in Storm.
-
-            Examples:
-                Conditionally print a statement based on the constant value::
-
-                    storm> if $lib.true { $lib.print('Is True') } else { $lib.print('Is False') }
-                    Is True
-                ''',
-         'type': 'boolean', },
-        {'name': 'false', 'desc': '''
-            This constant represents a value of False that can be used in Storm.
-
-            Examples:
-                Conditionally print a statement based on the constant value::
-
-                    storm> if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
-                    Is False''',
-         'type': 'boolean', },
         {'name': 'cast', 'desc': 'Normalize a value as a Synapse Data Model Type.',
          'type': {'type': 'function', '_funcname': '_cast',
                   'args': (
@@ -1431,10 +1388,7 @@ class LibBase(Lib):
             'exit': self._exit,
             'guid': self._guid,
             'fire': self._fire,
-            'null': None,
             'undef': undef,
-            'true': True,
-            'false': False,
             'cast': self._cast,
             'repr': self._repr,
             'warn': self._warn,
@@ -1532,13 +1486,7 @@ class LibBase(Lib):
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = await typeitem.norm(valu)
-        if typeitem.isarray:
-            return await typeitem.tostorm(norm)
-
-        if typeitem.ispoly:
-            return NodeRef((norm, info.get('virts')))
-
-        return NodeRef(((typeitem.name, norm), info.get('virts')))
+        return await typeitem.tostorm(norm, virts=info.get('virts'))
 
     @stormfunc(readonly=True)
     async def trycast(self, name, valu):
@@ -1549,13 +1497,7 @@ class LibBase(Lib):
 
         try:
             norm, info = await typeitem.norm(valu)
-            if typeitem.isarray:
-                return True, await typeitem.tostorm(norm)
-
-            if typeitem.ispoly:
-                return True, NodeRef((norm, info.get('virts')))
-
-            return True, NodeRef(((typeitem.name, norm), info.get('virts')))
+            return True, await typeitem.tostorm(norm, virts=info.get('virts'))
 
         except s_exc.BadTypeValu as exc:
             return False, s_common.excinfo(exc)
@@ -1589,10 +1531,13 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _sorted(self, valu, reverse=False):
-        valu = await toprim(valu)
+
         if isinstance(valu, dict):
-            valu = list(valu.items())
-        for item in sorted(valu, reverse=reverse):
+            items = list(valu.items())
+        else:
+            items = [item async for item in toiter(valu)]
+
+        for item in sorted(items, reverse=reverse):
             yield item
 
     @stormfunc(readonly=True)
@@ -1604,11 +1549,11 @@ class LibBase(Lib):
         if args:
             if valu is not undef:
                 raise s_exc.BadArg(mesg='Valu cannot be specified if positional arguments are provided')
-            args = await tostor(args, packsafe=True)
+            args = await tostor(args, packsafe=True, nidnorm=True)
             return s_common.guid(args)
 
         if valu is not undef:
-            valu = await tostor(valu, packsafe=True)
+            valu = await tostor(valu, packsafe=True, nidnorm=True)
             return s_common.guid(valu)
 
         return s_common.guid()
@@ -1645,7 +1590,7 @@ class LibBase(Lib):
 
         if len(vals) < 1:
             mesg = '$lib.min() must have at least one argument or a list containing at least one value.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+            raise s_exc.BadArg(mesg=mesg)
 
         ints = [await toint(x) for x in vals]
         return min(ints)
@@ -1663,7 +1608,7 @@ class LibBase(Lib):
 
         if len(vals) < 1:
             mesg = '$lib.max() must have at least one argument or a list containing at least one value.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+            raise s_exc.BadArg(mesg=mesg)
 
         ints = [await toint(x) for x in vals]
         return max(ints)
@@ -1719,7 +1664,7 @@ class LibBase(Lib):
 
             if clamp < 3:
                 mesg = 'Invalid clamp length.'
-                raise s_exc.StormRuntimeError(mesg=mesg, clamp=clamp)
+                raise s_exc.BadArg(mesg=mesg, clamp=clamp)
 
         try:
             item = await toprim(item)
@@ -2349,11 +2294,9 @@ class LibAxon(Lib):
 
         await self.runt.view.core.getAxon()
 
-        kwargs = {}
-
-        ok, proxy = await resolveAxonProxyArg(proxy)
-        if ok:
-            kwargs['proxy'] = proxy
+        kwargs = {
+            'proxy': await resolveAxonProxyArg(proxy)
+        }
 
         axon = self.runt.view.core.axon
         resp = await axon.wget(url, headers=headers, params=params, method=method, json=json, body=body,
@@ -2381,11 +2324,9 @@ class LibAxon(Lib):
 
         await self.runt.view.core.getAxon()
 
-        kwargs = {}
-
-        ok, proxy = await resolveAxonProxyArg(proxy)
-        if ok:
-            kwargs['proxy'] = proxy
+        kwargs = {
+            'proxy': await resolveAxonProxyArg(proxy)
+        }
 
         axon = self.runt.view.core.axon
         sha256byts = s_common.uhex(sha256)
@@ -2686,7 +2627,7 @@ class LibLift(Lib):
         props = self.runt.model.reqPropList(name)
         if props[0].isform:
             mesg = '$lib.lift.byPropAlts cannot be used to lift by form value.'
-            raise s_exc.StormRuntimeError(mesg=mesg, prop=name)
+            raise s_exc.BadArg(mesg=mesg, prop=name)
 
         for prop in props:
             async for node in self.runt.view.nodesByPropAlts(prop, cmpr, valu):
@@ -2723,12 +2664,12 @@ class LibLift(Lib):
 
         if (ptyp.ispoly and not ptyp.hasforms) or (not ptyp.ispoly and self.runt.model.form(form) is None):
             mesg = '$lib.lift.byPropRefs props must be a type which is also a form.'
-            raise s_exc.StormRuntimeError(mesg=mesg, type=form)
+            raise s_exc.BadArg(mesg=mesg, type=form)
 
         for prop in flatprops:
             if getType(prop) != ptyp:
                 mesg = '$lib.lift.byPropRefs props must all be of the same type.'
-                raise s_exc.StormRuntimeError(mesg=mesg, props=props)
+                raise s_exc.BadArg(mesg=mesg, props=props)
 
             genrs.append(self.runt.view.iterPropValuesWithCmpr(prop.full, cmpr, valu, array=prop.type.isarray))
 
@@ -3136,12 +3077,12 @@ class LibTime(Lib):
             norm, _ = await timetype.norm(valu)
         except s_exc.BadTypeValu as e:
             mesg = f'Failed to norm a time value prior to formatting - {str(e)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
-                                          format=format) from None
+            raise s_exc.BadArg(mesg=mesg, valu=valu,
+                               format=format) from None
 
         if norm in (timetype.futsize, timetype.unksize):
             mesg = 'Cannot format a timestamp for ongoing/unknown time.'
-            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, format=format)
+            raise s_exc.BadArg(mesg=mesg, valu=valu, format=format)
 
         try:
             dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=norm)
@@ -5130,7 +5071,7 @@ class Set(Prim):
         for item in valu:
             if ismutable(item):
                 mesg = f'{repr(item)} is mutable and cannot be used in a set.'
-                raise s_exc.StormRuntimeError(mesg=mesg)
+                raise s_exc.BadArg(mesg=mesg)
 
         Prim.__init__(self, set(valu), path=path)
         self.locls.update(self.getObjLocals())
@@ -5171,7 +5112,7 @@ class Set(Prim):
         for i in items:
             if ismutable(i):
                 mesg = f'{await torepr(i)} is mutable and cannot be used in a set.'
-                raise s_exc.StormRuntimeError(mesg=mesg)
+                raise s_exc.BadArg(mesg=mesg)
             self.valu.add(i)
 
     @stormfunc(readonly=True)
@@ -5180,7 +5121,7 @@ class Set(Prim):
             async for i in toiter(item):
                 if ismutable(i):
                     mesg = f'{await torepr(i)} is mutable and cannot be used in a set.'
-                    raise s_exc.StormRuntimeError(mesg=mesg)
+                    raise s_exc.BadArg(mesg=mesg)
                 self.valu.add(i)
 
     @stormfunc(readonly=True)
@@ -5892,13 +5833,14 @@ class Query(Prim):
 
     _storm_typename = 'storm:query'
 
-    def __init__(self, text, varz, runt, path=None):
+    def __init__(self, text, varz, runt, path=None, origin=None):
 
         Prim.__init__(self, text, path=path)
 
         self.text = text
         self.varz = varz
         self.runt = runt
+        self.origin = origin
 
         self.locls.update(self.getObjLocals())
 
@@ -5911,10 +5853,14 @@ class Query(Prim):
     def __str__(self):
         return self.text
 
+    async def _storm_copy(self):
+        return Query(self.text, dict(self.varz), self.runt, path=self.path, origin=self.origin)
+
     async def _getRuntGenr(self):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
         async with self.runt.getCmdRuntime(query, opts=opts) as runt:
+            runt.storm_origin = self.origin
             async for item in runt.execute():
                 yield item
 
@@ -5988,10 +5934,10 @@ class NodeProps(Dict):
         prop = self.valu.form.reqProp(name)
 
         if prop.type.ispoly:
-            valu = self.valu.getWithVirts(name)
-            if valu[0] is None:
+            valu, virts = self.valu.getWithVirts(name)
+            if valu is None:
                 return
-            return await prop.type.tostorm(valu)
+            return await prop.type.tostorm(valu, virts=virts)
 
         return await prop.type.tostorm(self.valu.get(name))
 
@@ -6017,12 +5963,12 @@ class NodeProps(Dict):
         gateiden = self.valu.view.wlyr.iden
 
         if valu is undef:
-            confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
+            confirm(formprop.delperm, gateiden=gateiden)
             await self.valu.pop(name)
             return
 
         valu = await tostor(valu)
-        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
+        confirm(formprop.setperm, gateiden=gateiden)
         return await self.valu.set(name, valu)
 
     async def iter(self):
@@ -6172,16 +6118,30 @@ class NodeData(Prim):
             # set the data value into the path nodedata dict so it gets sent
             self.path.setData(self.valu.nid, name, valu)
 
+# comparison operators mapped to the equivalent operator with the operands
+# flipped (e.g. a > b -> b < a), used to dispatch a comparison on the
+# right-hand operand's type.
+_FlipCmpr = {
+    '=': '=',
+    '!=': '!=',
+    '>': '<',
+    '<': '>',
+    '>=': '<=',
+    '<=': '>=',
+}
+
 @registry.registerType
-class NodeRef(Prim):
+class Valu(Prim):
     '''
-    A type and value tuple representing a node.
+    A generic type and value tuple representing a typed Storm value.
+
+    The first element of the tuple is a data model type name and the second is
+    the normalized value. All type-driven behavior (comparison, deref, repr) is
+    dispatched through the model Type resolved from that type name.
     '''
     _storm_locals = (
         {'name': 'type', 'desc': 'Get the type of the tuple.',
          'type': 'str'},
-        {'name': 'ndef', 'desc': 'Get the type and valu of the tuple.',
-         'type': 'list'},
         {'name': 'value', 'desc': 'Get the valu of the tuple.',
          'type': 'any'},
         {'name': 'istype', 'desc': 'Check if the type in the tuple is a given type.',
@@ -6193,7 +6153,7 @@ class NodeRef(Prim):
                               'type': 'boolean'}}},
 
     )
-    _storm_typename = 'noderef'
+    _storm_typename = 'valu'
     _ismutable = False
 
     def __init__(self, valu, path=None):
@@ -6201,7 +6161,6 @@ class NodeRef(Prim):
         Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
 
-        self.exists = None
         self.virts = virts
 
     def __hash__(self):
@@ -6213,38 +6172,108 @@ class NodeRef(Prim):
             return int(valu, 0)
         return int(valu)
 
+    def __index__(self):
+        return self.__int__()
+
+    def __float__(self):
+        return float(self.valu[1])
+
     def __str__(self):
         return str(self.valu[1])
 
     def __len__(self):
         return len(self.valu[1])
 
+    def __bool__(self):
+        return bool(self.valu[1])
+
     def __eq__(self, othr):
-        if isinstance(othr, NodeRef):
+        if isinstance(othr, Valu):
             return othr.valu[1] == self.valu[1]
         return othr == self.valu[1]
+
+    def __lt__(self, othr):
+        if isinstance(othr, Valu):
+            return self.valu[1] < othr.valu[1]
+        return self.valu[1] < othr
 
     def getObjLocals(self):
         return {
             'type': self.valu[0],
-            'ndef': self.valu,
             'value': self.valu[1],
             'istype': self._methIsType,
         }
 
     async def stormrepr(self):
         runt = s_scope.get('runt')
-        tobj = runt.view.core.model.reqType(self.valu[0])
-        return tobj.repr(self.valu[1])
+        tobj = runt.model.reqType(self.valu[0])
+        valu = tobj.repr(self.valu[1])
+        if not isinstance(valu, str):
+            valu = str(valu)
+        return valu
 
     async def _storm_copy(self):
         return self
+
+    async def _storm_oper(self, oper, other, reverse=False):
+        # When reverse is True this type is the right-hand operand: the comparison
+        # is dispatched via the flipped operator (a > b -> b < a) and the expression
+        # via the reverse expression funcs, so the operands are evaluated in written
+        # order rather than swapped.
+
+        runt = s_scope.get('runt')
+        tobj = runt.model.reqType(self.valu[0])
+
+        cmproper = _FlipCmpr.get(oper) if reverse else oper
+
+        if cmproper is not None and (ctor := tobj.getCmprCtor(cmproper)) is not None:
+            oval = other.valu[1] if isinstance(other, Valu) else other
+
+            try:
+                cmpr = await ctor(oval)
+            except s_exc.BadTypeValu:
+                return cmproper == '!='
+
+            return await cmpr(self.valu[1])
+
+        if isinstance(other, Valu):
+            othername, otherval = other.valu[0], other.valu[1]
+        else:
+            ovalu = toValu(other)
+            if not isinstance(ovalu, Valu):
+                return None
+            othername, otherval = ovalu.valu[0], ovalu.valu[1]
+
+        ctor = None
+        for name in runt.model.reqType(othername).types:
+            if (ctor := tobj.getExprFunc(oper, name, reverse=reverse)) is not None:
+                break
+
+        if ctor is None:
+            return None
+
+        rtypename, rvalu = await ctor(self.valu[1], otherval)
+
+        rtype = runt.model.reqType(rtypename)
+        try:
+            norm, info = await rtype.norm(rvalu)
+        except s_exc.BadTypeValu as e:
+            mesg = f'Invalid result for "{oper}" on {self.valu[0]} and {othername}: {e.get("mesg")}'
+            raise s_exc.StormRuntimeError(mesg=mesg) from e
+
+        return await rtype.tostorm(norm, virts=info.get('virts'))
 
     def value(self):
         return self.valu[1]
 
     async def iter(self):
-        for item in tuple(self.valu[1]):
+        try:
+            items = tuple(self.valu[1])
+        except TypeError as e:
+            mesg = f'Value is not iterable: {s_common.trimText(repr(self.valu[1]))}'
+            raise s_exc.StormRuntimeError(mesg=mesg) from e
+
+        for item in items:
             yield item
 
     @stormfunc(readonly=True)
@@ -6254,6 +6283,12 @@ class NodeRef(Prim):
         if self.virts is not None:
             if (valu := self.virts.get(name)) is not None:
                 return valu[0]
+
+        runt = s_scope.get('runt')
+        if (tobj := runt.model.type(self.valu[0])) is not None:
+            if name in tobj.virts:
+                getr = tobj.getVirtGetr(name)
+                return getr((self.valu[1], None, self.virts))
 
         return await fromprim(self.valu[1]).deref(name)
 
@@ -6266,12 +6301,22 @@ class NodeRef(Prim):
 
         runt = s_scope.get('runt')
 
-        if (tobj := runt.view.core.model.type(self.valu[0])) is not None:
+        if (tobj := runt.model.type(self.valu[0])) is not None:
             for name in names:
                 if name in tobj.types:
                     return True
 
         return False
+
+@registry.registerType
+class NodeRef(Valu):
+    '''
+    A type and value tuple representing a node.
+
+    This is the form-valued specialization of Valu.
+    '''
+    _storm_typename = 'noderef'
+    exists = None
 
 @registry.registerType
 class Node(Prim):
@@ -6369,17 +6414,24 @@ class Node(Prim):
                   'returns':
                       {'type': 'dict',
                        'desc': 'The tags which have been added/deleted in the new set.', }}},
-        {'name': 'isform', 'desc': 'Check if a Node is a given form.',
-         'type': {'type': 'function', '_funcname': '_methNodeIsForm',
+        {'name': 'is', 'desc': 'Check if a Node is a given form or implements a given interface.',
+         'type': {'type': 'function', '_funcname': '_methNodeIs',
                   'args': (
-                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The form or forms to compare the Node against.'},
+                      {'name': 'name', 'type': ['str', 'list'], 'desc': 'The form(s) or interface(s) to compare the Node against.'},
                   ),
-                  'returns': {'desc': 'True if the node is at least one of the forms specified, false otherwise.',
+                  'returns': {'desc': 'True if the node is at least one of the forms or implements at least one of the interfaces specified, false otherwise.',
                               'type': 'boolean'}}},
 
         {'name': 'value', 'desc': 'Get the value of the primary property of the Node.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorNodeValue',
                   'returns': {'type': 'prim', 'desc': 'The primary property.', }}},
+
+        {'name': 'setValue', 'desc': 'Set the primary property value for a Node with special deconfliction rules.',
+         'type': {'type': 'function', '_funcname': '_methNodeSetValue',
+                  'args': (
+                      {'name': 'valu', 'type': 'any', 'desc': 'The new value.'},
+                  ),
+                  'returns': {'type': 'null'}}},
 
         {'name': 'getByLayer', 'desc': 'Return a dict you can use to lookup which props/tags came from which layers.',
          'type': {'type': 'function', '_funcname': '_methGetByLayer',
@@ -6424,7 +6476,8 @@ class Node(Prim):
             'delEdge': self._methNodeDelEdge,
             'globtags': self._methNodeGlobTags,
             'difftags': self._methNodeDiffTags,
-            'isform': self._methNodeIsForm,
+            'is': self._methNodeIs,
+            'setValue': self._methNodeSetValue,
             'getByLayer': self._methGetByLayer,
             'getStorNodes': self._methGetStorNodes,
         }
@@ -6478,7 +6531,7 @@ class Node(Prim):
         await self.valu.delEdge(verb, dest)
 
     @stormfunc(readonly=True)
-    async def _methNodeIsForm(self, name):
+    async def _methNodeIs(self, name):
         names = await toprim(name)
 
         if not isinstance(names, (list, tuple)):
@@ -6488,7 +6541,18 @@ class Node(Prim):
             if name in self.valu.form.formtypes:
                 return True
 
+            if self.valu.form.implements(name):
+                return True
+
         return False
+
+    async def _methNodeSetValue(self, valu):
+        valu = await tostor(valu)
+
+        gateiden = self.valu.view.wlyr.iden
+        confirm(('node', 'add', self.valu.form.name), gateiden=gateiden)
+
+        await self.valu.setValue(valu)
 
     @stormfunc(readonly=True)
     async def _methNodeTags(self, glob=None, leaf=False):
@@ -6759,7 +6823,8 @@ class LibLayer(Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the layer to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get a Layer from the Cortex.',
+        {'name': 'get', 'desc': 'Get a Layer from the Cortex. Raises ``NoSuchIden`` if no '
+                                'such layer exists or the user cannot read it.',
          'type': {'type': 'function', '_funcname': '_libLayerGet',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'default': None,
@@ -6767,7 +6832,7 @@ class LibLayer(Lib):
                                'If not set, this defaults to the top layer of the current View.', },
                   ),
                   'returns': {'type': 'layer', 'desc': 'The storm layer object.', }}},
-        {'name': 'list', 'desc': 'List the layers in a Cortex',
+        {'name': 'list', 'desc': 'List the layers in a Cortex.',
          'type': {'type': 'function', '_funcname': '_libLayerList',
                   'returns': {'type': 'list', 'desc': 'List of ``layer`` objects.', }}},
     )
@@ -6815,11 +6880,17 @@ class LibLayer(Lib):
     async def _libLayerGet(self, iden=None):
 
         iden = await tostr(iden, noneok=True)
+        explicit = iden is not None
         if iden is None:
             iden = self.runt.view.wlyr.iden
 
         ldef = await self.runt.view.core.getLayerDef(iden=iden)
-        if ldef is None:
+
+        # a layer the user cannot read is hidden the same as a missing one, so we
+        # do not leak the existence of layers outside their readable views.
+        # $lib.layer.list() filters the same way: a layer is readable when the
+        # user can read a view it belongs to, or is admin of its gate.
+        if ldef is None or (explicit and not self.runt.userCanReadLayer(iden)):
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
@@ -6829,7 +6900,8 @@ class LibLayer(Lib):
     async def _libLayerList(self):
         todo = s_common.todo('getLayerDefs')
         defs = await self.runt.dyncall('cortex', todo)
-        return [Layer(self.runt, ldef, path=self.path) for ldef in defs]
+        return [Layer(self.runt, ldef, path=self.path) for ldef in defs
+                if self.runt.userCanReadLayer(ldef['iden'])]
 
 @registry.registerType
 class Layer(Prim):
@@ -7890,7 +7962,8 @@ class LibView(Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the View to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get a View from the Cortex.',
+        {'name': 'get', 'desc': 'Get a View from the Cortex. Raises ``NoSuchView`` if no '
+                                'such view exists or the user cannot read it.',
          'type': {'type': 'function', '_funcname': '_methViewGet',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'default': None,
@@ -7932,7 +8005,7 @@ class LibView(Lib):
         gatekeys = [(useriden, ('view', 'add'), None)]
 
         for layriden in layers:
-            gatekeys.append((useriden, ('layer', 'read'), layriden))
+            await self.runt.reqUserCanReadLayer(layriden)
 
         todo = ('addView', (vdef,), {})
 
@@ -7947,10 +8020,15 @@ class LibView(Lib):
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, iden=None):
+        explicit = iden is not None
         if iden is None:
             iden = self.runt.view.iden
+
         vdef = await self.runt.view.core.getViewDef(iden)
-        if vdef is None:
+
+        # a view the user cannot read is hidden the same as a missing one, so we
+        # do not leak its existence. $lib.view.list() filters the same way.
+        if vdef is None or (explicit and not self.runt.allowed(('view', 'read'), gateiden=iden)):
             raise s_exc.NoSuchView(mesg=f'No view with {iden=}', iden=iden)
 
         return View(self.runt, vdef, path=self.path)
@@ -7959,7 +8037,8 @@ class LibView(Lib):
     async def _methViewList(self, deporder=False):
         deporder = await tobool(deporder)
         viewdefs = await self.runt.view.core.getViewDefs(deporder=deporder)
-        return [View(self.runt, vdef, path=self.path) for vdef in viewdefs]
+        return [View(self.runt, vdef, path=self.path) for vdef in viewdefs
+                if self.runt.allowed(('view', 'read'), gateiden=vdef['iden'])]
 
 @registry.registerType
 class View(Prim):
@@ -8048,12 +8127,19 @@ class View(Prim):
         {'name': 'repr', 'desc': 'Get a string representation of the View.',
          'type': {'type': 'function', '_funcname': '_methViewRepr',
                   'returns': {'type': 'list', 'desc': 'A list of lines that can be printed, representing a View.', }}},
-        {'name': 'merge', 'desc': 'Merge a forked View back into its parent View.',
+        {'name': 'merge', 'desc': '''
+            Schedule a merge of a forked View back into its parent View.
+
+            The forking layer is flipped to read-only and the merge runs as
+            a background task that resumes automatically across Cortex
+            restarts. The call returns immediately with the merge info; the
+            forked View and its top layer are removed once the merge
+            completes.''',
          'type': {'type': 'function', '_funcname': '_methViewMerge',
                   'args': (
                     {'name': 'force', 'type': 'boolean', 'default': False, 'desc': 'Force the view to merge if possible.'},
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'dict', 'desc': 'The newly created merge info.'}}},
         {'name': 'getEdges', 'desc': 'Get node information for Edges in the View.',
          'type': {'type': 'function', '_funcname': '_methGetEdges',
                   'args': (
@@ -8302,8 +8388,7 @@ class View(Prim):
         self.runt.confirm(('node', 'add', form), gateiden=layriden)
         if props is not None:
             for propname in props.keys():
-                fullname = f'{form}:{propname}'
-                self.runt.confirm(('node', 'prop', 'set', fullname), gateiden=layriden)
+                self.runt.confirm(('node', 'prop', 'set', form, propname), gateiden=layriden)
 
         if viewiden == self.runt.view.iden:
             return await self.runt.view.addNode(form, valu, props=props)
@@ -8400,7 +8485,7 @@ class View(Prim):
     @stormfunc(readonly=True)
     async def _methGetChildren(self):
         view = self._reqView()
-        async for child in view.children():
+        for child in view.children():
             yield View(self.runt, await child.pack(), path=self.path)
 
     @stormfunc(readonly=True)
@@ -8473,7 +8558,7 @@ class View(Prim):
                     mesg = f'No layer with iden: {layriden}'
                     raise s_exc.NoSuchLayer(mesg=mesg)
 
-                self.runt.confirm(('layer', 'read'), gateiden=layr.iden)
+                await self.runt.reqUserCanReadLayer(layr.iden)
 
             if not self.runt.isAdmin(gateiden=view.iden):
                 mesg = 'User must be an admin of the view to set the layers.'
@@ -8794,7 +8879,7 @@ class LibTrigger(Lib):
                 if iden.startswith(prefix):
                     if match is not None:
                         mesg = 'Provided iden matches more than one trigger.'
-                        raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+                        raise s_exc.BadArg(mesg=mesg, iden=prefix)
 
                     if not allowed(('trigger', 'get'), gateiden=iden):
                         continue
@@ -8803,7 +8888,7 @@ class LibTrigger(Lib):
 
         if match is None:
             mesg = 'Provided iden does not match any valid authorized triggers.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+            raise s_exc.BadArg(mesg=mesg, iden=prefix)
 
         return match
 
@@ -9368,14 +9453,14 @@ class LibCron(Lib):
             if iden.startswith(prefix) and allowed(perm, gateiden=iden):
                 if matchcron is not None:
                     mesg = 'Provided iden matches more than one cron job.'
-                    raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+                    raise s_exc.BadArg(mesg=mesg, iden=prefix)
                 matchcron = cron
 
         if matchcron is not None:
             return matchcron
 
         mesg = 'Provided iden does not match any valid authorized cron job.'
-        raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+        raise s_exc.BadArg(mesg=mesg, iden=prefix)
 
     def _parseWeekday(self, val):
         ''' Try to match a day-of-week abbreviation, then try a day-of-week full name '''
@@ -9787,7 +9872,7 @@ class LibCron(Lib):
 
         if not tslist and not atnow:
             mesg = 'At least one requirement must be provided'
-            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            raise s_exc.BadArg(mesg=mesg, kwargs=kwargs)
 
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
 
@@ -9861,7 +9946,12 @@ class LibCron(Lib):
         gatekeys = ((self.runt.user.iden, ('cron', 'get'), None),)
         defs = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-        return [CronJob(self.runt, cdef, path=self.path) for cdef in defs]
+        retn = []
+        for cdef in defs:
+            viewiden = cdef.get('view')
+            if self.runt.allowed(('view', 'read'), gateiden=viewiden):
+                retn.append(CronJob(self.runt, cdef, path=self.path))
+        return retn
 
     @stormfunc(readonly=True)
     async def _methCronGet(self, prefix):
@@ -9948,7 +10038,7 @@ class CronJob(Prim):
 
     @staticmethod
     def _formatTimestamp(ts):
-        return datetime.datetime.fromtimestamp(ts, datetime.UTC).strftime('%Y-%m-%dT%H:%M')
+        return datetime.datetime.fromtimestamp(ts / s_time.onesec, datetime.UTC).strftime('%Y-%m-%dT%H:%M')
 
     @stormfunc(readonly=True)
     async def _methCronJobPprint(self):
@@ -10038,6 +10128,39 @@ async def toprim(valu, path=None, use_list=False):
     mesg = 'Unable to convert object to Storm primitive.'
     raise s_exc.NoSuchType(mesg=mesg, name=valu.__class__.__name__)
 
+# Canonical data model type names for the base python primitive types. Used to
+# give a bare scalar value a model type when wrapping it as a typed Valu.
+_modlbasetypes = {
+    bool: 'bool',
+    int: 'int',
+    str: 'str',
+    float: 'hugenum',
+    decimal.Decimal: 'hugenum',
+}
+
+def modlBaseType(valu):
+    '''
+    Return the canonical data model type name for a base python primitive value,
+    or None if the value has no canonical base model type.
+    '''
+    return _modlbasetypes.get(type(valu))
+
+def toValu(valu):
+    '''
+    Wrap a base python scalar value (or a scalar storm primitive) into a typed
+    Valu carrying its canonical model type name. Values that have no canonical
+    base model type (bytes, containers, nodes, libs, existing Valu, etc.) are
+    returned unchanged.
+    '''
+    if isinstance(valu, Number):
+        return Valu((('hugenum', valu.value()), None))
+
+    name = _modlbasetypes.get(type(valu))
+    if name is not None:
+        return Valu(((name, valu), None))
+
+    return valu
+
 def fromprim(valu, path=None, basetypes=True):
 
     if valu is None:
@@ -10083,26 +10206,29 @@ def fromprim(valu, path=None, basetypes=True):
 
     return valu
 
-async def tostor(valu, packsafe=False):
+async def tostor(valu, packsafe=False, nidnorm=False):
 
     if not packsafe:
-        if isinstance(valu, (s_node.Node, NodeRef)):
+        if isinstance(valu, (s_node.Node, Valu, Query, Number, Undef)):
             return valu
 
         if isinstance(valu, Node):
             return valu.valu
 
-        if isinstance(valu, Number):
-            return valu
-
     elif isinstance(valu, Number):
         return str(valu)
+
+    if nidnorm and isinstance(valu, Valu):
+        runt = s_scope.get('runt')
+        tobj = runt.model.reqType(valu.valu[0])
+        styp = runt.view.wlyr.stortypes[tobj.stortype]
+        return styp.nidNorm(valu.valu[1])
 
     if isinstance(valu, (tuple, list)):
         retn = []
         for v in valu:
             try:
-                retn.append(await tostor(v, packsafe=packsafe))
+                retn.append(await tostor(v, packsafe=packsafe, nidnorm=nidnorm))
             except s_exc.NoSuchType:
                 pass
         return tuple(retn)
@@ -10111,7 +10237,7 @@ async def tostor(valu, packsafe=False):
         retn = []
         for v in valu.valu:
             try:
-                retn.append(await tostor(v, packsafe=packsafe))
+                retn.append(await tostor(v, packsafe=packsafe, nidnorm=nidnorm))
             except s_exc.NoSuchType:
                 pass
         return tuple(retn)
@@ -10120,7 +10246,7 @@ async def tostor(valu, packsafe=False):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await tostor(v, packsafe=packsafe)
+                retn[k] = await tostor(v, packsafe=packsafe, nidnorm=nidnorm)
             except s_exc.NoSuchType:
                 pass
         return retn
@@ -10129,7 +10255,7 @@ async def tostor(valu, packsafe=False):
         retn = {}
         for k, v in valu.valu.items():
             try:
-                retn[k] = await tostor(v, packsafe=packsafe)
+                retn[k] = await tostor(v, packsafe=packsafe, nidnorm=nidnorm)
             except s_exc.NoSuchType:
                 pass
         return retn
@@ -10207,7 +10333,7 @@ async def tonumber(valu, noneok=False):
     if isinstance(valu, Number):
         return valu
 
-    if isinstance(valu, NodeRef):
+    if isinstance(valu, Valu):
         return Number(valu.valu[1])
 
     if isinstance(valu, (float, decimal.Decimal)) or (isinstance(valu, str) and '.' in valu):
@@ -10260,7 +10386,7 @@ async def torepr(valu, usestr=False):
         return str(valu).lower()
 
     if valu is None:
-        return '$lib.null'
+        return 'null'
 
     if usestr:
         return str(valu)

@@ -514,13 +514,15 @@ bar baz",vv
         with self.raises(s_exc.BadDataValu):
             await axon.unpack(sha256, '>Q', offs=24)
 
-    async def runAxonTestHttp(self, axon, realaxon=None):
+    async def runAxonTestHttp(self, axon, realaxon=None, apikey=False):
         '''
         Test Axon HTTP APIs.
 
         Args:
             axon: A cell that implements the axon http apis
             realaxon: The actual axon cell; if None defaults to the axon arg
+            apikey: If True, authenticate via X-API-KEY rather than a session login.
+                    Used when the http apis are restricted to api-key auth (e.g. on a Cortex).
         '''
 
         if realaxon is None:
@@ -531,10 +533,19 @@ bar baz",vv
         newb = await axon.auth.addUser('newb')
         await newb.setPasswd('secret')
 
-        url_de = f'https://localhost:{port}/api/v1/axon/files/del'
-        url_ul = f'https://localhost:{port}/api/v1/axon/files/put'
-        url_hs = f'https://localhost:{port}/api/v1/axon/files/has/sha256'
-        url_dl = f'https://localhost:{port}/api/v1/axon/files/by/sha256'
+        newbkey = None
+        if apikey:
+            newbkey, _ = await axon.addUserApiKey(newb.iden, 'test')
+
+        def getNewbSess():
+            if apikey:
+                return self.getHttpSess(port=port, headers={'X-API-KEY': newbkey})
+            return self.getHttpSess(auth=('newb', 'secret'), port=port)
+
+        url_de = f'https://localhost:{port}/api/v3/axon/files/del'
+        url_ul = f'https://localhost:{port}/api/v3/axon/files/put'
+        url_hs = f'https://localhost:{port}/api/v3/axon/files/has/sha256'
+        url_dl = f'https://localhost:{port}/api/v3/axon/files/by/sha256'
 
         asdfhash_h = s_common.ehex(asdfhash)
         bbufhash_h = s_common.ehex(bbufhash)
@@ -555,7 +566,7 @@ bar baz",vv
                 self.eq('NotAuthenticated', info.get('code'))
 
         # Perms
-        async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
+        async with getNewbSess() as sess:
 
             async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
                 self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
@@ -599,7 +610,7 @@ bar baz",vv
         await newb.addRule((True, ('axon', 'upload')))
 
         # Basic
-        async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
+        async with getNewbSess() as sess:
             async with sess.get(f'{url_dl}/foobar') as resp:
                 self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                 info = await resp.json()
@@ -723,7 +734,7 @@ bar baz",vv
                 item = await resp.json()
                 self.eq('err', item.get('status'))
 
-            # test /api/v1/axon/file/del API
+            # test /api/v3/axon/file/del API
             data = {'sha256s': (asdfhash_h, asdfhash_h)}
             async with sess.post(url_de, json=data) as resp:
                 self.eq(resp.status, http.HTTPStatus.OK)
@@ -944,7 +955,7 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             sha2 = s_common.ehex(sha256)
             async with axon.getLocalProxy() as proxy:
 
-                resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{sha2}',
+                resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v3/axon/files/by/sha256/{sha2}',
                                         ssl={'verify': False})
                 self.eq(True, resp['ok'])
                 self.eq(200, resp['code'])
@@ -952,7 +963,7 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
                 self.eq('OK', resp['reason'])
                 self.eq('application/octet-stream', resp['headers']['Content-Type'])
 
-                resp = await proxy.wget(f'http://visi:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{sha2}')
+                resp = await proxy.wget(f'http://visi:secret@127.0.0.1:{port}/api/v3/axon/files/by/sha256/{sha2}')
                 self.false(resp['ok'])
                 self.eq(-1, resp['code'])
                 self.isin('Exception occurred during request: ClientOSError: [Errno 104]', resp['reason'])
@@ -960,8 +971,8 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
 
                 async def timeout(self):
                     await asyncio.sleep(2)
-                with mock.patch.object(s_httpapi.ActiveV1, 'get', timeout):
-                    resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v1/active', timeout=1,
+                with mock.patch.object(s_httpapi.ActiveV3, 'get', timeout):
+                    resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v3/active', timeout=1,
                                             ssl={'verify': False})
                     self.eq(False, resp['ok'])
                     self.eq('TimeoutError', resp['mesg'])
@@ -987,7 +998,7 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
         async with self.getTestCore() as core:
 
             axon = core.axon
-            axon.addHttpApi('/api/v1/pushfile', HttpPushFile, {'cell': axon})
+            axon.addHttpApi('/api/v3/pushfile', HttpPushFile, {'cell': axon})
 
             async with await axon.upload() as fd:
                 await fd.write(b'asdfasdf')
@@ -997,18 +1008,18 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
 
             async with axon.getLocalProxy() as proxy:
 
-                resp = await proxy.wput(sha256, f'https://127.0.0.1:{port}/api/v1/pushfile', method='PUT', ssl={'verify': False})
+                resp = await proxy.wput(sha256, f'https://127.0.0.1:{port}/api/v3/pushfile', method='PUT', ssl={'verify': False})
                 self.eq(True, resp['ok'])
                 self.eq(200, resp['code'])
                 self.eq('OK', resp['reason'])
 
             opts = {'vars': {'sha256': s_common.ehex(sha256), 'port': port}}
-            q = 'return( $lib.axon.wput( $sha256, `https://127.0.0.1:{$port}/api/v1/pushfile`, ssl=({"verify": false}) ) )'
+            q = 'return( $lib.axon.wput( $sha256, `https://127.0.0.1:{$port}/api/v3/pushfile`, ssl=({"verify": false}) ) )'
             resp = await core.callStorm(q, opts=opts)
             self.eq(True, resp['ok'])
             self.eq(200, resp['code'])
 
-            jsonq = '''$resp = $lib.axon.wput($sha256, `https://127.0.0.1:{$port}/api/v1/pushfile`, ssl=({"verify": false}))
+            jsonq = '''$resp = $lib.axon.wput($sha256, `https://127.0.0.1:{$port}/api/v3/pushfile`, ssl=({"verify": false}))
             return ( $lib.json.save($resp) )
             '''
             resp = await core.callStorm(jsonq, opts=opts)
@@ -1032,7 +1043,7 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
                 ({'name':'dict', 'value':({'foo':'bar'})}),
                 ({'name':'bytes', 'value':$bytes})
             ])
-            $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v1/pushfile`,
+            $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v3/pushfile`,
                                         fields=$fields, ssl=({"verify": false}))
             return($resp)
             '''
@@ -1047,14 +1058,14 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             self.isin('Axon does not contain the requested file.', resp.get('reason'))
 
             async with axon.getLocalProxy() as proxy:
-                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl={'verify': False})
+                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v3/pushfile', ssl={'verify': False})
                 self.true(resp['ok'])
                 self.eq(200, resp['code'])
 
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestAxon(conf=conf) as axon:
 
-            axon.addHttpApi('/api/v1/pushfile', HttpPushFile, {'cell': axon})
+            axon.addHttpApi('/api/v3/pushfile', HttpPushFile, {'cell': axon})
 
             async with await axon.upload() as fd:
                 await fd.write(b'asdfasdf')
@@ -1063,12 +1074,12 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             host, port = await axon.addHttpsPort(0, host='127.0.0.1')
 
             async with axon.getLocalProxy() as proxy:
-                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl={'verify': False})
+                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v3/pushfile', ssl={'verify': False})
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 
                 with self.raises(s_exc.BadArg):
-                    resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl={'verify': False}, proxy=None)
+                    resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v3/pushfile', ssl={'verify': False}, proxy=None)
 
             resp = await proxy.wput(sha256, 'vertex.link')
             self.false(resp.get('ok'))
@@ -1082,7 +1093,7 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             url = axon.getLocalUrl()
             async with self.getTestCore(conf={'axon': url}) as core:
                 q = '''
-                $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v1/pushfile`,
+                $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v3/pushfile`,
                                             fields=$fields, ssl=({"verify": false}))
                 return($resp)
                 '''
@@ -1091,7 +1102,7 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 
                 q = '''
-                $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v1/pushfile`,
+                $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v3/pushfile`,
                                             fields=$fields, ssl=({"verify": false}), proxy=(false))
                 return($resp)
                 '''
@@ -1121,15 +1132,15 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             conf = {'auth:passwd': 'root'}
             async with self.getTestAxon(dirn=dirn, conf=conf) as axon:
                 host, port = await axon.addHttpsPort(0, host='127.0.0.1')
-                url = f'https://root:root@127.0.0.1:{port}/api/v1/active'
+                url = f'https://root:root@127.0.0.1:{port}/api/v3/active'
                 resp = await axon.wget(url)
                 self.false(resp.get('ok'))
                 self.isin('unable to get local issuer certificate', resp.get('mesg'))
 
                 retn = await axon.put(abuf)
                 self.eq(retn, asdfretn)
-                axon.addHttpApi('/api/v1/pushfile', HttpPushFile, {'cell': axon})
-                url = f'https://root:root@127.0.0.1:{port}/api/v1/pushfile'
+                axon.addHttpApi('/api/v3/pushfile', HttpPushFile, {'cell': axon})
+                url = f'https://root:root@127.0.0.1:{port}/api/v3/pushfile'
                 resp = await axon.wput(asdfhash, url)
                 self.false(resp.get('ok'))
                 self.isin('unable to get local issuer certificate', resp.get('mesg'))
@@ -1141,14 +1152,14 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             conf = {'auth:passwd': 'root', 'tls:ca:dir': tlscadir}
             async with self.getTestAxon(dirn=dirn, conf=conf) as axon:
                 host, port = await axon.addHttpsPort(0, host='127.0.0.1')
-                url = f'https://root:root@localhost:{port}/api/v1/active'
+                url = f'https://root:root@localhost:{port}/api/v3/active'
                 resp = await axon.wget(url)
                 self.true(resp.get('ok'))
 
                 retn = await axon.put(abuf)
                 self.eq(retn, asdfretn)
-                axon.addHttpApi('/api/v1/pushfile', HttpPushFile, {'cell': axon})
-                url = f'https://root:root@localhost:{port}/api/v1/pushfile'
+                axon.addHttpApi('/api/v3/pushfile', HttpPushFile, {'cell': axon})
+                url = f'https://root:root@localhost:{port}/api/v3/pushfile'
                 resp = await axon.wput(asdfhash, url)
                 self.true(resp.get('ok'))
 
@@ -1266,7 +1277,7 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
 
             async def oldCellInfo():
                 realinfo = await orig()
-                realinfo['synapse']['version'] = (2, 0, 0)
+                realinfo['synapse']['version'] = '2.0.0'
                 return realinfo
 
             with mock.patch.object(axon, 'getCellInfo', oldCellInfo):
@@ -1274,4 +1285,4 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
 
                 with self.getLoggerStream('synapse.cortex') as stream:
                     async with self.getTestCore(conf={'axon': url}) as core:
-                        await stream.expect('running Synapse (2, 0, 0)', timeout=12)
+                        await stream.expect('running Synapse 2.0.0', timeout=12)

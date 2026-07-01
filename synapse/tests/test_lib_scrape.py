@@ -740,109 +740,109 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes = list(s_scrape.scrape(btc_addresses))
         self.len(11, nodes)
         nodes.remove(('crypto:currency:address',
-                      ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')))
+                      ({'symbol': 'btc', 'id': 'bip122:000000000019d6689c085ae165831e93'}, '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')))
         nodes.remove(('crypto:currency:address',
-                      ('btc', '16ftSEQ4ctQFDtVZiUBusQUjRrGhM3JYwe')))
+                      ({'symbol': 'btc', 'id': 'bip122:000000000019d6689c085ae165831e93'}, '16ftSEQ4ctQFDtVZiUBusQUjRrGhM3JYwe')))
         nodes.remove(('crypto:currency:address',
-                      ('btc', '3279PyBGjZTnu1GNSXamReTj98kiYgZdtW')))
+                      ({'symbol': 'btc', 'id': 'bip122:000000000019d6689c085ae165831e93'}, '3279PyBGjZTnu1GNSXamReTj98kiYgZdtW')))
         nodes.remove(('crypto:currency:address',
-                      ('btc', '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')))
+                      ({'symbol': 'btc', 'id': 'bip122:000000000019d6689c085ae165831e93'}, '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')))
         nodes.remove(('crypto:currency:address',
-                      ('btc', 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4')))
+                      ({'symbol': 'btc', 'id': 'bip122:000000000019d6689c085ae165831e93'}, 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4')))
         nodes.remove(('crypto:currency:address',
-                      ('btc', 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx')))
+                      ({'symbol': 'btc', 'id': 'bip122:000000000933ea01ad0ee984209779ba'}, 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx')))
         nodes.remove(('crypto:currency:address',
-                      ('btc', 'bcrt1qs758ursh4q9z627kt3pp5yysm78ddny6txaqgw')))
+                      ({'symbol': 'btc', 'id': 'bip122:0f9188f13cb7b2c71f2a335e3a4fc328'}, 'bcrt1qs758ursh4q9z627kt3pp5yysm78ddny6txaqgw')))
         nodes.remove(('crypto:currency:address',
-                      ('btc', 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3')))
+                      ({'symbol': 'btc', 'id': 'bip122:000000000019d6689c085ae165831e93'}, 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3')))
         nodes.remove(('crypto:currency:address',
-                      ('btc', 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7')))
+                      ({'symbol': 'btc', 'id': 'bip122:000000000933ea01ad0ee984209779ba'}, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7')))
         nodes.remove(('crypto:currency:address',
-                      ('btc', 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7')))
+                      ({'symbol': 'btc', 'id': 'bip122:000000000933ea01ad0ee984209779ba'}, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7')))
         nodes.remove(('crypto:currency:address',
-                      ('btc', 'bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx')))
+                      ({'symbol': 'btc', 'id': 'bip122:000000000019d6689c085ae165831e93'}, 'bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx')))
         self.len(0, nodes)
 
         nodes = list(s_scrape.scrape(eth_addresses))
         self.len(10, nodes)
         nodes.remove(('crypto:currency:address',
-                      ('eth', '0x001d3F1ef827552Ae1114027BD3ECF1f086bA0F9')))
+                      ({'symbol': 'eth', 'id': 'eip155:1'}, '0x001d3F1ef827552Ae1114027BD3ECF1f086bA0F9')))
         nodes.remove(('crypto:currency:address',
-                      ('eth', '0x52908400098527886E0F7030069857D2E4169EE7')))
+                      ({'symbol': 'eth', 'id': 'eip155:1'}, '0x52908400098527886E0F7030069857D2E4169EE7')))
         nodes.remove(('crypto:currency:address',
-                      ('eth', '0x8617E340B3D01FA5F11F306F4090FD50E238070D')))
+                      ({'symbol': 'eth', 'id': 'eip155:1'}, '0x8617E340B3D01FA5F11F306F4090FD50E238070D')))
         nodes.remove(('crypto:currency:address',
-                      ('eth', '0xde709f2102306220921060314715629080e2fb77')))
+                      ({'symbol': 'eth', 'id': 'eip155:1'}, '0xde709f2102306220921060314715629080e2fb77')))
         nodes.remove(('crypto:currency:address',
-                      ('eth', '0x27b1fdb04752bbc536007a920d24acb045561c26')))
+                      ({'symbol': 'eth', 'id': 'eip155:1'}, '0x27b1fdb04752bbc536007a920d24acb045561c26')))
         nodes.remove(('crypto:currency:address',
-                      ('eth', '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed')))
+                      ({'symbol': 'eth', 'id': 'eip155:1'}, '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed')))
         nodes.remove(('crypto:currency:address',
-                      ('eth', '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359')))
+                      ({'symbol': 'eth', 'id': 'eip155:1'}, '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359')))
         nodes.remove(('crypto:currency:address',
-                      ('eth', '0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB')))
+                      ({'symbol': 'eth', 'id': 'eip155:1'}, '0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB')))
         nodes.remove(('crypto:currency:address',
-                      ('eth', '0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb')))
+                      ({'symbol': 'eth', 'id': 'eip155:1'}, '0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb')))
         nodes.remove(('crypto:currency:address',
-                      ('eth', '0x633b354Cf215dFF4ff3D686aFf363Fa0132877f3')))
+                      ({'symbol': 'eth', 'id': 'eip155:1'}, '0x633b354Cf215dFF4ff3D686aFf363Fa0132877f3')))
         self.len(0, nodes)
 
         nodes = list(s_scrape.scrape(bch_addresses))
         self.len(3, nodes)
         nodes.remove(('crypto:currency:address',
-                      ('bch', 'bitcoincash:qqeht8vnwag20yv8dvtcrd4ujx09fwxwsqqqw93w88')))
+                      ({'symbol': 'bch', 'id': 'bip122:000000000000000000651ef99cb9fcbe'}, 'bitcoincash:qqeht8vnwag20yv8dvtcrd4ujx09fwxwsqqqw93w88')))
         nodes.remove(('crypto:currency:address',
-                      ('bch', 'bchtest:pqc3tyspqwn95retv5k3c5w4fdq0cxvv95u36gfk00')))
+                      ({'symbol': 'bch', 'id': 'bip122:000000000000000000651ef99cb9fcbe'}, 'bchtest:pqc3tyspqwn95retv5k3c5w4fdq0cxvv95u36gfk00')))
         nodes.remove(('crypto:currency:address',
-                      ('bch', 'bitcoincash:qqkv9wr69ry2p9l53lxp635va4h86wv435995w8p2h')))
+                      ({'symbol': 'bch', 'id': 'bip122:000000000000000000651ef99cb9fcbe'}, 'bitcoincash:qqkv9wr69ry2p9l53lxp635va4h86wv435995w8p2h')))
 
         nodes = list(s_scrape.scrape(xrp_addresses))
         self.len(10, nodes)
-        nodes.remove(('crypto:currency:address', ('xrp', 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
-        nodes.remove(('crypto:currency:address', ('xrp', 'rfBKzgkPt9EvSJmk1uhoWTauaFCaRh4jMp')))
-        nodes.remove(('crypto:currency:address', ('xrp', 'rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD')))
+        nodes.remove(('crypto:currency:address', ({'symbol': 'xrp', 'id': 'xrpl:0'}, 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
+        nodes.remove(('crypto:currency:address', ({'symbol': 'xrp', 'id': 'xrpl:0'}, 'rfBKzgkPt9EvSJmk1uhoWTauaFCaRh4jMp')))
+        nodes.remove(('crypto:currency:address', ({'symbol': 'xrp', 'id': 'xrpl:0'}, 'rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD')))
         nodes.remove(('crypto:currency:address',
-                      ('xrp', 'X7AcgcsBL6XDcUb289X4mJ8djcdyKaB5hJDWMArnXr61cqZ')), )
-        nodes.remove(('crypto:currency:address', ('xrp', 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
-        nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrrhoLvTp')))
-        nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrBZbvji')))
-        nodes.remove(('crypto:currency:address', ('xrp', 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh')))
-        nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrNAMEtxvNvQ')))
-        nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrn5RM1rHd')))
+                      ({'symbol': 'xrp', 'id': 'xrpl:0'}, 'X7AcgcsBL6XDcUb289X4mJ8djcdyKaB5hJDWMArnXr61cqZ')), )
+        nodes.remove(('crypto:currency:address', ({'symbol': 'xrp', 'id': 'xrpl:0'}, 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
+        nodes.remove(('crypto:currency:address', ({'symbol': 'xrp', 'id': 'xrpl:0'}, 'rrrrrrrrrrrrrrrrrrrrrhoLvTp')))
+        nodes.remove(('crypto:currency:address', ({'symbol': 'xrp', 'id': 'xrpl:0'}, 'rrrrrrrrrrrrrrrrrrrrBZbvji')))
+        nodes.remove(('crypto:currency:address', ({'symbol': 'xrp', 'id': 'xrpl:0'}, 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh')))
+        nodes.remove(('crypto:currency:address', ({'symbol': 'xrp', 'id': 'xrpl:0'}, 'rrrrrrrrrrrrrrrrrNAMEtxvNvQ')))
+        nodes.remove(('crypto:currency:address', ({'symbol': 'xrp', 'id': 'xrpl:0'}, 'rrrrrrrrrrrrrrrrrrrn5RM1rHd')))
 
         nodes = list(s_scrape.scrape(substrate_addresses))
         self.len(4, nodes)
         nodes.remove(('crypto:currency:address',
-                      ('dot', '12uxb9baJaiHhCvMzijnCYbkiXpGQ24jhj4AmhNvrMEzWuoV')))
+                      ({'symbol': 'dot', 'id': 'polkadot:91b171bb158e2d3848fa23a9f1c25182'}, '12uxb9baJaiHhCvMzijnCYbkiXpGQ24jhj4AmhNvrMEzWuoV')))
         nodes.remove(('crypto:currency:address',
-                      ('dot', '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg')))
+                      ({'symbol': 'dot', 'id': 'polkadot:91b171bb158e2d3848fa23a9f1c25182'}, '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg')))
         nodes.remove(('crypto:currency:address',
-                      ('ksm', 'JL1eTcbzuZP99FjeySkDrMygNREPdbhRyV7iD5AsV4fDRcg')))
+                      ({'symbol': 'ksm', 'id': 'polkadot:b0a8d493285c2df73290dfb7e61f870f'}, 'JL1eTcbzuZP99FjeySkDrMygNREPdbhRyV7iD5AsV4fDRcg')))
         nodes.remove(('crypto:currency:address',
-                      ('ksm', 'CpjsLDC1JFyrhm3ftC9Gs4QoyrkHKhZKtK7YqGTRFtTafgp')))
+                      ({'symbol': 'ksm', 'id': 'polkadot:b0a8d493285c2df73290dfb7e61f870f'}, 'CpjsLDC1JFyrhm3ftC9Gs4QoyrkHKhZKtK7YqGTRFtTafgp')))
 
         nodes = list(s_scrape.scrape(cardano_addresses))
         self.len(9, nodes)
         nodes.remove(('crypto:currency:address',
-                      ('ada', 'Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi')))
+                      ({'symbol': 'ada', 'id': 'cip34:1-764824073'}, 'Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi')))
         nodes.remove(('crypto:currency:address',
-                      ('ada', 'Ae2tdPwUPEYzs5BRbGcoS3DXvK8mwgggmESz4HqUwMyaS9eNksZGz1LMS9v')))
+                      ({'symbol': 'ada', 'id': 'cip34:1-764824073'}, 'Ae2tdPwUPEYzs5BRbGcoS3DXvK8mwgggmESz4HqUwMyaS9eNksZGz1LMS9v')))
         nodes.remove(('crypto:currency:address',
-                      ('ada', 'Ae2tdPwUPEYxYNJw1He1esdZYvjmr4NtPzUsGTiqL9zd8ohjZYQcwu6kom7')))
+                      ({'symbol': 'ada', 'id': 'cip34:1-764824073'}, 'Ae2tdPwUPEYxYNJw1He1esdZYvjmr4NtPzUsGTiqL9zd8ohjZYQcwu6kom7')))
         nodes.remove(('crypto:currency:address',
-                      ('ada',
+                      ({'symbol': 'ada', 'id': 'cip34:1-764824073'},
                        'DdzFFzCqrhtCNjPk5Lei7E1FxnoqMoAYtJ8VjAWbFmDb614nNBWBwv3kt6QHJa59cGezzf6piMWsbK7sWRB5sv325QqWdRuusMqqLdMt')))
         nodes.remove(('crypto:currency:address',
-                      ('ada',
+                      ({'symbol': 'ada', 'id': 'cip34:1-764824073'},
                        'DdzFFzCqrhsfdzUZxvuBkhV8Lpm9p43p9ubh79GCTkxJikAjKh51qhtCFMqUniC5tv5ZExyvSmAte2Du2tGimavSo6qSgXbjiy8qZRTg')))
         nodes.remove(('crypto:currency:address',
-                      ('ada', 'addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80w')))
+                      ({'symbol': 'ada', 'id': 'cip34:1-764824073'}, 'addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80w')))
         nodes.remove(('crypto:currency:address',
-                      ('ada', 'addr1v8fet8gavr6elqt6q50skkjf025zthqu6vr56l5k39sp9aqlvz2g4')))
+                      ({'symbol': 'ada', 'id': 'cip34:1-764824073'}, 'addr1v8fet8gavr6elqt6q50skkjf025zthqu6vr56l5k39sp9aqlvz2g4')))
         nodes.remove(('crypto:currency:address',
-                      ('ada', 'addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k')))
+                      ({'symbol': 'ada', 'id': 'cip34:1-764824073'}, 'addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k')))
         nodes.remove(('crypto:currency:address',
-                      ('ada', 'addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve')))
+                      ({'symbol': 'ada', 'id': 'cip34:1-764824073'}, 'addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve')))
 
         nodes = list(s_scrape.scrape(linux_paths))
         nodes = [k for k in nodes if k[0] == 'file:path']
@@ -1127,11 +1127,11 @@ class ScrapeTest(s_t_utils.SynTest):
                     'valu': 'http://bar.com',
                     'form': 'inet:url'})
 
-        r = [r for r in results if r.get('valu') == ('eth', '0x52908400098527886E0F7030069857D2E4169EE7')][0]
+        r = [r for r in results if r.get('valu') == ({'symbol': 'eth', 'id': 'eip155:1'}, '0x52908400098527886E0F7030069857D2E4169EE7')][0]
         self.eq(r, {'form': 'crypto:currency:address',
                     'offset': 430,
                     'match': '0x52908400098527886E0F7030069857D2E4169EE7',
-                    'valu': ('eth', '0x52908400098527886E0F7030069857D2E4169EE7')}
+                    'valu': ({'symbol': 'eth', 'id': 'eip155:1'}, '0x52908400098527886E0F7030069857D2E4169EE7')}
                 )
 
         r = [r for r in results if r.get('valu') == 'https://legitcorp.com/blah/giggle.html'][0]

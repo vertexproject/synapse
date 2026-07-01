@@ -503,6 +503,28 @@ class Handler(HandlerBase, t_web.RequestHandler):
         if hasattr(self, 'task'):
             self.task.cancel()
 
+class ApiKeyOnlyMixin:
+    '''
+    Restrict a handler to X-API-KEY authentication only.
+
+    Disables session-cookie and HTTP Basic authentication by resolving the
+    user iden solely from the X-API-KEY header. The sess() and handleBasicAuth()
+    code paths (and any session derived auth such as AWS ALB OIDC) are never
+    consulted.
+
+    Notes:
+        Mix this in before the base Handler so that this useriden() wins MRO.
+    '''
+    async def useriden(self):
+        if self.web_useriden is not None:
+            return self.web_useriden
+
+        key = self.request.headers.get('X-API-KEY')
+        if key is not None:
+            return await self.handleApiKeyAuth()
+
+        return None
+
 class RobotHandler(HandlerBase, t_web.RequestHandler):
     async def get(self):
         self.write('User-agent: *\n')
@@ -569,7 +591,7 @@ class StormHandler(Handler):
             return self.sendRestExc(err, status_code=HTTPStatus.NOT_FOUND)
         return self.sendRestExc(err, status_code=HTTPStatus.BAD_REQUEST)
 
-class StormV1(StormHandler):
+class StormV3(ApiKeyOnlyMixin, StormHandler):
 
     async def post(self):
         return await self.get()
@@ -604,7 +626,7 @@ class StormV1(StormHandler):
             if not flushed:
                 return self._handleStormErr(e)
 
-class StormCallV1(StormHandler):
+class StormCallV3(ApiKeyOnlyMixin, StormHandler):
 
     async def post(self):
         return await self.get()
@@ -632,7 +654,7 @@ class StormCallV1(StormHandler):
         else:
             return self.sendRestRetn(ret)
 
-class StormExportV1(StormHandler):
+class StormExportV3(ApiKeyOnlyMixin, StormHandler):
 
     async def post(self):
         return await self.get()
@@ -664,7 +686,7 @@ class StormExportV1(StormHandler):
             if not flushed:
                 return self._handleStormErr(e)
 
-class ReqValidStormV1(StormHandler):
+class ReqValidStormV3(StormHandler):
 
     async def post(self):
         return await self.get()
@@ -685,7 +707,7 @@ class ReqValidStormV1(StormHandler):
         else:
             return self.sendRestRetn(ret)
 
-class IsValidStormV1(StormHandler):
+class IsValidStormV3(StormHandler):
 
     async def post(self):
         return await self.get()
@@ -702,7 +724,7 @@ class IsValidStormV1(StormHandler):
         ret = await self.cell.isValidStorm(query, opts)
         return self.sendRestRetn(ret)
 
-class BeholdSockV1(WebSocket):
+class BeholdSockV3(WebSocket):
 
     async def onInitMessage(self, byts):
         try:
@@ -734,7 +756,7 @@ class BeholdSockV1(WebSocket):
     async def on_message(self, byts):
         self.cell.schedCoro(self.onInitMessage(byts))
 
-class LoginV1(Handler):
+class LoginV3(Handler):
 
     async def post(self):
 
@@ -769,7 +791,7 @@ class LoginV1(Handler):
 
         return self.sendRestRetn(await authcell.getUserDef(iden))
 
-class LogoutV1(Handler):
+class LogoutV3(Handler):
 
     async def get(self):
         sess = await self.sess(gen=False)
@@ -782,7 +804,7 @@ class LogoutV1(Handler):
 
         self.sendRestRetn(True)
 
-class AuthUsersV1(Handler):
+class AuthUsersV3(Handler):
 
     async def get(self):
 
@@ -810,7 +832,7 @@ class AuthUsersV1(Handler):
 
         return
 
-class AuthRolesV1(Handler):
+class AuthRolesV3(Handler):
 
     async def get(self):
 
@@ -819,7 +841,7 @@ class AuthRolesV1(Handler):
 
         self.sendRestRetn(await self.getAuthCell().getRoleDefs())
 
-class AuthUserV1(Handler):
+class AuthUserV3(Handler):
 
     async def get(self, iden):
 
@@ -880,7 +902,7 @@ class AuthUserV1(Handler):
 
         self.sendRestRetn(await authcell.getUserDef(iden, packroles=False))
 
-class AuthUserPasswdV1(Handler):
+class AuthUserPasswdV3(Handler):
 
     async def post(self, iden):
 
@@ -906,7 +928,7 @@ class AuthUserPasswdV1(Handler):
                 return
         self.sendRestRetn(await authcell.getUserDef(iden, packroles=False))
 
-class AuthRoleV1(Handler):
+class AuthRoleV3(Handler):
 
     async def get(self, iden):
 
@@ -943,9 +965,9 @@ class AuthRoleV1(Handler):
 
         self.sendRestRetn(await authcell.getRoleDef(iden))
 
-class AuthGrantV1(Handler):
+class AuthGrantV3(Handler):
     '''
-    /api/v1/auth/grant?user=iden&role=iden
+    /api/v3/auth/grant?user=iden&role=iden
     '''
     async def post(self):
         return await self.get()
@@ -979,9 +1001,9 @@ class AuthGrantV1(Handler):
 
         return
 
-class AuthRevokeV1(Handler):
+class AuthRevokeV3(Handler):
     '''
-    /api/v1/auth/grant?user=iden&role=iden
+    /api/v3/auth/grant?user=iden&role=iden
     '''
     async def post(self):
         return await self.get()
@@ -1015,7 +1037,7 @@ class AuthRevokeV1(Handler):
 
         return
 
-class AuthAddUserV1(Handler):
+class AuthAddUserV3(Handler):
 
     async def post(self):
 
@@ -1062,7 +1084,7 @@ class AuthAddUserV1(Handler):
         self.sendRestRetn(udef)
         return
 
-class AuthAddRoleV1(Handler):
+class AuthAddRoleV3(Handler):
 
     async def post(self):
 
@@ -1095,7 +1117,7 @@ class AuthAddRoleV1(Handler):
         self.sendRestRetn(await authcell.getRoleDef(iden))
         return
 
-class AuthDelRoleV1(Handler):
+class AuthDelRoleV3(Handler):
 
     async def post(self):
 
@@ -1123,7 +1145,7 @@ class AuthDelRoleV1(Handler):
         self.sendRestRetn(None)
         return
 
-class ModelNormV1(Handler):
+class ModelNormV3(ApiKeyOnlyMixin, Handler):
 
     async def post(self):
         return await self.get()
@@ -1156,7 +1178,7 @@ class ModelNormV1(Handler):
         else:
             self.sendRestRetn({'norm': valu, 'info': info})
 
-class ModelV1(Handler):
+class ModelV3(ApiKeyOnlyMixin, Handler):
 
     async def get(self):
 
@@ -1166,7 +1188,7 @@ class ModelV1(Handler):
         resp = await self.cell.getModelDict()
         return self.sendRestRetn(resp)
 
-class HealthCheckV1(Handler):
+class HealthCheckV3(Handler):
 
     async def get(self):
         if not await self.allowed(('health', )):
@@ -1174,13 +1196,13 @@ class HealthCheckV1(Handler):
         resp = await self.cell.getHealthCheck()
         return self.sendRestRetn(resp)
 
-class ActiveV1(Handler):
+class ActiveV3(Handler):
 
     async def get(self):
         resp = {'active': self.cell.isactive}
         return self.sendRestRetn(resp)
 
-class StormVarsGetV1(Handler):
+class StormVarsGetV3(Handler):
 
     async def get(self):
 
@@ -1197,7 +1219,7 @@ class StormVarsGetV1(Handler):
         valu = await self.cell.getStormVar(varname, default=defvalu)
         return self.sendRestRetn(valu)
 
-class StormVarsPopV1(Handler):
+class StormVarsPopV3(Handler):
 
     async def post(self):
 
@@ -1214,7 +1236,7 @@ class StormVarsPopV1(Handler):
         valu = await self.cell.popStormVar(varname, default=defvalu)
         return self.sendRestRetn(valu)
 
-class StormVarsSetV1(Handler):
+class StormVarsSetV3(Handler):
 
     async def post(self):
 
@@ -1234,9 +1256,9 @@ class StormVarsSetV1(Handler):
         await self.cell.setStormVar(varname, varvalu)
         return self.sendRestRetn(True)
 
-class OnePassIssueV1(Handler):
+class OnePassIssueV3(Handler):
     '''
-    /api/v1/auth/onepass/issue
+    /api/v3/auth/onepass/issue
     '''
     async def post(self):
 
@@ -1258,9 +1280,9 @@ class OnePassIssueV1(Handler):
 
         return self.sendRestRetn(passwd)
 
-class FeedV1(Handler):
+class FeedV3(Handler):
     '''
-    /api/v1/feed
+    /api/v3/feed
 
     Examples:
 
@@ -1309,9 +1331,9 @@ class FeedV1(Handler):
         except Exception as e:  # pragma: no cover
             return self.sendRestExc(e, status_code=HTTPStatus.BAD_REQUEST)
 
-class CoreInfoV1(Handler):
+class CoreInfoV3(Handler):
     '''
-    /api/v1/core/info
+    /api/v3/core/info
     '''
 
     async def get(self):
@@ -1322,7 +1344,7 @@ class CoreInfoV1(Handler):
         resp = await self.cell.getCoreInfoV2()
         return self.sendRestRetn(resp)
 
-class ExtApiHandler(StormHandler):
+class ExtApiHandler(ApiKeyOnlyMixin, StormHandler):
     '''
     /api/ext/.*
     '''

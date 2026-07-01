@@ -78,7 +78,11 @@ async def main(argv, outp=s_output.stdout):
 
             finally:
                 if forkiden is not None:
-                    await core.delViewWithLayer(forkiden)
+                    forkview = core.getView(forkiden)
+                    if forkview is not None:
+                        layriden = forkview.wlyr.iden
+                        await core.delView(forkiden)
+                        await core.delLayer(layriden)
 
         return ret
 

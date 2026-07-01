@@ -52,14 +52,8 @@ class VersionTest(s_t_utils.SynTest):
         self.eq(s_version.mask20.bit_length(), 20)
         self.eq(s_version.mask60.bit_length(), 60)
 
-        self.isinstance(s_version.version, tuple)
-        self.len(3, s_version.version)
-        for v in s_version.version:
-            self.isinstance(v, int)
-
-        self.isinstance(s_version.verstring, str)
-        tver = tuple([int(p) for p in s_version.verstring.split('.')])
-        self.eq(tver, s_version.version)
+        # version is the canonical string
+        self.isinstance(s_version.version, str)
 
         self.isinstance(s_version.commit, str)
         self.true((s_version.commit == '') or (len(s_version.commit) == 40))
@@ -207,3 +201,63 @@ class VersionTest(s_t_utils.SynTest):
         for s, e in data:
             r = s_version.parseSemver(s)
             self.eq(r, e)
+
+    def test_version_parseSemver_pep440(self):
+        # PEP 440 pre-release suffixes accepted directly (no hyphen)
+        data = (
+            ('3.0.0a20260617', {'major': 3, 'minor': 0, 'patch': 0, 'pre': 'a20260617'}),
+            ('3.0.0b2', {'major': 3, 'minor': 0, 'patch': 0, 'pre': 'b2'}),
+            ('3.0.0rc1', {'major': 3, 'minor': 0, 'patch': 0, 'pre': 'rc1'}),
+            # Plain release still works
+            ('3.0.0', {'major': 3, 'minor': 0, 'patch': 0}),
+            # Hyphen pre-release still works
+            ('3.0.0-rc1', {'major': 3, 'minor': 0, 'patch': 0, 'pre': 'rc1'}),
+        )
+        for s, e in data:
+            r = s_version.parseSemver(s)
+            self.eq(r, e)
+
+    def test_version_release(self):
+        # release() with no arg returns the module-level release triple
+        self.eq(s_version.release(), s_version.release(s_version.version))
+
+        # PEP 440 pre-release string strips to (3, 0, 0)
+        self.eq(s_version.release('3.0.0a20260617'), (3, 0, 0))
+
+        # Plain string
+        self.eq(s_version.release('3.0.0'), (3, 0, 0))
+
+        # Legacy tuple passthrough
+        self.eq(s_version.release((3, 0, 0)), (3, 0, 0))
+
+        # Short tuple is padded to 3 elements
+        self.eq(s_version.release((2, 1)), (2, 1, 0))
+
+    def test_version_parse(self):
+        # parse() returns a packaging.version.Version
+        self.eq(s_version.parse((3, 0, 0)), s_version.parse('3.0.0'))
+
+        # Pre-release sorts below the release
+        self.lt(s_version.parse('3.0.0a1'), s_version.parse('3.0.0'))
+
+    def test_version_req_string(self):
+        # reqVersion now accepts a version string
+        self.none(s_version.reqVersion('3.0.0', '>=3.0.0'))
+
+        # Legacy tuple still accepted
+        self.none(s_version.reqVersion((3, 0, 0), '>=3.0.0'))
+
+        # Pre-release is below 3.0.0 — should raise
+        with self.raises(s_exc.BadVersion):
+            s_version.reqVersion('3.0.0a1', '>=3.0.0')
+
+    def test_version_matches_extended(self):
+        # PEP 440 pre-release is less than its release
+        self.false(s_version.matches('3.0.0a20260617', '>=3.0.0'))
+
+        # Legacy tuple still works
+        self.true(s_version.matches((3, 0, 0), '>=3.0.0'))
+
+    def test_version_canonical_derived(self):
+        # version is the canonical string
+        self.isinstance(s_version.version, str)

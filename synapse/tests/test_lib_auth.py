@@ -1,14 +1,8 @@
 import string
 import pathlib
 
-from unittest import mock
-
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.telepath as s_telepath
-
-import synapse.lib.cell as s_cell
-import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_test
 
@@ -485,6 +479,52 @@ class AuthTest(s_test.SynTest):
                 self.none(await core.auth.getUserByName('fred'))
                 self.none(await core.auth.getRoleByName('friends'))
 
+    async def test_authgate_pack_after_restart(self):
+        # Regression: after a restart, gate.gateusers / gate.gateroles (read by
+        # AuthGate.pack(), i.e. $lib.auth.gates.get() and the beholder feed) are
+        # loaded from a separate slab than user.authgates / role.authgates. A
+        # subsequent gated rule/admin edit must keep the in-memory gate cache in
+        # sync, or pack() returns stale rules while user.allowed() (which reads
+        # the user/role copy) reports the change. That divergence only resets on
+        # a backend restart, not a client reload.
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+                user = await core.auth.addUser('bob')
+                role = await core.auth.addRole('staff')
+                gateiden = core.getLayer().iden
+                await user.addRule((True, ('layer', 'read')), gateiden=gateiden)
+                await role.addRule((True, ('layer', 'read')), gateiden=gateiden)
+                useriden = user.iden
+                roleiden = role.iden
+
+            # restart: gateusers/gateroles now load as objects distinct from the
+            # user/role authgate copies.
+            async with self.getTestCore(dirn=dirn) as core:
+                user = core.auth.user(useriden)
+                role = core.auth.role(roleiden)
+                gate = core.auth.getAuthGate(gateiden)
+
+                await user.addRule((True, ('node',)), gateiden=gateiden)
+                await role.addRule((True, ('node',)), gateiden=gateiden)
+
+                packed = gate.pack()
+                packuser = [u for u in packed['users'] if u['iden'] == useriden][0]
+                packrole = [r for r in packed['roles'] if r['iden'] == roleiden][0]
+
+                # pack() (gates.get / beholder) must reflect the just-added rule.
+                self.isin((True, ('node',)), packuser['rules'])
+                self.isin((True, ('node',)), packrole['rules'])
+
+                # admin toggling must likewise reflect in pack().
+                await user.setAdmin(True, gateiden=gateiden)
+                self.true([u for u in gate.pack()['users'] if u['iden'] == useriden][0]['admin'])
+
+                # removing the rule must also reflect (no stale leftover).
+                await user.delRule((True, ('node',)), gateiden=gateiden)
+                packuser = [u for u in gate.pack()['users'] if u['iden'] == useriden][0]
+                self.notin((True, ('node',)), packuser['rules'])
+
     async def test_auth_invalid(self):
 
         async with self.getTestCore() as core:
@@ -549,97 +589,12 @@ class AuthTest(s_test.SynTest):
             self.eq(exc.exception.get('user'), useriden)
             self.eq(exc.exception.get('username'), 'lowuser')
 
-        # Check behavior of upgraded mirrors and non-upgraded leader
-        async with self.getTestAha() as aha:
-
-            with self.getTestDir() as dirn:
-                path00 = s_common.gendir(dirn, 'cell00')
-                path01 = s_common.gendir(dirn, 'cell01')
-
-                with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 177)):
-                    async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=path00) as cell00:
-                        lowuser = await cell00.addUser('lowuser')
-                        useriden = lowuser.get('iden')
-                        await cell00.setUserArchived(useriden, True)
-
-                        with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 198)):
-                            async with self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=path01, provinfo={'mirror': 'cell'}) as cell01:
-                                await cell01.sync()
-                                udef = await cell01.getUserDef(useriden)
-                                self.true(udef.get('locked'))
-                                self.true(udef.get('archived'))
-
-                                # Simulate a call to cell00.setUserLocked(useriden, False) to bypass
-                                # the check in cell00.auth.setUserInfo()
-                                await cell00.auth._push('user:info', useriden, 'locked', False)
-                                await cell01.sync()
-
-                                udef00 = await cell00.getUserDef(useriden)
-                                self.true(udef00.get('archived'))
-                                self.false(udef00.get('locked'))
-
-                                udef01 = await cell01.getUserDef(useriden)
-                                self.true(udef01.get('archived'))
-                                self.false(udef01.get('locked'))
-
-        # Check that we don't blowup/schism if an upgraded mirror is behind a leader with a pending
-        # user:info event that unlocks an archived user
-        async with self.getTestAha() as aha:
-
-            with self.getTestDir() as dirn:
-                path00 = s_common.gendir(dirn, 'cell00')
-                path01 = s_common.gendir(dirn, 'cell01')
-
-                async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=path00) as cell00:
-                    lowuser = await cell00.addUser('lowuser')
-                    useriden = lowuser.get('iden')
-                    await cell00.setUserLocked(useriden, True)
-
-                    async with self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=path01, provinfo={'mirror': 'cell'}) as cell01:
-                        await cell01.sync()
-                        udef = await cell01.getUserDef(useriden)
-                        self.true(udef.get('locked'))
-                        self.false(udef.get('archived'))
-
-                    # Set user locked while cell01 is offline so it will get the edit when it comes
-                    # back
-                    await cell00.setUserLocked(useriden, False)
-                    await cell00.sync()
-
-                # Edit the slabs on both cells directly to archive the user
-                lmdb00 = s_common.genpath(path00, 'slabs', 'cell.lmdb')
-                lmdb01 = s_common.genpath(path01, 'slabs', 'cell.lmdb')
-
-                slab00 = await s_lmdbslab.Slab.anit(lmdb00, map_size=s_cell.SLAB_MAP_SIZE)
-                slab01 = await s_lmdbslab.Slab.anit(lmdb01, map_size=s_cell.SLAB_MAP_SIZE)
-
-                # Simulate the cell migration which locks archived users
-                for slab in (slab00, slab01):
-                    authkv = slab.getSafeKeyVal('auth')
-                    userkv = authkv.getSubKeyVal('user:info:')
-
-                    info = userkv.get(useriden)
-                    info['archived'] = True
-                    info['locked'] = True
-                    userkv.set(useriden, info)
-
-                await slab00.fini()
-                await slab01.fini()
-
-                # Spin the cells back up and wait for the edit to sync to cell01
-                async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=path00) as cell00:
-                    udef = await cell00.getUserDef(useriden)
-                    self.true(udef.get('archived'))
-                    self.true(udef.get('locked'))
-
-                    async with self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=path01, provinfo={'mirror': 'cell'}) as cell01:
-                        await cell01.sync()
-                        udef = await cell01.getUserDef(useriden)
-                        self.true(udef.get('archived'))
-                        self.true(udef.get('locked'))
-
-                        self.ge(cell00.nexsvers, (2, 198))
-                        self.ge(cell01.nexsvers, (2, 198))
+            # The bottom-half nexus handler also silently ignores an unlock event for an archived
+            # user (e.g. during nexus replay of a log written before this rule was enforced)
+            await core.auth._push('user:info', useriden, 'locked', False)
+            udef = await core.getUserDef(useriden)
+            self.true(udef.get('locked'))
+            self.true(udef.get('archived'))
 
     async def test_auth_password_policy(self):
         policy = {

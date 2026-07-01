@@ -7,18 +7,6 @@ scoreenums = (
     (50, 'highest'),
 )
 
-taskstatusenums = (
-    (0, 'new'),
-    (10, 'in validation'),
-    (20, 'in backlog'),
-    (30, 'in sprint'),
-    (40, 'in progress'),
-    (50, 'in review'),
-    (60, 'completed'),
-    (70, 'done'),
-    (80, 'blocked'),
-)
-
 modeldefs = (
     {
         'types': (
@@ -34,6 +22,12 @@ modeldefs = (
 
             ('str', (None, {'ctor': 'synapse.lib.types.Str'}), {
                 'doc': 'The base string type.'}),
+
+            ('text', (None, {'ctor': 'synapse.lib.types.Text'}), {
+                'doc': 'A multi-line, free form, case-preserving text string with case-insensitive comparison.'}),
+
+            ('title', (None, {'ctor': 'synapse.lib.types.Title'}), {
+                'doc': 'A single line, free form, case-preserving title or name string with case-insensitive comparison.'}),
 
             ('hex', (None, {'ctor': 'synapse.lib.types.Hex'}), {
                 'doc': 'The base hex type.'}),
@@ -53,6 +47,9 @@ modeldefs = (
 
             ('duration', (None, {'ctor': 'synapse.lib.types.Duration'}), {
                 'doc': 'A duration value.'}),
+
+            ('duration:seconds', ('duration', {'precision': 'second'}), {
+                'doc': 'A duration value with second resolution.'}),
 
             ('ival', (None, {'ctor': 'synapse.lib.types.Ival'}), {
                 'virts': (
@@ -78,6 +75,33 @@ modeldefs = (
                 'doc': 'A tag component string.'}),
 
             ('syn:tag', (None, {'ctor': 'synapse.lib.types.Tag'}), {
+                'props': (
+                    ('up', ('syn:tag', {}), {'computed': True,
+                        'doc': 'The parent tag for the tag.'}),
+
+                    ('isnow', ('syn:tag', {}), {
+                        'doc': 'Set to an updated tag if the tag has been renamed.'}),
+
+                    ('doc', ('text', {}), {
+                        'doc': 'A short definition for the tag.'}),
+
+                    ('doc:url', ('inet:url', {}), {
+                        'doc': 'A URL link to additional documentation about the tag.'}),
+
+                    ('depth', ('int', {}), {'computed': True,
+                        'doc': 'How deep the tag is in the hierarchy.'}),
+
+                    ('title', ('title', {}), {'doc': 'A display title for the tag.'}),
+
+                    ('base', ('str', {}), {
+                        'computed': True,
+                        'modes': {
+                            'lookup': [
+                                {'cmpr': '^='},
+                            ]
+                        },
+                        'doc': 'The tag base name. Eg baz for foo.bar.baz .'}),
+                ),
                 'doc': 'The base type for a synapse tag.'}),
 
             ('comp', (None, {'ctor': 'synapse.lib.types.Comp'}), {
@@ -114,6 +138,14 @@ modeldefs = (
                 'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional '
                        'precision of 24 decimal digits.'}),
 
+            ('percent', ('hugenum', {'min': 0, 'max': 100, 'units': {'%': '1'}, 'defunit': '%'}), {
+                'ex': '10.2%',
+                'doc': 'A percentage value between 0 and 100.'}),
+
+            ('ratio', ('hugenum', {'units': {'%': '1'}, 'defunit': '%'}), {
+                'ex': '-10.2%',
+                'doc': 'A ratio expressed as a percentage which may be negative or exceed 100.'}),
+
             ('taxon', (None, {'ctor': 'synapse.lib.types.Taxon'}), {
                 'doc': 'A component of a hierarchical taxonomy.'}),
 
@@ -126,12 +158,15 @@ modeldefs = (
             ('date', ('time', {'precision': 'day'}), {
                 'doc': 'A date precision time value.'}),
 
+            ('daterange', ('ival', {'precision': 'day'}), {
+                'doc': 'A date precision time range.'}),
+
             ('base:id', ('str', {}), {
                 'doc': 'A base type for ID strings.'}),
 
 
-            ('base:name', ('str', {'onespace': True, 'lower': True}), {
-                'doc': 'A base type for case insensitive names.'}),
+            ('base:name', ('title', {}), {
+                'doc': 'A base type for case insensitive, case preserving names.'}),
 
             ('event:name', ('base:name', {}), {
                 'modes': {
@@ -145,6 +180,10 @@ modeldefs = (
                 'interfaces': (
                     ('risk:targetable', {}),
                 ),
+                'props': (
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the topic.'}),
+                ),
                 'doc': 'A topic string.'}),
 
             ('meta:feed', ('guid', {}), {
@@ -155,39 +194,129 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'type'}},
                     ),
                 },
+                'props': (
+                    ('id', ('base:id', {}), {
+                        'doc': 'An identifier for the feed.'}),
+
+                    ('name', ('base:name', {}), {
+                        'doc': 'A name for the feed.'}),
+
+                    ('type', ('meta:feed:type:taxonomy', {}), {
+                        'doc': 'The type of data feed.'}),
+
+                    ('source', ('meta:source', {}), {
+                        'doc': 'The meta:source which provides the feed.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL of the feed API endpoint.'}),
+
+                    ('query', ('str', {}), {
+                        'doc': 'The query logic associated with generating the feed output.'}),
+
+                    ('opts', ('data', {}), {
+                        'doc': 'An opaque JSON object containing feed parameters and options.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time window over which results have been ingested.'}),
+
+                    ('latest', ('time', {}), {
+                        'doc': 'The time of the last record consumed from the feed.'}),
+
+                    ('offset', ('int', {}), {
+                        'doc': 'The offset of the last record consumed from the feed.'}),
+
+                    ('cursor', ('str', {}), {
+                        'doc': 'A cursor used to track ingest offset within the feed.'}),
+                ),
                 'doc': 'A data feed provided by a specific source.'}),
 
             ('meta:feed:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A data feed type taxonomy.'}),
 
             ('meta:source', ('guid', {}), {
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'A human friendly name for the source.'}),
+
+                    ('type', ('meta:source:type:taxonomy', {}), {
+                        'doc': 'The type of source.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the meta source.'}),
+
+                    ('ingest:cursor', ('str', {}), {
+                        'doc': 'Used by ingest logic to capture the current ingest cursor within a feed.'}),
+
+                    ('ingest:latest', ('time', {}), {
+                        'doc': 'Used by ingest logic to capture the last time a feed ingest ran.'}),
+
+                    ('ingest:offset', ('int', {}), {
+                        'doc': 'Used by ingest logic to capture the current ingest offset within a feed.'}),
+                ),
                 'doc': 'A data source unique identifier.'}),
 
             ('meta:note', ('guid', {}), {
+                'template': {'title': 'note'},
+                'interfaces': (
+                    ('entity:creatable', {}),
+                ),
+                'props': (
+                    ('type', ('meta:note:type:taxonomy', {}), {
+                        'doc': 'The note type.'}),
+
+                    ('text', ('text', {}), {
+                        'display': {'syntax': 'markdown'},
+                        'doc': 'The analyst authored note text.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time the note was created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the note was updated.'}),
+
+                    ('replyto', ('meta:note', {}), {
+                        'doc': 'The note is a reply to the specified note.'}),
+                ),
                 'doc': 'An analyst note about nodes linked with -(about)> edges.'}),
 
             ('meta:note:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of note types.'}),
 
             ('meta:source:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of source types.'}),
 
             ('meta:timeline', ('guid', {}), {
+                'props': (
+                    ('title', ('title', {}), {
+                        'ex': 'The history of the Vertex Project',
+                        'doc': 'The title of the timeline.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the timeline.'}),
+
+                    ('type', ('meta:timeline:type:taxonomy', {}), {
+                        'doc': 'The type of timeline.'}),
+                ),
                 'doc': 'A curated timeline of analytically relevant events.'}),
 
             ('meta:timeline:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'prevnames': ('meta:timeline:taxonomy',),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
             ('meta:event', ('guid', {}), {
@@ -196,7 +325,7 @@ modeldefs = (
                     ('base:event', {}),
                 ),
                 'props': (
-                    ('title', ('str', {}), {
+                    ('title', ('title', {}), {
                         'doc': 'A title for the {title}.'}),
 
                     ('desc', ('text', {}), {
@@ -210,7 +339,7 @@ modeldefs = (
             ('meta:activity', ('guid', {}), {
                 'template': {'title': 'activity'},
                 'interfaces': (
-                    ('base:activity', {}),
+                    ('entity:attendable', {}),
                 ),
                 'props': (
                     ('name', ('base:name', {}), {
@@ -228,6 +357,8 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'prevnames': ('meta:event:taxonomy',),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of event types.'}),
 
             ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
@@ -241,26 +372,48 @@ modeldefs = (
                 'interfaces': (
                     ('doc:authorable', {}),
                 ),
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'A name for the ruleset.'}),
+
+                    ('type', ('meta:ruleset:type:taxonomy', {}), {
+                        'doc': 'The ruleset type.'}),
+                ),
                 'doc': 'A set of rules linked with -(has)> edges.'}),
 
             ('meta:rule:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'doc': 'A hierarchical taxonomy of rule types.'}),
-
-            ('meta:rule:status:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
                 'props': (),
-                'doc': 'A hierarchical taxonomy of rule status values.'}),
+                'doc': 'A hierarchical taxonomy of rule types.'}),
 
             ('meta:rule', ('guid', {}), {
                 'template': {'title': 'rule', 'syntax': ''},
                 'interfaces': (
                     ('meta:usable', {}),
                     ('doc:authorable', {}),
+                    ('meta:observable', {}),
+                ),
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The rule name.'}),
+
+                    ('type', ('meta:rule:type:taxonomy', {}), {
+                        'doc': 'The rule type.'}),
+
+                    ('status', ('title', {}), {
+                        'doc': 'The status of the rule.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the {title}.'}),
+
+                    ('enabled', ('bool', {}), {
+                        'doc': 'The enabled status of the {title}.'}),
+
+                    ('text', ('text', {}), {
+                        'display': {'syntax': '{syntax}'},
+                        'doc': 'The text of the {title}.'})
                 ),
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
@@ -274,6 +427,7 @@ modeldefs = (
             ('meta:algorithm', ('guid', {}), {
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('meta:observable', {}),
                 ),
                 'props': (
                     ('name', ('base:name', {}), {
@@ -293,13 +447,11 @@ modeldefs = (
             ('meta:score', ('int', {'enums': scoreenums, 'enums:strict': False}), {
                 'doc': 'A generic score enumeration.'}),
 
-            ('meta:task:status', ('int', {'enums': taskstatusenums}), {
-                'doc': 'A task status.'}),
-
             ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A type of item being counted in aggregate.'}),
 
             ('meta:aggregate', ('guid', {}), {
@@ -310,6 +462,17 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'count'}},
                     ),
                 },
+                'props': (
+                    ('type', ('meta:aggregate:type:taxonomy', {}), {
+                        'ex': 'casualties.civilian',
+                        'doc': 'The type of items being counted in aggregate.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the count was computed.'}),
+
+                    ('count', ('int', {}), {
+                        'doc': 'The number of items counted in aggregate.'}),
+                ),
                 'doc': 'A node which represents an aggregate count of a specific type.'}),
 
             ('meta:cluster:type:taxonomy', ('taxonomy', {}), {
@@ -320,46 +483,24 @@ modeldefs = (
                 'doc': 'A type taxonomy for meta:cluster nodes.'}),
 
             ('meta:cluster', ('guid', {}), {
+                'template': {'title': 'cluster'},
+                'interfaces': (
+                    ('meta:reported', {}),
+                ),
                 'props': (
-                    ('id', ('base:id', {}), {
-                        'alts': ('ids',),
-                        'doc': 'An identifier for the cluster.'}),
-
-                    ('ids', ('array', {'type': 'base:id'}), {
-                        'doc': 'An array of alternate identifiers for the cluster.'}),
-
-                    ('name', ('base:name', {}), {
-                        'alts': ('names',),
-                        'doc': 'The name of the cluster.'}),
-
-                    ('names', ('array', {'type': 'base:name'}), {
-                        'doc': 'An array of alternate names for the cluster.'}),
-
                     ('type', ('meta:cluster:type:taxonomy', {}), {
                         'doc': 'The type of cluster.'}),
 
-                    ('desc', ('text', {}), {
-                        'doc': 'A description of the cluster.'}),
-
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are associated with the cluster.'}),
-
-                    ('reporter', ('ou:org', {}), {
-                        'doc': 'The organization reporting on the cluster.'}),
-
-                    ('reporter:name', ('entity:name', {}), {
-                        'doc': 'The name of the organization reporting on the cluster.'}),
                 ),
                 'doc': 'A cluster of analytically relevant nodes generated by a specific source.'}),
-
-            ('text', ('str', {'strip': False}), {
-                'doc': 'A multi-line, free form text string.'}),
 
             ('str:lower', ('str', {'lower': True}), {
                 'doc': 'A case insensitive string.'}),
 
-            ('text:lower', ('text', {'lower': True}), {
-                'doc': 'A case insensitive, multi-line text string.'}),
+            ('str:upper', ('str', {'upper': True}), {
+                'doc': 'A case insensitive string normalized to upper case.'}),
 
             ('int:min0', ('int', {'min': 0}), {
                 'doc': 'A non-negative integer.'}),
@@ -367,12 +508,16 @@ modeldefs = (
             ('int:min1', ('int', {'min': 1}), {
                 'doc': 'A positive integer.'}),
 
+            ('byte:flags', ('int', {'min': 0, 'max': 0xff}), {
+                'doc': 'A set of flags contained in a single byte.'}),
+
             ('meta:technique', ('guid', {}), {
                 'template': {'title': 'technique'},
                 'doc': 'A specific technique used to achieve a goal.',
                 'interfaces': (
                     ('meta:usable', {}),
                     ('meta:reported', {}),
+                    ('meta:observable', {}),
                     ('risk:mitigatable', {}),
                 ),
                 'display': {
@@ -381,18 +526,36 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),
-                }}),
+                },
+                'props': (
+                    ('id', (
+                        ('it:mitre:attack:technique:id', {}),
+                        ('base:id', {}),
+                    ), {
+                        'alts': ('ids',),
+                        'doc': 'A unique ID given to the technique.'}),
 
-            ('meta:technique:status:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of technique statuses.'}),
+                    ('ids', ('array', {'type': (('it:mitre:attack:technique:id', {}), ('base:id', {}))}), {
+                        'doc': 'An array of alternate IDs given to the technique.'}),
+
+                    ('type', ('meta:technique:type:taxonomy', {}), {
+                        'doc': 'The taxonomy classification of the technique.'}),
+
+                    ('sophistication', ('meta:score', {}), {
+                        'doc': 'The assessed sophistication of the technique.'}),
+
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The tag used to annotate nodes where the technique was employed.'}),
+
+                    ('parent', ('meta:technique', {}), {
+                        'doc': 'The parent technique for the technique.'}),
+                )}),
 
             ('meta:technique:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of technique types.'}),
 
             ('meta:award:type:taxonomy', ('taxonomy', {}), {
@@ -449,15 +612,6 @@ modeldefs = (
 
             ('meta:havable', {
                 'doc': 'An interface used to describe items that can be possessed by an entity.',
-                'template': {'title': 'item'},
-                'props': (
-
-                    ('owner', ('entity:actor', {}), {
-                        'doc': 'The current owner of the {title}.'}),
-
-                    ('owner:name', ('entity:name', {}), {
-                        'doc': 'The name of the current owner of the {title}.'}),
-                ),
             }),
 
             ('meta:discoverable', {
@@ -478,7 +632,6 @@ modeldefs = (
                 'doc': 'Properties common to forms which are created on a per-source basis.',
                 'template': {
                     'title': 'item',
-                    'status': '{$self}:status:taxonomy',
                 },
                 'props': (
 
@@ -488,9 +641,6 @@ modeldefs = (
 
                     ('ids', ('array', {'type': 'base:id'}), {
                         'doc': 'An array of alternate IDs given to the {title}.'}),
-
-                    ('url', ('inet:url', {}), {
-                        'doc': 'The URL for the {title}.'}),
 
                     ('name', ('base:name', {}), {
                         'alts': ('names',),
@@ -511,32 +661,43 @@ modeldefs = (
                     ('reporter:name', ('entity:name', {}), {
                         'doc': 'The name of the entity which reported on the {title}.'}),
 
-                    ('created', ('time', {}), {
-                        'doc': 'The time when the {title} was created.'}),
+                    ('reporter:url', ('inet:url', {}), {
+                        'doc': 'The URL for the {title} provided by the reporter.'}),
 
-                    ('updated', ('time', {}), {
+                    ('reporter:period', ('ival', {'names': {'min': 'created', 'max': 'removed'}}), {
+                        'doc': 'The period when the {title} existed, according to the reporter.'}),
+
+                    ('reporter:deprecated', ('time', {}), {
+                        'doc': 'The time when the reporter retired the {title}.'}),
+
+                    ('reporter:supersedes', ('array', {'type': '{$self}'}), {
+                        'doc': 'An array of {title} nodes which are superseded by this {title}.'}),
+
+                    ('reporter:updated', ('time', {}), {
                         'doc': 'The time when the {title} was last updated.'}),
 
-                    ('published', ('time', {}), {
+                    ('reporter:published', ('time', {}), {
                         'doc': 'The time when the reporter published the {title}.'}),
-
-                    ('superseded', ('time', {}), {
-                        'doc': 'The time when the {title} was superseded.'}),
-
-                    ('supersedes', ('array', {'type': '{$self}'}), {
-                        'doc': 'An array of {title} nodes which are superseded by this {title}.'}),
                 ),
             }),
 
             # TODO: should all the actor <verb>able interfaces move to entity: ?
             ('meta:believable', {
+                'template': {'title': 'item'},
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the {title}.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the {title}.'}),
+                ),
                 'doc': 'An interface implemented by forms which may be believed in by an actor.'}),
 
             ('meta:taxonomy', {
                 'doc': 'Properties common to taxonomies.',
                 'props': (
-                    ('title', ('str', {}), {
-                        'doc': 'A brief title of the definition.'}),
+                    ('name', ('title', {}), {
+                        'doc': 'A brief name for the definition.'}),
 
                     ('desc', ('text', {}), {
                         'doc': 'A definition of the taxonomy entry.'}),
@@ -570,36 +731,47 @@ modeldefs = (
                     ('time', ('time', {}), {
                         'doc': 'The time that the {title} occurred.'}),
 
-                    ('activity', ('meta:activity', {}), {
+                    ('activity', ('base:activity', {}), {
                         'doc': 'A parent activity which includes this {title}.'}),
                 ),
                 'doc': 'Properties common to an event.'}),
 
             ('base:activity', {
-                'template': {'title': 'activity'},
+                'template': {'title': 'activity', 'activity': 'occurred'},
                 'interfaces': (
                     ('meta:causal', {}),
                 ),
                 'props': (
-                    ('period', ('ival', {}), {
-                        'doc': 'The period over which the {title} occurred.'}),
+                    ('period', ('ival', {'names': {'min': 'began', 'max': 'ended'}}), {
+                        'doc': 'The period over which the {title} {activity}.'}),
 
-                    ('activity', ('meta:activity', {}), {
+                    ('activity', ('base:activity', {}), {
                         'doc': 'A parent activity which includes this {title}.'}),
                 ),
                 'doc': 'Properties common to activity which occurs over a period.'}),
 
+            ('meta:schedulable', {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
+                'props': (
+                    ('scheduled:period', ('ival', {}), {
+                        'doc': 'The scheduled period over which the {title} was expected to occur.'}),
+                ),
+                'doc': 'An interface implemented by activities which may be scheduled.'}),
+
             ('meta:usable', {
                 'template': {'title': 'item'},
-                'interfaces': (
-                    ('meta:observable', {}),
-                ),
                 'doc': 'An interface implemented by forms which can be used by an actor.'}),
 
-            ('meta:matchish', {
+            ('base:matched', {
                 'doc': 'Properties which are common to matches based on rules.',
-                'template': {'rule': 'rule', 'rule:type': 'rule:type',
+                'template': {'title': 'match', 'rule': 'rule', 'rule:type': 'rule:type',
                              'target:type': ''},
+                'interfaces': (
+                    ('base:event', {'template': {'title': 'match'}}),
+                ),
                 'props': (
 
                     ('rule', ('{rule:type}', {}), {
@@ -608,11 +780,8 @@ modeldefs = (
                     ('target', ('{target:type}', {}), {
                         'doc': 'The target node which matched the {rule}.'}),
 
-                    ('version', ('it:version', {}), {
-                        'doc': 'The most recent version of the rule evaluated as a match.'}),
-
-                    ('matched', ('time', {}), {
-                        'doc': 'The time that the rule was evaluated to generate the match.'}),
+                    ('rule:version', ('it:version', {}), {
+                        'doc': 'The version of the rule which generated the {title}.'}),
                 ),
             }),
 
@@ -622,6 +791,9 @@ modeldefs = (
             ('meta:task', {
                 'doc': 'A common interface for tasks.',
                 'template': {'title': 'task'},
+                'interfaces': (
+                    ('entity:participable', {}),
+                ),
                 'props': (
 
                     ('id', ('base:id', {}), {
@@ -633,7 +805,7 @@ modeldefs = (
                     ('project', ('proj:project', {}), {
                         'doc': 'The project containing the {title}.'}),
 
-                    ('status', ('meta:task:status', {}), {
+                    ('status', ('title', {}), {
                         'doc': 'The status of the {title}.'}),
 
                     ('priority', ('meta:score', {}), {
@@ -648,8 +820,8 @@ modeldefs = (
                     ('due', ('time', {}), {
                         'doc': 'The time the {title} must be complete.'}),
 
-                    ('completed', ('time', {}), {
-                        'doc': 'The time the {title} was completed.'}),
+                    ('period', ('ival', {}), {
+                        'doc': 'The period when the {title} was being worked on.'}),
 
                     ('creator', ('entity:actor', {}), {
                         'doc': 'The actor who created the {title}.'}),
@@ -731,9 +903,6 @@ modeldefs = (
             (('meta:task', 'has', 'file:attachment'), {
                 'doc': 'The task includes the file attachment.'}),
 
-            (('risk:tool:software', 'uses', 'meta:algorithm'), {
-                'doc': 'The tool uses the algorithm.'}),
-
             (('it:software', 'uses', 'meta:algorithm'), {
                 'doc': 'The software uses the algorithm.'}),
 
@@ -743,187 +912,14 @@ modeldefs = (
             (('meta:algorithm', 'generated', None), {
                 'doc': 'The target node was generated by the algorithm.'}),
         ),
-        'forms': (
 
+        'tagprops': (
 
-            ('meta:topic', {}, (
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the topic.'}),
-            )),
+            ('tlp', ('it:sec:tlp', {}), {
+                'doc': 'The TLP designation used to communicate the information sharing boundaries for the tag.'}),
 
-            ('meta:source:type:taxonomy', {}, ()),
-            ('meta:source', {}, (
-
-                ('name', ('base:name', {}), {
-                    'doc': 'A human friendly name for the source.'}),
-
-                ('type', ('meta:source:type:taxonomy', {}), {
-                    'doc': 'The type of source.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'A URL which documents the meta source.'}),
-
-                ('ingest:cursor', ('str', {}), {
-                    'doc': 'Used by ingest logic to capture the current ingest cursor within a feed.'}),
-
-                ('ingest:latest', ('time', {}), {
-                    'doc': 'Used by ingest logic to capture the last time a feed ingest ran.'}),
-
-                ('ingest:offset', ('int', {}), {
-                    'doc': 'Used by ingest logic to capture the current ingest offset within a feed.'}),
-            )),
-
-            ('meta:feed:type:taxonomy', {}, ()),
-            ('meta:feed', {}, (
-                ('id', ('base:id', {}), {
-                    'doc': 'An identifier for the feed.'}),
-
-                ('name', ('base:name', {}), {
-                    'doc': 'A name for the feed.'}),
-
-                ('type', ('meta:feed:type:taxonomy', {}), {
-                    'doc': 'The type of data feed.'}),
-
-                ('source', ('meta:source', {}), {
-                    'doc': 'The meta:source which provides the feed.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL of the feed API endpoint.'}),
-
-                ('query', ('str', {}), {
-                    'doc': 'The query logic associated with generating the feed output.'}),
-
-                ('opts', ('data', {}), {
-                    'doc': 'An opaque JSON object containing feed parameters and options.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time window over which results have been ingested.'}),
-
-                ('latest', ('time', {}), {
-                    'doc': 'The time of the last record consumed from the feed.'}),
-
-                ('offset', ('int', {}), {
-                    'doc': 'The offset of the last record consumed from the feed.'}),
-
-                ('cursor', ('str', {}), {
-                    'doc': 'A cursor used to track ingest offset within the feed.'}),
-            )),
-
-            ('meta:note:type:taxonomy', {}, ()),
-            ('meta:note', {}, (
-
-                ('type', ('meta:note:type:taxonomy', {}), {
-                    'doc': 'The note type.'}),
-
-                ('text', ('text', {}), {
-                    'display': {'syntax': 'markdown'},
-                    'doc': 'The analyst authored note text.'}),
-
-                ('creator', ('entity:actor', {}), {
-                    'doc': 'The actor who authored the note.'}),
-
-                ('created', ('time', {}), {
-                    'doc': 'The time the note was created.'}),
-
-                ('updated', ('time', {}), {
-                    'doc': 'The time the note was updated.'}),
-
-                ('replyto', ('meta:note', {}), {
-                    'doc': 'The note is a reply to the specified note.'}),
-            )),
-
-            ('meta:timeline', {}, (
-
-                ('title', ('str', {}), {
-                    'ex': 'The history of the Vertex Project',
-                    'doc': 'The title of the timeline.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the timeline.'}),
-
-                ('type', ('meta:timeline:type:taxonomy', {}), {
-                    'doc': 'The type of timeline.'}),
-            )),
-
-            ('meta:timeline:type:taxonomy', {
-                'prevnames': ('meta:timeline:taxonomy',)}, ()),
-
-            ('meta:event:type:taxonomy', {
-                'prevnames': ('meta:event:taxonomy',)}, ()),
-
-            ('meta:ruleset', {}, (
-
-                ('name', ('base:id', {}), {
-                    'doc': 'A name for the ruleset.'}),
-
-                ('type', ('meta:ruleset:type:taxonomy', {}), {
-                    'doc': 'The ruleset type.'}),
-            )),
-
-            ('meta:rule:type:taxonomy', {}, ()),
-            ('meta:rule', {}, (
-
-                ('name', ('base:id', {}), {
-                    'doc': 'The rule name.'}),
-
-                ('type', ('meta:rule:type:taxonomy', {}), {
-                    'doc': 'The rule type.'}),
-
-                # TODO: 3.0 this moves to the interface
-                ('status', ('meta:rule:status:taxonomy', {}), {
-                    'doc': 'The status of the rule.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'A URL which documents the {title}.'}),
-
-                ('enabled', ('bool', {}), {
-                    'doc': 'The enabled status of the {title}.'}),
-
-                ('text', ('text', {}), {
-                    'display': {'syntax': '{syntax}'},
-                    'doc': 'The text of the {title}.'})
-            )),
-
-            ('meta:aggregate:type:taxonomy', {}, ()),
-            ('meta:aggregate', {}, (
-
-                ('type', ('meta:aggregate:type:taxonomy', {}), {
-                    'ex': 'casualties.civilian',
-                    'doc': 'The type of items being counted in aggregate.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time that the count was computed.'}),
-
-                ('count', ('int', {}), {
-                    'doc': 'The number of items counted in aggregate.'}),
-            )),
-
-            ('meta:technique', {}, (
-
-                ('id', (
-                    ('it:mitre:attack:technique:id', {}),
-                    ('base:id', {}),
-                ), {
-                    'alts': ('ids',),
-                    'doc': 'A unique ID given to the technique.'}),
-
-                ('ids', ('array', {'type': (('it:mitre:attack:technique:id', {}), ('base:id', {}))}), {
-                    'doc': 'An array of alternate IDs given to the technique.'}),
-
-                ('type', ('meta:technique:type:taxonomy', {}), {
-                    'doc': 'The taxonomy classification of the technique.'}),
-
-                ('sophistication', ('meta:score', {}), {
-                    'doc': 'The assessed sophistication of the technique.'}),
-
-                ('tag', ('syn:tag', {}), {
-                    'doc': 'The tag used to annotate nodes where the technique was employed.'}),
-
-                ('parent', ('meta:technique', {}), {
-                    'doc': 'The parent technique for the technique.'}),
-            )),
-
-            ('meta:technique:type:taxonomy', {}, ()),
+            ('confidence', ('meta:score', {}), {
+                'doc': 'The analyst confidence that the tag assessment is accurate.'}),
 
         ),
     },

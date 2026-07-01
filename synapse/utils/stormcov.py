@@ -1,6 +1,5 @@
 import os
 import sys
-import inspect
 import logging
 import pathlib
 import collections
@@ -117,6 +116,7 @@ class StormcovPlugin:
         self.text_map = {}
         self.guid_map = {}
         self.subq_map = {}
+        self._handler_cache = {}
         self.lines_hit = collections.defaultdict(set)
         self.arcs_hit = collections.defaultdict(set)
         self.prev_line = {}
@@ -141,6 +141,7 @@ class StormcovPlugin:
         self.arcs_hit = collections.defaultdict(set)
         self.prev_line = {}
         self.prev_nodeid = {}
+        self.node_map = {}
 
     def findStormFiles(self, dirn):
         for path in self.findExecutableFiles(dirn):
@@ -181,13 +182,10 @@ class StormcovPlugin:
                 if rule == 'argvquery':
                     line = subq.meta.line - 1
 
-                if subg in self.subq_map:
-                    (pname, _, pline) = self.subq_map[subg]
-                    logger.warning(f'Duplicate {rule} in {path} at line {rline}, coverage will '
-                                   f'be reported on first instance in {pname} at line {pline}')
-                    continue
-
-                self.subq_map[subg] = (path, line, rline)
+                entry = (path, line, rline)
+                entries = self.subq_map.setdefault(subg, [])
+                if entry not in entries:
+                    entries.append(entry)
 
     def _startSysmon(self):
         if sys.monitoring.get_tool(self.toolid) is None:
@@ -289,15 +287,33 @@ class StormcovPlugin:
 
     def sysmonPyStart(self, code, instruction_offset): # pragma: no cover
         # NB: no coverage since this runs inside of the sys.monitoring callback
-        if (fname := self.freg.match(code.co_filename)):
-            return self.handlers[fname.group(1)](code)
-        return DISABLE
+
+        # Cache the code -> handler dispatch so the filename regex only runs the first
+        # time we see a given code object.  Non-matching locations return DISABLE and
+        # never recur, so they are not worth caching.
+        handler = self._handler_cache.get(code)
+        if handler is None:
+            match = self.freg.match(code.co_filename)
+            if match is None:
+                return DISABLE
+
+            handler = self.handlers[match.group(1)]
+            self._handler_cache[code] = handler
+
+        return handler(code)
 
     def handleAst(self, code, frame=None): # pragma: no cover
         # NB: no coverage since this runs inside of the sys.monitoring callback
+
+        # Resolve the frame containing the AST node ('self') and optional 'runt' local.
+        # handleView/handleStormctrl pass frame directly; otherwise derive it from the
+        # call stack based on which Storm method is executing.
         if frame is None:
             if code.co_name == 'pullgenr':
-                frame = inspect.currentframe().f_back.f_back
+                # pullgenr is a generator trampoline; walk up two frames to reach the
+                # caller, then verify it was called from execStormCmd before walking up
+                # two more frames to reach the actual command runtime frame.
+                frame = sys._getframe(2)
 
                 if frame.f_back.f_code.co_name != 'execStormCmd':
                     return
@@ -308,97 +324,143 @@ class StormcovPlugin:
                 return DISABLE
 
             else:
-                frame = inspect.currentframe().f_back.f_back
+                frame = sys._getframe(2)
 
-        realnode = frame.f_locals.get('self')
-        cached = getattr(realnode, '_coverage_info', s_common.novalu)
-        if cached is not s_common.novalu:
+        novalu = s_common.novalu
+
+        flocals = frame.f_locals
+        realnode = flocals.get('self')
+
+        # Read storm_origin off the executing sub-runtime so that identical subquery
+        # text at different lexical positions can be attributed to different file
+        # offsets without modifying the shared cached Query object.  storm_origin is
+        # None for top-level queries and for any node not executing inside a tee/subq.
+        # When it is set we must skip the node_map/_coverage_info cache because the
+        # same node object may be re-used at multiple call sites.
+        runt_from_frame = flocals.get('runt')
+        runt_origin = getattr(runt_from_frame, 'storm_origin', None)
+
+        if runt_origin is None and (cached := getattr(realnode, '_coverage_info', novalu)) is not novalu:
+            # Fast path: re-use the attribution cached on the node from a prior call.
             if cached is not None:
                 info, nodeid = cached
-                self.markLines(frame, info, nodeid=nodeid)
+                self.markLines(realnode, info, nodeid=nodeid)
             return
 
+        # Walk up to the root Query node so all AST nodes in a query share one nodeid.
         node = realnode
-        while hasattr(node, 'parent'):
-            node = node.parent
+        while (parent := getattr(node, 'parent', None)) is not None:
+            node = parent
 
         nodeid = id(node)
 
-        info = self.node_map.get(nodeid, s_common.novalu)
-        if info is None:
-            realnode._coverage_info = None
-            return
+        # Without runt_origin we can use the node_map keyed by root node identity.
+        # A None entry means a previous call already determined this node has no
+        # matching storm source; a real entry is a direct cache hit.
+        if runt_origin is None:
+            info = self.node_map.get(nodeid, novalu)
+            if info is not novalu:
+                if info is None:
+                    self._cacheMiss(realnode, nodeid, runt_origin)
+                else:
+                    self._cacheHit(realnode, nodeid, info, runt_origin)
+                return
 
-        if info is not s_common.novalu:
-            realnode._coverage_info = (info, nodeid)
-            self.markLines(frame, info, nodeid=nodeid)
-            return
-
+        # Only Query nodes carry the storm source text we need to look up.
         if node.__class__.__name__ != 'Query':
-            self.node_map[nodeid] = None
-            realnode._coverage_info = None
+            self._cacheMiss(realnode, nodeid, runt_origin)
             return
 
-        info = self.text_map.get(node.text, s_common.novalu)
-        if info is not s_common.novalu:
-            realnode._coverage_info = (info, nodeid)
-            self.markLines(frame, info, nodeid=nodeid)
+        # When runt_origin is set, use its source line as a hint to disambiguate
+        # duplicate subquery text that appears at different positions in the file.
+        offs_hint = runt_origin.sline - 1 if runt_origin is not None else None
+
+        # text_map is keyed by (query_text, offs_hint) and avoids re-parsing the same
+        # text/position pair on every AST node in a query.
+        text_key = (node.text, offs_hint)
+        info = self.text_map.get(text_key, novalu)
+        if info is not novalu:
+            self._cacheHit(realnode, nodeid, info, runt_origin)
             return
 
+        # First time seeing this query text: parse it, hash the tree, and look up
+        # the matching storm source file via subq_map (position-aware) or guid_map.
         tree = self.parser.parse(node.text)
         guid = s_common.guid(str(tree))
 
-        subq = self.subq_map.get(guid)
-        if subq is not None:
-            (filename, offs, _) = subq
+        subqs = self.subq_map.get(guid)
+        if subqs is not None:
+            # Multiple registrations for this tree hash: pick the one whose recorded
+            # offset matches offs_hint, falling back to the first entry.
+            if offs_hint is not None:
+                matched = [(p, o) for p, o, _ in subqs if o == offs_hint]
+                filename, offs = matched[0] if matched else (subqs[0][0], subqs[0][1])
+            else:
+                filename, offs = subqs[0][0], subqs[0][1]
         else:
             filename = self.guid_map.get(guid)
             offs = 0
 
         if filename is None:
-            self.node_map[nodeid] = None
-            realnode._coverage_info = None
+            # No storm source file found for this query; record a dead-end.
+            self._cacheMiss(realnode, nodeid, runt_origin)
             return
 
-        self.node_map[nodeid] = (filename, offs)
-        self.text_map[node.text] = (filename, offs)
-        realnode._coverage_info = ((filename, offs), nodeid)
-        self.markLines(frame, (filename, offs), nodeid=nodeid)
+        info = (filename, offs)
+        self.text_map[text_key] = info
+        self._cacheHit(realnode, nodeid, info, runt_origin)
+
+    def _cacheMiss(self, realnode, nodeid, runt_origin): # pragma: no cover
+        # NB: no coverage since this runs inside of the sys.monitoring callback
+        # Record a dead-end (node maps to no storm source). Only cache when there is
+        # no runt_origin, since origin-based attribution is position specific.
+        if runt_origin is None:
+            self.node_map[nodeid] = None
+            realnode._coverage_info = None
+
+    def _cacheHit(self, realnode, nodeid, info, runt_origin): # pragma: no cover
+        # NB: no coverage since this runs inside of the sys.monitoring callback
+        if runt_origin is None:
+            self.node_map[nodeid] = info
+            realnode._coverage_info = (info, nodeid)
+
+        self.markLines(realnode, info, nodeid=nodeid)
 
     def finalizeArcs(self):
         for fname, prev in self.prev_line.items():
             self.arcs_hit[fname].add((prev, -1))
 
-    def markLines(self, frame, info, nodeid=None): # pragma: no cover
+    def markLines(self, astn, info, nodeid=None): # pragma: no cover
         # NB: no coverage since this runs inside of the sys.monitoring callback
-        astn = frame.f_locals.get('self')
         fname, offs = info
-        strt = astn.astinfo.sline
-        if astn.astinfo.isterm:
-            fini = astn.astinfo.eline
+        astinfo = astn.astinfo
+        strt = astinfo.sline
+        if astinfo.isterm:
+            fini = astinfo.eline
         else:
             fini = strt
 
+        arcs = self.arcs_hit[fname]
         self.lines_hit[fname].update(range(strt + offs, fini + offs + 1))
 
         # Arc tracking
         if nodeid is not None and self.prev_nodeid.get(fname) != nodeid:
             prev = self.prev_line.get(fname)
             if prev is not None:
-                self.arcs_hit[fname].add((prev, -1))
+                arcs.add((prev, -1))
             self.prev_line.pop(fname, None)
             self.prev_nodeid[fname] = nodeid
 
         current_line = strt + offs
         prev = self.prev_line.get(fname)
         if prev is not None:
-            self.arcs_hit[fname].add((prev, current_line))
+            arcs.add((prev, current_line))
         else:
-            self.arcs_hit[fname].add((-1, current_line))
+            arcs.add((-1, current_line))
 
         last_line = fini + offs
         for line in range(current_line, last_line):
-            self.arcs_hit[fname].add((line, line + 1))
+            arcs.add((line, line + 1))
 
         self.prev_line[fname] = last_line
 
@@ -408,7 +470,7 @@ class StormcovPlugin:
         if code.co_name not in self.PIVOT_METHODS:
             return DISABLE
 
-        frame = inspect.currentframe().f_back.f_back
+        frame = sys._getframe(2)
         if frame.f_code.co_name != 'run':
             return
         return self.handleAst(code, frame=frame)
@@ -417,7 +479,7 @@ class StormcovPlugin:
         # NB: no coverage since this runs inside of the sys.monitoring callback
         if code.co_name != '__init__':
             return DISABLE
-        return self.handleAst(code, frame=inspect.currentframe().f_back.f_back.f_back)
+        return self.handleAst(code, frame=sys._getframe(3))
 
 TOKENS = [
     'ABSPROP',

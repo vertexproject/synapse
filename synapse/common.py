@@ -264,17 +264,6 @@ def hugeround(x):
 def hugemod(x, y):
     return hugectx.divmod(x, y)
 
-def vertup(vstr):
-    '''
-    Convert a version string to a tuple.
-
-    Example:
-
-        ver = vertup('1.3.30')
-
-    '''
-    return tuple([int(x) for x in vstr.split('.')])
-
 def todo(_todoname, *args, **kwargs):
     '''
     Construct and return a todo tuple of (name, args, kwargs).
@@ -774,6 +763,34 @@ def envbool(name, defval='false'):
         boolean: True if the envar is set, false if it is set to a false value.
     '''
     return os.getenv(name, defval).lower() not in ('0', 'false')
+
+_DOCS_BASEURL_DEFAULT = 'https://docs.vertex.link'
+_DOCS_BASEURL_TOKEN = '{{SYN_DOCS_BASEURL}}'
+
+def getDocsBaseUrl():
+    '''
+    Get the base URL for Vertex Project documentation.
+
+    This returns the value of the ``SYN_DOCS_BASEURL`` environment variable,
+    defaulting to ``https://docs.vertex.link`` if not set.
+
+    Returns:
+        str: Base URL string for Vertex documentation.
+    '''
+    return os.environ.get('SYN_DOCS_BASEURL', _DOCS_BASEURL_DEFAULT)
+
+def substDocsBaseUrl(text):
+    '''
+    Replace all ``{{SYN_DOCS_BASEURL}}`` tokens in *text* with the result of
+    :func:`getDocsBaseUrl`.
+
+    Args:
+        text (str): Text potentially containing ``{{SYN_DOCS_BASEURL}}`` tokens.
+
+    Returns:
+        str: Text with all tokens replaced by the resolved base URL.
+    '''
+    return text.replace(_DOCS_BASEURL_TOKEN, getDocsBaseUrl())
 
 def getSynPath(*paths):
     return genpath(syndir, *paths)

@@ -23,19 +23,19 @@ def main(argv):
     # store and reuse the session cookie. Refer to the documentation for
     # other HTTPAPI clients and tools for how they handle cookies.
 
-    url = f'{base_url}/api/v1/login'
+    url = f'{base_url}/api/v3/login'
     data = {'user': username, 'passwd': password}
 
     resp = sess.post(url, json=data)
     assert resp.status_code == 200, f'Failed to login resp.status={resp.status}'
 
-    # api/v1/storm - This streams Storm messages back to the user,
+    # api/v3/storm - This streams Storm messages back to the user,
     # much like the telepath storm() API. The example shows some
     # node and print messages being sent back.
 
     query = '.created $lib.print($node.repr(".created")) | limit 3'
     data = {'query': query, 'opts': {'repr': True}}
-    url = f'{base_url}/api/v1/storm'
+    url = f'{base_url}/api/v3/storm'
 
     resp = sess.get(url, json=data, stream=True)
     for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
@@ -47,7 +47,7 @@ def main(argv):
 
     query = '$valu="world" $foo=`hello {$valu}` return ($foo)'
     data = {'query': query}
-    url = f'{base_url}/api/v1/storm/call'
+    url = f'{base_url}/api/v3/storm/call'
 
     resp = sess.get(url, json=data)
     info = resp.json()

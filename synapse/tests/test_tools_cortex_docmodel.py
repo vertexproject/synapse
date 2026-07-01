@@ -165,6 +165,72 @@ class DocModelTest(s_t_utils.SynTest):
         # Non-string, non-tuple, non-list input
         self.eq(resolve(12345), [''])
 
+        # Named array type with string element type
+        types_named_str = {
+            'mymod:myform:names': {
+                'info': {'bases': ('base', 'array')},
+                'opts': {'type': 'entity:name'},
+            }
+        }
+        self.eq(resolve(('mymod:myform:names', {}), types_named_str), ['array of entity:name'])
+
+        # Named array type with tuple element types
+        types_named_tuple = {
+            'mymod:myform:refs': {
+                'info': {'bases': ('base', 'array')},
+                'opts': {'type': ('str', 'int')},
+            }
+        }
+        self.eq(resolve(('mymod:myform:refs', {}), types_named_tuple), ['array of int, str'])
+
+        # Named array type with no type opt -> 'array' (line 118)
+        types_named_notype = {
+            'mymod:myform:items': {
+                'info': {'bases': ('base', 'array')},
+                'opts': {},
+            }
+        }
+        self.eq(resolve(('mymod:myform:items', {}), types_named_notype), ['array'])
+
+        # Auto-registered prop types are shown as their base type, not the form:prop:<hash>
+        # name. This holds for a poly constituent, an array element, and a direct reference.
+        auto_types = {
+            'foo:period:abc': {'info': {'bases': ('base', 'ival'), 'auto': True}, 'opts': {}},
+            'foo:tags:def': {
+                'info': {'bases': ('base', 'array'), 'auto': True},
+                'opts': {'type': 'foo:code:ghi'},
+            },
+            'foo:code:ghi': {'info': {'bases': ('base', 'str'), 'auto': True}, 'opts': {}},
+        }
+        # poly constituent -> base
+        self.eq(resolve(('poly', {'types': ['foo:period:abc']}), auto_types), ['ival'])
+        # two distinct auto constituents sharing a base collapse to one display name
+        two_auto = {
+            'foo:a:1': {'info': {'bases': ('base', 'str'), 'auto': True}, 'opts': {}},
+            'foo:b:2': {'info': {'bases': ('base', 'str'), 'auto': True}, 'opts': {}},
+        }
+        self.eq(resolve(('poly', {'types': ['foo:a:1', 'foo:b:2']}), two_auto), ['str'])
+        # array element that is itself an auto type -> base
+        self.eq(resolve(('foo:tags:def', {}), auto_types), ['array of str'])
+        # direct (non-poly, non-array) auto reference -> base
+        self.eq(resolve(('foo:code:ghi',), auto_types), ['str'])
+
+    def test_tools_docmodel_displaytypename_unit(self):
+
+        disp = s_docmodel._displayTypeName
+
+        types = {'foo:period:abc': {'info': {'bases': ('base', 'ival'), 'auto': True}}}
+
+        # auto type -> base type name
+        self.eq(disp('foo:period:abc', types), 'ival')
+        # non-auto type -> unchanged
+        self.eq(disp('ival', types), 'ival')
+        # no types map / non-string -> unchanged
+        self.eq(disp('foo:period:abc', None), 'foo:period:abc')
+        self.eq(disp(('str', {}), types), ('str', {}))
+        # auto type with no bases -> unchanged
+        self.eq(disp('weird', {'weird': {'info': {'auto': True, 'bases': ()}}}), 'weird')
+
     async def test_tools_docmodel_sorted(self):
 
         outp = self.getTestOutp()
@@ -308,6 +374,71 @@ class DocModelTest(s_t_utils.SynTest):
         # Array with non-dict opts -> empty
         self.eq(getNested(('array', 'notadict')), ())
 
+        # Named array type with string element type
+        types_named_str = {
+            'mymod:myform:names': {
+                'info': {'bases': ('base', 'array')},
+                'opts': {'type': 'entity:name'},
+            }
+        }
+        self.eq(getNested(('mymod:myform:names', {}), types_named_str), ('entity:name',))
+
+        # Named array type with tuple element types (lines 189-190)
+        types_named_tuple = {
+            'mymod:myform:refs': {
+                'info': {'bases': ('base', 'array')},
+                'opts': {'type': ('str', 'int')},
+            }
+        }
+        self.eq(getNested(('mymod:myform:refs', {}), types_named_tuple), ('str', 'int'))
+
+        # Named array type with no type opt (line 191)
+        types_named_notype = {
+            'mymod:myform:items': {
+                'info': {'bases': ('base', 'array')},
+                'opts': {},
+            }
+        }
+        self.eq(getNested(('mymod:myform:items', {}), types_named_notype), ())
+
+        # Auto-registered types resolve to their base so referenced-type sections link to a
+        # documented type rather than the internal form:prop:<hash> name.
+        auto_types = {
+            'foo:period:abc': {'info': {'bases': ('base', 'ival'), 'auto': True}, 'opts': {}},
+            'foo:tags:def': {
+                'info': {'bases': ('base', 'array'), 'auto': True},
+                'opts': {'type': 'foo:code:ghi'},
+            },
+            'foo:code:ghi': {'info': {'bases': ('base', 'str'), 'auto': True}, 'opts': {}},
+        }
+        self.eq(getNested(('poly', {'types': ['foo:period:abc']}), auto_types), ('ival',))
+        self.eq(getNested(('array', {'type': 'foo:code:ghi'}), auto_types), ('str',))
+        self.eq(getNested(('foo:tags:def', {}), auto_types), ('str',))
+        self.eq(getNested(('foo:code:ghi',), auto_types), ('str',))
+
+    def test_tools_docmodel_resolvearray_opts_unit(self):
+
+        resolveOpts = s_docmodel._resolveArrayOpts
+
+        types = {
+            'mymod:myform:names': {
+                'info': {'bases': ('base', 'array')},
+                'opts': {'type': 'entity:name'},
+            }
+        }
+
+        # Named array type -> look up opts in types dict
+        self.eq(resolveOpts('mymod:myform:names', ('mymod:myform:names', {}), types), {'type': 'entity:name'})
+
+        # Typename not in types dict -> empty dict
+        self.eq(resolveOpts('unknown:type', ('unknown:type', {}), types), {})
+
+        # types is None -> empty dict
+        self.eq(resolveOpts('mymod:myform:names', ('mymod:myform:names', {}), None), {})
+
+        # Inline array typedef with dict opts
+        self.eq(resolveOpts('array', ('array', {'type': 'str'}), {}), {'type': 'str'})
+
     def test_tools_docmodel_getbasetypename_unit(self):
 
         getBase = s_docmodel._getBaseTypeName
@@ -448,7 +579,7 @@ class DocModelTest(s_t_utils.SynTest):
         # in genModelMarkdown
 
         async with self.getTestCoreAndProxy() as (core, prox):
-            await core.addTagProp('test:score', ('int', {}), {'doc': 'A test tag score.'})
+            await core.addTagProp('_test:score', ('int', {}), {'doc': 'A test tag score.'})
 
             lurl = core.getLocalUrl()
             outp = self.getTestOutp()
@@ -456,7 +587,7 @@ class DocModelTest(s_t_utils.SynTest):
 
             text = str(outp)
             self.isin('## Tag Properties', text)
-            self.isin('`test:score`', text)
+            self.isin('`_test:score`', text)
             self.isin('A test tag score.', text)
 
     async def test_tools_docmodel_form_interface_nodoc(self):
@@ -474,11 +605,9 @@ class DocModelTest(s_t_utils.SynTest):
                 'types': (
                     ('test:nodoc:form', ('str', {}), {
                         'interfaces': (('test:nodoc:iface', {}),),
+                        'props': (),
                         'doc': 'A form with a no-doc interface.',
                     }),
-                ),
-                'forms': (
-                    ('test:nodoc:form', {}, ()),
                 ),
             }])
 
@@ -505,10 +634,8 @@ class DocModelTest(s_t_utils.SynTest):
                     ('test:impl:form', ('str', {}), {
                         'doc': 'A form implementing test:impl:iface.',
                         'interfaces': (('test:impl:iface', {}),),
+                        'props': (),
                     }),
-                ),
-                'forms': (
-                    ('test:impl:form', {}, ()),
                 ),
             }])
 
@@ -546,7 +673,7 @@ class DocModelTest(s_t_utils.SynTest):
                 },
             },
             'tagprops': {
-                'test:score': {'type': ('int', {}), 'doc': 'A score.'},
+                '_test:score': {'type': ('int', {}), 'doc': 'A score.'},
             },
         }
 
@@ -573,9 +700,9 @@ class DocModelTest(s_t_utils.SynTest):
         self.eq(result[2], 'seen')
 
         # Tag prop match
-        result = findName('test:score', modeldict)
+        result = findName('_test:score', modeldict)
         self.eq(result[0], 'tagprop')
-        self.eq(result[1], 'test:score')
+        self.eq(result[1], '_test:score')
 
         # Unknown name
         self.none(findName('really:not:there', modeldict))
@@ -607,17 +734,17 @@ class DocModelTest(s_t_utils.SynTest):
     async def test_tools_docmodel_find_tagprop(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
-            await core.addTagProp('test:score', ('int', {}), {'doc': 'A test tag score.'})
+            await core.addTagProp('_test:score', ('int', {}), {'doc': 'A test tag score.'})
 
             lurl = core.getLocalUrl()
             outp = self.getTestOutp()
-            self.eq(await s_docmodel.main(['--cortex', lurl, '--find', 'test:score'], outp=outp), 0)
+            self.eq(await s_docmodel.main(['--cortex', lurl, '--find', '_test:score'], outp=outp), 0)
 
             text = str(outp)
-            self.isin('# `test:score`', text)
+            self.isin('# `_test:score`', text)
             self.isin('**Tag Property**', text)
             self.isin('| Property | Type | Doc |', text)
-            self.isin('`test:score`', text)
+            self.isin('`_test:score`', text)
 
     async def test_tools_docmodel_find_notfound(self):
 

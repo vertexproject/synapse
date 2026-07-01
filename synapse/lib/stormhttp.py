@@ -402,11 +402,9 @@ class LibHttp(s_stormtypes.Lib):
             if any(['sha256' in field for field in fields]):
                 self.runt.confirm(('axon', 'wput'))
 
-                kwargs = {}
-
-                ok, proxy = await s_stormtypes.resolveAxonProxyArg(proxy)
-                if ok:
-                    kwargs['proxy'] = proxy
+                kwargs = {
+                    'proxy': await s_stormtypes.resolveAxonProxyArg(proxy),
+                }
 
                 axon = self.runt.view.core.axon
                 info = await axon.postfiles(fields, url, headers=headers, params=params, method=meth,

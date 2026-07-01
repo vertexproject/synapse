@@ -53,7 +53,7 @@ class StormlibEasyPermTest(s_test.SynTest):
 
             exp['permissions']['roles'].pop(alliden)
 
-            q = 'return($lib.auth.easyperm.set($edef, roles, $role, $lib.null))'
+            q = 'return($lib.auth.easyperm.set($edef, roles, $role, (null)))'
             retn = await core.callStorm(q, opts=opts)
             self.eq(retn, exp)
 

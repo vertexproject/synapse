@@ -12,7 +12,7 @@ import synapse.lib.version as s_version
 
 import synapse.tools.storm._cli as s_t_storm
 
-reqver = '>=3.0.0,<4.0.0'
+reqver = '>=3.0.0b1,<4.0.0'
 desc = '''Command line tool for ingesting csv files into a cortex
 
 The storm file is run with the CSV rows specified in the variable "rows" so most
@@ -69,10 +69,10 @@ async def runCsvExport(opts, outp, text, stormopts):
         try:
             s_version.reqVersion(core._getSynVers(), reqver)
         except s_exc.BadVersion as e:
-            valu = s_version.fmtVersion(*e.get('valu'))
+            valu = e.get('valu')
             outp.printf(f'Cortex version {valu} is outside of the synapse.tools.cortex.csv supported range ({reqver}).')
             outp.printf(f'Please use a version of Synapse which supports {valu}; '
-                        f'current version is {s_version.verstring}.')
+                        f'current version is {s_version.version}.')
             return 1
 
         with open(path, 'w') as fd:
@@ -166,10 +166,10 @@ async def runCsvImport(opts, outp, text, stormopts):
             try:
                 s_version.reqVersion(core._getSynVers(), reqver)
             except s_exc.BadVersion as e:
-                valu = s_version.fmtVersion(*e.get('valu'))
+                valu = e.get('valu')
                 outp.printf(f'Cortex version {valu} is outside of the synapse.tools.cortex.csv supported range ({reqver}).')
                 outp.printf(f'Please use a version of Synapse which supports {valu}; '
-                            f'current version is {s_version.verstring}.')
+                            f'current version is {s_version.version}.')
                 return 1
 
             nodecount = await addCsvData(core)

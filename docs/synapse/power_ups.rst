@@ -4,7 +4,7 @@
 Synapse Power-Ups
 #################
 
-Power-Ups are part of `The Vertex Project <https://vertex.link>`_'s commercial offering, Synapse Enterprise. Synapse Enterprise is an on-premises solution that includes `Optic (the Synapse UI) <https://synapse.docs.vertex.link/projects/optic/en/latest/index.html>`_ and all of the Power-Ups. The license includes unlimited users and does not limit the amount of data or number of instances you deploy. We take a white-glove approach to each deployment where we're with you every step of the way from planning deployment sizes to helping to train your analysts.
+Power-Ups are part of `The Vertex Project <https://vertex.link>`_'s commercial offering, Synapse Enterprise. Synapse Enterprise is an on-premises solution that includes `Optic (the Synapse UI) <{{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-optic/latest/index.html>`_ and all of the Power-Ups. The license includes unlimited users and does not limit the amount of data or number of instances you deploy. We take a white-glove approach to each deployment where we're with you every step of the way from planning deployment sizes to helping to train your analysts.
 
 Feel free to `contact us <https://vertex.link/contact-us>`_ or `request a demo instance <https://vertex.link/request-a-demo>`_.
 
@@ -31,9 +31,6 @@ be deployed. This allows users to rapidly expand the power of their Synapse depl
 additional operations teams in their environments. For an introduction to Rapid Power-Ups and some information about
 publicly available Power-Ups, see the following `blog <https://vertex.link/blogs/synapse-power-ups/>`_ post.
 
-See the `Rapid Power-Ups List <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/index_packages.html>`_ for
-a complete list of all available Rapid Power-Ups.
-
 Getting Started with Rapid Power-Ups
 ------------------------------------
 
@@ -56,20 +53,15 @@ their services.
 
 Documentation for specific Advanced Power-Ups can be found here:
 
-- `Synapse Backup <https://synapse.docs.vertex.link/projects/backup/en/latest/>`_
-- `Synapse Fileparser <https://synapse.docs.vertex.link/projects/fileparser/en/latest/>`_
-- `Synapse Maxmind <https://synapse.docs.vertex.link/projects/maxmind/en/latest/>`_
-- `Synapse GCS <https://synapse.docs.vertex.link/projects/gcs/en/latest/>`_
-- `Synapse Metrics <https://synapse.docs.vertex.link/projects/metrics/en/latest/>`_
-- `Synapse Nettools <https://synapse.docs.vertex.link/projects/nettools/en/latest/>`_
-- `Synapse NSRL <https://synapse.docs.vertex.link/projects/nsrl/en/latest/>`_
-- `Synapse Playwright <https://synapse.docs.vertex.link/projects/playwright/en/latest/>`_
-- `Synapse S3 <https://synapse.docs.vertex.link/projects/s3/en/latest/>`_
-- `Synapse Search <https://synapse.docs.vertex.link/projects/search/en/latest/>`_
-- `Synapse Sidepocket <https://synapse.docs.vertex.link/projects/sidepocket/en/latest/>`_
-- `Synapse Swarm <https://synapse.docs.vertex.link/projects/swarm/en/latest/>`_
-- `Synapse Yara <https://synapse.docs.vertex.link/projects/yara/en/latest/>`_
-- `Synapse Axon Azure <https://synapse.docs.vertex.link/projects/axon-azure/en/latest/>`_
+- `Synapse Enterprise AHA <{{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-aha/latest/>`_
+- `Synapse Enterprise (Cloud) Axon <{{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-axon/latest/>`_
+- `Synapse Backup <{{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-backup/latest/>`_
+- `Synapse Fileparser <{{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-fileparser/latest/>`_
+- `Synapse Maxmind <{{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-maxmind/latest/>`_
+- `Synapse Metrics <{{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-metrics/latest/>`_
+- `Synapse Playwright <{{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-playwright/latest/>`_
+- `Synapse Search <{{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-search/latest/>`_
+- `Synapse Swarm <{{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-swarm/latest/>`_
 
 .. _video: https://vimeo.com/595344430
 .. _Slack: https://v.vtx.lk/join-slack

@@ -239,7 +239,7 @@ class MacroTest(s_test.SynTest):
             await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.macro.get(foo)', opts=asvisi))
 
             opts = {'vars': {'visi': visi.iden}}
-            msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, $lib.null)', opts=opts)
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, (null))', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
             macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
@@ -254,7 +254,7 @@ class MacroTest(s_test.SynTest):
             self.len(0, macros)
 
             opts = {'vars': {'allrole': core.auth.allrole.iden}}
-            msgs = await core.stormlist('$lib.macro.grant(foo, roles, $allrole, $lib.null)', opts=opts)
+            msgs = await core.stormlist('$lib.macro.grant(foo, roles, $allrole, (null))', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
             macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
@@ -359,12 +359,12 @@ class MacroTest(s_test.SynTest):
             await visi.setAdmin(True)
 
             async with self.getHttpSess() as sess:
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                async with sess.post(f'https://localhost:{port}/api/v3/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq('visi', retn['result']['name'])
 
-                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v3/behold') as sock:
                     await sock.send_json({'type': 'call:init'})
                     mesg = await sock.receive_json()
                     self.eq(mesg['type'], 'init')

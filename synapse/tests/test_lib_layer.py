@@ -253,7 +253,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, errors)
 
         async with self.getTestCore() as core:
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
             layr = core.getLayer()
             errors = [e async for e in layr.verifyAllNids()]
@@ -265,7 +265,7 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in layr.verifyAllTagProps()]
             self.len(0, errors)
 
-            layr._testAddTagPropIndx(nid, 'inet:ip', 'foo', 'score', 5)
+            layr._testAddTagPropIndx(nid, 'inet:ip', 'foo', '_score', 5)
 
             scanconf = {'include': ['newp']}
             errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
@@ -277,10 +277,10 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoNodeForTagPropIndex')
             self.eq(errors[2][0], 'NoNodeForTagPropIndex')
 
-            nodes = await core.nodes('[ inet:ip=1.2.3.4 +#foo:score=5 ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 +#foo:_score=5 ]')
             nid = nodes[0].nid
 
-            layr._testAddTagPropIndx(nid, 'inet:ip', 'foo', 'score', 6)
+            layr._testAddTagPropIndx(nid, 'inet:ip', 'foo', '_score', 6)
 
             scanconf = {'autofix': 'index'}
             errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
@@ -294,8 +294,8 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, errors)
 
             sode = layr._getStorNode(nid)
-            score = sode['tagprops']['foo']['score']
-            sode['tagprops']['foo']['score'] = (score[0], 8675309, None)
+            score = sode['tagprops']['foo']['_score']
+            sode['tagprops']['foo']['_score'] = (score[0], 8675309, None)
             layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
@@ -331,8 +331,8 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoPropForTagPropIndex')
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
-            await core.nodes('[ test:str=foo +#foo:score=5 ]')
-            await core.nodes('test:str=foo [ -#foo:score ]', opts={'view': viewiden2})
+            await core.nodes('[ test:str=foo +#foo:_score=5 ]')
+            await core.nodes('test:str=foo [ -#foo:_score ]', opts={'view': viewiden2})
             await core.nodes('''
             $layr = $lib.layer.get()
             for ($iden, $type, $info) in $layr.getTombstones() {
@@ -664,7 +664,7 @@ class LayerTest(s_t_utils.SynTest):
             nodelist0 = [node.pack() for node in nodelist0]
 
             editlist = []
-            async for offs, nodeedits in core0.getLayer().syncNodeEdits(0, wait=False, compat=True):
+            async for offs, nodeedits, meta in core0.getLayer().syncNodeEdits(0, wait=False, compat=True):
                 editlist.append(nodeedits)
 
             etime = await core0.callStorm('return($lib.layer.get().edited())')
@@ -735,9 +735,9 @@ class LayerTest(s_t_utils.SynTest):
 
                 await genr.aclose()
 
-            await core0.addTagProp('score', ('int', {}), {})
+            await core0.addTagProp('_score', ('int', {}), {})
 
-            q = '[ test:int=1 +#tp:score=5 +(refs)> { test:str=foo } ] $node.data.set(foo, bar)'
+            q = '[ test:int=1 +#tp:_score=5 +(refs)> { test:str=foo } ] $node.data.set(foo, bar)'
             nodes = await core0.nodes(q)
             intnid = s_common.int64un(nodes[0].nid)
             tstrnid = s_common.int64un((await core0.nodes('test:str=foo'))[0].nid)
@@ -750,7 +750,7 @@ class LayerTest(s_t_utils.SynTest):
             noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAG_DEL, ('newp',))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_SET, ('tp', 'score', 5, s_layer.STOR_TYPE_I64, None))])]
+            noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_SET, ('tp', '_score', 5, s_layer.STOR_TYPE_I64, None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
             noedit = [(intnid, 'test:int', [(s_layer.EDIT_TAGPROP_DEL, ('newp', 'newp'))])]
@@ -774,7 +774,7 @@ class LayerTest(s_t_utils.SynTest):
             rnodeedits = [
                 ('test:str', 'remotenewp', [(s_layer.EDIT_PROP_SET, ('tick', 0, s_layer.STOR_TYPE_I64, None))]),
             ]
-            ledits = await core0.remoteToLocalEdits(rnodeedits)
+            ledits = await layr.remoteToLocalEdits(rnodeedits)
             self.len(1, ledits)
             self.nn(ledits[0][0])
 
@@ -785,9 +785,28 @@ class LayerTest(s_t_utils.SynTest):
                     (s_layer.EDIT_EDGE_ADD, ('refs', ('test:str', 'foo'))),
                 ]),
             ]
-            ledits = await core0.remoteToLocalEdits(rnodeedits)
+            ledits = await layr.remoteToLocalEdits(rnodeedits)
             self.len(1, ledits)
             self.len(2, ledits[0][2])
+
+            # test localToRemoteEdits skips nodeedits whose n1 nid has no ndef mapping
+            fakenid = 0xdeadbeefcafe
+            lnodeedits = [(fakenid, 'test:str', [(s_layer.EDIT_NODE_ADD, ('newp', s_layer.STOR_TYPE_UTF8, None))])]
+            self.eq([], await layr.localToRemoteEdits(lnodeedits))
+
+            # test localToRemoteEdits skips edge edits whose n2 nid has no ndef mapping
+            lnodeedits = [(intnid, 'test:int', [(s_layer.EDIT_EDGE_ADD, ('refs', fakenid))])]
+            self.eq([], await layr.localToRemoteEdits(lnodeedits))
+
+            lnodeedits = [(intnid, 'test:int', [(s_layer.EDIT_EDGE_DEL, ('refs', fakenid))])]
+            self.eq([], await layr.localToRemoteEdits(lnodeedits))
+
+            # test localToRemoteEdits resolves edge edits with valid n2 nids to ndef
+            lnodeedits = [(intnid, 'test:int', [(s_layer.EDIT_EDGE_ADD, ('refs', tstrnid))])]
+            redits = await layr.localToRemoteEdits(lnodeedits)
+            self.len(1, redits)
+            self.eq(redits[0][:2], ('test:int', 1))
+            self.eq(redits[0][2], [(s_layer.EDIT_EDGE_ADD, ('refs', ('test:str', 'foo')))])
 
     async def test_layer_stornodeedits_nonexus(self):
         # test for migration methods that store nodeedits bypassing nexus
@@ -849,7 +868,7 @@ class LayerTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.none(nodes[0].get('asn'))
                 self.none(nodes[0].get('#foo.tag'))
-                self.none(nodes[0].getTagProp('bar.tag', 'score'))
+                self.none(nodes[0].getTagProp('bar.tag', '_score'))
 
                 self.len(0, await core.nodes('inet:ip=1.2.3.4 -(_bar)> *', opts=opts))
                 self.len(0, await core.nodes('inet:ip=1.2.3.4 <(_foo)- *', opts=opts))
@@ -862,7 +881,7 @@ class LayerTest(s_t_utils.SynTest):
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint("('inet:ip', 'asn')", msgs)
                 self.stormIsInPrint("foo.tag", msgs)
-                self.stormIsInPrint("'bar.tag', 'score'", msgs)
+                self.stormIsInPrint("'bar.tag', '_score'", msgs)
                 self.stormIsInPrint("'_bar'", msgs)
                 self.stormIsInPrint("'_foo'", msgs)
                 self.stormIsInPrint("'foodata'", msgs)
@@ -872,7 +891,7 @@ class LayerTest(s_t_utils.SynTest):
                 msgs = await core.stormlist(q, opts=opts)
                 self.len(0, [m for m in msgs if m[0] == 'print'])
 
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             view2 = core.getView(viewiden2)
@@ -882,7 +901,7 @@ class LayerTest(s_t_utils.SynTest):
             inet:ip=1.2.3.4
                 :asn=4
                 +#foo.tag=2024
-                +#bar.tag:score=5
+                +#bar.tag:_score=5
                 +(_bar)> {[ it:dev:str=n1 ]}
                 <(_foo)+ {[ it:dev:str=n2 ]}
             ]
@@ -893,7 +912,7 @@ class LayerTest(s_t_utils.SynTest):
             inet:ip=1.2.3.4
             [   -:asn
                 -#foo.tag
-                -#bar.tag:score
+                -#bar.tag:_score
                 -(_bar)> {[ it:dev:str=n1 ]}
                 <(_foo)- {[ it:dev:str=n2 ]}
             ]
@@ -930,17 +949,17 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ip=1.2.3.4 [ -#foo.tag ]', opts=viewopts2)
             self.none(nodes[0].get('#foo.tag'))
 
-            nodes = await core.nodes('inet:ip=1.2.3.4 [ -#bar.tag:score ]', opts=viewopts2)
-            self.none(nodes[0].getTagProp('bar.tag', 'score'))
+            nodes = await core.nodes('inet:ip=1.2.3.4 [ -#bar.tag:_score ]', opts=viewopts2)
+            self.none(nodes[0].getTagProp('bar.tag', '_score'))
 
             nodes = await core.nodes('inet:ip=1.2.3.4')
-            self.eq(5, nodes[0].getTagProp('bar.tag', 'score'))
+            self.eq(5, nodes[0].getTagProp('bar.tag', '_score'))
 
-            nodes = await core.nodes('inet:ip=1.2.3.4 [ +#bar.tag:score=6 ]', opts=viewopts2)
-            self.eq(6, nodes[0].getTagProp('bar.tag', 'score'))
+            nodes = await core.nodes('inet:ip=1.2.3.4 [ +#bar.tag:_score=6 ]', opts=viewopts2)
+            self.eq(6, nodes[0].getTagProp('bar.tag', '_score'))
 
-            nodes = await core.nodes('inet:ip=1.2.3.4 [ -#bar.tag:score ]', opts=viewopts2)
-            self.none(nodes[0].getTagProp('bar.tag', 'score'))
+            nodes = await core.nodes('inet:ip=1.2.3.4 [ -#bar.tag:_score ]', opts=viewopts2)
+            self.none(nodes[0].getTagProp('bar.tag', '_score'))
 
             await core.nodes('inet:ip=1.2.3.4 $node.data.pop(foodata)', opts=viewopts2)
 
@@ -979,15 +998,15 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('inet:ip=1.2.3.4 [ <(_foo)+ { it:dev:str=n2 } ]', opts=viewopts2)
             self.len(1, await core.nodes('inet:ip=1.2.3.4 <(_foo)- *', opts=viewopts2))
 
-            await core.addTagProp('score2', ('int', {}), {})
-            nodes = await core.nodes('[test:str=multi +#foo:score=5 +#foo:score2=6]')
-            self.sorteq(('score', 'score2'), nodes[0].getTagProps('foo'))
+            await core.addTagProp('_score2', ('int', {}), {})
+            nodes = await core.nodes('[test:str=multi +#foo:_score=5 +#foo:_score2=6]')
+            self.sorteq(('_score', '_score2'), nodes[0].getTagProps('foo'))
 
-            nodes = await core.nodes('test:str=multi [-#foo:score]')
-            self.eq(('score2',), nodes[0].getTagProps('foo'))
+            nodes = await core.nodes('test:str=multi [-#foo:_score]')
+            self.eq(('_score2',), nodes[0].getTagProps('foo'))
 
             nodes = await core.nodes('test:str=multi')
-            self.eq(('score2',), nodes[0].getTagProps('foo'))
+            self.eq(('_score2',), nodes[0].getTagProps('foo'))
 
             await core.nodes('inet:ip=1.2.3.4 [ <(_foo)- { it:dev:str=n2 } ]', opts=viewopts2)
             self.len(0, await core.nodes('inet:ip=1.2.3.4 <(_foo)- *', opts=viewopts2))
@@ -1006,10 +1025,15 @@ class LayerTest(s_t_utils.SynTest):
             self.stormNotInPrint("(7, '_foo', 0)", msgs)
 
             await view2.merge()
+            self.true(await view2.waitfini(timeout=5))
             await checkempty()
             await notombs()
+            self.none(core.getView(viewiden2))
 
-            await view2.wipeLayer()
+            # re-fork: merge consumes the previous view
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
             await notombs(opts=viewopts2)
 
             self.len(1, await core.nodes(addq))
@@ -1053,18 +1077,21 @@ class LayerTest(s_t_utils.SynTest):
             self.stormIsInPrint("('inet:ip', None)", msgs)
             self.stormNotInPrint("('inet:ip', 'asn')", msgs)
             self.stormNotInPrint("foo.tag", msgs)
-            self.stormNotInPrint("'bar.tag', 'score'", msgs)
+            self.stormNotInPrint("'bar.tag', '_score'", msgs)
             self.stormNotInPrint("'_bar'", msgs)
             self.stormNotInPrint("'foodata'", msgs)
 
             self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=viewopts2))
 
             await view2.merge()
+            self.true(await view2.waitfini(timeout=5))
             await notombs()
 
             self.len(0, await core.nodes('inet:ip=1.2.3.4'))
 
-            await view2.wipeLayer()
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
             await notombs(opts=viewopts2)
 
             # use command to merge
@@ -1077,7 +1104,7 @@ class LayerTest(s_t_utils.SynTest):
             msgs = await core.stormlist('merge --diff', opts=viewopts2)
             self.stormIsInPrint('delete inet:ip:asn', msgs)
             self.stormIsInPrint('delete inet:ip#foo.tag', msgs)
-            self.stormIsInPrint('delete inet:ip#bar.tag:score', msgs)
+            self.stormIsInPrint('delete inet:ip#bar.tag:_score', msgs)
             self.stormIsInPrint('delete inet:ip DATA foodata', msgs)
             self.stormIsInPrint('delete inet:ip -(_bar)> ', msgs)
 
@@ -1085,7 +1112,7 @@ class LayerTest(s_t_utils.SynTest):
             self.stormNotInPrint('delete inet:ip#foo.tag', msgs)
 
             msgs = await core.stormlist('merge --diff --exclude-tags bar.*', opts=viewopts2)
-            self.stormNotInPrint('delete inet:ip#bar.tag:score', msgs)
+            self.stormNotInPrint('delete inet:ip#bar.tag:_score', msgs)
 
             await core.nodes('for $verb in $lib.range(1001) { $lib.model.ext.addEdge(*, `_a{$verb}`, *, ({})) }')
 
@@ -1115,8 +1142,12 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('inet:ip=1.2.3.4 | delnode --force')
 
             await view2.merge()
+            self.true(await view2.waitfini(timeout=5))
             await notombs()
-            await view2.wipeLayer()
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
 
             await core.nodes(addq)
             await core.nodes(delq, opts=viewopts2)
@@ -1124,8 +1155,12 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('inet:ip=1.2.3.4 | delnode --force')
 
             await view2.merge()
+            self.true(await view2.waitfini(timeout=5))
             await notombs()
-            await view2.wipeLayer()
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
 
             # use quorum to merge
             await core.nodes(addq)
@@ -1228,14 +1263,14 @@ class LayerTest(s_t_utils.SynTest):
             msgs = await core.stormlist('inet:ip=1.2.3.4 | movenodes', opts=viewopts3)
             self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ip:asn', msgs)
             self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ip#foo.tag', msgs)
-            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ip#bar.tag:score', msgs)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ip#bar.tag:_score', msgs)
             self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ip DATA foodata', msgs)
             self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ip -(_bar)>', msgs)
 
             msgs = await core.stormlist('inet:ip=1.2.3.4 | movenodes --preserve-tombstones', opts=viewopts3)
             self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ip:asn', msgs)
             self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ip#foo.tag', msgs)
-            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ip#bar.tag:score', msgs)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ip#bar.tag:_score', msgs)
             self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ip DATA foodata', msgs)
             self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ip -(_bar)>', msgs)
 
@@ -1281,7 +1316,7 @@ class LayerTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q, opts=viewopts3)
             self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ip:asn', msgs)
             self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ip#foo', msgs)
-            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ip#bar.tag:score', msgs)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ip#bar.tag:_score', msgs)
             self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ip DATA foodata', msgs)
             self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ip -(_bar)>', msgs)
 
@@ -1359,7 +1394,7 @@ class LayerTest(s_t_utils.SynTest):
 
             q = '''
             inet:ip=1.2.3.4
-            for $edge in $node.edges(reverse=$lib.true) {
+            for $edge in $node.edges(reverse=(true)) {
                 $lib.print($edge)
             }
             '''
@@ -1390,12 +1425,15 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(['true'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
 
             await view3.merge()
+            self.true(await view3.waitfini(timeout=5))
 
             # tombstones should merge down since they still have values to cover
             await checkempty(opts=viewopts2)
             await hastombs(opts=viewopts2)
 
-            await view3.wipeLayer()
+            viewiden3 = await core.callStorm('return($lib.view.get().fork().iden)', opts=viewopts2)
+            view3 = core.getView(viewiden3)
+            viewopts3 = {'view': viewiden3}
 
             nodes = await core.nodes('inet:ip=1.2.3.4', opts=viewopts3)
             self.false(nodes[0].has('asn'))
@@ -1405,7 +1443,7 @@ class LayerTest(s_t_utils.SynTest):
             layr = view2.layers[0].iden
             self.eq(bylayer['props']['asn'], layr)
             self.eq(bylayer['tags']['foo.tag'], layr)
-            self.eq(bylayer['tagprops']['bar.tag']['score'], layr)
+            self.eq(bylayer['tagprops']['bar.tag']['_score'], layr)
 
             await core.nodes('inet:ip=1.2.3.4 [ <(_foo)- { it:dev:str=n2 } ] | delnode')
 
@@ -1417,12 +1455,15 @@ class LayerTest(s_t_utils.SynTest):
             await hastombs(opts=viewopts3)
 
             await view3.merge()
+            self.true(await view3.waitfini(timeout=5))
 
             # no tombstones should merge since the base layer has no values
             await checkempty(opts=viewopts2)
             await notombs(opts=viewopts2)
 
-            await view3.wipeLayer()
+            viewiden3 = await core.callStorm('return($lib.view.get().fork().iden)', opts=viewopts2)
+            view3 = core.getView(viewiden3)
+            viewopts3 = {'view': viewiden3}
 
             # node re-added above a tombstone is empty
             await core.nodes(addq)
@@ -1464,16 +1505,16 @@ class LayerTest(s_t_utils.SynTest):
 
             self.eq([], node.getTagProps('bar.tag'))
             self.eq([], node.getTagPropsWithLayer('bar.tag'))
-            self.false(node.hasTagProp('bar.tag', 'score'))
-            self.false(node.hasTagPropInLayers('bar.tag', 'score'))
-            self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
+            self.false(node.hasTagProp('bar.tag', '_score'))
+            self.false(node.hasTagPropInLayers('bar.tag', '_score'))
+            self.eq((None, None), node.getTagPropWithLayer('bar.tag', '_score'))
 
             self.eq(['version', 'type'], list(nodes[0].getProps().keys()))
             self.eq({}, node._getTagsDict())
             self.eq({}, node._getTagPropsDict())
 
-            self.len(0, await core.nodes('#bar.tag:score', opts=viewopts3))
-            self.len(0, await core.nodes('#bar.tag:score=5', opts=viewopts3))
+            self.len(0, await core.nodes('#bar.tag:_score', opts=viewopts3))
+            self.len(0, await core.nodes('#bar.tag:_score=5', opts=viewopts3))
 
             await view2.wipeLayer()
             await core.nodes(delq, opts=viewopts2)
@@ -1495,11 +1536,11 @@ class LayerTest(s_t_utils.SynTest):
 
             self.eq([], node.getTagProps('bar.tag'))
             self.eq([], node.getTagPropsWithLayer('bar.tag'))
-            self.false(node.hasTagProp('bar.tag', 'score'))
-            self.false(node.hasTagPropInLayers('bar.tag', 'score'))
-            self.false(node.hasTagPropInLayers('foo.tag', 'score'))
-            self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
-            self.eq((None, None), node.getTagPropWithLayer('foo.tag', 'score'))
+            self.false(node.hasTagProp('bar.tag', '_score'))
+            self.false(node.hasTagPropInLayers('bar.tag', '_score'))
+            self.false(node.hasTagPropInLayers('foo.tag', '_score'))
+            self.eq((None, None), node.getTagPropWithLayer('bar.tag', '_score'))
+            self.eq((None, None), node.getTagPropWithLayer('foo.tag', '_score'))
 
             self.eq(['version', 'type'], list(nodes[0].getProps().keys()))
             self.sorteq(['bar', 'bar.tag', 'foo'], list(node._getTagsDict().keys()))
@@ -1522,8 +1563,8 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('inet:ip:asn=4', opts=viewopts3))
             self.len(0, await core.nodes('#foo.tag', opts=viewopts3))
             self.len(0, await core.nodes('#foo.tag@=2024', opts=viewopts3))
-            self.len(0, await core.nodes('#bar.tag:score', opts=viewopts3))
-            self.len(0, await core.nodes('#bar.tag:score=5', opts=viewopts3))
+            self.len(0, await core.nodes('#bar.tag:_score', opts=viewopts3))
+            self.len(0, await core.nodes('#bar.tag:_score=5', opts=viewopts3))
 
             await core.nodes('[ entity:goal=(foo,) :names=(foo, bar) ]')
             await core.nodes('entity:goal=(foo,) [ -:names ]', opts=viewopts2)
@@ -1622,16 +1663,16 @@ class LayerTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
             layr = core.getLayer()
             self.isin(f'Layer (Layer): {layr.iden}', str(layr))
 
             nodes = await core.nodes('[test:str=foo :seen=(2015, 2016)]')
 
-            self.false(await layr.hasTagProp('score'))
-            nodes = await core.nodes('[test:str=bar +#test:score=100]')
-            self.true(await layr.hasTagProp('score'))
+            self.false(await layr.hasTagProp('_score'))
+            nodes = await core.nodes('[test:str=bar +#test:_score=100]')
+            self.true(await layr.hasTagProp('_score'))
 
     async def test_layer_no_extra_logging(self):
 
@@ -1703,7 +1744,7 @@ class LayerTest(s_t_utils.SynTest):
     async def test_layer_ro(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
-                msgs = await core.stormlist('$lib.layer.add(({"readonly": $lib.true}))')
+                msgs = await core.stormlist('$lib.layer.add(({"readonly": true}))')
                 self.stormHasNoWarnErr(msgs)
 
                 ldefs = await core.callStorm('return($lib.layer.list())')
@@ -1723,17 +1764,17 @@ class LayerTest(s_t_utils.SynTest):
     async def test_layer_iter_props(self):
 
         async with self.getTestCore() as core:
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
-            nodes = await core.nodes('[inet:ip=([4, 1]) :asn=10 +#foo=(2020, 2021) +#foo:score=42]')
+            nodes = await core.nodes('[inet:ip=([4, 1]) :asn=10 +#foo=(2020, 2021) +#foo:_score=42]')
             self.len(1, nodes)
             nid1 = nodes[0].nid
 
-            nodes = await core.nodes('[inet:ip=([4, 2]) :asn=20 +#foo=(2019, 2020) +#foo:score=41]')
+            nodes = await core.nodes('[inet:ip=([4, 2]) :asn=20 +#foo=(2019, 2020) +#foo:_score=41]')
             self.len(1, nodes)
             nid2 = nodes[0].nid
 
-            nodes = await core.nodes('[inet:ip=([4, 3]) :asn=30 +#foo +#foo:score=99]')
+            nodes = await core.nodes('[inet:ip=([4, 3]) :asn=30 +#foo +#foo:_score=99]')
             self.len(1, nodes)
             nid3 = nodes[0].nid
 
@@ -1818,17 +1859,17 @@ class LayerTest(s_t_utils.SynTest):
             rows = await alist(layr.iterTagPropRows('foo', 'newp'))
             self.eq([], rows)
 
-            rows = await alist(layr.iterTagPropRows('foo', 'score'))
+            rows = await alist(layr.iterTagPropRows('foo', '_score'))
             self.eq(expect, rows)
 
-            rows = await alist(layr.iterTagPropRows('foo', 'score', form='inet:ip'))
+            rows = await alist(layr.iterTagPropRows('foo', '_score', form='inet:ip'))
             self.eq(expect, rows)
 
-            rows = await alist(layr.iterTagPropRows('foo', 'score', form='inet:ip', stortype=s_layer.STOR_TYPE_I64,
+            rows = await alist(layr.iterTagPropRows('foo', '_score', form='inet:ip', stortype=s_layer.STOR_TYPE_I64,
                                                     startvalu=42))
             self.eq(expect[1:], rows)
 
-            rows = await alist(layr.iterTagPropRows('foo', 'score', stortype=s_layer.STOR_TYPE_I64, startvalu=42))
+            rows = await alist(layr.iterTagPropRows('foo', '_score', stortype=s_layer.STOR_TYPE_I64, startvalu=42))
             self.eq(expect[1:], rows)
 
     async def test_layer_setinfo(self):
@@ -1841,11 +1882,11 @@ class LayerTest(s_t_utils.SynTest):
 
                 self.eq('hehe', await core.callStorm('$layer = $lib.layer.get() $layer.set(name, hehe) return($layer.get(name))'))
 
-                self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.true) return($layer.get(readonly))'))
+                self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, (true)) return($layer.get(readonly))'))
                 await self.asyncraises(s_exc.IsReadOnly, core.nodes('[inet:ip=7.7.7.7]'))
                 await self.asyncraises(s_exc.IsReadOnly, core.nodes('$lib.layer.get().set(desc, foo)'))
 
-                self.false(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.false) return($layer.get(readonly))'))
+                self.false(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, (false)) return($layer.get(readonly))'))
                 self.len(1, await core.nodes('[inet:ip=7.7.7.7]'))
 
                 msgs = []
@@ -1853,7 +1894,7 @@ class LayerTest(s_t_utils.SynTest):
                 async for mesg in core.storm('[( test:guid=(rotest00,) )] $lib.time.sleep(1) [( test:guid=(rotest01,) )]'):
                     msgs.append(mesg)
                     if mesg[0] == 'node:edits' and not didset:
-                        self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.true) return($layer.get(readonly))'))
+                        self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, (true)) return($layer.get(readonly))'))
                         didset = True
 
                 self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
@@ -1864,10 +1905,10 @@ class LayerTest(s_t_utils.SynTest):
 
                 await core.nodes('''
                     $layer = $lib.layer.get()
-                    $layer.set(readonly, $lib.false)  // so we can set everything else
+                    $layer.set(readonly, (false))  // so we can set everything else
                     $layer.set(name, foo)
                     $layer.set(desc, foodesc)
-                    $layer.set(readonly, $lib.true)
+                    $layer.set(readonly, (true))
                 ''')
 
                 info00 = await core.callStorm('return($lib.layer.get())')
@@ -1985,13 +2026,13 @@ class LayerTest(s_t_utils.SynTest):
 
                 user = await core.auth.addUser('blackout@vertex.link')
 
-                await core.addTagProp('score', ('int', {}), {})
+                await core.addTagProp('_score', ('int', {}), {})
 
                 nodes = await core.nodes('''
                     [
                         (meta:topic=marty
                             :desc=marty
-                            +#performance:score=10
+                            +#performance:_score=10
                             +#role.protagonist
                         )
                         (meta:topic=emmett :desc=emmett)
@@ -2018,9 +2059,9 @@ class LayerTest(s_t_utils.SynTest):
                 await core.nodes('''
                     [ test:str=foo
                         :hehe=bar
-                        +#foo:score=2
+                        +#foo:_score=2
                         +#foo.bar.baz
-                        +#bar:score=2
+                        +#bar:_score=2
                         <(refs)+ { test:str=bar }
                     ]
                     $node.data.set(foo, bar)
@@ -2070,7 +2111,7 @@ class LayerTest(s_t_utils.SynTest):
                     | delnode |
 
                     meta:topic=emmett [ -:desc ]
-                    meta:topic=marty [ -#performance:score -#role.protagonist ]
+                    meta:topic=marty [ -#performance:_score -#role.protagonist ]
                     $node.data.pop(movie)
                 ''', opts=opts)
 
@@ -2101,7 +2142,7 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'tag', 'del', 'role', 'protagonist'),
 
                     # Tagprop del (tombstone)
-                    ('node', 'tag', 'del', 'performance', 'score'),
+                    ('node', 'tag', 'del', 'performance', '_score'),
 
                     # Nodedata del (tombstone)
                     ('node', 'data', 'del', 'movie'),
@@ -2135,7 +2176,7 @@ class LayerTest(s_t_utils.SynTest):
 
                     # Tag/tagprop add (restore tombstone)
                     ('node', 'tag', 'add', 'role', 'protagonist'),
-                    ('node', 'tag', 'add', 'performance', 'score'),
+                    ('node', 'tag', 'add', 'performance', '_score'),
 
                     # Nodedata set (tombstone restore)
                     ('node', 'data', 'set', 'movie'),
@@ -2144,6 +2185,16 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'edge', 'add', 'seen'),
 
                 })
+
+                # Unknown tombstone type -> else branch logs and continues.
+                # Patch abrvToByts to return bytes with an unrecognised tombtype
+                # so every tombstone decoded hits the else branch.
+                badbyts = b'\xff\xff' + s_msgpack.en(('foo',))
+                with mock.patch.object(core.indxabrv, 'abrvToByts', return_value=badbyts):
+                    with self.getLoggerStream('synapse.lib.layer') as stream:
+                        with mock.patch.object(s_auth.User, 'confirm', confirm):
+                            await layr.confirmLayerEditPerms(user, parent.iden)
+                        await stream.expect('Encountered unknown tombstone type', timeout=1)
 
         async with self.getTestCore() as core:
 
@@ -2203,15 +2254,15 @@ class LayerTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.addTagProp('footime', ('ival', {}), {})
+            await core.addTagProp('_footime', ('ival', {}), {})
 
-            self.len(0, await core.nodes('entity:campaign#bar:footime.min=2020-01-01'))
+            self.len(0, await core.nodes('entity:campaign#bar:_footime.min=2020-01-01'))
 
             await core.nodes('''[
                 entity:campaign=(foo,)
                     :period=(2019-01-01, ?)
                     +#foo=(2019-01-01, ?)
-                    +#bar:footime=(2019-01-01, ?)
+                    +#bar:_footime=(2019-01-01, ?)
             ]''')
 
             await core.nodes('''[
@@ -2222,29 +2273,29 @@ class LayerTest(s_t_utils.SynTest):
                 (entity:campaign=* :period=(2024-01-01, 2026-01-01))
             ]''')
 
-            self.len(1, await core.nodes('entity:campaign:period.min=2020-01-01'))
-            self.len(3, await core.nodes('entity:campaign:period.min<2022-01-01'))
-            self.len(4, await core.nodes('entity:campaign:period.min<=2022-01-01'))
-            self.len(3, await core.nodes('entity:campaign:period.min>=2022-01-01'))
-            self.len(2, await core.nodes('entity:campaign:period.min>2022-01-01'))
-            self.len(1, await core.nodes('entity:campaign:period.min@=2020'))
-            self.len(2, await core.nodes('entity:campaign:period.min@=(2020-01-01, 2022-01-01)'))
+            self.len(1, await core.nodes('entity:campaign:period.began=2020-01-01'))
+            self.len(3, await core.nodes('entity:campaign:period.began<2022-01-01'))
+            self.len(4, await core.nodes('entity:campaign:period.began<=2022-01-01'))
+            self.len(3, await core.nodes('entity:campaign:period.began>=2022-01-01'))
+            self.len(2, await core.nodes('entity:campaign:period.began>2022-01-01'))
+            self.len(1, await core.nodes('entity:campaign:period.began@=2020'))
+            self.len(2, await core.nodes('entity:campaign:period.began@=(2020-01-01, 2022-01-01)'))
 
-            self.len(1, await core.nodes('reverse(entity:campaign:period.min=2020-01-01)'))
-            self.len(3, await core.nodes('reverse(entity:campaign:period.min<2022-01-01)'))
-            self.len(4, await core.nodes('reverse(entity:campaign:period.min<=2022-01-01)'))
-            self.len(3, await core.nodes('reverse(entity:campaign:period.min>=2022-01-01)'))
-            self.len(2, await core.nodes('reverse(entity:campaign:period.min>2022-01-01)'))
-            self.len(1, await core.nodes('reverse(entity:campaign:period.min@=2020)'))
-            self.len(2, await core.nodes('reverse(entity:campaign:period.min@=(2020-01-01, 2022-01-01))'))
+            self.len(1, await core.nodes('reverse(entity:campaign:period.began=2020-01-01)'))
+            self.len(3, await core.nodes('reverse(entity:campaign:period.began<2022-01-01)'))
+            self.len(4, await core.nodes('reverse(entity:campaign:period.began<=2022-01-01)'))
+            self.len(3, await core.nodes('reverse(entity:campaign:period.began>=2022-01-01)'))
+            self.len(2, await core.nodes('reverse(entity:campaign:period.began>2022-01-01)'))
+            self.len(1, await core.nodes('reverse(entity:campaign:period.began@=2020)'))
+            self.len(2, await core.nodes('reverse(entity:campaign:period.began@=(2020-01-01, 2022-01-01))'))
 
-            self.len(1, await core.nodes('entity:campaign:period.max=2020-01-02'))
-            self.len(2, await core.nodes('entity:campaign:period.max<2022-05-01'))
-            self.len(3, await core.nodes('entity:campaign:period.max<=2022-05-01'))
-            self.len(3, await core.nodes('entity:campaign:period.max>=2022-05-01'))
-            self.len(2, await core.nodes('entity:campaign:period.max>2022-05-01'))
-            self.len(2, await core.nodes('entity:campaign:period.max@=(2020-01-02, 2022-05-01)'))
-            self.len(1, await core.nodes('entity:campaign:period.max=?'))
+            self.len(1, await core.nodes('entity:campaign:period.ended=2020-01-02'))
+            self.len(2, await core.nodes('entity:campaign:period.ended<2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign:period.ended<=2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign:period.ended>=2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign:period.ended>2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign:period.ended@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('entity:campaign:period.ended=?'))
 
             self.len(1, await core.nodes('entity:campaign:period.duration=1D'))
             self.len(1, await core.nodes('entity:campaign:period.duration<31D'))
@@ -2285,41 +2336,41 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('entity:campaign#(foo).duration=?'))
 
             await core.nodes('''[
-                (entity:campaign=* +#bar:footime=(2020-01-01, 2020-01-02))
-                (entity:campaign=* +#bar:footime=(2021-01-01, 2021-02-01))
-                (entity:campaign=* +#bar:footime=(2022-01-01, 2022-05-01))
-                (entity:campaign=* +#bar:footime=(2023-01-01, 2024-01-01))
-                (entity:campaign=* +#bar:footime=(2024-01-01, 2026-01-01))
+                (entity:campaign=* +#bar:_footime=(2020-01-01, 2020-01-02))
+                (entity:campaign=* +#bar:_footime=(2021-01-01, 2021-02-01))
+                (entity:campaign=* +#bar:_footime=(2022-01-01, 2022-05-01))
+                (entity:campaign=* +#bar:_footime=(2023-01-01, 2024-01-01))
+                (entity:campaign=* +#bar:_footime=(2024-01-01, 2026-01-01))
             ]''')
 
-            self.len(1, await core.nodes('entity:campaign#bar:footime.min=2020-01-01'))
-            self.len(3, await core.nodes('entity:campaign#bar:footime.min<2022-01-01'))
-            self.len(4, await core.nodes('entity:campaign#bar:footime.min<=2022-01-01'))
-            self.len(3, await core.nodes('entity:campaign#bar:footime.min>=2022-01-01'))
-            self.len(2, await core.nodes('entity:campaign#bar:footime.min>2022-01-01'))
-            self.len(2, await core.nodes('entity:campaign#bar:footime.min@=(2020-01-01, 2022-01-01)'))
-            self.len(2, await core.nodes('reverse(entity:campaign#bar:footime.min@=(2020-01-01, 2022-01-01))'))
+            self.len(1, await core.nodes('entity:campaign#bar:_footime.min=2020-01-01'))
+            self.len(3, await core.nodes('entity:campaign#bar:_footime.min<2022-01-01'))
+            self.len(4, await core.nodes('entity:campaign#bar:_footime.min<=2022-01-01'))
+            self.len(3, await core.nodes('entity:campaign#bar:_footime.min>=2022-01-01'))
+            self.len(2, await core.nodes('entity:campaign#bar:_footime.min>2022-01-01'))
+            self.len(2, await core.nodes('entity:campaign#bar:_footime.min@=(2020-01-01, 2022-01-01)'))
+            self.len(2, await core.nodes('reverse(entity:campaign#bar:_footime.min@=(2020-01-01, 2022-01-01))'))
 
-            self.len(1, await core.nodes('entity:campaign#bar:footime.max=2020-01-02'))
-            self.len(2, await core.nodes('entity:campaign#bar:footime.max<2022-05-01'))
-            self.len(3, await core.nodes('entity:campaign#bar:footime.max<=2022-05-01'))
-            self.len(3, await core.nodes('entity:campaign#bar:footime.max>=2022-05-01'))
-            self.len(2, await core.nodes('entity:campaign#bar:footime.max>2022-05-01'))
-            self.len(2, await core.nodes('entity:campaign#bar:footime.max@=(2020-01-02, 2022-05-01)'))
-            self.len(1, await core.nodes('entity:campaign#bar:footime.max=?'))
+            self.len(1, await core.nodes('entity:campaign#bar:_footime.max=2020-01-02'))
+            self.len(2, await core.nodes('entity:campaign#bar:_footime.max<2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign#bar:_footime.max<=2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign#bar:_footime.max>=2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign#bar:_footime.max>2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign#bar:_footime.max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('entity:campaign#bar:_footime.max=?'))
 
-            self.len(1, await core.nodes('entity:campaign#bar:footime.duration=1D'))
-            self.len(1, await core.nodes('entity:campaign#bar:footime.duration<31D'))
-            self.len(2, await core.nodes('entity:campaign#bar:footime.duration<=31D'))
-            self.len(4, await core.nodes('entity:campaign#bar:footime.duration>=31D'))
-            self.len(3, await core.nodes('entity:campaign#bar:footime.duration>31D'))
-            self.len(1, await core.nodes('entity:campaign#bar:footime.duration=?'))
+            self.len(1, await core.nodes('entity:campaign#bar:_footime.duration=1D'))
+            self.len(1, await core.nodes('entity:campaign#bar:_footime.duration<31D'))
+            self.len(2, await core.nodes('entity:campaign#bar:_footime.duration<=31D'))
+            self.len(4, await core.nodes('entity:campaign#bar:_footime.duration>=31D'))
+            self.len(3, await core.nodes('entity:campaign#bar:_footime.duration>31D'))
+            self.len(1, await core.nodes('entity:campaign#bar:_footime.duration=?'))
 
-            await core.nodes('[ entity:campaign=(foo,) +#bar:footime=(2018, 2022) ]')
-            self.len(0, await core.nodes('entity:campaign#bar:footime.max=?'))
-            self.len(0, await core.nodes('entity:campaign#bar:footime.min=2019-01-01'))
+            await core.nodes('[ entity:campaign=(foo,) +#bar:_footime=(2018, 2022) ]')
+            self.len(0, await core.nodes('entity:campaign#bar:_footime.max=?'))
+            self.len(0, await core.nodes('entity:campaign#bar:_footime.min=2019-01-01'))
 
-            await core.nodes('[ entity:campaign=(foo,) -:period -#foo -#bar:footime ]')
+            await core.nodes('[ entity:campaign=(foo,) -:period -#foo -#bar:_footime ]')
 
             def staticnow():
                 # 2021-01-01
@@ -2494,8 +2545,8 @@ class LayerTest(s_t_utils.SynTest):
                 (test:virtiface=(if1,) :servers=(tcp://127.0.0.1:12341, tcp://127.0.0.2:12342))
                 (test:virtiface=(if2,) :servers=("tcp://[::1]:12341", "tcp://[::2]:12342"))
                 (test:virtiface=(if3,) :servers=("tcp://127.0.0.1:12341", "tcp://[::2]:12342"))
-                (test:str=piv1 :pivvirt=(if1,))
-                (test:str=piv2 :pivvirt=(if2,))
+                (test:str=piv1 :pivvirt=(if1,) as test:virtiface)
+                (test:str=piv2 :pivvirt=(if2,) as test:virtiface)
             ]''')
 
             self.len(12, await core.nodes('inet:server.ip'))
@@ -2973,7 +3024,7 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.CantDelProp) as cm:
                 await core.callStorm('''
                     $fullprop = "test:guid:_custom:risk:level"
-                    for $view in $lib.view.list(deporder=$lib.true) {
+                    for $view in $lib.view.list(deporder=(true)) {
                         view.exec $view.iden {
                             yield $lib.layer.get().liftByProp($fullprop)
                             $repr = $node.repr("_custom:risk:level")

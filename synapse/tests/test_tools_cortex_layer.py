@@ -313,8 +313,7 @@ class LayerTest(s_test.SynTest):
 
         # Invalid/too high cell version
         with self.getTestDir() as dirn:
-            version = (99, 99, 0)
-            verstr = '.'.join(map(str, version))
+            highervers = '99.99.0'
 
             with s_common.genfile(dirn, 'cellvers00.nodeedits') as fd:
                 file00 = fd.name
@@ -322,14 +321,14 @@ class LayerTest(s_test.SynTest):
 
             with s_common.genfile(dirn, 'cellvers01.nodeedits') as fd:
                 file01 = fd.name
-                fd.write(s_msgpack.en(('init', {'offset': 0, 'cellvers': version})))
+                fd.write(s_msgpack.en(('init', {'offset': 0, 'cellvers': highervers})))
 
             async with self.getTestCore() as core:
                 url = core.getLocalUrl()
                 argv = ('--url', url, iden, file00, file01)
                 outp = self.getTestOutp()
                 self.eq(1, await s_t_load.main(argv, outp=outp))
-                outp.expect(f'Synapse version mismatch ({s_version.verstring} < {verstr}).')
+                outp.expect(f'Synapse version mismatch ({s_version.version} < {highervers}).')
 
         # Invalid message type
         with self.getTestDir() as dirn:

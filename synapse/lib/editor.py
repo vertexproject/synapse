@@ -34,6 +34,7 @@ class ProtoNode(s_node.NodeBase):
         self.nodedata = {}
 
         self.delnode = False
+        self.setvalu = False
         self.tombnode = False
         self.tagdels = set()
         self.tagtombs = set()
@@ -50,7 +51,8 @@ class ProtoNode(s_node.NodeBase):
         if node is not None:
             self.nid = node.nid
         else:
-            self.nid = self.editor.view.core.getNidByNdef(self.ndef)
+            nval = self.editor.view.wlyr.stortypes[form.type.stortype].nidNorm(valu)
+            self.nid = self.editor.view.core.getNidByNdef((form.name, nval))
 
         self.multilayer = len(self.editor.view.layers) > 1
 
@@ -114,7 +116,7 @@ class ProtoNode(s_node.NodeBase):
 
         edits = []
 
-        if not self.node or not self.node.hasvalu():
+        if not self.node or self.setvalu or not self.node.hasvalu():
             edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype, self.virts)))
 
         for name, valu in self.meta.items():
@@ -763,6 +765,24 @@ class ProtoNode(s_node.NodeBase):
         self.meta[name] = valu
         return True
 
+    async def setValue(self, valu):
+        valu, norminfo = await self.form.type.norm(valu)
+
+        if valu == self.valu:
+            return
+
+        styp = self.editor.view.wlyr.stortypes[self.form.type.stortype]
+
+        if styp.nidNorm(valu) != styp.nidNorm(self.valu):
+            mesg = f'setValue() got an invalid value for node {self.form.name}={self.valu}: {valu}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        self.valu = valu
+        self.ndef = (self.form.name, valu)
+        self.virts = norminfo.get('virts')
+
+        self.setvalu = True
+
     async def _set(self, prop, valu, norminfo=None):
 
         if prop.locked:
@@ -820,10 +840,8 @@ class ProtoNode(s_node.NodeBase):
                 full = f'{prop.name}:{subname}'
                 subprop = self.form.props.get(full)
                 if subprop is not None and not subprop.locked:
-                    if subprop.typehash is subhash:
-                        await self.set(full, subvalu, norminfo=subinfo)
-                        continue
-                    await self.set(full, subvalu)
+                    svalu, sninfo = await self._resolveSubValu(subprop, subhash, subvalu, subinfo)
+                    await self.set(full, svalu, norminfo=sninfo)
 
         propadds = norminfo.get('adds')
         if propadds:
@@ -856,6 +874,28 @@ class ProtoNode(s_node.NodeBase):
 
         return True
 
+    async def _resolveSubValu(self, subp, subhash, subvalu, subinfo):
+        '''
+        Resolve the (valu, norminfo) to set a child prop from a parent norminfo sub.
+
+        The sub was normed as its own type (subhash). If the consuming prop's type
+        matches, reuse the normed value and info directly. If the consuming prop is a
+        poly that allows the sub's type (e.g. a comp field whose form-typed value
+        feeds a poly secondary prop), norm it as an explicit typed value so the sub is
+        not re-normed through the poly default norming, otherwise fall back to re-norming
+        the raw value.
+        '''
+        if subp.type.typehash is subhash:
+            return subvalu, subinfo
+
+        if isinstance(subp.type, s_types.Poly):
+            for tname in subp.type.typeset:
+                mtyp = self.model.type(tname)
+                if mtyp is not None and mtyp.typehash is subhash:
+                    return await subp.type.normFromTypedValu((tname, subvalu), view=self.editor.view)
+
+        return subvalu, None
+
     async def getSubSetOps(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
         if prop is None or prop.locked:
@@ -875,11 +915,8 @@ class ProtoNode(s_node.NodeBase):
                 if (subp := self.form.props.get(full)) is None:
                     continue
 
-                if subp.type.typehash is subhash:
-                    ops.append(self.getSubSetOps(full, subvalu, norminfo=subinfo))
-                    continue
-
-                ops.append(self.getSubSetOps(full, subvalu))
+                svalu, sninfo = await self._resolveSubValu(subp, subhash, subvalu, subinfo)
+                ops.append(self.getSubSetOps(full, svalu, norminfo=sninfo))
 
         propadds = norminfo.get('adds')
         if propadds is not None:
@@ -1023,11 +1060,8 @@ class NodeEditor:
                 if (subp := form.props.get(prop)) is None:
                     continue
 
-                if subp.type.typehash is subhash:
-                    ops.append(protonode.getSubSetOps(prop, subvalu, norminfo=subinfo))
-                    continue
-
-                ops.append(protonode.getSubSetOps(prop, subvalu))
+                svalu, sninfo = await protonode._resolveSubValu(subp, subhash, subvalu, subinfo)
+                ops.append(protonode.getSubSetOps(prop, svalu, norminfo=sninfo))
 
         if adds is not None:
             for addname, addvalu, addinfo in adds:
@@ -1051,7 +1085,7 @@ class NodeEditor:
                 break
 
             if (node := await self.view.getNodeByNdef(ndef, tombs=True)) is not None:
-                protonode = ProtoNode(self, node.form, norm, node, norminfo)
+                protonode = ProtoNode(self, node.form, node.valu(), node, norminfo)
                 self.protonodes[ndef] = protonode
                 break
 
@@ -1067,11 +1101,8 @@ class NodeEditor:
                 if (subp := form.props.get(prop)) is None:
                     continue
 
-                if subp.type.typehash is subhash:
-                    ops.append(protonode.getSubSetOps(prop, subvalu, norminfo=subinfo))
-                    continue
-
-                ops.append(protonode.getSubSetOps(prop, subvalu))
+                svalu, sninfo = await protonode._resolveSubValu(subp, subhash, subvalu, subinfo)
+                ops.append(protonode.getSubSetOps(prop, svalu, norminfo=sninfo))
 
             while ops:
                 oset = ops.popleft()

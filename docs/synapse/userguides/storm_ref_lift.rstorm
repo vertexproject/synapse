@@ -2,7 +2,7 @@
 
 .. storm-cortex:: default
 .. storm-pre:: $propinfo = ({"doc": "The VirusTotal reputation score."}) $lib.model.ext.addFormProp(file:bytes, _virustotal:reputation, (int, ({})), $propinfo)
-.. storm-pre:: $tagpropinfo = ({"doc": "A risk tagprop."}) $lib.model.ext.addTagProp(risk, (int, ({})), $tagpropinfo)
+.. storm-pre:: $tagpropinfo = ({"doc": "A risk tagprop."}) $lib.model.ext.addTagProp(_risk, (int, ({})), $tagpropinfo)
 
 
 .. _storm-ref-lift:
@@ -29,7 +29,7 @@ to modify their behavior:
 .. TIP::
   
   When performing lift operations, you can specify the name of an :ref:`gloss-interface` to represent all forms that
-  inherit that interface. See the sections below for details and examples.
+  implement that interface. See the sections below for details and examples.
 
 See :ref:`storm-ref-syntax` for an explanation of the syntax format used below.
 
@@ -43,17 +43,16 @@ Lift by Form
 "Lift by form" operations return **all** nodes of that form in Synapse. The wildcard (asterisk) character ( ``*`` )
 can be used to lift all nodes of all forms that match a partial form name / namespace.
 
-If a form inherits an :ref:`gloss-interface`, you can specify the interface name to lift all nodes of all forms that
-inherit the interface.
+If a form implements an :ref:`gloss-interface`, you can specify the interface name to lift all nodes of all forms that
+implement the interface.
 
 .. TIP::
   
   In a production instance of Synapse, lifting **all** nodes of a commonly used form (e.g., ``inet:fqdn`` or
-  ``inet:ip``) or lifting by an interface that is inherited by numerous forms (e.g. ``it:host:event``)
+  ``inet:ip``) or lifting by an interface that is implemented by numerous forms (e.g. ``it:host:event``)
   may return thousands or tens of thousands of nodes. Lifting by form or interface can be used with the Storm
   :ref:`storm-limit` command to return only a specified number of nodes (for example, to view a sample of
   available data).
-
 
 .. _lift-form-name:
 
@@ -69,7 +68,7 @@ requires the name of the form whose nodes you want to lift.
 
 **Examples:**
 
-*Lift all FQDN (inet:fqdn) nodes:*
+Lift all FQDNs (``inet:fqdn`` nodes):
 
 .. storm-pre:: [ inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com ]
 .. storm-pre:: inet:fqdn
@@ -77,9 +76,9 @@ requires the name of the form whose nodes you want to lift.
   
   inet:fqdn
 
-*Lift all nodes representing articles (doc:report nodes):*
+Lift all nodes representing articles (``doc:report`` nodes):
 
-.. storm-pre:: [ (doc:report=* :publisher:name=eset :published=2016/10/20 :title='dissection of sednit espionage group') (doc:report=* :publisher:name='trend micro' :published=2023/09/18 :title='earth lusca employs new linux backdoor, uses cobalt strike for lateral movement') ]
+.. storm-pre:: [ doc:report=( { "publisher:name": "eset", "published": "2016/10/20", "title": "dissection of sednit espionage group" } ) doc:report=( { "publisher:name": "trend micro", "published": "2023/09/18", "title": "earth lusca employs new linux backdoor, uses cobalt strike for lateral movement" } ) ]
 .. storm-pre:: doc:report
 ::
   
@@ -95,17 +94,18 @@ Use of the wildcard is not limited to form namespace boundaries.
 
 .. NOTE::
   
-  The wildcard can only be used at the end of the partial match. It cannot be used at the beginning or in
-  the middle of the form name. For example, both of the following are **invalid**:
+  The wildcard can only be used at the end of the partial form name match. It cannot be used at the beginning or
+  in the middle of the form name. For example, both of the following are **invalid**:
   
   ``*:header``
   
   ``it:exec:*:del``
   
-  In addition, use of the wildcard does not extetnd to partial matching of property names. For example, the
-  following is **invalid**:
+  In addition, use of the wildcard does not extend to partial matching of **property** names. For example,
+  ``entity:contact`` is a form that has multiple ``:place`` secondary properties (e.g., ``:place:name``,
+  ``:place:loc``). The following is **invalid** because it tries to match a partial property name:
   
-  ``file:bytes:mime:pe:*``
+  ``entity:contact:place:*``
 
 **Syntax:**
 
@@ -113,9 +113,9 @@ Use of the wildcard is not limited to form namespace boundaries.
 
 **Examples:**
 
-*Lift all DNS A (inet:dns:a) and DNS AAAA (inet:dns:aaaa) nodes:*
+Lift all DNS A (``inet:dns:a``) and DNS AAAA (``inet:dns:aaaa``) nodes:
 
-.. storm-pre:: [ inet:dns:a=(woot.com,1.1.1.1) inet:dns:aaaa=(woot.com,2600:1419:9c00:283::356e)  ]
+.. storm-pre:: [ inet:dns:a=( woot.com, 1.1.1.1 ) inet:dns:aaaa=( woot.com, 2600:1419:9c00:283::356e )  ]
 .. storm-pre:: inet:dns:a*
 ::
   
@@ -126,7 +126,7 @@ Use of the wildcard is not limited to form namespace boundaries.
 Lift Form by Interface
 ++++++++++++++++++++++
 
-You can use the name of an :ref:`gloss-interface` to lift all forms that inherit that interface.
+You can use the name of an :ref:`gloss-interface` to lift all forms that implement that interface.
 
 .. NOTE::
   
@@ -139,23 +139,21 @@ You can use the name of an :ref:`gloss-interface` to lift all forms that inherit
 
 **Examples:**
 
-*Lift all host event nodes (all nodes of all forms that inherit it:host:event interface):*
+Lift all host event nodes (all nodes of all forms that implement the ``it:host:event`` interface):
 
-.. storm-pre:: [ it:exec:file:add=* it:exec:windows:registry:set=* it:exec:fetch=*  ]
+.. storm-pre:: [ it:exec:file:add=10000a1461d64eea6e78ced2f4207929 it:exec:windows:registry:set=700029d8a2fbbf69d98f8a7d127312b9 it:exec:fetch=b00021e4abc8c3ac788867892e16f7ca  ]
 .. storm-pre:: it:host:event
 ::
 
   it:host:event
 
-*Lift all taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface):*
+Lift all taxonomy nodes (all nodes of all forms that implement the ``meta:taxonomy`` interface):
 
-.. storm-pre:: [ entity:campaign:type:taxonomy=io.disinformation risk:tool:software:type:taxonomy=backdoor ]
+.. storm-pre:: [ entity:campaign:type:taxonomy=io.disinformation it:software:type:taxonomy=backdoor ]
 .. storm-pre:: meta:taxonomy
-
 ::
   
   meta:taxonomy
-
 
 .. _lift-prop:
 
@@ -177,33 +175,29 @@ Lift by Secondary Property
 
 **Examples:**
 
-*Lift all IP (inet:ip) nodes that have a location (:place:loc property):*
+Lift the IP (``inet:ip``) nodes that have a location (``:place:loc``) property:
 
-.. storm-pre:: [ (inet:ip=41.164.23.42 :place:loc=za.wc.worcester) (inet:ip=155.254.9.3 :place:loc='us.mt.three forks') (inet:ip=102.64.66.222 :place:loc='tz.02.dar es salaam') ]
+.. storm-pre:: [ ( inet:ip=41.164.23.42 :place:loc=za.wc.worcester ) ( inet:ip=155.254.9.3 :place:loc='us.mt.three forks' ) ( inet:ip=102.64.66.222 :place:loc='tz.02.dar es salaam' ) ]
 .. storm-pre:: inet:ip:place:loc
 ::
   
   inet:ip:place:loc
 
-*Lift all file (file:bytes) nodes that have a PDB path (:mime:pe:pdbpath property):*
+Lift the PE (portable executable) metadata nodes (``file:mime:pe``) that have a PDB path (``:pdbpath`` property):
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ (file:bytes=sha256:c2135ccc8a46d4bda7b6052df92035a134b83b8f78b8ba078621d537db021bc7 :size=70144 :mime='application/vnd.microsoft.portable-executable' :mime:pe:compiled='2011/04/26 09:08:59' :mime:pe:pdbpath='c:/documents and settings/k/桌面/etenfalcon（修改）/release/servicedll.pdb') (file:bytes=sha256:2a3da413f9f0554148469ea715f2776ab40e86925fb68cc6279ffc00f4f410dd :size=334347 :mime='application/vnd.microsoft.portable-executable' :mime:pe:compiled='2023/05/29 16:03:32' :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb') ]
-    .. storm-pre:: file:bytes:mime:pe:pdbpath
-
+.. storm-pre:: $file1 = { [ file:bytes=( { "sha256": "2a3da413f9f0554148469ea715f2776ab40e86925fb68cc6279ffc00f4f410dd"} ) ] } $file2 = { [ file:bytes=( { "sha256": "2dd2101c115c90c1f9fc22f4584e884693f9f29d525d15db21c8dfd7e3760cb6"} ) ] } [ ( file:mime:pe=( { "file": $file1, "pdbpath": "d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb" } ) ) ( file:mime:pe=( { "file": $file2, "pdbpath": "d:/myproject/eclipse_a1.4/release/eclipse_client_service_dll_b.pdb" } ) ) ]
+.. storm-pre:: file:mime:pe:pdbpath
 ::
   
-  file:bytes:mime:pe:pdbpath
-
+  file:mime:pe:pdbpath
 
 .. _lift-prop-interface:
 
 Lift by Interface Property
 ++++++++++++++++++++++++++
 
-If a form inherits an :ref:`gloss-interface`, you can lift all nodes of all forms that have an interface-derived property
-by specifying the full name of the interface and its property.
+If a form implements an :ref:`gloss-interface` that defines a set or properties, you can lift all nodes of all forms
+that have that property by specifying the full name of the interface and its property.
 
 **Syntax:**
 
@@ -211,24 +205,21 @@ by specifying the full name of the interface and its property.
 
 **Examples:**
 
-*Lift all host event nodes (all nodes of all forms that inherit the it:host:event interface) that have a :time property:*
+Lift the host event nodes (all nodes of all forms that implement the ``it:host:event`` interface) that have a ``:time`` property:
 
-.. storm-pre:: [ (it:exec:file:add=* :time=now) (it:exec:windows:registry:set=* :time=2024/01/01) (it:exec:fetch=* :time=2023/12/18) ]
+.. storm-pre:: [ ( it:exec:file:add=60002a9357146ace35dc5e636faedf0b :time=now ) it:exec:windows:registry:set=( { "time": "2024/01/01" } ) it:exec:fetch=( { "time": "2023/12/18" } ) ]
 .. storm-pre:: it:host:event:time
-
 ::
 
   it:host:event:time
 
-*Lift all protocol request nodes (all nodes of all forms that inherit the inet:proto:request interface) that have an associated network flow (i.e., that have a :flow property):*
+Lift the protocol request nodes (all nodes of all forms that implement the ``inet:proto:request`` interface) that have an associated network flow (i.e., that have a ``:flow`` property):
 
-.. storm-pre:: [ (inet:http:request=* :flow={ [ inet:flow=* ] } ) ]
+.. storm-pre:: $flow = { [ inet:flow=( { "client": "tcp://1.2.3.4:4372", "server": "tcp://5.6.7.8:25"} ) ] } [ inet:http:request=( { "flow": $flow } ) ]
 .. storm-pre:: inet:proto:request:flow
-
 ::
   
   inet:proto:request:flow
-
 
 .. _lift-prop-meta:
 
@@ -239,13 +230,14 @@ Lift by Meta Property
 
 [ *<form>* ] **.** *<prop>*
 
-A :ref:`gloss-meta-prop` applies to any node and is automatically populated. Synapse uses one meta property:
+A :ref:`gloss-meta-prop` applies to any node and is automatically populated. Synapse uses two meta properties:
 
- - ``.created``, a time (date/time) value representing when a node was created in Synapse.
+- ``.created`` a time which represents the date and time a node was created in Synapse.
+- ``.updated`` a time which represents the date and time a node was last modified in Synapse.
 
 **Examples:**
 
-*Lift all nodes in Synapse:*
+Lift all nodes in Synapse:
 
 .. storm-pre:: .created
 ::
@@ -257,7 +249,6 @@ A :ref:`gloss-meta-prop` applies to any node and is automatically populated. Syn
   Because the ``.created`` property is automatically set for every node when it is first added to Synapse,
   lifting by the ``.created`` property effectively lifts every node in Synapse (technically, every node in the
   current :ref:`gloss-view`).
-
 
 .. _lift-prop-extend:
 
@@ -275,13 +266,10 @@ namespace element.
 
 **Examples:**
 
-*Lift all of the files (file:bytes) nodes that have a VirusTotal "reputation" extended property (:_virustotal:reputation property):*
+Lift the files (``file:bytes`` nodes) that have a VirusTotal reputation extended property (``:_virustotal:reputation``):
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ]
-    .. storm-pre:: file:bytes:_virustotal:reputation
-
+.. storm-pre:: [ file:bytes=( { "sha256": "87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe" } ) :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ]
+.. storm-pre:: file:bytes:_virustotal:reputation
 ::
   
   file:bytes:_virustotal:reputation
@@ -289,7 +277,6 @@ namespace element.
 .. NOTE::
   
   The ``:_virustotal:reputation`` extended property is added to the Synapse data model by the `Synapse-VirusTotal`_ Power-Up.
-
 
 .. _lift-prop-standard:
 
@@ -351,7 +338,7 @@ Lift by Primary Property Value
 
 **Examples:**
 
-*Lift the FQDN vertex.link:*
+Lift the FQDN ``vertex.link``:
 
 .. storm-pre:: [ inet:fqdn=vertex.link ]
 .. storm-pre:: inet:fqdn = vertex.link
@@ -359,15 +346,15 @@ Lift by Primary Property Value
   
   inet:fqdn = vertex.link
 
-*Lift the DNS A record showing that domain woot.com resolved to IP 1.2.3.4:*
+Lift the DNS A record (``inet:dns:a`` node) showing that domain ``woot.com`` resolved to IP ``1.2.3.4``:
 
-.. storm-pre:: [inet:dns:a = (woot.com, 1.2.3.4 )]
+.. storm-pre:: [ inet:dns:a = (woot.com, 1.2.3.4 ) ]
 .. storm-pre:: inet:dns:a = (woot.com, 1.2.3.4)
 ::
   
   inet:dns:a = (woot.com, 1.2.3.4)
 
-*Lift the organization node whose primary property is the specified guid (globally unique identifier):*
+Lift the organization (``ou:org`` node) whose primary property is the specified guid (globally unique identifier):
 
 .. storm-pre:: [ ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project"]
 .. storm-pre:: ou:org = 4b0c2c5671874922ce001d69215d032f
@@ -375,14 +362,13 @@ Lift by Primary Property Value
   
   ou:org = 4b0c2c5671874922ce001d69215d032f
 
-*Lift the Autonomous System (inet:asn) nodes whose AS number is less than 50:*
+Lift the Autonomous System (``inet:asn``) nodes whose AS number is less than 50:
 
-.. storm-pre:: [ ( inet:asn=49 :owner:name='us-national-institute-of-standards-and-technology' ) ( inet:asn=32 :owner:name=stanford ) ( inet:asn=71 :owner:name=hp-internet-as ) ]
+.. storm-pre:: [ ( inet:asn=49 :registrant:name='us-national-institute-of-standards-and-technology' ) ( inet:asn=32 :registrant:name=stanford ) ( inet:asn=71 :registrant:name=hp-internet-as ) ]
 .. storm-pre:: inet:asn < 50
 ::
   
   inet:asn < 50
-
 
 .. _lift-prop-std-secondary:
 
@@ -395,7 +381,7 @@ Lift by Secondary Property Value
 
 **Examples:**
 
-*Lift the organization node with the name "the vertex project":*
+Lift the organization (``ou:org`` node) with the name ``the vertex project``:
 
 .. storm-pre:: [ ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" ]
 .. storm-pre:: ou:org:name = "the vertex project"
@@ -403,80 +389,61 @@ Lift by Secondary Property Value
   
   ou:org:name = "the vertex project"
 
-*Lift all DNS A records for the FQDN "hugesoft.org":*
+Lift the DNS A records (``inet:dns:a`` nodes) for the FQDN ``hugesoft.org``:
 
-.. storm-pre:: [ ( inet:dns:a=(hugesoft.org, 69.195.129.72) :seen=(2014/03/22 00:00:00, 2014/03/22 00:00:00.001) ) (inet:dns:a=(hugesoft.org, 103.224.212.219) :seen=(2023/10/04 22:59:10.973, 2023/10/04 22:59:10.974) ) ]
+.. storm-pre:: [ ( inet:dns:a=(hugesoft.org, 69.195.129.72) :seen=(2014/03/22 00:00:00, 2014/03/22 00:00:00.001) ) ( inet:dns:a=(hugesoft.org, 103.224.212.219) :seen=(2023/10/04 22:59:10.973, 2023/10/04 22:59:10.974) ) ]
 .. storm-pre:: inet:dns:a:fqdn = hugesoft.org
 ::
   
   inet:dns:a:fqdn = hugesoft.org
 
-*Lift all the files with a PE compiled time of 1992-06-19 22:22:17:*
+Lift the PE (portable executable) file metadata nodes (``file:mime:pe``) with a compiled time of ``1992-06-19 22:22:17``:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"]
-    .. storm-pre:: file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
-
+.. storm-pre:: $file1={ [ file:bytes=( { "sha256": "d7c12acb306b5100a5497586942b68a8f6d5deb353083da594caba2523c3171f" } ) ] } $file2={ [ file:bytes=( { "sha256": "54ebdea80d30660f1d7be0b71bc3eb04189ef2036cdbba24d60f474547d3516a" } ) ] }  [ file:mime:pe=( { "file": $file1, "compiled": "1992-06-19T22:22:17Z" } ) file:mime:pe=( { "file": $file2, "compiled": "1992-06-19T22:22:17Z" } ) ]
+.. storm-pre:: file:mime:pe:compiled = '1992/06/19 22:22:17'
 ::
   
-  file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
+  file:mime:pe:compiled = '1992/06/19 22:22:17'
 
-*Lift all the files with a PE compiled time that falls within the year 2019:*
+Lift the PE (portable executable) file metadata nodes (``file:mime:pe``) with a compiled time that falls within the year 2025:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/26 11:14:00.000' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2019/06/12 22:02:16.000' ) ]
-    .. storm-pre:: file:bytes:mime:pe:compiled = 2019*
-
+.. storm-pre:: $file1={ [ file:bytes=( { "sha256": "4f0ff2089666fbc6e71f9e6cd64f854785bb4a74b307e9df39b811f186eaf7d0" } ) ] } $file2={ [ file:bytes=( { "sha256": "3c7fb61f0601f9facd3c2a1b319039a3fad6535b33359493b8a8a3f24dea00e3" } ) ] } [ file:mime:pe=( { "file": $file1, "compiled": "2025/11/05 00:07:13" } ) file:mime:pe=( { "file": $file2, "compiled": "2025/11/16 23:12:15" } ) ]
+.. storm-pre:: file:mime:pe:compiled = 2025*
 ::
   
-  file:bytes:mime:pe:compiled = 2019*
+  file:mime:pe:compiled = 2025*
 
+Lift the files (``file:bytes`` nodes) whose size is less than 1MB:
 
-*Lift files whose size is less than 1MB:*
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384 ]
-    .. storm-pre:: file:bytes:size < 1000000
-
+.. storm-pre:: [ file:bytes=( { "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" } ) :size=16384 ]
+.. storm-pre:: file:bytes:size < 1000000
 ::
   
   file:bytes:size < 1000000
 
-*Lift domain WHOIS records for FQDNs registered (created) after January 1, 2023:*
+Lift the domain WHOIS records (``inet:whois:record`` nodes) for FQDNs registered (created) after January 1, 2023:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ inet:whois:rec=(financialtimes365.com, '2023/01/01 21:46:23') :created='2023/01/01 19:31:29' ]
-    .. storm-pre:: inet:whois:rec:created > 2023/01/01
-
+.. storm-pre:: [ inet:whois:record=( { "fqdn": "financialtimes365.com", "created": "2023/01/01 19:31:29" } ) :seen="2023/01/01 21:46:23" ]
+.. storm-pre:: inet:whois:record:created > 2023/01/01
 ::
   
-  inet:whois:rec:created > 2023/01/01
+  inet:whois:record:created > 2023/01/01
 
-*Lift PE files that were compiled during the year 2012 or earlier:*
+Lift the reports (``doc:report`` nodes) that were published during the year 2012 or earlier:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ file:bytes=sha256:a142625512e5372a1728595be19dbee23eea50524b4827cb64ed5aaeaaa0270b :mime:pe:compiled='2010/01/07 02:53:12.000']
-    .. storm-pre:: file:bytes:mime:pe:compiled <= 2012*
-
+.. storm-pre:: [ doc:report=( { "publisher:name": "microsoft", "title": "a report by microsoft", "published": "2012/03/27" } ) doc:report=( { "publisher:name": "sentinelone", "title": "a different report by sentinelone", "published": "2010/12/15" } ) ]
+.. storm-pre:: doc:report:published <= 2012*
 ::
   
-  file:bytes:mime:pe:compiled <= 2012*
+  doc:report:published <= 2012*
 
-*Lift contact data (ps:contact nodes) for individuals where the date of birth (:dob property) is January 1, 1990 or later:*
+Lift email messages (``inet:email:message`` nodes) that were sent on April 22, 2026 or later:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ (ps:contact='*' :name='pavel evgenyevich prigozhin' :dob=1998/06/18) ]
-    .. storm-pre:: ps:contact:dob >= 1990/01/01
-
+.. storm-pre:: [ inet:email:message=( { "date": "2026/04/27 09:27:42", "to": "alice@vertex.link", "from": "bob@example.com", "subject": "This cryptography thing" } ) inet:email:message=( { "date": "2026/05/09 14:22:47", "to": "ernie@pbs.org", "from": "bert@pbs.org", "subject": "What about all these pigeons" } ) ]
+.. storm-pre:: inet:email:message:date >= 2026/04/22
 ::
   
-  ps:contact:dob >= 1990/01/01
+  inet:email:message:date >= 2026/04/22
 
 **Usage Notes:**
 
@@ -491,8 +458,8 @@ Lift by Secondary Property Value
 Lift by Interface Property Value
 ++++++++++++++++++++++++++++++++
 
-If a form inherits an :ref:`gloss-interface`, you can lift all nodes of all forms with a specific interface-derived property value
-by using the name of the interface.
+If a form implements an :ref:`gloss-interface` that defines a set of properties, you can lift all nodes of all forms
+with a specific value for that property by using the name of the interface.
 
 .. TIP::
   
@@ -507,11 +474,10 @@ by using the name of the interface.
 
 **Examples:**
 
-*Lift all host event nodes (all nodes of all forms that inherit the it:host:event interface) associated with the host name "ron-pc":*
+Lift the host event nodes (all nodes of all forms that implement the ``it:host:event`` interface) associated with the host name ``ron-pc``:
 
-.. storm-pre:: [ ( it:host=* :name=ron-pc ) ( it:exec:file:add=* :host={ it:host:name=ron-pc } ) ( it:exec:fetch=* :host={ it:host:name=ron-pc } ) ]
+.. storm-pre:: $host = { [ it:host=( { "name": "ron-pc" } ) ] } [ it:exec:file:add=( { "host": $host, "time": "2026/03/17 02:44:17" } ) it:exec:fetch=( { "host": $host, "time": "2026/05/27 23:11:42" } ) ]
 .. storm-pre:: it:host:event:host = { it:host:name=ron-pc }
-
 ::
 
   it:host:event:host = { it:host:name=ron-pc }
@@ -519,19 +485,17 @@ by using the name of the interface.
 .. TIP::
   
   The ``:host`` property is a guid value (the guid of an ``it:host`` node). The example above uses a :ref:`gloss-subquery`
-  to specify the host guid value using another Storm query (i.e., "The guid of the it:host node whose :name is ron-pc")
-  insetad of specifying the guid value directly. Subqueries are a useful way to work with guid forms by referencing
+  to specify the host guid value using another Storm query (i.e., "The guid of the ``it:host`` node whose ``:name`` is ``ron-pc``")
+  instead of specifying the guid value directly. Subqueries are a useful way to work with guid forms by referencing
   nodes using more human-friendly secondary property values. See :ref:`subquery-ref-nodes` for a more detailed discussion.
 
-*Lift all host event nodes (all nodes of all forms that inherit the it:host:event interface) that were observed on or after February 1, 2024:*
+Lift the host event nodes (all nodes of all forms that implement the ``it:host:event`` interface) that were observed on or after February 1, 2024:
 
-.. storm-pre:: [ (it:exec:file:write=* :time=now) (it:exec:windows:registry:del=* :time=2023/06/23) (it:exec:fetch=* :time=2024/02/04) ]
+.. storm-pre:: [ ( it:exec:file:write=40001ba041e525c7d8600715f40346e2 :time=now ) it:exec:windows:registry:del=( { "time": "2023/06/23" } ) it:exec:fetch=( { "time": "2024/02/04" } ) ]
 .. storm-pre:: it:host:event:time >= 2024/02/01
-
 ::
 
   it:host:event:time >= 2024/02/01
-
 
 .. _lift-prop-std-meta:
 
@@ -558,13 +522,12 @@ additional details on working with times and intervals in Synapse.
 
 **Examples:**
 
-*Lift all nodes created after January 1, 2024:*
+Lift all nodes created after January 1, 2026:
 
-.. storm-pre:: .created >= 2024/01/01
+.. storm-pre:: .created >= 2026/01/01
 ::
   
   .created >= 2024/01/01
-
 
 .. _lift-prop-std-extended:
 
@@ -581,17 +544,13 @@ operator is supported. If the extended property is an integer, any of the standa
 
 **Example:**
 
-*Lift all files with a VirusTotal "reputation" score less than -50:*
+Lift the files (``file:bytes`` nodes) with a VirusTotal reputation score (``:_virustotal:reputation`` extended property) less than -50:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ]
-    .. storm-pre:: file:bytes:_virustotal:reputation < -50
-
+.. storm-pre:: [ file:bytes=( { "sha256": "87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe" } ) :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ]
+.. storm-pre:: file:bytes:_virustotal:reputation < -50
 ::
   
   file:bytes:_virustotal:reputation < -50
-
 
 .. _lift-prop-extended:
 
@@ -627,7 +586,6 @@ whose :ref:`gloss-type` is appropriate for the comparison used.
   indexed. When using an interface to lift by secondary property, Synapse performs the lifts for each form in parallel,
   and yields the results in order. See the :ref:`lift-reverse` section for additional discussion of this concept.
 
-
 .. _lift-regex:
 
 Lift by Regular Expression (~=)
@@ -637,9 +595,12 @@ The extended comparator ``~=`` is used to lift nodes based on PCRE-compatible re
 
 .. TIP::
   
-  `Lift by Prefix (^=)`_ can be used to match the beginning of string-based properties. It is much
-  faster than lifting by regex for start-of-string matches and should be used instead of a regular
-  expression lift where possible.
+  **Lifting** nodes based on regular expression is a brute force operation and therefore inefficient. For performance
+  purposes, we recommend lifting your initial working set using some other criteria, and then **filtering** by regular
+  expression where possible.
+  
+  Alternatively, `Lift by Prefix (^=)`_ can be used to match the **beginning** of string-based properties as a more
+  efficient alternative to lifting by regular expression.
 
 **Syntax:**
 
@@ -649,25 +610,21 @@ The extended comparator ``~=`` is used to lift nodes based on PCRE-compatible re
 
 **Examples:**
 
-*Lift all files with PDB paths containing the string "rouji":*
+Lift the reports (``doc:report`` nodes) whose title includes the string ``sandstorm``:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [file:bytes=sha256:cebb47280cd00814e1c085c5bc3fbac0e9f91168999091f199a1b1d209edd814 :mime:pe:pdbpath="d:/my documents/visual studio projects/rouji/svcmain.pdb"]
-    .. storm-pre:: file:bytes:mime:pe:pdbpath ~= rouji
-
+.. storm-pre:: [ doc:report=( { "publisher:name": "microsoft", "title": "peach sandstorm password spray campaigns enable intelligence collection at high-value targets", "published": "2023/09/14 00:00:00" } ) doc:report=( { "publisher:name": "microsoft", "title": "new ttps observed in mint sandstorm campaign targeting high-profile individuals at universities and research orgs", "published": "2024/01/17 00:00:00" } ) ]
+.. storm-pre:: doc:report:title ~= sandstorm
 ::
   
-  file:bytes:mime:pe:pdbpath ~= rouji
+  doc:report:title ~= sandstorm
 
-*Lift all organizations whose name contains a string that starts with "v", followed by 0 or more characters, followed by "x":*
+Lift the organizations (``ou:org`` nodes) whose name contains a string that starts with ``v``, followed by 0 or more characters, followed by ``x``:
 
-.. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project") (ou:org=ad8de4b5da0fccb2caadb0d425e35847 :name=vxunderground) ]
+.. storm-pre:: [ ( ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" ) ( ou:org=ad8de4b5da0fccb2caadb0d425e35847 :name=vxunderground ) ]
 .. storm-pre:: ou:org:name ~= '^v.*x'
 ::
   
   ou:org:name ~= '^v.*x'
-
 
 .. _lift-prefix:
 
@@ -695,7 +652,7 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
 
 **Examples:**
 
-*Lift all email addresses that start with "abuse":*
+Lift the email addresses (``inet:email`` nodes) that start with ``abuse``:
 
 .. storm-pre:: [ inet:email=abuse@1and1.com inet:email=abuse.tor-exit@posteo.org ]
 .. storm-pre:: inet:email ^= abuse
@@ -703,24 +660,23 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
   
   inet:email ^= abuse
 
-*Lift all organizations whose name starts with "ministry":*
+Lift the organizations (``ou:org`` nodes) whose name starts with ``ministry``:
 
-.. storm-pre:: [ (ou:org=a7f31ce9809e103ddedf36c1e1e91249 :name='ministry for foreign affairs of finland') (ou:org=1560dc4129405e18fd32f30b6f01fa1f :name='ministry of finance of ukraine') ]
+.. storm-pre:: [ ( ou:org=a7f31ce9809e103ddedf36c1e1e91249 :name='ministry for foreign affairs of finland' ) ( ou:org=1560dc4129405e18fd32f30b6f01fa1f :name='ministry of finance of ukraine' ) ]
 .. storm-pre:: ou:org:name ^= ministry
 ::
   
   ou:org:name ^= ministry
 
-*Lift all Microsoft Office metadata nodes (all nodes of all forms that inherit the file:mime:msoffice interface) whose :author name starts with "DESKTOP":*
+Lift the Microsoft Office metadata nodes (all nodes of all forms that implement the ``file:mime:msoffice`` interface) whose ``:author:name`` starts with ``DESKTOP``:
 
-.. storm-pre:: [ (file:mime:msdoc=* :author='DESKTOP-BCXJXDX') (file:mime:msppt=* :author='Ozzie') (file:mime:msxls=* :author='DESKTOP-KOCEDSI') ]
-.. storm-pre:: file:mime:msoffice:author ^= DESKTOP
-
+.. storm-pre:: [ file:mime:msdoc=( { "application:name": "Microsoft Word", "author:name": "DESKTOP-BCXJXDX" } ) file:mime:msppt=( { "application:name": "Microsoft PowerPoint", "author:name": "Ozzie" } ) file:mime:msxls=( { "application:name": "Microsoft Excel", "author:name": "DESKTOP-KOCEDSI" } ) ]
+.. storm-pre:: file:mime:msoffice:author:name ^= DESKTOP
 ::
-  
-  file:mime:msoffice:author ^= DESKTOP
 
-*Lift all tags (syn:tag) nodes in the "rep.alienvault" tree where the third tag element starts with the numeral "0":*
+  file:mime:msoffice:author:name ^= DESKTOP
+
+Lift the tags (``syn:tag`` nodes) in the ``rep.alienvault`` tree where the third tag element starts with the numeral ``0``:
 
 .. storm-pre:: [ syn:tag=rep.alienvault.0_day syn:tag=rep.alienvault.0ktapus ]
 .. storm-pre:: syn:tag ^= rep.alienvault.0
@@ -734,12 +690,11 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
   not constrained to dot boundaries. In other words, a prefix lift used with tags can match a partial tag
   element. The query above will match all of the following tags:
   
-  - syn:tag=rep.alienvault.0_day
-  - syn:tag=rep.alienvault.0_days
-  - syn:tag=rep.alienvault.0day
-  - syn:tag=rep.alienvault.0days
-  - syn:tag=rep.alienvault.0ktapus
-
+  - ``syn:tag=rep.alienvault.0_day``
+  - ``syn:tag=rep.alienvault.0_days``
+  - ``syn:tag=rep.alienvault.0day``
+  - ``syn:tag=rep.alienvault.0days``
+  - ``syn:tag=rep.alienvault.0ktapus``
 
 .. _lift-interval:
 
@@ -769,7 +724,7 @@ used to lift nodes based on comparisons among various combinations of times and 
 
 **Examples:**
 
-*Lift all DNS A records whose :seen values fall between July 1, 2022 and August 1, 2022:*
+Lift the DNS A records (``inet:dns:a`` nodes) whose ``:seen`` values fall between July 1, 2022 and August 1, 2022:
 
 .. storm-pre:: [ inet:dns:a=(easymathpath.com, 135.125.78.187) :seen=(2021/09/12 00:00:00, 2023/08/08 01:50:54.001) ]
 .. storm-pre:: inet:dns:a:seen @= ( 2022/07/01, 2022/08/01 )
@@ -777,9 +732,9 @@ used to lift nodes based on comparisons among various combinations of times and 
   
   inet:dns:a:seen @= ( 2022/07/01, 2022/08/01 )
 
-*Lift all DNS requests that occurred on May 3, 2023 (between 05/03/2023 00:00:00 and 05/03/2023 23:59:59):*
+Lift the DNS requests (``inet:dns:request`` nodes) that occurred on May 3, 2023 (between ``05/03/2023 00:00:00`` and ``05/03/2023 23:59:59``):
 
-.. storm-pre:: [ inet:dns:request="*" :time="2023/05/03 21:09:04.000" :query:name=vertex.link ]
+.. storm-pre:: [ inet:dns:request=( { "time": "2023/05/03 21:09:04.000", "query:name": "vertex.link" } ) ]
 .. storm-pre:: inet:dns:request:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 ::
   
@@ -792,19 +747,18 @@ used to lift nodes based on comparisons among various combinations of times and 
   
   ``inet:dns:request:time = 2023/05/03*``
 
-*Lift the reports (doc:report nodes) that were published within the past day:*
+Lift the reports (``doc:report`` nodes) that were published within the past day:
 
-.. storm-pre:: [ doc:report="*" :published=now ]
+.. storm-pre:: [ doc:report=( { "title": "swanson still stealing things" } ) :published=now ]
 .. storm-pre:: doc:report:published @= ( now, '-1 day' )
 ::
   
   doc:report:published @= ( now, '-1 day' )
 
-*Lift all host event nodes (all nodes of all forms that inherit the it:host:event interface) that occurred within the past three hours:*
+Lift the host event nodes (all nodes of all forms that implement the ``it:host:event`` interface) that occurred within the past three hours:
 
-.. storm-pre:: [ (it:exec:file:write=* :time=now) (it:exec:mutex:add=* :time=2024/01/15) ]
+.. storm-pre:: [ ( it:exec:file:write=( { "path": "c:/windows/system32/evil.exe" } ) :time=now ) it:exec:mutex:add=( { "time": "2024/01/15", "name": "abcdefg" } ) ]
 .. storm-pre:: it:host:event:time @= (now, '-3 hours')
-
 ::
 
   it:host:event:time @= (now, '-3 hours')
@@ -840,7 +794,6 @@ used to lift nodes based on comparisons among various combinations of times and 
 
   See the type-specific documentation for :ref:`type-time` and :ref:`type-ival` types for a detailed discussion of these behaviors.
 
-
 .. _lift-range:
 
 Lift by Range (\*range=)
@@ -864,9 +817,7 @@ within a specified range of values. The comparator can be used with types such a
   For IPv6 values, the range must be enclosed in quotes:
   
   ``inet:ip = "::0-ff::ff"``
-    
-  The ``*range=`` operator cannot be used to compare a time range with a property value that is an interval
-  (``ival`` type). The interval ( ``@=`` ) operator should be used instead.
+
 
 **Syntax:**
 
@@ -876,56 +827,43 @@ within a specified range of values. The comparator can be used with types such a
 
 **Examples:**
 
-*Lift all files whose size is between 1000 and 100000 bytes:*
+Lift the files (``file:bytes`` nodes) whose size is between 1000 and 100000 bytes:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000]
-    .. storm-pre:: file:bytes:size *range= ( 1000, 100000 )
-
+.. storm-pre:: [ file:bytes=( { "sha256": "00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94" } ) :size=2000 ]
+.. storm-pre:: file:bytes:size *range= ( 1000, 100000 )
 ::
   
   file:bytes:size *range= ( 1000, 100000 )
 
-*Lift all files whose VirusTotal "reputation" score is between -20 and 20:*
+Lift the files (``file:bytes`` nodes) whose VirusTotal reputation score (``:_virustotal:reputation`` extended property) is between -20 and 20:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ]
-    .. storm-pre:: file:bytes:_virustotal:reputation *range= ( -20, 20 )
-
+.. storm-pre:: [ ( file:bytes=( { "sha256": "d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f" } ) :_virustotal:reputation=-16 ) ( file:bytes=( { "sha256": "d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac" } ) :_virustotal:reputation=8 ) ]
+.. storm-pre:: file:bytes:_virustotal:reputation *range= ( -20, 20 )
 ::
   
   file:bytes:_virustotal:reputation *range= ( -20, 20 )
 
-*Lift all domain WHOIS records that were captured / retrieved between November 29, 2013 and June 14, 2016:*
+Lift the DNS requests (``inet:dns:request`` nodes) that were made between November 29, 2025 and January 14, 2026:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ]
-    .. storm-pre:: inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
-
+.. storm-pre:: [ inet:dns:request=( { "query:name": "vertex.link", "time": "2025/12/09 13:47:11" } ) inet:dns:request=( { "query:name": "example.com", "time": "2026/01/03 20:07:01" } ) ]
+.. storm-pre:: inet:dns:request:time *range= ( 2025/11/29, 2026/01/14 )
 ::
   
-  inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
+  inet:dns:request:time *range= ( 2025/11/29, 2026/01/14 )
 
-*Lift all DNS requests made within one day of December 1, 2021:*
+Lift the HTTP requests (``inet:http:request`` nodes) made within one day of December 1, 2024:
 
-.. storm-pre:: [ inet:dns:request="*" :time="2021/11/30 21:09:04.000"]
-.. storm-pre:: inet:dns:request:time *range= ( 2021/12/01, '+-1 day' )
+.. storm-pre:: [ inet:http:request=( { "time": "2024/11/30 21:09:04", "method": "GET", "url": "https://vertex.link/" } ) ]
+.. storm-pre:: inet:http:request:time *range= ( 2024/12/01, '+-1 day' )
 ::
   
-  inet:dns:request:time *range= ( 2021/12/01, '+-1 day' )
+  inet:http:request:time *range= ( 2024/12/01, '+-1 day' )
 
 
 **Usage Notes:**
 
-- When specifying a range, **both** the minimum and maximum values are included in the range. This is the
+- When specifying a range, **both** the minimum and maximum values are **included** in the range. This is the
   equivalent of "greater than or equal to *<min>* and less than or equal to *<max>*").
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-
 - When specifying a range of time values, Synapse allows the use of both lower resolution values (e.g.,
   ``YYYY/MM/DD``) and wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum range values.
   In some cases, wildcard time syntax may provide a simpler and more intuitive means to specify some
@@ -935,8 +873,8 @@ within a specified range of values. The comparator can be used with types such a
 - When using keywords (such as ``now``) or relative values (such as ``-1 hour``) to specify a range of
   times, the first value in the range is calculated relative to the current time and the second value
   is calculated relative to the first value. 
-- If you specify a range value that is nonsencical or exclusionary (such as ``( 47, 16 )``), Synapse
-  will **not** generate an error and will simply fail to return results. (The expression is syntacticaly
+- If you specify a range value that is nonsensical or exclusionary (such as ``( 47, 16 )``), Synapse
+  will **not** generate an error and will simply fail to return results. (The expression is syntactically
   correct, but no value is both greater than 47 and less than 16).
 
 .. _lift-set:
@@ -955,33 +893,29 @@ The set membership extended comparator (``*in=``) supports lifting nodes whose *
 
 **Examples:**
 
-*Lift organization names matching any of the specified values:*
+Lift entity names (``entity:name`` nodes) matching any of the specified values:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ou:name=fsb ou:name=gru ou:name=svr ]
-    .. storm-pre:: ou:name *in= ( fsb, gru, svr )
-
+.. storm-pre:: [ entity:name=fsb entity:name=gru entity:name='yevgeniy prigozhin' entity:name='vladimir putin' ]
+.. storm-pre:: entity:name *in= ( fsb, gru, 'yevgeniy prigozhin', 'vladimir putin' )
 ::
   
-  ou:name *in= ( fsb, gru, svr )
+  entity:name *in= ( fsb, gru, 'yevgeniy prigozhin', 'vladimir putin' )
 
-*Lift all IP addresses associated with any of the specified Autonomous System (AS) numbers:*
+Lift the IP addresses (``inet:ip`` nodes) associated with any of the specified Autonomous System (AS) numbers:
 
-.. storm-pre:: [ (inet:asn=44477 :owner:name='stark industries solutions ltd') (inet:asn=20473 :owner:name=as-choopa) (inet:asn=9009 :owner:name='m247 europe srl') ]
+.. storm-pre:: [ ( inet:asn=44477 :registrant:name='stark industries solutions ltd' ) ( inet:asn=20473 :registrant:name=as-choopa ) ( inet:asn=9009 :registrant:name='m247 europe srl' ) ]
 .. storm-pre:: inet:ip:asn *in= ( 9009, 20473, 44477 )
 ::
   
   inet:ip:asn *in= ( 9009, 20473, 44477 )
 
-*Lift all tags (syn:tag nodes) whose final tag element matches any of the specified string values:*
+Lift the tags (``syn:tag`` nodes) whose final tag element matches any of the specified string values:
 
 .. storm-pre:: [ syn:tag=rep.talos.plugx syn:tag=rep.eset.korplug syn:tag=rep.mandiant.sogu syn:tag=rep.alienvault.kaba ]
 .. storm-pre:: syn:tag:base *in= ( plugx, korplug, sogu, kaba )
 ::
   
   syn:tag:base *in= ( plugx, korplug, sogu, kaba )
-
 
 .. _lift-proximity:
 
@@ -997,9 +931,9 @@ supports proximity based on geospatial location (i.e., nodes within a given radi
 
 **Examples:**
 
-*Lift all locations (geo:place nodes) within 500 meters of the Russian Cryptographic Museum (where the coordinates 55.83069,37.59781 represent the Museum's location):*
+Lift the locations (``geo:place`` nodes) within 500 meters of the Russian Cryptographic Museum (where the coordinates 55.83069,37.59781 represent the Museum's location):
 
-.. storm-pre:: [ ( geo:place="*" :latlong="55.83088, 37.59962" :name="concern avtomatika" ) ]
+.. storm-pre:: [ geo:place=( { "latlong": "55.83088, 37.59962", "name": "Russian Cryptographic Museum" } ) ]
 .. storm-pre:: geo:place:latlong *near= ( (55.83069, 37.59781), 500m )
 ::
   
@@ -1011,18 +945,17 @@ supports proximity based on geospatial location (i.e., nodes within a given radi
   example, radius can be specified as 2km or '2 km' or '0.5 meters' or '6 feet' (distance expressions that
   contain spaces need to be enclosed in single or double quotes):
   
-  - Kilometers (km / kilometer / kilometers)
-  - Meters (m / meter / meters)
-  - Centimeters (cm / centimeter / centimeters)
-  - Millimeters (mm / millimeter / millimeters)
-  - Miles (mile / miles)
-  - Yards (yard / yards)
-  - Feet (foot / feet)
+  - Kilometers ( ``km`` / ``kilometer`` / ``kilometers`` )
+  - Meters ( ``m`` / ``meter`` / ``meters`` )
+  - Centimeters ( ``cm`` / ``centimeter`` / ``centimeters`` )
+  - Millimeters ( ``mm`` / ``millimeter`` / ``millimeters`` )
+  - Miles ( ``mile`` / ``miles`` )
+  - Yards ( ``yard`` / ``yards`` )
+  - Feet ( ``foot`` / ``feet`` )
 
 - Radius values of less than 1 must be specified with a leading zero (e.g., 0.5km).
 - The ``*near=`` comparator works for geospatial data by lifting nodes within a square bounding box centered at *<lat>,<long>*,
   then filters the nodes returned by ensuring that they are within the great-circle distance given by the *<radius>* argument.
-
 
 .. _lift-by-arrays:
 
@@ -1040,24 +973,21 @@ without needing to know the exact order or values of the array itself.
 
 **Examples:**
 
-*Lift the x509 certificates (crypto:x509:cert nodes) that reference FQDNs ending with ".xyz":*
+Lift the x509 certificates (``crypto:x509:cert`` nodes) that reference FQDNs ending with ``.xyz``:
 
-.. storm-pre:: [crypto:x509:cert="*" :identities:fqdns=(woot.biz, woot.xyz)]
+.. storm-pre:: [ crypto:x509:cert=8000873a9b409001877da726967a367f :identities:fqdns=(woot.biz, woot.xyz) ]
 .. storm-pre:: crypto:x509:cert:identities:fqdns *[ = '*.xyz' ]
 ::
   
   crypto:x509:cert:identities:fqdns *[ = '*.xyz' ]
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
+Lift the threat clusters (``risk:threat`` nodes) whose secondary (alternate) names include the string ``dragon``:
 
-    *Lift the MITRE ATT&CK groups whose names include the string 'bear':*
-
-    .. storm-pre:: [ (it:mitre:attack:group=G0035 :names=(berserk bear, crouching yeti, dragonfly, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (it:mitre:attack:group=G0074 :names=(berserk bear, dragonfly 2.0, dymalloy, iron liberty)) ]
-    .. storm-pre:: it:mitre:attack:group:names *[ ~= bear ]
-    ::
-
-      it:mitre:attack:group:names *[ ~= bear ]
+.. storm-pre:: [ ( risk:threat=( { "reporter:name": "lookout", "name": "apt41" } ) :names+='double dragon' )  ( risk:threat=( { "reporter:name": "sophos", "name": "iron liberty" } ) :names+=dragonfly ) ]
+.. storm-pre:: risk:threat:names *[ ~= dragon ]
+::
+  
+  risk:threat:names *[ ~= dragon ]
 
 **Usage Notes:**
 
@@ -1072,7 +1002,6 @@ without needing to know the exact order or values of the array itself.
 
 - See the :ref:`type-array` section of the :ref:`storm-ref-type-specific` document for additional details.
 
-
 .. _tag-lifts:
 
 Tag Lifts
@@ -1085,6 +1014,11 @@ Storm supports lifting nodes based on the tag(s) applied to the node, as well li
 tag properties, or tag property values.
 
 The "hashtag" symbol ( ``#`` ) is used to specify a tag name when lifting by tag.
+
+.. NOTE::
+  
+  Synapse does not include any pre-defined tags (although some Power-Ups may create tags defined within the
+  Power-Up itself). The examples below are based on tags and tag conventions used by The Vertex Project.
 
 .. _lift-by-tag:
 
@@ -1099,7 +1033,7 @@ A "lift by tag" operation lifts **all** nodes that have the specified tag.
 
 **Examples:**
 
-*Lift all nodes that ESET associates with Sednit:*
+Lift all nodes that ESET associates with Sednit (``#rep.eset.sednit``):
 
 .. storm-pre:: [ inet:fqdn=kg-news.org inet:ip=92.114.92.125 +#rep.eset.sednit ]
 .. storm-pre:: #rep.eset.sednit
@@ -1107,9 +1041,9 @@ A "lift by tag" operation lifts **all** nodes that have the specified tag.
   
   #rep.eset.sednit
 
-*Lift all nodes associated with anonymized infrastructure:*
+Lift all nodes associated with anonymized infrastructure (``#cno.infra.anon``):
 
-.. storm-pre:: [ (inet:fqdn=ca2.vpn.airdns.org +#cno.infra.anon.vpn) (inet:ip=104.244.73.193 +#cno.infra.anon.tor.exit) ]
+.. storm-pre:: [ ( inet:fqdn=ca2.vpn.airdns.org +#cno.infra.anon.vpn ) ( inet:ip=104.244.73.193 +#cno.infra.anon.tor.exit ) ]
 .. storm-pre:: #cno.infra.anon
 ::
   
@@ -1136,7 +1070,7 @@ Lift form by tag lifts only those nodes of the specified form that have a partic
 
 **Examples:**
 
-*Lift the FQDN nodes that ESET associates with Sednit:*
+Lift the FQDNs (``inet:fqdn`` nodes) that ESET associates with Sednit (``#rep.eset.sednit``):
 
 .. storm-pre:: [ inet:fqdn=kg-news.org inet:ip=92.114.92.125 +#rep.eset.sednit ]
 .. storm-pre:: inet:fqdn#rep.eset.sednit
@@ -1144,7 +1078,7 @@ Lift form by tag lifts only those nodes of the specified form that have a partic
   
   inet:fqdn#rep.eset.sednit
 
-*Lift the inet:ip nodes associated with DNS sinkhole infrastructure:*
+Lift the IP addresses (``inet:ip`` nodes) associated with DNS sinkhole infrastructure (``#cno.infra.dns.sink.hole``):
 
 .. storm-pre:: [ inet:ip=134.209.227.14 +#cno.infra.dns.sink.hole ]
 .. storm-pre:: inet:ip#cno.infra.dns.sink.hole
@@ -1179,15 +1113,15 @@ See :ref:`lift-interval` for additional detail on the use of the ``@=`` operator
 
 [ *<form>* ] **#** *<tag>* **@=** *<time>* | **(** *<min_time>* **,** *<max_time>* **)**
 
-*Lift any nodes that were associated with anonymous VPN infrastructure between December 1, 2023 and January 1, 2024:*
+Lift the nodes that were associated with anonymous VPN infrastructure (``#cno.infra.anon.vpn``) between December 1, 2023 and January 1, 2024:
 
-.. storm-pre:: [ (inet:fqdn=wazn.airservers.org +#cno.infra.anon.vpn=(2023/05/24 23:16:51.423, 2023/12/05 23:12:40.626)) (inet:ip=2607:9000:0:85:68a3:75b4:13ab:770a +#cno.infra.anon.vpn=(2023/08/15 00:12:15,2023/12/05 23:12:54) ) ]
+.. storm-pre:: [ ( inet:fqdn=wazn.airservers.org +#cno.infra.anon.vpn=(2023/05/24 23:16:51.423, 2023/12/05 23:12:40.626) ) ( inet:ip=2607:9000:0:85:68a3:75b4:13ab:770a +#cno.infra.anon.vpn=(2023/08/15 00:12:15,2023/12/05 23:12:54) ) ]
 .. storm-pre:: #cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 ::
   
   #cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 
-*Lift the FQDNs that were owned / controlled by Threat Cluster 15 as of October 30, 2021:*
+Lift the FQDNs (``inet:fqdn`` nodes) that were owned / controlled by Threat Cluster 15 (``#cno.threat.t15.own``) as of October 30, 2021:
 
 .. storm-pre:: [ inet:fqdn=ronthecat.com +#cno.threat.t15.own=(2020/09/12, 2022/09/12) ]
 .. storm-pre:: inet:fqdn#cno.threat.t15.own @= 2021/10/30
@@ -1195,7 +1129,7 @@ See :ref:`lift-interval` for additional detail on the use of the ``@=`` operator
   
   inet:fqdn#cno.threat.t15.own @= 2021/10/30
 
-*Lift the IP addresses that were TOR exit nodes between April 1, 2023 and July 1, 2023:*
+Lift the IP addresses (``inet:ip`` nodes) that were TOR exit nodes (``#cno.infra.anon.tor.exit``) between April 1, 2023 and July 1, 2023:
 
 .. storm-pre:: [ ( inet:ip=185.29.8.215 +#cno.infra.anon.tor.exit=(2023/05/08 14:30:51, 2024/01/04 22:05:03) ) ( inet:ip=91.208.162.197 +#cno.infra.anon.tor.exit=(2023/03/14 15:00:25, 2023/09/12 15:35:57) ) ]
 .. storm-pre:: inet:ip#cno.infra.anon.tor.exit @= ( 2023/04/01, 2023/07/01 )
@@ -1222,26 +1156,26 @@ whose tags have a specific tag property (regardless of the value of the property
 [ *<form>* ] **#** *<tag>* **:** *<tagprop>*
 
 
-*Lift any nodes with a ":risk" property reported by Symantec:*
+Lift the nodes with a ``:_risk`` tag property reported by Symantec (``#rep.symantec:_risk``):
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ]
-.. storm-pre:: #rep.symantec:risk
+.. storm-pre:: [ ( inet:fqdn=woot.com +#rep.symantec:_risk=87 ) ( inet:ip=8.8.8.8 +#rep.domaintools:_risk=42 ) ]
+.. storm-pre:: #rep.symantec:_risk
 ::
   
-  #rep.symantec:risk
+  #rep.symantec:_risk
   
-*Lift all FQDNs with a ":risk" property reported by Symantec:*
+Lift the FQDNs (``inet:fqdn`` nodes) with a ``:_risk`` tag property reported by Symantec (``#rep.symantec:_risk``):*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ]
-.. storm-pre:: inet:fqdn#rep.symantec:risk
+.. storm-pre:: [ ( inet:fqdn=woot.com +#rep.symantec:_risk=87 ) ( inet:ip=8.8.8.8 +#rep.domaintools:_risk=42 ) ]
+.. storm-pre:: inet:fqdn#rep.symantec:_risk
 ::
   
-  inet:fqdn#rep.symantec:risk
+  inet:fqdn#rep.symantec:_risk
 
 .. NOTE::
   
   You must specify a tag associated with the tag property. It is not possible to lift nodes based on a particular
-  tag property being present on **any** tag (e.g., Storm queries such as ``#:risk`` or ``inet:fqdn#:risk`` will
+  tag property being present on **any** tag (e.g., Storm queries such as ``#:_risk`` or ``inet:fqdn#:_risk`` will
   generate ``BadSyntax`` errors).
 
 
@@ -1265,29 +1199,29 @@ more complex Storm queries (such as automation or Storm-based ingest queries).
 [ *<form>* ] **#** *<tag>* **:** *<tagprop>* *<operator>* *<pval>*
 
 
-*Lift any nodes with a ":risk" property value of 100 as reported by ESET:*
+Lift the nodes with a ``:_risk`` tag property value of 100 as reported by ESET (``#rep.eset:_risk``):
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42) (inet:fqdn=vertex.link +#rep.eset:risk=100) ]
-.. storm-pre:: #rep.eset:risk = 100
+.. storm-pre:: [ ( inet:fqdn=woot.com +#rep.symantec:_risk=87 ) ( inet:ip=8.8.8.8 +#rep.domaintools:_risk=42 ) ( inet:fqdn=vertex.link +#rep.eset:_risk=100 ) ]
+.. storm-pre:: #rep.eset:_risk = 100
 ::
   
-  #rep.eset:risk = 100
+  #rep.eset:_risk = 100
 
-*Lift all FQDNs with a ":risk" property value greater than 90 as reported by domaintools:*
+Lift the FQDNs (``inet:fqdn`` nodes) with a ``:_risk`` tag property value greater than 90 as reported by DomainTools (``#rep.domaintools:_risk``):
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) (inet:fqdn=vertex.link +#rep.vertex:risk=100) ]
-.. storm-pre:: inet:fqdn#rep.domaintools:risk > 90
+.. storm-pre:: [ ( inet:fqdn=woot.com +#rep.symantec:_risk=87 ) ( inet:ip=8.8.8.8 +#rep.domaintools:_risk=42 ) ( inet:fqdn=vertex.link +#rep.vertex:_risk=100 ) ]
+.. storm-pre:: inet:fqdn#rep.domaintools:_risk > 90
 ::
   
-  inet:fqdn#rep.domaintools:risk > 90
+  inet:fqdn#rep.domaintools:_risk > 90
 
-*Lift all FQDNs with a ":risk" property with a value between 45 and 70 as reported by Symantec:*
+Lift the FQDNs (``inet:fqdn`` nodes) with a ``:_risk`` tag property with a value between 45 and 70 as reported by Symantec (``#rep.symantec:_risk``):
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ]
-.. storm-pre:: inet:fqdn#rep.symantec:risk *range= ( 45, 70 )
+.. storm-pre:: [ ( inet:fqdn=woot.com +#rep.symantec:_risk=87 ) ( inet:ip=8.8.8.8 +#rep.domaintools:_risk=42 ) ]
+.. storm-pre:: inet:fqdn#rep.symantec:_risk *range= ( 45, 70 )
 ::
   
-  inet:fqdn#rep.symantec:risk *range= ( 45, 70 )
+  inet:fqdn#rep.symantec:_risk *range= ( 45, 70 )
 
 
 .. _lift-tag-recursive:
@@ -1314,6 +1248,21 @@ but will **not** include any lifted ``syn:tag`` nodes themselves.
 
 The "double hashtag" symbol ( ``##`` ) is used to specify a recursive tag lift.
 
+.. NOTE::
+  
+  "Tag the tags" is one approach to provide context to things that tags represent and may be suitable for some
+  use cases. However, the Synapse data model now includes **forms** to represent objects or concepts that are
+  commonly associated with tags, and that can be linked to their associated tag via a ``:tag`` secondary
+  property. For example, a ``risk:threat`` node can represent Microsoft's reporting on Forest Blizzard,
+  with a ``:tag`` property that could be set to ``rep.microsoft.forest_blizzard``. The node can be used to
+  record additional context about Microsoft's Forest Blizzard, including things like when the group was active,
+  alternate names used in reporting, and so on. In short, using a form that is linked to a tag and has secondary
+  properties to provide context gives you greater flexibility to record that context (vs. "tag the tags") and
+  simplifies lifting, filtering, and pivoting across similar nodes.
+  
+  See :ref:`analytical-tags-asnodes` for a brief discussion of this concept, or the `User Guide`_ for the
+  `Vertex-Threat-Intel`_ Power-Up (in particular, the `Threat Intel Model`_ section) for additional examples.
+
 **Syntax:**
 
 **##** *<tag>*
@@ -1325,7 +1274,7 @@ You add the appropriate "availability" tag to the ``syn:tag`` node that represen
 For example, you apply the tag ``#rep.mandiant.avail.public`` to the node ``syn:tag=rep.mandiant.gh0st``
 because Mandiant reported that the source code for the Gh0st backdoor is publicly available.
 
-*Lift all the nodes (e.g., indicators of compromise) associated with any malware family or tool that Mandiant reports is publicly available:*
+Lift the nodes (e.g., indicators of compromise) associated with any malware family or tool that Mandiant reports is publicly available:
 
 .. storm-pre:: [ ( syn:tag=rep.mandiant.beacon syn:tag=rep.mandiant.gh0st +#rep.mandiant.avail.public ) ( crypto:hash:md5=1844370fa7dac0e99779000f8f0b2f4e inet:fqdn=zomerax.top +#rep.mandiant.beacon ) ( inet:fqdn=iphone.vizvaz.com +#rep.mandiant.gh0st ) ]
 .. storm-pre:: ##rep.mandiant.avail.public
@@ -1335,29 +1284,13 @@ because Mandiant reported that the source code for the Gh0st backdoor is publicl
 
 The query above will:
 
-- Lift all nodes tagged ``#rep.mandiant.avail.public``, such as ``syn:tag`` nodes for tools or malware families
+- Lift the nodes tagged ``#rep.mandiant.avail.public``, such as ``syn:tag`` nodes for tools or malware families
   that Mandiant assesses are publicly available (e.g., ``syn:tag=rep.mandiant.gh0st`` or ``syn:tag=rep.mandiant.beacon``).
 - Lift any nodes tagged with those tags (e.g., ``#rep.mandiant.gh0st`` or ``#rep.mandiant.beacon``). This would
   typically include IOCs such as hashes, FQDNs, IPs, URLs, etc.
 - If any nodes tagged with the additional tags (``#rep.mandiant.gh0st``, etc.) are ``syn:tag`` nodes, repeat the
   process, continuing until no more ``syn:tag`` nodes are lifted.
 - Return the recursively lifted set of nodes (excluding any ``syn:tag`` nodes).
-
-.. NOTE::
-  
-  "Tag the tags" is one approach to provide context to things that tags represent and may be suitable for some
-  use cases. However, the Synapse data model now includes **forms** to represent objects or concepts that are
-  commonly associated with tags, and that can be linked to their associated tag via a ``:tag`` secondary
-  property. For example, a ``risk:tool:software`` node can represent Mandiant's reporting on Gh0st malware,
-  with a ``:tag`` property that could be set to ``rep.mandiant.gh0st``. The node can be used to record
-  additional context about Mandiant's Gh0st, including things like availability, alternate names used in
-  reporting, and so on. In short, using a form with secondary properties to provide "context" (that is still
-  linked to an associated tag) gives you greater flexibility to record that context and simplifies lifting,
-  filtering, and pivoting across similar nodes.
-  
-  See :ref:`analytical-tags-asnodes` for a brief discussion of this concept, or the `User Guide`_ for the
-  `Vertex-Threat-Intel`_ Power-Up (in particular, the `Threat Intel Model`_ section) for additional examples.
-
 
 .. _lift-reverse:
 
@@ -1377,7 +1310,7 @@ A "reverse" lift can be followed by additional Storm operations (pivots, filters
   
   When using the ``reverse`` keyword to lift by secondary property value using an :ref:`gloss-interface` name, Synapse
   performs the lifts for each form in parallel, and yields the results in descending order. For example, the following
-  query will return all nodes of all forms that inherit the ``it:host:event`` interface that have a ``:time``
+  query will return all nodes of all forms that implement the ``it:host:event`` interface that have a ``:time``
   value greater than or equal to 2024/02/01, sorted in descending order (most recent first):
 
   ::
@@ -1392,19 +1325,19 @@ A "reverse" lift can be followed by additional Storm operations (pivots, filters
 
 **Examples:**
 
-*Lift inet:ip nodes with a :place:loc property (sorted descending based on the :place:loc property value):*
+Lift IP addresses (``inet:ip`` nodes) with a ``:place:loc`` property (sorted descending based on the ``:place:loc`` property value):
 
-.. storm-pre:: [ (inet:ip=197.155.229.194 :place:loc=zw.ha.harare) (inet:ip=41.221.147.14 :place:loc=zw) (inet:ip=41.164.23.42 :place:loc=za.wc.worcester) (inet:ip=155.254.9.3 :place:loc='us.mt.three forks') (inet:ip=102.64.66.222 :place:loc='tz.02.dar es salaam') ]
+.. storm-pre:: [ ( inet:ip=197.155.229.194 :place:loc=zw.ha.harare ) ( inet:ip=41.221.147.14 :place:loc=zw ) ( inet:ip=41.164.23.42 :place:loc=za.wc.worcester ) ( inet:ip=155.254.9.3 :place:loc='us.mt.three forks' ) ( inet:ip=102.64.66.222 :place:loc='tz.02.dar es salaam' ) ]
 .. storm-cli:: reverse ( inet:ip:place:loc )
 
 
-*Lift five inet:ip nodes (sorted descending based on the integer value of the inet:ip primary property):*
+Lift five IP addresses (``inet:ip`` nodes) (sorted descending based on the integer value of the ``inet:ip`` primary property):
 
 .. storm-pre:: [ inet:ip=255.255.255.255 inet:ip=223.159.33.195 inet:ip=198.42.76.23 inet:ip=52.16.48.7 inet:ip=40.250.10.120 inet:ip=12.163.57.22 ]
 .. storm-cli:: reverse ( inet:ip ) | limit 5
 
 
-*Lift the five most recently-created inet:email nodes (sorted descending by the .created property value):*
+Lift the five most recently-created email addresses (``inet:email`` nodes) (sorted descending by the ``.created`` property value):
 
 .. storm-pre:: [ inet:email=praveen.s@hsrfunke.com inet:email=alhossani@adnoc.ae inet:email=20231128124623.11d85d83ed11a341@adnoc.ae inet:email=support@hammer-software.com inet:email=alex.gronholm@nextday.fi inet:email=dholth@fastmail.fm inet:email=illia.volochii@gmail.com ]
 .. storm-cli:: reverse ( inet:email.created ) | limit 5
@@ -1441,7 +1374,6 @@ executing Storm query to halt and stop processing. For example, the following qu
 .. storm-pre:: [ inet:ip=8.8.8.8 ]
 .. storm-fail:: true
 .. storm-cli:: inet:ip = evil.com inet:ip = 8.8.8.8
-.. storm-fail:: false
 
 When using the try operator ( ``?=`` ), Synapse will to attempt (try) to lift the node(s) using the specified property
 value. However, instead of halting in the event of an error, Synapse will ignore the error (silently fail on that
@@ -1475,37 +1407,36 @@ during execution.
 
 **Examples:**
 
-*Try to lift the MD5 node 174cc541c8d9e1accef73025293923a6:*
+Try to lift the MD5 (``crypto:hash:md5`` node) ``174cc541c8d9e1accef73025293923a6``:
 
 .. storm-pre:: [ crypto:hash:md5 = 174cc541c8d9e1accef73025293923a6 ]
 .. storm-cli::  crypto:hash:md5 ?= 174cc541c8d9e1accef73025293923a6
 
 
-*Try to lift the DNS A nodes whose :ip property is 192.168.0.100:*
+Try to lift the DNS A records (``inet:dns:a`` nodes) whose ``:ip`` property is ``192.168.0.100``:
 
-.. storm-pre:: [ inet:dns:a=(woot.com,192.168.0.100) ]
+.. storm-pre:: [ inet:dns:a=( woot.com, 192.168.0.100 ) ]
 .. storm-cli:: inet:dns:a:ip ?= 192.168.0.100
 
 
-*Try to lift the email address nodes for ron@vertex.link and ozzie@vertex.link:*
+Try to lift the email addresses (``inet:email`` nodes) for ``ron@vertex.link`` and ``ozzie@vertex.link``:
 
-Notice that despite the first email address being entered incorrectly, the error message is suppressed, and the query executes to completion.
+In the example below, note that despite the first email address being entered incorrectly (using ``[at]``),
+the error message is suppressed, and the query executes to completion.
 
 .. storm-pre:: [ inet:email=ron@vertex.link inet:email=ozzie@vertex.link ]
 .. storm-cli:: inet:email ?= 'ron[at]vertex.link' inet:email ?= 'ozzie@vertex.link'
 
-*Try to lift any Microsoft Office document metadata nodes (all nodes of all forms that inherit the file:mime:msoffice interface) whose author (:author property) is 'Rafael Moon':*
+Try to lift the Microsoft Office document metadata nodes (all nodes of all forms that implement the ``file:mime:msoffice`` interface) whose ``:author:name`` property is ``Rafael Moon``:
 
-.. storm-pre:: [ (file:mime:msdoc=* :author='Rafael Moon') (file:mime:msdoc=* :author='Tran Duy Lin') (file:mime:msxls=* :author='Windows User') ]
-.. storm-pre:: file:mime:msoffice:author ?= 'Rafael Moon'
-
+.. storm-pre:: [ file:mime:msdoc=( { "application:name": "Microsoft Word", "author:name": "Rafael Moon" } ) file:mime:msdoc=( { "application:name": "Microsoft Word", "author:name": "Tran Duy Lin" } ) file:mime:msxls=( { "application:name": "Microsoft Excel", "author:name": "Windows User" } ) ]
+.. storm-pre:: file:mime:msoffice:author:name ?= 'Rafael Moon'
 ::
-  
-  file:mime:msoffice:author ?= 'Rafael Moon'
+
+  file:mime:msoffice:author:name ?= 'Rafael Moon'
 
 
-.. _Synapse-VirusTotal: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-virustotal/index.html
-.. _User Guide: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/vertex-threat-intel/ugoverview.html
-.. _Vertex-Threat-Intel: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/vertex-threat-intel/index.html
-.. _Threat Intel Model: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/vertex-threat-intel/ugmodel.html
-
+.. _Synapse-VirusTotal: {{SYN_DOCS_BASEURL}}/docs/synapse-virustotal/latest/index.html
+.. _User Guide: {{SYN_DOCS_BASEURL}}/docs/vertex-threat-intel/latest/ugoverview.html
+.. _Vertex-Threat-Intel: {{SYN_DOCS_BASEURL}}/docs/vertex-threat-intel/latest/index.html
+.. _Threat Intel Model: {{SYN_DOCS_BASEURL}}/docs/vertex-threat-intel/latest/ugmodel.html

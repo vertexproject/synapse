@@ -69,7 +69,7 @@ class JsonTest(s_test.SynTest):
                 await core.callStorm(q)
 
             q = '''
-            $schemaObj = $lib.json.schema($schema, use_default=$lib.false)
+            $schemaObj = $lib.json.schema($schema, use_default=(false))
             $item = ({"key:integer": 4, "key:multi": "4"})
             return($schemaObj.validate($item))
             '''

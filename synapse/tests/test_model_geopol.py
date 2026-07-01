@@ -24,7 +24,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'code', 'vi', type='iso:3166:alpha2')
             self.propeq(nodes[0], 'iso:3166:alpha3', 'vis')
             self.propeq(nodes[0], 'iso:3166:numeric3', '137')
-            self.propeq(nodes[0], 'currencies', ('pesos', 'usd', 'vcoins'))
+            self.propeq(nodes[0], 'currencies', ('PESOS', 'USD', 'VCOINS'))
             self.len(2, await core.nodes('pol:country -> geo:name'))
             self.len(3, await core.nodes('pol:country -> econ:currency'))
 
@@ -61,7 +61,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                         :time=2025
                         :area=1sq.km
                         :population=1
-                        :currency=usd
+                        :currencies=(usd, eur)
                         :econ:gdp = 100
                     ]
                     { -> pol:country [ :vitals={pol:vitals} ] }
@@ -70,7 +70,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('country'))
             self.propeq(nodes[0], 'population', 1)
             self.propeq(nodes[0], 'area', 1000000)
-            self.propeq(nodes[0], 'currency', 'usd')
+            self.propeq(nodes[0], 'currencies', ('USD', 'EUR'))
             self.propeq(nodes[0], 'econ:gdp', '100')
             self.propeq(nodes[0], 'time', 1735689600000000)
             self.len(1, await core.nodes('pol:country:vitals :vitals -> pol:vitals'))
@@ -104,7 +104,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                 [ pol:election=* :name="2024 US Presidential Election" :time=2024-11-03 ]
             ''')
             self.propeq(nodes[0], 'time', 1730592000000000)
-            self.propeq(nodes[0], 'name', '2024 us presidential election')
+            self.propeq(nodes[0], 'name', '2024 US Presidential Election')
 
             nodes = await core.nodes('''
                 [ pol:office=*
@@ -114,7 +114,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :termlimit=2
                 ]
             ''')
-            self.propeq(nodes[0], 'title', 'potus')
+            self.propeq(nodes[0], 'title', 'POTUS')
             self.propeq(nodes[0], 'termlimit', 2)
             self.len(1, await core.nodes('pol:office:title=potus -> ou:org'))
             self.len(1, await core.nodes('pol:office:title=potus -> ou:position'))
@@ -139,7 +139,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :votes=99
                     :race={pol:race}
                     :actor={[entity:contact=* :name=whippit]}
-                    :winner=$lib.true
+                    :winner=true
                     :votes=42000
                     :campaign={[entity:campaign=* :name=whippit4prez ]}
                     :party={[ou:org=* :name=vertex]}
@@ -172,17 +172,9 @@ class GeoPolModelTest(s_t_utils.SynTest):
                 [ pol:pollingplace=*
                     :place={[ geo:place=* :name=library ]}
                     :election={pol:election}
-                    :name=pollingplace00
-                    :opens=202411030800-05:00
-                    :closes=202411032000-05:00
-                    :opened=202411030800-05:00
-                    :closed=202411032000-05:00
+                    :place:name=pollingplace00
                 ]
             ''')
-            self.propeq(nodes[0], 'opens', 1730638800000000)
-            self.propeq(nodes[0], 'closes', 1730682000000000)
-            self.propeq(nodes[0], 'opened', 1730638800000000)
-            self.propeq(nodes[0], 'closed', 1730682000000000)
             self.len(1, await core.nodes('pol:pollingplace -> pol:election'))
             self.len(1, await core.nodes('pol:pollingplace -> geo:place +:name=library'))
             self.len(1, await core.nodes('pol:pollingplace -> geo:name +geo:name=pollingplace00'))

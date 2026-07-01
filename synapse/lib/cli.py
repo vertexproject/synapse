@@ -253,14 +253,14 @@ class Cli(s_base.Base):
         if isinstance(self.item, s_base.Base):
             self.item.onfini(self._onItemFini)
 
-        self.locs['syn:local:version'] = s_version.verstring
+        self.locs['syn:local:version'] = s_version.version
 
         if isinstance(self.item, s_telepath.Proxy):
             version = self.item._getSynVers()
             if version is None:  # pragma: no cover
                 self.locs['syn:remote:version'] = 'Remote Synapse version unavailable'
             else:
-                self.locs['syn:remote:version'] = '.'.join([str(v) for v in version])
+                self.locs['syn:remote:version'] = version
 
         self.cmds = {}
         self.cmdprompt = 'cli> '

@@ -1,3 +1,4 @@
+import heapq
 import regex
 import types
 import pprint
@@ -31,6 +32,8 @@ import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+MINMAX_SIZE_MAX = 100
 
 addtriggerdescr = '''
 Add a trigger to the cortex.
@@ -121,9 +124,6 @@ Examples:
 
     # Run every hour at minute 24 and minute 45
     cron.add hourly@:24,45 { $lib.print(hourly) }
-
-    # Run every hour at minute 24 and minute 45
-    cron.add --period hourly@:24,45 { $lib.print(hourly) }
 
     # Run every Monday and Wednesday at 10:00 UTC
     cron.add weekly/mon,wed@10:00 { $lib.print(weekly) }
@@ -535,10 +535,6 @@ stormcmds = (
             $comm = $lib.version.commit
             $synv = $lib.version.synapse
 
-            if $synv {
-                $synv = ('.').join($synv)
-            }
-
             if $comm {
                 $comm = $comm.slice(0,7)
             }
@@ -626,25 +622,19 @@ stormcmds = (
     },
     {
         'name': 'view.merge',
-        'descr': 'Merge a forked view into its parent view.',
+        'descr': '''
+            Merge a forked view into its parent view.
+
+            The merge runs as a background task that ends by removing the
+            forked view and its top layer.
+        ''',
         'cmdargs': (
             ('iden', {'help': 'Iden of the view to merge.'}),
-            ('--delete', {'default': False, 'action': 'store_true',
-                          'help': 'Once the merge is complete, delete the layer and view.'}),
         ),
         'storm': '''
             $view = $lib.view.get($cmdopts.iden)
-
             $view.merge()
-
-            if $cmdopts.delete {
-                $layriden = $view.layers.index(0).iden
-                $lib.view.del($view.iden)
-                $lib.layer.del($layriden)
-            } else {
-                $view.swapLayer()
-            }
-            $lib.print(`View merged: {$cmdopts.iden}`)
+            $lib.print(`View merge scheduled: {$cmdopts.iden}`)
         ''',
     },
     {
@@ -1027,7 +1017,7 @@ stormcmds = (
 
             $params = $cmdopts.params
             $headers = $cmdopts.headers
-            if $cmdopts.no_headers { $headers = $lib.null }
+            if $cmdopts.no_headers { $headers = (null) }
         }
 
         $ssl = ({"verify": (not $cmdopts.no_ssl_verify)})
@@ -1415,6 +1405,7 @@ class Runtime(s_base.Base):
 
         self.task = asyncio.current_task()
         self.emitq = None
+        self.storm_origin = None
 
         self.inputs = []    # [synapse.lib.node.Node(), ...]
 
@@ -1525,17 +1516,18 @@ class Runtime(s_base.Base):
             return
         await self.view.core.reqGateKeys(gatekeys)
 
+    def userCanReadLayer(self, layriden):
+        # A layer is readable if the user can read any view it is a member of.
+        # There is no standalone layer read permission: a user who can read a
+        # view can switch to it and lift from all of its layers anyway.
+        if self.asroot:
+            return True
+
+        return self.view.core.userCanReadLayer(self.user, layriden)
+
     async def reqUserCanReadLayer(self, layriden):
 
-        if self.asroot:
-            return
-
-        for view in self.view.core.viewsbylayer.get(layriden, ()):
-            if self.user.allowed(('view', 'read'), gateiden=view.iden):
-                return
-
-        # check the old way too...
-        if self.user.allowed(('layer', 'read'), gateiden=layriden):
+        if self.userCanReadLayer(layriden):
             return
 
         mesg = f'User ({self.user.name}) can not read layer.'
@@ -2708,7 +2700,7 @@ class BatchCmd(Cmd):
     Example:
 
         // Execute a query with batches of 5 nodes, then yield the inbound nodes
-        batch $lib.false --size 5 { $lib.print($nodes) }
+        batch (false) --size 5 { $lib.print($nodes) }
     '''
     name = 'batch'
 
@@ -2729,7 +2721,7 @@ class BatchCmd(Cmd):
         size = await s_stormtypes.toint(self.opts.size)
         if size > 10000:
             mesg = f'Specified batch size ({size}) is above the maximum (10000).'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+            raise s_exc.BadArg(mesg=mesg)
 
         _query = await s_stormtypes.tostr(self.opts.query)
         query = await runt.getStormQuery(_query)
@@ -3158,7 +3150,7 @@ class DiffCmd(Cmd):
 
         if self.opts.tag and self.opts.prop:
             mesg = 'You may specify --tag *or* --prop but not both.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+            raise s_exc.BadArg(mesg=mesg)
 
         if self.opts.tag:
 
@@ -3693,7 +3685,11 @@ class MergeCmd(Cmd):
                     else:
                         delnode = True
                         try:
-                            protonode = await editor.addNode(form, valu[0])
+                            nval = valu[0]
+                            protonode = await editor.addNode(form, nval)
+                            if protonode.node is not None and protonode.node.valu() != nval:
+                                await protonode.setValue(nval)
+
                         except (s_exc.BadTypeValu, s_exc.IsDeprLocked) as e:
                             await runt.warn(e.errinfo.get('mesg'))
                             await asyncio.sleep(0)
@@ -3934,13 +3930,13 @@ class MoveNodesCmd(Cmd):
                 self.runt.confirm(('node', 'del', node.form.name), gateiden=self.destlayr)
 
             for name in sode.get('props', {}).keys():
-                full = node.form.prop(name).full
-                self.runt.confirm(('node', 'prop', 'del', full), gateiden=layr)
-                self.runt.confirm(('node', 'prop', 'set', full), gateiden=self.destlayr)
+                prop = node.form.prop(name)
+                self.runt.confirmPropDel(prop, layriden=layr)
+                self.runt.confirmPropSet(prop, layriden=self.destlayr)
 
             for name in sode.get('antiprops', {}).keys():
-                full = node.form.prop(name).full
-                self.runt.confirm(('node', 'prop', 'del', full), gateiden=self.destlayr)
+                prop = node.form.prop(name)
+                self.runt.confirmPropDel(prop, layriden=self.destlayr)
 
             for tag in sode.get('tags', {}).keys():
                 tagperm = tuple(tag.split('.'))
@@ -3994,7 +3990,7 @@ class MoveNodesCmd(Cmd):
             for layr in srclayrs:
                 if layr not in layridens:
                     mesg = f'No layer with iden {layr} in this view, cannot move nodes.'
-                    raise s_exc.BadOperArg(mesg=mesg, layr=layr)
+                    raise s_exc.BadArg(mesg=mesg, layr=layr)
         else:
             srclayrs = [layr.iden for layr in runt.view.layers[1:]]
 
@@ -4002,13 +3998,13 @@ class MoveNodesCmd(Cmd):
             self.destlayr = self.opts.destlayer
             if self.destlayr not in layridens:
                 mesg = f'No layer with iden {self.destlayr} in this view, cannot move nodes.'
-                raise s_exc.BadOperArg(mesg=mesg, layr=self.destlayr)
+                raise s_exc.BadArg(mesg=mesg, layr=self.destlayr)
         else:
             self.destlayr = runt.view.wlyr.iden
 
         if self.destlayr in srclayrs:
             mesg = f'Source layer {self.destlayr} cannot also be the destination layer.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+            raise s_exc.BadArg(mesg=mesg)
 
         self.adds = []
         self.subs = {}
@@ -4021,17 +4017,17 @@ class MoveNodesCmd(Cmd):
             for layr in self.opts.precedence:
                 if layr not in layridens:
                     mesg = f'No layer with iden {layr} in this view, cannot be used to specify precedence.'
-                    raise s_exc.BadOperArg(mesg=mesg, layr=layr)
+                    raise s_exc.BadArg(mesg=mesg, layr=layr)
                 if layr not in layrlist:
                     mesg = f'Layer {layr} in precedence is not in the set of source/destination layers.'
-                    raise s_exc.StormRuntimeError(mesg=mesg, layr=layr)
+                    raise s_exc.BadArg(mesg=mesg, layr=layr)
 
                 layrlist.remove(layr)
 
             if len(layrlist) > 0:
                 mesg = 'All source layers and the destination layer must be included when ' \
                        f'specifying precedence (missing {layrlist}).'
-                raise s_exc.BadOperArg(mesg=mesg, layrlist=layrlist)
+                raise s_exc.BadArg(mesg=mesg, layrlist=layrlist)
             layerord = self.opts.precedence
         else:
             layerord = layridens.keys()
@@ -4646,7 +4642,7 @@ class UniqCmd(Cmd):
 
 class MaxCmd(Cmd):
     '''
-    Consume nodes and yield only the one node with the highest value for an expression.
+    Consume nodes and yield the nodes with the highest values for an expression.
 
     Examples:
 
@@ -4659,6 +4655,9 @@ class MaxCmd(Cmd):
         // Yield the it:dev:str node with the longest length
         it:dev:str | max $lib.len($node.value)
 
+        // Yield the two most recent inet:dns:ns records (descending order)
+        inet:fqdn=vertex.link -> inet:dns:ns | max .seen --size 2
+
     '''
 
     name = 'max'
@@ -4667,16 +4666,28 @@ class MaxCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('valu', help='The property or variable to use for comparison.')
+        pars.add_argument('--size', default=1,
+                          help=f'The number of nodes to yield (max {MINMAX_SIZE_MAX}). Nodes are yielded in descending order.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        maxvalu = None
-        maxitem = None
+        size = await s_stormtypes.toint(self.opts.size)
+        if size < 1:
+            mesg = f'Specified size ({size}) is below the minimum (1).'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if size > MINMAX_SIZE_MAX:
+            mesg = f'Specified size ({size}) is above the maximum ({MINMAX_SIZE_MAX}).'
+            raise s_exc.BadArg(mesg=mesg)
 
         ivaltype = self.runt.view.core.model.type('ival')
 
-        async for item in genr:
+        # min-heap of (valu, counter, (node, path)) -- smallest valu at root so we can evict it
+        heap = []
+        counter = 0
+
+        async for node, path in genr:
 
             valu = await s_stormtypes.toprim(self.opts.valu)
             if valu is None:
@@ -4691,16 +4702,19 @@ class MaxCmd(Cmd):
 
             valu = s_stormtypes.intify(valu)
 
-            if maxvalu is None or valu > maxvalu:
-                maxvalu = valu
-                maxitem = item
+            if len(heap) < size:
+                heapq.heappush(heap, (valu, counter, (node, path)))
+            elif valu > heap[0][0]:
+                heapq.heapreplace(heap, (valu, counter, (node, path)))
 
-        if maxitem:
-            yield maxitem
+            counter += 1
+
+        for _, _, item in sorted(heap, key=lambda x: x[0], reverse=True):
+            yield item
 
 class MinCmd(Cmd):
     '''
-    Consume nodes and yield only the one node with the lowest value for an expression.
+    Consume nodes and yield the nodes with the lowest values for an expression.
 
     Examples:
 
@@ -4713,6 +4727,9 @@ class MinCmd(Cmd):
         // Yield the it:dev:str node with the shortest length
         it:dev:str | min $lib.len($node.value)
 
+        // Yield the two oldest inet:dns:ns records (ascending order)
+        inet:fqdn=vertex.link -> inet:dns:ns | min .seen --size 2
+
     '''
     name = 'min'
     readonly = True
@@ -4720,14 +4737,26 @@ class MinCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('valu', help='The property or variable to use for comparison.')
+        pars.add_argument('--size', default=1,
+                          help=f'The number of nodes to yield (max {MINMAX_SIZE_MAX}). Nodes are yielded in ascending order.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        minvalu = None
-        minitem = None
+        size = await s_stormtypes.toint(self.opts.size)
+        if size < 1:
+            mesg = f'Specified size ({size}) is below the minimum (1).'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if size > MINMAX_SIZE_MAX:
+            mesg = f'Specified size ({size}) is above the maximum ({MINMAX_SIZE_MAX}).'
+            raise s_exc.BadArg(mesg=mesg)
 
         ivaltype = self.runt.view.core.model.type('ival')
+
+        # max-heap via negated valu -- largest valu at root so we can evict it when we find something smaller
+        heap = []
+        counter = 0
 
         async for node, path in genr:
 
@@ -4744,12 +4773,15 @@ class MinCmd(Cmd):
 
             valu = s_stormtypes.intify(valu)
 
-            if minvalu is None or valu < minvalu:
-                minvalu = valu
-                minitem = (node, path)
+            if len(heap) < size:
+                heapq.heappush(heap, (-valu, counter, (node, path)))
+            elif valu < -heap[0][0]:
+                heapq.heapreplace(heap, (-valu, counter, (node, path)))
 
-        if minitem:
-            yield minitem
+            counter += 1
+
+        for _, _, item in sorted(heap, key=lambda x: x[0], reverse=True):
+            yield item
 
 class DelNodeCmd(Cmd):
     '''
@@ -4877,7 +4909,7 @@ class MoveTagCmd(Cmd):
         nodes = await view.nodes('syn:tag=$tag', opts=opts)
 
         if not nodes:
-            raise s_exc.BadOperArg(mesg='Cannot move a tag which does not exist.',
+            raise s_exc.BadArg(mesg='Cannot move a tag which does not exist.',
                                    oldtag=self.opts.oldtag)
         oldt = nodes[0]
         oldstr = oldt.ndef[1]
@@ -4895,7 +4927,7 @@ class MoveTagCmd(Cmd):
         newstr = newt.ndef[1]
 
         if oldstr == newstr:
-            raise s_exc.BadOperArg(mesg='Cannot retag a tag to the same valu.',
+            raise s_exc.BadArg(mesg='Cannot retag a tag to the same valu.',
                                    newtag=newstr, oldtag=oldstr)
 
         # do some sanity checking on the new tag to make sure we're not creating a loop
@@ -4903,7 +4935,7 @@ class MoveTagCmd(Cmd):
         isnow = newt.get('isnow')
         while isnow:
             if isnow[1] in tagcycle:
-                raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
+                raise s_exc.BadArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
                                        cycle=tagcycle)
             tagcycle.append(isnow[1])
             newtag = await view.addNode('syn:tag', isnow[1])
@@ -4911,7 +4943,7 @@ class MoveTagCmd(Cmd):
             await asyncio.sleep(0)
 
         if oldstr in tagcycle:
-            raise s_exc.BadOperArg(mesg=f'Tag cycle detected when moving tag {oldstr} to tag {newstr}',
+            raise s_exc.BadArg(mesg=f'Tag cycle detected when moving tag {oldstr} to tag {newstr}',
                                    cycle=tagcycle)
 
         retag = {oldstr: newstr}
@@ -5135,10 +5167,10 @@ class GraphCmd(Cmd):
             rules['edges'] = False
 
         for pivo in self.opts.pivot:
-            rules['pivots'].append(pivo)
+            rules['pivots'].append(await s_stormtypes.tostr(pivo))
 
         for filt in self.opts.filter:
-            rules['filters'].append(filt)
+            rules['filters'].append(await s_stormtypes.tostr(filt))
 
         for name, pivo in self.opts.form_pivot:
 
@@ -5147,7 +5179,7 @@ class GraphCmd(Cmd):
                 formrule = {'pivots': [], 'filters': []}
                 rules['forms'][name] = formrule
 
-            formrule['pivots'].append(pivo)
+            formrule['pivots'].append(await s_stormtypes.tostr(pivo))
 
         for name, filt in self.opts.form_filter:
 
@@ -5156,7 +5188,7 @@ class GraphCmd(Cmd):
                 formrule = {'pivots': [], 'filters': []}
                 rules['forms'][name] = formrule
 
-            formrule['filters'].append(filt)
+            formrule['filters'].append(await s_stormtypes.tostr(filt))
 
         subg = s_ast.SubGraph(rules)
 
@@ -5445,27 +5477,32 @@ class TeeCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         if not self.opts.query:
-            raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
-                                          name=self.name)
+            raise s_exc.BadArg(mesg='Tee command must take at least one query as input.',
+                               name=self.name)
 
         async with contextlib.AsyncExitStack() as stack:
 
             runts = []
-            query_arguments = await s_stormtypes.toprim(self.opts.query)
-            queries = []
-            for arg in query_arguments:
-                if isinstance(arg, str):
-                    queries.append(arg)
-                    continue
-                # if a argument is a container/iterable, we'll add
-                # whatever content is in it as query text
-                for text in arg:
-                    queries.append(text)
-
-            for text in queries:
+            async def addQuery(text, origin=None):
                 query = await runt.getStormQuery(text)
                 subr = await stack.enter_async_context(runt.getSubRuntime(query))
+                subr.storm_origin = origin
                 runts.append(subr)
+
+            for raw in self.opts.query:
+                if isinstance(raw, s_stormtypes.Query):
+                    await addQuery(raw.text, origin=raw.origin)
+                    continue
+
+                arg = await s_stormtypes.toprim(raw)
+                if isinstance(arg, str):
+                    await addQuery(arg)
+                    continue
+
+                # if an argument is a container/iterable, we'll add
+                # whatever content is in it as query text
+                for text in arg:
+                    await addQuery(text)
 
             size = len(runts)
             outq_size = size * 2
@@ -5657,11 +5694,11 @@ class ScrapeCmd(Cmd):
 
                 text = str(text)
 
-                async for (form, valu, _) in self.runt.view.scrapeIface(text, refang=refang):
+                async for (form, valu, norminfo, _) in self.runt.view.scrapeIface(text, refang=refang):
                     if forms and form not in forms:
                         continue
 
-                    nnode = await node.view.addNode(form, valu)
+                    nnode = await node.view.addNode(form, valu, norminfo=norminfo)
                     npath = path.fork(nnode, link)
 
                     if refs:
@@ -5690,11 +5727,11 @@ class ScrapeCmd(Cmd):
             for item in self.opts.values:
                 text = str(await s_stormtypes.toprim(item))
 
-                async for (form, valu, _) in self.runt.view.scrapeIface(text, refang=refang):
+                async for (form, valu, norminfo, _) in self.runt.view.scrapeIface(text, refang=refang):
                     if forms and form not in forms:
                         continue
 
-                    addnode = await runt.view.addNode(form, valu)
+                    addnode = await runt.view.addNode(form, valu, norminfo=norminfo)
                     if self.opts.doyield:
                         yield addnode, runt.initPath(addnode)
 
@@ -6104,7 +6141,7 @@ class IntersectCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('query', type='str', required=True, help='The pivot query to run each inbound node through.')
+        pars.add_argument('query', required=True, help='The pivot query to run each inbound node through.')
 
         return pars
 

@@ -47,6 +47,14 @@ authentication may be accessed using either HTTP Basic authentication via the HT
 "Authorization" header, using an API Key with the "X-API-KEY" header, or as part of
 an authenticated session.
 
+.. note::
+
+    The Storm and model query endpoints (``/api/v3/storm``, ``/api/v3/storm/call``,
+    ``/api/v3/storm/export``, ``/api/v3/model``, ``/api/v3/model/norm``), the user
+    defined ``/api/ext/*`` endpoints, and the Cortex file endpoints
+    (``/api/v3/axon/files/*``) accept **API Key authentication only**. Session
+    cookies and HTTP Basic authentication are not accepted for these endpoints.
+
 API Key Support
 ~~~~~~~~~~~~~~~
 
@@ -66,15 +74,42 @@ the response:
 
     $ curl -k -s -H "X-API-KEY: XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=" \
     --data '{"query": "return($lib.auth.users.get().name)"}' \
-    https://localhost:4443/api/v1/storm/call | jq
+    https://localhost:4443/api/v3/storm/call | jq
 
     {
       "status": "ok",
       "result": "root"
     }
 
+The following Python examples create a client session that sends the API key via
+the ``X-API-KEY`` header on every request. The remaining endpoint examples in this
+document assume a session created this way.
 
-/api/v1/login
+.. code:: python3
+    :name: aiohttp api key session example
+
+    import aiohttp
+
+    apikey = 'XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA='
+
+    def getApiKeySess():
+        headers = {'X-API-KEY': apikey}
+        return aiohttp.ClientSession(headers=headers)
+
+.. code:: python3
+    :name: requests api key session example
+
+    import requests
+
+    apikey = 'XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA='
+
+    def getApiKeySess():
+        sess = requests.session()
+        sess.headers.update({'X-API-KEY': apikey})
+        return sess
+
+
+/api/v3/login
 ~~~~~~~~~~~~~
 
 The login API endpoint may be used to create an authenticated session. To create and use an
@@ -95,7 +130,7 @@ Both of the Python examples use session managers which manage the session cookie
         async with aiohttp.ClientSession() as sess:
     
             info = {'user': 'visi', 'passwd': 'secret'}
-            async with sess.post('https://localhost:4443/api/v1/login', json=info, ssl=ssl) as resp:
+            async with sess.post('https://localhost:4443/api/v3/login', json=info, ssl=ssl) as resp:
                 item = await resp.json()
                 if item.get('status') != 'ok':
                     code = item.get('code')
@@ -113,7 +148,7 @@ Both of the Python examples use session managers which manage the session cookie
 
         sess = requests.session()
 
-        url = 'https://localhost:4443/api/v1/login'
+        url = 'https://localhost:4443/api/v3/login'
         info = {'user': 'visi', 'passwd': 'secret'}
         resp = sess.post(url, json=info, verify=ssl)
         item = resp.json()
@@ -125,7 +160,7 @@ Both of the Python examples use session managers which manage the session cookie
 
         # we are now clear to make additional HTTP API calls using sess
 
-/api/v1/logout
+/api/v3/logout
 ~~~~~~~~~~~~~~
 
 The logout API endpoint may be used to end an authenticated session. This invalidates
@@ -140,7 +175,7 @@ Both of the Python examples use session managers which manage the session cookie
     import aiohttp
 
     def logoutExample(sess, ssl):
-        url = 'https://localhost:4443/api/v1/logout'
+        url = 'https://localhost:4443/api/v3/logout'
         resp = sess.get(url, ssl=ssl)
         item = resp.json()
         if item.get('status') != 'ok':
@@ -154,7 +189,7 @@ Both of the Python examples use session managers which manage the session cookie
     import requests
 
     def logoutExample(sess, ssl):
-        url = 'https://localhost:4443/api/v1/logout'
+        url = 'https://localhost:4443/api/v3/logout'
         resp = sess.get(url, verify=ssl)
         item = resp.json()
         if item.get('status') != 'ok':
@@ -162,7 +197,7 @@ Both of the Python examples use session managers which manage the session cookie
             mesg = item.get('mesg')
             raise Exception(f'Logout error ({code}): {mesg}')
 
-/api/v1/active
+/api/v3/active
 ~~~~~~~~~~~~~~
 
 *Method*
@@ -173,7 +208,7 @@ Both of the Python examples use session managers which manage the session cookie
     *Returns*
         A dictionary with the ``active`` key set to True or False.
 
-/api/v1/auth/users
+/api/v3/auth/users
 ~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -182,7 +217,7 @@ Both of the Python examples use session managers which manage the session cookie
     *Returns*
         A list of dictionaries, each of which represents a user on the system.
 
-/api/v1/auth/roles
+/api/v3/auth/roles
 ~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -191,7 +226,7 @@ Both of the Python examples use session managers which manage the session cookie
     *Returns*
         A list of dictionaries, each of which represents a role on the system.
 
-/api/v1/auth/adduser
+/api/v3/auth/adduser
 ~~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -209,7 +244,7 @@ Both of the Python examples use session managers which manage the session cookie
     *Returns*
         The newly created user dictionary.
 
-/api/v1/auth/addrole
+/api/v3/auth/addrole
 ~~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -227,7 +262,7 @@ Both of the Python examples use session managers which manage the session cookie
     *Returns*
         The newly created role dictionary.
 
-/api/v1/auth/delrole
+/api/v3/auth/delrole
 ~~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -243,7 +278,7 @@ Both of the Python examples use session managers which manage the session cookie
     *Returns*
         null
 
-/api/v1/auth/user/<id>
+/api/v3/auth/user/<id>
 ~~~~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -292,7 +327,7 @@ Both of the Python examples use session managers which manage the session cookie
     *Returns*
         A user dictionary.
 
-/api/v1/auth/password/<id>
+/api/v3/auth/password/<id>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -308,7 +343,7 @@ Both of the Python examples use session managers which manage the session cookie
         The updated user dictionary.
 
 
-/api/v1/auth/role/<id>
+/api/v3/auth/role/<id>
 ~~~~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -338,7 +373,7 @@ Both of the Python examples use session managers which manage the session cookie
     *Returns*
         A role dictionary.
 
-/api/v1/auth/grant
+/api/v3/auth/grant
 ~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -357,7 +392,7 @@ Both of the Python examples use session managers which manage the session cookie
     *Returns*
         The updated user dictionary.
 
-/api/v1/auth/revoke
+/api/v3/auth/revoke
 ~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -389,7 +424,7 @@ HTTP chunked encoding to deliver a stream of results as they become available.
 The Cortex also implements the `Axon`_ HTTP API. Permissions are checked within the Cortex, and then
 the request is executed on the Axon.
 
-/api/v1/feed
+/api/v3/feed
 ~~~~~~~~~~~~
 
 The Cortex feed API endpoint allows the caller to add nodes in bulk.
@@ -414,7 +449,7 @@ The Cortex feed API endpoint allows the caller to add nodes in bulk.
         The API returns ``{"status": "ok", "result": null}`` on success and any failures
         are returned using the previously mentioned REST API convention.
 
-/api/v1/storm
+/api/v3/storm
 ~~~~~~~~~~~~~
 
 The Storm API endpoint allows the caller to execute a Storm query on the Cortex and stream
@@ -450,21 +485,21 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
 
     *Examples*
-        The following two examples show querying the ``api/v1/storm`` endpoint and receiving multiple message types.
+        The following two examples show querying the ``api/v3/storm`` endpoint and receiving multiple message types.
 
         aiohttp example:
 
         .. code:: python3
-            :name: aiohttp api/v1/storm example
+            :name: aiohttp api/v3/storm example
 
             import json
             import pprint
 
-            # Assumes sess is an aiohttp client session that has previously logged in
+            # Assumes sess was created with the X-API-KEY header (see API Key Support)
 
             query = '.created $lib.print($node.repr(".created")) | limit 3'
-            data = {'query': query, 'opts': {'repr': True}}
-            url = 'https://localhost:4443/api/v1/storm'
+            data = {'query': query, 'opts': {'node:opts': {'repr': True}}}
+            url = 'https://localhost:4443/api/v3/storm'
 
             async with sess.get(url, json=data) as resp:
                 async for byts, x in resp.content.iter_chunks():
@@ -478,15 +513,15 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
         requests example:
 
         .. code:: python3
-            :name: requests api/v1/storm example
+            :name: requests api/v3/storm example
 
             import json
             import pprint
-            # Assumes sess is an requests client session that has previously logged in
+            # Assumes sess was created with the X-API-KEY header (see API Key Support)
 
             query = '.created $lib.print($node.repr(".created")) | limit 3'
-            data = {'query': query, 'opts': {'repr': True}}
-            url = 'https://localhost:4443/api/v1/storm'
+            data = {'query': query, 'opts': {'node:opts': {'repr': True}}}
+            url = 'https://localhost:4443/api/v3/storm'
 
             resp = sess.get(url, json=data, stream=True)
             for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
@@ -502,11 +537,11 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
             import json
             import pprint
-            # Assumes sess is an requests client session that has previously logged in
+            # Assumes sess was created with the X-API-KEY header (see API Key Support)
 
             query = '.created $lib.print($node.repr(".created")) | limit 3'
-            data = {'query': query, 'opts': {'repr': True}}
-            url = 'https://localhost:4443/api/v1/storm'
+            data = {'query': query, 'opts': {'node:opts': {'repr': True}}}
+            url = 'https://localhost:4443/api/v3/storm'
 
             async with sess.get(url, json=data) as resp:
 
@@ -526,7 +561,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
                     pprint.pprint(buf)
 
-/api/v1/storm/call
+/api/v3/storm/call
 ~~~~~~~~~~~~~~~~~~
 
 The Storm Call API endpoint allows the caller to execute a Storm query on the Cortex and get a single return
@@ -554,20 +589,20 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
         are returned using the previously mentioned REST API convention.
 
     *Examples*
-        The following two examples show querying the ``api/v1/storm/call`` endpoint and receiving a return value.
+        The following two examples show querying the ``api/v3/storm/call`` endpoint and receiving a return value.
 
         aiohttp example:
 
         .. code:: python3
-            :name: aiohttp api/v1/storm/call example
+            :name: aiohttp api/v3/storm/call example
 
             import pprint
 
-            # Assumes sess is an aiohttp client session that has previously logged in
+            # Assumes sess was created with the X-API-KEY header (see API Key Support)
 
             query = '$valu = "world" $foo = `hello {$valu}` return ($foo)'
             data = {'query': query}
-            url = 'https://localhost:4443/api/v1/storm/call'
+            url = 'https://localhost:4443/api/v3/storm/call'
 
             async with sess.get(url, json=data) as resp:
                 info = await resp.json()
@@ -576,60 +611,21 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
         requests example:
 
         .. code:: python3
-            :name: requests api/v1/storm/call example
+            :name: requests api/v3/storm/call example
 
             import pprint
-            # Assumes sess is an requests client session that has previously logged in
+            # Assumes sess was created with the X-API-KEY header (see API Key Support)
 
             query = '$valu = "world" $foo = `hello {$valu}` return ($foo)'
             data = {'query': query}
-            url = 'https://localhost:4443/api/v1/storm/call'
+            url = 'https://localhost:4443/api/v3/storm/call'
 
             resp = sess.get(url, json=data)
             info = resp.json()
             pprint.pprint(info)
 
 
-/api/v1/storm/nodes
-~~~~~~~~~~~~~~~~~~~
-
-.. warning::
-
-    This API is deprecated in Synapse ``v2.110.0`` and will be removed in a future version.
-
-The Storm nodes API endpoint allows the caller to execute a Storm query on the Cortex and stream
-back the resulting nodes.  This streaming API has back-pressure, and will handle streaming millions
-of results as the reader consumes them.
-
-*Method*
-    GET
-
-    *Input*
-        See /api/v1/storm for expected JSON body input.
-
-    *Returns*
-        The API returns the resulting nodes from the input Storm query.  Each node is returned
-        as an HTTP chunk, allowing readers to consume the resulting nodes as a stream.
-
-        Each serialized node will have the following structure::
-
-            [
-                [<form>, <valu>],       # The [ typename, typevalue ] definition of the node.
-                {
-                    "iden": <hash>,     # A stable identifier for the node.
-                    "tags": {},         # The tags on the node.
-                    "props": {},        # The node's secondary properties.
-
-                    # optionally (if query opts included {"repr": True}
-                    "reprs": {}         # Presentation values for props which need it.
-                }
-            ]
-
-        The ``stream`` argument, documented in the /api/v1/storm endpoint, modifies how the nodes
-        are streamed back. Currently this optional argument can be set to ``jsonlines`` to get newline
-        separated JSON data.
-
-/api/v1/storm/export
+/api/v3/storm/export
 ~~~~~~~~~~~~~~~~~~~~
 
 The Storm export API endpoint allows the caller to execute a Storm query on the Cortex and export the resulting nodes
@@ -639,7 +635,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
     GET
 
     *Input*
-        See /api/v1/storm for expected JSON body input.
+        See /api/v3/storm for expected JSON body input.
 
     *Returns*
         The API returns the resulting nodes from the input Storm query. This API yields nodes after an initial complete
@@ -650,7 +646,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
         There is no Content-Length header returned, since the API cannot predict the volume of data a given query
         may produce.
 
-/api/v1/model
+/api/v3/model
 ~~~~~~~~~~~~~
 
 *Method*
@@ -678,7 +674,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
             }
 
 
-/api/v1/model/norm
+/api/v3/model/norm
 ~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -706,7 +702,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
                 }
             }
 
-/api/v1/storm/vars/get
+/api/v3/storm/vars/get
 ~~~~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -725,7 +721,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
     *Returns*
         The API returns the global variable value or the specified default using the REST API convention described earlier.
 
-/api/v1/storm/vars/set
+/api/v3/storm/vars/set
 ~~~~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -744,7 +740,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
     *Returns*
         The API returns `true` using the REST API convention described earlier.
         
-/api/v1/storm/vars/pop
+/api/v3/storm/vars/pop
 ~~~~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -764,7 +760,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
         The API returns the current value of the variable or default using the REST API convention described earlier.
 
 
-/api/v1/core/info
+/api/v3/core/info
 ~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -806,7 +802,7 @@ Aha
 
 A Synapse Aha service implements an HTTP API for assisting with devops.
 
-/api/v1/aha/provision/service
+/api/v3/aha/provision/service
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -837,7 +833,7 @@ A Synapse Aha service implements an HTTP API for assisting with devops.
             }
 
 
-/api/v1/aha/services
+/api/v3/aha/services
 ~~~~~~~~~~~~~~~~~~~~
 
 *Method*
@@ -884,7 +880,7 @@ Axon
 A Synapse Axon implements an HTTP API for uploading and downloading files.
 The HTTP APIs use HTTP chunked encoding for handling large files.
 
-/api/v1/axon/files/del
+/api/v3/axon/files/del
 ~~~~~~~~~~~~~~~~~~~~~~
 
 This API allows the caller to delete multiple files from the Axon by the SHA-256.
@@ -903,7 +899,7 @@ This API allows the caller to delete multiple files from the Axon by the SHA-256
         The API returns an array of SHA-256 and boolean values representing whether each was found in the Axon and deleted. The array is returned using the REST API convention described earlier.
         
 
-/api/v1/axon/files/put
+/api/v3/axon/files/put
 ~~~~~~~~~~~~~~~~~~~~~~
 
 This API allows the caller to upload and save a file to the Axon.  This may be called via a PUT or POST request.
@@ -926,7 +922,7 @@ This API allows the caller to upload and save a file to the Axon.  This may be c
             }
 
 
-/api/v1/axon/files/has/sha256/<SHA-256>
+/api/v3/axon/files/has/sha256/<SHA-256>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This API allows the caller to check if a file exists in the Axon as identified by the SHA-256.
@@ -938,7 +934,7 @@ This API allows the caller to check if a file exists in the Axon as identified b
         True if the file exists; False if the file does not exist.
 
 
-/api/v1/axon/files/by/sha256/<SHA-256>
+/api/v3/axon/files/by/sha256/<SHA-256>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This API allows the caller to retrieve or remove a file from the Axon as identified by the SHA-256.  If the file does

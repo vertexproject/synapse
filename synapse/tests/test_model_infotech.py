@@ -33,10 +33,10 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 it:exec:thread=*
-                    :proc=*
+                    :proc=* as it:exec:proc
                     :period=(20210202, 20210203)
                     :exitcode=0
-                    :sandbox:file=*
+                    :sandbox:file=* as file:bytes
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].ndef[1])
@@ -47,13 +47,13 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 it:exec:lib:load=*
-                    :proc=*
+                    :proc=* as it:exec:proc
                     :va=0x00a000
                     :loaded=20210202
                     :unloaded=20210203
                     :path=/home/invisigoth/rootkit.so
-                    :file=*
-                    :sandbox:file=*
+                    :file=* as file:bytes
+                    :sandbox:file=* as file:bytes
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].ndef[1])
@@ -68,7 +68,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 it:exec:mmap:add=*
-                    :proc=*
+                    :proc=* as it:exec:proc
                     :va=0x00a000
                     :size=4096
                     :perms:read=1
@@ -78,7 +78,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :deleted=20210203
                     :path=/home/invisigoth/rootkit.so
                     :hash:sha256=ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c
-                    :sandbox:file=*
+                    :sandbox:file=* as file:bytes
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].ndef[1])
@@ -99,7 +99,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa
                     :exitcode=0
-                    :sandbox:file=*
+                    :sandbox:file=* as file:bytes
                     :name=RunDLL32
                     :path=c:/windows/system32/rundll32.exe
             ]''')
@@ -135,7 +135,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'scanner:name', 'visi scan')
             self.propeq(nodes[0], 'target', 'fa1caa2924199d7b4bab0f57ebdbb7ec')
             self.propeq(nodes[0], 'signame', 'omgwtfbbq')
-            self.propeq(nodes[0], 'categories', ('baz faz', 'foo bar'))
+            self.propeq(nodes[0], 'categories', ('Foo Bar', 'baz faz'))
 
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> file:bytes'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:software'))
@@ -158,9 +158,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :desc="Vertex Project Operations LAN"
                 :name="opslan.lax.vertex.link"
                 :net="10.1.0.0/16"
-                :owner={ gen.ou.org "Vertex Project" }
                 :type=virtual.sdn
-                :dns:resolvers=(1.2.3.4, tcp://1.2.3.4:99)
+                :dns:resolvers=(udp://1.2.3.4:53, tcp://1.2.3.4:99)
             ]
             '''
             nodes = await core.nodes(q)
@@ -219,7 +218,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ it:dev:function:sample=*
                     :function={[ it:dev:function=* :id=VISI-10 :name=foobar :desc=Woot ]}
-                    :file=*
+                    :file=* as file:bytes
                     :file:offs=10
                 ]
             ''')
@@ -270,17 +269,26 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_it_forms_simple(self):
         async with self.getTestCore() as core:
             place = s_common.guid()
-            nodes = await core.nodes('[it:hostname="Bobs Computer"]')
+            nodes = await core.nodes('[it:hostname="Bobs    Computer"]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:hostname', 'bobs computer'))
+            # it:hostname is now a base:name (text) type: case preserving and onespace
+            self.eq(node.ndef, ('it:hostname', 'Bobs Computer'))
+
+            # the comparison is case insensitive so the node deconflicts to a single node
+            nodes = await core.nodes('[it:hostname="bobs computer"]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:hostname', 'Bobs Computer'))
+
+            self.len(1, await core.nodes('it:hostname="BOBS COMPUTER"'))
+            self.len(1, await core.nodes('it:hostname^="bobs"'))
 
             q = '''
             [ it:software:image=(ubuntu, 24.10, amd64, vhdx)
                 :name="ubuntu-24.10-amd64.vhdx"
                 :published=202405170940
                 :publisher={[ entity:contact=(blackout,) :name=blackout ]}
-                :creator={[ inet:service:account=* :user=visi ]}
+                :creator={[ inet:service:account=* :username=visi ]}
                 :parents={[ it:software:image=* :name=zoom ]}
             ]
             '''
@@ -292,35 +300,36 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'published', 1715938800000000)
             self.propeq(nodes[0], 'publisher', s_common.guid(('blackout',)))
 
+            # it:physical:host carries the phys:object interface (place/phys props)
             nodes = await core.nodes('''
-                [ it:host=*
+                [ it:physical:host=*
 
                     :id=foo123
                     :name="Bobs laptop"
                     :desc="Bobs paperweight"
 
                     :ip=1.2.3.4
-                    :place=*
+                    :place=* as geo:place
                     :place:latlong=(0, 0)
 
-                    :os=*
+                    :os=* as it:software
                     :image={ it:software:image | limit 1 }
                     :serial=111-222
                     :place:loc=us.hehe.haha
                     :operator={[ entity:contact=* ]}
-                    :org=*
+                    :org=* as ou:org
 
                     :phys:mass=10kg
                     :phys:width=5m
                     :phys:height=10m
                     :phys:length=20m
-                    :phys:volume=1000m
+                    :phys:volume=1000l
                 ]
             ''')
             self.len(1, nodes)
 
             self.propeq(nodes[0], 'id', 'foo123')
-            self.propeq(nodes[0], 'name', 'bobs laptop')
+            self.propeq(nodes[0], 'name', 'Bobs laptop')
             self.propeq(nodes[0], 'desc', 'Bobs paperweight')
             self.propeq(nodes[0], 'ip', (4, 0x01020304))
             self.propeq(nodes[0], 'place:latlong', (0.0, 0.0))
@@ -329,11 +338,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'phys:width', 5000)
             self.propeq(nodes[0], 'phys:height', 10000)
             self.propeq(nodes[0], 'phys:length', 20000)
-            self.propeq(nodes[0], 'phys:volume', 1000000)
+            self.propeq(nodes[0], 'phys:volume', '1000000')
 
             self.len(1, await core.nodes('it:host :os -> it:software'))
             self.len(1, await core.nodes('it:host :org -> ou:org'))
-            self.len(1, await core.nodes('it:host :place -> geo:place'))
+            self.len(1, await core.nodes('it:physical:host :place -> geo:place'))
             self.len(1, await core.nodes('it:host :operator -> entity:contact'))
 
             host = node
@@ -427,26 +436,26 @@ class InfotechModelTest(s_t_utils.SynTest):
                 }
                 [
                     it:host:account=$acct
-                        :host=$host
-                        :user=visi
-                        :contact={[ entity:contact=* :email=visi@vertex.link ]}
+                        :host=$host as it:host
+                        :username=visi
+                        :profile={[ entity:contact=* :email=visi@vertex.link ]}
                         :period=(2024, *)
                         // FIXME
                         //:domain={[ it:domain=* :org=$org :name=vertex :desc="the vertex project domain" ]}
 
                     (it:host:session=*
                         :period=(20210314,202103140201)
-                        :account=$acct
-                        :server:host=$host)
+                        :account=$acct as it:host:account
+                        :server:host=$host as it:host)
                 ]
             ''')
             self.len(2, nodes)
-            self.propeq(nodes[0], 'user', 'visi')
+            self.propeq(nodes[0], 'username', 'visi')
             self.nn(nodes[0].get('host'))
             self.propeq(nodes[0], 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
             # FIXME :domain
             # self.nn(nodes[0].get('domain'))
-            self.nn(nodes[0].get('contact'))
+            self.nn(nodes[0].get('profile'))
 
             self.nn(nodes[1].get('server:host'))
             self.nn(nodes[1].get('account'))
@@ -454,8 +463,8 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ it:host:login=*
-                    :account={ it:host:account:user=visi }
-                    :success=$lib.true
+                    :account={ it:host:account:username=visi }
+                    :success=true
                     :credential={[ auth:passwd=cool ]}
                     :flow={[ inet:flow=(foo,) ]}
                     :session={ it:host:session }
@@ -512,9 +521,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 [
                     it:host:login=*
                         :client=tcp://1.2.3.4:5678
-                        :client:host=$chost
+                        :client:host=$chost as it:host
                         :server=tcp://5.6.7.8:443
-                        :server:host=$shost
+                        :server:host=$shost as it:host
                 ]
             ''')
             self.len(1, nodes)
@@ -537,9 +546,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :severity=debug
 
                     :host={it:host | limit 1}
-                    :sandbox:file=*
-                    :service:platform=*
-                    :service:account=*
+                    :sandbox:file=* as file:bytes
+                    :service:platform=* as inet:service:platform
+                    :service:account=* as inet:service:account
             ]''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'severity', 10)
@@ -551,11 +560,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:log:event :service:account -> inet:service:account'))
             self.len(1, await core.nodes('it:log:event :service:platform -> inet:service:platform'))
 
-            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language={[ lang:language=({"code": "en.us"}) ]} ]')
+            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language={[ lang:language=({"code": "en-US"}) ]} ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('keyboard:language'))
             self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))
-            self.len(1, await core.nodes('lang:language:code=en.us -> it:host'))
+            self.len(1, await core.nodes('lang:language:code=en-US -> it:host'))
 
     async def test_it_host_account_subforms(self):
 
@@ -566,30 +575,30 @@ class InfotechModelTest(s_t_utils.SynTest):
                 $host = $lib.guid()
                 [
                     it:host:posix:account=*
-                        :user=visi
-                        :host=$host
+                        :username=visi
+                        :host=$host as it:host
                         :id=1001
                         :gid=1001
                         :gecos=42
                         :home=/home/visi
                         :shell=/bin/bash
                         :period=(2024, *)
-                        :contact={[ entity:contact=* :email=visi@vertex.link ]}
+                        :profile={[ entity:contact=* :email=visi@vertex.link ]}
                         :service:account={[ inet:service:account=* ]}
                 ]
             ''')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[0], 'it:host:posix:account')
-            self.propeq(node, 'user', 'visi')
+            self.propeq(node, 'username', 'visi')
             self.nn(node.get('host'))
             self.propeq(node, 'id', 1001, type='it:os:posix:id')
             self.propeq(node, 'gid', 1001, type='it:os:posix:id')
-            self.propeq(node, 'gecos', 42)
+            self.propeq(node, 'gecos', '42')
             self.propeq(node, 'home', '/home/visi')
             self.propeq(node, 'shell', '/bin/bash')
             self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
-            self.nn(node.get('contact'))
+            self.nn(node.get('profile'))
             self.nn(node.get('service:account'))
 
             # Test it:host:windows:account with all props
@@ -597,22 +606,22 @@ class InfotechModelTest(s_t_utils.SynTest):
                 $host = $lib.guid()
                 [
                     it:host:windows:account=*
-                        :user=admin
-                        :host=$host
+                        :username=admin
+                        :host=$host as it:host
                         :id=S-1-5-21-0-0-0-500
                         :period=(2024, *)
-                        :contact={[ entity:contact=* :email=admin@vertex.link ]}
+                        :profile={[ entity:contact=* :email=admin@vertex.link ]}
                         :service:account={[ inet:service:account=* ]}
                 ]
             ''')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[0], 'it:host:windows:account')
-            self.propeq(node, 'user', 'admin')
+            self.propeq(node, 'username', 'admin')
             self.nn(node.get('host'))
             self.propeq(node, 'id', 'S-1-5-21-0-0-0-500', type='it:os:windows:sid')
             self.propeq(node, 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
-            self.nn(node.get('contact'))
+            self.nn(node.get('profile'))
             self.nn(node.get('service:account'))
 
             # Test :id on parent it:host:account with base:id value
@@ -655,6 +664,133 @@ class InfotechModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[it:host:posix:account=* :id=-1]')
 
+    async def test_it_host_subforms(self):
+
+        async with self.getTestCore() as core:
+
+            # it:host inheritance hierarchy:
+            #   it:host
+            #     it:physical:host  (+ phys:object)
+            #     it:virtual:host
+            #       it:cloud:host   (+ inet:service:object)
+            self.eq(core.model.form('it:physical:host').type.subof, 'it:host')
+            self.eq(core.model.form('it:virtual:host').type.subof, 'it:host')
+            self.eq(core.model.form('it:cloud:host').type.subof, 'it:virtual:host')
+
+            # phys:object and biz:manufactured moved off it:host onto it:physical:host
+            self.false(core.model.form('it:host').implements('phys:object'))
+            self.true(core.model.form('it:physical:host').implements('phys:object'))
+            self.false(core.model.form('it:virtual:host').implements('phys:object'))
+            self.false(core.model.form('it:cloud:host').implements('phys:object'))
+
+            self.false(core.model.form('it:host').implements('biz:manufactured'))
+            self.true(core.model.form('it:physical:host').implements('biz:manufactured'))
+            self.false(core.model.form('it:cloud:host').implements('biz:manufactured'))
+
+            # inet:service:object lives only on it:cloud:host (and not its ancestors)
+            self.false(core.model.form('it:host').implements('inet:service:object'))
+            self.false(core.model.form('it:virtual:host').implements('inet:service:object'))
+            self.true(core.model.form('it:cloud:host').implements('inet:service:object'))
+            self.false(core.model.form('it:host:tenancy').implements('inet:service:object'))
+
+            # it:host implements it:component, which supplies meta:havable, geo:locatable,
+            # meta:observable, entity:creatable, and risk:exploitable to it:host and all subforms
+            self.true(core.model.form('it:host').implements('it:component'))
+            self.true(core.model.form('it:cloud:host').implements('it:component'))
+            self.true(core.model.form('it:host').implements('meta:havable'))
+            self.true(core.model.form('it:host').implements('geo:locatable'))
+            self.true(core.model.form('it:host').implements('meta:observable'))
+            self.true(core.model.form('it:host').implements('entity:creatable'))
+            self.true(core.model.form('it:host').implements('risk:exploitable'))
+            self.true(core.model.form('it:cloud:host').implements('meta:havable'))
+            self.true(core.model.form('it:cloud:host').implements('geo:locatable'))
+            self.true(core.model.form('it:cloud:host').implements('meta:observable'))
+
+            # it:component supplies :hardware, :serial, :parent, and :period to it:host
+            host = core.model.form('it:host')
+            self.nn(host.prop('hardware'))
+            self.nn(host.prop('serial'))
+            self.nn(host.prop('parent'))
+            self.nn(host.prop('period'))
+
+            # a base it:host can be geolocated (geo:locatable) without phys:object
+            nodes = await core.nodes('[ it:host=* :place:loc=us.ny ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'place:loc', 'us.ny')
+
+            # create an it:cloud:host setting inherited it:host props and inet:service:object props
+            nodes = await core.nodes('''
+                [ it:cloud:host=*
+                    :name="cloud instance"
+                    :ip=1.2.3.4
+                    :os=* as it:software
+                    :seen=(2024, *)
+                    :url=https://cloud.vertex.link/instance
+                    :status=available
+                    :period=(2024, *)
+                    :platform={[ inet:service:platform=* ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:cloud:host')
+            self.propeq(node, 'name', 'cloud instance')
+            self.propeq(node, 'ip', (4, 0x01020304))
+            self.nn(node.get('os'))
+            self.propeq(node, 'seen', (1704067200000000, 9223372036854775806, 18446744073709551614))
+            self.propeq(node, 'url', 'https://cloud.vertex.link/instance')
+            self.propeq(node, 'status', 'available')
+            self.nn(node.get('platform'))
+
+            # create an it:physical:host setting inherited it:host props and phys:object props
+            nodes = await core.nodes('''
+                [ it:physical:host=*
+                    :name="rack server"
+                    :phys:mass=10kg
+                    :place=* as geo:place
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'it:physical:host')
+            self.propeq(nodes[0], 'name', 'rack server')
+            self.propeq(nodes[0], 'phys:mass', '10000')
+            self.nn(nodes[0].get('place'))
+
+            # create an it:virtual:host with its :parent host
+            nodes = await core.nodes('''
+                [ it:virtual:host=*
+                    :name="vm guest"
+                    :parent={[ it:physical:host=* :name=hypervisor ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'it:virtual:host')
+            self.propeq(nodes[0], 'name', 'vm guest')
+            self.nn(nodes[0].get('parent'))
+            self.len(1, await core.nodes('it:virtual:host:name="vm guest" :parent -> it:host'))
+
+            # lifting parent forms returns child-form nodes
+            #   it:host x1 (base), it:cloud:host x1, it:physical:host x2 (rack server + hypervisor), it:virtual:host x1
+            self.len(5, await core.nodes('it:host'))
+            self.len(2, await core.nodes('it:physical:host'))
+            self.len(2, await core.nodes('it:virtual:host'))
+            self.len(1, await core.nodes('it:cloud:host'))
+            self.len(1, await core.nodes('it:cloud:host :platform -> inet:service:platform'))
+
+            # it:host:tenancy keeps its own props (incl. :period) but not the inet:service:object props
+            nodes = await core.nodes('''
+                [ it:host:tenancy=*
+                    :parent={[ it:host=* :name=parent ]}
+                    :tenant={[ it:host=* :name=tenant ]}
+                    :period=(2024, *)
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('parent'))
+            self.nn(nodes[0].get('tenant'))
+            self.propeq(nodes[0], 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
+            self.none(core.model.form('it:host:tenancy').prop('url'))
+
     async def test_it_host_group_subforms(self):
 
         async with self.getTestCore() as core:
@@ -667,7 +803,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                         :id=1001
                         :name=developers
                         :desc="the developers group"
-                        :host=$host
+                        :host=$host as it:host
                         :service:role={[ inet:service:role=* ]}
                 ]
             ''')
@@ -687,7 +823,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     it:host:windows:group=*
                         :id=S-1-5-32-544
                         :name=administrators
-                        :host=$host
+                        :host=$host as it:host
                 ]
             ''')
             self.len(1, nodes)
@@ -760,7 +896,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.propeq(node, 'id', 'Foo')
             self.propeq(node, 'tag', 'cno.mal.cobaltstrike')
-            self.propeq(node, 'name', 'balloon maker')
+            self.propeq(node, 'name', 'Balloon Maker')
             self.propeq(node, 'desc', "Pennywise's patented balloon blower upper")
             self.propeq(node, 'url', 'https://vertex.link/products/balloonmaker')
             self.propeq(node, 'released', 1522745062000000)
@@ -802,13 +938,10 @@ class InfotechModelTest(s_t_utils.SynTest):
 
     async def test_it_form_callbacks(self):
         async with self.getTestCore() as core:
-            # it:dev:str kicks out the :norm property on him when he is made
             nodes = await core.nodes('[it:dev:str="evil RAT"]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('it:dev:str', 'evil RAT'))
-            # FIXME make this type behavior rather than a callback
-            # self.propeq(node, 'norm', 'evil rat')
 
     async def test_it_semvertype(self):
         async with self.getTestCore() as core:
@@ -909,10 +1042,10 @@ class InfotechModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
                 it:exec:screenshot=*
-                    :host=*
-                    :image=*
+                    :host=* as it:host
+                    :image=* as file:bytes
                     :desc=WootWoot
-                    :sandbox:file=*
+                    :sandbox:file=* as file:bytes
             ]''')
 
             self.len(1, nodes)
@@ -923,11 +1056,73 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:exec:screenshot :image -> file:bytes'))
             self.len(1, await core.nodes('it:exec:screenshot :sandbox:file -> file:bytes'))
 
+    async def test_it_host_telem(self):
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''[
+                it:host:telem=*
+
+                    :time=2001
+
+                    :place={[ geo:place=* ]}
+                    :place:loc=us
+                    :place:latlong=(-1, 1)
+                    :place:latlong:accuracy=100mm
+
+                    :host={[ it:host=* ]}
+
+                    :nic={[ it:nic=* ]}
+                    :nic:link={[ inet:data:link=* ]}
+                    :nic:mac="00:00:00:00:00:00"
+                    :nic:ip=1.2.3.4
+
+                    :contact={[ entity:contact=* ]}
+                    :contact:name="Robert Grey"
+                    :contact:email=clown@vertex.link
+                    :contact:phone="123 456 7890"
+                    :contact:identifiers={[ it:adid=someadid tel:mob:imsi=310150123456789 ]}
+
+                    :app={[ it:software=* ]}
+                    :request={[ inet:http:request=* ]}
+                    :account={[ inet:service:account=* ]}
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:host:telem')
+            self.propeq(node, 'time', 978307200000000)
+            self.propeq(node, 'place:latlong', (-1.0, 1.0))
+            self.propeq(node, 'place:loc', 'us')
+            self.propeq(node, 'place:latlong:accuracy', 100)
+            self.propeq(node, 'contact:phone', '1234567890')
+            self.propeq(node, 'nic:mac', '00:00:00:00:00:00')
+            self.propeq(node, 'nic:ip', (4, 0x01020304))
+            self.propeq(node, 'contact:name', 'Robert Grey')
+            self.propeq(node, 'contact:email', 'clown@vertex.link')
+
+            self.len(1, await core.nodes('it:host:telem :place -> geo:place'))
+            self.len(1, await core.nodes('it:host:telem :host -> it:host'))
+            self.len(1, await core.nodes('it:host:telem :contact -> entity:contact'))
+            self.len(1, await core.nodes('it:host:telem :app -> it:software'))
+            self.len(1, await core.nodes('it:host:telem :nic -> it:nic'))
+            self.len(1, await core.nodes('it:host:telem :nic:link -> inet:data:link'))
+            self.len(1, await core.nodes('it:host:telem :request -> inet:http:request'))
+            self.len(2, node.get('contact:identifiers'))
+            self.len(1, await core.nodes('it:host:telem :contact:identifiers -> it:adid'))
+            self.len(1, await core.nodes('it:host:telem :contact:identifiers -> tel:mob:imsi'))
+            self.len(1, await core.nodes('it:host:telem :account -> inet:service:account'))
+
+            # :account also accepts it:host:account
+            nodes = await core.nodes('[ it:host:telem=* :host=* as it:host :account={[ it:host:account=* ]} ]')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('it:host:telem :account -> it:host:account'))
+
     async def test_it_forms_hardware(self):
         async with self.getTestCore() as core:
+            self.true(core.model.form('it:hardware').implements('biz:manufactured'))
             nodes = await core.nodes('''[
                 it:hardware=*
-                    :manufacturer={ gen.ou.org dell }
+                    :name=xps13
+                    :manufacturer={ gen.org dell }
                     :manufacturer:name=dell
                     :model=XPS13
                     :version=1.2.3
@@ -935,9 +1130,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :desc=WootWoot
                     :released=20220202
                     :cpe=cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*
-                    :parts = (*, *)
+                    :parts={[ it:hardware=* it:hardware=* ]}
                     :seen=20220101
             ]''')
+            self.propeq(nodes[0], 'name', 'xps13')
             self.propeq(nodes[0], 'desc', 'WootWoot')
             self.propeq(nodes[0], 'model', 'XPS13')
             self.propeq(nodes[0], 'version', '1.2.3')
@@ -961,12 +1157,114 @@ class InfotechModelTest(s_t_utils.SynTest):
                 it:host:component=*
                     :hardware={it:hardware:model=XPS13}
                     :serial=asdf1234
-                    :host=*
+                    :host=* as it:host
+                    :period=(2020, 2023)
             ]''')
             self.nn(nodes[0].get('host'))
             self.propeq(nodes[0], 'serial', 'asdf1234')
+            self.propeq(nodes[0], 'period', (1577836800000000, 1672531200000000, 94694400000000))
             self.len(1, await core.nodes('it:host:component -> it:host'))
             self.len(1, await core.nodes('it:host:component -> it:hardware +:model=XPS13'))
+
+    async def test_it_installed(self):
+
+        async with self.getTestCore() as core:
+
+            self.true(core.model.form('it:installed').implements('entity:activity'))
+
+            nodes = await core.nodes('''[
+                it:installed=*
+                    :on={[ it:host=* ]}
+                    :item={[ it:software=* ]}
+                    :actor={[ entity:contact=* ]}
+                    :period=(2021, 2022)
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:installed')
+            self.nn(node.get('actor'))
+            self.propeq(node, 'period', (1609459200000000, 1640995200000000, 31536000000000))
+            self.len(1, await core.nodes('it:installed :on -> it:host'))
+            self.len(1, await core.nodes('it:installed :item -> it:software'))
+
+            # :item also accepts any it:component implementor (e.g. it:host)
+            nodes = await core.nodes('[ it:installed=* :item={[ it:host=* ]} ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('item')[0], 'it:host')
+
+    async def test_it_component_forms(self):
+
+        async with self.getTestCore() as core:
+
+            # it:nic
+            self.true(core.model.form('it:nic').implements('it:component'))
+
+            nodes = await core.nodes('''[
+                it:nic=*
+                    :parent={[ it:host=* ]}
+                    :name=eth0
+                    :network={[ it:network=* ]}
+                    :mac="ff:00:ff:00:ff:00"
+                    :ip=1.2.3.4
+                    :serial=sn1
+                    :hardware={[ it:hardware=* ]}
+                    :period=(2020, 2021)
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:nic')
+            self.eq(node.get('parent')[0], 'it:host')
+            self.propeq(node, 'name', 'eth0')
+            self.propeq(node, 'mac', 'ff:00:ff:00:ff:00')
+            self.propeq(node, 'ip', (4, 0x01020304))
+
+            # props supplied by the it:component interface
+            self.propeq(node, 'serial', 'sn1')
+            self.nn(node.get('hardware'))
+            self.propeq(node, 'period', (1577836800000000, 1609459200000000, 31622400000000))
+
+            self.len(1, await core.nodes('it:nic :network -> it:network'))
+            # title type is case-insensitive for lift, case-preserving for storage
+            self.len(1, await core.nodes('it:nic:name=ETH0'))
+
+            # it:wifi:nic extends it:nic
+            self.eq(core.model.form('it:wifi:nic').type.subof, 'it:nic')
+            self.true(core.model.form('it:wifi:nic').implements('it:component'))
+
+            nodes = await core.nodes('''[
+                it:wifi:nic=*
+                    :ssid=homewifi
+                    :name=wlan0
+                    :mac="aa:bb:cc:dd:ee:ff"
+                    :serial=sn5
+                    :period=(2020, 2021)
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[0], 'it:wifi:nic')
+            self.propeq(node, 'ssid', 'homewifi')
+            self.propeq(node, 'name', 'wlan0')
+            self.propeq(node, 'mac', 'aa:bb:cc:dd:ee:ff')
+            self.propeq(node, 'serial', 'sn5')
+            self.len(1, await core.nodes('it:wifi:nic :ssid -> inet:wifi:ssid'))
+
+            # it:sim:slot and it:sim:card
+            self.true(core.model.form('it:sim:slot').implements('it:component'))
+            self.true(core.model.form('it:sim:card').implements('it:component'))
+
+            nodes = await core.nodes('[ it:sim:slot=* :imei=490154203237518 :serial=slot1 ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'it:sim:slot')
+            self.propeq(nodes[0], 'imei', '490154203237518')
+            self.propeq(nodes[0], 'serial', 'slot1')
+            self.len(1, await core.nodes('it:sim:slot :imei -> tel:mob:imei'))
+
+            nodes = await core.nodes('[ it:sim:card=* :imsi=310150123456789 :serial=card1 ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'it:sim:card')
+            self.propeq(nodes[0], 'imsi', '310150123456789')
+            self.propeq(nodes[0], 'serial', 'card1')
+            self.len(1, await core.nodes('it:sim:card :imsi -> tel:mob:imsi'))
 
     async def test_it_forms_hostexec(self):
         # forms related to the host execution model
@@ -986,7 +1284,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             addr6 = f'udp://[::1]:{port}'
             url = 'http://www.google.com/sekrit.html'
             raw_path = r'c:\Windows\System32\rar.exe'
-            norm_path = r'c:/windows/system32/rar.exe'
+            norm_path = r'c:/Windows/System32/rar.exe'
             src_proc = s_common.guid()
             src_path = r'c:/temp/ping.exe'
             cmd0 = 'rar a -r yourfiles.rar *.txt'
@@ -1002,9 +1300,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'path': raw_path,
                 'sandbox:file': sandfile,
             }
-            q = '''[(it:exec:proc=$valu :exe=$p.exe :pid=$p.pid :cmd=$p.cmd :host=$p.host
-                :account=$p.account :path=$p.path
-                :sandbox:file=$p."sandbox:file")]'''
+            q = '''[(it:exec:proc=$valu :exe=$p.exe as file:bytes :pid=$p.pid :cmd=$p.cmd :host=$p.host as it:host
+                :account=$p.account as it:host:account :path=$p.path
+                :sandbox:file=$p."sandbox:file" as file:bytes)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': proc, 'p': pprops}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1029,7 +1327,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             [( it:cmd:session=(202405170900, 202405171000, bash, $host)
                 :host=$host
                 :period=(202405170900, 202405171000)
-                :account={ it:host:account | limit 1 }
+                :actor={ it:host:account | limit 1 }
             )]
             '''
             nodes = await core.nodes(q)
@@ -1039,7 +1337,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[1].ndef, ('it:cmd:session', s_common.guid(('202405170900', '202405171000', 'bash', hostguid))))
             self.propeq(nodes[1], 'host', hostguid)
             self.propeq(nodes[1], 'period', (1715936400000000, 1715940000000000, 3600000000))
-            self.nn(nodes[1].get('account'))
+            self.eq('it:host:account', nodes[1].get('actor')[0])
+            self.len(1, await core.nodes('it:cmd:session :actor -> it:host:account'))
+
+            # the actor may also be a service account or agent
+            self.len(1, await core.nodes('it:cmd:session [ :actor={[ inet:service:account=({"id": "woot"}) ]} ] :actor -> inet:service:account'))
+            self.len(1, await core.nodes('it:cmd:session [ :actor={[ inet:service:agent=({"id": "woot"}) ]} ] :actor -> inet:service:agent'))
 
             cmdsess = nodes[1]
 
@@ -1060,7 +1363,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :time=(1715936400000003)
                 )
 
-                :session=$sessiden
+                :session=$sessiden as it:cmd:session
             ]
             '''
             opts = {'vars': {'sessiden': cmdsess.ndef[1]}}
@@ -1090,8 +1393,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'time': tick,
                 'sandbox:file': sandfile,
             }
-            q = '''[(it:exec:mutex:add=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
-                    :sandbox:file=$p."sandbox:file")]'''
+            q = '''[(it:exec:mutex:add=$valu :exe=$p.exe as file:bytes :proc=$p.proc as it:exec:proc :name=$p.name :host=$p.host as it:host :time=$p.time
+                    :sandbox:file=$p."sandbox:file" as file:bytes)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': m0, 'p': mprops}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1112,8 +1415,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'time': tick,
                 'sandbox:file': sandfile,
             }
-            q = '''[(it:exec:pipe:add=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
-                    :sandbox:file=$p."sandbox:file")]'''
+            q = '''[(it:exec:pipe:add=$valu :exe=$p.exe as file:bytes :proc=$p.proc as it:exec:proc :name=$p.name :host=$p.host as it:host :time=$p.time
+                    :sandbox:file=$p."sandbox:file" as file:bytes)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': p0, 'p': pipeprops}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1127,16 +1430,22 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ it:exec:fetch=*
-                    :proc=*
+                    :proc=* as it:exec:proc
                     :host={ it:host | limit 1 }
                     :url=https://vertex.link
                     :time=20250718
 
-                    :browser=*
+                    :browser=* as it:software
 
-                    :page:pdf=*
-                    :page:html=*
-                    :page:image=*
+                    :page:pdf=* as file:bytes
+                    :page:html=* as file:bytes
+                    :page:image=* as file:bytes
+
+                    :page:title='Example Domain'
+                    :page:favicon=* as file:bytes
+                    :page:components=(nginx, jquery)
+
+                    :request={[ inet:http:request=* ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -1148,6 +1457,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:exec:fetch :page:pdf -> file:bytes'))
             self.len(1, await core.nodes('it:exec:fetch :page:html -> file:bytes'))
             self.len(1, await core.nodes('it:exec:fetch :page:image -> file:bytes'))
+            self.propeq(nodes[0], 'page:title', 'Example Domain')
+            self.len(1, await core.nodes('it:exec:fetch :page:favicon -> file:bytes'))
+            self.len(2, await core.nodes('it:exec:fetch :page:components -> it:softwarename'))
+            self.len(1, await core.nodes('it:exec:fetch :request -> inet:http:request'))
 
             b0 = s_common.guid()
             bprops = {
@@ -1158,8 +1471,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'server': addr4,
                 'sandbox:file': sandfile,
             }
-            q = '''[(it:exec:bind=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
-                :server=$p.server :sandbox:file=$p."sandbox:file")]'''
+            q = '''[(it:exec:bind=$valu :exe=$p.exe as file:bytes :proc=$p.proc as it:exec:proc :host=$p.host as it:host :time=$p.time
+                :server=$p.server :sandbox:file=$p."sandbox:file" as file:bytes)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': b0, 'p': bprops}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1180,6 +1493,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('it:exec:bind', b1))
             self.propeq(node, 'server', addr6)
 
+            for fname in ('it:exec:file:add', 'it:exec:file:del', 'it:exec:file:read', 'it:exec:file:write'):
+                self.true(core.model.form(fname).implements('file:entry'))
+
             faprops = {
                 'exe': exe,
                 'host': host,
@@ -1190,9 +1506,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'sandbox:file': sandfile,
             }
             fa0 = s_common.guid()
-            q = '''[(it:exec:file:add=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
-                :file=$p.file :path=$p.path
-                :sandbox:file=$p."sandbox:file")]'''
+            q = '''[(it:exec:file:add=$valu :exe=$p.exe as file:bytes :proc=$p.proc as it:exec:proc :host=$p.host as it:host :time=$p.time
+                :file=$p.file as file:bytes :path=$p.path
+                :sandbox:file=$p."sandbox:file" as file:bytes)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': fa0, 'p': faprops}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1209,9 +1525,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'sandbox:file', sandfile)
 
             fr0 = s_common.guid()
-            q = '''[(it:exec:file:read=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
-                            :file=$p.file :path=$p.path
-                            :sandbox:file=$p."sandbox:file")]'''
+            q = '''[(it:exec:file:read=$valu :exe=$p.exe as file:bytes :proc=$p.proc as it:exec:proc :host=$p.host as it:host :time=$p.time
+                            :file=$p.file as file:bytes :path=$p.path
+                            :sandbox:file=$p."sandbox:file" as file:bytes)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': fr0, 'p': faprops}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1228,9 +1544,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'sandbox:file', sandfile)
 
             fw0 = s_common.guid()
-            q = '''[(it:exec:file:write=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
-                    :file=$p.file :path=$p.path
-                    :sandbox:file=$p."sandbox:file")]'''
+            q = '''[(it:exec:file:write=$valu :exe=$p.exe as file:bytes :proc=$p.proc as it:exec:proc :host=$p.host as it:host :time=$p.time
+                    :file=$p.file as file:bytes :path=$p.path
+                    :sandbox:file=$p."sandbox:file" as file:bytes)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': fw0, 'p': faprops}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1247,9 +1563,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'sandbox:file', sandfile)
 
             fd0 = s_common.guid()
-            q = '''[(it:exec:file:del=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
-                                :file=$p.file :path=$p.path
-                                :sandbox:file=$p."sandbox:file")]'''
+            q = '''[(it:exec:file:del=$valu :exe=$p.exe as file:bytes :proc=$p.proc as it:exec:proc :host=$p.host as it:host :time=$p.time
+                                :file=$p.file as file:bytes :path=$p.path
+                                :sandbox:file=$p."sandbox:file" as file:bytes)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': fd0, 'p': faprops}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1279,7 +1595,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 file:system:entry=*
                     :host={ it:host | limit 1 }
                     :path=c:/temp/yourfiles.rar
-                    :file=*
+                    :file=* as file:bytes
                     :added=20200202
                     :created=20200202
                     :modified=20200203
@@ -1315,8 +1631,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             for form in forms:
                 rk0 = s_common.guid()
                 nprops = rprops.copy()
-                q = '''[(*$form=$valu :host=$p.host :proc=$p.proc :exe=$p.exe :time=$p.time :entry=$p.reg
-                    :sandbox:file=$p."sandbox:file")]'''
+                q = '''[(*$form=$valu :host=$p.host as it:host :proc=$p.proc as it:exec:proc :exe=$p.exe as file:bytes :time=$p.time :entry=$p.reg as it:os:windows:registry:entry
+                    :sandbox:file=$p."sandbox:file" as file:bytes)]'''
                 nodes = await core.nodes(q, opts={'vars': {'form': form, 'valu': rk0, 'p': nprops}})
                 self.len(1, nodes)
                 node = nodes[0]
@@ -1393,16 +1709,16 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 $file = {[ file:bytes=* ]}
                 $rule = { it:app:yara:rule:id=V-31337 }
-                [ it:app:yara:match=({"rule": $rule, "target": $file})
-                    :version=1.2.3
-                    :matched=20200202
+                [ it:app:yara:matched=({"rule": $rule, "target": $file})
+                    :rule:version=1.2.3
+                    :time=20200202
                 ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('rule'))
             self.nn(nodes[0].get('target'))
-            self.propeq(nodes[0], 'version', '1.2.3')
-            self.propeq(nodes[0], 'matched', 1580601600000000)
+            self.propeq(nodes[0], 'rule:version', '1.2.3')
+            self.propeq(nodes[0], 'time', 1580601600000000)
 
     async def test_it_app_snort(self):
 
@@ -1439,12 +1755,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             rule = nodes[0].ndef[1]
 
             nodes = await core.nodes('''[
-                it:app:snort:match=*
+                it:app:snort:matched=*
                     :rule={[ it:app:snort:rule=({"id": 999}) ]}
-                    :matched=2015
+                    :time=2015
                     :target={[ inet:flow=* ]}
                     :sensor={[ it:host=* ]}
-                    :version=1.2.3
+                    :rule:version=1.2.3
                     :dropped=true
             ]''')
             self.len(1, nodes)
@@ -1452,8 +1768,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('sensor'))
             self.propeq(nodes[0], 'dropped', 1)
             self.propeq(nodes[0], 'rule', rule)
-            self.propeq(nodes[0], 'version', '1.2.3')
-            self.propeq(nodes[0], 'matched', 1420070400000000)
+            self.propeq(nodes[0], 'rule:version', '1.2.3')
+            self.propeq(nodes[0], 'time', 1420070400000000)
 
     async def test_it_function(self):
 
@@ -1485,10 +1801,10 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             q = '''[
                 it:dev:function:sample=*
-                    :file=*
+                    :file=* as file:bytes
                     :function={ it:dev:function }
                     :va=0x404438
-                    :calls=(*, *)
+                    :calls={[ it:dev:function:sample=* it:dev:function:sample=* ]}
             ]'''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
@@ -1673,7 +1989,7 @@ class InfotechModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
                 [ it:sec:c2:config=*
-                    :file=*
+                    :file=* as file:bytes
                     :family=Beacon
                     :servers=(http://1.2.3.4, tcp://visi:secret@vertex.link)
                     :decoys=(https://woot.com, https://foo.bar)
@@ -1695,7 +2011,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(node.get('file'))
             self.nn(node.get('crypto:key'))
             self.propeq(node, 'mutex', 'OnlyOnce')
-            self.propeq(node, 'family', 'beacon')
+            self.propeq(node, 'family', 'Beacon')
             self.propeq(node, 'campaigncode', 'WootWoot')
             self.propeq(node, 'servers', ('http://1.2.3.4', 'tcp://visi:secret@vertex.link'))
             self.propeq(node, 'connect:delay', 3600000000)
@@ -1720,12 +2036,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :time=20220720
                     :offset=99
                     :account={[ syn:user=root ]}
-                    :platform = *
+                    :platform=* as inet:service:platform
                 ]
             ''', opts=opts)
             self.propeq(nodes[0], 'time', 1658275200000000)
             self.propeq(nodes[0], 'offset', 99)
-            self.propeq(nodes[0], 'language', 'sql')
+            self.propeq(nodes[0], 'language', 'SQL')
             self.propeq(nodes[0], 'opts', {"foo": "bar"})
             self.propeq(nodes[0], 'text', 'SELECT * FROM threats')
             self.propeq(nodes[0], 'account', core.auth.rootuser.iden, type='syn:user')
@@ -1741,7 +2057,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ it:softid=*
                     :id=Woot
-                    :host=*
+                    :host=* as it:host
                     :software={[ it:software=* :name=beacon ]}
                     :software:name=beacon
                 ]
@@ -1761,15 +2077,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             issue = s_common.guid()
             commit = s_common.guid()
             branch = s_common.guid()
-            icom = s_common.guid()
-            dcom = s_common.guid()
             origin = s_common.guid()
-            label = s_common.guid()
-            issuelabel = s_common.guid()
             submod = s_common.guid()
             remote = s_common.guid()
             parent = s_common.guid()
-            replyto = s_common.guid()
             file = s_common.guid()
 
             props = {
@@ -1780,7 +2091,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'submodules': (submod,),
             }
             q = '''[(it:dev:repo=$valu :name=$p.name :desc=$p.desc :url=$p.url :type=$p.type
-                :submodules=$p.submodules )]'''
+                :submodules={ for $g in $p.submodules {[ it:dev:repo:commit=$g ]} } )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': repo, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1797,7 +2108,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'url': 'git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging',
                 'remote': origin,
             }
-            q = '''[(it:dev:repo:remote=$valu :name=$p.name :repo=$p.repo :url=$p.url :remote=$p.remote)]'''
+            q = '''[(it:dev:repo:remote=$valu :name=$p.name :repo=$p.repo as it:dev:repo :url=$p.url :remote=$p.remote as it:dev:repo)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': remote, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1815,7 +2126,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'id': 'r12345',
                 'url': 'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf',
             }
-            q = '''[(it:dev:repo:commit=$valu :repo=$p.repo :branch=$p.branch :parents=$p.parents :mesg=$p.mesg
+            q = '''[(it:dev:repo:commit=$valu :repo=$p.repo as it:dev:repo :branch=$p.branch as it:dev:repo:branch :parents={ for $g in $p.parents {[ it:dev:repo:commit=$g ]} } :mesg=$p.mesg
                 :id=$p.id :url=$p.url)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': commit, 'p': props}})
             self.len(1, nodes)
@@ -1831,7 +2142,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ it:dev:repo:entry=*
                     :repo={it:dev:repo | limit 1}
-                    :file=*
+                    :file=* as file:bytes
                     :path=foo/bar/baz.exe
                     <(has)+ { it:dev:repo:commit | limit 1 }
                 ]
@@ -1839,6 +2150,15 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('repo'))
             self.propeq(nodes[0], 'path', 'foo/bar/baz.exe')
+
+            # it:dev:repo:entry and it:dev:repo:diff get file/path from the file:entry interface
+            self.true(core.model.form('it:dev:repo:entry').implements('file:entry'))
+            self.true(core.model.form('it:dev:repo:diff').implements('file:entry'))
+
+            # it:dev:repo:entry overrides the inherited file/path docs without restating their types
+            entry = core.model.form('it:dev:repo:entry')
+            self.eq(entry.prop('file').info.get('doc'), 'The file included in the repository.')
+            self.eq(entry.prop('path').info.get('doc'), 'The path of the file included in the repository.')
 
             self.len(1, await core.nodes('it:dev:repo:entry <(has)- it:dev:repo:commit'))
 
@@ -1848,7 +2168,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'path': 'synapse/tets/test_model_infotech.py',
                 'url': 'https://github.com/vertexproject/synapse/compare/it_dev_repo_models?expand=1',
             }
-            q = '''[(it:dev:repo:diff=$valu :commit=$p.commit :file=$p.file :path=$p.path :url=$p.url)]'''
+            q = '''[(it:dev:repo:diff=$valu :commit=$p.commit as it:dev:repo:commit :file=$p.file as file:bytes :path=$p.path :url=$p.url)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': diff, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1860,92 +2180,42 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             props = {
                 'repo': repo,
-                'title': 'a fancy new release',
+                'name': 'a fancy new release',
                 'desc': 'Gonna be a big release friday',
                 'updated': 1,
                 'id': '1234',
                 'url': 'https://github.com/vertexproject/synapse/issues/2821',
+                'status': 'open',
+                'priority': 'highest',
             }
-            q = '''[(it:dev:repo:issue=$valu :repo=$p.repo :title=$p.title :desc=$p.desc
-                :updated=$p.updated :id=$p.id :url=$p.url)]'''
+            q = '''[(it:dev:repo:issue=$valu :repo=$p.repo as it:dev:repo :name=$p.name :desc=$p.desc
+                :updated=$p.updated :id=$p.id :url=$p.url
+                :status=$p.status :priority=$p.priority :due=20250101 :created=20240101
+                :assignee={[ syn:user=root ]}
+                :creator={[ inet:service:account=* ]}
+                :parent={[ proj:ticket=* ]})]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': issue, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('it:dev:repo:issue', issue))
             self.propeq(node, 'repo', repo)
-            self.propeq(node, 'title', 'a fancy new release')
+            self.propeq(node, 'name', 'a fancy new release')
             self.propeq(node, 'desc', 'Gonna be a big release friday')
             self.propeq(node, 'updated', 1)
             self.propeq(node, 'id', '1234')
             self.propeq(node, 'url', 'https://github.com/vertexproject/synapse/issues/2821')
 
-            props = {
-                'id': '123456789',
-                'title': 'new feature',
-                'desc': 'a super cool new feature'
-            }
-            q = '[(it:dev:repo:label=$valu :id=$p.id :title=$p.title :desc=$p.desc)]'
-            nodes = await core.nodes(q, opts={'vars': {'valu': label, 'p': props}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:dev:repo:label', label))
-            self.propeq(node, 'id', '123456789')
-            self.propeq(node, 'title', 'new feature')
-            self.propeq(node, 'desc', 'a super cool new feature')
-
-            props = {
-                'issue': issue,
-                'label': label,
-            }
-            q = '[(it:dev:repo:issue:label=$valu :issue=$p.issue :label=$p.label)]'
-            nodes = await core.nodes(q, opts={'vars': {'valu': issuelabel, 'p': props}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:dev:repo:issue:label', issuelabel))
-            self.propeq(node, 'label', label)
-            self.propeq(node, 'issue', issue)
-
-            props = {
-                'issue': issue,
-                'text': 'a comment on an issue',
-                'replyto': replyto,
-                'url': 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758',
-                'updated': 93
-            }
-            q = '''[(it:dev:repo:issue:comment=$valu :issue=$p.issue :text=$p.text :replyto=$p.replyto
-                :url=$p.url :updated=$p.updated)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': icom, 'p': props}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:dev:repo:issue:comment', icom))
-            self.propeq(node, 'issue', issue)
-            self.propeq(node, 'text', 'a comment on an issue')
-            self.propeq(node, 'replyto', replyto)
-            self.propeq(node, 'url', 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758')
-            self.propeq(node, 'updated', 93)
-
-            props = {
-                'diff': diff,
-                'text': 'types types types types types',
-                'replyto': replyto,
-                'line': 100,
-                'offset': 100,
-                'url': 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069',
-                'updated': 3
-            }
-            q = '''[(it:dev:repo:diff:comment=$valu :diff=$p.diff :text=$p.text :replyto=$p.replyto
-                :line=$p.line :offset=$p.offset :url=$p.url :updated=$p.updated)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': dcom, 'p': props}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:dev:repo:diff:comment', dcom))
-            self.propeq(node, 'diff', diff)
-            self.propeq(node, 'text', 'types types types types types')
-            self.propeq(node, 'replyto', replyto)
-            self.propeq(node, 'line', 100)
-            self.propeq(node, 'offset', 100)
-            self.propeq(node, 'url', 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069')
-            self.propeq(node, 'updated', 3)
+            # meta:task interface props
+            self.propeq(node, 'status', 'open')
+            self.propeq(node, 'priority', 50)
+            self.nn(node.get('due'))
+            self.nn(node.get('created'))
+            self.nn(node.get('assignee'))
+            self.nn(node.get('parent'))
+            # :creator stays an inet:service:account (not widened to entity:actor)
+            self.len(1, await core.nodes('it:dev:repo:issue :creator -> inet:service:account'))
+            self.len(1, await core.nodes('it:dev:repo:issue :assignee -> syn:user'))
+            self.len(1, await core.nodes('it:dev:repo:issue :parent -> proj:ticket'))
 
             props = {
                 'parent': parent,
@@ -1954,7 +2224,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'url': 'https://github.com/vertexproject/synapse/tree/it_dev_repo_models',
                 'merged': 1,
             }
-            q = '''[(it:dev:repo:branch=$valu :parent=$p.parent :start=$p.start :name=$p.name
+            q = '''[(it:dev:repo:branch=$valu :parent=$p.parent as it:dev:repo:branch :start=$p.start as it:dev:repo:commit :name=$p.name
                 :url=$p.url :merged=$p.merged)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': branch, 'p': props}})
             self.len(1, nodes)
@@ -1978,11 +2248,16 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('it:dev:repo:type:taxonomy')
             self.len(1, nodes)
 
-            nodes = await core.nodes('it:dev:repo:issue:comment')
-            self.len(2, nodes)
+            # the repo comment forms were folded into the generic inet:service:comment form
+            self.none(core.model.form('it:dev:repo:issue:comment'))
+            self.none(core.model.form('it:dev:repo:diff:comment'))
+            self.true(core.model.form('it:dev:repo:issue').implements('inet:service:commentable'))
+            self.true(core.model.form('it:dev:repo:diff').implements('inet:service:commentable'))
 
-            nodes = await core.nodes('it:dev:repo:diff:comment')
-            self.len(2, nodes)
+            # the repo label forms were generalized into inet:service:label / inet:service:labeled
+            self.none(core.model.form('it:dev:repo:label'))
+            self.none(core.model.form('it:dev:repo:issue:label'))
+            self.true(core.model.form('it:dev:repo:issue').implements('inet:service:labelable'))
 
             nodes = await core.nodes('it:dev:repo:remote')
             self.len(1, nodes)
@@ -1994,12 +2269,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('it:dev:repo:remote :remote -> it:dev:repo')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:dev:repo', origin))
-
-            nodes = await core.nodes('it:dev:repo:issue:comment=$guid :replyto -> *', {'vars': {'guid': icom}})
-            self.len(1, nodes)
-
-            nodes = await core.nodes('it:dev:repo:diff:comment=$guid :replyto -> *', {'vars': {'guid': dcom}})
-            self.len(1, nodes)
 
             nodes = await core.nodes('it:dev:repo:branch=$guid :parent -> *', {'vars': {'guid': branch}})
             self.len(1, nodes)
@@ -2066,7 +2335,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ it:sec:metrics=*
 
-                    :org={ gen.ou.org vertex }
+                    :org={ gen.org vertex }
                     :org:name=vertex
                     :org:fqdn=vertex.link
 
@@ -2115,7 +2384,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ it:os:windows:service=*
                     :name=Woot
-                    :host=*
+                    :host=* as it:host
                     :type=(0x20)
                     :start=(0x20)
                     :errorcontrol=(0x20)
@@ -2126,11 +2395,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             ''')
 
             self.len(1, nodes)
-            self.propeq(nodes[0], 'name', 'woot')
+            self.propeq(nodes[0], 'name', 'Woot')
             self.propeq(nodes[0], 'type', 0x20)
             self.propeq(nodes[0], 'start', 0x20)
             self.propeq(nodes[0], 'errorcontrol', 0x20)
-            self.propeq(nodes[0], 'displayname', 'foo bar baz')
+            self.propeq(nodes[0], 'displayname', 'Foo Bar Baz')
             self.propeq(nodes[0], 'imagepath', 'c:/windows/system32/woot.exe')
             self.propeq(nodes[0], 'description', 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.')
 
@@ -2138,6 +2407,16 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:os:windows:service -> file:path'))
 
             self.len(1, await core.nodes('[ it:exec:proc=* <(ledto)+ { it:os:windows:service } ]'))
+
+            nodes = await core.nodes('[ it:exec:windows:service:add=* :target={ it:os:windows:service } ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('target'))
+            self.len(1, await core.nodes('it:exec:windows:service:add -> it:os:windows:service'))
+
+            nodes = await core.nodes('[ it:exec:windows:service:del=* :target={ it:os:windows:service } ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('target'))
+            self.len(1, await core.nodes('it:exec:windows:service:del -> it:os:windows:service'))
 
             nodes = await core.nodes('''[
                 it:os:windows:registry:entry=*
@@ -2201,7 +2480,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'id', 'C0028', type='it:mitre:attack:campaign:id')
             self.eq((('it:mitre:attack:campaign:id', 'C0029'),), nodes[0].get('ids'))
 
-            nodes = await core.nodes('[ risk:tool:software=* :id=S0154 :ids=(S0155,) ]')
+            nodes = await core.nodes('[ it:software=* :id=S0154 :ids=(S0155,) ]')
             self.len(1, nodes)
             self.propeq(nodes[0], 'id', 'S0154', type='it:mitre:attack:software:id')
             self.eq((('it:mitre:attack:software:id', 'S0155'),), nodes[0].get('ids'))

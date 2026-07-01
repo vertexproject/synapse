@@ -7,20 +7,23 @@
 Storm Reference - Type-Specific Storm Behavior
 ==============================================
 
-Some data `types`_ within Synapse have additional optimizations. These include optimizations for:
+Some data :ref:`types <gloss-type>` within Synapse have additional optimizations. These include optimizations for:
 
 - indexing (how the type is stored for retrieval);
 - parsing (how the type can be specified for input);
 - insertion (how the type can be used to create or modify nodes);
 - operations (how the type can be lifted, filtered, or otherwise compared).
 
-Types that have been optimized in various ways are documented below along with any specialized operations that
+Key types that have been optimized in various ways are documented below along with specialized operations that
 may be available for those types.
 
-This section is **not** a complete reference of all available types. In addition, this section does **not**
-address the full range of type enforcement constraints that may restrict the values that can be specified for
-a given type (such as via a constructor (``ctor``)). For details on available types and type constraints or
-enforcement, see the online documentation_ or the Synapse source code_.
+.. TIP::
+  
+  The Synapse data model is continually expanding and evolving. This section describes some of the most
+  useful / relevant optimizations, but is **not** a complete reference of all type-specific optimizations,
+  or of all available types, type behaviors, or type enforcement constraints.
+  
+  For details on all available types see the online documentation_ or the Synapse source code_.
 
 - `array`_ (array)
 - `duration`_ (duration)
@@ -49,23 +52,24 @@ is a type that consists of one or more values that are themselves all of a singl
   An array that is a **list** can have duplicate entries in the list.
   An array that is a **set** consists of a unique group of entries.
 
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-
-``Array`` types can be used for secondary properties where that property is likely to have multiple values.
-Examples of array secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and
+``Array`` types can be used for secondary properties where that property may have multiple values.
+Examples of array secondary properties include ``doc:report:topics``, ``inet:email:message:headers``, and
 ``ps:person:names``. You can view all secondary properties that are ``array`` types using the following Storm
 query:
 
 ::
   
-  syn:prop:type=array
+  syn:prop:array=true
 
 .. TIP::
   
   Some forms include both a singular and an array property for the same type. This allows you to record a
-  primary value along with optional variations (e.g., such as ``ou:org:name`` and ``ou:org:names``).
+  primary value along with optional variations (e.g., ``ou:org:name`` and ``ou:org:names``).
+
+**Virtual Properties**
+
+All ``array`` properties have a ``.size`` virtual property (e.g., ``ou:org:names.size``). The value of ``.size``
+is set by Synapse to the number of array values and cannot be edited by a user.
 
 Indexing
 ++++++++
@@ -87,19 +91,18 @@ in parentheses (this is true even if the array contains only a single element; y
 and the single element must still be followed by a trailing comma). Single or double quotes are required in
 accordance with the standard rules for using :ref:`storm-whitespace-literals`.
 
-**Example:**
+**Examples:**
 
 Set the ``:names`` property of an organization (``ou:org``) node to a single value:
 
-.. storm-pre:: [ ou:org=('the vertex project',) :name=vertex :websites+=https://vertex.link/ ]
+.. storm-pre:: [ ou:org=( { "name": "vertex"} ) :websites+=https://vertex.link/ ]
 .. storm-cli:: ou:org:name=vertex [ :names=('The Vertex Project',) ]
 
-**Example:**
 
 Set the ``:names`` property of an organization (``ou:org``) node to contain multiple variations of the
 organization name:
 
-.. storm-cli:: ou:org:name=vertex [ :names=('The Vertex Project', 'The Vertex Project, LLC', Vertex) ]
+.. storm-cli:: ou:org:name=vertex [ :names=('The Vertex Project', 'The Vertex Project, LLC') ]
 
 .. WARNING::
   
@@ -107,11 +110,9 @@ organization name:
   **entire** property value. To add or remove individual elements from an array, use the ``+=``, ``-=``,
   ``++=``, or ``--=`` operators.
 
-**Example:**
-
 Add a name to the array of names associated with an organization:
 
-.. storm-pre:: [ ou:org=* :name='Monty Python' ] 
+.. storm-pre:: [ ou:org=( { "name": "Monty Python" } ) :names+="Monty Python's Flying Circus" ] 
 .. storm-cli:: ou:org:name='Monty Python' [ :names+='The Spanish Inquisition' ]
 
 Remove a name from the array of names associated with an organization:
@@ -120,11 +121,11 @@ Remove a name from the array of names associated with an organization:
 
 Add multiple values to the array of names associated with an organization:
 
-.. storm-cli:: ou:org:name='Monty Python' [ :names ++= ('The Spanish Inquisition', "Monty Python's Flying Circus") ]
+.. storm-cli:: ou:org:name='Monty Python' [ :names ++= ('The Spanish Inquisition', 'Spamalot') ]
 
 Remove multiple values from the array of names associated with an organization:
 
-.. storm-cli:: ou:org:name="Monty Python" [ :names --= ('The Spanish Inquisition', "Monty Python's Flying Circus") ]
+.. storm-cli:: ou:org:name='Monty Python' [ :names --= ('The Spanish Inquisition', 'Spamalot') ]
 
 .. TIP::
   
@@ -134,36 +135,29 @@ Remove multiple values from the array of names associated with an organization:
   array value in a similar manner. The ``?++=`` and ``?--=`` operators can be used to attempt to add or remove
   multiple values from an array value, ignoring any items which fail to normalize.
 
-**Example:**
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
+Use the edit try operator to attempt to add a single value to the ``:emails`` array property of a set
+of contact information (an ``entity:contact`` node). (An invalid email address is used below to show
+the "fail silently" behavior for the edit try operator.)
 
-    Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property
-    of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show
-    the "fail silently" behavior for the "edit try" operator. The ``:authors`` property is an array of
-    ``ps:contact`` nodes and requires ``ps:contact`` guid values.)
-
-
-    .. storm-pre:: [ media:news="*" :publisher:name=kaspersky :title='New report on really bad threat' ]
-    .. storm-cli:: media:news:publisher:name=kaspersky [ :authors?+='john smith' ]
-
+.. storm-pre:: [ entity:contact=( { "name": "ron the cat", "type": "vertex.employee" } ) :emails+=ron@vertex.link ]
+.. storm-cli:: entity:contact:name='ron the cat' [ :emails?+='ron[at]protonmail.com' ]
 
 **Usage Notes:**
 
-- When using the standard "edit try" operator ( ``?=`` ) to attempt to set the **full** value of an array
+- When using the standard edit try operator ( ``?=`` ) to attempt to set the **full** value of an array
   property (vs. adding or removing an element from an array), the **entire** attempt will fail if **any** value
   in the list of values fails. For example, if you try to set ``[ :identities:emails?=(alice@vertex.link, bob) ]``
   on an X509 certificate (``crypto:x509:cert``), Synapse will fail to set the property altogether because ``bob``
-  is not a valid email address type (even though ``alice@vertex.link`` is).
+  is not a valid email address (even though ``alice@vertex.link`` is).
 
-- The "edit try" operators for **removing** elements from an array ( ``?-=`` or ``?--=`` ) are unique to arrays
-  as they are the only type that allows removal of a individual elements from a property. (Properties with a single
-  value are either set, modified (updated), or the property is deleted altogether.) As with other uses of 
-  "edit try", use of the operator allows the operation to silently fail (vs. error and halt) if the operation
+- The edit try operators for **removing** elements from an array ( ``?-=`` or ``?--=`` ) are unique to arrays
+  as arrays are the only type that allows removal of individual elements from a property. (Properties with a
+  single value are either set, modified (updated), or the property is deleted altogether.) As with other uses of 
+  edit try, use of the operator allows the operation to silently fail (vs. error and halt) if the operation
   attempts to remove a value from an array that does not match the array's defined type. For example, attempting
   to remove an IP from an array of email addresses will halt with a ``BadTypeValu`` error if the standard 
-  remove operator ( ``-=``) is used, but silently fail (do nothing and continue) if the "edit try" version
+  remove operator ( ``-=``) is used, but silently fail (do nothing and continue) if the edit try version
   ( ``?-=``) is used.
 
 Operations
@@ -173,43 +167,45 @@ Lifting and Filtering
 ~~~~~~~~~~~~~~~~~~~~~
 
 Lifting or filtering array properties using the equals ( ``=`` ) operator requires an **exact match** of the
-full array property value. This makes sense for forms with simple values like ``inet:ip=1.2.3.4``, but is
-often infeasible for arrays because lifting by the **full** array value requires you to know the **exact**
-values of each of the array elements as well as their **exact** order:
+full array property value. This is often infeasible for arrays because lifting by the full array value
+requires you to know the exact values of each of the array elements as well as their exact order:
 
-.. storm-cli:: ou:org:names=("The Vertex Project", "The Vertex Project, LLC", Vertex)
+.. storm-cli:: ou:org:names=('The Vertex Project', 'The Vertex Project, LLC')
 
-For this reason, Storm offers a special "by" syntax for lifting and filtering with ``array`` types. The syntax
-consists of an asterisk ( ``*`` ) preceding a set of square brackets ( ``[ ]`` ), where the square brackets
+For this reason, Storm offers a special syntax for lifting and filtering with ``array`` types. The syntax
+consists of an asterisk ( ``*`` ) followed by a set of square brackets ( ``[ ]`` ), where the square brackets
 contain a comparison operator and a value that can match one or more elements in the array. This allows users
-to match one or more elements in the array similarly to how they would match individual property values.
+to match elements in the array similarly to how they would match individual property values.
 
 .. NOTE::
+  
   The square brackets used to lift or filter based on values in an array should not be confused with square
   brackets used to add or modify nodes or properties in :ref:`edit-mode`.
 
 **Examples:**
 
-Lift the ``ou:org`` node(s) whose ``:names`` property contains a name that exactly matches ``vertex``:
+Lift the ``ou:org`` node(s) whose ``:names`` property contains a name that exactly matches ``the vertex project``:
 
-.. storm-cli:: ou:org:names*[=vertex]
+.. storm-cli:: ou:org:names*[='the vertex project']
 
 Lift the ``ou:org`` node(s) whose ``:names`` property contains a name that includes the string ``vertex``:
 
 .. storm-cli:: ou:org:names*[~=vertex]
 
-**Note:** the above query returns three "copies" of the ``ou:org`` node because each of the three values in
-the ``:names`` array matches the queried string.
+.. TIP::
+  
+  The above query returns two instances of the same ``ou:org`` node because both values in the ``:names``
+  array match the queried string - there are two matches, so the node is returned twice.
 
 Lift the x509 certificate nodes that reference the domain ``microsoft.com``:
 
-.. storm-pre:: [crypto:x509:cert="*" :identities:fqdns=(microsoft.com,verisign.com)] 
+.. storm-pre:: [ crypto:x509:cert=( { "sha256": "6b60c1c833979494caff32bf02391793ac85f533516367f12a1cea857bbacba7", "issuer": "CN=Microsoft Certificate Authority" } ) :identities:fqdns=(microsoft.com, office365.com) ] 
 .. storm-cli:: crypto:x509:cert:identities:fqdns*[=microsoft.com]
 
-Filter a set of ``ou:org`` nodes to include only those with a name that starts with "acme":
+Filter a set of articles (``doc:report`` nodes) by Proofpoint to include only those with a topic that starts with "cyber":
 
-.. storm-pre:: [ ( ou:org="*" :name='acme consulting' :names=('acme consulting',) ) ( ou:org="*" :name='acme construction' :names=('acme construction',) ) ]
-.. storm-cli:: ou:org +:names*[^=acme]
+.. storm-pre:: [ ( doc:report=( { "title": "more things happened today", "publisher:name": "proofpoint" } ) :topics++=( cybersecurity, 'zero trust' ) ) ( doc:report=( { "title": "report about stuff", "publisher:name": "proofpoint" } ) :topics++=( cybercrime, ransomware ) ) ]
+.. storm-cli:: doc:report:publisher:name=proofpoint +:topics*[^=cyber]
 
 See :ref:`lift-by-arrays` and :ref:`filter-by-arrays` for additional details.
 
@@ -229,10 +225,11 @@ the ``:identities:fqdns`` array property):
 .. storm-cli:: crypto:x509:cert -> inet:fqdn
 
 
-Pivot from a set of ``entity:name`` nodes to any nodes that reference those names (this would include ``ou:org``
-nodes where the ``entity:name`` is present in the ``:name`` property or as an element in the ``:names`` array):
+Pivot from a set of ``entity:name`` nodes to any nodes that reference those names (e.g., ``ou:org`` nodes
+where the ``entity:name`` is present in the ``:name`` property or ``:names`` array):
 
-.. storm-cli:: entity:name^=acme <- *
+.. storm-pre:: [ ( ou:org=( { "name": "ministry of public security" } ) :names+=mps ) ( ou:org=( { "name": "välisministeerium" } ) :names+='ministry of foreign affairs of estonia' ) ]
+.. storm-cli:: entity:name^=ministry <- *
 
 
 .. _type-duration:
@@ -241,6 +238,14 @@ duration
 --------
 
 ``duration`` is a type that represents a period (length) of time.
+
+You can view all secondary properties that include ``duration`` types using the following Storm query:
+
+::
+  
+  syn:prop:type*[=duration]
+
+In addition, all properties that are interval (:ref:`type-ival`) types have a ``.duration`` virtual property. 
 
 Indexing
 ++++++++
@@ -252,23 +257,23 @@ Parsing
 
 A ``duration`` is commonly specified using a string value (days / hours / minutes / seconds / microseconds
 as appropriate) with the following notation:
-  
-  ``##D hh:mm:ss.mmm``
 
-The literal uppercase letter "D" is used to represent the number of days. When entering a duration value as a
+``##D hh:mm:ss.mmmmmm``
+
+The literal uppercase letter ``D`` is used to represent the number of days. When entering a duration value as a
 string, single or double quotes are required in accordance with the standard rules for using
 :ref:`storm-whitespace-literals`.
   
 A ``duration`` can also be specified as the number of microseconds expressed as an integer value
 enclosed in parentheses:
-  
-  ``(218262777)``
+
+``(218262777)``
 
 .. TIP::
   
-  Similar to :ref:`type-time` types, Synapse expects that users will generally enter duration values using
-  "human friendly" strings, and will attempt to parse the input as such. Using parentheses tells Synapse
-  to interpret the value as a raw integer.
+  Similar to :ref:`type-time` types, Synapse expects users to enter duration values using human-friendly
+  strings, and will attempt to parse the input as such. Using parentheses tells Synapse to interpret the
+  value as a raw integer.
   
   Note that this parentheses syntax only applies when setting or updating a ``duration`` property using
   Storm. When setting or updating a property in the `Optic UI`_ by editing a field, you must enter a
@@ -282,47 +287,32 @@ When setting a ``duration`` value, enter the value using either format above.
 
 **Examples:**
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
+Set the initial connection delay (``:connect:delay``) for the command and control (C2) configuration
+(``it:sec:c2:config``) for a malicious software sample to 17 minutes:
+
+.. storm-pre:: $file={ [ file:bytes=( { "sha256": "000185a17254cd8863208d3828366ec25ddd01596f18e57301355d4a33eac242" } ) ] } [ it:sec:c2:config=( { "file": $file, "family": "redtree" } ) ]
+.. storm-cli:: it:sec:c2:config:family=redtree [ :connect:delay=00:17:00 ]
+
 
 Set the duration of a compromise (``risk:compromise`` node) to six days, six hours, 46 minutes, and
 23 seconds:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = '6D 06:46:23' ]
+.. storm-pre:: [ risk:compromise=( { "name": "example compromise", "reporter:name": "vertex" } ) ]
+.. storm-cli:: risk:compromise:name='example compromise' [ :period.duration='6D 06:46:23' ]
 
 Or:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = (542783000) ]
+.. storm-cli:: risk:compromise:name='example compromise' [ :period.duration=(542783000000) ]
 
-Values can be set at any level of granularity; e.g., ``[ :duration = 19D ]`` is acceptable, as are
-values to microsecond resolution.
+**Usage Notes:**
 
-.. NOTE::
+- Duration values can be set at any level of granularity; e.g., ``[ :duration=19D ]`` is acceptable,
+  as are values to microsecond resolution.
 
-  Forms that have ``duration`` properties may have related :ref:`type-time` properties as appropriate
-  for the form, such as a start time or end time or both. A compromise (``risk:compromise`` node) is
-  one example and includes start time (``:time``), end time (``:lasttime``), and duration (``:duration``).
-  This allows you to set any or all properties, depending on the information available. For example,
-  you may know when a compromise was fully remediated (ended), but not when it began or how long it lasted.
-  
-  While start, end, and duration values are related, Synapse does **not** currently calculate values
-  for these properties. That is, entering a start time and a duration will not automatically calculate
-  and set the ending time. Similarly, if all three values are set and you modify one of the values,
-  the other value(s) are not updated to reflect the change (e.g., changing the duration will not
-  automatically update the ending time).
-  
-  That said, in cases where a node has start, end, and duration properties and you have two of the
-  three values, you can use variables_ to calculate and set the third value. For example, given a
-  ``risk:compromise:name = 'my compromise'``  with ``:time = '2023/09/22 10:40'`` and
-  ``:lasttime = '2023/10/06 14:00'`` you could set the ``:duration`` value using the following Storm query:
-  
-  ``risk:compromise:name='my compromise' $min=:time $max=:lasttime [ :duration=( $max - $min ) ]``
-  
-  This will set ``:duration = 14D 03:20:00.000``.
+- In the example above, ``.duration`` is a virtual property of ``risk:compromise:period``, which is
+  an interval (``ival``) type. See the :ref:`type-ival` section below for a detailed discussion of
+  ``ival`` types, including their virtual properties (``.min``, ``.max``, ``.duration``, ``.precision``)
+  and related behaviors.
 
 
 Operations
@@ -337,27 +327,20 @@ This includes:
 
 ...etc.
 
+In addition, arithmetic on typed values preserves the ``duration`` type:
+
+- adding or subtracting two ``duration`` values yields a ``duration``;
+- multiplying a ``duration`` by an integer yields a ``duration``;
+- adding a ``duration`` to a ``time`` yields a new ``time`` (see :ref:`type-time`).
+
 
 .. _type-file:
 
 file\:bytes
 -----------
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-
-``file:bytes`` is a special type used to represent any file (i.e., any arbitrary set of bytes). Note that a
-file can be represented as a node within a Cortex regardless of whether the file itself (the specific set of
-bytes) is available (i.e., stored in an Axon). This is essential as many other data model elements allow
-(or depend on) the concept of a file (as opposed to a hash).
-
-The ``file:bytes`` type is a specialized :ref:`type-guid` type. A file can be uniquely represented by the
-specific contents of the file itself. As it is impractical to use "all the bytes" as a primary property value,
-it makes sense to use a shortened representation of those bytes - that is, a hash. MD5 collisions can now be
-generated with ease, and SHA1 collisions were demonstrated in 2017. For this reason, Synapse uses the SHA256
-hash of a file (considered sufficiently immune from collision attacks for the time being) as "unique enough"
-to act as the primary property of a ``file:bytes`` node if available. Otherwise, a ``guid`` is generated and
-used.
+Files (``file:bytes``) nodes are :ref:`type-guid` forms and are subject to the same type-specific behaviors
+as other ``guid`` nodes.
 
 Indexing
 ++++++++
@@ -367,142 +350,41 @@ N/A
 Parsing
 +++++++
 
-``file:bytes`` must be input using their complete primary property. It is impractical to manually type a
-SHA256 hash or 128-bit ``guid`` value. For this reason ``file:bytes`` forms are most often specified by
-referencing the node via a more human-friendly secondary property or by pivoting to the node. Alternately,
-the ``file:bytes`` value can be copied and pasted for use in a query.
-
-The primary property of a ``file:bytes`` node indicates how the node was created (i.e., via the SHA256 hash or via a guid):
-
-- A node created using the SHA256 hash will have a primary property value consisting of ``sha256:`` prepended
-  to the SHA256 hash:
-
-  ``file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855``
-
-- A node created using a ``guid`` will have a primary property value consisting of ``guid:`` prepended to the
-  ``guid`` value:
-  
-  ``file:bytes=guid:22d4ed1b75c9eb5ff8070e0df1e8ed6b``
-
-.. NOTE::
-  
-  When specifying a SHA256-based ``file:bytes`` node, entering the ``sha256:`` prefix is optional. The following
-  are equivalent representations of the same file:
-  
-  ::
-    
-    file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-    
-    file:bytes=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-  
-
+N/A
 
 Insertion
 +++++++++
 
-A ``file:bytes`` node can be created in one of three ways:
+We recommend using :ref:`guid-dictionary` and the file's SHA256 hash for :ref:`deconfliction <guid-best-practices>`
+purposes. (Generating MD5 hash collisions is trivial and SHA1 collisions are feasible, so these hashes are
+insufficiently unique for reliable deconfliction.)
 
-SHA256 Hash
-~~~~~~~~~~~
+Synapse will automatically create a ``file:bytes`` node when any file is loaded into the Cortex. (Synapse's
+Axon storage must be configured and enabled in order to upload files). Synapse will deconflict or add the
+file based on the SHA256 hash, and calculate and set the file's size and other hash properties.
 
-A SHA256 hash can be specified as the node’s primary property. The ``sha256:`` prefix can optionally be
-specified, but is not required (it will be added automatically on node creation). Storm will recognize the
-primary property value as a SHA256 hash and also set the ``:sha256`` secondary property. Any other secondary
-properties must be set manually.
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-cli:: [ file:bytes = 44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
-
-Because the SHA256 is considered unique (for now) for our purposes, the node is fully deconflictable. If
-additional secondary properties such as ``:size`` or other hashes are obtained later, or if the actual file
-is obtained, the node can be updated with the additional properties based on deconfliction with the SHA256 hash.
-
-GUID Value
-~~~~~~~~~~
-
-The asterisk can be used to generate a ``file:bytes`` node with an arbitrary guid value:
-
-.. storm-cli:: [ file:bytes = * ]
-
-Alternately, a predictable ``guid`` can be generated by specifying a list of one or more values to the ``guid``
-generator (for example, an MD5 and / or SHA1 hash):
-
-
-.. storm-cli:: [ file:bytes = (63fcc49b2ac6cbd686f4d9704446c673,) :md5=63fcc49b2ac6cbd686f4d9704446c673 ]
-
-Synapse does not recognize any strings passed to the ``guid`` generator as specific types or properties and will
-not use values used to generate the ``guid`` to set any secondary property values; those properties must be
-explicitly set (e.g., the ``:md5`` property in the example above).
-
-See the section on type-specific behavior for :ref:`type-guid` types for additional discussion of the methods
-used to create ``guid`` forms. (Note that `Dictionary Syntax`_ cannot be used to create guid-based ``file:bytes``
-nodes.)
-
-.. NOTE::
+.. TIP::
   
-  "Deconflicting" ``file:bytes`` nodes based on an MD5 or SHA1 hash alone is potentially risky because both of
-  those hashes are subject to collision attacks. In other words, two files that have the same MD5 hash or the
-  same SHA1 hash are not guaranteed to be the same file based on that single hash alone.
-  
-  In short, creating ``file:bytes`` nodes using the MD5 and / or SHA1 hash can allow the creation of "potentially"
-  deconflictable nodes when no other data is available. However, this deconfliction is subject to some limitations,
-  as noted above. In addition, if the actual file (full bytes) or corresponding SHA256 hash is obtained later,
-  it is not possible to "convert" a ``guid``-based ``file:bytes`` node to one whose primary property is based
-  on the SHA256 hash.
+  Files ingested directly into a storage Axon will not automatically create corresponding ``file:bytes`` nodes
+  in the Cortex.
 
-Actual Bytes
-~~~~~~~~~~~~
-
-You can also create a ``file:bytes`` node by adding the actual file (set of bytes) to Synapse (specifically,
-to Synapse's Axon storage). Adding the file will create the ``file:bytes`` node in the Cortex based on the
-file's SHA256 value. Synapse will also calculate and set additional properties for the ``file:bytes`` node's
-size and other hashes (e.g., MD5, SHA1, etc.).
-
-Creating ``file:bytes`` nodes in this manner is often done programmatically (such as via a Synapse
-:ref:`gloss-power-up`) that can download or ingest files. Other options include:
+Files can be ingested programmatically (such as via a Synapse :ref:`gloss-power-up`). Other options include:
 
 - the built-in Synapse :ref:`storm-wget` command;
 - the  **Upload File** menu option available from the `Optic UI`_, which allows you to either
   upload a file from local disk, or download a file from a specified URL; or
-- the ``pushfile`` tool, available from the CLI in the community version of Synapse (see :ref:`syn-tools-axon-put`).
+- the `:ref:`syn-tools-axon-put` tool, available from the CLI in the community version of Synapse, which
+  loads a file into the Axon and optionally creates the corresponding ``file:bytes`` node.
 
-.. TIP::
-  
-  Like other external (to Storm) commands, the pushfile tool is accessible from the Storm CLI (see :ref:`syn-tools-storm`)
-  as ``!pushfile``.
-
-Similarly, Storm’s HTTP library (:ref:`stormlibs-lib-inet-http`) could be leveraged to retrieve a web-based file and use the
-returned bytes as input (potentially using Storm variables - see :ref:`storm-adv-vars`) to the ``guid`` generator.
-A detailed discussion of this method is beyond the scope of this section; see the :ref:`stormtypes-libs-header`
+Similarly, Storm’s HTTP library (:ref:`stormlibs-lib-inet-http`) could be leveraged to retrieve a web-based file
+and use the returned bytes as input (potentially using Storm variables - see :ref:`storm-adv-vars`) to the ``guid``
+generator. A detailed discussion of this method is beyond the scope of this section; see the :ref:`stormtypes-libs-header`
 technical documentation for additional detail.
-
 
 Operations
 ++++++++++
 
-It is impractical to manually type a ``file:bytes`` value when lifting or otherwise specifying a ``file:bytes`` node.
-Nodes or values are typically copied and pasted, or pivoted to from other forms (such as a ``hash:md5``).
-
-For some lift and filter operations, you may optionally specify ``file:bytes`` nodes using a sufficiently unique
-partial match of the node's primary property. For example, the prefix operator ( ``^=`` ) may be used to specify
-a unique prefix for the ``file:bytes`` node's SHA256 or guid value:
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ file:bytes=sha256:021b4ce5c4d9eb45ed016fe7d87abe745ea961b712a08ea4c6b1b81d791f1eca :md5=8934aeed5d213fe29e858eee616a6ec7 :sha1=a7e576f41f7f100c1d03f478b05c7812c1db48ad :size=182820 :name=adobeupdater.exe ]
-    .. storm-cli:: file:bytes^=sha256:021b4ce5
-
-**Usage Notes:**
-
-- When using the prefix operator, the ``sha256:`` or ``guid:`` prefix string must be included.
-- The length of the value that is "sufficiently unique" to select a single ``file:bytes`` will vary depending
-  on the data in your instance of Synapse. If your selection criteria matches more than one ``file:bytes`` node,
-  Synapse will return all matches.
-- Alternatively, the regular expression operator ( ``~=`` ) may be used to specify a partial string match anywhere
-  in the ``file:bytes`` node's primary property value (though this is an inefficient way to specify a ``file:bytes``
-  node).
-
+N/A
 
 .. _type-guid:
 
@@ -512,14 +394,11 @@ guid
 Within Synapse, the Globally Unique Identifier (``guid``) :ref:`data-type` refers to a 128-bit value used as a
 form’s primary property. The value is represented in hex (e.g., ``4b0c2c5671874922ce001d69215d032f``).
 
-The term should not be confused with the definition of GUID used by Microsoft_, or with other types of identifiers
-used within Synapse (e.g., such as node identifiers / node idens).
+The term should not be confused with the definition of GUID used by Microsoft_, or with other types of
+:ref:`identifiers <gloss-iden>` used within Synapse.
 
 The ``guid`` type is used as the primary property for forms that cannot be uniquely defined by a set of property values.
 See the background documents on the Synapse data model for additional details on the :ref:`form-guid`.
-
-See the section on :ref:`type-file` types for discussion of ``file:bytes`` as a specialized instance of a ``guid``
-type.
 
 Indexing
 ++++++++
@@ -533,9 +412,11 @@ It is impractical to manually type a guid value when lifting or otherwise specif
 be specified by a sufficiently unique prefix (e.g., ``ou:org^=4b0c2``), it is more common to reference a guid node
 using a more human-friendly secondary property. For example:
 
-.. storm-cli:: ou:org:name = vertex
+.. storm-cli:: ou:org:name=vertex
 
 Alternatively, the guid value can be copied and pasted.
+
+.. _guid-type-insertion:
 
 Insertion
 +++++++++
@@ -543,40 +424,45 @@ Insertion
 There are multiple ways to create guid nodes in Synapse. The critical consideration when deciding which method
 is best for your use case is how (or whether) you can **deconflict** guid nodes.
 
+.. _guid-best-practices:
+
 Deconfliction
 ~~~~~~~~~~~~~
 
-Synapse uses **deconfliction** when nodes are created to ensure that all nodes are unique within a Cortex. Deconfliction
-is based on a node's primary property value. When you attempt to create a node such as an email address, Synapse checks
-to see whether an ``inet:email`` node with the specified value already exists. If so, Synapse simply returns the existing
-node; otherwise, Synapse creates a new node:
+Synapse uses **deconfliction** when nodes are created to ensure that all nodes of a given form are unique
+within a Cortex - that is, you do not have multiple nodes in Synapse that represent the same thing.
 
-.. storm-cli:: [ inet:email = training@vertex.link ]
+Deconfliction is based on a node's primary property value. When you attempt to create a node such as an email address,
+Synapse checks to see whether an ``inet:email`` node with the specified value already exists. If so, Synapse simply
+returns the existing node; otherwise, Synapse creates a new node:
 
-Guid nodes are also deconflicted based on their primary property (i.e., the guid value). However, these forms are notable in
-that the guid value itself has no obvious relationship to whatever the form represents. For example, the primary property of
-an organization node (e.g., ``ou:org = 0efcf9b86fa373fab26112f2b29b94ca``) does not tell you anything about the organization
-itself, such as its name, location, or URL. This means that even though Synapse deconflicts guid values, it is still
-possible for users or processes to inadvertently create multiple guid nodes that represent the same thing:
+.. storm-cli:: [ inet:email=training@vertex.link ]
+
+Guid forms are notable in that their primary property - a 128-bit value represented in hex - has no obvious
+relationship to whatever the form represents. For example, the primary property of an organization node (e.g.,
+``ou:org=0efcf9b86fa373fab26112f2b29b94ca``) does not tell you anything about the organization itself, such as its
+name, location, or URL. This means that guids are useful for guaranteeing that nodes are **unique** (you cannot
+create two different ``ou:org`` nodes in Synapse with the same guid), but less useful for **deconfliction**.
+
+Most importantly, it is still possible for users or processes to inadvertently create multiple guid nodes that
+represent the same thing:
 
 .. storm-pre:: entity:name=vertex -> ou:org | delnode
-
 .. storm-pre:: [ ou:org=* ou:org=* :name='the vertex project' :websites+=https://vertex.link/ ]
-
-.. storm-cli:: ou:org:name = 'the vertex project'
+.. storm-cli:: ou:org:name='the vertex project'
 
 The nodes above have different guid values - they are unique and have been deconflicted based on their primary property.
 But looking at the secondary properties, it is clear (to a human) that both ``ou:org`` nodes are meant to represent The Vertex
 Project - this is a problem, because we do not want two different nodes for one organization.
 
-To avoid creating two guid nodes that represent the same thing, you may need to check the secondary properties of
+With guid nodes, it is their **secondary properties** that provide meaningful information about the node. In order
+to avoid creating two guid nodes that represent the same thing, you may need to check the secondary properties of
 existing nodes before creating new ones. This process is called **secondary property deconfliction**.
 
 .. NOTE::
   
-  When creating guid nodes, choose a method that performs secondary property deconfliction for you - `Dictionary Syntax`_
-  is preferred where possible. `Predictable Guids`_ and `Arbitrary Guids`_ can also be used, but you should consider their
-  pros / cons and appropriate use cases.
+  When creating guid nodes, `Dictionary Syntax`_ is preferred where possible. `Predictable Guids`_ and `Arbitrary Guids`_
+  can also be used, but you should consider their pros / cons and appropriate use cases.
 
 .. _guid-dictionary:
 
@@ -592,9 +478,9 @@ This method will:
 
 .. TIP::
   
-  Dictionary guid constructor syntax is referred to as "dictionary syntax" for simplicity. You may also encounter the term
+  Dictionary guid constructor syntax is referred to as **dictionary syntax** for simplicity. You may also encounter the term
   **guid constructor** or its shortened form, **gutor**. Although there are multiple ways to construct a guid (as described
-  below), the terms "guid constructor" and "gutor" refer specifically to dictionary guid constructor syntax.
+  below), the terms guid constructor and gutor refer specifically to dictionary guid constructor syntax.
 
 Dictionary syntax uses a JSON dictionary with a set of ``key:value`` pairs to deconflict and create guid nodes. The ``key:value``
 pairs are secondary property names and values to deconflict on.
@@ -613,8 +499,7 @@ specified in the dictionary.
 You want to create an organization node for The Vertex Project, deconflicting on the company name and email.
 
 .. storm-pre:: ou:org:name='the vertex project' | delnode
-
-.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "email": "info@vertex.link" } ) ]
+.. storm-cli:: [ ou:org=( { "name": "the vertex project", "email": "info@vertex.link" } ) ]
 
 In the query above:
 
@@ -655,9 +540,9 @@ information to set the listed properties, including normalizing the values if ne
 - You can use literals or variables within the JSON dictionary:
 
 .. storm-pre:: ou:org:name='the vertex project' | delnode
-.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "email": "info@vertex.link" } ) ]
+.. storm-cli:: [ ou:org=( { "name": "the vertex project", "email": "info@vertex.link" } ) ]
 
-.. storm-cli:: $name='the vertex project' $email=info@vertex.link [ ou:org = ( { "name": $name, "email": $email } ) ]
+.. storm-cli:: $name='the vertex project' $email=info@vertex.link [ ou:org=( { "name": $name, "email": $email } ) ]
 
 - When creating a new node using dictionary syntax, Synapse uses an algorithm (the guid generator or "guid grinder")
   to generate a predictable guid using the dictionary content as input. The dictionary is converted to a sorted (alphabetical) list
@@ -668,13 +553,13 @@ information to set the listed properties, including normalizing the values if ne
   
   ::
     
-    [ ou:org = ( { "name": "The Vertex Project", "email": "info@vertex.link" } ) ]
+    [ ou:org=( { "name": "The Vertex Project", "email": "info@vertex.link" } ) ]
 
   ...the dictionary is converted to the following list of tuples for purposes of creating a predictable guid:
 
   ::
 
-    [ ou:org = ( (email, info@vertex.link), (name, 'the vertex project') ) ]
+    [ ou:org=( (email, info@vertex.link), (name, 'the vertex project') ) ]
   
   The tuples within the outermost parentheses are fed to the algorithm to create the guid. The dictionary values are
   **normalized** based on their type ("The Vertex Project" is normalized to lowercase in the tuple) and the tuples are
@@ -689,16 +574,138 @@ Let's say you want to deconflict an ``ou:org`` node using the organization's FQD
 Consider the following existing node:
 
 .. storm-pre:: ou:org:name='the vertex project' [ :dns:mx=(vertex.link, vtx.lk) ]
-.. storm-cli:: ou:org:name = 'the vertex project'
+.. storm-cli:: ou:org:name='the vertex project'
 
-The following dictionary syntax identifies and lifts the existing node:
+The following dictionary syntax identifies and lifts the existing node (note the guid value), because
+**both** MX FQDNs in the JSON dictionary are present on the existing node:
 
-.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vtx.lk", "vertex.link" ] } ) ]
+.. storm-cli:: [ ou:org=( { "name": "the vertex project", "dns:mx": [ "vtx.lk", "vertex.link" ] } ) ]
 
-In contrast, the following dictionary syntax only contains one of the ``:dns:mx`` values, so fails to deconflict and creates
-a new node with a different guid:
+In contrast, the following dictionary syntax only contains one of the ``:dns:mx`` values, so fails to deconflict
+and creates a new node with a different guid:
 
-.. storm-cli:: [ ou:org = ( { "name": "the vertex project", "dns:mx": [ "vertex.link" ] } )  ] ou:org:name='the vertex project' | uniq
+.. storm-cli:: [ ou:org=( { "name": "vertex", "dns:mx": [ "vertex.link" ] } )  ]
+
+.. _guid-dictionary-special-keys:
+
+Special Keys
+++++++++++++
+
+Dictionary syntax recognizes the following special ``$``-prefixed keys in addition to the property names used for deconfliction.
+These keys are reserved and may not be used as property names in the deconfliction dictionary.
+
+**$as**
+
+``$as`` accepts a form name string that names the form the dictionary should construct. By default the form is determined
+by context: at the top level it is the form being created, and when setting a property it is the form the property's type
+resolves to. When a property may reference more than one form (for example a property typed by an interface), there is no
+single form to construct and ``$as`` is required to name it.
+
+.. storm-pre:: [ meta:note=(asnote,) :text="example note" ]
+
+.. storm-cli:: meta:note:text="example note" [ :creator=( { "$as": "ps:person", "name": "alice liddell" } ) ]
+
+The named form must be allowed by the target. If it is not (or it is not a guid form), normalization raises an error,
+which the ``?=`` operator and ``$try`` (see below) suppress. When ``$as`` is provided where the form is already fixed by
+context, it must match that form.
+
+**$props**
+
+``$props`` accepts a nested dictionary of property names and values to set on the resolved or created node.
+Properties listed in ``$props`` are *not* used for deconfliction, they are only applied after the node is found or created.
+This is useful for setting properties that should not influence which node is matched.
+
+``$props`` also accepts a nested ``$try`` key (see below) that overrides the top-level ``$try`` for the ``$props`` sub-dictionary.
+
+.. storm-pre:: ou:org:name='vertex project' | delnode
+
+.. storm-cli:: [ ou:org=( { "name": "vertex project", "$props": { "desc": "a great org", "phone": "15551234567" } } ) ]
+
+**Virtual property keys**
+
+Dictionary syntax supports dotted keys of the form ``base.virtname`` to set **virtual properties** on secondary
+properties that expose them. Virtual properties are derived pseudo-properties on a type that are not stored
+independently but affect the underlying value (e.g., ``:seen.min``, ``:price.currency``).
+
+A dotted key is recognized as a virtual property reference when:
+
+- The portion before the last dot names a real secondary property on the form; *and*
+- The portion after the last dot names a known virtual property on that property's type.
+
+Any dotted key that does not match this pattern is treated as an ordinary property name (and will raise
+``NoSuchProp`` if no such property exists).
+
+*Deconfliction-dict virtual keys* — Virtual keys in the top-level dictionary contribute to the property
+values used for deconfliction. Whether they affect the **guid** depends on whether the virtual property
+changes the underlying normalized value of its base property:
+
+- For :ref:`type-ival`-typed properties (e.g., ``:seen``), the virtual properties ``min``, ``max``,
+  ``duration``, and ``precision`` change the ival tuple itself, so two dictionaries with different
+  ``.min`` values produce **different** guids and therefore different nodes.
+- For ``econ:price``-typed properties (e.g., ``:price``), ``currency`` and ``adjusted`` are
+  stored as virt metadata alongside the numeric value.  Two dictionaries with the same numeric price
+  but different currencies resolve to the **same** node (the currency is applied to the node on first
+  creation; on re-deconfliction the currency in the deconf dict is not re-applied).
+
+*``$props`` virtual keys* — Virtual keys in ``$props`` are applied to the node as if they appeared in
+the explicit edit syntax (``:price.currency=USD``). The base property's value is seeded from the
+deconfliction dictionary when necessary (e.g., ``$props: {"price.currency": "USD"}`` with ``price``
+in the deconfliction dict).
+
+.. NOTE::
+
+  Virtual property keys are **not** accepted in ``$unsets``.
+
+*Example — econ:price virtual key in the deconfliction dict*:
+
+.. storm-pre:: biz:listing:name='widget' | delnode
+
+.. storm-cli:: [ biz:listing=( { "name": "widget", "price": "10", "price.currency": "usd" } ) ]
+
+*Example — econ:price virtual key in ``$props``*:
+
+.. storm-pre:: biz:listing:name='widget2' | delnode
+
+.. storm-cli:: [ biz:listing=( { "name": "widget2", "price": "5", "$props": { "price.currency": "usd" } } ) ]
+
+**$try**
+
+``$try`` accepts a boolean (``true`` / ``false``, default ``false``). When ``true``, any property in ``$props`` whose value fails
+type normalization is silently skipped rather than raising an error. It has no effect on properties in the deconfliction
+dictionary or on ``$unsets`` constraint validation.
+
+.. storm-pre:: ou:org:name='vertex project' | delnode
+
+.. storm-cli:: [ ou:org=( { "name": "vertex project", "$try": true, "$props": { "phone": "not-a-phone-number", "desc": "fine value" } } ) ]
+
+**$salt**
+
+``$salt`` accepts a string value that is mixed into the guid generation algorithm as extra entropy. Two dictionaries that
+produce the same guid without a salt will produce different guids when different salts are provided. This is useful when you
+need to model multiple distinct entities that would otherwise collide (e.g., entries from different data sources that share
+the same deconfliction keys but are not the same entity).
+
+The ``$salt`` value itself is not stored on the node.
+
+.. storm-pre:: ou:org:name='salty org' | delnode
+
+.. storm-cli:: [ ou:org=( { "name": "salty org", "$salt": "source-a" } ) ]
+
+**$unsets**
+
+``$unsets`` accepts a list of property names that must not be set on the node for the gutor to match an existing node.
+If no existing node satisfies the constraint, a new node is created instead. For new nodes, the named properties are
+absent by default.
+
+This is analogous to the ``*unset=`` conditional edit operator, where "unset" describes the required state of the
+property rather than a destructive action.
+
+Each name in ``$unsets`` must be a valid property on the form. Specifying a property that also appears in the
+deconfliction dictionary or in ``$props`` is an error.
+
+.. storm-cli:: [ ou:org=( { "name": "example org" } ) ]
+
+.. storm-cli:: [ ou:org=( { "name": "example org", "$unsets": ["desc"] } ) ]
 
 
 .. _guid-predictable:
@@ -713,16 +720,16 @@ To create a predictable guid, provide a list of ordered inputs (enclosed in pare
 
 .. storm-pre:: ou:org:name='the vertex project' | delnode
 
-.. storm-cli:: [ ou:org = ('the vertex project', 'https://vertex.link/') ]
+.. storm-cli:: [ ou:org=('the vertex project', 'https://vertex.link/') ]
 
 Note that this is a "blank" node with no secondary properties set. Unlike dictionary syntax where the JSON dictionary
 lists properties and values as ``key:value`` pairs, the syntax for predictable guids simply provides a list of strings
 to the algorithm. You can set the properties once the node has been created, or set them as part of your original query:
 
-.. storm-cli:: [ ou:org = ('the vertex project', 'https://vertex.link/') :name='the vertex project' :websites+=https://vertex.link/ ]
+.. storm-cli:: [ ou:org=('the vertex project', 'https://vertex.link/') :name='the vertex project' :websites+=https://vertex.link/ ]
 
-Secondary property deconfliction (provided by dictionary syntax) is almost always desirable to avoid duplicate nodes. However,
-predictable guids may be useful when:
+Secondary property deconfliction (provided by dictionary syntax and described above) is the preferred deconfliction
+method to avoid duplicate nodes. However, predictable guids may be useful when:
 
 - dictionary syntax is not an option. There may be cases where an object's secondary properties are not unique enough
   to be used for deconfliction, or data sources are sparse and you cannot identify a set of properties that are guaranteed
@@ -750,15 +757,15 @@ predictable guids may be useful when:
   
 .. storm-pre:: ou:org:name='the vertex project' | delnode
   
-.. storm-cli:: [ ou:org = ('the vertex project', https://vertex.link/) ]
+.. storm-cli:: [ ou:org=('the vertex project', https://vertex.link/) ]
   
-.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = ($name, $url) ]
+.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org=($name, $url) ]
   
-.. storm-cli:: $guid = $lib.guid('the vertex project', https://vertex.link/) [ ou:org = $guid ]
+.. storm-cli:: $guid=$lib.guid('the vertex project', https://vertex.link/) [ ou:org=$guid ]
   
-.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ $guid = $lib.guid($name, $url) [ ou:org = $guid ]
+.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ $guid=$lib.guid($name, $url) [ ou:org=$guid ]
   
-.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org = $lib.guid($name, $url) ]
+.. storm-cli:: $name='the vertex project' $url=https://vertex.link/ [ ou:org=$lib.guid($name, $url) ]
   
 - The input to the algorithm is interpreted as a structured list of **string values** (i.e., ``(str_0, str_1, str_2...str_n)``).
   To consistently generate the same guid, each string must be **identical** (note that strings are case sensitive) and in the
@@ -772,17 +779,18 @@ Arbitrary Guids
 You can specify the asterisk ( ``*`` ) as the primary property value when creating a guid node. This tells
 Synapse to generate an **arbitrary** guid for the node. For example:
 
-.. storm-cli:: [ ou:org = * ]
+.. storm-cli:: [ ou:org=* ]
 
 Note that this is a "blank" node with no secondary properties set. You can set the properties once the node has
 been created, or set them as part of your original query:
 
-.. storm-cli:: [ ou:org = * :name='the vertex project' ]
+.. storm-cli:: [ ou:org=* :name='the vertex project' ]
 
 .. WARNING::
   
-  The guid values are truly arbitrary and no other deconfliction is performed. If you run the query above a second time,
-  Synapse will create a second ``ou:org`` node with the same ``:name`` but a **new** arbitrary guid.
+  The guid values created with the asterisk (``*``) are truly arbitrary and no other deconfliction is performed.
+  If you run the query above a second time, Synapse will create a second ``ou:org`` node with the same ``:name``
+  but a **new** arbitrary guid.
 
 Arbitrary guids are the simplest to create (so are often favored for one-off, manual node creation). However,
 they are the most risky from a deconfliction standpoint. No secondary property deconfliction is used, and
@@ -823,40 +831,37 @@ easier to lift guid nodes by a unique secondary property.
 
 Lift an org node by its name:
 
-.. storm-pre:: [ ou:org = * :name = foocorp ]
-.. storm-cli:: ou:org:name = foocorp
+.. storm-pre:: [ ou:org=( { "name": "foo corporation" } ) ]
+.. storm-cli:: ou:org:name='foo corporation'
 
 Lift a DNS request node by the name used in the DNS query:
 
-.. storm-pre:: [ inet:dns:request=* :time="2020/04/30 09:30:33.000" :query:name=pop.seznam.cz ]
-.. storm-cli:: inet:dns:request:query:name = pop.seznam.cz
+.. storm-pre:: [ inet:dns:request=( { "time": "2020/04/30 09:30:33.000", "query:name": "pop.seznam.cz" } ) ]
+.. storm-cli:: inet:dns:request:query:name=pop.seznam.cz
 
 It is also possible to lift and filter guid nodes using a "sufficiently unique" prefix match of the guid value.
 
 **Example:**
 
-Lift a ``ps:contact`` node by a partial prefix match:
+Lift an ``entity:contact`` node by a partial prefix match:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
-    .. storm-cli:: ps:contact ^= 13c9663e
+.. storm-pre:: [ entity:contact=( { "name": "ozzie the pony", "type": "vertex.employee" } ) :org:name=vertex ]
+.. storm-cli:: entity:contact^=92a43a
 
 The length of the value that is "sufficiently unique" will vary depending on the data in your instance of Synapse.
 If your selection criteria matches more than one node, Synapse will return all matches.
 
-When **setting** or **updating** a secondary property that is a guid value, you may use a "human friendly"
-Storm query (specifically a subquery) to reference the node whose primary property (guid value) you wish to
-set for the secondary property.
+When **setting** or **updating** a secondary property that is a guid value, you may use a human-friendly
+Storm query (specifically a subquery) to reference the node whose primary property (guid value) you wish
+to set for the secondary property.
 
 **Example:**
 
-Set the ``:org`` property for a ``entity:contact`` node to the guid value of the associated ``ou:org`` node using
+Set the ``:org`` property for an ``entity:contact`` node to the guid value of the associated ``ou:org`` node using
 a Storm query:
 
-.. storm-pre:: [ (entity:contact=* :name='ron the cat' :title='cattribution analyst') (ou:org=* :name=vertex) ]
-
-.. storm-cli:: entity:contact:name = 'ron the cat' [ :org = { ou:org:name = vertex } ]
+.. storm-pre:: [ ou:org=( { "name": "the vertex project" } ) ( entity:contact=( { "name": "ron the cat", "type": "vertex.employee" } ) :title='cattribution analyst' ) ]
+.. storm-cli:: entity:contact:name='ron the cat' [ :org={ ou:org:name='the vertex project' } ]
 
 .. NOTE::
   
@@ -887,7 +892,7 @@ Indexing
 
 Synapse performs **reverse string indexing** on ``inet:fqdn`` types. Domains are indexed in full reverse order -
 that is, the domain ``this.is.my.domain.com`` is indexed as ``moc.niamod.ym.si.siht`` to account for the
-"reverse hierarchy" implicit in the DNS structure.
+reverse hierarchy implicit in the DNS structure.
 
 Parsing
 +++++++
@@ -901,8 +906,8 @@ When ``inet:fqdn`` nodes are created (or modifications to certain properties are
 built-in logic to set certain secondary properties related to zones of control (specifically, ``:issuffix``,
 ``:iszone``, and ``:zone``).
 
-The reverse hierarchy implicit in dotted FQDNs represents elements such as *<host>.<domain>.<suffix>*, but
-can also represent implicit or explicit **zones of control.** The term "zone of control" is loosely defined,
+The reverse hierarchy implicit in dotted FQDNs represents elements such as ``<host>.<domain>.<suffix>``, but
+can also represent implicit or explicit **zones of control**. The term "zone of control" is loosely defined,
 and is not meant to represent control or authority by any specific organization or entity. Instead, "zone of
 control" can be thought of as a boundary within an individual FQDN hierarchy where control of a portion of
 the domain namespace shifts from one entity or owner to another.
@@ -918,41 +923,41 @@ control:
 - ``:iszone`` = secondary zone of control
 - ``:zone`` = authoritative zone for a given domain or subdomain
 
-(**Note:** contrast ``:zone`` with ``:domain`` which simply represents the next level "up" in the hierarchy
-from the current domain).
+**Note**: contrast ``:zone`` with ``:domain`` which simply represents the next level "up" in the hierarchy
+from the current domain.
 
-Synapse uses the following logic for suffixes and zones upon ``inet:fqdn`` creation:
+Synapse uses the following logic for suffixes and zones when an ``inet:fqdn`` is created:
 
 1. All domains consisting of a single element (such as ``com``, ``museum``, ``us``, ``br``, etc.) are
    considered **suffixes** and receive the following default values:
    
-   - ``:issuffix = 1``
-   - ``:iszone = 0``
-   - ``:zone = <none / property not created>``
-   - ``:domain = <none / property not created>``
+   - ``:issuffix=1``
+   - ``:iszone=0``
+   - ``:zone=<none / property not set>``
+   - ``:domain=<none / property not set>``
 
 2. Any domain whose **parent domain is a suffix** is considered a **zone** and receives the following default
    values:
    
-   - ``:issuffix = 0``
-   - ``:iszone = 1``
-   - ``:zone = <set to self>``
-   - ``:domain = <set to parent domain>``
+   - ``:issuffix=0``
+   - ``:iszone=1``
+   - ``:zone=<set to self>``
+   - ``:domain=<set to parent domain>``
 
-3. Any domain whose **parent domain is a zone** is considered a "normal" subdomain and receives the following
+3. Any domain whose **parent domain is a zone** is considered a normal subdomain and receives the following
    default values:
    
-   - ``:issuffix = 0``
-   - ``:iszone = 0``
-   - ``:zone = <set to parent domain>``
-   - ``:domain = <set to parent domain>``
+   - ``:issuffix=0``
+   - ``:iszone=0``
+   - ``:zone=<set to parent domain>``
+   - ``:domain=<set to parent domain>``
 
-4. Any domain whose parent domain is a "normal" subdomain receives the following default values:
+4. Any domain whose parent domain is a normal subdomain receives the following default values:
    
-   - ``:issuffix = 0``
-   - ``:iszone = 0``
-   - ``:zone = <set to first fqdn “up” the domain hierarchy with :iszone = 1>``
-   - ``:domain = <set to parent domain>``
+   - ``:issuffix=0``
+   - ``:iszone=0``
+   - ``:zone=<set to first domain "up" the domain hierarchy with :iszone=1>``
+   - ``:domain=<set to parent domain>``
 
 .. NOTE::
   
@@ -964,26 +969,31 @@ Synapse uses the following logic for suffixes and zones upon ``inet:fqdn`` creat
 Potential Limitations
 ~~~~~~~~~~~~~~~~~~~~~
 
-This logic works well for single-element top-level domains (TLDs) (such as ``com`` vs ``microsoft.com``).
+Synapse's default logic works well for single-element top-level domains (TLDs) (such as ``com`` vs ``microsoft.com``).
 However, it  does not address cases that may be relevant for certain types of analysis, such as:
 
 - **Top-level country code domains and their subdomains.** Under Synapse’s default logic ``uk`` is a suffix
   and ``co.uk`` is a zone. However, ``co.uk`` could **also** be considered a suffix in its own right, because
   subdomains such as ``somecompany.co.uk`` are under the control of the organization that registers them. In
-  this case, ``uk`` would be a suffix, ``com.uk`` could be considered both a suffix **and** a zone, and
+  this case, ``uk`` would be a suffix, ``co.uk`` could be considered both a suffix **and** a zone, and
   ``somecompany.co.uk`` could be considered a zone.
 
 - **Special-case zones of control.** Some domains (such as those used to host web-based services) can be
-  considered specialized zones of control. In these cases, the service provider typically owns the "main"
+  considered specialized zones of control. In these cases, the service provider typically owns the main
   domain (such as ``wordpress.com``) but individual customers can register personal subdomains for their
   hosted services (such as ``joesblog.wordpress.com``). The division between ``wordpress.com`` and individual
   customer subdomains could represent different zones of control. In this case, ``com`` would be a suffix, 
   ``wordpress.com`` could be considered both a suffix **and** a zone, and ``joesblog.wordpress.com`` could be
   considered a zone.
 
-Examples such as these are **not accounted for** by Synapse’s suffix / zone logic. The definition of additional
-domains as suffixes and / or zones is an implementation decision (though once the relevant properties are set,
-the changes are propagated recursively as noted above).
+Examples such as these are **not accounted for** by Synapse’s default suffix / zone logic. You may need to modify
+``:issuffix`` and / or ``:iszone`` values on additional FQDNs, depending on your analysis needs. (Once the
+relevant properties are set, the changes are propagated recursively as noted above).
+
+.. TIP::
+  
+  The Synapse-PSL_ Power-Up can be used to ingest the current Public Suffix list from https://publicsuffix.org/.
+
 
 Operations
 ++++++++++
@@ -1002,14 +1012,14 @@ Lift all domains that end with ``yahooapis.com``:
 
 Lift all domains ending with ``s.wordpress.com``:
 
-.. storm-pre:: [ inet:fqdn=cats.wordpress.com inet:fqdn=dogs.wordpress.com inet:fqdn=s.wordpress.com inet:fqdn=www.sss.wordpress.com ]
-.. storm-cli:: inet:fqdn="*s.wordpress.com"
+.. storm-pre:: [ inet:fqdn=cats.wordpress.com inet:fqdn=dogs.wordpress.com inet:fqdn=www.sss.wordpress.com ]
+.. storm-cli:: inet:fqdn='*s.wordpress.com'
 
 
-Downselect a set of DNS A records to those with domains ending with ``.museum``:
+Filter a set of DNS A records to those with domains ending with ``.museum``:
 
-.. storm-pre:: [ inet:dns:a=(woot.com,1.2.3.4) inet:dns:a=(woot.museum,5.6.7.8) inet:dns:a=(woot.link,7.7.7.7) ] +:fqdn="*.museum"
-.. storm-cli:: inet:dns:a +:fqdn="*.museum"
+.. storm-pre:: [ inet:dns:a=(woot.com, 1.2.3.4) inet:dns:a=(woot.museum, 5.6.7.8) inet:dns:a=(woot.link, 7.7.7.7) ] +:fqdn='*.museum'
+.. storm-cli:: inet:dns:a +:fqdn='*.museum'
 
 **Usage Notes**
 
@@ -1018,18 +1028,23 @@ Downselect a set of DNS A records to those with domains ending with ``.museum``:
 - Because domains are reverse-indexed instead of prefix indexed, for **lift** operations, partial string matching
   can only occur based on the end (suffix) of a domain. It is not possible to **lift** FQDNs by prefix. For example,
   ``inet:fqdn^=yahoo`` is invalid.
-- Domains can be **filtered** by prefix (``^=``). For example, ``inet:fqdn="*.biz" +inet:fqdn^=smtp`` is valid.
+- Domains can be **filtered** by prefix (``^=``). For example, ``inet:fqdn='*.biz' +inet:fqdn^=smtp`` is valid.
 - Domains cannot be **filtered** based on suffix matching (note that a "lift by suffix" is effectively a combined
   "lift and filter" operation).
 - Domains can be lifted or filtered using the regular expression (regex) extended operator (``~=``). For example
-  ``inet:fqdn~=google`` is valid (see :ref:`lift-regex` and :ref:`filter-regex`).
+  ``inet:fqdn~=google`` is valid (see :ref:`lift-regex` and :ref:`filter-regex`). Note that lifting by regular
+  expression is a brute-force operation and may be resource-intensive over large data sets; lifting a subset of
+  data by some other method and then filtering by regular expression is preferable where possible.
 
 .. _type-inet-ip:
 
 inet\:ip
 ----------
 
-IP addresses are stored as tuples of integers and represented (displayed) to users as dotted-decimal strings.
+Synapse uses the same form (``inet:ip``) for both IPv4 and IPv6 addresses. IP addresses are stored as tuples of
+integers where the first integer is the Internet Protocol version (4 or 6) and the second integer is the decimal
+value of the IP address. IP addresses are represented (displayed) to users as dotted-decimal strings (for IPv4) or
+colon-separated strings (for IPv6).
 
 Indexing
 ++++++++
@@ -1043,16 +1058,60 @@ Parsing
 While IP addresses are stored and indexed as tuples of integers, they can be input into Storm (and used within Storm
 operations) as any of the following.
 
-- dotted-decimal string: ``inet:ip = 192.168.0.1``
-- range: ``inet:ip = 192.168.0.1-192.167.0.10``
-- CIDR: ``inet:ip = 192.168.0.0/24``
-- tuple of version/value integers: ``inet:ip = ([4, 3232235521])``
+String:
+::
+
+  inet:ip=192.168.0.1
+
+
+::
+  
+  inet:ip=2606:4700:3035::ac43:cb25
+
+Range:
+::
+  
+  inet:ip=192.168.0.1-192.168.0.10
+
+
+::
+  
+  inet:ip=2606:4700:3035::ac43:cb25-2606:4700:3035::ac43:cb48
+
+CIDR notation:
+::
+  
+  inet:ip=192.168.0.0/24
+
+
+::
+  
+  inet:ip=2606:4700:3035:0000:0000:0000:ac43:cb00/120
+
+Tuple of version/value integers:
+::
+  
+  inet:ip=([4, 3232235521])
+
+
+::
+  
+  inet:ip=([6, 50543257686979224944580090171408763685])
+
 
 Insertion
 +++++++++
 
-The ability to specify IP values using either range or CIDR format allows you to "bulk create" sets of
-``inet:ip`` nodes without the need to specify each address individually.
+Individual ``inet:ip`` nodes can be created using any of the input formats described above.
+
+.. TIP::
+  
+  When creating an ``inet:ip`` node, Synapse automatically sets the ``:version`` and ``:type`` properties
+  (for IPv4 and IPv6 addresses) and the ``:scope`` property (for IPv6 addresses).
+
+
+In addition, you can specify IP values using range or CIDR format to create multiple ``inet:ip`` nodes
+without the need to specify each address individually.
 
 **Examples**
 
@@ -1060,20 +1119,17 @@ The ability to specify IP values using either range or CIDR format allows you to
 
 Create ten ``inet:ip`` nodes:
 
-
-.. storm-pre:: [ inet:ip = 192.168.0.1-192.168.0.10 ]
+.. storm-pre:: [ inet:ip=2606:4700:20::681a:3780-2606:4700:20::681a:3789 ]
 ::
 
-    [ inet:ip = 192.168.0.1-192.168.0.10 ]
-
+  [ inet:ip=2606:4700:20::681a:3780-2606:4700:20::681a:3789 ]
 
 Create the 256 addresses in the range 192.168.0.0/24:
 
-
-.. storm-pre:: [ inet:ip = 192.168.0.0/24 ]
+.. storm-pre:: [ inet:ip=192.168.0.0/24 ]
 ::
-
-    [ inet:ip = 192.168.0.0/24 ]
+  
+  [ inet:ip=192.168.0.0/24 ]
 
 
 Operations
@@ -1088,8 +1144,8 @@ This allows operating on multiple contiguous IP addresses without the need to sp
 Lift all ``inet:ip`` nodes within the specified range that exist within the Cortex:
 
 
-.. storm-pre:: [ inet:ip=169.254.18.30 inet:ip=169.254.18.36 inet:ip=169.254.18.53 ]
-.. storm-cli:: inet:ip = 169.254.18.24-169.254.18.64
+.. storm-pre:: [ inet:ip=2606:4700:3031::6815:1c72 inet:ip=2606:4700:3031::6815:1c76 inet:ip=2606:4700:3031::6815:1c77 ]
+.. storm-cli:: inet:ip=2606:4700:3031::6815:1c70-2606:4700:3031::6815:1c79
 
 Filter a set of DNS A records to only include those whose IP value is within the 172.16.* RFC1918 range:
 
@@ -1102,7 +1158,8 @@ Filter a set of DNS A records to only include those whose IP value is within the
 int
 ---
 
-An ``int`` is an integer value. Synapse stores, indexes, and displays integer values as decimal integers, but will also accept as hex or octal values as input.
+An ``int`` is an integer value. Synapse stores, indexes, and displays integer values as decimal integers, but
+will also accept as hex or octal values as input.
 
 Indexing
 ++++++++
@@ -1112,28 +1169,27 @@ N/A
 Parsing
 +++++++
 
-When adding or modifying integer values, Synapse will accept integer, hex (preceded by 0x), and octal (preceded by 0o) values and represent them as decimal integer values.
+When adding or modifying integer values, Synapse will accept integer, hex (preceded by ``0x``), and octal (preceded
+by ``0o``) values and represent them as decimal integer values.
 
 **Examples**
 
-Set the ``:count`` of the ``biz:bundle`` to 42:
+Set the number of items available for sale (``:count:total``) of a ``biz:listing`` to 42:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ biz:bundle=(350,) ]
-    .. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
+.. storm-pre:: [ biz:listing=( { "name": "widgets for sale", "price": "10" } ) :price.currency=usd ]
+.. storm-cli:: biz:listing:name='widgets for sale' [ :count:total=42 ]
 
-Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 6:
+Use a hex value to set the ``:ip:proto`` property for an ``inet:flow`` node to 6:
 
-.. storm-pre:: [ inet:flow=(tcp://142.118.95.50, tcp, 142.118.95.50) :server=tcp://142.118.95.50 ]
-.. storm-cli:: inet:flow=684babd42810ae9dc11132805abc2831 [ :ip:proto=0x06 ]
+.. storm-pre:: [ inet:flow=( { "period": "2026/04/27 09:37:42", "server": "tcp://142.118.95.50:8888" } ) ]
+.. storm-cli:: inet:flow:server.ip=142.118.95.50 [ :ip:proto=0x06 ]
 
-Use an octal value to set the ``:posix:perms`` property for the ``file:archive:entry`` node to 755:
+Use the octal value 755 to set the POSIX permissions for a RAR archive entry:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ file:archive:entry=(sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b,20230811 11:33:00, ozzie) :user=ozzie :added="20230811 11:33:00" :file=sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b ]
-    .. storm-cli:: file:archive:entry=3a24e1008b43bc2f1e35b3e872f201fc [ :posix:perms=0o426 ]
+.. storm-pre:: $parent={ [ file:bytes=( { "sha256": "1c2ee5a5bc16ba130a51de02f1fe1e6560750e16e63e65f4f27c5ee2e74288d3" } ) ] } $file={ [ file:bytes=( { "sha256": "9747fef49a3ce803631ada6161c1a4006f16c10e42d5739174cf9045f30c536d" } ) ] }  [ file:mime:rar:entry=( { "parent": $parent, "file": $file } ) :added='2023/08/11 11:33:00' ]
+.. storm-cli:: file:mime:rar:entry [ :extra:posix:perms=0o755 ]
+
+Posix permissions are commonly represented in octal (e.g., 755), which is decimal 493.
 
 Insertion
 +++++++++
@@ -1147,22 +1203,19 @@ Use integer, hex, or octal values to lift and filter integer types using standar
 
 **Examples**
 
-Lift all ``risk:alert`` nodes where the ``:priority`` is set to less than 10:
+Lift all ``risk:alert`` nodes where the ``:priority`` is greater than 5:
 
-.. storm-pre:: [ risk:alert=(outbound traffic to SOC-reported IP, 20230801 09:00:00, 9) :desc="outbound traffic to SOC-reported IP" :name="suspicious outbound traffic" :created="20230801 09:00:00" :priority=8]
-.. storm-cli:: risk:alert:priority<10
+.. storm-pre:: [ risk:alert=( { "name": "outbound traffic to SOC-reported IP", "created": "2023/08/01 09:00:00", "priority": "9" } ) ]
+.. storm-cli:: risk:alert:priority>5
 
 Lift all ``inet:flow`` nodes tagged with ``#my.tag`` and filter to include only those where the ``:ip:proto`` property is set to the hex equivalent of 6:
 
-.. storm-pre:: [ inet:flow=(tcp://62.152.42.139, tcp, 62.152.42.139) :server=tcp://62.152.42.139 :ip:proto=6 +#my.tag]
+.. storm-pre:: [ inet:flow=( { "server": "tcp://62.152.42.139:1234", "period": "(2026/03/19 01:37:42, 2026/03/19 01:38:09)" } ) :ip:proto=6 +#my.tag]
 .. storm-cli:: inet:flow#mytag +:ip:proto=0x06
 
-Use an octal value to lift all ``it:group`` nodes where the ``:posix:gid`` values equate to 278:
+Use an octal value to lift all the RAR entry nodes where the ``:extra:posix:perms`` are 755 (decimal 493):
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ it:group=(research, a6f4147c23421ef47a1fabea899b3aeb, threat researchers group) :desc="threat researchers group" :name="research" :host=a6f4147c23421ef47a1fabea899b3aeb :posix:gid=278 ]
-    .. storm-cli:: it:group:posix:gid=0o426
+.. storm-cli:: file:mime:rar:entry:extra:posix:perms=0o755
 
 
 .. _type-ival:
@@ -1170,7 +1223,7 @@ Use an octal value to lift all ``it:group`` nodes where the ``:posix:gid`` value
 ival
 ----
 
-``ival`` ("interval") is a specialized type consisting of two ``time`` types in a paired ``(<min>, <max>)``
+``ival`` (interval) is a specialized type consisting of two ``time`` types in a paired ``(<min>, <max>)``
 relationship. As such, the individual values in an ``ival`` are subject to the same specialized handling as
 individual :ref:`type-time` values.
 
@@ -1191,12 +1244,12 @@ behavior when specifying a single time value).
 Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`.
 For example:
 
-- ``:seen=("2017/03/24 12:13:27", "2017/08/05 17:23:46")``
+- ``:seen=('2017/03/24 12:13:27', '2017/08/05 17:23:46')``
 - ``+#sometag=(2018/09/15, "+24 hours")``
 - ``:seen=2019/03/24``
 
 As ``ival`` types are a pair of values (i.e., an explicit minimum and maximum), the values must be placed in
-parentheses and separated by a comma: ``(<min>, <max>)``. The parser expects two **explicit** values.
+parentheses and separated by a comma: ``(<min>, <max>)``. The parser expects two values with this format.
 
 An ``ival`` can also be specified as a single time value, in which case the value must be specified **without**
 parentheses: ``<time>``. See **Insertion** below for ``ival`` behavior when adding vs. modifying using a single
@@ -1207,7 +1260,7 @@ types, including explicit times (including lower resolution times and wildcard t
 special values ``now`` and ``?``.
 
 ``ival`` types also support relative times using ``+-`` format to represent both a positive and negative offset
-from a given point (i.e., ``"+-1 hour"``).
+from a given point (i.e., ``'+-1 hour'``).
 
 When entering relative times in an ``ival`` type:
 
@@ -1216,11 +1269,11 @@ When entering relative times in an ``ival`` type:
 
 For example:
 
-- ``:seen="+1 hour"`` means from the current time (now) to one hour after the current time.
-- ``:seen=(2018/12/01, "+1 day")`` means from 12:00 AM December 1, 2018 to 12:00 AM December 2, 2018.
-- ``:seen=(2018/12/01, "-1 day")`` means from 12:00 AM November 30, 2018 to 12:00 AM December 1, 2018.
-- ``:seen=(now, "+-5 minutes")`` means from 5 minutes ago to 5 minutes from now.
-- ``:seen=("-30 minutes", "+1 hour")`` means from 30 minutes ago to 30 minutes from now.
+- ``:seen='+1 hour'`` means from the current time (now) to one hour after the current time.
+- ``:seen=(2018/12/01, '+1 day')`` means from 12:00 AM December 1, 2018 to 12:00 AM December 2, 2018.
+- ``:seen=(2018/12/01, '-1 day')`` means from 12:00 AM November 30, 2018 to 12:00 AM December 1, 2018.
+- ``:seen=(now, '+-5 minutes')`` means from 5 minutes ago to 5 minutes from now.
+- ``:seen=('-30 minutes', '+1 hour')`` means from 30 minutes ago to 30 minutes from now.
 
 When specifying minimum and maximum times for an ``ival`` type (or when specifying minimum and maximum ``time``
 values to the ``*range=`` comparator), the following restrictions should be kept in mind:
@@ -1233,7 +1286,7 @@ values to the ``*range=`` comparator), the following restrictions should be kept
     a max value and less than a min value).
 
   - Similarly, combinations of relative times that result in an effective ``<max>, <min>`` after relative offsets
-    are calculated are allowed (will not generate an error), but will result in an exclusionary time window that
+    are calculated are allowed will not generate an error, but will result in an exclusionary time window that
     does not return any nodes.
 
 - Values that result in a nonsensical ``<min>, <max>`` are not allowed and will generate an error. For example:
@@ -1283,8 +1336,8 @@ equivalent ( ``=`` ) operator, which will match the **exact** ``<min>`` and ``<m
 Lift the DNS A nodes whose observation window is **exactly** from 2018/12/13 01:05 to 2018/12/16 12:57:
 
 
-.. storm-pre:: [ inet:dns:a=(yoyodyne.com,16.16.16.16) :seen=("2018/12/13 01:05", "2018/12/16 12:57") ]
-.. storm-cli:: inet:dns:a:seen=("2018/12/13 01:05", "2018/12/16 12:57")
+.. storm-pre:: [ inet:dns:a=(yoyodyne.com,16.16.16.16) :seen=('2018/12/13 01:05', '2018/12/16 12:57') ]
+.. storm-cli:: inet:dns:a:seen=('2018/12/13 01:05', '2018/12/16 12:57')
 
 ``ival`` types cannot be used with comparison operators such as "less than" or "greater than or equal to".
 
@@ -1297,7 +1350,7 @@ and :ref:`filter-interval`). ``@=`` is intended for time-based comparisons (incl
 Lift all the DNS A nodes whose observation window overlaps with the interval of March 1, 2019 through April 1, 2019:
 
 
-.. storm-pre:: [ ( inet:dns:a=(hurr.com,4.4.4.4) :seen=('2019/01/05 09:38', '2019/03/12 18:17') ) ( inet:dns:a=(derp.net,8.8.8.8) :seen=('2019/03/08 07:26','2019/03/22 10:14') ) ( inet:dns:a=(blergh.org,2.2.2.2) :seen=('2019/03/28 22:22','2019/04/27 00:03') ) ]
+.. storm-pre:: [ ( inet:dns:a=(hurr.com, 4.4.4.4) :seen=('2019/01/05 09:38', '2019/03/12 18:17') ) ( inet:dns:a=(derp.net, 8.8.8.8) :seen=('2019/03/08 07:26','2019/03/22 10:14') ) ( inet:dns:a=(blergh.org, 2.2.2.2) :seen=('2019/03/28 22:22','2019/04/27 00:03') ) ]
 .. storm-cli:: inet:dns:a:seen@=(2019/03/01, 2019/04/01)
 
 
@@ -1307,14 +1360,14 @@ range of individual values (such as ``time`` or ``int``).
 .. TIP::
   
   By definition, an ``ival`` is a **pair** of date/time values treated as a single combined value. This means that
-  when using variables_ to work with ``ival`` types, the full value of the property is assigned to the variable by
+  when using :ref:`variables <storm-adv-vars>` to work with ``ival`` types, the full value of the property is assigned to the variable by
   default. For example, given a node (such as an ``inet:dns:a`` node) with a ``:seen`` value of ``(2023/07/08 11:19:02, 2023/12/14 21:18:47)``,
-  the variable assignment ``$time = :seen`` will assign the **pair** of date/times to ``$time``.
+  the variable assignment ``$time=:seen`` will assign the **pair** of date/times to ``$time``.
   
   You can access each date/time of an ``ival`` independently by assigning the value to a **pair** of variables
   as follows:
   
-  ``( $min, $max ) = :seen``
+  ``( $min, $max )=:seen``
   
   ``$min`` will represent the value ``2023/07/08 11:19:02`` and ``$max`` will represent the value ``2023/12/14 21:18:47``.
 
@@ -1353,13 +1406,13 @@ boundaries. The use of the dot as a reserved boundary marker impacts some operat
 that this means the dot cannot be used as part of a location string. For example, the following location value
 would be interpreted as a hierarchical location with four elements (``us``, ``fl``, ``st``, and ``petersburg``):
 
-- ``:loc = us.fl.st.petersburg``
+- ``:loc=us.fl.st.petersburg``
 
 To appropriately represent the "city" element of the above location, an alternate syntax must be used. For example:
 
-- ``:loc = us.fl.stpetersburg``
-- ``:loc = "us.fl.st petersburg"``
-- ``:loc = us.fl.st_petersburg``
+- ``:loc=us.fl.stpetersburg``
+- ``:loc='us.fl.st petersburg'``
+- ``:loc=us.fl.st_petersburg``
 - ...etc.
 
 As an extension of the ``str`` type, ``loc`` types are subject to Synapse’s restrictions regarding using
@@ -1389,7 +1442,7 @@ String and string-derived types are **prefix-indexed** to optimize lifting or fi
 with a given substring. For standard strings, the prefix operator can be used with strings of arbitrary length.
 However, for ``loc`` types, the prefix operator works along dot boundaries. This is because it is generally more
 analytically meaningful to lift all locations within the US (``^= us``) or within Florida (``^= us.fl``) than
-it is to lift all locations in the US within states that start with "V" (``^= us.v``).
+it is to lift all locations in the US within states that start with ``M`` (``^= us.m``).
 
 Prefix comparison for ``loc`` types is useful because it easily allows lifting or filtering at any appropriate
 level of resolution within the dotted hierarchy:
@@ -1398,56 +1451,55 @@ level of resolution within the dotted hierarchy:
 
 Lift all organizations located in Turkey (``tr``):
 
-.. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :place:loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :place:loc=tr.istanbul ) ]
-.. storm-cli:: ou:org:place:loc ^= tr
+.. storm-pre:: [ ( ou:org=( { "name": "republic of turkey ministry of foreign affairs" } ) :place:loc=tr.ankara ) ( ou:org=( { "name": "adeo it consulting services" } ) :place:loc=tr.istanbul ) ]
+.. storm-cli:: ou:org:place:loc^=tr
 
 
 Lift all IP addresses geolocated in the province of Ontario, Canada (``ca.on``):
 
-
 .. storm-pre:: [ ( inet:ip=149.248.52.240 :place:loc=ca.on ) ( inet:ip=49.51.12.195 :place:loc=ca.on.barrie ) ( inet:ip=199.201.123.200 :place:loc=ca.on.keswick ) ]
-.. storm-cli:: inet:ip:place:loc ^= ca.on
+.. storm-cli:: inet:ip:place:loc^=ca.on
 
 .. NOTE::
   
-  Specifying a more granular prefix value will not match values that are less granular. That is, ``inet:ip:place:loc ^= ca.on``
-  will fail to match ``inet:ip:place:loc = ca``.
+  Specifying a more granular prefix value will not match values that are less granular. That is, ``inet:ip:place:loc^=ca.on``
+  will fail to match ``inet:ip:place:loc=ca``.
 
 
 Equals Operator
 ~~~~~~~~~~~~~~~
 
 When **lifting** or **filtering** on ``loc`` property values using the equals operator ( ``=`` ), Synapse will return **exact** matches for
-the specified value. The query below will only lift ``geo:place`` nodes with ``:loc = us.wa.seattle``; it will not lift nodes with ``:loc = us.wa``
-or ``:loc = us.washington.seattle``:
+the specified value. The query below will only lift ``geo:place`` nodes with ``:loc=us.wa.seattle``; it will not lift nodes with ``:loc=us.wa``
+or ``:loc=us.washington.seattle``:
 
 Lift all places in the city of Seattle, Washington:
 
-.. storm-pre:: [ ( geo:place=* :name='space needle' :loc=us.wa.seattle :latlong=(47.6205099,-122.3514714) ) ( geo:place=* :name='seattle-tacoma international airport' :loc=us.wa.seattle :latlong=(47.4502535,-122.3110105) ) ]
-.. storm-cli:: geo:place:loc = us.wa.seattle
+.. storm-pre:: [ ( geo:place=( { "name": "space needle", "loc": "us.wa.seattle" } ) :latlong=(47.6205099,-122.3514714) ) ( geo:place=( { "name": "seattle-tacoma international airport", "loc": "us.wa.seattle" } ) :latlong=(47.4502535,-122.3110105) ) ]
+.. storm-cli:: geo:place:loc=us.wa.seattle
 
 When **lifting** on ``:loc`` property values using the equals operator ( ``=`` ), a single asterisk ( ``*`` ) can be used
-as a "wildcard" to represent any trailing string following a dot boundary (including no trailing string  - ``:loc = us.*``
-will match ``:loc = us`` as well as ``:loc = us.tx.austin``). The asterisk must immediately follow a dot boundary and must
-be the final character in the expression (e.g., expressions such as ``:loc = us.*.rochester`` and ``:loc = us.m*`` are
+as a wildcard to represent any trailing string following a dot boundary (including no trailing string  - ``:loc=us.*``
+will match ``:loc=us`` as well as ``:loc=us.tx.austin``). The asterisk must immediately follow a dot boundary and must
+be the final character in the expression (e.g., expressions such as ``:loc=us.*.rochester`` and ``:loc=us.m*`` are
 invalid; the expressions will not generate an error but will fail to return any nodes).
 
 Lift all organizations located in Turkey:
 
-.. storm-cli:: ou:org:place:loc = tr.*
+.. storm-cli:: ou:org:place:loc=tr.*
 
 Lift all IP addresses geolocated in the province of Ontario, Canada:
 
-.. storm-cli:: inet:ip:place:loc = ca.on.*
+.. storm-cli:: inet:ip:place:loc=ca.on.*
 
 .. NOTE::
 
   Lifting by ``loc`` property value using the wildcard is equivalent to a prefix lift. The following queries will
   return the same results:
   
-  Wildcard: ``ou:org:place:loc = de.*``
+  Wildcard: ``ou:org:place:loc=de.*``
   
-  Prefix match: ``ou:org:place:loc ^= de``
+  Prefix match: ``ou:org:place:loc^=de``
 
 
 .. _type-str:
@@ -1489,16 +1541,10 @@ or mixed) and will be automatically normalized by Synapse.
 
 **Examples**
 
-Lift all organizations whose name starts with the word "Acme ":
+Lift all organizations whose name starts with the word "Acme":
 
-
-.. storm-cli:: ou:org:name^='acme '
-
-Filter a set of service accounts to those with usernames starting with 'matrix':
-
-.. storm-pre:: [ (inet:service:account=* :user=matrixmaster) (inet:service:account=* :user=matrixneo) ]
-.. storm-cli:: inet:service:account +:user^=matrix
-
+.. storm-pre:: [ ou:org=( { "name": "acme construction" } ) ou:org=( { "name": "acme practical joke products" } ) ]
+.. storm-cli:: ou:org:name^=acme
 
 Strings and string-derived types can also be lifted or filtered using the regular expression extended comparator
 ( ``~=``) (see :ref:`lift-regex` and :ref:`filter-regex`).
@@ -1535,10 +1581,10 @@ underscore) are not allowed.
 
 The following are all acceptable ``syn:tag`` values:
 
-- ``syn:tag = cno``
-- ``syn:tag = rep.vt.exploit``
-- ``syn:tag = rep.microsoft.forest_blizzard``
-- ``syn:tag = 总参.三部``
+- ``syn:tag=cno``
+- ``syn:tag=rep.vt.exploit``
+- ``syn:tag=rep.microsoft.forest_blizzard``
+- ``syn:tag=总参.三部``
 
 When creating a ``syn:tag`` node or setting a property whose type is ``syn:tag`` (such as ``risk:threat:tag``),
 Synapse will automatically normalize the value by:
@@ -1549,7 +1595,7 @@ Synapse will automatically normalize the value by:
 
 **Examples:**
 
-.. storm-cli:: [ syn:tag = "rep.us-cisa.LAPSUS$" ]
+.. storm-cli:: [ syn:tag='rep.us-cisa.LAPSUS$' ]
 
 In the above example:
 
@@ -1563,23 +1609,23 @@ In the above example:
    error. The only normalization Synapse performs in this situation is to gracefully convert any uppercase letters
    to lowercase. The following Storm query will throw an error:
    
-   ``[ inet:fqdn = woot.com +#rep.us-cisa.LAPSUS$ ]``
+   ``[ inet:fqdn=woot.com +#rep.us-cisa.LAPSUS$ ]``
 
 
 Insertion
 +++++++++
 
-``syn:tag`` are unique in that they are a type that can also be applied as a label to other nodes.
+The ``syn:tag`` type is unique in that it is a type that can also be applied as a label to other nodes.
 
 A ``syn:tag`` (as a node) does not have to be created before the equivalent tag (label) can be applied to another
 node. That is, applying a tag to a node will result in the automatic creation of the corresponding ``syn:tag``
 node or nodes (assuming the appropriate user permissions). For example:
 
-.. storm-cli:: [ inet:fqdn = woot.com +#some.new.tag ]
+.. storm-cli:: [ inet:fqdn=woot.com +#some.new.tag ]
 
-The Storm syntax above will apply the tag ``#some.new.tag`` to the node ``inet:fqdn = woot.com`` and automatically
-create the node ``syn:tag = some.new.tag`` if it does not already exist (as well as ``syn:tag = some`` and
-``syn:tag = some.new``).
+The Storm syntax above will apply the tag ``#some.new.tag`` to the node ``inet:fqdn=woot.com`` and automatically
+create the node ``syn:tag=some.new.tag`` if it does not already exist (as well as ``syn:tag=some`` and
+``syn:tag=some.new``).
 
 
 Operations
@@ -1599,27 +1645,24 @@ or to lift / filter tags at any appropriate level of resolution within a tag hie
 Lift all tags in the computer network operations (``cno``) tree:
 
 .. storm-pre:: [ syn:tag=cno.threat.t27 syn:tag=cno.mal.redtree ]
-.. storm-cli:: syn:tag ^= cno
+.. storm-cli:: syn:tag^=cno
 
-Lift all threats (``risk:threat`` nodes) whose ``:tag`` value is associated with Dell Secureworks threats
-whose name begins with "br":
+Lift all tags associated with data reported by Sophos where the final tag element starts with ``co``:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ (risk:threat=* :org:name='bronze elgin' :reporter:name=secureworks :tag=rep.secureworks.bronze_elgin) (risk:threat=* :org:name='bronze president' :reporter:name=secureworks :tag=rep.secureworks.bronze_president) ]
-    .. storm-cli:: risk:threat:tag ^=rep.secureworks.br
+.. storm-pre:: [ ( syn:tag=rep.sophos.cobalt_shadow :title="COBALT SHADOW (Sophos)" ) ( syn:tag=rep.sophos.copper_fieldstone :title="COPPER FIELDSTONE (Sophos)" ) ( syn:tag=rep.sophos.iron_tilden :title="IRON TILDEN (Sophos)" ) ]
+.. storm-cli:: syn:tag^=rep.sophos.co
 
 **Usage notes:**
 
 - Specifying a more granular prefix value will **not** match values that are less granular. That is, ``syn:tag^=cno.infra``
-  will fail to match ``syn:tag = cno``.
+  will fail to match ``syn:tag=cno``.
 
 - Use of the equals comparator ( ``=`` ) with ``syn:tag`` types will match the **exact value only.** So
-  ``syn:tag = rep`` will **only** match that tag and will not match ``syn:tag = rep.symantec`` or
-  ``syn:tag = rep.trend.pawnstorm``.
+  ``syn:tag=rep`` will **only** match that tag and will not match ``syn:tag=rep.symantec`` or
+  ``syn:tag=rep.trend.pawnstorm``.
 
 - When lifting or filtering ``syn:tag`` types, use of the wildcard ( ``*`` ) is not allowed. For example,
-  the following Storm expression is invalid and will throw a syntax error: ``syn:tag = rep.*.cobalt_strike``
+  the following Storm expression is invalid and will throw a syntax error: ``syn:tag=rep.*.cobalt_strike``
 
 .. NOTE::
   
@@ -1636,50 +1679,50 @@ taxonomy
 --------
 
 A ``taxonomy`` in Synapse is used to represent a set of hierarchical types or categories that can be used to classify
-objects (forms). Many forms in Synapse include ``:type`` properties (such as ``risk:tool:software:type``, ``geo:place:type``,
+objects (forms). Many forms in Synapse include ``:type`` properties (such as ``it:software:type``, ``geo:place:type``,
 or ``doc:report:type``).
 
 .. TIP::
-  
-  ``taxonomy`` is a base :ref:`gloss-type` that is commonly extended to define form-specific taxonomies. That is, a tool
-  (``risk:tool:software``) has a ``:type`` property that can represent a set of tool/malware types or categories. The
-  ``risk:tool:software:type`` property has a form-specific type of ``risk:tool:software:taxonomy``.
-  
+
+  ``taxonomy`` is a base :ref:`gloss-type` that is commonly extended to define form-specific taxonomies. That is, a software
+  product (``it:software``) has a ``:type`` property that can represent a set of tool/malware types or categories. The
+  ``it:software:type`` property has a form-specific type of ``it:software:type:taxonomy``.
+
   While this section describes the behavior of taxonomies generally, keep in mind that each form can have its own taxonomy /
   set of categories independent of other taxonomies. This allows you to define one taxonomy to categorize tools/malware and
   a separate taxonomy to categorize articles or publications, for example.
 
-Most taxonomy types are also forms (i.e., ``risk:tool:software:type:taxonomy``), so you can lift, view, and work with them
+Most taxonomy types are also forms (i.e., ``it:software:type:taxonomy``), so you can lift, view, and work with them
 just like other nodes in Synapse. To ensure consistency across the numerous taxonomy forms, most taxonomies inherit the
 ``meta:taxonomy`` :ref:`gloss-interface`.
 
-Given their hierarchical structure, taxonomies share some similarities with `tags`_:
+Given their hierarchical structure, taxonomies share some similarities with :ref:`tags <type-syn-tag>`:
 
 - Taxonomies can be hierarchical, using a dotted (dot-separated) namespace to represent various levels in the hierarchy.
 - Taxonomy forms include properties such as ``:base``, ``:depth``, and ``:parent`` that allow you to lift,
   pivot, and navigate among taxonomy nodes similar to the way you navigate :ref:`analytical-tags-nodes`.
 
-There are no "pre-defined" taxonomies in Synapse. You can make use of taxonomies (or not), and can define taxonomies that
+There are no pre-defined taxonomies in Synapse. You can make use of taxonomies (or not), and can define taxonomies that
 are tailored to your specifc analysis needs. For example, you can construct a multi-level taxonomy to help subdivide and
 organize industries using their ``:type`` property:
 
-- ``ou:industry:type = education``
-- ``ou:industry:type = education.colleges``
-- ``ou:industry:type = education.colleges.universities``
-- ``ou:industry:type = education.colleges.junior``
-- ``ou:industry:type = finance``
-- ``ou:industry:type = finance.banking``
-- ``ou:industry:type = finance.defi``
+- ``ind:industry:type=education``
+- ``ind:industry:type=education.colleges``
+- ``ind:industry:type=education.colleges.universities``
+- ``ind:industry:type=education.colleges.junior``
+- ``ind:industry:type=finance``
+- ``ind:industry:type=finance.banking``
+- ``ind:industry:type=finance.defi``
 
 ...etc.
 
 Taxonomies do not have to be multi-level / hierarchcial. If you only need a simple set of categories, you can define a
-flat taxonomy with only one level. The following uses a flat taxonomy to populate ``risk:tool:software:type`` properties:
+flat taxonomy with only one level. The following uses a flat taxonomy to populate ``it:software:type`` properties:
 
-- ``risk:tool:software:type = backdoor``
-- ``risk:tool:software:type = downloader``
-- ``risk:tool:software:type = dropper``
-- ``risk:tool:software:type = utility``
+- ``it:software:type=backdoor``
+- ``it:software:type=downloader``
+- ``it:software:type=dropper``
+- ``it:software:type=utility``
 
 ... etc.
 
@@ -1740,28 +1783,28 @@ form's taxonomy.
 
 **Examples:**
 
-Lift all industries (``ou:industry`` nodes) within the "media" catetgory / taxonomy:
+Lift all industries (``ind:industry`` nodes) within the "media" category / taxonomy:
 
-.. storm-pre:: [ (ou:industry=* :name=media :type=media) (ou:industry=* :name='journalism and news media' :type=media.journalism) (ou:industry=* :name='journalists and reporters' :type=media.journalism.reporters) (ou:industry=* :name=publishing :type=media.publishing) (ou:industry=* :name='print media' :type=media.publishing.print) (ou:industry=* :name=entertainment :type=media.entertainment) ]
-.. storm-cli:: ou:industry:type ^= media
+.. storm-pre:: [ ind:industry=( { "name": "media", "type": "media" } ) ind:industry=( { "name": "journalism and news media", "type": "media.journalism" } ) ind:industry=( { "name": "journalists and reporters", "type": "media.journalism.reporters" } ) ind:industry=( { "name": "publishing", "type": "media.publishing" } ) ind:industry=( { "name": "print media", "type": "media.publishing.print" } ) ind:industry=( { "name": "entertainment", "type": "media.entertainment" } ) ]
+.. storm-cli:: ind:industry:type^=media
 
-Lift all industries (``ou:industry`` nodes) within the "media" catetgory / taxonomy whose subcategory starts
+Lift all industries (``ind:industry`` nodes) within the "media" category / taxonomy whose subcategory starts
 with "j":
 
-.. storm-cli:: ou:industry:type ^= media.j
+.. storm-cli:: ind:industry:type^=media.j
 
 
 **Usage notes:**
 
 - Specifying a more granular prefix value will not match values that are less granular. That is,
-  ``risk:tool:software:availability ^= public.commercial`` will fail to match ``risk:tool:software:availability = public``
+  ``it:software:availability^=public.commercial`` will fail to match ``it:software:availability=public``
 
 - Use of the equals comparator ( ``=`` ) with ``taxonomy`` types will match the exact value only. So
-  ``ou:industry:type = energy`` will only match that taxonomy and will not match ``ou:industry:type = energy.electricity``
-  or ``ou:industry:type = energy.electricity.distribution``.
+  ``ind:industry:type=energy`` will only match that taxonomy and will not match ``ind:industry:type=energy.electricity``
+  or ``ind:industry:type=energy.electricity.distribution``.
 
 - When lifting or filtering ``taxonomy`` types, use of the wildcard ( ``*`` ) is not allowed. For example, the following
-  Storm expression is invalid and will throw a syntax error: ``risk:attack:type:taxonomy = phishing.*``.
+  Storm expression is invalid and will throw a syntax error: ``risk:attack:type:taxonomy=phishing.*``.
 
 
 .. _type-time:
@@ -1790,7 +1833,7 @@ Parsing
 
   - Human-readable (YYYY/MM/DD hh:mm:ss.mmmmmm):
   
-    ``"2018/12/16 09:37:52.324"``
+    ``'2018/12/16 09:37:52.324'``
   
   - Human-readable "Zulu" (YYYY/MM/DDThh:mm:ss.mmmmmmZ):
   
@@ -1818,7 +1861,7 @@ Parsing
     
     .. TIP::
       
-      Synapse expects that users will generally enter time values using "human friendly" strings, and will attempt
+      Synapse expects that users will generally enter time values using human-friendly strings, and will attempt
       to parse the input as such. Using parentheses tells Synapse to interpret the value as a raw integer.
       
       Note that this parentheses syntax only applies when setting or updating a ``time`` property using Storm.
@@ -1837,11 +1880,11 @@ Parsing
   
   **Examples:**
     
-    - ``"+7 days"``
-    - ``"-15 minutes"``
-    - ``"+-1 hour"``
+    - ``'+7 days'``
+    - ``'-15 minutes'``
+    - ``'+-1 hour'``
   
-- **"Special"** time values:
+- **Special** time values:
   
   - the keyword ``now`` is used to represent the current date/time.
   - a question mark ( ``?`` ) is used to effectively represent an unspecified / indefinite time in the future
@@ -1854,7 +1897,7 @@ Parsing
     with a maximum interval value set to the equivalent of ``now`` that would need to be continually updated over
     time in order to remain current.)
 
-Standard rules regarding using :ref:`storm-whitespace-literals` apply. For example, ``"2018/12/16 09:37:52.324"``
+Standard rules regarding using :ref:`storm-whitespace-literals` apply. For example, ``'2018/12/16 09:37:52.324'``
 needs to be entered in single or double quotes, but ``2018/12/16`` does not. Similarly, relative times starting
 with ``+`` or ``-`` and the special time value ``?`` need to be placed in single or double quotes.
 
@@ -1869,15 +1912,15 @@ value and zero-fill the remainder of the equivalent epoch mills date / time. For
 
 - A value of ``2016`` will be interpreted as 12:00 AM on January 1, 2016 (``2016/01/01 00:00:00.000000``).
 - A value of ``2018/10/27`` will be interpreted as 12:00 AM on that date (``2018/10/27 00:00:00.000000``).
-- A value of ``"2020/03/16 05"`` will be interpreted as 05:00 AM on that date (``2020/03/16 05:00:00.000000``).
-- A value of ``"2018/10/27 14:00-04:00"`` will be interpreted as 14:00 (2:00 PM) on that date with a 4 hour
+- A value of ``'2020/03/16 05'`` will be interpreted as 05:00 AM on that date (``2020/03/16 05:00:00.000000``).
+- A value of ``'2018/10/27 14:00-04:00'`` will be interpreted as 14:00 (2:00 PM) on that date with a 4 hour
   offset from UTC (``2018/10/27 14:00:00.000-04:00``, stored in UTC as ``2018/10/27 18:00:00.000000``).
 
 Synapse also supports the use of the wildcard ( ``*`` ) character to specify a partial time value match:
 
 - A value of ``2016*`` will be interpreted as "any date / time within the year 2016".
 - A value of ``2018/10/27*`` will be interpreted as "any time on October 27, 2018".
-- A value of ``"2020/03/16 05*"`` will be interpreted as "any time within the hour of 05:00 on March 16, 2020".
+- A value of ``'2020/03/16 05*'`` will be interpreted as "any time within the hour of 05:00 on March 16, 2020".
 
 .. NOTE::
   
@@ -1889,19 +1932,20 @@ Synapse also supports the use of the wildcard ( ``*`` ) character to specify a p
 
 Set the time of a DNS request to the current time:
 
-.. storm-cli:: [ inet:dns:request="*" :query:name=woot.com :time=now ]
+.. storm-pre:: [ inet:dns:request=( { "query:name": "woot.com" } ) ]
+.. storm-cli:: inet:dns:request:query:name=woot.com [ :time=now ]
 
 
 Set the observed time window (technically an ``ival`` type) for when an IP address was a known sinkhole (via
 the ``#cno.infra.dns.sink.hole`` tag) from its known start date to an indefinite future time (i.e., the sinkhole
 is presumed to remain a sinkhole indefinitely / until the values are manually updated with an explicit end date):
 
-.. storm-cli:: [ inet:ip=1.2.3.4 +#cno.infra.dns.sink.hole=(2017/06/13, "?") ]
+.. storm-cli:: [ inet:ip=1.2.3.4 +#cno.infra.dns.sink.hole=(2017/06/13, '?') ]
 
 
 - Set the observed time window using a time zone offset:
 
-.. storm-cli:: [ inet:ip=5.6.7.8 +#cno.infra.dns.sink.hole=(2017/06/13 09:46+04:00, "?") ]
+.. storm-cli:: [ inet:ip=5.6.7.8 +#cno.infra.dns.sink.hole=(2017/06/13 09:46+04:00, '?') ]
 
 
 Insertion
@@ -1914,20 +1958,14 @@ In addition, when adding or modifying ``time`` types, a lower resolution time an
 identically. In other words, the following are equivalent Storm queries (both will set the ``:time`` value
 of the newly created DNS request node to ``2021/01/23 00:00:00.000000``):
 
-.. storm-pre:: [ inet:dns:request="*" :time=2021/01/23 ]
-.. storm-pre:: [ inet:dns:request="*" :time=2021/01/23* ]
-
-::
-  
-  [ inet:dns:request="*" :time=2021/01/23 ]
-  
-  [ inet:dns:request="*" :time=2021/01/23* ]
-
+.. storm-pre:: [ inet:dns:request=( { "query:name": "example.com" } ) ]
+.. storm-cli:: inet:dns:request:query:name=example.com [ :time=2021/01/23 ]
+.. storm-cli:: inet:dns:request:query:name=example.com [ :time=2021/01/23* ]
 
 When specifying a relative time for a ``time`` value, **the offset will be calculated from the current time**
 (``now``):
 
-.. storm-cli:: [ inet:dns:request="*" :query:name=woot.com :time="-5 minutes" ]
+.. storm-cli:: inet:dns:request:query:name=woot.com [ :time='-5 minutes' ]
 
 Plus / minus ( ``+-`` ) relative times cannot be specified for ``time`` types, as the type requires a single
 value.  See the section on :ref:`type-ival` (interval) types for details on using ``+-`` times with ``ival``
@@ -1938,9 +1976,14 @@ Operations
 
 ``time`` types can be lifted and filtered using:
 
- - Standard logical and mathematical comparison operators (comparators).
- - The extended range ( ``*range=`` ) custom comparator.
- - The extended interval ( ``@=`` ) custom comparator.
+- Standard logical and mathematical comparison operators (comparators).
+- The extended range ( ``*range=`` ) custom comparator.
+- The extended interval ( ``@=`` ) custom comparator.
+
+Arithmetic on typed values preserves the ``time`` type:
+
+- subtracting two ``time`` values yields a ``duration`` (see :ref:`type-duration`);
+- adding or subtracting a ``duration`` to or from a ``time`` yields a new ``time``.
 
 
 Standard Operators
@@ -1952,10 +1995,10 @@ wildcard time values.
 
 **Example:**
 
-Downselect a set of DNS request nodes to those that occurred prior to June 1, 2019:
+Filter a set of DNS request nodes to those that occurred prior to June 1, 2019:
 
 
-.. storm-pre:: [ ( inet:dns:request=* :query:name=hurr.com :time='2018/06/28 17:43' ) ( inet:dns:request=* :query:name=derp.net :time='2015/12/14 19:22' ) ]
+.. storm-pre:: [ inet:dns:request=( { "query:name": "hurr.com", "time": "2018/06/28 17:43" } ) inet:dns:request=( { "query:name": "derp.net", "time": "2015/12/14 19:22" } ) ]
 .. storm-cli:: inet:dns:request +:time<2019/06/01
 
 .. NOTE::
@@ -2020,18 +2063,15 @@ Range Custom Operator
 
 Lift a set of ``file:bytes`` nodes whose PE compiled time is between January 1, 2019 and today:
 
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/10/07 12:42:45' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2021/04/13 00:23:14' ) ]
-    .. storm-cli:: file:bytes:mime:pe:compiled*range=(2019/01/01, now)
+.. storm-pre:: $file1={ [ file:bytes=( { "sha256": "9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da" } ) ] } $file2={ [ file:bytes=( { "sha256": "bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce" } ) ] } $file3={ [ file:bytes=( { "sha256": "fac373a26a5f0458890deea7bc93d6ea6e769eeb6440d56c5adf9f3da8838c90" } ) ] }  [  file:mime:pe=( { "file": $file1, "compiled": "2019/10/07 12:42:45" } ) file:mime:pe=( { "file": $file2, "compiled": "2021/04/13 00:23:14" } ) file:mime:pe=( { "file": $file3, "compiled": "2023/10/30 05:34:22" } ) ]
+.. storm-cli:: file:mime:pe:compiled*range=(2021/01/01, now)
 
 .. NOTE::
   
-  Both lower resolution times and wildcard times can be used for values specified within the ``*range=`` operator.
-  Because the range operator is a shorthand syntax for "greater than or equal to `<range_min>` and less than or
-  equal to `<range_max>`", users should be aware of differences in behavior between each kind of time value with
-  greater than / less than operators.
+  Both lower resolution times (``2025``) and wildcard times (``2025*``) can be used for values specified within
+  the ``*range=`` operator. Because the range operator is a shorthand syntax for "greater than or equal to ``<range_min>``
+  and less than or equal to ``<range_max>``", users should be aware of differences in behavior between each kind of
+  time value with greater than / less than operators.
   
 See the Storm documents referenced above for additional examples using the range (``*range=``) comparator.
 
@@ -2049,23 +2089,21 @@ interval.
 Lift a set of DNS A records whose window of observation includes March 16, 2019 at 13:00 UTC:
 
 
-.. storm-pre:: [ ( inet:dns:a=(aaaa.org,1.2.3.4) :seen=('2018/12/29 12:36:27','2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu,5.6.7.8) :seen=('2019/03/16 12:59:59','2019/03/16 13:01:01') ) ]
+.. storm-pre:: [ ( inet:dns:a=(aaaa.org, 1.2.3.4) :seen=('2018/12/29 12:36:27','2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu,5.6.7.8) :seen=('2019/03/16 12:59:59','2019/03/16 13:01:01') ) ]
 .. storm-cli:: inet:dns:a:seen@='2019/03/16 13:00'
 
 .. NOTE::
   
-  Both lower resolution times and wildcard time can be used for values specified within the ``@=`` operator.
-  Because the interval operator is a shorthand syntax for "greater than or equal to `<ival_min>` and less than
-  `<ival_max>`", users should be aware of differences in behavior between each kind of time value with greater
-  than / less than operators.
+  Both lower resolution times (``2025``) and wildcard time (``2025*``) can be used for values specified within
+  the ``@=`` operator. Because the interval operator is a shorthand syntax for "greater than or equal to ``<ival_min>``
+  and less than ``<ival_max>``", users should be aware of differences in behavior between each kind of time value
+  with greater than / less than operators.
 
 See the Storm documents referenced above for additional examples using the interval (``@=``) comparator.
 
-.. _types: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#type
 .. _documentation: ../autodocs/datamodel_types.html
 .. _code: https://github.com/vertexproject/synapse
-.. _Optic UI: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
+.. _Optic UI: {{SYN_DOCS_BASEURL}}/docs/optic/latest/index.html
 .. _Microsoft: https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
-.. _variables: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_vars.html
-.. _tags: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#syn-tag
+.. _Synapse-PSL: {{SYN_DOCS_BASEURL}}/docs/synapse-psl/latest/index.html
 

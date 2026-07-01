@@ -26,10 +26,9 @@ async def importLayer(infiles, opts, outp):
         # Get the highest cellvers from all the input files
         reqver = max([infile[0].get('cellvers') for infile in infiles])
 
-        if (synver := info.get('cell').get('version')) < reqver:
-            synstr = s_version.fmtVersion(*synver)
-            reqstr = s_version.fmtVersion(*reqver)
-            mesg = f'Synapse version mismatch ({synstr} < {reqstr}).'
+        synver = info.get('cell').get('version')
+        if s_version.release(synver) < s_version.release(reqver):
+            mesg = f'Synapse version mismatch ({synver} < {reqver}).'
             raise s_exc.BadVersion(mesg=mesg)
 
     async with await s_telepath.openurl(opts.url, name=f'*/layer/{opts.iden}') as layer:

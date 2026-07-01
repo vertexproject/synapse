@@ -16,6 +16,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.time as s_time
 import synapse.lib.logging as s_logging
 import synapse.lib.schemas as s_schemas
 
@@ -158,10 +159,10 @@ class ApptRec:
 
     def nexttime(self, lastts):
         '''
-        Returns next timestamp that meets requirements, incrementing by (self.incunit * incval) if not increasing, or
-        0.0 if there are no future matches
+        Returns next timestamp (epoch micros) that meets requirements, incrementing by (self.incunit * incval) if not
+        increasing, or 0 if there are no future matches
         '''
-        lastdt = datetime.datetime.fromtimestamp(lastts, tz.utc)
+        lastdt = datetime.datetime.fromtimestamp(lastts / s_time.onesec, tz.utc)
         newvals = {}  # all the new fields that will be changed in datetime of lastts
 
         # Truncate the seconds part
@@ -206,7 +207,7 @@ class ApptRec:
                 largest_req = min(self.reqdict.keys())
                 tmpunit = _NextUnitMap[largest_req]
                 if tmpunit is None:  # required a year and we're already there
-                    return 0.0
+                    return 0
                 # Unless we're going to the next day of week, increment by 1 unit of the next larger unit
                 tmpincval = self.reqdict.get(TimeUnit.DAYOFWEEK, 1)
             else:
@@ -214,7 +215,7 @@ class ApptRec:
                 tmpincval = self.incval
             newdt = self._inc(tmpunit, tmpincval, self.reqdict, lastdt, newdt)
             assert newdt > lastdt
-        return newdt.timestamp()
+        return s_time.timestamp(newdt)
 
     def _inc(self, incunit, incval, reqdict, origdt, dt):
         '''
@@ -323,7 +324,7 @@ class _Appt:
 
     def pack(self):
         return {
-            'ver': 1,
+            'ver': 2,
             'doc': self.doc,
             'name': self.name,
             'pool': self.pool,
@@ -351,8 +352,8 @@ class _Appt:
 
     @classmethod
     def unpack(cls, stor, val):
-        if val['ver'] != 1:
-            raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")  # pragma: no cover
+        if val['ver'] != 2:
+            raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
         # TODO: MOAR INSANITY
         loglevel = val.get('loglevel', 'WARNING')
@@ -382,13 +383,13 @@ class _Appt:
 
         while self.recs and self.nexttime <= now:
 
-            lowtime = 999999999999.9
+            lowtime = float('inf')
 
             # Find the lowest next time of all of our recs (backwards, so we can delete)
             for i in range(len(self.recs) - 1, -1, -1):
                 rec = self.recs[i]
                 nexttime = rec.nexttime(self.nexttime)
-                if nexttime == 0.0:
+                if nexttime == 0:
                     # We blew by and missed a fixed-year appointment, either due to clock shenanigans, this query going
                     # really long, or the initial requirement being in the past
                     logger.warning(f'Missed an appointment: {rec}')
@@ -806,7 +807,7 @@ class Agenda(s_base.Base):
                 heapq.heapify(self.apptheap)
 
     def _getNowTick(self):
-        return time.time() + self.tickoff
+        return int(time.time() * s_time.onesec) + self.tickoff
 
     def _addTickOff(self, offs):
         self.tickoff += offs
@@ -838,7 +839,7 @@ class Agenda(s_base.Base):
 
             timeout = None
             if self.apptheap:
-                timeout = self.apptheap[0].nexttime - self._getNowTick()
+                timeout = (self.apptheap[0].nexttime - self._getNowTick()) / s_time.onesec
 
             if timeout is None or timeout > 0:
                 self._wake_event.clear()
@@ -1038,7 +1039,7 @@ class Agenda(s_base.Base):
                 if self.core.isactive:
                     await self.core.addCronEdits(appt.iden, edits)
 
-            took = finishtime - starttime
+            took = (finishtime - starttime) / s_time.onesec
             mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
                    f'took {took:.3f}s'
             if not self.core.isactive:

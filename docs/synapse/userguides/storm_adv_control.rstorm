@@ -85,20 +85,20 @@ this behavior with control flow operations in particular, it can result in behav
  
 **Use subqueries...but understand how they work.** Unlike most Storm operations and commands, subqueries
 **do not consume** nodes - by default, what goes into a subquery comes out of a subquery, regardless of what
-happens inside the subquery itself. This means you can use `subqueries`_ with advanced Storm to isolate certain
+happens inside the subquery itself. This means you can use :doc:`subqueries </synapse/userguides/storm_ref_subquery>` with advanced Storm to isolate certain
 operations and keep the "primary" nodes passing through the Storm pipeline consistent. That said, a node still
 has to pass **into** a subquery for the Storm inside a subquery to run. If your subquery **fails** to execute,
 it may be because nothing is going in to it.
 
 **Use functions to encapsulate operations.** As Storm increases in length or complexity, it can become
-increasingly challenging to keep track of your pipeline and working set. `Functions`_ can be used to simplify
+increasingly challenging to keep track of your pipeline and working set. :doc:`Functions </synapse/userguides/storm_adv_functions>` can be used to simplify
 your Storm by isolating specific Storm logic within a function.
 
 **Start small and add to your Storm incrementally.** It's easier to verify that smaller Storm queries execute
 correctly and then build on that code than to try and write a more advanced query all at once and try to figure
 out where things aren't working.
 
-**As with all debugging, print statements are your friend.** Scatter `$lib.print()`_ or `$lib.pprint()`_
+**As with all debugging, print statements are your friend.** Scatter :ref:`$lib.print() <stormlibs-lib-print>` or :ref:`$lib.pprint() <stormlibs-lib-pprint>`
 statements generously throughout your Storm during testing. You can print message strings at various points
 during execution:
 
@@ -705,8 +705,4 @@ exit the subquery, those pipelines are "discarded". The single FQDN that went in
 We are back to our single node in the main pipeline. That single node causes our print statement to print
 ``And we're done!`` only once, and we are left with our single node at the end of the query.
 
-.. _subqueries: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_subquery.html
-.. _Functions: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_functions.html
-.. _$lib.print(): https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-print-mesg
-.. _$lib.pprint(): https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-pprint-item-prefix-clamp-none 
-.. _Ingest Tool: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/ingest_tool.html#ingest-examples
+.. _Ingest Tool: {{SYN_DOCS_BASEURL}}/docs/optic/latest/user_interface/userguides/ingest_tool.html#ingest-examples

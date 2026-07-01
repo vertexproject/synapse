@@ -13,7 +13,7 @@ function getFooByBar(bar) {
     $resp = $lib.inet.http.get($url, headers=$headers)
     if ($resp.code != 200) {
         $lib.warn(`/api/v1/foo returned HTTP code: {$resp.code}`)
-        return($lib.null)
+        return((null))
     }
 
     // Return the JSON response (but not the API key)

@@ -86,7 +86,7 @@ class XmlTest(s_test.SynTest):
             valu = await core.callStorm('''
                 $retn = ()
                 $root = $lib.xml.parse($xmltext)
-                for $elem in $root.find(rank, nested=$lib.false) {
+                for $elem in $root.find(rank, nested=(false)) {
                     $retn.append($elem.text)
                 }
                 return($retn)
@@ -96,7 +96,7 @@ class XmlTest(s_test.SynTest):
             valu = await core.callStorm('''
                 $retn = ()
                 $root = $lib.xml.parse($xmltext)
-                for $elem in $root.find(rank, nested=$lib.false) {
+                for $elem in $root.find(rank, nested=(false)) {
                     $retn.append($elem.text)
                 }
                 return($retn)

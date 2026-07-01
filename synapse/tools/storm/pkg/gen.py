@@ -28,29 +28,6 @@ def getStormStr(fn):
     with open(fn, 'rb') as f:
         return f.read().decode()
 
-def loadOpticFiles(pkgdef, path):
-
-    pkgfiles = pkgdef['optic']['files']
-
-    abspath = s_common.genpath(path)
-    for root, dirs, files, in os.walk(path):
-
-        for name in files:
-
-            if name.startswith('.'):  # pragma: no cover
-                continue
-
-            fullname = s_common.genpath(root, name)
-            if not os.path.isfile(fullname):  # pragma: no cover
-                continue
-
-            pkgfname = fullname[len(abspath) + 1:]
-
-            with open(fullname, 'rb') as fd:
-                pkgfiles[pkgfname] = {
-                    'file': base64.b64encode(fd.read()).decode(),
-                }
-
 def loadOpticWorkflows(pkgdef, path):
 
     wdefs = pkgdef['optic']['workflows']
@@ -73,13 +50,12 @@ def loadOpticWorkflows(pkgdef, path):
 
             wdefs[wname] = s_common.yamlload(fullname)
 
-def tryLoadPkgProto(fp, opticdir=None, readonly=False):
+def tryLoadPkgProto(fp, readonly=False):
     '''
     Try to get a Storm Package prototype from disk with or without inline documentation.
 
     Args:
         fp (str): Path to the package .yaml file on disk.
-        opticdir (str): Path to optional Optic module code to add to the Storm Package.
         readonly (bool): If set, open files in read-only mode. If files are missing, that will raise a NoSuchFile
                          exception.
 
@@ -87,17 +63,16 @@ def tryLoadPkgProto(fp, opticdir=None, readonly=False):
         dict: A Storm package definition.
     '''
     try:
-        return loadPkgProto(fp, opticdir=opticdir, readonly=readonly)
+        return loadPkgProto(fp, readonly=readonly)
     except s_exc.NoSuchFile:
-        return loadPkgProto(fp, opticdir=opticdir, no_docs=True, readonly=readonly)
+        return loadPkgProto(fp, no_docs=True, readonly=readonly)
 
-def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
+def loadPkgProto(path, no_docs=False, readonly=False):
     '''
     Get a Storm Package definition from disk.
 
     Args:
         path (str): Path to the package .yaml file on disk.
-        opticdir (str): Path to optional Optic module code to add to the Storm Package.
         no_docs (bool): If true, omit inline documentation content if it is not present on disk.
         readonly (bool): If set, open files in read-only mode. If files are missing, that will raise a NoSuchFile
                          exception.
@@ -123,7 +98,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     # Stamp build info into the pkgdef if it doesn't already exist
     pkgdef.setdefault('build', {})
     pkgdef['build'].setdefault('time', s_common.now())
-    pkgdef['build'].setdefault('synapse:version', s_version.verstring)
+    pkgdef['build'].setdefault('synapse:version', s_version.version)
     pkgdef['build'].setdefault('synapse:commit', s_version.commit)
 
     logodef = pkgdef.get('logo')
@@ -223,14 +198,6 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         pkgdef['optic'].setdefault('workflows', {})
         loadOpticWorkflows(pkgdef, wflowdir)
 
-    if opticdir is None:
-        opticdir = s_common.genpath(protodir, 'optic')
-
-    if os.path.isdir(opticdir):
-        pkgdef.setdefault('optic', {})
-        pkgdef['optic'].setdefault('files', {})
-        loadOpticFiles(pkgdef, opticdir)
-
     s_schemas.reqValidPkgdef(pkgdef)
 
     # Ensure the package is json safe and tuplify it.
@@ -248,7 +215,6 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--push-verify', default=False, action='store_true',
                       help='Tell the Cortex to verify the package signature.')
     pars.add_argument('--save', metavar='<path>', help='Save the completed package JSON to a file.')
-    pars.add_argument('--optic', metavar='<path>', help='Load Optic module files from a directory.')
     pars.add_argument('--signas', metavar='<name>', help='Specify a code signing identity to use from ~/.syn/certs/code.')
     pars.add_argument('--certdir', metavar='<dir>', default='~/.syn/certs',
                       help='Specify an alternate certdir to ~/.syn/certs.')
@@ -270,7 +236,7 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(f'File {opts.pkgfile} is treated as already built (--no-build); incompatible with --save.')
             return 1
     else:
-        pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
+        pkgdef = loadPkgProto(opts.pkgfile, no_docs=opts.no_docs)
 
     if opts.signas is not None:
 

@@ -59,16 +59,17 @@ class DocHelp:
     Helper to pre-compute all doc strings hierarchically
     '''
 
-    def __init__(self, ctors, types, forms, props):
+    def __init__(self, ctors, types, forms, props, ifaces=()):
         self.ctors = {c[0]: c[3].get('doc', 'BaseType has no doc string.') for c in ctors}
         self.types = {name: valu['info'].get('doc', self.ctors.get(name)) for name, valu in types.items()}
+        self.ifaces = {name: info.get('doc', '') for name, info in ifaces}
         self.forms = {f[0]: f[1].get('doc', self.types.get(f[0], self.ctors.get(f[0]))) for f in forms}
 
         self.props = {}
         for form, props in props.items():
             for prop in props:
                 tn = prop[1][0]
-                doc = prop[2].get('doc', self.forms.get(tn, self.types.get(tn, self.ctors.get(tn))))
+                doc = prop[2].get('doc', self.forms.get(tn, self.types.get(tn, self.ifaces.get(tn, self.ctors.get(tn)))))
                 self.props[(form, prop[0])] = doc
 
         ctord = {c[0]: c for c in ctors}
@@ -735,7 +736,7 @@ async def docModel(outp,
 
     [v.sort() for k, v in props.items()]
 
-    dochelp = DocHelp(ctors, types, forms, props)
+    dochelp = DocHelp(ctors, types, forms, props, ifaces=ifaces)
 
     # Validate examples
     for form, example in dochelp.formhelp.items():
@@ -889,7 +890,7 @@ async def docStormsvc(ctor):
     rst.addHead(f'{clsname} Storm Service')
     lines = ['The following Storm Packages and Commands are available from this service.',
              f'This documentation is generated for version '
-             f'{s_version.fmtVersion(*svcinfo.get("vers"))} of the service.',
+             f'{svcinfo.get("vers")} of the service.',
              f'The Storm Service name is ``{svcinfo.get("name")}``.',
              ]
     rst.addLines(*lines)
@@ -905,7 +906,7 @@ async def docStormsvc(ctor):
 
         rst.addHead(f'Storm Package\\: {hname}', lvl=1)
 
-        rst.addLines(f'This documentation for {pname} is generated for version {s_version.fmtVersion(*pver)}')
+        rst.addLines(f'This documentation for {pname} is generated for version {pver}')
 
         if commands:
             await processStormCmds(rst, pname, commands)

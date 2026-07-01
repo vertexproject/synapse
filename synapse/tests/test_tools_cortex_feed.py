@@ -15,7 +15,7 @@ import synapse.tests.utils as s_t_utils
 class FeedTest(s_t_utils.SynTest):
 
     def _getOldSynVers(self):
-        return (0, 0, 0)
+        return '0.0.0'
 
     async def test_synnodes_remote(self):
 

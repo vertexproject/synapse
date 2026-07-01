@@ -14,7 +14,7 @@ class TestService(s_stormsvc.StormSvc):
         {
             'name': 'foo',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
             'commands': (
                 {
                     'name': 'foobar',
@@ -116,35 +116,48 @@ class SynModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             visi = await core.addUser('visi')
-            view = await core.callStorm('return($lib.view.get().fork().iden)')
 
-            q = '[proj:project=(p1,) :creator={[ syn:user=visi ]} ]'
-            msgs = await core.stormlist(q, opts={'view': view})
-            self.stormHasNoWarnErr(msgs)
+            async def populate(viewiden):
+                q = '[proj:project=(p1,) :creator={[ syn:user=visi ]} ]'
+                msgs = await core.stormlist(q, opts={'view': viewiden})
+                self.stormHasNoWarnErr(msgs)
 
-            q = 'proj:project=(p1,)'
-            msgs = await core.stormlist(q, opts={'view': view, 'repr': True})
-            self.stormHasNoWarnErr(msgs)
+                q = 'proj:project=(p1,)'
+                msgs = await core.stormlist(q, opts={'view': viewiden, 'repr': True})
+                self.stormHasNoWarnErr(msgs)
+
+            # populate two forks up-front so both have the syn:user reference
+            # captured while visi still exists.
+            forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            await populate(forkiden)
+
+            forkiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            await populate(forkiden2)
 
             await core.delUser(visi.get('iden'))
 
             q = 'proj:project=(p1,)'
-            msgs = await core.stormlist(q, opts={'view': view, 'repr': True})
+            msgs = await core.stormlist(q, opts={'view': forkiden, 'repr': True})
             self.stormHasNoWarnErr(msgs)
 
-            # this works
+            # $lib.view.get().merge() schedules a background merge that
+            # ends by removing the view; wait for it to finish.
+            forkview = core.getView(forkiden)
             q = '$lib.view.get($view).merge()'
-            msgs = await core.stormlist(q, opts={'vars': {'view': view}})
+            msgs = await core.stormlist(q, opts={'vars': {'view': forkiden}})
             self.stormHasNoWarnErr(msgs)
+            self.true(await forkview.waitfini(timeout=5))
+            self.none(core.getView(forkiden))
 
-            # this fails
+            self.len(1, await core.nodes('proj:project=(p1,)'))
+
+            # MergeCmd (merge --apply) is a separate, synchronous, pipeline
+            # driven merge; verify it also handles the deleted-user case.
             q = 'proj:project | merge --apply'
-            msgs = await core.stormlist(q, opts={'view': view, 'repr': True})
+            msgs = await core.stormlist(q, opts={'view': forkiden2, 'repr': True})
             self.stormHasNoWarnErr(msgs)
 
-            q = 'proj:project=(p1,)'
-            msgs = await core.stormlist(q, opts={'vars': {'view': view}})
-            self.stormHasNoWarnErr(msgs)
+            self.len(1, await core.nodes('proj:project=(p1,)'))
 
     async def test_syn_tag(self):
 
@@ -167,11 +180,11 @@ class SynModelTest(s_t_utils.SynTest):
     async def test_syn_model_runts(self):
 
         async def addExtModelConfigs(cortex):
-            await cortex.addTagProp('beep', ('int', {}), {'doc': 'words'})
+            await cortex.addTagProp('_beep', ('int', {}), {'doc': 'words'})
             await cortex.addFormProp('test:str', '_twiddle', ('bool', {}), {'doc': 'hehe', 'computed': True})
 
         async def delExtModelConfigs(cortex):
-            await cortex.delTagProp('beep')
+            await cortex.delTagProp('_beep')
             await cortex.delFormProp('test:str', '_twiddle')
 
         async with self.getTestCore() as core:
@@ -192,7 +205,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:type', 'comp'), node.ndef)
-            self.none(node.get('subof'))
+            self.none(node.get('parent'))
             self.propeq(node, 'opts', {'sepr': None, 'fields': ()})
             self.propeq(node, 'ctor', 'synapse.lib.types.Comp')
             self.propeq(node, 'doc', 'The base type for compound node fields.')
@@ -202,7 +215,7 @@ class SynModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(('syn:type', 'test:comp'), node.ndef)
             self.propeq(node, 'opts', {'fields': (('hehe', 'test:int'), ('haha', 'test:lower')), 'sepr': None})
-            self.propeq(node, 'subof', 'comp')
+            self.propeq(node, 'parent', 'comp')
             self.propeq(node, 'ctor', 'synapse.lib.types.Comp')
             self.propeq(node, 'doc', 'A fake comp type.')
 
@@ -226,6 +239,8 @@ class SynModelTest(s_t_utils.SynTest):
             self.propeq(node, 'runt', False)
             self.propeq(node, 'type', 'test:comp')
             self.propeq(node, 'doc', 'A fake comp type.')
+            # A form which implements no interfaces has no :interfaces value
+            self.none(node.get('interfaces'))
 
             nodes = await core.nodes('syn:form=syn:form')
             self.len(1, nodes)
@@ -234,6 +249,19 @@ class SynModelTest(s_t_utils.SynTest):
             self.true(node.get('runt'))
             self.propeq(node, 'type', 'syn:form')
             self.propeq(node, 'doc', 'A Synapse form used for representing nodes in the graph.')
+
+            # A form exposes the fully resolved (direct + inherited) set of
+            # interfaces it implements, deduplicated. meta:causal is inherited
+            # by inet:flow via the base:activity interface.
+            nodes = await core.nodes('syn:form=inet:flow')
+            self.len(1, nodes)
+            node = nodes[0]
+            ifaces = [valu for (form, valu) in node.get('interfaces')]
+            self.isin('meta:causal', ifaces)
+
+            # We can lift / filter forms by an implemented interface
+            nodes = await core.nodes('syn:form:interfaces*[=meta:causal]')
+            self.isin('inet:flow', {n.ndef[1] for n in nodes})
 
             # We can even inspect which forms are runtime-online forms
             nodes = await core.nodes('syn:form:runt=1')
@@ -255,7 +283,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(('syn:prop', 'test:type10:intprop'), node.ndef)
             self.nn(node.get('computed'))
             self.propeq(node, 'computed', 0)
-            self.propeq(node, 'type', ['int'])
+            self.propeq(node, 'type', ['test:int2030'])
             self.propeq(node, 'array', False)
             self.propeq(node, 'form', 'test:type10')
             self.propeq(node, 'doc', '')
@@ -303,12 +331,47 @@ class SynModelTest(s_t_utils.SynTest):
             self.none(node.get('relname'))
 
             # Tag prop data is also represented
-            nodes = await core.nodes('syn:tagprop=beep')
+            nodes = await core.nodes('syn:tagprop=_beep')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(('syn:tagprop', 'beep'), node.ndef)
+            self.eq(('syn:tagprop', '_beep'), node.ndef)
             self.propeq(node, 'doc', 'words')
             self.propeq(node, 'type', 'int')
+
+            # Interfaces are represented as runt nodes
+            nodes = await core.nodes('syn:interface')
+            self.gt(len(nodes), 1)
+
+            # An interface with no parent interfaces
+            nodes = await core.nodes('syn:interface=meta:taxonomy')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(('syn:interface', 'meta:taxonomy'), node.ndef)
+            self.propeq(node, 'doc', 'Properties common to taxonomies.')
+            self.none(node.get('interfaces'))
+
+            # An interface which inherits from another interface
+            nodes = await core.nodes('syn:interface=base:event')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(('syn:interface', 'base:event'), node.ndef)
+            self.propeq(node, 'doc', 'Properties common to an event.')
+            self.propeq(node, 'interfaces', ('meta:causal',))
+
+            # We can lift / filter by the interfaces array prop
+            nodes = await core.nodes('syn:interface:interfaces')
+            self.gt(len(nodes), 1)
+
+            nodes = await core.nodes('syn:interface:interfaces*[=meta:causal]')
+            self.eq({'base:activity', 'base:event'}, {n.ndef[1] for n in nodes})
+
+            # A cmpr that isn't '='
+            nodes = await core.nodes('syn:interface~="^meta:"')
+            self.gt(len(nodes), 1)
+            self.true(all(n.ndef[1].startswith('meta:') for n in nodes))
+
+            # A nonexistent interface lifts nothing
+            self.len(0, await core.nodes('syn:interface=newp:newp'))
 
             # Ensure that we can filter / pivot across the model nodes
             nodes = await core.nodes('syn:form=test:comp -> syn:prop:form')
@@ -320,7 +383,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('syn:form', 'test:comp'))
 
             # Go from a syn:type to a syn:form to a syn:prop with a filter
-            q = 'syn:type:subof=comp +syn:type:doc~=".*fake.*" -> syn:form:type -> syn:prop:form'
+            q = 'syn:type:parent=comp +syn:type:doc~=".*fake.*" -> syn:form:type -> syn:prop:form'
             nodes = await core.nodes(q)
             self.ge(len(nodes), 4)
 
@@ -332,11 +395,25 @@ class SynModelTest(s_t_utils.SynTest):
                     {n.ndef for n in nodes})
 
             # Some forms inherit from a single type
-            nodes = await core.nodes('syn:type="inet:sockaddr" -> syn:type:subof')
+            nodes = await core.nodes('syn:type="inet:sockaddr" -> syn:type:parent')
             self.ge(len(nodes), 2)
             pprops = {n.ndef[1] for n in nodes}
             self.isin('inet:server', pprops)
             self.isin('inet:client', pprops)
+
+            # syn:form:parent is set when a form extends a parent form
+            nodes = await core.nodes('syn:form=it:physical:host')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'parent', 'it:host')
+
+            # forms which do not extend another form have no :parent
+            nodes = await core.nodes('syn:form=test:str')
+            self.len(1, nodes)
+            self.none(nodes[0].get('parent'))
+
+            # and we can pivot from a parent form to its children
+            nodes = await core.nodes('syn:form=it:host -> syn:form:parent')
+            self.isin('it:physical:host', {n.ndef[1] for n in nodes})
 
             # Test a cmpr that isn't '='
             nodes = await core.nodes('syn:form~="^test:type"')
@@ -355,6 +432,9 @@ class SynModelTest(s_t_utils.SynTest):
 
             self.len(9, await core.nodes('syn:type=test:guid <- *'))
             self.len(9, await core.nodes('syn:type=test:guid <-- *'))
+
+            self.len(8, await core.nodes('syn:prop=test:str:poly :type -> syn:type'))
+            self.len(1, await core.nodes('syn:form=test:str :type -> syn:type'))
 
             # We can uniq runt nodes
             self.len(9, await core.nodes('syn:type=test:guid <-- * | uniq'))
@@ -375,7 +455,7 @@ class SynModelTest(s_t_utils.SynTest):
                 await core.nodes('syn:form:doc [-:doc]')
 
             with self.raises(s_exc.IsRuntForm):
-                await core.nodes('syn:type -:subof [-:ctor]')
+                await core.nodes('syn:type -:parent [-:ctor]')
 
             # # Ensure that adding tags on runt nodes fails
             with self.raises(s_exc.IsRuntForm):
@@ -404,22 +484,25 @@ class SynModelTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
                 self.len(0, nodes)
+                # 2 built-in tagprops (tlp, confidence) are always present
                 nodes = await core.nodes('syn:tagprop')
-                self.len(0, nodes)
+                self.len(2, nodes)
 
                 await addExtModelConfigs(core)
 
                 nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
                 self.len(1, nodes)
+                # 2 built-in + 1 ext (_beep)
                 nodes = await core.nodes('syn:tagprop')
-                self.len(1, nodes)
+                self.len(3, nodes)
 
                 await delExtModelConfigs(core)
 
                 nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
                 self.len(0, nodes)
+                # Back to 2 built-in only
                 nodes = await core.nodes('syn:tagprop')
-                self.len(0, nodes)
+                self.len(2, nodes)
 
         async with self.getTestCore() as core:
                 # Check we can iterate runt nodes while changing the underlying dictionary
@@ -453,6 +536,9 @@ class SynModelTest(s_t_utils.SynTest):
                 self.len(numforms + 1, core.model.forms)
 
                 numtypes = len(core.model.types)
+                # the syn:type runt lift excludes auto-registered prop types
+                numvisibletypes = len([t for t in core.model.types.values()
+                                       if not t.info.get('auto')])
                 q = '''
                 init {
                     $types = ()
@@ -477,16 +563,16 @@ class SynModelTest(s_t_utils.SynTest):
                 '''
 
                 types = await core.callStorm(q)
-                self.len(numtypes, types)
+                self.len(numvisibletypes, types)
                 self.len(numtypes + 1, core.model.types)
 
                 q = '''
                 init {
                     $tagprops = ()
                     $count = (0)
-                    $lib.model.ext.addTagProp(cypher, (str, ({})), ({}))
-                    $lib.model.ext.addTagProp(trinity, (str, ({})), ({}))
-                    $lib.model.ext.addTagProp(morpheus, (str, ({})), ({}))
+                    $lib.model.ext.addTagProp(_cypher, (str, ({})), ({}))
+                    $lib.model.ext.addTagProp(_trinity, (str, ({})), ({}))
+                    $lib.model.ext.addTagProp(_morpheus, (str, ({})), ({}))
                 }
 
                 syn:tagprop
@@ -496,7 +582,7 @@ class SynModelTest(s_t_utils.SynTest):
                 $count = ($count + 1)
 
                 if ($count = (2)) {
-                    $lib.model.ext.addTagProp(neo, (str, ({})), ({}))
+                    $lib.model.ext.addTagProp(_neo, (str, ({})), ({}))
                 }
 
                 spin |
@@ -505,8 +591,8 @@ class SynModelTest(s_t_utils.SynTest):
                 '''
 
                 tagprops = await core.callStorm(q)
-                self.len(3, tagprops)
-                self.len(4, core.model.tagprops)
+                self.len(5, tagprops)
+                self.len(6, core.model.tagprops)
 
     async def test_syn_cmd_runts(self):
 
@@ -603,7 +689,7 @@ class SynModelTest(s_t_utils.SynTest):
                 stormpkg = {
                     'name': 'stormpkg',
                     'version': '1.2.3',
-                    'synapse_version': '>=3.0.0,<4.0.0',
+                    'synapse_version': '>=3.0.0b1,<4.0.0',
                     'commands': (
                         {
                          'name': 'pkgcmd.old',

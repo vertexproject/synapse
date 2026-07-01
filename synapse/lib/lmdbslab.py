@@ -1421,6 +1421,14 @@ class Slab(s_base.Base):
                     taillen = len(parts[-1]) + 1
                     nextvalu = lkey[:-taillen] + seprnext
 
+                    # Due to the sleep in this loop, we may get bumped and set_range
+                    # doesn't need to handle that elsewhere so just check/refresh it here.
+                    if scan.bumped:
+                        if self.isfini:
+                            raise s_exc.IsFini()
+                        scan.bumped = False
+                        scan.curs = self.xact.cursor(db=scan.db)
+
                     if not scan.set_range(nextvalu):
                         return
 
@@ -1568,7 +1576,7 @@ class Slab(s_base.Base):
 
                 yield lkey, lval
 
-    async def multiScanByDups(self, pref, multilen, lkey, db=None):
+    async def multiScanByDups(self, pref, multilen, lkey, db=None, multifilt=None):
 
         with Scan(self, db) as scan:
 
@@ -1586,6 +1594,14 @@ class Slab(s_base.Base):
                     return
 
                 skey = fkey[preflen:fullpref]
+
+                # skip past sections whose multikey is not selected.
+                if multifilt is not None and skey not in multifilt:
+                    if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                        return
+                    skey = pval.to_bytes(multilen, 'big')
+                    continue
+
                 if fkey[fullpref:] < lkey:
                     continue
 
@@ -1600,7 +1616,7 @@ class Slab(s_base.Base):
                     return
                 skey = pval.to_bytes(multilen, 'big')
 
-    async def multiScanByDupsBack(self, pref, multilen, lkey, db=None):
+    async def multiScanByDupsBack(self, pref, multilen, lkey, db=None, multifilt=None):
 
         with ScanBack(self, db) as scan:
 
@@ -1617,6 +1633,14 @@ class Slab(s_base.Base):
                     return
 
                 skey = fkey[preflen:fullpref]
+
+                # skip past sections whose multikey is not selected.
+                if multifilt is not None and skey not in multifilt:
+                    if (pval := int.from_bytes(skey, 'big') - 1) < 0:
+                        return
+                    skey = pval.to_bytes(multilen, 'big')
+                    continue
+
                 if fkey[fullpref:] > lkey:
                     continue
 
@@ -1631,7 +1655,7 @@ class Slab(s_base.Base):
                     return
                 skey = pval.to_bytes(multilen, 'big')
 
-    async def multiScanKeysByDups(self, pref, multilen, lkey, db=None, nodup=False):
+    async def multiScanKeysByDups(self, pref, multilen, lkey, db=None, nodup=False, multifilt=None):
 
         with ScanKeys(self, db, nodup=nodup) as scan:
 
@@ -1652,6 +1676,14 @@ class Slab(s_base.Base):
                     return
 
                 skey = fkey[preflen:fullpref]
+
+                # skip past sections whose multikey is not selected.
+                if multifilt is not None and skey not in multifilt:
+                    if (pval := int.from_bytes(skey, 'big') + 1) > maxv:
+                        return
+                    skey = pval.to_bytes(multilen, 'big')
+                    continue
+
                 if fkey[fullpref:] < lkey:
                     continue
 
@@ -1666,7 +1698,7 @@ class Slab(s_base.Base):
                     return
                 skey = pval.to_bytes(multilen, 'big')
 
-    async def _multiScanCommon(self, scangenr, cmprkey, multilen, reverse=False):
+    async def _multiScanCommon(self, scangenr, cmprkey, multilen, reverse=False, multifilt=None):
 
         maxv = int.from_bytes(b'\xff' * multilen, 'big')
 
@@ -1683,7 +1715,12 @@ class Slab(s_base.Base):
             except StopAsyncIteration:
                 break
 
-            genrs.append(sgen)
+            # skip past sections whose multikey is not selected.
+            if multifilt is None or skey in multifilt:
+                genrs.append(sgen)
+            else:
+                await sgen.aclose()
+
             await asyncio.sleep(0)
 
             if reverse:
@@ -1704,7 +1741,7 @@ class Slab(s_base.Base):
         async for item in s_common.merggenr2(genrs, cmprkey, reverse=reverse):
             yield item
 
-    async def multiScanByPref(self, pref, multilen, byts, db=None):
+    async def multiScanByPref(self, pref, multilen, byts, db=None, multifilt=None):
 
         preflen = len(pref) + multilen
         size = preflen + len(byts)
@@ -1742,10 +1779,10 @@ class Slab(s_base.Base):
         def cmprkey(valu):
             return valu[0][preflen:]
 
-        async for item in self._multiScanCommon(scangenr, cmprkey, multilen):
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen, multifilt=multifilt):
             yield item
 
-    async def multiScanByPrefBack(self, pref, multilen, byts, db=None):
+    async def multiScanByPrefBack(self, pref, multilen, byts, db=None, multifilt=None):
 
         preflen = len(pref) + multilen
         size = preflen + len(byts)
@@ -1809,10 +1846,10 @@ class Slab(s_base.Base):
         def cmprkey(valu):
             return valu[0][preflen:]
 
-        async for item in self._multiScanCommon(scangenr, cmprkey, multilen, reverse=True):
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen, reverse=True, multifilt=multifilt):
             yield item
 
-    async def multiScanByRange(self, pref, multilen, lmin, lmax=None, db=None):
+    async def multiScanByRange(self, pref, multilen, lmin, lmax=None, db=None, multifilt=None):
 
         preflen = len(pref) + multilen
         size = (preflen + len(lmax)) if lmax is not None else None
@@ -1851,10 +1888,10 @@ class Slab(s_base.Base):
         def cmprkey(valu):
             return valu[0][preflen:]
 
-        async for item in self._multiScanCommon(scangenr, cmprkey, multilen):
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen, multifilt=multifilt):
             yield item
 
-    async def multiScanByRangeBack(self, pref, multilen, lmax, lmin=None, db=None):
+    async def multiScanByRangeBack(self, pref, multilen, lmax, lmin=None, db=None, multifilt=None):
 
         preflen = len(pref) + multilen
         size = (preflen + len(lmin)) if lmin is not None else None
@@ -1893,10 +1930,10 @@ class Slab(s_base.Base):
         def cmprkey(valu):
             return valu[0][preflen:]
 
-        async for item in self._multiScanCommon(scangenr, cmprkey, multilen, reverse=True):
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen, reverse=True, multifilt=multifilt):
             yield item
 
-    async def multiScanKeysByPref(self, pref, multilen, byts, db=None, nodup=False):
+    async def multiScanKeysByPref(self, pref, multilen, byts, db=None, nodup=False, multifilt=None):
 
         preflen = len(pref) + multilen
         size = preflen + len(byts)
@@ -1937,10 +1974,10 @@ class Slab(s_base.Base):
         def cmprkey(valu):
             return valu[preflen:]
 
-        async for item in self._multiScanCommon(scangenr, cmprkey, multilen):
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen, multifilt=multifilt):
             yield item
 
-    async def multiScanKeysByRange(self, pref, multilen, lmin, lmax=None, db=None, nodup=False):
+    async def multiScanKeysByRange(self, pref, multilen, lmin, lmax=None, db=None, nodup=False, multifilt=None):
 
         preflen = len(pref) + multilen
         size = (preflen + len(lmax)) if lmax is not None else None
@@ -1982,7 +2019,7 @@ class Slab(s_base.Base):
         def cmprkey(valu):
             return valu[preflen:]
 
-        async for item in self._multiScanCommon(scangenr, cmprkey, multilen):
+        async for item in self._multiScanCommon(scangenr, cmprkey, multilen, multifilt=multifilt):
             yield item
 
     def scanByFull(self, db=None):
@@ -2181,9 +2218,15 @@ class Slab(s_base.Base):
         return True
 
     def pop(self, lkey, db=None):
+        # an in-transaction delete can disrupt the live cursors of active scans
+        # and cause already-yielded rows to be re-emitted, so bump them to force
+        # a safe cursor resume on their next step
+        [scan.bump() for scan in self.scans]
         return self._xact_action(self.pop, lmdb.Transaction.pop, lkey, db=db)
 
     def delete(self, lkey, val=None, db=None):
+        # see pop(): bump active scans so a delete cannot corrupt their cursors
+        [scan.bump() for scan in self.scans]
         return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
 
     async def put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):

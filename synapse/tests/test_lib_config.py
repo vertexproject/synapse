@@ -204,7 +204,7 @@ class ConfTest(s_test.SynTest):
 
         # Including envar sets
         with self.raises(s_exc.BadConfValu):
-            with self.setTstEnvars(KEY_ARRAY=None,
+            with self.setTstEnvars(KEY_ARRAY='not-an-array',
                                    ):
                 conf.setConfFromEnvs()
 

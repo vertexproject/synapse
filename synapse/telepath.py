@@ -21,6 +21,7 @@ import synapse.lib.certdir as s_certdir
 import synapse.lib.threads as s_threads
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.hashitem as s_hashitem
+import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +181,7 @@ async def _getAhaSvc(urlinfo, timeout=None):
             kwargs = {}
             synvers = cellinfo['synapse']['version']
 
-            if synvers >= (2, 95, 0):
+            if s_version.release(synvers) >= (2, 95, 0):
                 kwargs['filters'] = {
                     'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false'))),
                 }

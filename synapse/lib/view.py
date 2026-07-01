@@ -111,14 +111,13 @@ class View(s_nexus.Pusher):  # type: ignore
         self.layers = []
         self.invalid = None
         self.parent = None  # The view this view was forked from
+        self._children = []  # views forked from this view; maintained alongside info['parent']
 
         # This will be True for a view which has a merge in progress
         self.merging = self.info.get('merging', False)
 
         # isolate some initialization to easily override.
         await self._initViewLayers()
-
-        self.readonly = self.wlyr.readonly
 
         self.trigtask = None
         await self.initTrigTask()
@@ -142,10 +141,6 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Save node edits and run triggers/callbacks.
         '''
-
-        if self.readonly:
-            mesg = 'The view is in read-only mode.'
-            raise s_exc.IsReadOnly(mesg=mesg)
 
         useriden = meta.get('user')
         if useriden is None:
@@ -189,6 +184,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 etyp, parms = edit
 
                 if etyp == s_layer.EDIT_NODE_ADD:
+                    if node.ndef[1] != parms[0]:
+                        node.ndef = (node.ndef[0], parms[0])
+
                     callbacks.append((node.form.wasAdded, (node,)))
                     callbacks.append((self.runNodeAdd, (node, useriden)))
 
@@ -240,9 +238,12 @@ class View(s_nexus.Pusher):  # type: ignore
 
                             virts['size'] = len(valu)
 
-                            if (svirts := s_node.storvirts.get(stype & s_layer.STOR_MASK_ARRAY)) is not None:
-                                for vname, getr in svirts.items():
-                                    virts[vname] = [getr(v) for v in valu]
+                            # TODO: Decision about (poly)arrays that have virts
+                            # because right now this overrides virts if an array has >1 ival in it
+                            # which we whistlye past for now because no base model elements exercise that
+                            if stype & s_layer.STOR_MASK_ARRAY == s_layer.STOR_TYPE_IVAL:  # pragma: no cover
+                                for v in valu:
+                                    virts.update(s_node.getIvalStorVirts(v[1], vprops, prop.modl.type(v[0].prec)))
                         else:
                             virts['type'] = valu[0]
 
@@ -250,9 +251,8 @@ class View(s_nexus.Pusher):  # type: ignore
                                 for vname, vval in vprops.items():
                                     virts[vname] = vval[0]
 
-                            if (svirts := s_node.storvirts.get(stype)) is not None:
-                                for vname, getr in svirts.items():
-                                    virts[vname] = getr(valu[1])
+                            if stype == s_layer.STOR_TYPE_IVAL:
+                                virts.update(s_node.getIvalStorVirts(valu[1], vprops, prop.modl.type(valu[0]).prec))
 
                         editset.append((etyp, (name, valu, stype, virts)))
                     continue
@@ -356,7 +356,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 if etyp == s_layer.EDIT_EDGE_ADD or etyp == s_layer.EDIT_EDGE_TOMB_DEL:
                     verb, n2nid = parms
                     n2ndef = self.core.getNidNdef(s_common.int64en(n2nid))
-                    callbacks.append((self.runEdgeAdd, (node, verb, n2ndef, useriden)))
+                    n2form = n2ndef[0] if n2ndef else None
+                    callbacks.append((self.runEdgeAdd, (node, verb, n2nid, n2form, useriden)))
 
                     if fireedits is not None:
                         editset.append((etyp, (verb, n2nid, n2ndef)))
@@ -365,7 +366,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 if etyp == s_layer.EDIT_EDGE_DEL or etyp == s_layer.EDIT_EDGE_TOMB:
                     verb, n2nid = parms
                     n2ndef = self.core.getNidNdef(s_common.int64en(n2nid))
-                    callbacks.append((self.runEdgeDel, (node, verb, n2ndef, useriden)))
+                    n2form = n2ndef[0] if n2ndef else None
+                    callbacks.append((self.runEdgeDel, (node, verb, n2nid, n2form, useriden)))
 
                     if fireedits is not None:
                         editset.append((etyp, (verb, n2nid, n2ndef)))
@@ -506,23 +508,24 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.BadState(mesg=mesg)
 
         idens = []
-        for view in list(self.core.views.values()):
+        for view in self._children:
             await asyncio.sleep(0)
-            if view.parent == self and view.getMergeRequest() is not None:
+            if view.getMergeRequest() is not None:
                 idens.append(view.iden)
         return idens
 
     async def setMergeRequest(self, mergeinfo):
         self.reqParentQuorum()
+        if self.info.get('protected'):
+            mesg = f'Cannot create a merge request for view ({self.iden}) that has protected set.'
+            raise s_exc.CantMergeView(mesg=mesg)
+
         mergeinfo['iden'] = s_common.guid()
         mergeinfo['created'] = s_common.now()
         return await self._push('merge:set', mergeinfo)
 
     def hasKids(self):
-        for view in self.core.views.values():
-            if view.parent == self:
-                return True
-        return False
+        return bool(self._children)
 
     @s_nexus.Pusher.onPush('merge:set')
     async def _setMergeRequest(self, mergeinfo):
@@ -599,8 +602,27 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.core.safemode:
             return
 
+        if self.info.get('protected'):  # pragma: no cover
+            # defensive: setMergeRequest and setViewInfo both refuse to
+            # land a protected + pending-request state, so this branch is
+            # unreachable through the public API.
+            return
+
         if not await self.isMergeReady():
             return
+
+        merge = self.getMergeRequest()
+        votes = [vote async for vote in self.getMergeVotes()]
+
+        merge['votes'] = votes
+
+        await self._initMergeState(merge, tick)
+
+    async def _initMergeState(self, merge, tick):
+        # NOTE: must be called from within a nexus handler!
+        # flips the view into the "merging" state shared by quorum and
+        # default merges: read-only layer, persisted merging flag, history
+        # entries on the parent, and a scheduled background runViewMerge.
 
         self.merging = True
         self.info['merging'] = True
@@ -610,11 +632,9 @@ class View(s_nexus.Pusher):  # type: ignore
         self.wlyr.layrinfo['readonly'] = True
         self.core.layerdefs.set(self.wlyr.iden, self.wlyr.layrinfo)
 
-        merge = self.getMergeRequest()
-        votes = [vote async for vote in self.getMergeVotes()]
-
-        merge['votes'] = votes
         merge['merged'] = tick
+
+        votes = merge.get('votes', ())
 
         tick = s_common.int64en(tick)
         bidn = s_common.uhex(merge.get('iden'))
@@ -855,8 +875,12 @@ class View(s_nexus.Pusher):  # type: ignore
 
             await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'votes': votes})
 
-            # remove the view and top layer
-            await self.core.delViewWithLayer(self.iden)
+            # remove the view and top layer via the standard nexus events;
+            # delView re-parents children and unhooks the top layer from
+            # their stacks, then delLayer removes the now-orphan layer.
+            layriden = self.wlyr.iden
+            await self.core.delView(self.iden)
+            await self.core.delLayer(layriden)
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error while merging view: {self.iden}')
@@ -899,9 +923,12 @@ class View(s_nexus.Pusher):  # type: ignore
         # remove any pending merge requests or votes
         await self._delMergeMeta()
 
+        oldparent = self.parent
         self.parent = None
         if self.info.pop('parent', None) is not None:
             self.core.viewdefs.set(self.iden, self.info)
+            if oldparent is not None:
+                oldparent._children.remove(self)
 
         await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': 'parent', 'valu': None},
                                      gates=[self.iden, self.wlyr.iden])
@@ -1045,6 +1072,8 @@ class View(s_nexus.Pusher):  # type: ignore
         parent = self.info.get('parent')
         if parent is not None:
             self.parent = self.core.getView(parent)
+            if self.parent is not None:
+                self.parent._children.append(self)
 
     def isafork(self):
         return self.parent is not None
@@ -1891,6 +1920,7 @@ class View(s_nexus.Pusher):  # type: ignore
             self.parent = parent
             self.info[name] = valu
             self.core.viewdefs.set(self.iden, self.info)
+            parent._children.append(self)
 
             await self._calcForkLayers()
 
@@ -1901,6 +1931,16 @@ class View(s_nexus.Pusher):  # type: ignore
             self.core._calcViewsByLayer()
 
         else:
+            if name == 'protected' and valu:
+                if self.merging:
+                    mesg = f'Cannot protect view ({self.iden}); a merge is already in progress.'
+                    raise s_exc.BadState(mesg=mesg, view=self.iden)
+
+                if self.getMergeRequest() is not None:
+                    mesg = (f'Cannot protect view ({self.iden}); a quorum merge request '
+                            f'is already pending. Resolve or withdraw the request first.')
+                    raise s_exc.BadState(mesg=mesg, view=self.iden)
+
             if name == 'quorum':
                 # TODO hack a schema test until the setViewInfo API is updated to
                 # enforce ( which will need to be done very carefully to prevent
@@ -1910,9 +1950,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     vdef['quorum'] = s_msgpack.deepcopy(valu)
                     s_schemas.reqValidView(vdef)
                 else:
-                    for view in self.core.views.values():
-                        if view.parent != self:
-                            continue
+                    for view in list(self._children):
                         if view.getMergeRequest() is not None:
                             await view._delMergeRequest()
 
@@ -2038,13 +2076,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 todo.append(child)
 
-    async def children(self):
-        for view in list(self.core.views.values()):
-            if view.parent != self:
-                await asyncio.sleep(0)
-                continue
-
-            yield view
+    def children(self):
+        return tuple(self._children)
 
     async def insertParentFork(self, useriden, name=None):
         '''
@@ -2100,9 +2133,13 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core._addView(vdef)
 
         forkiden = vdef.get('iden')
+        oldparent = self.parent
         self.info['parent'] = forkiden
         self.parent = self.core.reqView(forkiden)
         self.core.viewdefs.set(self.iden, self.info)
+        if oldparent is not None:
+            oldparent._children.remove(self)
+        self.parent._children.append(self)
 
         mesg = {'iden': self.iden, 'name': 'parent', 'valu': forkiden}
         await self.core.feedBeholder('view:set', mesg, gates=[self.iden, self.layers[0].iden])
@@ -2166,118 +2203,54 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def merge(self, useriden=None, force=False):
         '''
-        Merge this view into its parent.  All changes made to this view will be applied to the parent.  Parent's
-        triggers will be run.
+        Schedule a merge of this forked view into its parent.
+
+        The forking layer is flipped to read-only and a background task
+        copies the edits into the parent. The call returns immediately with
+        the merge info. The forked view and its top layer are removed when
+        the merge completes. The merge resumes automatically across cell
+        restarts.
         '''
         if useriden is None:
             user = await self.core.auth.getUserByName('root')
         else:
             user = await self.core.auth.reqUser(useriden)
 
-        await self.mergeAllowed(user, force=force)
+        # Flip the forking layer to read-only via Nexus before checking
+        # mergeAllowed so mirrors converge and no new edits can land
+        # between the check and the nexus handler running. The handler
+        # does not re-check mergeAllowed. Restore the prior readonly
+        # state if the check fails so the caller can recover.
+        wasreadonly = self.wlyr.readonly
+        if not wasreadonly:
+            await self.wlyr.setLayerInfo('readonly', True)
+        try:
+            await self.mergeAllowed(user, force=force)
+        except Exception:
+            if not wasreadonly:
+                await self.wlyr.setLayerInfo('readonly', False)
+            raise
 
-        taskinfo = {'merging': self.iden, 'view': self.iden}
-        await self.core.boss.promote('storm', user=user, info=taskinfo)
-
-        meta = {
-            'time': s_common.now(),
-            'user': user.iden
+        mergeinfo = {
+            'iden': s_common.guid(),
+            'creator': user.iden,
+            'created': s_common.now(),
         }
 
-        async def chunked():
-            nodeedits = []
-            editor = s_editor.NodeEditor(self.parent, user, meta=meta)
+        return await self._push('view:merge', mergeinfo)
 
-            async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits(meta=True):
-                nid = s_common.int64en(intnid)
+    @s_nexus.Pusher.onPush('view:merge')
+    async def _merge(self, mergeinfo):
 
-                if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
-                    protonode = await editor.getNodeByNid(nid)
-                    if protonode is None:
-                        continue
+        if self.merging:
+            return self.getMergeRequest()
 
-                    await protonode.delEdgesN2(meta=meta)
-                    await protonode.delete()
+        lkey = self.bidn + b'merge:req'
+        await self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
 
-                    nodeedits.extend(editor.getNodeEdits())
-                    editor.protonodes.clear()
-                else:
-                    realedits = []
+        await self._initMergeState(dict(mergeinfo), mergeinfo.get('created'))
 
-                    protonode = None
-                    for edit in edits:
-                        etyp, parms = edit
-
-                        if etyp == s_layer.EDIT_PROP_TOMB:
-                            if protonode is None:
-                                if (protonode := await editor.getNodeByNid(nid)) is None:
-                                    continue
-
-                            await protonode.pop(parms[0])
-                            continue
-
-                        if etyp == s_layer.EDIT_TAG_TOMB:
-                            if protonode is None:
-                                if (protonode := await editor.getNodeByNid(nid)) is None:
-                                    continue
-
-                            await protonode.delTag(parms[0])
-                            continue
-
-                        if etyp == s_layer.EDIT_TAGPROP_TOMB:
-                            if protonode is None:
-                                if (protonode := await editor.getNodeByNid(nid)) is None:
-                                    continue
-
-                            (tag, prop) = parms
-
-                            await protonode.delTagProp(tag, prop)
-                            continue
-
-                        if etyp == s_layer.EDIT_NODEDATA_TOMB:
-                            if protonode is None:
-                                if (protonode := await editor.getNodeByNid(nid)) is None:
-                                    continue
-
-                            await protonode.popData(parms[0])
-                            continue
-
-                        if etyp == s_layer.EDIT_EDGE_TOMB:
-                            if protonode is None:
-                                if (protonode := await editor.getNodeByNid(nid)) is None:
-                                    continue
-
-                            (verb, n2nid) = parms
-
-                            await protonode.delEdge(verb, s_common.int64en(n2nid))
-                            continue
-
-                        realedits.append(edit)
-
-                    if protonode is None:
-                        nodeedits.append((intnid, form, realedits))
-                    else:
-                        deledits = editor.getNodeEdits()
-                        editor.protonodes.clear()
-                        if deledits:
-                            deledits[0][2].extend(realedits)
-                            nodeedits.extend(deledits)
-                        else:
-                            nodeedits.append((intnid, form, realedits))
-
-                if len(nodeedits) == 5:
-                    yield nodeedits
-                    nodeedits.clear()
-
-            if nodeedits:
-                yield nodeedits
-
-        async for edits in chunked():
-
-            meta['time'] = s_common.now()
-
-            await self.parent.saveNodeEdits(edits, meta)
-            await asyncio.sleep(0)
+        return mergeinfo
 
     async def swapLayer(self):
         oldlayr = self.layers[0]
@@ -2337,15 +2310,17 @@ class View(s_nexus.Pusher):  # type: ignore
         if parentlayr.readonly:
             raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
 
-        for view in self.core.views.values():
-            if view.parent == self:
-                raise s_exc.CantMergeView(mesg='Cannot merge a view that has children itself')
-
         if user is None or user.isAdmin() or user.isAdmin(gateiden=parentlayr.iden):
             return
 
         fromlayr = self.layers[0]
         await fromlayr.confirmLayerEditPerms(user, parentlayr.iden)
+
+        # The merge background task ends by deleting the forking view and
+        # its write layer. Pre-check those perms here so the caller sees a
+        # synchronous AuthDeny rather than a silently-dropped error.
+        user.confirm(('view', 'del'), gateiden=self.iden)
+        user.confirm(('layer', 'del'), gateiden=fromlayr.iden)
 
     async def wipeAllowed(self, user=None):
         '''
@@ -2410,19 +2385,19 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.triggers.runPropSet(node, prop, useriden)
 
-    async def runEdgeAdd(self, n1, edge, n2ndef, useriden):
+    async def runEdgeAdd(self, n1, edge, n2nid, n2form, useriden):
 
         if self.core.safemode:
             return
 
-        await self.triggers.runEdgeAdd(n1, edge, n2ndef, useriden)
+        await self.triggers.runEdgeAdd(n1, edge, n2nid, n2form, useriden)
 
-    async def runEdgeDel(self, n1, edge, n2ndef, useriden):
+    async def runEdgeDel(self, n1, edge, n2nid, n2form, useriden):
 
         if self.core.safemode:
             return
 
-        await self.triggers.runEdgeDel(n1, edge, n2ndef, useriden)
+        await self.triggers.runEdgeDel(n1, edge, n2nid, n2form, useriden)
 
     async def addTrigger(self, tdef):
         '''
@@ -2571,10 +2546,6 @@ class View(s_nexus.Pusher):  # type: ignore
             else:
                 user = self.core.auth.rootuser
 
-        if self.readonly:
-            mesg = 'The view is in read-only mode.'
-            raise s_exc.IsReadOnly(mesg=mesg)
-
         for nodedefn in nodedefs:
 
             node = await self._addNodeDef(nodedefn, user=user, runt=runt)
@@ -2606,7 +2577,14 @@ class View(s_nexus.Pusher):  # type: ignore
             if props is not None:
                 for propname, propvalu in props.items():
                     try:
-                        await protonode.set(propname, propvalu)
+                        if (prop := protonode.form.props.get(propname)) is None:
+                            raise s_exc.NoSuchProp.init(propname)
+
+                        if prop.info.get('computed'):
+                            continue
+
+                        norm, norminfo = await prop.type.normFromTypedValu(propvalu, view=self)
+                        await protonode.set(propname, norm, norminfo=norminfo)
                     except Exception as e:
                         if runt is not None:
                             await runt.warn(str(e))
@@ -2670,10 +2648,10 @@ class View(s_nexus.Pusher):  # type: ignore
                         except s_exc.BadTypeValu as e:
                             continue
 
-                        n2ndef = (n2formname, n2valu)
-                        n2nid = self.core.getNidByNdef(n2ndef)
+                        nidval = self.wlyr.stortypes[n2form.type.stortype].nidNorm(n2valu)
+                        n2nid = self.core.getNidByNdef((n2formname, nidval))
                         if n2nid is None:
-                            n2adds.append((n2ndef, verb))
+                            n2adds.append((n2formname, n2valu, verb, nidval))
                             continue
 
                     else:
@@ -2689,25 +2667,24 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if n2adds:
                     async with self.getEditor() as n2editor:
-                        for (n2ndef, verb) in n2adds:
+                        for (n2form, n2valu, _, _) in n2adds:
                             try:
-                                await n2editor.addNode(*n2ndef)
+                                await n2editor.addNode(n2form, n2valu)
                             except Exception as e:
                                 if runt is not None:
                                     await runt.warn(str(e))
 
-                                n2form, n2valu = n2ndef
                                 logger.exception(f'Error adding node {n2form}={n2valu}')
 
-                    for (n2ndef, verb) in n2adds:
-                        if (nid := self.core.getNidByNdef(n2ndef)) is not None:
+                    for (n2form, n2valu, verb, nidval) in n2adds:
+                        if (nid := self.core.getNidByNdef((n2form, nidval))) is not None:
                             try:
-                                await protonode.addEdge(verb, nid, n2form=n2ndef[0])
+                                await protonode.addEdge(verb, nid, n2form=n2form)
                             except Exception as e:
                                 if runt is not None:
                                     await runt.warn(str(e))
 
-                                logger.exception(f'Error adding edge -({verb})> {n2ndef} to node {formname}={formvalu}')
+                                logger.exception(f'Error adding edge -({verb})> {n2form}={n2valu} to node {formname}={formvalu}')
 
         return await self.getNodeByNdef(protonode.ndef)
 
@@ -2766,7 +2743,13 @@ class View(s_nexus.Pusher):  # type: ignore
         Returns:
             (synapse.lib.node.Node): The Node or None.
         '''
-        if (nid := self.core.getNidByNdef(ndef)) is not None:
+        form, valu = ndef
+        if (ntyp := self.core.model.type(form)) is None:
+            return None
+
+        nval = self.wlyr.stortypes[ntyp.stortype].nidNorm(valu)
+
+        if (nid := self.core.getNidByNdef((form, nval))) is not None:
             return await self._joinStorNode(nid, tombs=tombs)
 
     async def _joinStorNode(self, nid, tombs=False):
@@ -2882,11 +2865,26 @@ class View(s_nexus.Pusher):  # type: ignore
             await self.saveNodeEdits([(s_common.int64un(nid), ndef[0], edit)], meta)
 
     async def scrapeIface(self, text, unique=False, refang=True):
+
+        # Yields (form, normed valu, norminfo, info) tuples. norminfo is the
+        # result of norming the scraped value; node creation paths reuse it via
+        # addNode(norminfo=...) to avoid a lossy re-norm (e.g. a guid constructor
+        # sub-node would lose its deconf props). info is the match context.
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
             async for item in s_scrape.contextScrapeAsync(text, refang=refang, first=False):
                 form = item.pop('form')
                 valu = item.pop('valu')
+
+                try:
+                    tobj = self.core.model.type(form)
+                    valu, norminfo = await tobj.norm(valu, view=self)
+                except s_exc.BadTypeValu:
+                    await asyncio.sleep(0)
+                    continue
+
+                # Dedup on the normed valu; the raw scraped valu may be
+                # unhashable (e.g. a guid constructor dict).
                 if unique:
                     key = (form, valu)
                     if key in matches:
@@ -2894,15 +2892,8 @@ class View(s_nexus.Pusher):  # type: ignore
                         continue
                     await matches.add(key)
 
-                try:
-                    tobj = self.core.model.type(form)
-                    valu, _ = await tobj.norm(valu, view=self)
-                except s_exc.BadTypeValu:
-                    await asyncio.sleep(0)
-                    continue
-
-                # Yield a tuple of <form, normed valu, info>
-                yield form, valu, item
+                # Yield a tuple of <form, normed valu, norminfo, info>
+                yield form, valu, norminfo, item
 
             # Return early if the scrape interface is disabled
             if not self.core.stormiface_scrape:
@@ -2924,16 +2915,9 @@ class View(s_nexus.Pusher):  # type: ignore
             async for results in self.callStormIface('scrape', todo):
                 for (form, valu, info) in results:
 
-                    if unique:
-                        key = (form, valu)
-                        if key in matches:
-                            await asyncio.sleep(0)
-                            continue
-                        await matches.add(key)
-
                     try:
                         tobj = self.core.model.type(form)
-                        valu, _ = await tobj.norm(valu, view=self)
+                        valu, norminfo = await tobj.norm(valu, view=self)
                     except AttributeError:  # pragma: no cover
                         logger.exception(f'Scrape interface yielded unknown form {form}')
                         await asyncio.sleep(0)
@@ -2942,8 +2926,17 @@ class View(s_nexus.Pusher):  # type: ignore
                         await asyncio.sleep(0)
                         continue
 
-                    # Yield a tuple of <form, normed valu, info>
-                    yield form, valu, info
+                    # Dedup on the normed valu; the raw scraped valu may be
+                    # unhashable (e.g. a guid constructor dict).
+                    if unique:
+                        key = (form, valu)
+                        if key in matches:
+                            await asyncio.sleep(0)
+                            continue
+                        await matches.add(key)
+
+                    # Yield a tuple of <form, normed valu, norminfo, info>
+                    yield form, valu, norminfo, info
                     await asyncio.sleep(0)
 
     async def getRuntPodes(self, prop, cmprvalu=None):
@@ -3589,6 +3582,10 @@ class View(s_nexus.Pusher):  # type: ignore
             if cmpr == 'ndef=':
                 cmpr = '='
                 valu = valu[1]
+                cmprvalu = (cmpr, valu)
+
+            elif prop.type.ispoly:
+                valu = valu[0]
                 cmprvalu = (cmpr, valu)
 
             ctor = prop.type.getCmprCtor(cmpr)

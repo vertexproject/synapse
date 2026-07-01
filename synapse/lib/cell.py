@@ -63,7 +63,7 @@ import synapse.tools.service.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
-NEXUS_VERSION = (2, 198)
+NEXUS_VERSION = (3, 0)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -207,8 +207,8 @@ class CellApi(s_base.Base):
         pass
 
     @adminapi(log=True)
-    async def shutdown(self, *, timeout=None):
-        return await self.cell.shutdown(timeout=timeout)
+    async def shutdown(self, *, timeout=None, drain=False):
+        return await self.cell.shutdown(timeout=timeout, drain=drain)
 
     @adminapi(log=True)
     async def freeze(self, *, timeout=30):
@@ -861,6 +861,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     cellapi = CellApi
 
+    # Cells refuse to boot storage from a Synapse 2.x release by default (see
+    # _reqStorageVersion). Cells that migrate 2.x storage in place set this False.
+    reject2xStorage = True
+
+    # Subclasses may set this to an s_mcp.CellMcp subclass to mount an MCP endpoint.
+    _mcp_ctor = None
+
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
     confbase = {
         'safemode': {
@@ -1069,7 +1076,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     COMMIT = s_version.commit
     VERSION = s_version.version
-    VERSTRING = s_version.verstring
 
     SYSCTL_VALS = {
         'vm.dirty_expire_centisecs': 20,
@@ -1097,6 +1103,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.auth = None
         self.cellparent = parent
         self.sessions = {}
+        self._mcp_sessions = {}  # MCP server session state, keyed by Mcp-Session-Id
+        self._mcp_sess_reaper = None  # background task that evicts idle MCP sessions/cursors
         self.paused = False
         self.isactive = False
         self.activebase = None
@@ -1118,6 +1126,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'tellready': 1,
             'dynmirror': 1,
             'tasks': 1,
+            'shutdowndrain': 1,
         }
 
         self.safemode = self.conf.req('safemode')
@@ -1259,18 +1268,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.cellvers.set('cell:storage', 1)
 
         # Check the cell version didn't regress
-        if (lastver := self.cellinfo.get('cell:version')) is not None and self.VERSION < lastver:
-            mesg = f'Cell version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {self.VERSION}.'
-            logger.error(mesg)
-            raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
+        if (lastver := self.cellinfo.get('cell:version')) is not None:
+            if s_version.parse(self.VERSION) < s_version.parse(lastver):
+                mesg = f'Cell version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {self.VERSION}.'
+                logger.error(mesg)
+                raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
 
         self.cellinfo.set('cell:version', self.VERSION)
 
         # Check the synapse version didn't regress
-        if (lastver := self.cellinfo.get('synapse:version')) is not None and s_version.version < lastver:
-            mesg = f'Synapse version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {s_version.version}.'
-            logger.error(mesg)
-            raise s_exc.BadVersion(mesg=mesg, currver=s_version.version, lastver=lastver)
+        if (lastver := self.cellinfo.get('synapse:version')) is not None:
+            if s_version.parse(s_version.version) < s_version.parse(lastver):
+                mesg = f'Synapse version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {s_version.version}.'
+                logger.error(mesg)
+                raise s_exc.BadVersion(mesg=mesg, currver=s_version.version, lastver=lastver)
 
         self.cellinfo.set('synapse:version', s_version.version)
 
@@ -1370,23 +1381,46 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self._onFiniCellGuid()
         return retn
 
-    async def shutdown(self, timeout=None):
+    async def shutdown(self, timeout=None, drain=False):
         '''
-        Execute a graceful shutdown by allowing any promoted boss tasks to complete
-        and prevents the boss from accepting additional tasks.
+        Execute a graceful shutdown.
+
+        When ``drain`` is False (the default), promoted boss tasks are
+        cancelled and then awaited. When ``drain`` is True, promoted boss
+        tasks are awaited until they complete.
+
+        The ``timeout`` argument bounds the entire operation. Demote and task
+        reaping share the single timeout value; no sub-phase may exceed the
+        time remaining when it starts.
+
+        Returns:
+            bool: True if the shutdown was initiated, False if the timeout was
+            exhausted before completion.
         '''
         extra = self.getLogExtra()
         logger.warning('Graceful shutdown initiated...', extra=extra)
 
+        remaining = s_coro.deadline(timeout)
+
         # if we're the leader, lets see if we can handoff...
         if self.isactive and self.ahaclient is not None:
-            peers = await self._getDemotePeers(timeout=timeout)
+
+            try:
+                peers = await self._getDemotePeers(timeout=remaining())
+            except TimeoutError:
+                logger.warning('...timeout reached while finding demote peers. Aborting shutdown.', extra=extra)
+                return False
+
             if peers:
-                if not await self.demote(peers=peers, timeout=timeout): # pragma: no cover
+                if not await self.demote(peers=peers, timeout=remaining()): # pragma: no cover
                     logger.warning('...we are the leader and failed to demote. Aborting shutdown.', extra=extra)
                     return False
 
-        if not await self.boss.shutdown(timeout=timeout):
+        if timeout is not None and remaining() == 0.0:
+            logger.warning('...timeout reached before tasks phase. Aborting shutdown.', extra=extra)
+            return False
+
+        if not await self.boss.shutdown(timeout=remaining(), drain=drain):
             logger.warning('...tasks did not complete within timeout. Aborting shutdown.', extra=extra)
             return False
 
@@ -1533,21 +1567,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.configNexsVers()
 
     async def _migrNexsVers(self, newvers):
-        if self.nexsvers < (2, 198) and newvers >= (2, 198):
-            # This "migration" will lock all archived users. Once the nexus version is bumped to
-            # >=2.198, then the bottom-half nexus handler for user:info (Auth._setUserInfo()) will
-            # begin rejecting unlock requests for archived users.
-
-            authkv = self.slab.getSafeKeyVal('auth')
-            userkv = authkv.getSubKeyVal('user:info:')
-
-            for iden, info in userkv.items():
-                if info.get('archived') and not info.get('locked'):
-                    info['locked'] = True
-                    userkv.set(iden, info)
-
-            # Clear the auth caches so the changes get picked up by the already running auth subsystem
-            self.auth.clearAuthCache()
+        pass
 
     async def configNexsVers(self):
         for meth, orig in self.nexspatches:
@@ -1557,16 +1577,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return
 
         patches = []
-        if self.nexsvers < (2, 177):
-            patches.extend([
-                ('popUserVarValu', self._popUserVarValuV0),
-                ('setUserVarValu', self._setUserVarValuV0),
-                ('popUserProfInfo', self._popUserProfInfoV0),
-                ('setUserProfInfo', self._setUserProfInfoV0),
-            ])
 
+        # Future 3.x migrations add (meth, replacement) tuples to patches here
         self.nexspatches = []
-        for meth, repl in patches:
+        for meth, repl in patches:  # pragma: no cover
             self.nexspatches.append((meth, getattr(self, meth)))
             setattr(self, meth, repl)
 
@@ -1644,7 +1658,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             fixnames = [k['name'] for k in fixvals]
             mesg = f'Sysctl values different than expected: {", ".join(fixnames)}. '
-            mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
+            mesg += 'See https://docs.vertex.link/docs/synapse/latest/devopsguide.html#performance-tuning '
             mesg += 'for information about these sysctl parameters.'
 
             extra = self.getLogExtra(sysctls=fixvals)
@@ -1718,7 +1732,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await user.setLocked(False, logged=False)
 
     async def initServiceEarly(self):
-        pass
+        self._reqStorageVersion()
+
+    def _reqStorageVersion(self):
+        if not self.reject2xStorage:
+            return
+
+        # The base Cell overwrites synapse:version with the running version before
+        # initServiceStorage runs, so the stored (previous boot) value must be inspected
+        # here, in initServiceEarly, before it is updated.
+        lastvers = self.slab.getSafeKeyVal('cell:info').get('synapse:version')
+        if lastvers is not None and s_version.parse(lastvers) < s_version.parse('3.0.0b1'):
+            mesg = f'The {self.getCellType()} storage directory is from a Synapse 2.x release and cannot be migrated to 3.x.'
+            raise s_exc.BadStorageVersion(mesg=mesg, valu=lastvers)
 
     async def initCellStorage(self):
         path = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
@@ -2336,7 +2362,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await proxy.fini()
 
         except Exception as e:
-            extra = await self.getLogExtra(name=self.conf.get('aha:name'))
+            extra = self.getLogExtra(name=self.conf.get('aha:name'))
             logger.exception('Error forcing AHA reconnect.', extra=extra)
 
     def isActiveCoro(self, iden):
@@ -3400,25 +3426,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def _initCellHttpApis(self):
 
         self.addHttpApi('/robots.txt', s_httpapi.RobotHandler, {'cell': self})
-        self.addHttpApi('/api/v1/login', s_httpapi.LoginV1, {'cell': self})
-        self.addHttpApi('/api/v1/logout', s_httpapi.LogoutV1, {'cell': self})
+        self.addHttpApi('/api/v3/login', s_httpapi.LoginV3, {'cell': self})
+        self.addHttpApi('/api/v3/logout', s_httpapi.LogoutV3, {'cell': self})
 
-        self.addHttpApi('/api/v1/active', s_httpapi.ActiveV1, {'cell': self})
-        self.addHttpApi('/api/v1/healthcheck', s_httpapi.HealthCheckV1, {'cell': self})
+        self.addHttpApi('/api/v3/active', s_httpapi.ActiveV3, {'cell': self})
+        self.addHttpApi('/api/v3/healthcheck', s_httpapi.HealthCheckV3, {'cell': self})
 
-        self.addHttpApi('/api/v1/auth/users', s_httpapi.AuthUsersV1, {'cell': self})
-        self.addHttpApi('/api/v1/auth/roles', s_httpapi.AuthRolesV1, {'cell': self})
-        self.addHttpApi('/api/v1/auth/adduser', s_httpapi.AuthAddUserV1, {'cell': self})
-        self.addHttpApi('/api/v1/auth/addrole', s_httpapi.AuthAddRoleV1, {'cell': self})
-        self.addHttpApi('/api/v1/auth/delrole', s_httpapi.AuthDelRoleV1, {'cell': self})
-        self.addHttpApi('/api/v1/auth/user/(.*)', s_httpapi.AuthUserV1, {'cell': self})
-        self.addHttpApi('/api/v1/auth/role/(.*)', s_httpapi.AuthRoleV1, {'cell': self})
-        self.addHttpApi('/api/v1/auth/password/(.*)', s_httpapi.AuthUserPasswdV1, {'cell': self})
-        self.addHttpApi('/api/v1/auth/grant', s_httpapi.AuthGrantV1, {'cell': self})
-        self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
-        self.addHttpApi('/api/v1/auth/onepass/issue', s_httpapi.OnePassIssueV1, {'cell': self})
+        self.addHttpApi('/api/v3/auth/users', s_httpapi.AuthUsersV3, {'cell': self})
+        self.addHttpApi('/api/v3/auth/roles', s_httpapi.AuthRolesV3, {'cell': self})
+        self.addHttpApi('/api/v3/auth/adduser', s_httpapi.AuthAddUserV3, {'cell': self})
+        self.addHttpApi('/api/v3/auth/addrole', s_httpapi.AuthAddRoleV3, {'cell': self})
+        self.addHttpApi('/api/v3/auth/delrole', s_httpapi.AuthDelRoleV3, {'cell': self})
+        self.addHttpApi('/api/v3/auth/user/(.*)', s_httpapi.AuthUserV3, {'cell': self})
+        self.addHttpApi('/api/v3/auth/role/(.*)', s_httpapi.AuthRoleV3, {'cell': self})
+        self.addHttpApi('/api/v3/auth/password/(.*)', s_httpapi.AuthUserPasswdV3, {'cell': self})
+        self.addHttpApi('/api/v3/auth/grant', s_httpapi.AuthGrantV3, {'cell': self})
+        self.addHttpApi('/api/v3/auth/revoke', s_httpapi.AuthRevokeV3, {'cell': self})
+        self.addHttpApi('/api/v3/auth/onepass/issue', s_httpapi.OnePassIssueV3, {'cell': self})
 
-        self.addHttpApi('/api/v1/behold', s_httpapi.BeholdSockV1, {'cell': self})
+        self.addHttpApi('/api/v3/behold', s_httpapi.BeholdSockV3, {'cell': self})
+
+        if self._mcp_ctor is not None:
+            self.addHttpApi('/api/v3/mcp', self._mcp_ctor, {'cell': self})
 
     def addHttpApi(self, path, ctor, info):
         self.wapp.add_handlers('.*', (
@@ -4280,9 +4309,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         levelrepr = s_const.LOG_LEVEL_INVERSE_CHOICES.get(logconf.get('level'))
         logger.info(f'log level set to {levelrepr}')
 
-        svcvers = cls.VERSTRING
+        svcvers = cls.VERSION
         svctype = cls.getCellType()
-        synvers = s_version.verstring
+        synvers = s_version.version
 
         extra = s_logging.getLogExtra(svctype=svctype, svcvers=svcvers, synvers=synvers)
         logger.info(f'Starting {svctype} version {svcvers}, Synapse version: {synvers}', extra=extra)
@@ -4600,8 +4629,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             attributes in order to provide meaningful version information:
 
             ``COMMIT``  - A Git Commit
-            ``VERSION`` - A Version tuple.
-            ``VERSTRING`` - A Version string.
+            ``VERSION`` - A Version string (PEP 440).
 
         Returns:
             Dict: A Dictionary of metadata.
@@ -4617,7 +4645,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'synapse': {
                 'commit': s_version.commit,
                 'version': s_version.version,
-                'verstring': s_version.verstring,
             },
             'cell': {
                 'run': await self.getCellRunId(),
@@ -4629,7 +4656,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'safemode': self.safemode,
                 'commit': self.COMMIT,
                 'version': self.VERSION,
-                'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
                 'mirror': mirror,
                 'aha': {

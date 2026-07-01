@@ -58,23 +58,23 @@ stormcmds = [
                       'type': 'str'}),
         ),
         'storm': '''
-        $iden = $lib.null
+        $iden = (null)
         for $api in $lib.cortex.httpapi.list() {
             if $api.iden.startswith($cmdopts.iden) {
                 if $iden {
-                    $lib.raise(StormRuntimeError, 'Already matched one Extended HTTP API!')
+                    $lib.raise(BadArg, 'Already matched one Extended HTTP API!')
                 }
                 $iden = $api.iden
             }
             if $api.name.startswith($cmdopts.iden) {
                 if $iden {
-                    $lib.raise(StormRuntimeError, 'Already matched one Extended HTTP API!')
+                    $lib.raise(BadArg, 'Already matched one Extended HTTP API!')
                 }
                 $iden = $api.iden
             }
         }
         if (not $iden) {
-            $lib.raise(StormRuntimeError, 'Failed to match Extended HTTP API by iden or name!')
+            $lib.raise(BadArg, 'Failed to match Extended HTTP API by iden or name!')
         }
         $time = $lib.model.type(time)
         $api = $lib.cortex.httpapi.get($iden)
@@ -157,23 +157,23 @@ Examples:
             ('index', {'help': 'Specify the endpoint location as a 0 based index.', 'type': 'int'}),
         ),
         'storm': '''
-        $iden = $lib.null
+        $iden = (null)
         for $api in $lib.cortex.httpapi.list() {
             if $api.iden.startswith($cmdopts.iden) {
                 if $iden {
-                    $lib.raise(StormRuntimeError, 'Already matched one Extended HTTP API!')
+                    $lib.raise(BadArg, 'Already matched one Extended HTTP API!')
                 }
                 $iden = $api.iden
             }
             if $api.name.startswith($cmdopts.iden) {
                 if $iden {
-                    $lib.raise(StormRuntimeError, 'Already matched one Extended HTTP API!')
+                    $lib.raise(BadArg, 'Already matched one Extended HTTP API!')
                 }
                 $iden = $api.iden
             }
         }
         if (not $iden) {
-            $lib.raise(StormRuntimeError, 'Failed to match Extended HTTP API by iden or name!')
+            $lib.raise(BadArg, 'Failed to match Extended HTTP API by iden or name!')
         }
         $api = $lib.cortex.httpapi.get($iden)
         $index = $lib.cortex.httpapi.index($api.iden, $cmdopts.index)
@@ -1365,6 +1365,16 @@ class CortexApi(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def getNidByNdef(self, ndef):
         ndef = await s_stormtypes.toprim(ndef)
-        nid = self.runt.view.core.getNidByNdef(tuple(ndef))
+
+        if not (isinstance(ndef, (tuple, list)) and len(ndef) == 2):
+            mesg = f'ndef argument must be a list of exactly two items, got {s_common.trimText(str(ndef))}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        form, valu = ndef
+        if (ntyp := self.runt.model.type(form)) is None:
+            return None
+
+        nval = self.runt.view.wlyr.stortypes[ntyp.stortype].nidNorm(valu)
+        nid = self.runt.view.core.getNidByNdef((form, nval))
         if nid is not None:
             return s_common.int64un(nid)

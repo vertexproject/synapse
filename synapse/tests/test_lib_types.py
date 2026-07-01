@@ -14,6 +14,37 @@ import synapse.tests.utils as s_t_utils
 
 class TypesTest(s_t_utils.SynTest):
 
+    async def test_types_normstormvalu(self):
+
+        async with self.getTestCore() as core:
+
+            # a non-form value already normed as this type is reused as-is
+            # (same typehash), here re-casting a str typed value to str
+            self.eq('Foo', await core.callStorm('$x=$lib.cast(str, Foo) return($lib.cast(str, $x))'))
+
+            # a value of a non-equivalent type re-norms through the target type
+            # (loc lowercases on its own norm; str then keeps it verbatim)
+            self.eq('us', await core.callStorm('$x=$lib.cast(loc, US) return($lib.cast(str, $x))'))
+
+            # virtual prop values carried by a Valu survive the reuse path
+            q = '''
+                [ econ:purchase=* :price=13.37 :price.currency=usd ]
+                return($lib.cast(econ:price, :price).currency)
+            '''
+            self.eq('USD', await core.callStorm(q))
+
+            await core.nodes('[test:str=hello]')
+
+            # a NodeRef whose typehash matches a form type takes the existence
+            # fast-path: the first norm confirms via getNodeByNdef and caches
+            # exists on the ref, the second reuses the cached flag; both skip
+            # the node creation work.
+            self.len(2, await core.nodes('$ref=$lib.cast(test:str, hello) [test:str=$ref] [test:str=$ref]'))
+
+            # a NodeRef to a node that does not exist falls through to a normal
+            # norm of the carried value
+            self.len(0, await core.nodes('$ref=$lib.cast(test:str, nope) test:str=$ref'))
+
     async def test_type(self):
         # Base type tests, mainly sad paths
         model = s_datamodel.getBaseModel()
@@ -28,11 +59,40 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(str00, str01)
         self.ne(str01, str02)
 
+    async def test_setvirtinfo(self):
+        async with self.getTestCore() as core:
+            t = core.model.type('inet:sockaddr')
+
+            iptype = core.model.type('inet:ip')
+            porttype = core.model.type('inet:port')
+            runttype = core.model.type('syn:type')
+
+            # virt type is a (non-runt) form: the virt is recorded and an add is
+            # created which carries the provided norminfo.
+            ipnorm, ipinfo = await iptype.norm('1.2.3.4')
+            info = {}
+            t.setVirtInfo(info, 'ip', ipnorm, iptype, ipinfo)
+            self.eq(info['virts'], {'ip': (ipnorm, iptype.stortype)})
+            self.eq(info['adds'], [('inet:ip', ipnorm, ipinfo)])
+
+            # virt type is not a form: only the virt is recorded.
+            info = {}
+            t.setVirtInfo(info, 'port', 80, porttype)
+            self.eq(info['virts'], {'port': (80, porttype.stortype)})
+            self.notin('adds', info)
+
+            # virt type is a runt form: only the virt is recorded.
+            self.true(core.model.form('syn:type').isrunt)
+            info = {}
+            t.setVirtInfo(info, 'type', 'inet:ip', runttype)
+            self.eq(info['virts'], {'type': ('inet:ip', runttype.stortype)})
+            self.notin('adds', info)
+
     async def test_mass(self):
 
         async with self.getTestCore() as core:
 
-            mass = core.model.type('mass')
+            mass = core.model.type('phys:mass')
 
             self.eq('0.000042', (await mass.norm('42µg'))[0])
             self.eq('0.2', (await mass.norm('200mg'))[0])
@@ -132,6 +192,133 @@ class TypesTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadTypeValu):
             await huge.norm('1e+99999999999999999999999999999')
 
+        # hexadecimal and octal integer notation
+        self.eq('255', (await huge.norm('0xff'))[0])
+        self.eq('255', (await huge.norm('0XFF'))[0])
+        self.eq('-255', (await huge.norm('-0xff'))[0])
+        self.eq('15', (await huge.norm('0o17'))[0])
+        self.eq('15', (await huge.norm('+0o17'))[0])
+
+        with self.raises(s_exc.BadTypeValu):
+            await huge.norm('0xnope')
+
+        # native min/max support (closed interval)
+        hugemm = huge.clone({'min': 0, 'max': 100})
+        self.eq('0', (await hugemm.norm(0))[0])
+        self.eq('100', (await hugemm.norm(100))[0])
+
+        with self.raises(s_exc.BadTypeValu):
+            await hugemm.norm('-0.1')
+
+        with self.raises(s_exc.BadTypeValu):
+            await hugemm.norm('100.1')
+
+        # open interval via minisvalid/maxisvalid
+        hugeopen = huge.clone({'min': 0, 'minisvalid': False, 'max': 100, 'maxisvalid': False})
+        self.eq('0.1', (await hugeopen.norm('0.1'))[0])
+
+        with self.raises(s_exc.BadTypeValu):
+            await hugeopen.norm(0)
+
+        with self.raises(s_exc.BadTypeValu):
+            await hugeopen.norm(100)
+
+        # explicit unit suffix matching + defunit repr conversion (non-1 multiplier)
+        hugeunit = huge.clone({'units': {'k': '1000', 'm': '1000000'}, 'defunit': 'k'})
+        self.eq('5000', (await hugeunit.norm('5k'))[0])
+        self.eq('2000000', (await hugeunit.norm('2m'))[0])
+        self.eq('5000', (await hugeunit.norm('5000'))[0])
+
+        # whitespace insensitive suffix matching
+        self.eq('5000', (await hugeunit.norm('  5  k  '))[0])
+
+        # without a defunit, repr returns the bare normalized value
+        self.eq('5000', huge.repr('5000'))
+
+        # defunit conversion on repr (divides by the unit multiplier)
+        self.eq('5k', hugeunit.repr('5000'))
+        self.eq('2.5k', hugeunit.repr('2500'))
+
+        # unknown suffix is rejected
+        with self.raises(s_exc.BadTypeValu):
+            await hugeunit.norm('5x')
+
+        # defunit must exist in units
+        with self.raises(s_exc.BadTypeDef):
+            huge.clone({'defunit': 'k'})
+
+    async def test_percent(self):
+
+        async with self.getTestCore() as core:
+
+            perc = core.model.type('percent')
+
+            self.eq('10.2', (await perc.norm('10.2%'))[0])
+            self.eq('10.2', (await perc.norm('10.2'))[0])
+            self.eq('10.2', (await perc.norm(10.2))[0])
+            self.eq('0', (await perc.norm(0))[0])
+            self.eq('100', (await perc.norm('100%'))[0])
+            self.eq('33.333333333333333333333333', (await perc.norm('33.333333333333333333333333%'))[0])
+
+            # whitespace around the value and suffix is insensitive
+            self.eq('10', (await perc.norm('10%'))[0])
+            self.eq('10', (await perc.norm('  10  %  '))[0])
+
+            self.eq('10.2%', perc.repr('10.2'))
+            self.eq('0%', perc.repr('0'))
+            self.eq('100%', perc.repr('100'))
+
+            # an unknown suffix is rejected
+            with self.raises(s_exc.BadTypeValu):
+                await perc.norm('10x')
+
+            with self.raises(s_exc.BadTypeValu):
+                await perc.norm('-0.1')
+
+            with self.raises(s_exc.BadTypeValu):
+                await perc.norm('100.1')
+
+            with self.raises(s_exc.BadTypeValu):
+                await perc.norm(101)
+
+            with self.raises(s_exc.BadTypeValu):
+                await perc.norm('foo')
+
+            nodes = await core.nodes('[ ou:opening=* :remote=42.5% ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'remote', '42.5')
+            self.eq('42.5%', nodes[0].reprs().get('remote'))
+
+            self.len(1, await core.nodes('ou:opening:remote>42'))
+            self.len(0, await core.nodes('ou:opening:remote>43'))
+
+    async def test_ratio(self):
+
+        async with self.getTestCore() as core:
+
+            rati = core.model.type('ratio')
+
+            # behaves like percent for the % unit / repr
+            self.eq('10.2', (await rati.norm('10.2%'))[0])
+            self.eq('10.2', (await rati.norm('10.2'))[0])
+            self.eq('10.2', (await rati.norm(10.2))[0])
+            self.eq('0', (await rati.norm(0))[0])
+            self.eq('10.2%', rati.repr('10.2'))
+
+            # unlike percent, negative values and values over 100 are allowed
+            self.eq('-0.1', (await rati.norm('-0.1'))[0])
+            self.eq('-25.5', (await rati.norm('-25.5%'))[0])
+            self.eq('100.1', (await rati.norm('100.1'))[0])
+            self.eq('250', (await rati.norm(250))[0])
+            self.eq('-25.5%', rati.repr('-25.5'))
+
+            # an unknown suffix is still rejected
+            with self.raises(s_exc.BadTypeValu):
+                await rati.norm('10x')
+
+            with self.raises(s_exc.BadTypeValu):
+                await rati.norm('foo')
+
     async def test_taxonomy(self):
 
         model = s_datamodel.getBaseModel()
@@ -173,11 +360,11 @@ class TypesTest(s_t_utils.SynTest):
         self.false(await taxo.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[test:taxonomy=foo.bar.baz :title="title words" :desc="a test taxonomy" :sort=1 ]')
+            nodes = await core.nodes('[test:taxonomy=foo.bar.baz :name="title words" :desc="a test taxonomy" :sort=1 ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('test:taxonomy', 'foo.bar.baz.'))
-            self.propeq(node, 'title', 'title words')
+            self.propeq(node, 'name', 'title words')
             self.propeq(node, 'desc', 'a test taxonomy')
             self.propeq(node, 'sort', 1)
             self.propeq(node, 'base', 'baz')
@@ -250,6 +437,63 @@ class TypesTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.BadTypeValu):
             await t.norm('1:a:b')
+
+        # the precision opt floors a duration to the given resolution
+        secs = t.clone({'precision': 'second'})
+        self.eq(300000000, (await secs.norm('300'))[0])
+        self.eq(1000000, (await secs.norm('1.5'))[0])
+        self.eq(0, (await secs.norm(300000))[0])
+        self.eq(60000000, (await secs.norm(60000000))[0])
+        self.eq(secs.unkdura, (await secs.norm('?'))[0])
+        self.eq(secs.futdura, (await secs.norm('*'))[0])
+
+        with self.raises(s_exc.BadTypeDef):
+            t.clone({'precision': 'fortnight'})
+
+    async def test_type_expr_funcs(self):
+        model = s_datamodel.getBaseModel()
+
+        time = model.type('time')
+        dura = model.type('duration')
+
+        # registry lookups
+        self.none(time.getExprFunc('+', 'time'))
+        self.nn(time.getExprFunc('-', 'time'))
+        self.nn(time.getExprFunc('+', 'duration'))
+        self.nn(time.getExprFunc('-', 'duration'))
+        self.nn(dura.getExprFunc('+', 'duration'))
+        self.nn(dura.getExprFunc('-', 'duration'))
+        self.nn(dura.getExprFunc('+', 'time'))
+        self.nn(dura.getExprFunc('*', 'int'))
+
+        # reverse handlers live in a separate registry
+        self.nn(dura.getExprFunc('*', 'int', reverse=True))
+        self.none(dura.getExprFunc('+', 'duration', reverse=True))
+        self.none(time.getExprFunc('-', 'time', reverse=True))
+
+        # handlers return (typename, value) ndef tuples
+        self.eq(('duration', 5), await time.getExprFunc('-', 'time')(10, 5))
+        self.eq(('time', 15), await time.getExprFunc('+', 'duration')(10, 5))
+        self.eq(('time', 5), await time.getExprFunc('-', 'duration')(10, 5))
+        self.eq(('duration', 15), await dura.getExprFunc('+', 'duration')(10, 5))
+        self.eq(('duration', 5), await dura.getExprFunc('-', 'duration')(10, 5))
+        self.eq(('time', 15), await dura.getExprFunc('+', 'time')(10, 5))
+        self.eq(('duration', 30), await dura.getExprFunc('*', 'int')(10, 3))
+        self.eq(('duration', 30), await dura.getExprFunc('*', 'int', reverse=True)(10, 3))
+
+        # custom registration round-trips and overrides
+        async def _custom(valu, othr):
+            return ('int', valu)
+
+        time.setExprFunc('+', 'newp', _custom)
+        self.eq(_custom, time.getExprFunc('+', 'newp'))
+        self.eq(('int', 10), await time.getExprFunc('+', 'newp')(10, 5))
+
+        # reverse registration is independent of the forward registry
+        self.none(time.getExprFunc('+', 'newp', reverse=True))
+        time.setExprFunc('+', 'newp', _custom, reverse=True)
+        self.eq(_custom, time.getExprFunc('+', 'newp', reverse=True))
+        self.none(time.getExprFunc('+', 'newp2'))
 
     async def test_bool(self):
         model = s_datamodel.getBaseModel()
@@ -485,11 +729,13 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 inet:service:message=({
                     'id': 'foomesg',
-                    'channel': {
-                        'id': 'foochannel',
-                        'platform': {
-                            'name': 'fooplatform',
-                            'url': 'http://foo.com'
+                    'platform': {
+                        '$as': 'inet:service:platform',
+                        'name': 'fooplatform',
+                        'url': 'http://foo.com',
+                        'software': {
+                            '$as': 'it:software',
+                            'name': 'foosoft'
                         }
                     }
                 })
@@ -498,28 +744,30 @@ class TypesTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef[0], 'inet:service:message')
             self.propeq(node, 'id', 'foomesg')
-            self.nn(node.get('channel'))
-
-            nodes = await core.nodes('inet:service:message -> inet:service:channel')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.propeq(node, 'id', 'foochannel')
             self.nn(node.get('platform'))
 
-            nodes = await core.nodes('inet:service:message -> inet:service:channel -> inet:service:platform')
+            nodes = await core.nodes('inet:service:message -> inet:service:platform')
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'name', 'fooplatform')
             self.propeq(node, 'url', 'http://foo.com')
+            self.nn(node.get('software'))
+
+            nodes = await core.nodes('inet:service:message -> inet:service:platform -> it:software')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.propeq(node, 'name', 'foosoft')
 
             nodes = await core.nodes('''
                 inet:service:message=({
                     'id': 'foomesg',
-                    'channel': {
-                        'id': 'foochannel',
-                        'platform': {
-                            'name': 'fooplatform',
-                            'url': 'http://foo.com'
+                    'platform': {
+                        '$as': 'inet:service:platform',
+                        'name': 'fooplatform',
+                        'url': 'http://foo.com',
+                        'software': {
+                            '$as': 'it:software',
+                            'name': 'foosoft'
                         }
                     }
                 })
@@ -532,15 +780,9 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 inet:service:message=({
                     'id': 'barmesg',
-                    'channel': {
-                        'id': 'barchannel',
-                        'platform': {
-                            'name': 'barplatform',
-                            'url': 'http://bar.com'
-                        }
-                    },
                     '$props': {
                         'platform': {
+                            '$as': 'inet:service:platform',
                             'name': 'barplatform',
                             'url': 'http://bar.com'
                         }
@@ -551,11 +793,10 @@ class TypesTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef[0], 'inet:service:message')
             self.propeq(node, 'id', 'barmesg')
-            self.nn(node.get('channel'))
 
             platguid = node.get('platform')[1]
             self.nn(platguid)
-            nodes = await core.nodes('inet:service:message:id=barmesg -> inet:service:channel -> inet:service:platform')
+            nodes = await core.nodes('inet:service:message:id=barmesg -> inet:service:platform')
             self.len(1, nodes)
             self.eq(platguid, nodes[0].ndef[1])
 
@@ -563,12 +804,10 @@ class TypesTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('''
                 inet:service:message=({
                     'id': 'foomesg',
-                    'channel': {
-                        'id': 'foochannel',
-                        'platform': {
-                            'name': 'newp',
-                            'url': 'http://foo.com'
-                        }
+                    'platform': {
+                        '$as': 'inet:service:platform',
+                        'name': 'newp',
+                        'url': 'http://foo.com'
                     }
                 })
             '''))
@@ -578,12 +817,10 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('''
                     inet:service:message=({
                         'id': 'foomesg',
-                        'channel': {
-                            'id': 'foochannel',
-                            'platform': {
-                                'name': 'newp',
-                                'url': 'newp'
-                            }
+                        'platform': {
+                            '$as': 'inet:service:platform',
+                            'name': 'newp',
+                            'url': 'newp'
                         }
                     })
                 ''')
@@ -596,7 +833,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('''[
                 inet:service:account?=({
                     "id": "bar",
-                    "platform": {"name": "barplat"},
+                    "platform": {"$as": "inet:service:platform", "name": "barplat"},
                     "url": "newp"})
             ]'''))
 
@@ -605,7 +842,7 @@ class TypesTest(s_t_utils.SynTest):
             # Gutors work for props
             nodes = await core.nodes('''[
                 test:str=guidprop
-                    :gprop=({'name': 'someprop', '$props': {'size': 5}})
+                    :gprop=({'$as': 'test:guid', 'name': 'someprop', '$props': {'size': 5}})
             ]''')
             self.len(1, nodes)
             node = nodes[0]
@@ -621,7 +858,7 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu) as cm:
                 nodes = await core.nodes('''[
                     test:str=newpprop
-                        :gprop=({'size': 'newp'})
+                        :gprop=({'$as': 'test:guid', 'size': 'newp'})
                 ]''')
 
             self.eq(cm.exception.get('form'), 'test:guid')
@@ -630,7 +867,7 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 test:str=newpprop
-                    :gprop?=({'size': 'newp'})
+                    :gprop?=({'$as': 'test:guid', 'size': 'newp'})
             ]''')
             self.len(1, nodes)
             node = nodes[0]
@@ -639,7 +876,7 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ test:str=methset ]
-                $node.props.gprop = ({'name': 'someprop'})
+                $node.props.gprop = ({'$as': 'test:guid', 'name': 'someprop'})
             ''')
             self.len(1, nodes)
             node = nodes[0]
@@ -653,10 +890,10 @@ class TypesTest(s_t_utils.SynTest):
             self.propeq(node, 'size', 5)
 
             opts = {'vars': {'sha256': 'a01f2460fec1868757aa9194b5043b4dd9992de0f6b932137f36506bd92d9d88'}}
-            nodes = await core.nodes('''[ it:app:yara:match=* :target={[ file:bytes=({"sha256": $sha256}) ]} ]''', opts=opts)
+            nodes = await core.nodes('''[ it:app:yara:matched=* :target={[ file:bytes=({"sha256": $sha256}) ]} ]''', opts=opts)
             self.len(1, nodes)
 
-            nodes = await core.nodes('it:app:yara:match -> *')
+            nodes = await core.nodes('it:app:yara:matched -> *')
             self.len(1, nodes)
             self.propeq(nodes[0], 'sha256', opts['vars']['sha256'])
 
@@ -697,6 +934,382 @@ class TypesTest(s_t_utils.SynTest):
 
             # $salt is not stored as a property
             self.none(salt00[0].get('$salt'))
+
+            # $unsets: new node -- constraint trivially satisfied, prop is absent
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg", "$unsets": ["desc"]}) ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('desc'))
+            self.propeq(nodes[0], 'name', 'unsetorg')
+
+            # $unsets: prop name as Storm variable -- tostor converts Storm Str to Python str
+            nodes = await core.nodes('$p = "desc" [ ou:org=({"name": "unsetorg-var", "$unsets": [$p]}) ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('desc'))
+
+            # $unsets: existing node, named prop is absent -- constraint satisfied, node returned unchanged
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg", "$unsets": ["phone"]}) ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('phone'))
+
+            # $unsets: empty list is a no-op
+            nodes = await core.nodes('[ ou:org=({"name": "unsetorg", "$unsets": []}) ]')
+            self.len(1, nodes)
+
+            # $unsets: existing node, named prop IS set -- no deconf match, creates a new node
+            await core.nodes('[ou:org=({"name": "unsetorg2", "$props": {"desc": "present"}})]')
+            nodes = await core.nodes('[ou:org=({"name": "unsetorg2", "$unsets": ["desc"]})]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('desc'))
+            # two distinct ou:org nodes now share name="unsetorg2"
+            all_nodes = await core.nodes('ou:org:name="unsetorg2"')
+            self.len(2, all_nodes)
+
+            # $unsets: same gutor again finds the node without desc (consistent re-resolution)
+            nodes = await core.nodes('[ou:org=({"name": "unsetorg2", "$unsets": ["desc"]})]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('desc'))
+
+            # $unsets: $props sets a different prop, $unsets checks absence of another (no overlap)
+            await core.nodes('[ou:org=({"name": "unsetorg3", "$props": {"desc": "ok"}})]')
+            nodes = await core.nodes('[ou:org=({"name": "unsetorg3", "$props": {"desc": "ok"}, "$unsets": ["phone"]})]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('phone'))
+
+            # $unsets: value must be a list/tuple
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$unsets": "desc"}) ]')
+            self.stormIsInErr('$unsets must be a list of property name strings', msgs)
+
+            # $unsets: list must contain strings
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$unsets": [42]}) ]')
+            self.stormIsInErr('$unsets must be a list of property name strings', msgs)
+
+            # $unsets: unknown prop raises NoSuchProp
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$unsets": ["newp"]}) ]')
+            self.stormIsInErr('No property named', msgs)
+
+            # $unsets: overlap with deconf key raises BadTypeValu
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$unsets": ["name"]}) ]')
+            self.stormIsInErr("Cannot specify 'name' in $unsets", msgs)
+
+            # $unsets: overlap with $props raises BadTypeValu
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$props": {"desc": "x"}, "$unsets": ["desc"]}) ]')
+            self.stormIsInErr("Cannot specify 'desc' in $unsets", msgs)
+
+            # $unsets: $try: true does NOT suppress NoSuchProp
+            msgs = await core.stormlist('[ ou:org=({"name": "unsetorg", "$try": true, "$unsets": ["newp"]}) ]')
+            self.stormIsInErr('No property named', msgs)
+
+            # $unsets: nested gutor -- inner node prop is absent, constraint satisfied
+            await core.nodes('[inet:service:platform=({"name": "unsetplat-ok"})]')
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    "id": "unsetmsgnested-ok",
+                    "$props": {
+                        "platform": {
+                            "$as": "inet:service:platform",
+                            "name": "unsetplat-ok",
+                            "$unsets": ["url"]
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            plats = await core.nodes('inet:service:message:id=unsetmsgnested-ok -> inet:service:platform')
+            self.len(1, plats)
+            self.none(plats[0].get('url'))
+
+            # $unsets: nested gutor -- inner node has prop set, no match, resolves to new inner node
+            await core.nodes('[inet:service:platform=({"name": "unsetplat-bad", "$props": {"url": "http://set.com"}})]')
+            nodes = await core.nodes('''[
+                inet:service:message=({
+                    "id": "unsetmsgnested-bad",
+                    "$props": {
+                        "platform": {
+                            "$as": "inet:service:platform",
+                            "name": "unsetplat-bad",
+                            "$unsets": ["url"]
+                        }
+                    }
+                })
+            ]''')
+            self.len(1, nodes)
+            plats = await core.nodes('inet:service:message:id=unsetmsgnested-bad -> inet:service:platform')
+            self.len(1, plats)
+            self.none(plats[0].get('url'))
+
+            # $unsets: works via $lib.view.get().addNode() -- constraint satisfied (prop absent)
+            nodes = await core.nodes("yield $lib.view.get().addNode(ou:org, ({'name': 'viewaddorg', '$unsets': ['desc']}))")
+            self.len(1, nodes)
+            self.none(nodes[0].get('desc'))
+
+            # embed queries can be used as values
+            nodes = await core.nodes('[ test:guid=({"name": ${[ test:str=embedq ]} })]')
+            self.len(1, nodes)
+            self.eq('test:guid', nodes[0].ndef[0])
+            self.propeq(nodes[0], 'name', 'embedq', type='test:str')
+            self.len(1, await core.nodes('test:str=embedq'))
+
+            # embed query can be used in $props
+            nodes = await core.nodes('''[
+                test:guid=({
+                    "name": "propsq",
+                    "$props": {"size": ${[ test:int=42 ]}}
+                })
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'size', 42, type='test:int')
+            self.len(1, await core.nodes('test:int=42'))
+
+            # embed query for an array prop can yield multiple nodes
+            nodes = await core.nodes('[ test:arrayprop=({"strs": ${[ test:str=arr1 test:str=arr2 ]} })]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'strs', ('arr1', 'arr2'))
+
+            # embed query with a return statement
+            nodes = await core.nodes('[ test:guid=({"name": ${ [test:str=retq] return($node) }} )]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'name', 'retq', type='test:str')
+            self.len(1, await core.nodes('test:str=retq'))
+
+            # a non-array prop requires exactly one yielded node
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:guid=({"name": ${[ test:str=multi1 test:str=multi2 ]} })]')
+
+            # zero yielded nodes resolves to None and fails to norm
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:guid=({"name": ${ test:str=nope }})]')
+
+            # ?= suppresses the bad-type-valu from the embed query resolution
+            nodes = await core.nodes('[ test:guid?=({"name": ${ test:str=nope }})]')
+            self.len(0, nodes)
+
+            # embed query handling works for all types
+            nodes = await core.nodes('[ test:str=polysrc :poly=${[ test:int=5 ]} ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'poly', 5, type='test:int')
+            self.len(1, await core.nodes('test:int=5'))
+
+            # works on arrays as well
+            nodes = await core.nodes('[ test:str=polyarrsrc :polyarry=${[ test:int=7 test:int=8 ]} ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'polyarry', (7, 8))
+            self.eq({'test:int'}, {item[0] for item in nodes[0].get('polyarry')})
+
+            # the data type stores the query text rather than executing the query
+            nodes = await core.nodes('[ test:data=${[ test:str=dataq ]} ]')
+            self.len(1, nodes)
+            self.isin('test:str=dataq', nodes[0].ndef[1])
+            self.len(0, await core.nodes('test:str=dataq'))
+
+            # $as: a poly prop that resolves to many forms (entity:actor) has no
+            # default type, so a dictionary guid constructor must name the form
+            # to build via $as.
+            msgs = await core.stormlist('[ meta:note=* :creator=({"name": "bob smith"}) ]')
+            self.stormIsInErr('requires a "$as" key naming the form to construct', msgs)
+
+            nodes = await core.nodes('[ meta:note=* :creator=({"$as": "ps:person", "name": "bob smith"}) ]')
+            self.len(1, nodes)
+            creator = nodes[0].get('creator')
+            self.eq('ps:person', creator[0])
+            people = await core.nodes('meta:note:creator -> ps:person')
+            self.len(1, people)
+            self.propeq(people[0], 'name', 'bob smith', type='entity:name')
+
+            # $as: the same constructor deconflicts to the same node
+            nodes = await core.nodes('[ meta:note=* :creator=({"$as": "ps:person", "name": "bob smith"}) ]')
+            self.eq(creator, nodes[0].get('creator'))
+
+            # $as: naming a different (allowed) form builds a distinct typed node
+            nodes = await core.nodes('[ meta:note=* :creator=({"$as": "entity:contact", "name": "bob smith"}) ]')
+            self.eq('entity:contact', nodes[0].get('creator')[0])
+            self.ne(creator, nodes[0].get('creator'))
+
+            # $as: a guid form not allowed by the poly raises BadTypeValu...
+            msgs = await core.stormlist('[ meta:note=* :creator=({"$as": "inet:service:message", "id": "m1"}) ]')
+            self.stormIsInErr('is not allowed for', msgs)
+
+            # ...and $try / ?= suppress it
+            nodes = await core.nodes('[ meta:note=* :creator?=({"$as": "inet:service:message", "id": "m1"}) ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('creator'))
+
+            # $as: value must be a form name string
+            msgs = await core.stormlist('[ meta:note=* :creator=({"$as": 42, "name": "x"}) ]')
+            self.stormIsInErr('"$as" must be a form name string', msgs)
+
+            # $as: value must name a guid form (inet:fqdn is a form but not a guid)
+            msgs = await core.stormlist('[ meta:note=* :creator=({"$as": "inet:fqdn", "name": "x"}) ]')
+            self.stormIsInErr('"$as" value inet:fqdn is not a guid form', msgs)
+
+            # $as: on a single-default poly prop the form may be named explicitly
+            nodes = await core.nodes('[ inet:service:message=* :to=({"$as": "inet:service:account", "id": "acct1"}) ]')
+            self.len(1, nodes)
+            self.eq('inet:service:account', nodes[0].get('to')[0])
+
+            # $as: at the top level the constructed form must match the form being built
+            nodes = await core.nodes('[ ou:org=({"$as": "ou:org", "name": "vertex via as"}) ]')
+            self.len(1, nodes)
+            self.eq('ou:org', nodes[0].ndef[0])
+            self.propeq(nodes[0], 'name', 'vertex via as')
+
+            msgs = await core.stormlist('[ ou:org=({"$as": "ps:person", "name": "nope"}) ]')
+            self.stormIsInErr('does not match the form ou:org being constructed', msgs)
+
+            # $as: at the top level it must also be a form name string
+            msgs = await core.stormlist('[ ou:org=({"$as": 42, "name": "nope"}) ]')
+            self.stormIsInErr('"$as" must be a form name string for form ou:org', msgs)
+
+            # $as: works via $lib.view.get().addNode()
+            nodes = await core.nodes('yield $lib.view.get().addNode(meta:note, ({"text": "added via as", "$props": {"creator": {"$as": "ps:person", "name": "added via as"}}}))')
+            self.len(1, nodes)
+            self.eq('ps:person', nodes[0].get('creator')[0])
+
+            # $as: each element of a poly array may name its own form
+            nodes = await core.nodes('''[ entity:conflict=* :adversaries=(
+                ({"$as": "ps:person", "name": "alice"}),
+                ({"$as": "ou:org", "name": "acme"})
+            ) ]''')
+            self.len(1, nodes)
+            self.eq(('ou:org', 'ps:person'), tuple(sorted(a[0] for a in nodes[0].get('adversaries'))))
+            self.len(1, await core.nodes('entity:conflict -> ps:person +:name="alice"'))
+            self.len(1, await core.nodes('entity:conflict -> ou:org +:name="acme"'))
+
+            # $as: a disallowed form on a poly value nested in $props is skipped
+            # under $try rather than raising
+            nodes = await core.nodes('''[
+                meta:note=({
+                    "text": "tryskip note",
+                    "$try": true,
+                    "$props": {"creator": {"$as": "inet:service:message", "id": "m1"}}
+                })
+            ]''')
+            self.len(1, nodes)
+            self.none(nodes[0].get('creator'))
+
+            # ...while without $try the same disallowed form raises
+            msgs = await core.stormlist('''[
+                meta:note=({
+                    "text": "tryskip note2",
+                    "$props": {"creator": {"$as": "inet:service:message", "id": "m1"}}
+                })
+            ]''')
+            self.stormIsInErr('is not allowed for', msgs)
+
+            # --- virtual prop keys in gutor dicts ---
+            ityp = core.model.type('ival')
+
+            # ival min-only in deconfliction portion: creates an open-ended ival
+            nodes_v00 = await core.nodes('[ test:guid=({"name": "ival-virt", "seen.min": "2020"}) ]')
+            self.len(1, nodes_v00)
+            self.propeq(nodes_v00[0], 'name', 'ival-virt')
+            # propeq unwraps poly-wrapped ival to compare raw (min, max, dur) tuple
+            self.propeq(nodes_v00[0], 'seen', (1577836800000000, ityp.unksize, ityp.duratype.unkdura))
+
+            # same dict deconflicts to the same node
+            nodes_v01 = await core.nodes('[ test:guid=({"name": "ival-virt", "seen.min": "2020"}) ]')
+            self.len(1, nodes_v01)
+            self.eq(nodes_v00[0].ndef, nodes_v01[0].ndef)
+
+            # different seen.min produces a different node (virt participates in deconfliction)
+            nodes_v02 = await core.nodes('[ test:guid=({"name": "ival-virt", "seen.min": "2021"}) ]')
+            self.len(1, nodes_v02)
+            self.ne(nodes_v00[0].ndef, nodes_v02[0].ndef)
+
+            # min+max: virtlist is threaded in order to form a bounded ival
+            nodes_v03 = await core.nodes('[ test:guid=({"name": "ival-bounded", "seen.min": "2020", "seen.max": "2021"}) ]')
+            self.len(1, nodes_v03)
+            self.propeq(nodes_v03[0], 'seen', (1577836800000000, 1609459200000000, 1609459200000000 - 1577836800000000))
+
+            # same dict deconflicts to the same node
+            nodes_v04 = await core.nodes('[ test:guid=({"name": "ival-bounded", "seen.min": "2020", "seen.max": "2021"}) ]')
+            self.len(1, nodes_v04)
+            self.eq(nodes_v03[0].ndef, nodes_v04[0].ndef)
+
+            # min+max+duration: over-constrained raises BadTypeValu
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ test:guid=({"name": "ival-overcon", "seen.min": "2020", "seen.max": "2021", "seen.duration": "1D"}) ]')
+
+            # unknown dotted key that matches no virt name raises NoSuchVirt
+            msgs = await core.stormlist('[ test:guid=({"name": "ival-novirt", "seen.newp": "2020"}) ]')
+            self.stormIsInErr('No editable virtual prop named', msgs)
+
+            # dotted key whose base is not a real prop is treated as a plain prop
+            # name (not a virt reference) and raises NoSuchProp
+            msgs = await core.stormlist('[ test:guid=({"name": "ival-nobase", "newp.min": "2020"}) ]')
+            self.stormIsInErr('No property named test:guid:newp.min', msgs)
+
+            # virt key in $props: applied to the node but does not affect the deconf guid
+            nodes_v05 = await core.nodes('[ test:guid=({"name": "ival-props-virt"}) ]')
+            nodes_v06 = await core.nodes('[ test:guid=({"name": "ival-props-virt", "$props": {"seen.min": "2020"}}) ]')
+            self.len(1, nodes_v05)
+            self.len(1, nodes_v06)
+            self.eq(nodes_v05[0].ndef, nodes_v06[0].ndef)
+            self.propeq(nodes_v06[0], 'seen', (1577836800000000, ityp.unksize, ityp.duratype.unkdura))
+
+            # $try=True in $props: bad virt value is silently skipped
+            nodes_v07 = await core.nodes('''[
+                test:guid=({
+                    "name": "ival-try-virt",
+                    "$try": true,
+                    "$props": {"seen.min": "notadate", "tick": "2020"}
+                })
+            ]''')
+            self.len(1, nodes_v07)
+            self.none(nodes_v07[0].get('seen'))
+            self.nn(nodes_v07[0].get('tick'))
+
+            # $unsets: dotted virt names are not accepted (prop-only in v1)
+            msgs = await core.stormlist('[ test:guid=({"name": "ival-unsets", "$unsets": ["seen.min"]}) ]')
+            self.stormIsInErr('No property named', msgs)
+    async def test_poly(self):
+
+        async with self.getTestCore() as core:
+
+            valu = 'a' * 32
+
+            # guid types are left out of a poly's default norming list so a value
+            # cannot be inadvertently normed into the wrong guid type. test:str:bar
+            # allows guid types (test:guid, meta:source, ps:person) which are all
+            # dropped from the default norming list.
+            ptyp = core.model.prop('test:str:bar').type
+            self.true(ptyp.ispoly)
+            self.notin('test:guid', ptyp.defaulttypes)
+            self.notin('meta:source', ptyp.defaulttypes)
+            self.notin('ps:person', ptyp.defaulttypes)
+
+            # the guid types remain allowed members of the poly typeset.
+            self.isin('test:guid', ptyp.typeset)
+            self.isin('meta:source', ptyp.typeset)
+
+            # a raw string norms to the first non-guid member that accepts it.
+            norm, info = await ptyp.norm(valu)
+            self.eq(('test:str', valu), norm)
+
+            # array element polys are filtered the same way (test:guid is dropped,
+            # so test:int rejects the string and test:auto wins).
+            atyp = core.model.prop('test:str:polyarry2').type.arraytype
+            self.true(atyp.ispoly)
+            self.notin('test:guid', atyp.defaulttypes)
+            self.eq(('test:int', 'test:auto', 'test:ro'), atyp.defaulttypes)
+            norm, info = await atyp.norm(valu)
+            self.eq(('test:auto', valu), norm)
+
+            # non-guid string/int norming is unchanged.
+            norm, info = await atyp.norm(5)
+            self.eq(('test:int', 5), norm)
+
+            # a single guid member is excluded too; its default norming list is
+            # empty and a raw value cannot be normed.
+            gstyp = core.model.type('test:guidsingle')
+            self.eq((), gstyp.defaulttypes)
+            with self.raises(s_exc.BadTypeValu):
+                await gstyp.norm(valu)
+
+            # a poly whose members are all guid types also ends up empty.
+            gtyp = core.model.type('test:guidpoly')
+            self.eq((), gtyp.defaulttypes)
+            with self.raises(s_exc.BadTypeValu):
+                await gtyp.norm(valu)
 
     async def test_hex(self):
 
@@ -1142,7 +1755,6 @@ class TypesTest(s_t_utils.SynTest):
         ival = model.types.get('ival')
 
         self.eq(('2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z'), ival.repr((await ival.norm(('2016', '2017')))[0]))
-
         self.eq((0, 5356800000000, 5356800000000), (await ival.norm((0, '1970-03-04')))[0])
         self.eq((1451606400000000, 1451606400000001, 1), (await ival.norm('2016'))[0])
         self.eq((1451606400000000, 1451606400000001, 1), (await ival.norm(1451606400000000))[0])
@@ -1327,21 +1939,21 @@ class TypesTest(s_t_utils.SynTest):
                 (entity:campaign=*)
             ]''')
 
-            self.len(1, await core.nodes('entity:campaign.created +:period.min=2020-01-01'))
-            self.len(2, await core.nodes('entity:campaign.created +:period.min<2022-01-01'))
-            self.len(3, await core.nodes('entity:campaign.created +:period.min<=2022-01-01'))
-            self.len(3, await core.nodes('entity:campaign.created +:period.min>=2022-01-01'))
-            self.len(2, await core.nodes('entity:campaign.created +:period.min>2022-01-01'))
-            self.len(1, await core.nodes('entity:campaign.created +:period.min@=2020'))
-            self.len(2, await core.nodes('entity:campaign.created +:period.min@=(2020-01-01, 2022-01-01)'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.began=2020-01-01'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.began<2022-01-01'))
+            self.len(3, await core.nodes('entity:campaign.created +:period.began<=2022-01-01'))
+            self.len(3, await core.nodes('entity:campaign.created +:period.began>=2022-01-01'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.began>2022-01-01'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.began@=2020'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.began@=(2020-01-01, 2022-01-01)'))
 
-            self.len(1, await core.nodes('entity:campaign.created +:period.max=2020-01-02'))
-            self.len(2, await core.nodes('entity:campaign.created +:period.max<2022-05-01'))
-            self.len(3, await core.nodes('entity:campaign.created +:period.max<=2022-05-01'))
-            self.len(3, await core.nodes('entity:campaign.created +:period.max>=2022-05-01'))
-            self.len(2, await core.nodes('entity:campaign.created +:period.max>2022-05-01'))
-            self.len(1, await core.nodes('entity:campaign.created +:period.max@=2022-05-01'))
-            self.len(2, await core.nodes('entity:campaign.created +:period.max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.ended=2020-01-02'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.ended<2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign.created +:period.ended<=2022-05-01'))
+            self.len(3, await core.nodes('entity:campaign.created +:period.ended>=2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.ended>2022-05-01'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.ended@=2022-05-01'))
+            self.len(2, await core.nodes('entity:campaign.created +:period.ended@=(2020-01-02, 2022-05-01)'))
 
             self.len(1, await core.nodes('entity:campaign.created +:period.duration=1D'))
             self.len(1, await core.nodes('entity:campaign.created +:period.duration<31D'))
@@ -1349,10 +1961,10 @@ class TypesTest(s_t_utils.SynTest):
             self.len(4, await core.nodes('entity:campaign.created +:period.duration>=31D'))
             self.len(3, await core.nodes('entity:campaign.created +:period.duration>31D'))
 
-            self.len(0, await core.nodes('entity:campaign.created +:period.min@=(2022-01-01, 2020-01-01)'))
+            self.len(0, await core.nodes('entity:campaign.created +:period.began@=(2022-01-01, 2020-01-01)'))
 
             with self.raises(s_exc.NoSuchFunc):
-                await core.nodes('entity:campaign.created +:period.min@=({})')
+                await core.nodes('entity:campaign.created +:period.began@=({})')
 
             self.eq(ival.getVirtType('min'), model.types.get('time'))
 
@@ -1364,8 +1976,36 @@ class TypesTest(s_t_utils.SynTest):
 
             ityp = core.model.type('ival')
             styp = core.model.type('timeprecision').stortype
-            valu = (await ityp.norm('2025-04-05 12:34:56.123456'))[0]
 
+            # test that the most precise time precision wins
+            valu = await ival.norm(('?', 'now'))
+            self.eq({}, valu[1])
+
+            valu = await ival.norm(('?', '2025-07-12T07:13?'))
+            self.eq(('?', '2025-07-12T07:13:59.999999Z'), ival.repr(valu[0]))
+            self.eq({'virts': {'precision': (s_time.PREC_MINUTE, styp)}}, valu[1])
+
+            valu = await ival.norm(('20210102T07?', '20240401T07?'))
+            self.eq(('2021-01-02T07:00:00Z', '2024-04-01T07:59:59.999999Z'), ival.repr(valu[0]))
+            self.eq({'virts': {'precision': (s_time.PREC_HOUR, styp)}}, valu[1])
+
+            valu = await ival.norm(('2012?', '20210607?'))
+            self.eq(('2012-01-01T00:00:00Z', '2021-06-07T23:59:59.999999Z'), ival.repr(valu[0]))
+            self.eq({'virts': {'precision': (s_time.PREC_DAY, styp)}}, valu[1])
+
+            valu = await ival.norm(('202101?', '2025?'))
+            self.eq(('2021-01-01T00:00:00Z', '2025-01-31T23:59:59.999999Z'), ival.repr(valu[0]))
+            self.eq({'virts': {'precision': (s_time.PREC_MONTH, styp)}}, valu[1])
+
+            valu = await ival.norm(('2021?', '202501?'))
+            self.eq(('2021-01-01T00:00:00Z', '2025-01-31T23:59:59.999999Z'), ival.repr(valu[0]))
+            self.eq({'virts': {'precision': (s_time.PREC_MONTH, styp)}}, valu[1])
+
+            valu = await ival.norm(('?', '2025?'))
+            self.eq(('?', '2025-12-31T23:59:59.999999Z'), ival.repr(valu[0]))
+            self.eq({'virts': {'precision': (s_time.PREC_YEAR, styp)}}, valu[1])
+
+            valu = (await ityp.norm('2025-04-05 12:34:56.123456'))[0]
             exp = ((1743856496123456, 1743856496123457, 1), {})
             self.eq(await ityp.normVirt('precision', valu, s_time.PREC_MICRO), exp)
 
@@ -1449,6 +2089,32 @@ class TypesTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('[ test:str=fut :seen=(now + 1day, *) ] +:seen.duration'))
 
+            nodes = await core.nodes('[test:str=setprec1 :seen=(20210112, 20220606) :seen.precision=minute]')
+            exp = (('ival', (1610409600000000, 1654473659999999, 44064059999999)), {'precision': (s_time.PREC_MINUTE, styp)})
+            self.eq(nodes[0].getWithVirts('seen'), exp)
+            self.eq(nodes[0].getProps(virts=True)['seen.precision'], s_time.PREC_MINUTE)
+
+            nodes = await core.nodes('[test:str=setprec2 :seen=(?, 20220606) :seen.precision=day]')
+            exp = (('ival', (ityp.unksize, 1654559999999999, 18446744073709551615)), {'precision': (s_time.PREC_DAY, styp)})
+            self.eq(nodes[0].getWithVirts('seen'), exp)
+            packed = nodes[0].pack(virts=True)
+            self.eq(packed[1]['props']['seen.precision'], s_time.PREC_DAY)
+
+            nodes = await core.nodes('[test:str=setprec3 :seen=(20210112, ?) :seen.precision=month]')
+            exp = (('ival', (1609459200000000, ityp.unksize, 18446744073709551615)), {'precision': (s_time.PREC_MONTH, styp)})
+            self.eq(nodes[0].getWithVirts('seen'), exp)
+
+            nodes = await core.nodes('[test:str=setprec3 :seen=(20210112, ?) :seen.precision=microsecond]')
+            exp = (('ival', (1609459200000000, ityp.unksize, 18446744073709551615)), None)
+            props = nodes[0].getProps(virts=True)
+            self.eq(props['seen.precision'], s_time.PREC_MICRO)
+            # the precision for default values doesn't get stored
+            self.eq(nodes[0].getWithVirts('seen'), exp)
+
+            nodes = await core.nodes('[test:str=setprec4 :seen=(?, ?) :seen.precision=hour]')
+            exp = (('ival', (9223372036854775807, 9223372036854775807, 18446744073709551615)), None)
+            self.eq(nodes[0].getWithVirts('seen'), exp)
+
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ test:str=foo :seen=(2021, 2022) :seen.duration=500 ]')
 
@@ -1469,6 +2135,355 @@ class TypesTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:seen@=(1, 2, 3, 4)')
+
+    async def test_ival_virt_names(self):
+
+        async with self.getTestCore() as core:
+
+            # it:lifespan is an ival which renames the min/max virts to created/removed
+            ltype = core.model.type('it:lifespan')
+            self.eq(core.model.type('ival').stortype, ltype.stortype)
+            self.sorteq(('created', 'removed', 'duration', 'precision'), ltype.virts.keys())
+
+            # the renamed comparators are translated back to the canonical min/max
+            self.eq('min<=', (await ltype.getStorCmprs('<=', '2021', virt='created'))[0][0])
+            self.eq('max=', (await ltype.getStorCmprs('=', '2022', virt='removed'))[0][0])
+
+            # phys:lifespan renames min/max to created/retired
+            ptype = core.model.type('phys:lifespan')
+            self.sorteq(('created', 'retired', 'duration', 'precision'), ptype.virts.keys())
+            self.eq('max=', (await ptype.getStorCmprs('=', '2022', virt='retired'))[0][0])
+
+            # entity:lifespan renames min/max to began/ended
+            etype = core.model.type('entity:lifespan')
+            self.sorteq(('began', 'ended', 'duration', 'precision'), etype.virts.keys())
+            self.eq('min<=', (await etype.getStorCmprs('<=', '2020', virt='began'))[0][0])
+
+            await core.addFormProp('inet:service:platform', '_life', ('it:lifespan', {}), {'doc': 'x'})
+            nodes = await core.nodes('[ inet:service:platform=* :_life=(2020, 2022) ]')
+            self.len(1, nodes)
+            node = nodes[0]
+
+            # the renamed virts are readable and resolve to the same min/max values
+            self.eq(1577836800000000, node.get('_life.created'))
+            self.eq(1640995200000000, node.get('_life.removed'))
+            self.nn(node.get('_life.duration'))
+
+            # the renamed virts are filterable and round-trip through the storage layer
+            self.len(1, await core.nodes('inet:service:platform +:_life.created>=2019'))
+            self.len(0, await core.nodes('inet:service:platform +:_life.created>=2021'))
+            self.len(1, await core.nodes('inet:service:platform +:_life.removed<2099'))
+            self.len(1, await core.nodes('inet:service:platform +:_life.duration>1D'))
+
+            # the original min/max names are no longer present
+            with self.raises(s_exc.NoSuchVirt):
+                node.get('_life.min')
+
+    async def test_price(self):
+
+        async with self.getTestCore() as core:
+
+            prtype = core.model.type('econ:price')
+
+            # bare numbers behave like a hugenum and capture no currency
+            norm, info = await prtype.norm('99')
+            self.eq('99', norm)
+            self.eq({}, info.get('virts', {}))
+            self.eq('99', prtype.reprWithVirts(norm, None))
+
+            norm, info = await prtype.norm(99)
+            self.eq('99', norm)
+            self.eq({}, info)
+
+            # a trailing currency code is captured into the currency virt
+            norm, info = await prtype.norm('99USD')
+            self.eq('99', norm)
+            self.eq({'currency': ('USD', core.model.type('econ:currency').stortype)}, info['virts'])
+            self.eq('99USD', prtype.reprWithVirts(norm, info['virts']))
+
+            # whitespace separated and lower-case currency both work
+            norm, info = await prtype.norm('99 usd')
+            self.eq('99', norm)
+            self.eq('99USD', prtype.reprWithVirts(norm, info['virts']))
+
+            norm, info = await prtype.norm('-12.5eur')
+            self.eq('-12.5', norm)
+            self.eq('-12.5EUR', prtype.reprWithVirts(norm, info['virts']))
+
+            # scientific notation ends in a digit so is not mis-split
+            norm, info = await prtype.norm('1e-24')
+            self.eq({}, info.get('virts', {}))
+
+            # an all-alpha or empty numeric part is a bad value
+            with self.raises(s_exc.BadTypeValu):
+                await prtype.norm('usd')
+
+    async def test_pricerange(self):
+
+        async with self.getTestCore() as core:
+
+            prtype = core.model.type('econ:pricerange')
+
+            # norm from a (min, max) pair
+            self.eq(('1.5', '2.2', '0.7'), (await prtype.norm((1.5, 2.2)))[0])
+            self.eq(('1.5', '2.2', '0.7'), (await prtype.norm(('1.50', '2.20')))[0])
+
+            # norm from a "min-max" string
+            self.eq(('1.5', '2.2', '0.7'), (await prtype.norm('1.50-2.20'))[0])
+
+            # a trailing currency code is captured into the currency virt
+            norm, info = await prtype.norm('32-99USD')
+            self.eq(('32', '99', '67'), norm)
+            self.eq({'currency': ('USD', core.model.type('econ:currency').stortype)}, info['virts'])
+            self.eq('32-99USD', prtype.reprWithVirts(norm, info['virts']))
+
+            # lower-case trailing currency is also upper-cased
+            norm, info = await prtype.norm('32-99 usd')
+            self.eq('32-99USD', prtype.reprWithVirts(norm, info['virts']))
+
+            # no currency -> no virts and the plain 2-tuple repr
+            norm, info = await prtype.norm('1.50-2.20')
+            self.eq({}, info.get('virts', {}))
+            self.eq(('1.5', '2.2'), prtype.reprWithVirts(norm, None))
+
+            # getters
+            valu = (await prtype.norm((10, 25)))[0]
+            self.eq('10', prtype.getVirtGetr('min')((valu, None, None)))
+            self.eq('25', prtype.getVirtGetr('max')((valu, None, None)))
+            self.eq('15', prtype.getVirtGetr('delta')((valu, None, None)))
+
+            # repr
+            self.eq(('1.5', '2.2'), prtype.repr((await prtype.norm((1.5, 2.2)))[0]))
+
+            # unknown sentinel partial-capture then completion
+            self.eq(('?', '?', '?'), (await prtype.norm('?'))[0])
+            self.eq(('?', '?', '?'), (await prtype.norm(('?', '?')))[0])
+
+            # set min on empty -> max unknown, delta unknown
+            newv, info = await prtype.normVirt('min', None, 5)
+            self.eq(('5', '?', '?'), newv)
+            self.false(info['merge'])
+
+            # set max recomputes delta
+            newv, _ = await prtype.normVirt('max', newv, 12)
+            self.eq(('5', '12', '7'), newv)
+
+            # set max on empty -> min unknown, delta unknown
+            newv, info = await prtype.normVirt('max', None, 9)
+            self.eq(('?', '9', '?'), newv)
+            self.false(info['merge'])
+
+            # set max when min unknown but delta known derives min
+            base = (await prtype.norm(('?', '?')))[0]
+            base, _ = await prtype.normVirt('delta', base, 4)
+            self.eq(('?', '?', '4'), base)
+            newv, _ = await prtype.normVirt('max', base, 20)
+            self.eq(('16', '20', '4'), newv)
+
+            # set min when max known and within range recomputes delta
+            base = (await prtype.norm(('?', '20')))[0]
+            newv, _ = await prtype.normVirt('min', base, 5)
+            self.eq(('5', '20', '15'), newv)
+
+            # delta getter returns None for the unknown sentinel
+            unkv = (await prtype.norm(('?', '?')))[0]
+            self.none(prtype.getVirtGetr('delta')((unkv, None, None)))
+            self.none(prtype.getVirtGetr('max')((unkv, None, None)))
+            self.none(prtype.getVirtGetr('min')((unkv, None, None)))
+
+            # currency getter returns None when virts dict lacks the key
+            self.none(prtype.getVirtGetr('currency')((unkv, None, {})))
+
+            # set min raises when greater than a known max
+            with self.raises(s_exc.BadTypeValu):
+                await prtype.normVirt('min', (await prtype.norm(('?', '5')))[0], 10)
+
+            # set max raises when less than a known min
+            with self.raises(s_exc.BadTypeValu):
+                await prtype.normVirt('max', (await prtype.norm((10, 20)))[0], 5)
+
+            # norm requires a 2-tuple
+            with self.raises(s_exc.BadTypeValu):
+                await prtype.norm((1, 2, 3))
+
+            # set delta on a one-endpoint-known range derives the other
+            newv, _ = await prtype.normVirt('min', None, 5)
+            newv, _ = await prtype.normVirt('delta', newv, 3)
+            self.eq(('5', '8', '3'), newv)
+
+            # set delta when min unknown but max known derives min
+            base = (await prtype.norm(('?', '20')))[0]
+            newv, _ = await prtype.normVirt('delta', base, 4)
+            self.eq(('16', '20', '4'), newv)
+
+            # currency lives in the virts dict
+            newv, info = await prtype.normVirt('currency', (await prtype.norm((1, 2)))[0], 'usd')
+            self.eq({'currency': ('USD', core.model.type('econ:currency').stortype)}, info['virts'])
+
+            # errors
+            with self.raises(s_exc.BadTypeValu):
+                await prtype.norm((5, 2))
+
+            with self.raises(s_exc.BadTypeValu):
+                await prtype.norm('1.0')  # no dash
+
+            with self.raises(s_exc.BadTypeValu):
+                # over-constraint: both endpoints known
+                await prtype.normVirt('delta', (await prtype.norm((1, 5)))[0], 2)
+
+            with self.raises(s_exc.BadTypeValu):
+                # negative delta
+                await prtype.normVirt('delta', (await prtype.norm(('?', '5')))[0], -1)
+
+            with self.raises(s_exc.BadTypeValu):
+                await prtype.normVirt('currency', None, 'usd')
+
+            with self.raises(s_exc.NoSuchVirt):
+                prtype.getVirtType('newp')
+
+    async def test_pricechange(self):
+
+        async with self.getTestCore() as core:
+
+            pctype = core.model.type('econ:pricechange')
+
+            # norm from a (start, end) pair, derives delta and rate
+            self.eq(('100', '125', '25', '25'), (await pctype.norm((100, 125)))[0])
+
+            # negative delta + rate
+            self.eq(('100', '75', '-25', '-25'), (await pctype.norm((100, 75)))[0])
+
+            # rate omitted (unknown) when start == 0
+            self.eq(('0', '5', '5', '?'), (await pctype.norm((0, 5)))[0])
+
+            # getters
+            valu = (await pctype.norm((100, 125)))[0]
+            self.eq('100', pctype.getVirtGetr('start')((valu, None, None)))
+            self.eq('125', pctype.getVirtGetr('end')((valu, None, None)))
+            self.eq('25', pctype.getVirtGetr('delta')((valu, None, None)))
+            self.eq('25', pctype.getVirtGetr('rate')((valu, None, None)))
+
+            # repr
+            self.eq(('100', '75'), pctype.repr((await pctype.norm((100, 75)))[0]))
+
+            # pricechange accepts the "start-end" string form
+            self.eq(('100', '125', '25', '25'), (await pctype.norm('100-125'))[0])
+
+            # a trailing currency code is captured into the currency virt
+            norm, info = await pctype.norm('99-32USD')
+            self.eq('99', norm[0])
+            self.eq('32', norm[1])
+            self.eq('-67', norm[2])
+            self.eq({'currency': ('USD', core.model.type('econ:currency').stortype)}, info['virts'])
+            self.eq('99-32USD', pctype.reprWithVirts(norm, info['virts']))
+
+            # no currency -> the plain 2-tuple repr
+            norm, info = await pctype.norm('100-125')
+            self.eq(('100', '125'), pctype.reprWithVirts(norm, None))
+
+            # a negative endpoint can not be expressed as a string (ambiguous
+            # with the separator); use a (start, end) tuple instead
+            with self.raises(s_exc.BadTypeValu):
+                await pctype.norm('-25-100')
+
+            with self.raises(s_exc.BadTypeValu):
+                await pctype.norm('100-')
+
+            # unknown sentinel
+            self.eq(('?', '?', '?', '?'), (await pctype.norm('?'))[0])
+
+            # set start on empty
+            newv, _ = await pctype.normVirt('start', None, 100)
+            self.eq(('100', '?', '?', '?'), newv)
+
+            # set end recomputes delta and rate
+            newv, _ = await pctype.normVirt('end', newv, 150)
+            self.eq(('100', '150', '50', '50'), newv)
+
+            # set signed delta derives the unknown endpoint
+            newv, _ = await pctype.normVirt('start', None, 100)
+            newv, _ = await pctype.normVirt('delta', newv, -40)
+            self.eq(('100', '60', '-40', '-40'), newv)
+
+            # set rate derives the unknown end
+            newv, _ = await pctype.normVirt('start', None, 100)
+            newv, _ = await pctype.normVirt('rate', newv, 20)
+            self.eq(('100', '120', '20', '20'), newv)
+
+            # set delta when start unknown but end known derives start
+            base = (await pctype.norm(('?', '?')))[0]
+            base, _ = await pctype.normVirt('end', base, 50)
+            base, _ = await pctype.normVirt('delta', base, 10)
+            self.eq(('40', '50', '10', '25'), base)
+
+            # set end on empty
+            newv, info = await pctype.normVirt('end', None, 80)
+            self.eq(('?', '80', '?', '?'), newv)
+            self.false(info['merge'])
+
+            # set end when start unknown but delta known derives start
+            base = (await pctype.norm(('?', '?')))[0]
+            base, _ = await pctype.normVirt('delta', base, 10)
+            self.eq(('?', '?', '10', '?'), base)
+            newv, _ = await pctype.normVirt('end', base, 50)
+            self.eq(('40', '50', '10', '25'), newv)
+
+            # set start when end unknown but delta known derives end
+            base = (await pctype.norm(('?', '?')))[0]
+            base, _ = await pctype.normVirt('delta', base, 10)
+            newv, _ = await pctype.normVirt('start', base, 40)
+            self.eq(('40', '50', '10', '25'), newv)
+
+            # set start when end unknown but rate known derives end
+            base = (await pctype.norm(('?', '?')))[0]
+            base, _ = await pctype.normVirt('rate', base, 20)
+            self.eq(('?', '?', '?', '20'), base)
+            newv, _ = await pctype.normVirt('start', base, 100)
+            self.eq(('100', '120', '20', '20'), newv)
+
+            # set rate on a fully-unknown change just records the rate
+            base = (await pctype.norm('?'))[0]
+            newv, _ = await pctype.normVirt('rate', base, 5)
+            self.eq(('?', '?', '?', '5'), newv)
+
+            # set delta to the unknown sentinel on a start-known change leaves
+            # the derived end unknown (_deriveEnd returns the sentinel)
+            base = (await pctype.norm(('?', '?')))[0]
+            base, _ = await pctype.normVirt('start', base, 100)
+            newv, _ = await pctype.normVirt('delta', base, '?')
+            self.eq(('100', '?', '?', '?'), newv)
+
+            # set delta to the unknown sentinel on an end-known change leaves
+            # the derived start unknown (_deriveStart returns the sentinel)
+            base = (await pctype.norm(('?', '?')))[0]
+            base, _ = await pctype.normVirt('end', base, 100)
+            newv, _ = await pctype.normVirt('delta', base, '?')
+            self.eq(('?', '100', '?', '?'), newv)
+
+            # getters return None for the unknown sentinel
+            unkv = (await pctype.norm('?'))[0]
+            self.none(pctype.getVirtGetr('start')((unkv, None, None)))
+            self.none(pctype.getVirtGetr('end')((unkv, None, None)))
+            self.none(pctype.getVirtGetr('delta')((unkv, None, None)))
+            self.none(pctype.getVirtGetr('rate')((unkv, None, None)))
+
+            # currency
+            newv, info = await pctype.normVirt('currency', (await pctype.norm((1, 2)))[0], 'usd')
+            self.eq({'currency': ('USD', core.model.type('econ:currency').stortype)}, info['virts'])
+
+            # norm requires a 2-tuple
+            with self.raises(s_exc.BadTypeValu):
+                await pctype.norm((1, 2, 3))
+
+            # over-constraint errors
+            with self.raises(s_exc.BadTypeValu):
+                await pctype.normVirt('delta', (await pctype.norm((1, 5)))[0], 2)
+
+            with self.raises(s_exc.BadTypeValu):
+                await pctype.normVirt('rate', (await pctype.norm((1, 5)))[0], 2)
+
+            with self.raises(s_exc.BadTypeValu):
+                await pctype.normVirt('currency', None, 'usd')
 
     async def test_loc(self):
         model = s_datamodel.getBaseModel()
@@ -1634,6 +2649,10 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(True, await lowr.cmpr('foobar', '^=', 'FOO'))
         self.eq(False, await lowr.cmpr('foubar', '^=', 'FOO'))
 
+        # the prefix comparator ctor itself must normalize the prefix text the same way the lift does
+        self.true(await (await lowr.getCmprCtor('^=')('FOO'))('foobar'))
+        self.false(await (await lowr.getCmprCtor('^=')('FOO'))('foubar'))
+
         regx = model.type('str').clone({'regex': '^[a-f][0-9]+$'})
         self.eq('a333', (await regx.norm('a333'))[0])
         await self.asyncraises(s_exc.BadTypeValu, regx.norm('A333'))
@@ -1651,6 +2670,23 @@ class TypesTest(s_t_utils.SynTest):
         onespace = model.type('str').clone({'onespace': True})
         self.eq('foo', (await onespace.norm('  foo\t'))[0])
         self.eq('hehe haha', (await onespace.norm('hehe    haha'))[0])
+
+        # value mapping (applied after case folding and strip)
+        mapd = model.type('str').clone({'mapping': {'foo': 'bar', 'baz': 'faz'}})
+        self.eq('bar', (await mapd.norm('foo'))[0])
+        self.eq('faz', (await mapd.norm('baz'))[0])
+        self.eq('other', (await mapd.norm('other'))[0])
+
+        mapu = model.type('str').clone({'upper': True, 'mapping': {'$': 'USD'}})
+        self.eq('USD', (await mapu.norm('$'))[0])
+        self.eq('USD', (await mapu.norm('  $ '))[0])
+        self.eq('GBP', (await mapu.norm('gbp'))[0])
+
+        # the mapping is applied to the prefix value for ^= lifts as well
+        self.eq(True, await mapu.cmpr('USDOLLAR', '^=', '$'))
+
+        with self.raises(s_exc.BadTypeDef):
+            model.type('str').clone({'mapping': 'newp'})
 
         enums = model.type('str').clone({'enums': 'hehe,haha,zork'})
         self.eq('hehe', (await enums.norm('hehe'))[0])
@@ -1684,6 +2720,27 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('1234567890.1234567', (await flt.norm(1234567890.123456790123456790123456789 + 0.0000000001))[0])
         self.eq('2.718281828459045', (await flt.norm(2.718281828459045))[0])
         self.eq('1.23', (await flt.norm(s_stormtypes.Number(1.23)))[0])
+
+    async def test_title(self):
+
+        model = s_datamodel.getBaseModel()
+
+        titl = model.type('title')
+        text = model.type('text')
+
+        # title collapses internal whitespace, strips, and preserves case
+        self.eq('Foo Bar', (await titl.norm('  Foo   Bar  '))[0])
+
+        # comparison and prefix are case insensitive
+        self.eq(True, await titl.cmpr('Foo Bar', '=', 'foo bar'))
+        self.eq(False, await titl.cmpr('Foo Bar', '!=', 'foo bar'))
+        self.eq(True, await titl.cmpr('Foo Bar', '^=', 'FOO'))
+
+        # title shares the case insensitive text storage
+        self.eq(titl.stortype, text.stortype)
+
+        # text remains multi-line and no longer strips by default
+        self.eq('  multi\nline  ', (await text.norm('  multi\nline  '))[0])
 
     async def test_syntag(self):
 
@@ -2123,6 +3180,18 @@ class TypesTest(s_t_utils.SynTest):
             retn = await core.callStorm('test:str=a return($lib.trycast(time, :tick))')
             self.eq(retn, (True, 1388534400000000))
 
+            # norming a storm typed value through the time type: an equivalent
+            # time typed Valu carrying a precision virt is reused as-is
+            self.eq(1735689600000000, await core.callStorm("$x=$lib.cast(time, '2025?') return($lib.cast(time, $x))"))
+
+            # a non-time typed Valu (duration) cast to time re-norms through
+            # the time type rather than reusing the value
+            self.eq(100, await core.callStorm('$d=$lib.cast(duration, (100)) return($lib.cast(time, $d))'))
+
+            # a NodeRef cast to time norms its carried value
+            self.eq(1577836800000,
+                    await core.callStorm('$r=$lib.cast(test:int, (1577836800000)) return($lib.cast(time, $r))'))
+
     async def test_types_long_indx(self):
 
         aaaa = 'A' * 200
@@ -2138,13 +3207,12 @@ class TypesTest(s_t_utils.SynTest):
         mdef = {
             'types': (
                 ('test:array', ('array', {'type': 'inet:ip'}), {}),
-                ('test:witharray', ('guid', {}), {}),
-            ),
-            'forms': (
-                ('test:witharray', {}, (
-                    ('ips', ('test:array', {}), {}),
-                    ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True, 'split': ','}), {}),
-                )),
+                ('test:witharray', ('guid', {}), {
+                    'props': (
+                        ('ips', ('test:array', {}), {}),
+                        ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True, 'split': ','}), {}),
+                    ),
+                }),
             ),
         }
         async with self.getTestCore() as core:
@@ -2239,3 +3307,160 @@ class TypesTest(s_t_utils.SynTest):
 
             self.true(s_common.isguid(core.model.form('inet:fqdn').type.typehash))
             self.true(s_common.isguid(core.model.form('inet:fqdn').typehash))
+
+    async def test_datamodel_text(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('''[
+                (test:str=foo :textform=NoCase)
+                (test:str=bar :textform=nocase)
+                (test:str=baz :textform=newp)
+                test:str=nocase
+            ]''')
+
+            # lift/filter ignore case
+            self.len(2, await core.nodes('test:str:textform=nocase'))
+            self.len(2, await core.nodes('test:str:textform=NOCASE'))
+            self.len(2, await core.nodes('test:str:textform=nocase +:textform=nocase'))
+            self.len(2, await core.nodes('test:str:textform=nocase +:textform=NOCASE'))
+
+            # value contains original case
+            nodes = await core.nodes('test:str:textform=nocase')
+            self.propeq(nodes[0], 'textform', 'NoCase')
+            self.propeq(nodes[1], 'textform', 'nocase')
+
+            # printing uses original case
+            msgs = await core.stormlist('test:str:textform=nocase $lib.print(:textform)')
+            self.stormIsInPrint('NoCase', msgs)
+            self.stormIsInPrint('nocase', msgs)
+
+            # only one node for the form can exist in the view and it retains the original case used
+            nodes = await core.nodes('test:text')
+            self.len(2, nodes)
+            self.sorteq([n.ndef[1] for n in nodes], ('NoCase', 'newp'))
+
+            nodes = await core.nodes('test:text=NoCase')
+            nid1 = nodes[0].nid
+
+            nodes = await core.nodes('[ test:text=NOCASE ]')
+            self.eq(nodes[0].nid, nid1)
+
+            nodes = await core.nodes('test:text')
+            self.len(2, nodes)
+            self.sorteq([n.ndef[1] for n in nodes], ('NoCase', 'newp'))
+
+            # pivots use destination's behavior
+            self.len(2, await core.nodes('test:str=nocase -> test:str:textform'))
+
+            self.len(3, await core.nodes('test:str:textform -> *'))
+            self.len(1, await core.nodes('test:str:textform :textform as test:str -> test:str'))
+
+            self.len(3, await core.nodes('test:text <- *'))
+            self.len(3, await core.nodes('test:text -> test:str'))
+
+            # attempting to re-add in a fork still gives the base layer cased node
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            nodes = await core.nodes('[ test:text=NOCASE ]', opts={'view': viewiden2})
+            self.eq(nodes[0].nid, nid1)
+            self.eq(nodes[0].ndef[1], 'NoCase')
+
+            # creating the node in the fork first causes the case to be different but same nid
+            await core.nodes('[ test:text=NOCASE2 ]', opts={'view': viewiden2})
+            nodes = await core.nodes('[ test:text=noCASE2 ]')
+            nid2 = nodes[0].nid
+            self.eq(nodes[0].ndef[1], 'noCASE2')
+
+            nodes = await core.nodes('test:text=NOCASE2', opts={'view': viewiden2})
+            self.eq(nodes[0].nid, nid2)
+            self.eq(nodes[0].ndef[1], 'NOCASE2')
+
+            await core.nodes('[test:str=view :textform=nocase2]')
+            self.len(1, await core.nodes('test:str=view -> *', opts={'view': viewiden2}))
+            self.len(1, await core.nodes('test:str=view -> *'))
+
+            # merging overwrites casing in the lower layer
+            await core.nodes('[ test:text=NOCASE2 ] | merge --apply', opts={'view': viewiden2})
+            nodes = await core.nodes('test:text=noCASE2')
+            nid2 = nodes[0].nid
+            self.eq(nodes[0].ndef[1], 'NOCASE2')
+
+            await core.nodes('[ test:text=NoCase3 ]', opts={'view': viewiden2})
+            nodes = await core.nodes('[ test:text=nocase3 ]')
+            nid3 = nodes[0].nid
+            self.eq(nodes[0].ndef[1], 'nocase3')
+
+            forkview = core.getView(viewiden2)
+            await core.nodes('$lib.view.get().merge()', opts={'view': viewiden2})
+            self.true(await forkview.waitfini(timeout=5))
+            nodes = await core.nodes('test:text=nocase3')
+            nid3 = nodes[0].nid
+            self.eq(nodes[0].ndef[1], 'NoCase3')
+
+            # node.setValue() can be used to change the value
+            nodes = await core.nodes('test:text=nocase2 $node.setValue(nocase2)')
+            nid2 = nodes[0].nid
+            self.eq(nodes[0].ndef[1], 'nocase2')
+
+            nodes = await core.nodes('test:text=nocase2 $node.setValue(nocase2)')
+            nid2 = nodes[0].nid
+            self.eq(nodes[0].ndef[1], 'nocase2')
+
+            nodes = await core.nodes('test:str:textform +:textform!=NOCASE')
+            self.sorteq([n.get('textform')[1] for n in nodes], ('newp', 'nocase2'))
+
+            nodes = await core.nodes('test:str:textform +:textform^=NEW')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'textform', 'newp')
+
+            nodes = await core.nodes('test:str:textform +:textform~="^N.+P$"')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'textform', 'newp')
+
+            nodes = await core.nodes('test:str:textform +:textform*in=(NEWP, foo)')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'textform', 'newp')
+
+            nodes = await core.nodes('test:str:textform +:textform*range=(NEW, NOC)')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'textform', 'newp')
+
+            nodes = await core.nodes('[ file:path="c:/foo/bar.exe" ]')
+            self.eq(nodes[0].valuvirts(), {'base': ('bar.exe', 30), 'ext': ('exe', 30), 'dir': ('c:/foo', 30)})
+
+            # setValue updates virts
+            nodes = await core.nodes('file:path="c:/foo/bar.exe" $node.setValue("c:/FOO/Bar.EXE")')
+            self.eq(nodes[0].valuvirts(), {'base': ('Bar.EXE', 30), 'ext': ('EXE', 30), 'dir': ('c:/FOO', 30)})
+
+            self.true(await core.callStorm('test:str:textform=newp $foo = :textform return(($foo = "NEWP"))'))
+            self.true(await core.callStorm('test:str:textform=newp return((:textform = "NEWP"))'))
+            self.true(await core.callStorm('test:str:textform=newp return(("NEWP" = :textform))'))
+            self.false(await core.callStorm('test:str:textform=newp return((:textform != "NEWP"))'))
+            self.true(await core.callStorm('test:str:textform=newp return((:textform != "OTHER"))'))
+            self.true(await core.callStorm('test:str:textform=newp return((:textform ^= "NEW"))'))
+            self.true(await core.callStorm('test:str:textform=newp return((:textform ~= "^N.+P$"))'))
+
+            # both operands NodeRef
+            self.true(await core.callStorm('test:str:textform=newp $foo = :textform return((:textform = $foo))'))
+
+            # type has no cmpr ctor for the operator: arithmetic falls through to expr_*
+            await core.nodes('[ test:int=10 :int2=42 ]')
+            self.eq(47, await core.callStorm('test:int=10 return((:int2 + 5))'))
+
+            # other side cannot be normed into the type -> BadTypeValu path
+            self.false(await core.callStorm('test:int=10 return((:int2 = "notanumber"))'))
+            self.true(await core.callStorm('test:int=10 return((:int2 != "notanumber"))'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:textform +:textform*range=$x', opts={'vars': {'x': 'notatuple'}})
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:textform +:textform*range=(a, b, c)')
+
+            # new value must resolve to the same value
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:text=nocase2 $node.setValue(NEWP)')
+
+            core.getView().wlyr.readonly = True
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('test:text=nocase2 $node.setValue(NoCaSe2)')

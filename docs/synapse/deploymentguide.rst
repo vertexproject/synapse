@@ -67,6 +67,8 @@ When using AHA, you may run any of the **other** services on additional hosts as
 directly to the AHA service.  You may also shutdown a service, move it's volume to a different host, and
 start it backup without changing anything.
 
+.. _deploy-aha-service:
+
 Deploy AHA Service
 ==================
 
@@ -123,7 +125,7 @@ Create the ``/srv/syn/00.aha/docker-compose.yaml`` file with contents::
     services:
       00.aha:
         user: "999"
-        image: vertexproject/synapse-aha:v2.x.x
+        image: vertexproject/synapse-aha:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
@@ -201,7 +203,7 @@ Create the ``/srv/syn/01.aha/docker-compose.yaml`` file with contents::
     services:
       01.aha:
         user: "999"
-        image: vertexproject/synapse-aha:v2.x.x
+        image: vertexproject/synapse-aha:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
@@ -259,7 +261,7 @@ Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
     services:
       00.axon:
         user: "999"
-        image: vertexproject/synapse-axon:v2.x.x
+        image: vertexproject/synapse-axon:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
@@ -303,7 +305,7 @@ Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
     services:
       00.jsonstor:
         user: "999"
-        image: vertexproject/synapse-jsonstor:v2.x.x
+        image: vertexproject/synapse-jsonstor:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
@@ -347,7 +349,7 @@ Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
     services:
       00.cortex:
         user: "999"
-        image: vertexproject/synapse-cortex:v2.x.x
+        image: vertexproject/synapse-cortex:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
@@ -403,7 +405,7 @@ Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
     services:
       01.cortex:
         user: "999"
-        image: vertexproject/synapse-cortex:v2.x.x
+        image: vertexproject/synapse-cortex:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:

@@ -105,7 +105,7 @@ class LibScrape(s_stormtypes.Lib):
         text = await s_stormtypes.tostr(text)
 
         genr = self.runt.view.scrapeIface(text)
-        async for (form, valu, info) in genr:
+        async for (form, valu, _, info) in genr:
             yield (form, valu, info)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -113,7 +113,7 @@ class LibScrape(s_stormtypes.Lib):
         text = await s_stormtypes.tostr(text)
 
         genr = self.runt.view.scrapeIface(text, unique=True)
-        async for (form, valu, _) in genr:
+        async for (form, valu, _, _) in genr:
             yield (form, valu)
 
     @s_stormtypes.stormfunc(readonly=True)

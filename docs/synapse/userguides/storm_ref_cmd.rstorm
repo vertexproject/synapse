@@ -26,34 +26,37 @@ Storm Commands and the Pipe Character
 The pipe character ( ``|`` ) is used with Storm commands to:
 
 - Return to Storm query syntax after running a Storm command.
-- Separate individual Storm commands and their parameters (i.e., if you are "chaining" multiple
+- Separate individual Storm commands and their parameters (i.e., if you are chaining multiple
   commands together).
  
 For example:
 
 ::
   
-  inet:fqdn=woot.com nettools.whois | nettools.dns --type A AAAA NS | -> inet:dns:a
+  inet:fqdn=woot.com | nettools.whois | nettools.dns --type A AAAA NS | -> inet:dns:a
 
 The query above:
 
 - lifts the FQDN ``woot.com``,
-- performs a live "whois" lookup using the Synapse-Nettools :ref:`gloss-power-up`,
-- performs a live DNS query for the FQDN's A, AAAA, and NS records, and
-- pivots from the FQDN to any associated DNS A records.
+- performs a live "whois" lookup using the Synapse-Nettools :ref:`gloss-power-up` (``| nettools.whois``),
+- performs a live DNS query for the FQDN's A, AAAA, and NS records (``| nettools.dns --type A AAAA NS``), and
+- pivots from the FQDN to any associated DNS A records (``| -> inet:dns:a``).
 
-The pipe is used:
+The pipe is used to:
 
-- to separate the two ``nettools.*`` commands, and
-- to separate the ``nettools.dns`` command and its switches from the subsequent query operation (the pivot).
+- separate the initial lift operation (``inet:fqdn=woot.com``) from the ``nettools.whois`` command;
+- separate the ``nettools.whois`` command from the ``nettools.dns`` command and its parameters; and
+- separate the ``nettools.dns`` command and its parameters from the subsequent query operation (the pivot).
 
 .. TIP::
   
-  A pipe character is **not** required between a Storm operation and any **initial** Storm command (e.g., between
-  the ``inet:fqdn=woot.com`` lift operation and the subsequent ``nettools.whois`` command in the example
-  above). A pipe character can **optionally** be placed in this location (some users may find it easier to
-  remember the "rules" for pipe use as "place a pipe between Storm operations and Storm commands"), but is
-  not necessary.
+  A pipe character is **not** required between a Storm operation and any **initial** Storm command (e.g.,
+  between ``inet:fqdn=woot.com`` and ``nettools.whois`` in the example above). A pipe character can
+  **optionally** be placed in this location but is not necessary.
+  
+  We use the pipe character in our examples to more clearly separate Storm query syntax (operations)
+  from Storm commands.
+
 
 .. _storm-cmd-ref:
 
@@ -163,7 +166,7 @@ The ``help`` command can also be used to inspect information about :ref:`stormty
 aha
 ---
 
-Storm includes ``aha.*`` commands that allow you to work with Synapse's `AHA service`_, specifically with AHA
+Storm includes ``aha.*`` commands that allow you to work with Synapse's :ref:`AHA service <deploy-aha-service>`, specifically with AHA
 service pools.
 
 - `aha.pool.add`_
@@ -438,8 +441,8 @@ The ``auth.user.allowed`` command checks whether a user has a permission for the
 (view or layer; if no scope is specified with the ``--gate`` option, the permission is checked
 globally).
 
-The command retuns whether the permission is allowed (true) the source of the permission (e.g.,
-if the permission is due to having a particular role).
+The command returns whether the permission is allowed (true or false) and the source of the permission
+(e.g., if the permission is due to having a particular role).
 
 **Syntax:**
 
@@ -665,8 +668,8 @@ The ``cortex.storm.pool.del`` command deletes a Storm query offload mirror pool 
 
 .. storm-cli:: cortex.storm.pool.del --help
 
-..  _storm-cortex-storm-pool-get:
 
+..  _storm-cortex-storm-pool-get:
 
 cortex.storm.pool.get
 +++++++++++++++++++++
@@ -705,19 +708,17 @@ the final tally. The associated nodes can optionally be displayed with the ``--y
 
 **Examples:**
 
-- Count the number of IP address nodes that Trend Micro reports are associated with the threat group
-  Earth Preta:
+Count the number of IP addresses that Trend Micro associates with the threat group Earth Preta (``#rep.trend.earth_preta``):
 
+.. storm-pre:: [ inet:ip=66.129.222.1 inet:ip=184.82.164.104 inet:ip=209.161.249.125 inet:ip=69.90.65.240 inet:ip=70.62.232.98 +#rep.trend.earth_preta ]
+.. storm-cli:: inet:ip#rep.trend.earth_preta | count
 
-.. storm-pre:: [ inet:ip=66.129.222.1 inet:ip=184.82.164.104 inet:ip=209.161.249.125 inet:ip=69.90.65.240 inet:ip=70.62.232.98 +#rep.trend.earthpreta ]
-.. storm-cli:: inet:ip#rep.trend.earthpreta | count
+Count the IP addresses Trend Micro associates with Earth Preta and yield the nodes:
 
-- Count nodes from a lift and yield the output:
+.. storm-pre:: [ inet:ip=66.129.222.1 inet:ip=184.82.164.104 inet:ip=209.161.249.125 inet:ip=69.90.65.240 inet:ip=70.62.232.98 +#rep.trend.earth_preta ]
+.. storm-cli:: inet:ip#rep.trend.earth_preta | count --yield
 
-.. storm-pre:: [ inet:ip=66.129.222.1 inet:ip=184.82.164.104 inet:ip=209.161.249.125 inet:ip=69.90.65.240 inet:ip=70.62.232.98 +#rep.trend.earthpreta ]
-.. storm-cli:: inet:ip#rep.trend.earthpreta | count --yield
-
-- Count the number of DNS A records for the domain woot.com where the lift produces no results:
+Count the number of DNS A records for the domain ``woot.com`` where the lift produces no results:
 
 .. storm-cli:: inet:dns:a:fqdn=woot.com | count
 
@@ -878,13 +879,13 @@ The ``delnode`` command deletes a node or set of nodes from a Cortex.
 
 **Examples:**
 
-- Delete the node for the domain woowoo.com:
+Delete the node for the domain ``woowoo.com``:
 
-.. storm-pre:: [inet:fqdn=woowoo.com]
+.. storm-pre:: [ inet:fqdn=woowoo.com ]
 .. storm-cli:: inet:fqdn=woowoo.com | delnode
 
 
-- Forcibly delete all nodes with the #testing tag:
+Forcibly delete all nodes with the ``#testing`` tag:
 
 .. storm-cli:: #testing | delnode --force
 
@@ -896,8 +897,8 @@ The ``delnode`` command deletes a node or set of nodes from a Cortex.
   generate an error in cases such as:
   
   - attempting to delete a node (such as ``inet:fqdn=woot.com``) that is still referenced by
-    (i.e., is a secondary property of) another node (such as ``inet:dns:a=(woot.com, 1.1.1.1)``.
-  - attmpting to delete a ``syn:tag`` node where that tag still exists on other nodes.
+    (i.e., is a secondary property of) another node (such as ``inet:dns:a=( woot.com, 1.1.1.1 )``.
+  - attempting to delete a ``syn:tag`` node where that tag still exists on other nodes.
   
   However, it is important to keep in mind that **delnode cannot prevent all mistakes.**
 
@@ -1005,17 +1006,16 @@ Nodes created using generate commands will have a limited subset of properties s
 an organization node deconflicted and created based on a name will only have its ``ou:org:name``
 property set). Users can set additional property values as they see fit.
 
-- `gen.geo.place`_
-- `gen.it.software`_
-- `gen.lang.language`_
-- `gen.entity.campaign`_
-- `gen.ou.industry`_
-- `gen.ou.org`_
-- `gen.pol.country`_
-- `gen.pol.country.government`_
-- `gen.risk.threat`_
-- `gen.risk.tool.software`_
-- `gen.risk.vuln`_
+- `gen.campaign`_
+- `gen.country`_
+- `gen.government`_
+- `gen.industry`_
+- `gen.language`_
+- `gen.org`_
+- `gen.place`_
+- `gen.software`_
+- `gen.threat`_
+- `gen.vuln`_
 
 
 Help for individual ``gen.*`` commands can be displayed using:
@@ -1023,159 +1023,146 @@ Help for individual ``gen.*`` commands can be displayed using:
   ``<command> --help``
 
 .. NOTE::
-  
+
   New ``gen.*`` commands are added to Synapse on an ongoing basis as we identify new cases
   where such commands are helpful. Use the ``help`` command for the current list of ``gen.*``
   commands available in your instance of Synapse.
 
-.. _storm-gen-geo-place:
+.. _storm-gen-campaign:
 
-gen.geo.place
-+++++++++++++
+gen.campaign
+++++++++++++
 
-The ``gen.geo.place`` command locates (lifts) or creates a ``geo:place`` node based on the place
-name (``geo:place:name`` and / or ``geo:place:names`` properties).
-
-**Syntax:**
-
-.. storm-cli:: gen.geo.place --help
-
-
-.. _storm-gen-it-software:
-
-gen.it.software
-+++++++++++++++
-
-The ``gen.it.software`` command locates (lifts) or creates an ``it:software`` node based on
-the software name (``it:software:name`` and / or ``it:software:names``).
+The ``gen.campaign`` command locates (lifts) or creates an ``entity:campaign`` node based on the
+campaign name (``entity:campaign:name`` and / or ``entity:campaign:names``) and the name of the
+reporter (``entity:campaign:reporter:name``).
 
 **Syntax:**
 
-.. storm-cli:: gen.it.software --help
+.. storm-cli:: gen.campaign --help
 
 
-.. _storm-gen-lang-language:
+.. _storm-gen-country:
 
-gen.lang.language
-+++++++++++++++++
+gen.country
++++++++++++
 
-The ``gen.lang.language`` command locates (lifts) or creates a ``lang:language`` node based on
+The ``gen.country`` command locates (lifts) or creates a ``pol:country`` node based on the
+two-letter ISO-3166 country code (``pol:country:iso2``).
+
+**Syntax:**
+
+.. storm-cli:: gen.country --help
+
+
+.. _storm-gen-government:
+
+gen.government
+++++++++++++++
+
+The ``gen.government`` command locates (lifts) the ``ou:org`` node representing a country's
+government (i.e., the organization set for the ``pol:country:government`` property) or creates
+the node (and sets the ``pol:country:government`` property) if it does not exist, based on the
+two-letter ISO-3166 country code (``pol:country:iso2``).
+
+**Syntax:**
+
+.. storm-cli:: gen.government --help
+
+
+.. _storm-gen-industry:
+
+gen.industry
+++++++++++++
+
+The ``gen.industry`` command locates (lifts) or creates an ``ind:industry`` node based on
+the industry name (``ind:industry:name`` and / or ``ind:industry:names``) and the name of the
+reporter (``ind:industry:reporter:name``).
+
+**Syntax:**
+
+.. storm-cli:: gen.industry --help
+
+
+.. _storm-gen-language:
+
+gen.language
+++++++++++++
+
+The ``gen.language`` command locates (lifts) or creates a ``lang:language`` node based on
 the language name (``lang:language:name`` and / or ``lang:language:names``).
 
 **Syntax:**
 
-.. storm-cli:: gen.lang.language --help
+.. storm-cli:: gen.language --help
 
 
-.. _storm-gen-ou-campaign:
+.. _storm-gen-org:
 
-gen.entity.campaign
-+++++++++++++++++++
+gen.org
++++++++
 
-The ``gen.entity.campaign`` command locates (lifts) or creates an ``entity:campaign`` node based on the
-campaign name (``entity:campaign:name`` and / or ``entity:campaign:names``) and the name of the reporting
-organization (``entity:campaign:reporter:name``).
-
-**Syntax:**
-
-.. storm-cli:: gen.entity.campaign --help
-
-
-.. _storm-gen-ou-industry:
-
-gen.ou.industry
-+++++++++++++++
-
-The ``gen.ou.industry`` commands locates (lifts) or creates an ``ou:industry`` node based on
-the industry name (``ou:industry:name`` and / or ``ou:industry:names``).
-
-**Syntax:**
-
-.. storm-cli:: gen.ou.industry --help
-
-
-.. _storm-gen-ou-org:
-
-gen.ou.org
-++++++++++
-
-The ``gen.ou.org`` command locates (lifts) or creates an ``ou:org`` node based on the organization
+The ``gen.org`` command locates (lifts) or creates an ``ou:org`` node based on the organization
 name (``ou:org:name`` and / or ``ou:org:names``).
 
 **Syntax:**
 
-.. storm-cli:: gen.ou.org --help
+.. storm-cli:: gen.org --help
 
 
-.. _storm-gen-pol-country:
+.. _storm-gen-place:
 
-gen.pol.country
-+++++++++++++++
+gen.place
++++++++++
 
-The ``gen.pol.country`` command locates (lifts) or creates a ``pol:country`` node based on the
-two-letter ISO-3166 country code (``pol:country:iso2``) .
-
-**Syntax:**
-
-.. storm-cli:: gen.pol.country --help
-
-
-.. _storm-gen-pol-country-gov:
-
-gen.pol.country.government
-+++++++++++++++++++++++++++
-
-The ``gen.pol.country.government`` command locates (lifts) the ``ou:org`` node representing a
-country's government (i.e., the organization set for the ``pol:country:government`` property) or
-creates the node (and sets the ``pol:country:government`` property) if it does not exist, based
-on the two-letter ISO-3166 country code (``pol:country:iso2``).
+The ``gen.place`` command locates (lifts) or creates a ``geo:place`` node based on the place
+name (``geo:place:name`` and / or ``geo:place:names`` properties).
 
 **Syntax:**
 
-.. storm-cli:: gen.pol.country.government --help
+.. storm-cli:: gen.place --help
 
 
-.. _storm-gen-risk-threat:
+.. _storm-gen-software:
 
-gen.risk.threat
-+++++++++++++++
+gen.software
+++++++++++++
 
-The ``gen.risk.threat`` command locates (lifts) or creates a ``risk:threat`` node using the
-name of the threat group (``risk:threat:org:name`` and / or ``risk:threat:org:names``) and the
-name of the entity reporting on the threat (``risk:threat:reporter:name``).
-
-**Syntax:**
-
-.. storm-cli:: gen.risk.threat --help
-
-
-.. _storm-gen-risk-tool-software:
-
-gen.risk.tool.software
-++++++++++++++++++++++
-
-The ``gen.risk.tool.software`` command locates (lifts) or creates a ``risk:tool:software``
-node using the name of the software / malware (``risk:tool:software:soft:name`` and / or 
-``risk:software:soft:names``) and the name of the entity reporting on the software / malware
-(``risk:tool:software:reporter:name``).
+The ``gen.software`` command locates (lifts) or creates an ``it:software`` node based on
+the software name (``it:software:name`` and / or ``it:software:names``) and the name of the
+reporter (``it:software:reporter:name``).
 
 **Syntax:**
 
-.. storm-cli:: gen.risk.tool.software --help
+.. storm-cli:: gen.software --help
 
 
-.. _storm-gen-risk-vuln:
+.. _storm-gen-threat:
 
-gen.risk.vuln
-+++++++++++++
+gen.threat
+++++++++++
 
-The ``gen.risk.vuln`` command locates (lifts) or creates a ``risk:tool:vuln`` node using the
+The ``gen.threat`` command locates (lifts) or creates a ``risk:threat`` node using the
+name of the threat group (``risk:threat:name`` and / or ``risk:threat:names``) and the
+name of the reporter (``risk:threat:reporter:name``).
+
+**Syntax:**
+
+.. storm-cli:: gen.threat --help
+
+
+.. _storm-gen-vuln:
+
+gen.vuln
+++++++++
+
+The ``gen.vuln`` command locates (lifts) or creates a ``risk:vuln`` node using the
 Common Vulnerabilities and Exposures (CVE) number associated with the vulnerability
-(``risk:vuln:id``) and the name of the entity reporting on the vulnerability (``risk:vuln:reporter:name``).
+(``risk:vuln:id``) and the name of the reporter (``risk:vuln:reporter:name``).
 
 **Syntax:**
 
-.. storm-cli:: gen.risk.vuln --help
+.. storm-cli:: gen.vuln --help
 
 
 .. _storm-graph:
@@ -1201,7 +1188,6 @@ operation on multiple inbound nodes. In other words, ``intersect`` will return t
 are **common** to each of the inbound nodes.
 
 **Syntax:**
-
 
 .. storm-cli:: intersect --help
 
@@ -1410,9 +1396,10 @@ number of nodes.
 
 **Example:**
 
-- Lift a single IP address that FireEye associates with the threat group APT1:
+Lift a single IP address that Palo Alto associates with the threat group Stately Taurus (``#rep.paloalto.stately_taurus``):
 
-.. storm-cli:: inet:ip#aka.feye.thr.apt1 | limit 1
+.. storm-pre:: [ inet:ip=67.53.148.77 inet:ip=43.254.132.242 +#rep.paloalto.stately_taurus ]
+.. storm-cli:: inet:ip#rep.paloalto.stately_taurus | limit 1
 
 
 **Usage Notes:**
@@ -1510,29 +1497,38 @@ The ``macro.del`` command deletes the specified macro from a Cortex.
 max
 ---
 
-The ``max`` command returns the node from a given set that contains the highest value for a specified
-secondary property, tag interval, or variable.
+The ``max`` command returns the node(s) from a given set that contain the highest value(s) for a specified
+secondary property, tag interval, or variable. By default a single node is returned. Use ``--size`` to
+return more than one node; results are yielded in **descending** order.
+
+If ``max`` is used on a property whose type is an interval (``ival``) and you only specify the property name
+(e.g., ``max :seen``), ``max`` will return the highest value of the interval's ``.max`` virtual property
+(``:seen.max``) by default.
 
 **Syntax:**
 
 .. storm-cli:: max --help
-    
+
 
 **Examples:**
 
-- Return the DNS A record for woot.com with the most recent ``:seen`` value:
+Return the DNS A record for ``woot.com`` with the most recent ``:seen`` value:
 
-.. storm-pre:: [(inet:dns:a=(woot.com,107.21.53.159) :seen=(2014/08/13,2014/08/14)) (inet:dns:a=(woot.com,75.101.146.4) :seen=(2013/09/21,2013/09/22))] 
+.. storm-pre:: [ ( inet:dns:a=( woot.com, 107.21.53.159 ) :seen=( 2014/08/13, 2014/08/14 ) ) ( inet:dns:a=( woot.com, 75.101.146.4 ) :seen=( 2013/09/21, 2013/09/22 ) ) ( inet:dns:a=( woot.com, 246.21.93.214 ) :seen=( '2014/01/05 02:34:56', '2014/10/19 06:15:04' ) ) ( inet:dns:a=( woot.com, 53.25.18.25 ) :seen=( '2014/08/13 12:44:55', '2014/08/13 18:09:22' ) ) ]
 .. storm-cli:: inet:dns:a:fqdn=woot.com | max :seen
 
+Return the two most recent DNS A records for ``woot.com``, in descending order by ``:seen``
 
-- Return the most recent WHOIS record for domain woot.com:
+.. storm-cli:: inet:dns:a:fqdn=woot.com | max :seen --size 2
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [inet:whois:rec=(woot.com,2018/05/22) :text="domain name: woot.com"]
-    .. storm-cli:: inet:whois:rec:fqdn=woot.com | max :asof
+Return the DNS A record for ``woot.com`` with the longest duration:
 
+.. storm-cli:: inet:dns:a:fqdn=woot.com | max :seen.duration
+
+Return a WHOIS record for the most recently registered (``:created``) FQDN associated with the threat cluster Sparkling Unicorn (``#cno.threat.sparkling_unicorn``):
+
+.. storm-pre:: $fqdn1={ [ inet:fqdn=hurr.com +#cno.threat.sparkling_unicorn ] } $fqdn2={ [ inet:fqdn=derp.net +#cno.threat.sparkling_unicorn ] } [ inet:whois:record=( { "fqdn": $fqdn1, "created": "2025/10/23 09:00:00" } ) inet:whois:record=( { "fqdn": $fqdn2, "created": "2026/03/26 13:00:00" } ) ]
+.. storm-cli:: inet:fqdn#cno.threat.sparkling_unicorn -> inet:whois:record | max :created
 
 .. _storm-merge:
 
@@ -1556,8 +1552,13 @@ See the :ref:`storm-view` and :ref:`storm-layer` commands for working with views
 min
 ---
 
-The ``min`` command returns the node from a given set that contains the lowest value for a specified
-secondary property, tag interval, or variable.
+The ``min`` command returns the node(s) from a given set that contain the lowest value(s) for a specified
+secondary property, tag interval, or variable. By default a single node is returned. Use ``--size`` to
+return more than one node; results are yielded in **ascending** order.
+
+If ``min`` is used on a property whose type is an interval (``ival``) and you only specify the property name
+(e.g., ``min :seen``), ``min`` will return the lowest value of the interval's ``.min`` virtual property
+(``:seen.min``) by default.
 
 **Syntax:**
 
@@ -1566,16 +1567,22 @@ secondary property, tag interval, or variable.
 
 **Examples:**
 
-- Return the DNS A record for woot.com with the oldest ``:seen`` value:
+Return the DNS A record for ``woot.com`` with the oldest ``:seen`` value:
 
-.. storm-cli:: inet:dns:a:fqdn=woot.com | min :seen
+.. storm-cli:: inet:dns:a:fqdn=woot.com min :seen
 
+Return the two oldest DNS A records for ``woot.com``, in ascending order by ``:seen``:
 
-- Return the oldest WHOIS record for domain woot.com:
+.. storm-cli:: inet:dns:a:fqdn=woot.com | min :seen --size 2
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-cli:: inet:whois:rec:fqdn=woot.com | min :asof
+Return the DNS A record for ``woot.com`` with the shortest duration:
+
+.. storm-cli:: inet:dns:a:fqdn=woot.com | min :seen.duration
+
+Return a WHOIS record for the earliest registered (``:created``) FQDN associated with the threat cluster Sparkling Unicorn (``#cno.threat.sparkling_unicorn``):
+
+.. storm-pre:: $fqdn1={ [ inet:fqdn=hurr.com +#cno.threat.sparkling_unicorn ] } $fqdn2={ [ inet:fqdn=derp.net +#cno.threat.sparkling_unicorn ] } [ inet:whois:record=( { "fqdn": $fqdn1, "created": "2025/10/23 09:00:00" } ) inet:whois:record=( { "fqdn": $fqdn2, "created": "2026/03/26 13:00:00" } ) ]
+.. storm-cli:: inet:fqdn#cno.threat.sparkling_unicorn -> inet:whois:record | min :created
 
 
 .. _storm-model:
@@ -1713,15 +1720,15 @@ See also the :ref:`storm-tag` command.
 
 **Examples:**
 
-- Move the tag named #research to #internal.research:
+Move the tag named ``#research`` to ``#internal.research``:
 
-.. storm-pre:: [inet:asn=1138 +#research]
+.. storm-pre:: [ inet:asn=1138 +#research ]
 .. storm-cli:: movetag research internal.research
 
 
-- Move the tag tree #aka.fireeye.malware to #rep.feye.mal:
+Move the tag tree ``#aka.fireeye.malware`` to ``#rep.feye.mal``:
 
-.. storm-pre:: [inet:fqdn=blackcake.net +#aka.fireeye.malware]
+.. storm-pre:: [ inet:fqdn=blackcake.net +#aka.fireeye.malware]
 .. storm-cli:: movetag aka.fireeye.malware rep.feye.mal
 
 
@@ -1973,7 +1980,7 @@ be necessary as part of a manual data migration.
 
 .. NOTE::
   
-  Any changes to the Synapse data model are noted in the changelog_ for the relevant Synapse
+  Any changes to the Synapse data model are noted in the :doc:`changelog </synapse/changelog>` for the relevant Synapse
   release. Changes that require data migration are specifically noted and the data migration is
   typically performed automatically when deploying the new version. See the :ref:`datamigration`
   section of the :ref:`devopsguide` for additional detail.
@@ -1992,7 +1999,7 @@ The ``runas`` command allows you to execute a Storm query as a specified user.
 
 .. NOTE::
   
-  The ``runas`` commmand requires **admin** permisisons.
+  The ``runas`` command requires **admin** permissions.
 
 **Syntax:**
 
@@ -2009,7 +2016,7 @@ to identify ("scrape") common forms from the content, creating the nodes if they
 This is useful (for example) for extracting forms such as email addresses, domains, URLs, hashes, etc.
 from unstructured text.
 
-The ``--refs`` switch can be used to optionally link the source nodes(s) to the scraped forms via ``refs``
+The ``--refs`` switch can be used to optionally link the source nodes(s) to the scraped forms via ``-(refs)>``
 light edges.
 
 By default, the ``scrape`` command will return the nodes that it received as input. The ``--yield`` option
@@ -2022,12 +2029,16 @@ can be used to return the scraped nodes rather than the input nodes.
 
 **Example:**
 
-- Scrape the text of WHOIS records for the domain ``woot.com`` and create nodes for common forms found
-  in the text:
+Scrape the text of a social media post (``inet:service:message``) and create nodes for common forms found
+in the text:
 
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-cli:: inet:whois:rec:fqdn=woot.com | scrape :text
+.. storm-pre:: $platform={ [ inet:service:platform=( { "name": "bluesky", "zone": "bsky.app", "url": "https://bsky.app" } ) ]  } [ inet:service:message=( { "platform": $platform, "text": "IP address 8.8.8.8 and FQDN woot.com seen doing bad things" } ) ]
+.. storm-cli:: inet:service:message | scrape :text
+
+Scrape the text of a social media post for FQDNs and IP addresses, link the nodes to the original post,
+and return (yield) the created nodes:
+
+.. storm-cli:: inet:service:message | scrape :text --forms (inet:fqdn, inet:ip) --refs --yield
 
 
 **Usage Notes:**
@@ -2048,8 +2059,8 @@ can be used to return the scraped nodes rather than the input nodes.
   - Email addresses
   - Cryptocurrency addresses
   
-- ``scrape`` is able to recognize and account for common "defanging" techniques (such as ``evildomain[.]com``,
-  ``myemail[@]somedomain.net``, or ``hxxp://badwebsite.org/``), and will scrape "defanged" indicators by
+- ``scrape`` is able to recognize and account for common defanging techniques (such as ``evildomain[.]com``,
+  ``myemail[@]somedomain.net``, or ``hxxp://badwebsite.org/``), and will scrape defanged indicators by
   default. Use the ``--skiprefang`` switch to ignore defanged indicators.
 
 
@@ -2127,7 +2138,7 @@ A ``sleep`` delay effectively slows the display of results.
 - Retrieve email nodes from a Cortex every second:
 
 .. storm-pre:: [ inet:email=foo@gmail.com inet:email=bar@gmail.com inet:email=baz@gmail.com ]
-.. storm-cli:: inet:email | sleep 1.0
+.. storm-cli:: inet:email sleep 1.0
 
 
 .. _storm-spin:
@@ -2146,11 +2157,11 @@ query and view messages and results without displaying the associated nodes.
 
 **Example:**
 
-- Add the tag #int.research to any domain containing the string "firefox" but do not display the nodes.
+Add the tag ``#int.research`` to any FQDN containing the string ``firefox`` but do not display the nodes.
 
 
-.. storm-pre:: [inet:fqdn=firefoxupdata.com inet:fqdn=fakefirefox.net]
-.. storm-cli:: inet:fqdn~=firefox [+#int.research] | spin
+.. storm-pre:: [ inet:fqdn=firefoxupdata.com inet:fqdn=fakefirefox.net ]
+.. storm-cli:: inet:fqdn~=firefox [ +#int.research ] | spin
 
 
 .. _storm-stats:
@@ -2258,14 +2269,12 @@ result set.
 
 **Examples:**
 
-- Return the set of domains and IP addresses associated with a set of DNS A records.
+Return the set of FQDNs and IP addresses associated with a set of DNS A records:
 
-.. storm-pre:: [inet:dns:a=(foo.mydomain.com,8.8.8.8) inet:dns:a=(bar.mydomain.com,34.56.78.90) inet:dns:a=(baz.mydomain.com,127.0.0.2)] 
+.. storm-pre:: [ inet:dns:a=( foo.mydomain.com, 8.8.8.8 ) inet:dns:a=( bar.mydomain.com, 34.56.78.90 ) inet:dns:a=( baz.mydomain.com, 127.0.0.2 ) ] 
 .. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee { -> inet:fqdn } { -> inet:ip }
 
-
-- Return the set of domains and IP addresses associated with a set of DNS A records along with the
-  original DNS A records.
+Return the set of FQDNs and IP addresses associated with a set of DNS A records along with the original DNS A records:
 
 .. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee --join { -> inet:fqdn } { -> inet:ip }
 
@@ -2289,10 +2298,10 @@ The ``tree`` command recursively performs the specified pivot until no additiona
 
 **Example:**
 
-- List the full set of tags in the "TTP" tag hierarchy.
+List the full set of tags in the ``cno`` tag tree.
 
-.. storm-pre:: [syn:tag=ttp.opsec.anon syn:tag=ttp.se.masq syn:tag=ttp.phish.payload]
-.. storm-cli:: syn:tag=ttp | tree { $node.value -> syn:tag:up }
+.. storm-pre:: [ syn:tag=cno.ttp.phish syn:tag=cno.threat.sparkling_unicorn syn:tag=cno.mal.redtree ]
+.. storm-cli:: syn:tag=cno | tree { $node.value -> syn:tag:up }
 
 
 **Usage Notes:**
@@ -2407,42 +2416,41 @@ specified value or combination of values.
 
 **Examples:**
 
-- Lift all of the unique IP addresses that domains associated with the Fancy Bear threat group have
-  resolved to:
+Lift all of the unique IP addresses that domains associated with the Fancy Bear threat group have resolved to:
 
-.. storm-pre:: [inet:dns:a=(gdforum.info, 111.90.148.124) inet:dns:a=(live-settings.com, 209.99.40.222) inet:dns:a=(drive-google.ga, 141.8.224.221) ] -> inet:fqdn [+#rep.threatconnect.fancybear ]
+.. storm-pre:: [ inet:dns:a=( gdforum.info, 111.90.148.124 ) inet:dns:a=( live-settings.com, 209.99.40.222 ) inet:dns:a=( misdepatrment.com, 209.99.40.222 ) inet:dns:a=( drive-google.ga, 141.8.224.221 ) ] -> inet:fqdn [ +#rep.threatconnect.fancybear ]
 .. storm-pre:: inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ip | uniq
 ::
   
   inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ip | uniq
 
 
-- Lift a set of network flow (``inet:flow``) nodes and unique (de-duplicate) them based on the source IP address:
+Lift a set of network flow (``inet:flow``) nodes and unique (de-duplicate) them based on the source IP address:
 
-.. storm-pre:: [ ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://2.2.2.2 ) ( inet:flow=* :client=tcp://11.11.11.11 :server=tcp://3.3.3.3 ) ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://4.4.4.4 ) ( inet:flow=* :client=tcp://1.1.1.1 :server=tcp://4.4.4.4 ) ( inet:flow=* :client=tcp://121.121.121.121 :server=tcp://2.2.2.2 ) ]
+.. storm-pre:: [ inet:flow=( { "client": "tcp://1.1.1.1", "server": "tcp://2.2.2.2" } ) inet:flow=( { "client": "tcp://11.11.11.11", "server": "tcp://3.3.3.3" } ) inet:flow=( { "client": "tcp://1.1.1.1", "server": "tcp://4.4.4.4" } ) inet:flow=( { "client": "tcp://1.1.1.1", "server": "tcp://4.4.4.4" } ) inet:flow=( { "client": "tcp://121.121.121.121", "server": "tcp://2.2.2.2" } ) ]
 .. storm-pre:: inet:flow | uniq :client.ip
 ::
   
   inet:flow | uniq :client.ip
 
 
-- Lift a set of network flow (``inet:flow``) nodes and de-duplicate them based on each unique combination of source and destination IP addresses:
+Lift a set of network flow nodes and de-duplicate them based on each unique combination of source and destination IP addresses:
 
-.. storm-pre:: inet:flow | uniq (:client, :server)
+.. storm-pre:: inet:flow | uniq ( :client, :server )
 ::
   
-  inet:flow | uniq (:client, :server)
+  inet:flow | uniq ( :client, :server )
 
-- Nodes can be uniqued based on variables. Alert (``risk:alert``) nodes can be categorized in various ways. This
-  includes ``:priority`` and ``:severity`` properties, both of which use a set of fixed text values (e.g., "low" vs.
-  "highest") that  correspond to integers (e.g., 20 vs. 50). These integer values could be joined together in a
-  variable to provide a sample of alerts which have unique combinations of those values:
+Nodes can be uniqued based on variables. Alert (``risk:alert``) nodes can be categorized in various ways. This
+includes ``:priority`` and ``:severity`` properties, both of which use a set of fixed text values (e.g., "low" vs.
+"highest") that correspond to integers (e.g., 20 vs. 50). These integer values could be joined together in a
+variable to provide a sample of alerts which have unique combinations of those values:
 
-.. storm-pre:: [ (risk:alert=* :name='Cat sitting in front of monitor' :priority=20 :severity=20) (risk:alert=* :name='Out of coffee' :priority=10 :severity=50) (risk:alert=* :name='Laptop BIOS update bricked system' :priority=50 :severity=50) (risk:alert=* :name='New version of favorite Power-Up released' :priority=50 :severity=50) ]
-.. storm-pre:: risk:alert:priority +:severity $pri=:priority $sev=:severity $value=($pri, $sev) | uniq $value
+.. storm-pre:: [ ( risk:alert=( { "name": "Cat sitting in front of monitor", "created": "2026/05/28 08:15:23" } ) :priority=20 :severity=20 ) ( risk:alert=( { "name": "Out of coffee", "created": "2026/03/16 16:20:44" } ) :priority=10 :severity=50 ) ( risk:alert=( { "name": "Laptop BIOS update bricked system", "created": "2025/12/19 13:22:47" } ) :priority=50 :severity=50 ) ( risk:alert=( { "name": "New version of favorite Power-Up released", "created": "2026/05/08 11:03:52" } ) :priority=50 :severity=50 ) ]
+.. storm-pre:: risk:alert:priority +:severity $pri=:priority $sev=:severity $value=( $pri, $sev ) | uniq $value
 ::
   
-  risk:alert:priority +:severity $pri=:priority $sev=:severity $value=($pri, $sev) | uniq $value
+  risk:alert:priority +:severity $pri=:priority $sev=:severity $value=( $pri, $sev ) | uniq $value
 
 
 .. _storm-uptime:
@@ -2598,7 +2606,7 @@ view.fork
 +++++++++
 
 The ``view.fork`` command forks an existing view from the Cortex. Forking a view creates a new
-view with a new writeable layer on top of the set of layers from the previous (forked) view.
+view with a new writable layer on top of the set of layers from the previous (forked) view.
 
 **Syntax:**
 
@@ -2721,7 +2729,3 @@ and yields ``inet:urlfile`` nodes and the retrieved content (``file:bytes``) is 
 **Syntax:**
 
 .. storm-cli:: wget --help
-
-
-.. _AHA service: https://synapse.docs.vertex.link/en/latest/synapse/deploymentguide.html#deploy-aha-service
-.. _changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html

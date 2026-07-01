@@ -14,7 +14,7 @@ import synapse.tools.service.backup as s_tools_backup
 old_pkg = {
     'name': 'old',
     'version': (0, 0, 1),
-    'synapse_version': '>=3.0.0,<4.0.0',
+    'synapse_version': '>=3.0.0b1,<4.0.0',
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
         {'name': 'old.baz', 'storm': 'function baz(x, y) { return ($($x + $y)) }'},
@@ -38,7 +38,7 @@ old_pkg = {
 new_old_pkg = {
     'name': 'old',
     'version': (0, 1, 0),
-    'synapse_version': '>=3.0.0,<4.0.0',
+    'synapse_version': '>=3.0.0b1,<4.0.0',
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
         {'name': 'new.baz', 'storm': 'function baz(x) { return ($($x + 20)) }'},
@@ -62,7 +62,7 @@ new_old_pkg = {
 new_pkg = {
     'name': 'new',
     'version': (0, 0, 1),
-    'synapse_version': '>=3.0.0,<4.0.0',
+    'synapse_version': '>=3.0.0b1,<4.0.0',
     'modules': (
         {'name': 'echo', 'storm': '''function echo(arg1, arg2) {
                                         $lib.print(`{$arg1}={$arg2}`)
@@ -119,7 +119,7 @@ class OldService(s_cell.Cell):
 
     async def getCellInfo(self):
         realinfo = await s_cell.Cell.getCellInfo(self)
-        realinfo['synapse']['version'] = (2, 0, 0)
+        realinfo['synapse']['version'] = '2.0.0'
         return realinfo
 
 class RealService(s_stormsvc.StormSvc):
@@ -128,14 +128,14 @@ class RealService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'foo',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
             'modules': (
                 {'name': 'foo.bar',
                  'storm': '''
                  function asdf(x, y) { return ($($x + $y)) }
                  function printmodconf() {
                      for ($k, $v) in $modconf { $lib.print(`{$k}={$v}`) }
-                     return ( $lib.true )
+                     return ( true )
                  }
                  ''',
                  'modconf': {'key': 'valu'},
@@ -198,7 +198,7 @@ class NodeCreateService(s_stormsvc.StormSvc):
         {
             'name': 'ncreate',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
             'commands': (
                 {
                     'name': 'baz',
@@ -216,7 +216,7 @@ class BoomService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'boom',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
             'modules': (
                 {'name': 'blah', 'storm': '+}'},
             ),
@@ -274,7 +274,7 @@ class LifterService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'lifter',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
             'commands': (
                 {
                     'name': 'lifter',
@@ -299,7 +299,7 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'stormvar',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
             'commands': (
                 {
                     'name': 'magic',
@@ -328,7 +328,7 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                 },
                 {
                     'name': 'apimod',
-                    'storm': 'function status() { return($lib.true) }',
+                    'storm': 'function status() { return((true)) }',
                     'apidefs': (
                         {
                             'name': 'status',
@@ -385,7 +385,7 @@ class ShareService(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'sharer',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
             'modules': (
                 {
                     'name': 'sharer',
@@ -492,7 +492,7 @@ class StormSvcTest(s_test.SynTest):
         pkg = {
             'name': 'foobar',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
             'modules': (
                 {'name': 'hehe.haha', 'storm': 'function add(x, y) { return ($($x + $y)) }'},
             ),
@@ -643,8 +643,8 @@ class StormSvcTest(s_test.SynTest):
 
                     scmd = '''
                         $svc = $lib.service.get(prim)
-                        if ($svc = $lib.null) { return($lib.false) }
-                        else { return($lib.true) }
+                        if ($svc = null) { return((false)) }
+                        else { return((true)) }
                     '''
                     self.true(await core.callStorm(scmd))
 
@@ -801,7 +801,7 @@ class StormSvcTest(s_test.SynTest):
 
                     with self.getLoggerStream('synapse.lib.stormsvc') as stream:
                         await core.nodes(f'service.add olds {curl}')
-                        await stream.expect('running Synapse (2, 0, 0)', timeout=12)
+                        await stream.expect('running Synapse 2.0.0', timeout=12)
 
     async def test_storm_svc_restarts(self):
 
@@ -903,7 +903,7 @@ class StormSvcTest(s_test.SynTest):
                 # updated = false
                 self.eq('svc:set', events[-9]['event'])
                 self.eq('chng', events[-9]['info']['name'])
-                self.eq((0, 0, 1), events[-9]['info']['version'])
+                self.eq('0.0.1', events[-9]['info']['version'])
 
                 self.eq('pkg:del', events[-8]['event'])
                 self.eq('old', events[-8]['info']['name'])
@@ -918,7 +918,7 @@ class StormSvcTest(s_test.SynTest):
                 # updated = true
                 self.eq('svc:set', events[-5]['event'])
                 self.eq('chng', events[-5]['info']['name'])
-                self.eq((0, 0, 1), events[-5]['info']['version'])
+                self.eq('0.0.1', events[-5]['info']['version'])
 
                 self.eq('pkg:del', events[-4]['event'])
                 self.eq('old', events[-4]['info']['name'])
@@ -934,7 +934,7 @@ class StormSvcTest(s_test.SynTest):
                 # so this is the last
                 self.eq('svc:set', events[-1]['event'])
                 self.eq('chng', events[-1]['info']['name'])
-                self.eq((0, 0, 1), events[-1]['info']['version'])
+                self.eq('0.0.1', events[-1]['info']['version'])
 
             # This test verifies that storm commands loaded from a previously connected service are still available,
             # even if the service is not available now

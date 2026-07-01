@@ -40,4 +40,4 @@ without understanding Storm (and vice versa). We encourage you to skip around or
 
 .. _`Document Index`:  ../index.html
 .. _`demo instance`:   https://vertex.link/request-a-demo
-.. _`Optic UI`:        https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
+.. _`Optic UI`:        {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-optic/latest/index.html

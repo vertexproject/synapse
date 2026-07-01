@@ -11,6 +11,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.tools.service.backup as s_tools_backup
 
+import synapse.lib.time as s_time
 import synapse.lib.agenda as s_agenda
 from synapse.lib.agenda import TimeUnit as s_tu
 
@@ -33,51 +34,51 @@ class AgendaTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.DAY: 15})
 
         # No inc, year req: One shot in 2017.  It is 2018
-        now = datetime.datetime(year=2018, month=12, day=3, hour=2, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        now = s_time.timestamp(datetime.datetime(year=2018, month=12, day=3, hour=2, minute=2, tzinfo=tz.utc))  # Monday
         ar = s_agenda.ApptRec({s_tu.YEAR: 2017})
         newts = ar.nexttime(now)
-        self.eq(newts, 0.0)
+        self.eq(newts, 0)
 
         # one shot in 2019.
         ar = s_agenda.ApptRec({s_tu.YEAR: 2019})
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2019, month=12, day=3, hour=2, minute=2, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2019, month=12, day=3, hour=2, minute=2, tzinfo=tz.utc)))
 
         # It is leap day 2020, one shot next year
-        now = datetime.datetime(year=2020, month=2, day=29, hour=2, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        now = s_time.timestamp(datetime.datetime(year=2020, month=2, day=29, hour=2, minute=2, tzinfo=tz.utc))  # Monday
         ar = s_agenda.ApptRec({s_tu.YEAR: 2021})
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2021, month=2, day=28, hour=2, minute=2, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2021, month=2, day=28, hour=2, minute=2, tzinfo=tz.utc)))
 
         # It is leap day 2020, one shot next year, Halloween
-        now = datetime.datetime(year=2020, month=2, day=29, hour=2, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        now = s_time.timestamp(datetime.datetime(year=2020, month=2, day=29, hour=2, minute=2, tzinfo=tz.utc))  # Monday
         ar = s_agenda.ApptRec({s_tu.DAYOFMONTH: 31, s_tu.YEAR: 2021, s_tu.MONTH: 10})
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2021, month=10, day=31, hour=2, minute=2, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2021, month=10, day=31, hour=2, minute=2, tzinfo=tz.utc)))
 
         # No inc, month req: One shot in July
         ar = s_agenda.ApptRec({s_tu.MONTH: 7})
-        now = datetime.datetime(year=2018, month=12, day=3, hour=2, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        now = s_time.timestamp(datetime.datetime(year=2018, month=12, day=3, hour=2, minute=2, tzinfo=tz.utc))  # Monday
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2019, month=7, day=3, hour=2, minute=2, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2019, month=7, day=3, hour=2, minute=2, tzinfo=tz.utc)))
 
         # No inc, day of month req: one shot on the 3rd of the month at 1:01am
         ar = s_agenda.ApptRec({s_tu.DAYOFMONTH: 3, s_tu.HOUR: 1, s_tu.MINUTE: 1})
-        now = datetime.datetime(year=2018, month=12, day=4, hour=2, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        now = s_time.timestamp(datetime.datetime(year=2018, month=12, day=4, hour=2, minute=2, tzinfo=tz.utc))  # Monday
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2019, month=1, day=3, hour=1, minute=1, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2019, month=1, day=3, hour=1, minute=1, tzinfo=tz.utc)))
 
         # No inc, day of week req: One shot next Monday at 1:01 am
         ar = s_agenda.ApptRec({s_tu.DAYOFWEEK: 0, s_tu.HOUR: 1, s_tu.MINUTE: 1})
-        now = datetime.datetime(year=2018, month=12, day=31, hour=2, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        now = s_time.timestamp(datetime.datetime(year=2018, month=12, day=31, hour=2, minute=2, tzinfo=tz.utc))  # Monday
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2019, month=1, day=7, hour=1, minute=1, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2019, month=1, day=7, hour=1, minute=1, tzinfo=tz.utc)))
 
         # No inc, hour req:  One shot at 4pm.  It is 5pm, last day of the year.
         ar = s_agenda.ApptRec({s_tu.HOUR: 16})
-        now = datetime.datetime(year=2018, month=12, day=31, hour=17, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        now = s_time.timestamp(datetime.datetime(year=2018, month=12, day=31, hour=17, minute=2, tzinfo=tz.utc))  # Monday
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2019, month=1, day=1, hour=16, minute=2, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2019, month=1, day=1, hour=16, minute=2, tzinfo=tz.utc)))
 
         ################
 
@@ -87,34 +88,34 @@ class AgendaTest(s_t_utils.SynTest):
         ar = s_agenda.ApptRec({s_tu.DAYOFMONTH: 15}, s_tu.YEAR, 1)
 
         # before the target matches the target
-        now = datetime.datetime(year=2018, month=3, day=1, tzinfo=tz.utc).timestamp()
+        now = s_time.timestamp(datetime.datetime(year=2018, month=3, day=1, tzinfo=tz.utc))
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2018, month=3, day=15, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2018, month=3, day=15, tzinfo=tz.utc)))
 
         # at the appointment advances
-        now = datetime.datetime(year=2018, month=3, day=15, tzinfo=tz.utc).timestamp()
+        now = s_time.timestamp(datetime.datetime(year=2018, month=3, day=15, tzinfo=tz.utc))
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2019, month=3, day=15, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2019, month=3, day=15, tzinfo=tz.utc)))
 
         # past the appointment advances
-        now = datetime.datetime(year=2018, month=3, day=15, tzinfo=tz.utc).timestamp()
+        now = s_time.timestamp(datetime.datetime(year=2018, month=3, day=15, tzinfo=tz.utc))
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2019, month=3, day=15, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2019, month=3, day=15, tzinfo=tz.utc)))
 
         # Year inc, month req:  every other year in February
         ar = s_agenda.ApptRec({s_tu.MONTH: 2}, s_tu.YEAR, 2)
-        now = datetime.datetime(year=2018, month=12, day=31, hour=17, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        now = s_time.timestamp(datetime.datetime(year=2018, month=12, day=31, hour=17, minute=2, tzinfo=tz.utc))  # Monday
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2020, month=2, day=28, hour=17, minute=2, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2020, month=2, day=28, hour=17, minute=2, tzinfo=tz.utc)))
 
         # Year inc, day of week req:  every other year on a Friday:  not supported
         self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.DAYOFWEEK: 4}, s_tu.YEAR, 2)
 
         # Year inc, hour req
         ar = s_agenda.ApptRec({s_tu.HOUR: 10}, s_tu.YEAR, 2)
-        now = datetime.datetime(year=2018, month=12, day=31, hour=17, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        now = s_time.timestamp(datetime.datetime(year=2018, month=12, day=31, hour=17, minute=2, tzinfo=tz.utc))  # Monday
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2020, month=12, day=31, hour=10, minute=2, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2020, month=12, day=31, hour=10, minute=2, tzinfo=tz.utc)))
 
         #################
 
@@ -122,15 +123,15 @@ class AgendaTest(s_t_utils.SynTest):
 
         # Month inc, minute req: When the minute hand hits 30 every 14 months
         ar = s_agenda.ApptRec({s_tu.MINUTE: 30}, s_tu.MONTH, 14)
-        now = datetime.datetime(year=2017, month=12, day=30, hour=0, minute=30, tzinfo=tz.utc).timestamp()
+        now = s_time.timestamp(datetime.datetime(year=2017, month=12, day=30, hour=0, minute=30, tzinfo=tz.utc))
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2019, month=2, day=28, hour=0, minute=30, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2019, month=2, day=28, hour=0, minute=30, tzinfo=tz.utc)))
 
         # Month inc, day of month req:  every other month on the 4th
         ar = s_agenda.ApptRec({s_tu.DAYOFMONTH: 4}, s_tu.MONTH, 2)
-        now = datetime.datetime(year=2017, month=12, day=30, hour=0, minute=30, tzinfo=tz.utc).timestamp()
+        now = s_time.timestamp(datetime.datetime(year=2017, month=12, day=30, hour=0, minute=30, tzinfo=tz.utc))
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(2018, 2, 4, 0, 30, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(2018, 2, 4, 0, 30, tzinfo=tz.utc)))
 
         # Month inc, day of week fail
         self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.DAYOFWEEK: 4}, s_tu.MONTH, 2)
@@ -141,9 +142,9 @@ class AgendaTest(s_t_utils.SynTest):
 
         # Day inc, minute req:  Every day some time when the minute hand hits 30
         ar = s_agenda.ApptRec({s_tu.MINUTE: 30}, s_tu.DAY, 1)
-        now = datetime.datetime(year=2019, month=2, day=1, hour=0, minute=2, tzinfo=tz.utc).timestamp()
+        now = s_time.timestamp(datetime.datetime(year=2019, month=2, day=1, hour=0, minute=2, tzinfo=tz.utc))
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2019, month=2, day=1, hour=0, minute=30, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2019, month=2, day=1, hour=0, minute=30, tzinfo=tz.utc)))
 
         ###############
 
@@ -151,9 +152,9 @@ class AgendaTest(s_t_utils.SynTest):
 
         # Day of week inc, hour req: Every Wednesday at 7pm
         ar = s_agenda.ApptRec({s_tu.HOUR: 7}, s_tu.DAYOFWEEK, 2)
-        now = datetime.datetime(year=2018, month=12, day=3, hour=2, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        now = s_time.timestamp(datetime.datetime(year=2018, month=12, day=3, hour=2, minute=2, tzinfo=tz.utc))  # Monday
         newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2018, month=12, day=5, hour=7, minute=2, tzinfo=tz.utc).timestamp())
+        self.eq(newts, s_time.timestamp(datetime.datetime(year=2018, month=12, day=5, hour=7, minute=2, tzinfo=tz.utc)))
 
     async def test_agenda_base(self):
         MONO_DELT = 1543827303.0
@@ -228,7 +229,7 @@ class AgendaTest(s_t_utils.SynTest):
                 # Can't have two with the same iden
                 await self.asyncraises(s_exc.DupIden, agenda.add(cdef))
 
-                self.eq((0, 'woot'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((0, 'woot'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 appts = agenda.list()
                 self.len(1, appts)
@@ -241,7 +242,7 @@ class AgendaTest(s_t_utils.SynTest):
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await agenda.add(cdef)
                 unixtime += 61
-                self.eq((1, 'woot'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((1, 'woot'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 appts = agenda.list()
                 self.len(1, appts)
@@ -278,26 +279,26 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Advance to the first event on Wednesday the 5th
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                self.eq((2, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((2, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 # Then two on the 6th
                 unixtime = datetime.datetime(year=2018, month=12, day=6, hour=7, minute=15, tzinfo=tz.utc).timestamp()
-                self.eq((3, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((3, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 unixtime = datetime.datetime(year=2018, month=12, day=6, hour=8, minute=15, tzinfo=tz.utc).timestamp()
-                self.eq((4, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((4, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 # Then back to the 10:15 on Friday
                 unixtime = datetime.datetime(year=2018, month=12, day=7, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                self.eq((5, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((5, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 # Then Dec 10
                 unixtime = datetime.datetime(year=2018, month=12, day=10, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                self.eq((6, 'happyholidays'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((6, 'happyholidays'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 # Then the Wednesday again
                 unixtime = datetime.datetime(year=2018, month=12, day=12, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                self.eq((7, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((7, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 # Cancel the Wednesday/Friday appt
                 await agenda.delete(guid)
@@ -305,11 +306,11 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Then Dec 25
                 unixtime = datetime.datetime(year=2018, month=12, day=25, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                self.eq((8, 'happyholidays'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((8, 'happyholidays'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 # Then Jan 6
                 unixtime = datetime.datetime(year=2019, month=1, day=6, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                self.eq((9, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((9, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 # Modify the last appointment
                 await self.asyncraises(s_exc.BadArg, agenda.mod(guid2, {'storm': ''}))
@@ -331,7 +332,7 @@ class AgendaTest(s_t_utils.SynTest):
                 guid = adef.get('iden')
 
                 unixtime += 60
-                self.eq((10, 'sleep'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((10, 'sleep'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, True)
@@ -365,7 +366,7 @@ class AgendaTest(s_t_utils.SynTest):
                 strt = await core.nexsroot.index()
                 # bypass the API because it would actually syntax check
                 unixtime += 60
-                self.eq((11, 'boom'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                self.eq((11, 'boom'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
                 await core.nexsroot.waitOffs(strt + 5)
 
                 appt = await agenda.get(guid)
@@ -392,7 +393,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(1, agenda.apptheap)
 
                 unixtime = datetime.datetime(year=2019, month=2, day=6, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                nexttime = datetime.datetime(year=2019, month=2, day=8, hour=10, minute=15, tzinfo=tz.utc).timestamp()
+                nexttime = s_time.timestamp(datetime.datetime(year=2019, month=2, day=8, hour=10, minute=15, tzinfo=tz.utc))
 
                 await asyncio.sleep(0)
 
@@ -406,7 +407,7 @@ class AgendaTest(s_t_utils.SynTest):
                 with self.getLoggerStream('synapse.storm') as stream:
                     unixtime = datetime.datetime(year=2019, month=2, day=13, hour=10, minute=16,
                                                  tzinfo=tz.utc).timestamp()
-                    self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                    self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=(true)))'), timeout=5))
                 core.stormlog = False
 
                 msgs = stream.jsonlines()
@@ -532,6 +533,34 @@ class AgendaTest(s_t_utils.SynTest):
                 last_appt = [appt for appt in appts if appt.get('iden') == guid3][0]
                 self.eq(last_appt.get('storm'), '#bahhumbug')
 
+    async def test_agenda_rejects_old_version(self):
+        ''' Un-migrated ver 1 appointments are rejected on load; the migration tool upgrades them to ver 2 '''
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                cdef = {'user': core.auth.rootuser.iden,
+                        'creator': core.auth.rootuser.iden,
+                        'storm': '[test:str=bar]',
+                        'reqs': {'hour': 10, 'minute': 15},
+                        'incunit': 'dayofweek',
+                        'incvals': (2, 4)}
+                adef = await core.addCronJob(cdef)
+                iden = adef.get('iden')
+
+                # Downgrade the stored record to the legacy (pre-migration) ver 1 format
+                stor = core.agenda.apptdefs.get(iden)
+                stor['ver'] = 1
+                core.agenda.apptdefs.set(iden, stor)
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                # The un-migrated ver 1 record is rejected and not loaded
+                self.len(0, await core.listCronJobs())
+                with self.raises(s_exc.NoSuchIden):
+                    await core.agenda.get(iden)
+
     async def test_agenda_custom_view(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -547,7 +576,7 @@ class AgendaTest(s_t_utils.SynTest):
             fail = await core.auth.addUser('fail')
 
             # can't move a thing that doesn't exist
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadArg):
                 await core.callStorm('cron.mod $fakeiden --view $fakeiden', opts=opts)
 
             with self.raises(s_exc.NoSuchIden):
@@ -599,7 +628,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(defview.iden, jobs[0]['view'])
             self.nn(jobs[0].get('created'))
 
-            core.agenda._addTickOff(60)
+            core.agenda._addTickOff(60 * s_time.onesec)
             retn = await core.callStorm('return($lib.queue.byname(testq).get())', opts=asfail)
             self.eq((0, 44), retn)
 
@@ -613,7 +642,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.len(1, jobs)
             self.eq(newview, jobs[0]['view'])
 
-            core.agenda._addTickOff(60 * 60)
+            core.agenda._addTickOff(60 * 60 * s_time.onesec)
             retn = await core.callStorm('return($lib.queue.byname(testq).get())')
             await core.callStorm('$lib.queue.byname(testq).cull(1)')
 
@@ -628,7 +657,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             # no permission yet
             opts = {'user': fail.iden, 'vars': {'croniden': jobs[0]['iden'], 'viewiden': defview.iden}}
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadArg):
                 await core.callStorm('cron.mod $croniden --view $viewiden', opts=opts)
 
             await fail.addRule((True, ('cron', 'set')))
@@ -646,7 +675,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.len(1, jobs)
             self.eq(defview.iden, jobs[0]['view'])
 
-            core.agenda._addTickOff(60 * 60)
+            core.agenda._addTickOff(60 * 60 * s_time.onesec)
             retn = await core.callStorm('return($lib.queue.byname(testq).get())', opts=asfail)
             await core.callStorm('$lib.queue.byname(testq).cull(2)')
 
@@ -764,14 +793,14 @@ class AgendaTest(s_t_utils.SynTest):
             # Force the cron to run.
 
             with self.getLoggerStream('synapse.lib.agenda') as stream:
-                core.agenda._addTickOff(60 * 60)
+                core.agenda._addTickOff(60 * 60 * s_time.onesec)
                 await stream.expect('Agenda error running appointment', timeout=12)
 
             await core.addUserRule(user, (True, ('log',)))
             await core.addUserRule(user, (True, ('view', 'read')), gateiden=fork)
 
             with self.getLoggerStream('synapse.storm.log') as stream:
-                core.agenda._addTickOff(60 * 60)
+                core.agenda._addTickOff(60 * 60 * s_time.onesec)
                 await stream.expect('I am a cron job', timeout=12)
 
     async def test_agenda_mirror_realtime(self):
@@ -796,14 +825,14 @@ class AgendaTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
-                    core00.agenda._addTickOff(60 * 60)
+                    core00.agenda._addTickOff(60 * 60 * s_time.onesec)
 
                     mesgs = []
                     async with core00.beholder() as wind:
-                        core00.agenda._addTickOff(55)
+                        core00.agenda._addTickOff(55 * s_time.onesec)
                         async for mesg in wind:
                             mesgs.append(mesg)
-                            core00.agenda._addTickOff(30)
+                            core00.agenda._addTickOff(30 * s_time.onesec)
                             if len(mesgs) == 2:
                                 break
 
@@ -861,9 +890,9 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Forward wind agenda to two minutes past the hour so we don't hit any weird timing windows
                 tick = core00.agenda._getNowTick()
-                now = time.gmtime(int(tick))
+                now = time.gmtime(int(tick // s_time.onesec))
                 diff = (60 - now.tm_min) * 60
-                core00.agenda._addTickOff(diff + 120)
+                core00.agenda._addTickOff((diff + 120) * s_time.onesec)
 
                 # Add NUMJOBS cron jobs that starts every hour
                 q = '''
@@ -881,7 +910,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(conf=conf01) as core01:
                     # Advance the ticks so the cronjob starts sooner
-                    core00.agenda._addTickOff(3600)
+                    core00.agenda._addTickOff(3600 * s_time.onesec)
 
                     # Sync agenda ticks
                     diff = core00.agenda._getNowTick() - core01.agenda._getNowTick()
@@ -953,7 +982,7 @@ class AgendaTest(s_t_utils.SynTest):
                         self.false(cron.get('isrunning'))
 
                     # Bump the ticks on core01 so the cron jobs start
-                    core01.agenda._addTickOff(3600)
+                    core01.agenda._addTickOff(3600 * s_time.onesec)
 
                     mesgs = []
                     async for mesg in core01.behold():
@@ -1276,7 +1305,7 @@ class AgendaTest(s_t_utils.SynTest):
                 await core01.sync()
 
                 with self.getLoggerStream('synapse.storm.log') as stream:
-                    core00.agenda._addTickOff(60)
+                    core00.agenda._addTickOff(60 * s_time.onesec)
                     await stream.expect('cronran', timeout=12)
 
                 await core01.sync()

@@ -45,7 +45,7 @@ stormcmds = [
                     if $cmdopts.verbose {
                         try {
                             $row.append($lib.time.format($pkg.build.time, '%Y-%m-%d %H:%M:%S'))
-                        } catch StormRuntimeError as _ {
+                        } catch (BadArg, StormRuntimeError) as _ {
                             $row.append('not available')
                         }
                     }
@@ -167,7 +167,7 @@ stormcmds = [
             init {
                 $ssl = ({"verify": (not $cmdopts.ssl_noverify)})
 
-                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse)})
+                $headers = ({'X-Synapse-Version': $lib.version.synapse})
 
                 $resp = $lib.inet.http.get($cmdopts.url, ssl=$ssl, headers=$headers)
 

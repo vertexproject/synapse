@@ -54,9 +54,6 @@ Auth Gate Users:
      [0  ] - node
 
 Auth Gate Roles:
-  ecc3af3226446018d86ed673cba73abc - all
-    Rules:
-      [0  ] - layer.read
   9e9ad4a26a7ccfef6416d142f276b357 - ninjas
     Rules:
       [0  ] - node
@@ -186,13 +183,13 @@ class StormLibAuthTest(s_test.SynTest):
             msgs = await core.stormlist('auth.user.mod visi --gate $lib.view.get().layers.0.iden')
             self.stormIsInWarn('Granting/revoking admin status on an auth gate, requires the use of `--admin <true|false>` also.', msgs)
 
-            msgs = await core.stormlist('auth.user.mod visi --admin $lib.true --gate $lib.view.get().layers.0.iden')
+            msgs = await core.stormlist('auth.user.mod visi --admin (true) --gate $lib.view.get().layers.0.iden')
             self.stormIsInPrint('User (visi) admin status set to true for auth gate 741529fa80e3fb42f63c5320e4bf348f.',
                                 msgs, deguid=True)
             msgs = await core.stormlist('auth.user.allowed visi node.tag.del --gate $lib.view.get().layers.0.iden')
             self.stormIsInPrint('allowed: true - The user is an admin of auth gate 741529fa80e3fb42f63c5320e4bf348f',
                                 msgs, deguid=True)
-            msgs = await core.stormlist('auth.user.mod visi --admin $lib.false --gate $lib.view.get().layers.0.iden')
+            msgs = await core.stormlist('auth.user.mod visi --admin (false) --gate $lib.view.get().layers.0.iden')
             self.stormIsInPrint('User (visi) admin status set to false for auth gate 741529fa80e3fb42f63c5320e4bf348f.',
                                 msgs, deguid=True)
             msgs = await core.stormlist('auth.user.allowed visi node.tag.del --gate $lib.view.get().layers.0.iden')
@@ -304,7 +301,7 @@ class StormLibAuthTest(s_test.SynTest):
             self.nn(await core.callStorm('return($lib.auth.getPermDef((view, set)))'))
             self.nn(await core.callStorm('return($lib.auth.getPermDef((auth,)))'))
 
-            msgs = await core.stormlist('auth.user.mod visi --name cool --locked $lib.true')
+            msgs = await core.stormlist('auth.user.mod visi --name cool --locked (true)')
             self.stormIsInPrint('User (visi) renamed to cool.', msgs)
             self.stormIsInPrint('User (visi) locked status set to true.', msgs)
 
@@ -318,9 +315,9 @@ class StormLibAuthTest(s_test.SynTest):
             q = '''
             auth.user.mod cool
                 --email "foo@bar.com"
-                --locked $lib.false
+                --locked (false)
                 --passwd $pass
-                --admin $lib.true
+                --admin (true)
             '''
             msgs = await core.stormlist(q, opts=opts)
             self.stormIsInPrint('User (cool) email address set to foo@bar.com.', msgs)
@@ -1020,20 +1017,20 @@ class StormLibAuthTest(s_test.SynTest):
 
             hehe = await core.callStorm('''
                 $hehe = $lib.auth.users.byname(hehe)
-                $hehe.setLocked($lib.true)
+                $hehe.setLocked((true))
                 return($hehe)
             ''')
             self.eq(True, hehe['locked'])
 
             self.none(await core.tryUserPasswd('hehe', 'haha'))
 
-            await core.callStorm('$lib.auth.users.byname(hehe).setLocked($lib.false)')
+            await core.callStorm('$lib.auth.users.byname(hehe).setLocked((false))')
 
             self.nn(await core.tryUserPasswd('hehe', 'haha'))
 
             hehe = await core.callStorm('''
                             $hehe = $lib.auth.users.byname(hehe)
-                            $hehe.setArchived($lib.true)
+                            $hehe.setArchived((true))
                             return($hehe)
                         ''')
             self.eq(True, hehe['archived'])
@@ -1043,14 +1040,14 @@ class StormLibAuthTest(s_test.SynTest):
 
             hehe = await core.callStorm('''
                             $hehe = $lib.auth.users.byname(hehe)
-                            $hehe.setArchived($lib.false)
+                            $hehe.setArchived((false))
                             return($hehe)
                         ''')
             self.eq(True, hehe['locked'])
             self.eq(False, hehe['archived'])
             self.none(await core.tryUserPasswd('hehe', 'haha'))
 
-            await core.callStorm('$lib.auth.users.byname(hehe).setLocked($lib.false)')
+            await core.callStorm('$lib.auth.users.byname(hehe).setLocked((false))')
             self.nn(await core.tryUserPasswd('hehe', 'haha'))
 
             self.nn(await core.callStorm('''
@@ -1070,8 +1067,8 @@ class StormLibAuthTest(s_test.SynTest):
 
             self.eq((True, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText(foo.bar))'))
             self.eq((False, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText("!foo.bar"))'))
-            self.eq('foo.bar', await core.callStorm('return($lib.auth.textFromRule(($lib.true, (foo, bar))))'))
-            self.eq('!foo.bar', await core.callStorm('return($lib.auth.textFromRule(($lib.false, (foo, bar))))'))
+            self.eq('foo.bar', await core.callStorm('return($lib.auth.textFromRule(((true), (foo, bar))))'))
+            self.eq('!foo.bar', await core.callStorm('return($lib.auth.textFromRule(((false), (foo, bar))))'))
 
             rdef = await core.callStorm('return($lib.auth.roles.add(admins))')
             opts = {'vars': {'roleiden': rdef.get('iden')}}
@@ -1095,7 +1092,7 @@ class StormLibAuthTest(s_test.SynTest):
             '''))
 
             self.true(await core.callStorm('''
-                return($lib.auth.users.byname(visi).allowed(foo.bar, default=$lib.true))
+                return($lib.auth.users.byname(visi).allowed(foo.bar, default=(true)))
             '''))
 
             await core.callStorm('''
@@ -1477,8 +1474,8 @@ class StormLibAuthTest(s_test.SynTest):
                 $layriden = $lib.layer.get().iden
                 $usr = $lib.auth.users.get($uwriter)
 
-                $usr.setAdmin($lib.true, $viewiden)
-                $usr.setAdmin($lib.true, $layriden)
+                $usr.setAdmin((true), $viewiden)
+                $usr.setAdmin((true), $layriden)
 
                 return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
             '''
@@ -1746,14 +1743,14 @@ class StormLibAuthTest(s_test.SynTest):
             async with self.getHttpSess(port=hport) as sess:
 
                 headers0 = {'X-API-KEY': bkk0}
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/storm/call', headers=headers0,
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/storm/call', headers=headers0,
                                        json={'query': 'return( $lib.auth.users.get().name )'})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
                 self.eq('root', answ['result'])
 
                 headers0 = {'X-API-KEY': ltk0}
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/storm/call', headers=headers0,
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/storm/call', headers=headers0,
                                        json={'query': 'return( $lib.auth.users.get().name )'})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])

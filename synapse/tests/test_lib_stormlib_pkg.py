@@ -210,7 +210,7 @@ class StormLibPkgTest(s_test.SynTest):
         class PkgHandler(s_httpapi.Handler):
 
             async def get(self, name):
-                assert self.request.headers.get('X-Synapse-Version') == s_version.verstring
+                assert self.request.headers.get('X-Synapse-Version') == s_version.version
 
                 if name == 'notok':
                     self.sendRestErr('FooBar', 'baz faz')
@@ -220,20 +220,20 @@ class StormLibPkgTest(s_test.SynTest):
 
         class PkgHandlerRaw(s_httpapi.Handler):
             async def get(self, name):
-                assert self.request.headers.get('X-Synapse-Version') == s_version.verstring
+                assert self.request.headers.get('X-Synapse-Version') == s_version.version
 
                 self.set_header('Content-Type', 'application/json')
                 return self.write(pkg)
 
         async with self.getTestCore() as core:
-            core.addHttpApi('/api/v1/pkgtest/(.*)', PkgHandler, {'cell': core})
-            core.addHttpApi('/api/v1/pkgtestraw/(.*)', PkgHandlerRaw, {'cell': core})
+            core.addHttpApi('/api/v3/pkgtest/(.*)', PkgHandler, {'cell': core})
+            core.addHttpApi('/api/v3/pkgtestraw/(.*)', PkgHandlerRaw, {'cell': core})
             port = (await core.addHttpsPort(0, host='127.0.0.1'))[1]
 
-            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/newp/newp')
+            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v3/newp/newp')
             self.stormIsInWarn('pkg.load got HTTP code: 404', msgs)
 
-            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/notok')
+            msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v3/pkgtest/notok')
             self.stormIsInWarn('pkg.load got JSON error: FooBar', msgs)
 
             # onload will on fire once. all other pkg.load events will effectively bounce
@@ -241,10 +241,10 @@ class StormLibPkgTest(s_test.SynTest):
             waiter = core.waiter(1, 'core:pkg:onload:complete')
 
             with self.getLoggerStream('synapse.cortex') as stream:
-                msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
+                msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v3/pkgtest/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
-                msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v1/pkgtestraw/yep')
+                msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v3/pkgtestraw/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
             buf = stream.getvalue()

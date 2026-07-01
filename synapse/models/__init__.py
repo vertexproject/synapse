@@ -12,6 +12,7 @@ modeldefs = (
     'synapse.models.geopol.modeldefs',
     'synapse.models.geospace.modeldefs',
     'synapse.models.gov.modeldefs',
+    'synapse.models.ind.modeldefs',
     'synapse.models.inet.modeldefs',
     'synapse.models.infotech.modeldefs',
     'synapse.models.language.modeldefs',

@@ -13,6 +13,5 @@ and expanded. The current sections are:
 
     contributing/contributing
     contributing/doc_mastering
-    contributing/release_process
 
 .. _index:              ../index.html

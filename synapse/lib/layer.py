@@ -117,14 +117,13 @@ class LayerApi(s_cell.CellApi):
         await s_cell.CellApi.__anit__(self, core, link, user)
 
         self.layr = layr
-        self.readperm = ('layer', 'read')
         self.writeperm = ('layer', 'write')
 
     async def iterLayerNodeEdits(self, *, meta=False):
         '''
         Scan the full layer and yield artificial nodeedit sets.
         '''
-        self.user.confirm(self.readperm, gateiden=self.layr.iden)
+        self.cell.reqUserCanReadLayer(self.user, self.layr.iden)
         async for item in self.layr.iterLayerNodeEdits(meta=meta):
             yield item
             await asyncio.sleep(0)
@@ -157,11 +156,12 @@ class LayerApi(s_cell.CellApi):
 
     async def syncNodeEdits(self, offs, *, wait=True, compat=False, withmeta=False):
         '''
-        Yield (offs, nodeedits) tuples from the nexus log starting from the given offset.
+        Yield (offs, nodeedits, meta) tuples from the nexus log starting from the given offset.
 
-        Once caught up with storage, yield them in realtime.
+        The meta element is None unless withmeta is set. Once caught up with storage,
+        yield them in realtime.
         '''
-        self.user.confirm(self.readperm, gateiden=self.layr.iden)
+        self.cell.reqUserCanReadLayer(self.user, self.layr.iden)
 
         async for item in self.layr.syncNodeEdits(offs, wait=wait, compat=compat, withmeta=withmeta):
             yield item
@@ -171,11 +171,11 @@ class LayerApi(s_cell.CellApi):
         '''
         Return the offset of the last edit entry for this layer. Returns -1 if the layer is empty.
         '''
-        self.user.confirm(self.readperm, gateiden=self.layr.iden)
+        self.cell.reqUserCanReadLayer(self.user, self.layr.iden)
         return self.layr.getEditIndx()
 
     async def getIden(self):
-        self.user.confirm(self.readperm, gateiden=self.layr.iden)
+        self.cell.reqUserCanReadLayer(self.user, self.layr.iden)
         return self.layr.iden
 
 NID_CACHE_SIZE = 10000
@@ -221,6 +221,14 @@ STOR_TYPE_NODEPROP = 28 # no longer in use
 
 STOR_TYPE_POLY = 29
 
+STOR_TYPE_TEXT = 30
+
+STOR_TYPE_PRICERANGE = 31
+
+# the maximum magnitude of a valid hugenum (mirrors synapse.lib.types.hugemax;
+# duplicated here to avoid the types <-> layer import cycle).
+HUGE_MAX = 730750818665451459101842
+
 STOR_FLAG_ARRAY = 0x8000
 STOR_FLAG_POLY = 0x4000
 
@@ -261,6 +269,13 @@ EDIT_META_SET = 24           # (<etyp>, (<prop>, <valu>, <type>))
 
 EDIT_PROGRESS = 100   # (used by syncNodeEdits) (<etyp>, ())
 
+EDIT_NODE = {EDIT_NODE_ADD, EDIT_NODE_DEL, EDIT_NODE_TOMB, EDIT_NODE_TOMB_DEL}
+EDIT_PROP = {EDIT_PROP_SET, EDIT_PROP_DEL, EDIT_PROP_TOMB, EDIT_PROP_TOMB_DEL}
+EDIT_TAG = {EDIT_TAG_SET, EDIT_TAG_DEL, EDIT_TAG_TOMB, EDIT_TAG_TOMB_DEL}
+EDIT_TAGPROP = {EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL, EDIT_TAGPROP_TOMB, EDIT_TAGPROP_TOMB_DEL}
+EDIT_EDGE = {EDIT_EDGE_ADD, EDIT_EDGE_DEL, EDIT_EDGE_TOMB, EDIT_EDGE_TOMB_DEL}
+EDIT_NODEDATA = {EDIT_NODEDATA_SET, EDIT_NODEDATA_DEL, EDIT_NODEDATA_TOMB, EDIT_NODEDATA_TOMB_DEL}
+
 INDX_PROP = b'\x00\x00'
 INDX_TAGPROP = b'\x00\x01'
 
@@ -277,6 +292,10 @@ INDX_TAG_DURATION = b'\x00\x09'
 
 INDX_IVAL_MAX = b'\x00\x0a'
 INDX_IVAL_DURATION = b'\x00\x0b'
+
+INDX_PRICERANGE_MAX = b'\x00\x14'
+INDX_PRICERANGE_DELTA = b'\x00\x15'
+INDX_PRICERANGE_RATE = b'\x00\x16'
 
 INDX_NODEDATA = b'\x00\x0c'
 
@@ -474,7 +493,7 @@ class IndxByPropArrayKeys(IndxByPropKeys):
 
 class IndxByPoly(IndxBy):
 
-    def __init__(self, layr, form, prop, stortype):
+    def __init__(self, layr, form, prop, stortype, typenames=None):
         '''
         Note:  may raise s_exc.NoSuchAbrv
         '''
@@ -487,6 +506,20 @@ class IndxByPoly(IndxBy):
         self.form = form
         self.prop = prop
         self.abrvlen += self.multilen
+        self.typeabrvs = self._initTypeAbrvs(layr, typenames)
+
+    def _initTypeAbrvs(self, layr, typenames):
+        if typenames is None:
+            return None
+
+        abrvs = set()
+        for typename in typenames:
+            try:
+                abrvs.add(layr.core.getIndxAbrv(INDX_PROP, typename, None))
+            except s_exc.NoSuchAbrv:
+                pass
+
+        return abrvs
 
     def getStorType(self):
         return self.layr.polytype
@@ -511,27 +544,27 @@ class IndxByPoly(IndxBy):
 
     async def keyNidsByDups(self, indx, reverse=False):
         if reverse:
-            genr = self.layr.layrslab.multiScanByDupsBack(self.abrv, self.multilen, indx, db=self.db)
+            genr = self.layr.layrslab.multiScanByDupsBack(self.abrv, self.multilen, indx, db=self.db, multifilt=self.typeabrvs)
         else:
-            genr = self.layr.layrslab.multiScanByDups(self.abrv, self.multilen, indx, db=self.db)
+            genr = self.layr.layrslab.multiScanByDups(self.abrv, self.multilen, indx, db=self.db, multifilt=self.typeabrvs)
 
         async for item in genr:
             yield item
 
     async def keyNidsByPref(self, indx=b'', reverse=False):
         if reverse:
-            genr = self.layr.layrslab.multiScanByPrefBack(self.abrv, self.multilen, indx, db=self.db)
+            genr = self.layr.layrslab.multiScanByPrefBack(self.abrv, self.multilen, indx, db=self.db, multifilt=self.typeabrvs)
         else:
-            genr = self.layr.layrslab.multiScanByPref(self.abrv, self.multilen, indx, db=self.db)
+            genr = self.layr.layrslab.multiScanByPref(self.abrv, self.multilen, indx, db=self.db, multifilt=self.typeabrvs)
 
         async for item in genr:
             yield item
 
     async def keyNidsByRange(self, minindx, maxindx, reverse=False):
         if reverse:
-            genr = self.layr.layrslab.multiScanByRangeBack(self.abrv, self.multilen, maxindx, lmin=minindx, db=self.db)
+            genr = self.layr.layrslab.multiScanByRangeBack(self.abrv, self.multilen, maxindx, lmin=minindx, db=self.db, multifilt=self.typeabrvs)
         else:
-            genr = self.layr.layrslab.multiScanByRange(self.abrv, self.multilen, minindx, lmax=maxindx, db=self.db)
+            genr = self.layr.layrslab.multiScanByRange(self.abrv, self.multilen, minindx, lmax=maxindx, db=self.db, multifilt=self.typeabrvs)
 
         async for item in genr:
             yield item
@@ -544,7 +577,7 @@ class IndxByPoly(IndxBy):
 
 class IndxByPolyArray(IndxByPoly):
 
-    def __init__(self, layr, form, prop, stortype):
+    def __init__(self, layr, form, prop, stortype, typenames=None):
         '''
         Note:  may raise s_exc.NoSuchAbrv
         '''
@@ -558,6 +591,7 @@ class IndxByPolyArray(IndxByPoly):
         self.form = form
         self.prop = prop
         self.abrvlen += self.multilen
+        self.typeabrvs = self._initTypeAbrvs(layr, typenames)
 
     def getNodeValu(self, nid, lkey=None):
 
@@ -588,15 +622,15 @@ class IndxByPolyKeys(IndxByPoly):
     IndxBy sub-class for retrieving unique property values.
     '''
     async def keyNidsByDups(self, indx, reverse=False):
-        async for lkey in self.layr.layrslab.multiScanKeysByDups(self.abrv, self.multilen, indx, db=self.db, nodup=True):
+        async for lkey in self.layr.layrslab.multiScanKeysByDups(self.abrv, self.multilen, indx, db=self.db, nodup=True, multifilt=self.typeabrvs):
             yield lkey, None
 
     async def keyNidsByPref(self, indx=b'', reverse=False):
-        async for lkey in self.layr.layrslab.multiScanKeysByPref(self.abrv, self.multilen, indx, db=self.db, nodup=True):
+        async for lkey in self.layr.layrslab.multiScanKeysByPref(self.abrv, self.multilen, indx, db=self.db, nodup=True, multifilt=self.typeabrvs):
             yield lkey, None
 
     async def keyNidsByRange(self, minindx, maxindx, reverse=False):
-        async for lkey in self.layr.layrslab.multiScanKeysByRange(self.abrv, self.multilen, minindx, lmax=maxindx, db=self.db, nodup=True):
+        async for lkey in self.layr.layrslab.multiScanKeysByRange(self.abrv, self.multilen, minindx, lmax=maxindx, db=self.db, nodup=True, multifilt=self.typeabrvs):
             yield lkey, None
 
     def getNodeValu(self, nid, lkey=None):
@@ -622,7 +656,7 @@ class IndxByPolyArrayKeys(IndxByPolyKeys):
     '''
     IndxBy sub-class for retrieving unique property array values.
     '''
-    def __init__(self, layr, form, prop, stortype):
+    def __init__(self, layr, form, prop, stortype, typenames=None):
         '''
         Note:  may raise s_exc.NoSuchAbrv
         '''
@@ -636,6 +670,7 @@ class IndxByPolyArrayKeys(IndxByPolyKeys):
         self.form = form
         self.prop = prop
         self.abrvlen += self.multilen
+        self.typeabrvs = self._initTypeAbrvs(layr, typenames)
 
     def getNodeValu(self, nid, lkey=None):
 
@@ -844,6 +879,54 @@ class IndxByPropIvalDuration(IndxBy):
         self.form = form
         self.prop = prop
 
+class IndxByPropPriceRangeMin(IndxByPoly):
+
+    def __init__(self, layr, form, prop):
+        IndxByPoly.__init__(self, layr, form, prop, STOR_TYPE_PRICERANGE)
+
+    async def keyNidsByRange(self, minindx, maxindx, reverse=False):
+        minindx += self.layr.pricerangehugetype.zerobyts
+        maxindx += self.layr.pricerangehugetype.fullbyts
+
+        async for item in IndxByPoly.keyNidsByRange(self, minindx, maxindx, reverse=reverse):
+            yield item
+
+class IndxByPropPriceRangeMax(IndxBy):
+
+    def __init__(self, layr, form, prop):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.core.getIndxAbrv(INDX_PRICERANGE_MAX, form, prop)
+        IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
+
+        self.form = form
+        self.prop = prop
+
+class IndxByPropPriceRangeDelta(IndxBy):
+
+    def __init__(self, layr, form, prop):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.core.getIndxAbrv(INDX_PRICERANGE_DELTA, form, prop)
+        IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
+
+        self.form = form
+        self.prop = prop
+
+class IndxByPropPriceRangeRate(IndxBy):
+
+    def __init__(self, layr, form, prop):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.core.getIndxAbrv(INDX_PRICERANGE_RATE, form, prop)
+        IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
+
+        self.form = form
+        self.prop = prop
+
 class IndxByTagIval(IndxBy):
 
     def __init__(self, layr, form, tag):
@@ -986,6 +1069,12 @@ class StorType:
         self.stortype = stortype
 
         self.lifters = {}
+
+    def nidNorm(self, valu):
+        '''
+        Convert a normalized value to the value that should be used for nid deconfliction.
+        '''
+        return valu
 
     async def indxBy(self, liftby, cmpr, valu, reverse=False):
         func = self.lifters.get(cmpr)
@@ -1202,6 +1291,35 @@ class StorTypeUtf8(StorType):
         if len(bytz) >= 256:
             return s_common.novalu
         return bytz.decode('utf8')
+
+class StorTypeText(StorTypeUtf8):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_TEXT)
+
+        self.lifters.update({
+            '=': self._liftUtf8Eq,
+            '~=': self._liftRegx,
+            '^=': self._liftUtf8Prefix,
+            'range=': self._liftUtf8Range,
+        })
+
+    def nidNorm(self, valu):
+        '''
+        Convert a normalized value to the value that should be used for nid deconfliction.
+        '''
+        return valu.lower()
+
+    def _getIndxByts(self, valu):
+
+        indx = valu.lower().encode('utf8')
+        # cut down an index value to 256 bytes...
+        if len(indx) <= 256:
+            return indx
+
+        base = indx[:248]
+        sufx = xxhash.xxh64(indx).digest()
+        return base + sufx
 
 class StorTypeHier(StorType):
 
@@ -1962,6 +2080,156 @@ class StorTypeIval(StorType):
     def delTagPropVirtIndxVals(self, nid, form, tag, tagabrv, prop, virt):
         return
 
+class StorTypePriceRange(StorType):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_PRICERANGE)
+        self.hugetype = StorTypeHugeNum(layr, STOR_TYPE_HUGENUM)
+
+        self.zerobyts = self.hugetype.zerobyts
+        self.fullbyts = self.hugetype.fullbyts
+
+        # the reserved "unknown" sentinel (matches PriceRangeBase.unkprice). it
+        # encodes to fullbyts (above every valid value) so ordered range lifts,
+        # which cap at maxvalidbyts (the encoding of HUGE_MAX), exclude it.
+        # (HUGE_MAX mirrors synapse.lib.types.hugemax; defined here to avoid
+        # the types <-> layer import cycle.)
+        self.unkprice = '?'
+        self.unkbyts = self.fullbyts
+        self.maxvalidbyts = self.hugetype.getHugeIndx(HUGE_MAX)
+
+        self.lifters.update({
+            '=': self._liftEq,
+        })
+
+        for part in ('min', 'start'):
+            self.lifters.update({
+                f'{part}=': self._liftPartEq,
+                f'{part}<': self._liftPartLt,
+                f'{part}>': self._liftPartGt,
+                f'{part}<=': self._liftPartLe,
+                f'{part}>=': self._liftPartGe,
+            })
+
+        for part in ('max', 'end', 'delta', 'rate'):
+            self.lifters.update({
+                f'{part}=': self._liftSideEq,
+                f'{part}<': self._liftSideLt,
+                f'{part}>': self._liftSideGt,
+                f'{part}<=': self._liftSideLe,
+                f'{part}>=': self._liftSideGe,
+            })
+
+        self.propindx = {}
+        for part in ('min', 'start'):
+            for cmpr in ('=', '<', '>', '<=', '>='):
+                self.propindx[f'{part}{cmpr}'] = IndxByPropPriceRangeMin
+
+        for cmpr in ('=', '<', '>', '<=', '>='):
+            self.propindx[f'max{cmpr}'] = IndxByPropPriceRangeMax
+            self.propindx[f'end{cmpr}'] = IndxByPropPriceRangeMax
+            self.propindx[f'delta{cmpr}'] = IndxByPropPriceRangeDelta
+            self.propindx[f'rate{cmpr}'] = IndxByPropPriceRangeRate
+
+    async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virt=None):
+        try:
+            indxtype = self.propindx.get(cmpr, IndxByProp)
+            indxby = indxtype(self.layr, form, prop)
+
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+            yield item
+
+    def _priceIndx(self, valu):
+        if valu == self.unkprice:
+            return self.unkbyts
+
+        return self.hugetype.getHugeIndx(valu)
+
+    def indx(self, valu):
+        return (self._priceIndx(valu[0]) + self._priceIndx(valu[1]),)
+
+    def decodeIndx(self, bytz):
+        return s_common.novalu  # pragma: no cover
+
+    def getMaxIndx(self, valu):
+        return self._priceIndx(valu[1])
+
+    def getDeltaIndx(self, valu):
+        return self._priceIndx(valu[2])
+
+    def getRateIndx(self, valu):
+        return self._priceIndx(valu[3])
+
+    async def _liftEq(self, liftby, valu, reverse=False):
+        indx = self._priceIndx(valu[0]) + self._priceIndx(valu[1])
+        async for item in liftby.keyNidsByDups(indx, reverse=reverse):
+            yield item
+
+    async def _liftPartEq(self, liftby, valu, reverse=False):
+        indx = self.hugetype.getHugeIndx(valu)
+        async for item in liftby.keyNidsByPref(indx, reverse=reverse):
+            yield item
+
+    async def _liftPartGt(self, liftby, valu, reverse=False):
+        valu = s_common.hugeadd(s_common.hugenum(valu), self.hugetype.one)
+        async for item in self._liftPartGe(liftby, valu, reverse=reverse):
+            yield item
+
+    async def _liftPartGe(self, liftby, valu, reverse=False):
+        minindx = self.hugetype.getHugeIndx(valu)
+        async for item in liftby.keyNidsByRange(minindx, self.maxvalidbyts, reverse=reverse):
+            yield item
+
+    async def _liftPartLt(self, liftby, valu, reverse=False):
+        valu = s_common.hugesub(s_common.hugenum(valu), self.hugetype.one)
+        async for item in self._liftPartLe(liftby, valu, reverse=reverse):
+            yield item
+
+    async def _liftPartLe(self, liftby, valu, reverse=False):
+        maxindx = self.hugetype.getHugeIndx(valu)
+        async for item in liftby.keyNidsByRange(self.zerobyts, maxindx, reverse=reverse):
+            yield item
+
+    async def _liftSideEq(self, liftby, valu, reverse=False):
+        indx = self.hugetype.getHugeIndx(valu)
+        async for item in liftby.keyNidsByDups(indx, reverse=reverse):
+            yield item
+
+    async def _liftSideGt(self, liftby, valu, reverse=False):
+        valu = s_common.hugeadd(s_common.hugenum(valu), self.hugetype.one)
+        async for item in self._liftSideGe(liftby, valu, reverse=reverse):
+            yield item
+
+    async def _liftSideGe(self, liftby, valu, reverse=False):
+        minindx = self.hugetype.getHugeIndx(valu)
+        async for item in liftby.keyNidsByRange(minindx, self.maxvalidbyts, reverse=reverse):
+            yield item
+
+    async def _liftSideLt(self, liftby, valu, reverse=False):
+        valu = s_common.hugesub(s_common.hugenum(valu), self.hugetype.one)
+        async for item in self._liftSideLe(liftby, valu, reverse=reverse):
+            yield item
+
+    async def _liftSideLe(self, liftby, valu, reverse=False):
+        maxindx = self.hugetype.getHugeIndx(valu)
+        async for item in liftby.keyNidsByRange(self.zerobyts, maxindx, reverse=reverse):
+            yield item
+
+    def getVirtIndxVals(self, nid, form, prop, virt, isarray=False):
+        return ()  # pragma: no cover
+
+    def delVirtIndxVals(self, nid, form, prop, virt, isarray=False):
+        return  # pragma: no cover
+
+    def getTagPropVirtIndxVals(self, nid, form, tag, tagabrv, prop, virt):
+        return ()  # pragma: no cover
+
+    def delTagPropVirtIndxVals(self, nid, form, tag, tagabrv, prop, virt):
+        return  # pragma: no cover
+
 class StorTypeMsgp(StorType):
 
     def __init__(self, layr):
@@ -2111,10 +2379,15 @@ class StorTypePoly(StorType):
                         async for item in self.layr.stortypes[realtype].indxByProp(form, prop, cmpr, valu, reverse=reverse):
                             yield item
                         return
+                    elif realtype == STOR_TYPE_PRICERANGE:
+                        async for item in self.layr.stortypes[realtype].indxByProp(form, prop, cmpr, valu, reverse=reverse):
+                            yield item
+                        return
                     else:
                         indxby = IndxByPolyVirt(self.layr, form, prop, virt, realtype)
                 else:
-                    indxby = IndxByPoly(self.layr, form, prop, realtype)
+                    valu, typenames = valu
+                    indxby = IndxByPoly(self.layr, form, prop, realtype, typenames=typenames)
 
                 async for item in self.layr.stortypes[realtype].indxBy(indxby, cmpr, valu, reverse=reverse):
                     yield item
@@ -2134,7 +2407,8 @@ class StorTypePoly(StorType):
                 if virt:
                     indxby = IndxByPolyVirt(self.layr, form, prop, virt, realtype)
                 else:
-                    indxby = IndxByPolyArray(self.layr, form, prop, realtype)
+                    valu, typenames = valu
+                    indxby = IndxByPolyArray(self.layr, form, prop, realtype, typenames=typenames)
 
                 async for item in self.layr.stortypes[realtype].indxBy(indxby, cmpr, valu, reverse=reverse):
                     yield item
@@ -2512,6 +2786,10 @@ class Layer(s_nexus.Pusher):
             StorTypeNodeProp(self),
 
             StorTypePoly(self),
+
+            StorTypeText(self),
+
+            StorTypePriceRange(self),
         ]
 
         self.polytype = self.stortypes[STOR_TYPE_POLY]
@@ -2519,6 +2797,9 @@ class Layer(s_nexus.Pusher):
         self.timetype = self.stortypes[STOR_TYPE_TIME]
         self.ivaltype = self.stortypes[STOR_TYPE_IVAL]
         self.ivaltimetype = self.ivaltype.timetype
+
+        self.pricerangetype = self.stortypes[STOR_TYPE_PRICERANGE]
+        self.pricerangehugetype = self.pricerangetype.hugetype
 
         self.createdabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'created')
         self.updatedabrv = self.core.setIndxAbrv(INDX_VIRTUAL, None, None, 'updated')
@@ -3514,10 +3795,11 @@ class Layer(s_nexus.Pusher):
 
             if kind & STOR_FLAG_POLY:
                 kind = kind & STOR_MASK_POLY
+                valu, typenames = valu
                 if array:
-                    indxby = IndxByPolyArrayKeys(self, form, prop, kind)
+                    indxby = IndxByPolyArrayKeys(self, form, prop, kind, typenames=typenames)
                 else:
-                    indxby = IndxByPolyKeys(self, form, prop, kind)
+                    indxby = IndxByPolyKeys(self, form, prop, kind, typenames=typenames)
                 realtype = self.polytype
                 styp = self.stortypes[kind]
                 abrvlen = indxby.abrvlen - 10
@@ -3957,6 +4239,58 @@ class Layer(s_nexus.Pusher):
         changes = await self.saveNodeEdits(nodeedits, meta)
         return bool(changes)
 
+    async def localToRemoteEdits(self, lnodeedits):
+        rnodeedits = []
+        async for nid, form, ledits in s_coro.pause(lnodeedits):
+            if (ndef := self.core.getNidNdef(s_common.int64en(nid))) is None:
+                continue
+
+            redits = []
+            async for edit in s_coro.pause(ledits):
+                if edit[0] in EDIT_EDGE:
+                    verb, n2nid = edit[1]
+                    if (n2ndef := self.core.getNidNdef(s_common.int64en(n2nid))) is None:
+                        continue
+
+                    redits.append((edit[0], (verb, n2ndef)))
+                    continue
+
+                redits.append(edit)
+
+            if redits:
+                rnodeedits.append((*ndef, redits))
+
+        return rnodeedits
+
+    async def remoteToLocalEdits(self, rnodeedits):
+        lnodeedits = []
+        async for form, valu, redits in s_coro.pause(rnodeedits):
+
+            ndef = (form, valu)
+            if (nid := self.core.getNidByNdef(ndef)) is None:
+                if redits[0][0] != 0:
+                    # If we don't know this ndef and the first edit isn't
+                    # a node add, this is an edit to a node we won't have
+                    # and we need to use a nexus event to generate the NID
+
+                    nid = s_common.int64un(await self.core.genNdefNid(ndef))
+            else:
+                nid = s_common.int64un(nid)
+
+            ledits = []
+            async for edit in s_coro.pause(redits):
+                if edit[0] in EDIT_EDGE:
+                    verb, n2ndef = edit[1]
+                    n2nid = await self.core.genNdefNid(n2ndef)
+                    ledits.append((edit[0], (verb, s_common.int64un(n2nid))))
+                    continue
+
+                ledits.append(edit)
+
+            lnodeedits.append((nid, form, ledits))
+
+        return lnodeedits
+
     async def saveNodeEdits(self, edits, meta, compat=False, waitiden=None):
         '''
         Save node edits to the layer and return the applied changes.
@@ -3968,7 +4302,7 @@ class Layer(s_nexus.Pusher):
             raise s_exc.NoSuchLayer(mesg=mesg)
 
         if compat:
-            edits = await self.core.remoteToLocalEdits(edits)
+            edits = await self.remoteToLocalEdits(edits)
 
         if not self.core.isactive:
             proxy = await self.core.nexsroot.getIssueProxy()
@@ -4015,7 +4349,9 @@ class Layer(s_nexus.Pusher):
 
                 # Generate NID without a nexus event, mirrors will populate
                 # the mapping from the node add edit
-                nid = await self.core._genNdefNid((form, edits[0][1][0]))
+                valu, stortype, _ = edits[0][1]
+                ndef = (form, self.stortypes[stortype].nidNorm(valu))
+                nid = await self.core._genNdefNid(ndef)
             else:
                 nid = s_common.int64en(nid)
 
@@ -4154,7 +4490,7 @@ class Layer(s_nexus.Pusher):
 
     async def _calcNodeAdd(self, nid, edit, sode):
 
-        if sode is not None and sode.get('valu') is not None:
+        if sode is not None and sode.get('valu') == edit[1][0]:
             return
 
         return edit
@@ -4453,13 +4789,19 @@ class Layer(s_nexus.Pusher):
 
     async def _editNodeAdd(self, nid, form, edit, sode, meta):
 
-        if sode.get('valu') is not None:
+        if (cval := sode.get('valu')) is not None:
+            if cval != edit[1][0]:
+                sode['valu'] = edit[1]
+                self.dirty[nid] = sode
             return ()
 
         valu, stortype, virts = sode['valu'] = edit[1]
 
+        typeobj = self.stortypes[stortype]
+
         if not self.core.hasNidNdef(nid):
-            self.core.setNidNdef(nid, (form, valu))
+            ndef = (form, typeobj.nidNorm(valu))
+            self.core.setNidNdef(nid, ndef)
 
         self.dirty[nid] = sode
 
@@ -4485,7 +4827,7 @@ class Layer(s_nexus.Pusher):
             self.indxcounts.inc(abrv)
 
         if virts is not None:
-            kvpairs.extend(self.stortypes[stortype].getVirtIndxVals(nid, form, None, virts))
+            kvpairs.extend(typeobj.getVirtIndxVals(nid, form, None, virts))
 
         if sode.pop('antivalu', None) is not None:
             self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
@@ -4659,6 +5001,9 @@ class Layer(s_nexus.Pusher):
                         maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
                         self.layrslab.delete(maxabrv + oldi[-8:], nid, db=self.indxdb)
 
+                elif (oldt & STOR_MASK_POLY) == STOR_TYPE_PRICERANGE:
+                    self._delPriceRangeSideIndx(nid, form, prop, oldv[1])
+
             if oldvirts is not None:
                 self.polytype.delVirtIndxVals(nid, form, prop, oldvirts, isarray=isarray)
 
@@ -4709,11 +5054,39 @@ class Layer(s_nexus.Pusher):
                     maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
                     kvpairs.append((maxabrv + indx[-8:], nid))
 
+            elif (stortype & STOR_MASK_POLY) == STOR_TYPE_PRICERANGE:
+                kvpairs.extend(self._getPriceRangeSideIndx(nid, form, prop, valu[1]))
+
         if virts is not None:
             if (virtkeys := self.polytype.getVirtIndxVals(nid, form, prop, virts, isarray=isarray)):
                 kvpairs.extend(virtkeys)
 
         return kvpairs
+
+    def _priceRangeSideAbrvs(self, form, prop, valu):
+        # yield (abrv, indx) pairs for the price-range side-index DBs (max/end,
+        # delta, and rate for pricechange), skipping fields set to the unknown
+        # sentinel so they never pollute ordered range lifts.
+        prtype = self.pricerangetype
+
+        if valu[1] != prtype.unkprice:
+            maxabrv = self.core.setIndxAbrv(INDX_PRICERANGE_MAX, form, prop)
+            yield (maxabrv, prtype.getMaxIndx(valu))
+
+        if valu[2] != prtype.unkprice:
+            deltaabrv = self.core.setIndxAbrv(INDX_PRICERANGE_DELTA, form, prop)
+            yield (deltaabrv, prtype.getDeltaIndx(valu))
+
+        if len(valu) >= 4 and valu[3] != prtype.unkprice:
+            rateabrv = self.core.setIndxAbrv(INDX_PRICERANGE_RATE, form, prop)
+            yield (rateabrv, prtype.getRateIndx(valu))
+
+    def _getPriceRangeSideIndx(self, nid, form, prop, valu):
+        return [(abrv + indx, nid) for (abrv, indx) in self._priceRangeSideAbrvs(form, prop, valu)]
+
+    def _delPriceRangeSideIndx(self, nid, form, prop, valu):
+        for (abrv, indx) in self._priceRangeSideAbrvs(form, prop, valu):
+            self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
 
     async def _editPropDel(self, nid, form, edit, sode, meta):
 
@@ -4756,6 +5129,9 @@ class Layer(s_nexus.Pusher):
                 dura = self.ivaltype.getDurationIndx(valu[1])
                 duraabrv = self.core.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                 self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
+
+            elif (stortype & STOR_MASK_POLY) == STOR_TYPE_PRICERANGE:
+                self._delPriceRangeSideIndx(nid, form, prop, valu[1])
 
         if virts is not None:
             self.polytype.delVirtIndxVals(nid, form, prop, virts, isarray=isarray)
@@ -6026,8 +6402,8 @@ class Layer(s_nexus.Pusher):
                     perm = perm_del_edge + tombinfo
                     allowed = allow_add_edges
 
-            else: # pragma: no cover
-                extra = await self.core.getLogExtra(tombtype=tombtype, delete=delete, tombinfo=tombinfo)
+            else:
+                extra = self.core.getLogExtra(tombtype=tombtype, delete=delete, tombinfo=tombinfo)
                 logger.debug(f'Encountered unknown tombstone type: {tombtype}.', extra=extra)
                 continue
 
@@ -6202,54 +6578,8 @@ class Layer(s_nexus.Pusher):
         return collections.defaultdict(dict)
 
     async def syncNodeEdits(self, offs, wait=True, compat=False, withmeta=False):
-
-        layriden = self.iden
-
-        async def getNexusEdits(strt):
-            async for nexsoffs, item in self.core.getNexusChanges(strt, wait=False):
-                if item[0] != layriden or item[1] != 'edits':
-                    continue
-
-                edits = item[2][0]
-                if compat:
-                    edits = await self.core.localToRemoteEdits(edits)
-
-                if withmeta:
-                    yield (nexsoffs, edits, item[2][1])
-                else:
-                    yield (nexsoffs, edits)
-
-        lastoffs = -1
-        async for item in getNexusEdits(offs):
-            lastoffs = item[0]
+        async for item in self.core.syncLayerNodeEdits(self, offs, wait=wait, compat=compat, withmeta=withmeta):
             yield item
-
-        if not wait:
-            return
-
-        async with self.getNodeEditWindow() as wind:
-
-            # Ensure we are caught up after grabbing a window
-            sync = True
-            maxoffs = max(offs, lastoffs + 1)
-
-            async for item in getNexusEdits(maxoffs):
-                maxoffs = item[0]
-                yield item
-
-            async for editoffs, edits, meta in wind:
-                if sync:
-                    if editoffs <= maxoffs:
-                        continue
-                    sync = False
-
-                if compat:
-                    edits = await self.core.localToRemoteEdits(edits)
-
-                if withmeta:
-                    yield (editoffs, edits, meta)
-                else:
-                    yield (editoffs, edits)
 
     @contextlib.asynccontextmanager
     async def getNodeEditWindow(self):

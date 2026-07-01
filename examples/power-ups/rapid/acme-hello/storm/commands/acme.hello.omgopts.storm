@@ -3,7 +3,7 @@
 init {
 
     // Set global debug (once) if the user specified --debug
-    if $cmdopts.debug { $lib.debug = $lib.true }
+    if $cmdopts.debug { $lib.debug = (true) }
 
     if ($cmdopts.hehe) { $lib.print(`User Specified hehe: {$cmdopts.hehe}`) }
 

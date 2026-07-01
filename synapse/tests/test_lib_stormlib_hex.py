@@ -28,7 +28,7 @@ class StormLibHexTest(s_test.SynTest):
             '''))
 
             self.eq(-1, await core.callStorm('''
-                return($lib.hex.toint(ff, signed=$lib.true))
+                return($lib.hex.toint(ff, signed=(true)))
             '''))
 
             self.eq('ffff', await core.callStorm('''
@@ -37,11 +37,11 @@ class StormLibHexTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 self.eq('00ff', await core.callStorm('''
-                    return($lib.hex.fromint(65535, 2, signed=$lib.true))
+                    return($lib.hex.fromint(65535, 2, signed=(true)))
                 '''))
 
             self.eq('ffff', await core.callStorm('''
-                return($lib.hex.fromint(-1, 2, signed=$lib.true))
+                return($lib.hex.fromint(-1, 2, signed=(true)))
             '''))
 
             with self.raises(s_exc.BadArg):

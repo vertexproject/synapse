@@ -289,7 +289,7 @@ class AhaTest(s_test.SynTest):
             await aha.auth.rootuser.setPasswd('secret')
 
             host, httpsport = await aha.addHttpsPort(0)
-            svcsurl = f'https://localhost:{httpsport}/api/v1/aha/services'
+            svcsurl = f'https://localhost:{httpsport}/api/v3/aha/services'
 
             async with self.getHttpSess(auth=('root', 'secret'), port=httpsport) as sess:
 
@@ -902,7 +902,7 @@ class AhaTest(s_test.SynTest):
             await aha.auth.rootuser.setPasswd('secret')
 
             host, httpsport = await aha.addHttpsPort(0)
-            url = f'https://localhost:{httpsport}/api/v1/aha/provision/service'
+            url = f'https://localhost:{httpsport}/api/v3/aha/provision/service'
 
             async with self.getHttpSess(auth=('root', 'secret'), port=httpsport) as sess:
                 # Simple request works

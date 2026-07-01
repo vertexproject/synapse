@@ -75,25 +75,25 @@ class StormLibStixTest(s_test.SynTest):
             }}
 
             self.len(23, await core.nodes('''[
-                (inet:asn=30 :owner:name=woot30)
-                (inet:asn=40 :owner:name=woot40)
+                (inet:asn=30 :registrant:name=woot30)
+                (inet:asn=40 :registrant:name=woot40)
                 (inet:ip=1.2.3.4 :asn=30)
                 (inet:ip="::ff" :asn=40)
                 inet:email=visi@vertex.link
                 (entity:contact=* :name="visi stark" :email=visi@vertex.link)
-                (ou:org=$targetorg :name=target :industries+={[ou:industry=$ind :name=aerospace]})
+                (ou:org=$targetorg :name=target :industries+={[ind:industry=$ind :name=aerospace]})
                 (ou:org=$attackorg :name=attacker :place={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
                 (entity:campaign=$campaign :name=woot :actor={ou:org:name=attacker})
                 (entity:motive=* :actor={ou:org:name=attacker} :goal={[entity:goal=$goal :name=pwning]})
-                (risk:attack=$attack :activity=$campaign +(targeted)> {ou:org:name=target})
+                (risk:attack=$attack :activity={ entity:campaign=$campaign } +(targeted)> {ou:org:name=target})
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
                 (doc:report=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
                 (file:bytes=({'sha256': $sha256}) :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link } +#cno.mal.redtree)
-                (inet:service:account=(twitter, invisig0th) :platform={[inet:service:platform=* :name=twitter]} :id=invisig0th :user="visi stark"
+                (inet:service:account=(twitter, invisig0th) :platform={[inet:service:platform=* :name=twitter]} :id=invisig0th :username="visi stark"
                  :period=(2010, *) :seen=(2010, 2021) :creds={[auth:passwd=secret]})
-                (inet:service:account=(twitter, saltpass) :user="salthash pass" :id=saltpass :creds={[crypto:salthash=* :value={[auth:passwd=saltvalu]}]})
+                (inet:service:account=(twitter, saltpass) :username="salthash pass" :id=saltpass :creds={[crypto:salthash=* :value={[auth:passwd=saltvalu]}]})
                 (syn:tag=cno.mal.redtree :title="Redtree Malware")
                 (it:software=$software :name=rar :version=2.0.1)
                 inet:dns:a=(vertex.link, 1.2.3.4)
@@ -155,7 +155,7 @@ class StormLibStixTest(s_test.SynTest):
                 [ syn:tag=cno.mal.redtree ]
 
                 {[( file:bytes=$file +#cno.mal.redtree )]}
-                {[( it:exec:fetch=$execurl :exe=$file :url=http://vertex.link/ )]}
+                {[( it:exec:fetch=$execurl :exe=$file as file:bytes :url=http://vertex.link/ )]}
 
                 $bundle.add($node, stixtype=malware)
 
@@ -195,7 +195,7 @@ class StormLibStixTest(s_test.SynTest):
             bund_noext = await core.callStorm('''
             init {
                 $config = $lib.stix.export.config()
-                $config.synapse_extension=$lib.false  // Disable synapse extension
+                $config.synapse_extension=(false)  // Disable synapse extension
                 $config.forms."syn:tag".stix.malware.rels.append(
                     (communicates-with, url, ${-> file:bytes -> it:exec:fetch:exe -> inet:url})
                 )
@@ -206,7 +206,7 @@ class StormLibStixTest(s_test.SynTest):
             [ syn:tag=cno.mal.redtree ]
 
             {[( file:bytes=$file +#cno.mal.redtree )]}
-            {[( it:exec:fetch=$execurl :exe=$file :url=http://vertex.link/ )]}
+            {[( it:exec:fetch=$execurl :exe=$file as file:bytes :url=http://vertex.link/ )]}
 
             $bundle.add($node, stixtype=malware)
 
@@ -219,7 +219,7 @@ class StormLibStixTest(s_test.SynTest):
             self.notin(s_stix.SYN_STIX_EXTENSION_ID, s_json.dumps(bund_noext).decode())
 
             # test some sad paths...
-            self.none(await core.callStorm('return($lib.stix.export.bundle().add($lib.true))'))
+            self.none(await core.callStorm('return($lib.stix.export.bundle().add((true)))'))
             self.none(await core.callStorm('[ ou:conference=* ] return($lib.stix.export.bundle().add($node))'))
             self.none(await core.callStorm('[ inet:fqdn=vertex.link ] return($lib.stix.export.bundle().add($node, stixtype=foobar))'))
 
@@ -313,8 +313,8 @@ class StormLibStixTest(s_test.SynTest):
             [(risk:vuln=(vuln3,) :name="bobs version of CVE-2013-001" :id={[ it:sec:cve=CVE-2013-0001 ]} )]
             [(ou:org=(bob1,) :name="bobs whitehatz")]
             [(entity:campaign=(campaign1,) :name="bob hax" :actor={[ ou:org=(bob1,) ]} )]
-            [(risk:attack=(attk1,) :activity=(campaign1,) +(used)> {risk:vuln=(vuln1,)} )]
-            [(risk:attack=(attk2,) :activity=(campaign1,) +(used)> {risk:vuln=(vuln3,)} )]
+            [(risk:attack=(attk1,) :activity={ entity:campaign=(campaign1,) } +(used)> {risk:vuln=(vuln1,)} )]
+            [(risk:attack=(attk2,) :activity={ entity:campaign=(campaign1,) } +(used)> {risk:vuln=(vuln3,)} )]
             ''')
 
             bund = await core.callStorm('''
@@ -336,8 +336,11 @@ class StormLibStixTest(s_test.SynTest):
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'oasis-example-00.json'))
             msgs = await core.stormlist('yield $lib.stix.import.ingest($stix)', opts={'view': viewiden, 'vars': {'stix': stix}})
             # self.stormHasNoWarnErr(msgs)
-            self.len(1, await core.nodes('entity:contact:name="adversary bravo"', opts={'view': viewiden}))
+            # threat-actor "Adversary Bravo" now maps to risk:threat (not entity:contact)
+            self.len(1, await core.nodes('risk:threat:name="adversary bravo"', opts={'view': viewiden}))
             self.len(1, await core.nodes('it:software', opts={'view': viewiden}))
+            # attack-pattern "Phishing" now maps to meta:technique (previously dropped)
+            self.len(1, await core.nodes('meta:technique:name="phishing"', opts={'view': viewiden}))
 
             # Pass in a heavy dict object
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
@@ -345,22 +348,27 @@ class StormLibStixTest(s_test.SynTest):
             q = '''init { $data = ({"id": $stix.id, "type": $stix.type, "objects": $stix.objects}) }
             yield $lib.stix.import.ingest($data)'''
             msgs = await core.stormlist(q, opts={'view': viewiden, 'vars': {'stix': stix}})
-            self.len(1, await core.nodes('entity:contact:name="adversary bravo"', opts={'view': viewiden}))
+            self.len(1, await core.nodes('risk:threat:name="adversary bravo"', opts={'view': viewiden}))
             self.len(1, await core.nodes('it:software', opts={'view': viewiden}))
 
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'apt1.json'))
             msgs = await core.stormlist('yield $lib.stix.import.ingest($stix)', opts={'view': viewiden, 'vars': {'stix': stix}})
-            self.len(34, await core.nodes('doc:report -(refs)> *', opts={'view': viewiden}))
+            # attack-patterns are now handled (+7 nodes in nodesbyid) so refs count increases from 34 to 41
+            self.len(41, await core.nodes('doc:report -(refs)> *', opts={'view': viewiden}))
             self.len(1, await core.nodes('it:sec:stix:bundle:id', opts={'view': viewiden}))
             self.len(3, await core.nodes('it:sec:stix:indicator -(refs)> inet:fqdn', opts={'view': viewiden}))
+            # intrusion-set and threat-actors map to risk:threat (1 + 5 = 6 total)
+            self.len(6, await core.nodes('risk:threat', opts={'view': viewiden}))
+            # 7 attack-pattern objects now produce meta:technique nodes
+            self.len(7, await core.nodes('meta:technique', opts={'view': viewiden}))
 
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'apt1.json'))
 
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             msgs = await core.stormlist('''
                 $config = $lib.stix.import.config()
-                $config.bundle = $lib.null
+                $config.bundle = (null)
                 $storm = ${[ it:cmd=$object.name ] return($node)}
                 $config.objects."threat-actor" = ({"storm": $storm})
                 yield $lib.stix.import.ingest($stix, config=$config)
@@ -374,7 +382,7 @@ class StormLibStixTest(s_test.SynTest):
                 $storm00 = ${ $lib.raise(omg, omg) }
                 $config.objects."threat-actor" = ({"storm": $storm00})
                 $config.relationships = ([{
-                    "type": [$lib.null, "indicates", $lib.null],
+                    "type": [(null), "indicates", (null)],
                     "storm": $storm00,
                 }])
                 yield $lib.stix.import.ingest($stix, config=$config)
@@ -402,7 +410,7 @@ class StormLibStixTest(s_test.SynTest):
                 $config = $lib.stix.import.config()
                 $storm00 = ${ [ it:cmd=$n1node.props.name ] return($node) }
                 $config.relationships = ([{
-                    "type": [$lib.null, "frobs", $lib.null],
+                    "type": [(null), "frobs", (null)],
                     "storm": $storm00,
                 }])
                 yield $lib.stix.import.ingest($stix, config=$config)
@@ -464,11 +472,11 @@ class StormLibStixTest(s_test.SynTest):
 
             place = await core.nodes('geo:place:country:code=cn', opts=opts)
             self.len(1, place)
-            self.propeq(place[0], 'name', 'china')
+            self.propeq(place[0], 'name', 'China')
 
             addr = await core.nodes('geo:place:address', opts=opts)
             self.len(1, addr)
-            self.propeq(addr[0], 'address', '1234 jefferson drive')
+            self.propeq(addr[0], 'address', '1234 Jefferson Drive')
             self.propeq(addr[0], 'desc', "It's a magical place!")
 
             latlong = await core.nodes('geo:place:latlong', opts=opts)
@@ -477,6 +485,180 @@ class StormLibStixTest(s_test.SynTest):
             fqdn = await core.nodes('inet:fqdn', opts=opts)
             self.len(7, fqdn)
             self.isin('google.com', [x.repr() for x in fqdn])
+
+    async def test_stix_import_per_bundle_salt(self):
+        '''
+        Verify that reporter-scoped SDO forms use $salt=$bundle.id for per-bundle
+        idempotency. Re-ingesting the same bundle produces no new nodes. Same-named
+        entities across different bundles share a node via the gutor property-based
+        deconfliction fallback. Different-named entities across bundles produce distinct
+        nodes. Observables (inet:ip) are globally deconflicted without a salt.
+        '''
+        async with self.getTestCore() as core:
+
+            bundle_a = {
+                'type': 'bundle',
+                'id': 'bundle--aaaaaaaa-0000-0000-0000-000000000001',
+                'objects': [
+                    {
+                        'type': 'tool',
+                        'id': 'tool--aaaaaaaa-0000-0000-0000-000000000002',
+                        'name': 'mimikatz',
+                    },
+                    {
+                        'type': 'threat-actor',
+                        'id': 'threat-actor--aaaaaaaa-0000-0000-0000-000000000003',
+                        'name': 'APT-X',
+                    },
+                    {
+                        'type': 'ipv4-addr',
+                        'id': 'ipv4-addr--aaaaaaaa-0000-0000-0000-000000000004',
+                        'value': '1.2.3.4',
+                    },
+                ],
+            }
+
+            # Bundle B: same names for tool/threat-actor (different bundle id),
+            # plus a new differently-named tool to verify distinct creation still works.
+            bundle_b = {
+                'type': 'bundle',
+                'id': 'bundle--bbbbbbbb-0000-0000-0000-000000000001',
+                'objects': [
+                    {
+                        'type': 'tool',
+                        'id': 'tool--bbbbbbbb-0000-0000-0000-000000000002',
+                        'name': 'mimikatz',
+                    },
+                    {
+                        'type': 'tool',
+                        'id': 'tool--bbbbbbbb-0000-0000-0000-000000000005',
+                        'name': 'cobalt strike',
+                    },
+                    {
+                        'type': 'ipv4-addr',
+                        'id': 'ipv4-addr--bbbbbbbb-0000-0000-0000-000000000004',
+                        'value': '1.2.3.4',
+                    },
+                ],
+            }
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': viewiden}
+
+            # Ingest bundle A
+            await core.stormlist('yield $lib.stix.import.ingest($b)', opts={**opts, 'vars': {'b': bundle_a}})
+
+            # 1 tool -> 1 it:software; 1 threat-actor -> 1 risk:threat; 1 inet:ip
+            self.len(1, await core.nodes('it:software:name=mimikatz', opts=opts))
+            self.len(1, await core.nodes('risk:threat:name=apt-x', opts=opts))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4', opts=opts))
+
+            # Record the GUID of the mimikatz node -- the $salt derives a per-bundle GUID
+            sw_nodes = await core.nodes('it:software:name=mimikatz', opts=opts)
+            mimikatz_guid_a = sw_nodes[0].ndef[1]
+
+            # Re-ingest bundle A -- fully idempotent (same salt -> same guids, no new nodes)
+            await core.stormlist('yield $lib.stix.import.ingest($b)', opts={**opts, 'vars': {'b': bundle_a}})
+            self.len(1, await core.nodes('it:software:name=mimikatz', opts=opts))
+            self.len(1, await core.nodes('risk:threat:name=apt-x', opts=opts))
+            # GUID must be unchanged after idempotent re-ingest
+            sw_after = await core.nodes('it:software:name=mimikatz', opts=opts)
+            self.eq(mimikatz_guid_a, sw_after[0].ndef[1])
+
+            # Ingest bundle B -- same-named "mimikatz" shares the existing node (gutor
+            # property-based deconfliction); the new "cobalt strike" creates a distinct node.
+            await core.stormlist('yield $lib.stix.import.ingest($b)', opts={**opts, 'vars': {'b': bundle_b}})
+
+            # "mimikatz" is shared across the two bundles (property fallback; 1 node)
+            self.len(1, await core.nodes('it:software:name=mimikatz', opts=opts))
+            # "cobalt strike" only in bundle B -- a new distinct node
+            self.len(1, await core.nodes('it:software:name="cobalt strike"', opts=opts))
+            # Total: 2 distinct it:software nodes (mimikatz + cobalt strike)
+            self.len(2, await core.nodes('it:software', opts=opts))
+
+            # Only one shared inet:ip (observables are globally deconflicted, no salt)
+            self.len(1, await core.nodes('inet:ip=1.2.3.4', opts=opts))
+
+    async def test_stix_import_reporter_config(self):
+        '''
+        Verify that config["reporter"] is threaded into ingest as $reporter and applied
+        as :reporter:name on reporter-scoped SDO nodes when supplied.
+        '''
+        async with self.getTestCore() as core:
+
+            bundle = {
+                'type': 'bundle',
+                'id': 'bundle--cccccccc-0000-0000-0000-000000000001',
+                'objects': [
+                    {
+                        'type': 'tool',
+                        'id': 'tool--cccccccc-0000-0000-0000-000000000002',
+                        'name': 'psexec',
+                    },
+                    {
+                        'type': 'threat-actor',
+                        'id': 'threat-actor--cccccccc-0000-0000-0000-000000000003',
+                        'name': 'Cozy Bear',
+                    },
+                    {
+                        'type': 'attack-pattern',
+                        'id': 'attack-pattern--cccccccc-0000-0000-0000-000000000004',
+                        'name': 'Spear Phishing',
+                    },
+                ],
+            }
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': viewiden}
+
+            # Ingest without reporter -- :reporter:name should be unset
+            await core.stormlist('yield $lib.stix.import.ingest($b)', opts={**opts, 'vars': {'b': bundle}})
+            sw_nodes = await core.nodes('it:software:name=psexec', opts=opts)
+            self.len(1, sw_nodes)
+            self.none(sw_nodes[0].get('reporter:name'))
+
+            # Ingest a second bundle with the same names but with reporter configured
+            bundle2 = dict(bundle)
+            bundle2 = {
+                'type': 'bundle',
+                'id': 'bundle--dddddddd-0000-0000-0000-000000000001',
+                'objects': [
+                    {
+                        'type': 'tool',
+                        'id': 'tool--dddddddd-0000-0000-0000-000000000002',
+                        'name': 'psexec',
+                    },
+                    {
+                        'type': 'threat-actor',
+                        'id': 'threat-actor--dddddddd-0000-0000-0000-000000000003',
+                        'name': 'Cozy Bear',
+                    },
+                    {
+                        'type': 'attack-pattern',
+                        'id': 'attack-pattern--dddddddd-0000-0000-0000-000000000004',
+                        'name': 'Spear Phishing',
+                    },
+                ],
+            }
+            q = '''
+                $config = $lib.stix.import.config()
+                $config.reporter = "CrowdStrike"
+                yield $lib.stix.import.ingest($b, config=$config)
+            '''
+            await core.stormlist(q, opts={**opts, 'vars': {'b': bundle2}})
+
+            # The second bundle's nodes carry :reporter:name; the first bundle's do not
+            named = await core.nodes('it:software:name=psexec +:reporter:name', opts=opts)
+            self.len(1, named)
+            self.propeq(named[0], 'reporter:name', 'CrowdStrike')
+
+            threat_named = await core.nodes('risk:threat:name="cozy bear" +:reporter:name', opts=opts)
+            self.len(1, threat_named)
+            self.propeq(threat_named[0], 'reporter:name', 'CrowdStrike')
+
+            tech_named = await core.nodes('meta:technique:name="spear phishing" +:reporter:name', opts=opts)
+            self.len(1, tech_named)
+            self.propeq(tech_named[0], 'reporter:name', 'CrowdStrike')
 
     async def test_stix_export_custom(self):
 

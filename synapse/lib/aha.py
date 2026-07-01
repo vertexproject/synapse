@@ -62,7 +62,7 @@ _provSvcSchema = {
 provSvcSchema = s_config.getJsValidator(_provSvcSchema)
 
 
-class AhaProvisionServiceV1(s_httpapi.Handler):
+class AhaProvisionServiceV3(s_httpapi.Handler):
 
     async def post(self):
         if not await self.reqAuthAdmin():
@@ -84,7 +84,7 @@ class AhaProvisionServiceV1(s_httpapi.Handler):
             return self.sendRestExc(e, status_code=s_httpapi.HTTPStatus.BAD_REQUEST)
         return self.sendRestRetn({'url': url})
 
-class AhaServicesV1(s_httpapi.Handler):
+class AhaServicesV3(s_httpapi.Handler):
 
     async def get(self):
 
@@ -164,7 +164,6 @@ class AhaApi(s_cell.CellApi):
               must maintain the telepath link.
         '''
 
-        # FIXME perhaps this should manage virtual leader services automatically?
         await self._reqUserAllowed(('aha', 'service', 'add'))
 
         name = self.cell._getAhaName(name)
@@ -654,8 +653,8 @@ class AhaCell(s_cell.Cell):
 
     def _initCellHttpApis(self):
         s_cell.Cell._initCellHttpApis(self)
-        self.addHttpApi('/api/v1/aha/services', AhaServicesV1, {'cell': self})
-        self.addHttpApi('/api/v1/aha/provision/service', AhaProvisionServiceV1, {'cell': self})
+        self.addHttpApi('/api/v3/aha/services', AhaServicesV3, {'cell': self})
+        self.addHttpApi('/api/v3/aha/provision/service', AhaProvisionServiceV3, {'cell': self})
 
     async def callAhaSvcApi(self, name, todo, timeout=None):
         name = self._getAhaName(name)

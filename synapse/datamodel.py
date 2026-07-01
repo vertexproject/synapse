@@ -40,14 +40,16 @@ class TagProp:
         self.utf8 = name.encode()
         self.nenc = name.encode() + b'\x00'
 
+        self.isext = name.startswith('_')
+
         self.base = self.model.types.get(tdef[0])
         if self.base is None:
             raise s_exc.NoSuchType(name=tdef[0])
 
         self.type = self.base.clone(tdef[1])
 
-        if isinstance(self.type, s_types.Array):
-            mesg = 'Tag props may not be array types.'
+        if self.type.ismutable:
+            mesg = f'Tag properties may only use immutable types. Got: {self.type.name}'
             raise s_exc.BadPropDef(mesg=mesg)
 
         model.tagpropsbytype[self.type.name][name] = self
@@ -58,6 +60,7 @@ class TagProp:
             'info': self.info,
             'type': self.tdef,
             'stortype': self.type.stortype,
+            'extmodel': self.isext,
         }
 
     def getTagPropDef(self):
@@ -243,7 +246,7 @@ class Prop:
         if isarray:
             typ = typ.arraytype
 
-        props = self.modl.form('syn:prop').wrapRuntProps({
+        runtprops = {
             'doc': self.info.get('doc', ''),
             'type': tuple(t.name for t in typ.getTypeSet()),
             'array': isarray,
@@ -252,7 +255,12 @@ class Prop:
             'base': self.name.split(':')[-1],
             'computed': int(self.info.get('computed', False)),
             'extmodel': self.isext,
-        })
+        }
+
+        if (typedocs := typ.opts.get('docs')):
+            runtprops['typedocs'] = typedocs
+
+        props = self.modl.form('syn:prop').wrapRuntProps(runtprops)
 
         return (('syn:prop', self.full), {'props': props})
 
@@ -351,11 +359,19 @@ class Form:
 
     def getRuntPode(self):
 
-        props = self.modl.form('syn:form').wrapRuntProps({
+        props = {
             'doc': self.info.get('doc', self.type.info.get('doc', '')),
             'runt': self.isrunt,
             'type': self.type.name,
-        })
+        }
+
+        if (pform := self.modl.form(self.type.subof)) is not None:
+            props['parent'] = pform.name
+
+        if self.ifaces:
+            props['interfaces'] = tuple(self.ifaces.keys())
+
+        props = self.modl.form('syn:form').wrapRuntProps(props)
 
         return (('syn:form', self.full), {'props': props})
 
@@ -550,7 +566,13 @@ def getBaseModel():
     import synapse.models.base as s_base
     modl = Model()
     mdef = s_base.modeldefs[0]
-    types = tuple(t for t in mdef['types'] if t[1][0] is None)
+    # Load only the base type definitions. A type may declare a 'props' key to
+    # become a form, but those props can reference types which are not present
+    # in the minimal base model, so strip them here.
+    types = tuple(
+        (name, typedef, {k: v for (k, v) in typeinfo.items() if k != 'props'})
+        for (name, typedef, typeinfo) in mdef['types'] if typedef[0] is None
+    )
     modl.addModelDefs([{'types': types}])
     return modl
 
@@ -567,6 +589,7 @@ class Model:
         self.edges = {}  # (n1form, verb, n2form): Edge()
         self._valid_edges = {} #  (n1form, verb, n2form): Edge()
         self.ifaces = {}  # name: <ifdef>
+        self.ifacepolys = {}  # name: Poly synthesized per interface so interface names resolve as poly types
         self.tagprops = {}  # name: TagProp()
         self.formabbr = {}  # name: [Form(), ... ]
         self.modeldefs = []
@@ -885,8 +908,10 @@ class Model:
             A model definition dictionary representing the current data model.
         '''
         mdef = self._modeldef.copy()
-        # dynamically generate form defs due to extended props
-        mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
+        # dynamically generate form defs due to extended props.  Auto-registered prop types
+        # are kept out of the def (see addType); inline their opts back onto the prop so the
+        # def remains self-describing and round-trips (rebuild re-derives the hidden types).
+        mdef['forms'] = [self._externFormDef(f.getFormDef()) for f in self.forms.values()]
         mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
         mdef['interfaces'] = list(self.ifaces.items())
         mdef['edges'] = [e.pack() for e in self.edges.values()]
@@ -900,6 +925,54 @@ class Model:
             template['$self'] = name
             resolved[name] = self._convertTemplate(info, name, template)
         return resolved
+
+    def _externFormDef(self, formdef):
+        '''Externalize a (name, info, propdefs) form def, inlining hidden prop types.'''
+        formname, forminfo, propdefs = formdef
+        newprops = []
+        for (pname, typedef, pinfo) in propdefs:
+            if typedef is not None:
+                typedef = self._externTypedef(typedef)
+            newprops.append((pname, typedef, pinfo))
+
+        return (formname, forminfo, newprops)
+
+    def _externTypeName(self, typename):
+        '''Map an auto-registered type name back to its base type name.'''
+        tobj = self.types.get(typename)
+        if tobj is not None and tobj.info.get('auto'):
+            return tobj.info['bases'][-1]
+
+        return typename
+
+    def _externTypedef(self, typedef):
+        '''
+        Re-express a prop typedef for the surfaces that omit auto-registered prop types: the
+        serialized model def (``getModelDef``) and the ext-prop beholder feed. An auto type
+        reference becomes its base ``(basename, opts)`` typedef, and each auto poly
+        constituent becomes its base name, so the prop stays self-describing without them.
+        getModelDict keeps the auto types, so it does not use this.
+        '''
+        typename = typedef[0]
+
+        if typename == 'poly':
+            typeopts = dict(typedef[1])
+
+            for key in ('types', 'default_types'):
+                if (vals := typeopts.get(key)) is not None:
+                    typeopts[key] = tuple(self._externTypeName(v) for v in vals)
+
+            if (docs := typeopts.get('docs')) is not None:
+                typeopts['docs'] = {self._externTypeName(k): v for (k, v) in docs.items()}
+
+            return ('poly', typeopts)
+
+        tobj = self.types.get(typename)
+        if tobj is not None and tobj.info.get('auto'):
+            basename, opts = tobj.getTypeDef()[1]
+            return (basename, dict(opts))
+
+        return typedef
 
     def getModelDict(self):
         retn = {
@@ -918,6 +991,8 @@ class Model:
         }
 
         for tobj in self.types.values():
+            if tobj.name in self.ifacepolys:
+                continue
             retn['types'][tobj.name] = tobj.pack()
 
         for fobj in self.forms.values():
@@ -936,8 +1011,16 @@ class Model:
         types = []
         ifaces = []
         defaults = []
+        docs = {}
+
+        _valid_typeinfo_keys = frozenset(('defnorm', 'doc'))
 
         for typename, typeinfo in propdef:
+            if typeinfo:
+                invalid = typeinfo.keys() - _valid_typeinfo_keys
+                if invalid:
+                    mesg = 'Typeopts not valid on poly props'
+                    raise s_exc.BadPropDef(mesg=mesg, valu=propdef)
 
             if typename in self.ifaces:
                 ifaces.append(typename)
@@ -946,6 +1029,9 @@ class Model:
 
                 if typeinfo.get('defnorm', True):
                     defaults.append(typename)
+
+            if (doc := typeinfo.get('doc')):
+                docs[typename] = doc
 
         polyinfo = {}
         if ifaces:
@@ -957,13 +1043,17 @@ class Model:
         if defaults:
             polyinfo['default_types'] = tuple(defaults)
 
+        if docs:
+            polyinfo['docs'] = docs
+
         return polyinfo
 
     def convertTypedef(self, typedef):
         typename = typedef[0]
 
         if not isinstance(typename, tuple):
-            if isinstance((tobj := self.type(typename)), (s_types.Poly, s_types.Array)):
+            tobj = self.type(typename)
+            if isinstance(tobj, (s_types.Poly, s_types.Array)) and typename not in self.ifacepolys:
                 return typedef
 
             if tobj is None and typename not in self.ifaces:
@@ -973,11 +1063,122 @@ class Model:
 
         return ('poly', self.convertPolyinfo(typedef))
 
-    def processPropdefs(self, propdefs):
+    def _genPropTypeName(self, formname, propname, basename, typeopts):
+        '''
+        Compute the auto-registered type name for a prop declared with inline type opts.
+
+        The name is ``formname:propname:<typehash>`` where the typehash is derived from the
+        base type's runtime class and the fully-merged opts (base opts updated with inline
+        opts), matching exactly what the instantiated Type's ``.typehash`` will be.
+
+        Args:
+            formname (str): The form name (e.g. ``inet:http:request``).
+            propname (str): The prop name (e.g. ``headers``).
+            basename (str): The base type name (e.g. ``array`` or ``str``).
+            typeopts (dict): The inline type opts from the prop definition.
+
+        Returns:
+            str: The full auto-registered type name.
+        '''
+        base = self.types.get(basename)
+        if base is None:
+            raise s_exc.NoSuchType(name=basename)
+
+        # Mirror Type.extend's opt-merge: start from base opts, apply inline opts on top.
+        effopts = dict(base.opts)
+        effopts.update(typeopts)
+
+        ctor = '.'.join([base.__class__.__module__, base.__class__.__qualname__])
+        typehash = s_types.computeTypeHash(ctor, effopts)
+
+        return f'{formname}:{propname}:{typehash}'
+
+    def regPropType(self, formname, propname, basename, typeopts):
+        '''
+        Auto-register a named type for a prop declared with inline type opts.
+
+        The type is named ``formname:propname:<typehash>`` where the typehash encodes the
+        base type class and merged opts, making names unique per distinct ``(ctor, opts)``
+        combination and stable across restarts.  Poly props may call this once per
+        opts-bearing constituent, producing distinct names when opts differ.
+
+        Args:
+            formname (str): The form name (e.g. ``inet:http:request``).
+            propname (str): The prop name (e.g. ``headers``).
+            basename (str): The base type name (e.g. ``array`` or ``str``).
+            typeopts (dict): The inline type opts from the prop definition.
+
+        Returns:
+            str: The registered type name.
+        '''
+        fullname = self._genPropTypeName(formname, propname, basename, typeopts)
+
+        existing = self.types.get(fullname)
+        if existing is not None:
+            # The name embeds the typehash, so an existing entry is by construction the same
+            # (ctor, opts) type.  This covers form-overrides-interface double-registration and
+            # idempotent ext-model reload.  Defensively guard against a hand-crafted model type
+            # that somehow squats the generated name with different opts.
+            if existing.typehash == s_types.computeTypeHash(
+                    '.'.join([existing.__class__.__module__, existing.__class__.__qualname__]),
+                    existing.opts):
+                return fullname
+            mesg = f'Prop type name {fullname!r} conflicts with an existing type with different opts.'
+            raise s_exc.BadTypeDef(mesg=mesg)
+
+        self.addType(fullname, basename, typeopts, {'auto': True})
+        return fullname
+
+    # Keys allowed in a poly constituent's typeinfo that are member metadata,
+    # not type opts.  All other keys are treated as type opts and trigger
+    # auto-registration of a named type for that constituent.
+    _POLY_MEMBER_KEYS = frozenset(('defnorm', 'doc'))
+
+    def processPropdefs(self, propdefs, formname=None):
 
         realdefs = []
 
         for pname, typedef, propinfo in propdefs:
+
+            if formname is not None and typedef is not None:
+
+                # Single type with inline opts — any base type, not just array.
+                # Only keys outside _POLY_MEMBER_KEYS are real type opts; 'defnorm'/'doc'
+                # are poly member metadata and must not trigger type registration.
+                # Exclude 'poly' — that is the already-converted poly structural type and
+                # must pass through convertTypedef unchanged.
+                if isinstance(typedef[0], str) and typedef[0] != 'poly':
+                    real_opts = {k: v for k, v in typedef[1].items()
+                                 if k not in self._POLY_MEMBER_KEYS}
+                    if real_opts:
+                        typename = self.regPropType(formname, pname, typedef[0], real_opts)
+                        # Preserve any member metadata (doc/defnorm) for convertPolyinfo.
+                        member_meta = {k: v for k, v in typedef[1].items()
+                                       if k in self._POLY_MEMBER_KEYS}
+                        typedef = (typename, member_meta)
+
+                # Poly typedef — tuple of constituent (name, info) pairs.
+                # Register a named type for each constituent that carries real type opts
+                # (opts beyond the allowed poly member metadata keys defnorm/doc).
+                elif isinstance(typedef[0], tuple):
+                    newconstits = []
+                    for cname, cinfo in typedef:
+                        real_opts = {k: v for k, v in cinfo.items()
+                                     if k not in self._POLY_MEMBER_KEYS}
+                        if real_opts:
+                            typename = self.regPropType(formname, pname, cname, real_opts)
+                            # Strip the consumed type opts; keep only member metadata.
+                            member_meta = {k: v for k, v in cinfo.items()
+                                           if k in self._POLY_MEMBER_KEYS}
+                            newconstits.append((typename, member_meta))
+                        else:
+                            newconstits.append((cname, cinfo))
+                    typedef = tuple(newconstits)
+
+            if typedef is None:
+                mesg = f'Prop {pname} declares a None type which may only be used on a ' \
+                       f'form prop to inherit a type from a parent form or interface.'
+                raise s_exc.BadPropDef(mesg=mesg, name=pname)
 
             realdefs.append((pname, self.convertTypedef(typedef), propinfo))
 
@@ -996,13 +1197,24 @@ class Model:
                     # Types with custom Python classes use None as the base
                     # with the 'ctor' key specifying the class path:
                     ('name', (None, {'ctor': 'class.path', ...typeopts}), {info}),
+
+                    # A type becomes a form by declaring a 'props' key in its
+                    # info. The props value is a tuple of secondary property
+                    # definitions (it may be empty for a form with no props):
+                    ('name', ('basetype', {typeopts}), {
+                        'props': (
+                            (propname, (typename, typeopts), {info}),
+
+                            # A form prop may declare a None type to inherit
+                            # its type from a parent form or implemented
+                            # interface which declares a prop of the same
+                            # name. This allows overriding the info (e.g. doc)
+                            # without restating the type:
+                            (propname, None, {info}),
+                        ),
+                    }),
                 ),
 
-                "forms":(
-                    (formname, (typename, typeopts), {info}, (
-                        (propname, (typename, typeopts), {info}),
-                    )),
-                ),
                 "tagprops":(
                     (tagpropname, (typename, typeopts), {info}),
                 )
@@ -1030,18 +1242,15 @@ class Model:
         # Gather all the forms first
         for mdef in mods:
 
-            # Allow props declared directly on types to become forms...
+            # Props declared directly on a type definition make it a form...
             for typename, _, typeinfo in mdef.get('types', ()):
                 if (props := typeinfo.get('props')) is not None:
                     forminfo = {}
-                    if (ondef := typeinfo.get('on')) is not None:
-                        forminfo['on'] = ondef
+                    for key in ('on', 'runt', 'liftfunc'):
+                        if (valu := typeinfo.get(key)) is not None:
+                            forminfo[key] = valu
                     allforms.append((typename, forminfo, props))
                     self.forminfos[typename] = forminfo
-
-            for formname, forminfo, propdefs in mdef.get('forms', ()):
-                allforms.append((formname, forminfo, propdefs))
-                self.forminfos[formname] = forminfo
 
         # load all the interfaces...
         for mdef in mods:
@@ -1076,9 +1285,21 @@ class Model:
 
                 self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
 
+        for ifname, ifinfo in self.ifaces.items():
+            if ifname in self.types:
+                continue
+            self.addType(ifname, 'poly', {'interfaces': (ifname,)}, {'doc': ifinfo.get('doc', '')}, skipinit=True)
+            self.ifacepolys[ifname] = self.types[ifname]
+
         # finish initializing types
         for name, tobj in self.types.items():
             tobj._initType()
+            if name in self.ifacepolys:
+                continue
+            # Auto-registered prop types are internal and re-derived from inline prop opts;
+            # keep them out of the serialized model def (mirrors the addType guard below).
+            if tobj.info.get('auto'):
+                continue
             if (ctor := ctors.get(name)) is not None:
                 opts = dict(tobj.opts)
                 opts['ctor'] = ctor
@@ -1222,7 +1443,9 @@ class Model:
 
         self.types[typename] = newtype
 
-        if not skipinit:
+        # Auto-registered prop types are re-derived from inline prop opts on reload, so they
+        # stay out of the serialized model def (getModelDict keeps them for the client).
+        if not skipinit and not newtype.info.get('auto'):
             self._modeldef['types'].append(newtype.getTypeDef())
 
     def reqVirtTypes(self, virts):
@@ -1330,7 +1553,9 @@ class Model:
         template.update(form.type.info.get('template', {}))
         template['$self'] = form.full
 
-        for propname, typedef, propinfo in self.processPropdefs(propdefs):
+        propdefs = self._resolveInheritedTypedefs(form, propdefs)
+
+        for propname, typedef, propinfo in self.processPropdefs(propdefs, formname=formname):
 
             rawinfo = propinfo.get('raw', propinfo)
             propinfo = self._convertTemplate(rawinfo, form.name, template)
@@ -1492,12 +1717,88 @@ class Model:
         form = self.forms.get(formname)
         if form is None:
             raise s_exc.NoSuchForm.init(formname)
+
+        # On the _applyExtModel reload path, tdef arrives as the stored original form.
+        # Register any auto-generated named type(s) first so they exist before
+        # convertTypedef resolves them.  Mirrors the single/poly logic in processPropdefs.
+        if isinstance(tdef[0], str) and tdef[0] != 'poly':
+            real_opts = {k: v for k, v in tdef[1].items() if k not in self._POLY_MEMBER_KEYS}
+            if real_opts:
+                typename = self.regPropType(formname, propname, tdef[0], real_opts)
+                member_meta = {k: v for k, v in tdef[1].items()
+                               if k in self._POLY_MEMBER_KEYS}
+                tdef = (typename, member_meta)
+
+        elif isinstance(tdef[0], tuple):
+            newconstits = []
+            for cname, cinfo in tdef:
+                real_opts = {k: v for k, v in cinfo.items()
+                             if k not in self._POLY_MEMBER_KEYS}
+                if real_opts:
+                    typename = self.regPropType(formname, propname, cname, real_opts)
+                    member_meta = {k: v for k, v in cinfo.items()
+                                   if k in self._POLY_MEMBER_KEYS}
+                    newconstits.append((typename, member_meta))
+                else:
+                    newconstits.append((cname, cinfo))
+            tdef = tuple(newconstits)
+
+        try:
+            tdef = self.convertTypedef(tdef)
+        except s_exc.NoSuchType:
+            typename = tdef[0] if isinstance(tdef[0], str) else str(tdef[0])
+            mesg = f'No type named {typename} while declaring prop {formname}:{propname}.'
+            raise s_exc.NoSuchType(mesg=mesg, name=typename) from None
+
         return self._addFormProp(form, propname, tdef, info)
+
+    def _resolveInheritedTypedefs(self, form, propdefs):
+
+        # Allow a prop to declare a None typedef to dynamically resolve its
+        # type from a parent form or an implemented interface which declares a
+        # prop of the same name. This lets a form override the info (e.g. doc)
+        # of an inherited prop without restating its type. Form props are added
+        # before interfaces are processed (and _addFormIface defers to existing
+        # form props), so the form's override is preserved.
+        if not any(typedef is None for (_, typedef, _) in propdefs):
+            return propdefs
+
+        inherited = {}
+
+        if (pform := self.form(form.type.subof)) is not None:
+            for prop in pform.props.values():
+                inherited.setdefault(prop.name, prop.typedef)
+
+        for ifname, ifinfo in form.type.info.get('interfaces', ()):
+            self._collectIfaceTypedefs(form, ifname, ifinfo, inherited)
+
+        realdefs = []
+        for (name, typedef, info) in propdefs:
+
+            if typedef is None:
+                typedef = inherited.get(name)
+                if typedef is None:
+                    mesg = f'Prop {form.name}:{name} declares a None type to inherit ' \
+                           f'its type but no parent form or interface declares {name}.'
+                    raise s_exc.BadPropDef(mesg=mesg, name=name, form=form.name)
+
+            realdefs.append((name, typedef, info))
+
+        return tuple(realdefs)
+
+    def _collectIfaceTypedefs(self, form, name, ifinfo, inherited):
+
+        iface = self._prepFormIface(form, self._reqIface(name), ifinfo)
+
+        for propname, typedef, propinfo in iface.get('props', ()):
+            if typedef is not None:
+                inherited.setdefault(propname, typedef)
+
+        for subname, subinfo in iface.get('interfaces', ()):
+            self._collectIfaceTypedefs(form, subname, subinfo, inherited)
 
     def _addFormProp(self, form, name, tdef, info):
 
-        # TODO - implement resolving tdef from inherited interfaces
-        # if omitted from a prop or iface definition to allow doc edits
         (basename, typeinfo) = tdef
 
         if self.types.get(basename) is None:
@@ -1623,7 +1924,7 @@ class Model:
 
         iface = self._prepFormIface(form, iface, ifinfo)
 
-        for propname, typedef, propinfo in self.processPropdefs(iface.get('props', ())):
+        for propname, typedef, propinfo in self.processPropdefs(iface.get('props', ()), formname=form.name):
 
             # allow form props to take precedence
             if (prop := form.prop(propname)) is None:
@@ -1742,6 +2043,22 @@ class Model:
         if (kids := self.childforms.get(formname)) is not None:
             for kid in kids:
                 self.delFormProp(kid, propname)
+
+        # Clean up any auto-registered named types for this prop.
+        # Auto-registered names follow the pattern prop.full + ':<typehash>'.
+        # For a single-type prop, there is one such type.  For a poly prop,
+        # iterate the constituent type names.  Child forms' props have already
+        # been deleted above, so at this point only the parent-form prop references
+        # these types.
+        propfull_prefix = prop.full + ':'
+        if prop.type.ispoly:
+            for tname in prop.type.typeset:
+                if tname.startswith(propfull_prefix):
+                    self.types.pop(tname, None)
+        else:
+            for tname in list(self.types.keys()):
+                if tname.startswith(propfull_prefix):
+                    self.types.pop(tname, None)
 
         self.childpropcache.clear()
         self._lookup_hints = None

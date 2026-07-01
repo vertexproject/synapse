@@ -11,7 +11,7 @@ class DocModelTest(s_tests.SynTest):
                     :id=V-41
                     :title="Rule 41"
                     :body="If you can AAAAAAAA..."
-                    :file=*
+                    :file=* as file:bytes
                     :created=20241018
                     :updated=20241018
                     :creator={[ entity:contact=* :name=visi ]}
@@ -119,7 +119,7 @@ class DocModelTest(s_tests.SynTest):
 
             nodes = await core.nodes('[ doc:report=* :topics=(foo, Bar) ]')
             self.len(1, nodes)
-            self.propeq(nodes[0], 'topics', ('bar', 'foo'))
+            self.propeq(nodes[0], 'topics', ('Bar', 'foo'))
 
             nodes = await core.nodes('''[
                 doc:reference=*

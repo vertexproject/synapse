@@ -16,7 +16,7 @@ class PlanModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.propeq(nodes[0], 'name', 'woot cno planner')
+            self.propeq(nodes[0], 'name', 'Woot CNO Planner')
             self.propeq(nodes[0], 'created', 1706832000000000)
             self.propeq(nodes[0], 'updated', 1706918400000000)
             self.propeq(nodes[0], 'version', '1.0.0')
@@ -71,23 +71,23 @@ class PlanModelTest(s_t_utils.SynTest):
                         :name=network
                         :type=cidr
                         :default=127.0.0.0/24
-                        :procedure=$guid
+                        :procedure=$guid as plan:procedure
                     ]}
 
                     :firststep={[ plan:procedure:step=*
                         :title="Are there vulnerable services?"
                         :desc="Scan the target network and identify available services."
-                        :procedure=$guid
+                        :procedure=$guid as plan:procedure
                         :phase={ plan:phase:title=Recon }
                         :outputs={[ plan:procedure:variable=* :name=services ]}
 
                         :links={[ plan:procedure:link=*
                             :condition=(true)
-                            :procedure=$guid
+                            :procedure=$guid as plan:procedure
                             :next={[ plan:procedure:step=*
                                 :title="Exploit Services"
                                 :desc="Gank that stuff."
-                                :procedure=$guid
+                                :procedure=$guid as plan:procedure
                                 :outputs={[ plan:procedure:variable=* :name=shellz ]}
                             ]}
 

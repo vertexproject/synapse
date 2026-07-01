@@ -40,6 +40,7 @@ class TestUtilsStormcov(s_utils.SynTest):
             s_files.getAssetPath('stormcov/argvquery4.storm'),
             s_files.getAssetPath('stormcov/argvquery5.storm'),
             s_files.getAssetPath('stormcov/dupesubs.storm'),
+            s_files.getAssetPath('stormcov/dupfunc.storm'),
             s_files.getAssetPath('stormcov/continueloop.storm'),
             s_files.getAssetPath('stormcov/dupewarn.storm'),
             s_files.getAssetPath('stormcov/embedquery.storm'),
@@ -93,8 +94,7 @@ class TestUtilsStormcov(s_utils.SynTest):
         opts = StormcovConfig(stormdirs=stormdir, stormcov_basedir=basedir)
 
         stormcov = s_stormcov.StormcovPlugin(opts)
-        with self.getLoggerStream('synapse.utils.stormcov') as stream:
-            stormcov.findStormFiles(stormdir)
+        stormcov.findStormFiles(stormdir)
 
         dupewarn = s_files.getAssetPath('stormcov/dupewarn.storm')
         self.isin(dupewarn, list(stormcov.guid_map.values()))
@@ -114,14 +114,18 @@ class TestUtilsStormcov(s_utils.SynTest):
         def splitpair(x):
             return list(map(int, x.split(':')))
 
-        argvexp = map(splitpair, argvpairs)
-        embdexp = map(splitpair, embdpairs)
+        # Pairs where positions differ should produce 2 entries in subq_map (one per
+        # occurrence); same-position pairs collapse to 1 entry since the entry tuple is
+        # identical.  embddups has 2 differing pairs and argvdups has 2 differing pairs,
+        # so exactly 4 GUIDs (restricted to dupewarn.storm entries) should have 2+ entries.
+        multi_entry_guids = {
+            guid for guid, entries in stormcov.subq_map.items()
+            if sum(1 for p, _, _ in entries if p == dupewarn) > 1
+        }
 
-        for last, first in embdexp:
-            await stream.expect(f'Duplicate embedquery in {dupewarn} at line {last}, coverage will be reported on first instance in {dupewarn} at line {first}', timeout=1)
-
-        for last, first in argvexp:
-            await stream.expect(f'Duplicate argvquery in {dupewarn} at line {last}, coverage will be reported on first instance in {dupewarn} at line {first}', timeout=1)
+        embd_diff = sum(1 for pair in map(splitpair, embdpairs) if pair[0] != pair[1])
+        argv_diff = sum(1 for pair in map(splitpair, argvpairs) if pair[0] != pair[1])
+        self.eq(len(multi_entry_guids), embd_diff + argv_diff)
 
     async def test_stormcov_coverage(self):
         basedir = pathlib.Path(s_files.ASSETS)
@@ -154,6 +158,7 @@ class TestUtilsStormcov(s_utils.SynTest):
             await check_cov('stormcov/argvquery4.storm')
             await check_cov('stormcov/argvquery5.storm')
             await check_cov('stormcov/dupesubs.storm')
+            await check_cov('stormcov/dupfunc.storm')
             await check_cov('stormcov/embedquery.storm')
             await check_cov('stormcov/embedquery2.storm'),
             await check_cov('stormcov/embedquery3.storm'),
@@ -212,6 +217,7 @@ class TestUtilsStormcov(s_utils.SynTest):
         await check_lines('stormcov/argvquery4.storm')
         await check_lines('stormcov/argvquery5.storm')
         await check_lines('stormcov/dupesubs.storm')
+        await check_lines('stormcov/dupfunc.storm')
         await check_lines('stormcov/embedquery.storm'),
         await check_lines('stormcov/embedquery2.storm'),
         await check_lines('stormcov/embedquery3.storm'),

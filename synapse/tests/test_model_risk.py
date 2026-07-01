@@ -17,20 +17,23 @@ class RiskModelTest(s_t_utils.SynTest):
                 risk:attack=17eb16247855525d6f9cb1585a59877f
                     :reporter={[ entity:contact=* ]}
                     :reporter:name=vertex
-                    :time=20200202
+                    :period.ended=20200202
                     :detected = 20210203
                     :success=true
                     :type=foo.bar
                     :severity=10
                     :desc=wootwoot
-                    :prev=*
+                    :previous=* as risk:attack
                     :actor = {[ entity:contact=* ]}
+                    :victim = {[ entity:contact=* ]}
+                    :victim:name = woot
                     :sophistication=high
-                    :url=https://vertex.link/attacks/CASE-2022-03
+                    :reporter:url=https://vertex.link/attacks/CASE-2022-03
                     :id=CASE-2022-03
             ]''')
+            ival = core.model.type('ival')
             self.eq(nodes[0].ndef, ('risk:attack', '17eb16247855525d6f9cb1585a59877f'))
-            self.propeq(nodes[0], 'time', 1580601600000000)
+            self.propeq(nodes[0], 'period', (ival.unksize, 1580601600000000, ival.duratype.unkdura))
             self.propeq(nodes[0], 'detected', 1612310400000000)
             self.propeq(nodes[0], 'desc', 'wootwoot')
             self.propeq(nodes[0], 'type', 'foo.bar.')
@@ -38,14 +41,17 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'reporter:name', 'vertex')
             self.propeq(nodes[0], 'sophistication', 40)
             self.propeq(nodes[0], 'severity', 10)
-            self.propeq(nodes[0], 'url', 'https://vertex.link/attacks/CASE-2022-03')
+            self.propeq(nodes[0], 'reporter:url', 'https://vertex.link/attacks/CASE-2022-03')
             self.propeq(nodes[0], 'id', 'CASE-2022-03')
             self.nn(nodes[0].get('actor'))
             self.nn(nodes[0].get('reporter'))
+            self.nn(nodes[0].get('victim'))
+            self.propeq(nodes[0], 'victim:name', 'woot')
 
             self.len(1, await core.nodes('risk:attack -> risk:attack:type:taxonomy'))
-            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :prev -> risk:attack'))
+            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :previous -> risk:attack'))
             self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :actor -> entity:contact'))
+            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :victim -> entity:contact'))
 
             nodes = await core.nodes('''[
                 risk:vuln=17eb16247855525d6f9cb1585a59877f
@@ -84,7 +90,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :type=mytype
                     :desc=mydesc
 
-                    :mitigated=(false)
+                    :mitigated=2020-01-14
 
                     :reporter={[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name=vertex
@@ -109,12 +115,12 @@ class RiskModelTest(s_t_utils.SynTest):
 
                     :cvss:v3_1:score=3.0
             ]''')
-            self.propeq(nodes[0], 'name', 'my vuln is cool')
+            self.propeq(nodes[0], 'name', 'My Vuln is Cool')
             self.propeq(nodes[0], 'names', ('haha', 'hehe'))
             self.propeq(nodes[0], 'type', 'mytype.')
             self.propeq(nodes[0], 'desc', 'mydesc')
 
-            self.propeq(nodes[0], 'mitigated', False)
+            self.propeq(nodes[0], 'mitigated', 1578960000000000)
 
             self.nn(nodes[0].get('reporter'))
             self.propeq(nodes[0], 'reporter:name', 'vertex')
@@ -153,24 +159,24 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name=FooBar
                     :desc=BlahBlah
                     :created=20501217
-                    :status=todo
+                    :status="in backlog"
                     :assignee={[ syn:user=root ]}
                     :url=https://vertex.link/alerts/WOOT-20
                     :id=WOOT-20
                     :engine={[ it:software=* :name=visiware ]}
-                    :host=*
+                    :host=* as it:host
                     :priority=high
                     :severity=highest
-                    :platform=*
+                    :platform=* as inet:service:platform
                     :account={[ inet:service:account=* ]}
                 ]
             ''')
             self.len(1, nodes)
-            self.propeq(nodes[0], 'status', 20)
+            self.propeq(nodes[0], 'status', 'in backlog')
             self.propeq(nodes[0], 'priority', 40)
             self.propeq(nodes[0], 'severity', 50)
             self.propeq(nodes[0], 'type', 'bazfaz.')
-            self.propeq(nodes[0], 'name', 'foobar')
+            self.propeq(nodes[0], 'name', 'FooBar')
             self.propeq(nodes[0], 'desc', 'BlahBlah')
             self.propeq(nodes[0], 'created', 2554848000000000)
             self.propeq(nodes[0], 'id', 'WOOT-20')
@@ -201,12 +207,12 @@ class RiskModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                     risk:compromise=*
-                    :vector=*
+                    :vector=* as risk:attack
                     :tag=foo.bar
                     :name = "Visi Wants Pizza"
                     :desc = "Visi wants a pepperoni and mushroom pizza"
                     :type = when.noms.attack
-                    :url=https://vertex.link/pwned
+                    :reporter:url=https://vertex.link/pwned
                     :id=PWN-00
                     :reporter = {[ ou:org=({"name": "vertex"}) ]}
                     :reporter:name = vertex
@@ -214,27 +220,21 @@ class RiskModelTest(s_t_utils.SynTest):
                     :victim = {[ entity:contact=* :name=ledo ]}
                     :actor = {[ entity:contact=* :name=visi ]}
                     :period = (20210202, 20210204)
-                    :loss:pii = 400
                     :cost = 1337
-                    :loss:life = 0
-                    :loss:bytes = 1024
             ]''')
 
             self.propeq(nodes[0], 'tag', 'foo.bar')
-            self.propeq(nodes[0], 'name', 'visi wants pizza')
+            self.propeq(nodes[0], 'name', 'Visi Wants Pizza')
             self.propeq(nodes[0], 'desc', 'Visi wants a pepperoni and mushroom pizza')
             self.propeq(nodes[0], 'type', 'when.noms.attack.')
             self.propeq(nodes[0], 'reporter:name', 'vertex')
             self.propeq(nodes[0], 'id', 'PWN-00')
-            self.propeq(nodes[0], 'url', 'https://vertex.link/pwned')
+            self.propeq(nodes[0], 'reporter:url', 'https://vertex.link/pwned')
             self.nn(nodes[0].get('victim'))
             self.nn(nodes[0].get('actor'))
             self.nn(nodes[0].get('reporter'))
             self.propeq(nodes[0], 'period', (1612224000000000, 1612396800000000, 172800000000))
-            self.propeq(nodes[0], 'loss:pii', 400)
             self.propeq(nodes[0], 'cost', '1337')
-            self.propeq(nodes[0], 'loss:life', 0)
-            self.propeq(nodes[0], 'loss:bytes', 1024)
             self.propeq(nodes[0], 'severity', 10)
             self.len(1, await core.nodes('risk:compromise -> syn:tag'))
             self.len(1, await core.nodes('risk:compromise -> risk:compromise:type:taxonomy'))
@@ -248,22 +248,22 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name=apt1
                     :names=(comment crew,)
                     :desc=VTX-APT1
-                    :resolved={[ risk:threat=(foo, bar) :name="foo bar"]}
+                    :resolved={[ ou:org=({"name": "pla unit 61398"}) ]}
                     :tag=cno.threat.apt1
-                    :active=(2012,2023)
                     :activity=high
                     :reporter={[ ou:org=({"name": "mandiant"}) ]}
                     :reporter:name=mandiant
+                    :reporter:url=https://mandiant.example/apt1
                     :discovered=202202
-                    :published=202302
+                    :reporter:published=202302
                     :sophistication=high
-                    :superseded = 20230111
+                    :reporter:deprecated=20230111
                     :place:loc=cn.shanghai
-                    :place:country={gen.pol.country cn}
+                    :place:country={gen.country cn}
                     :place:country:code=cn
                 ]
                 $threat = $node
-                $_ = {[ risk:threat=* :name=apt1next :supersedes=($threat,) ]}
+                $_ = {[ risk:threat=* :name=apt1next :reporter:supersedes=($threat,) ]}
                 $_ = {[ doc:reference=({"source": $threat, "doc:url": "https://vtx.lk"}) ]}
             ''')
             self.len(1, nodes)
@@ -280,19 +280,19 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'sophistication', 40)
             self.nn(nodes[0].get('reporter'))
             self.nn(nodes[0].get('place:country'))
-            self.propeq(nodes[0], 'active', (1325376000000000, 1672531200000000, 347155200000000))
-            self.propeq(nodes[0], 'superseded', 1673395200000000)
+            self.propeq(nodes[0], 'reporter:deprecated', 1673395200000000)
+            self.propeq(nodes[0], 'reporter:url', 'https://mandiant.example/apt1')
             self.propeq(nodes[0], 'discovered', 1643673600000000)
-            self.propeq(nodes[0], 'published', 1675209600000000)
+            self.propeq(nodes[0], 'reporter:published', 1675209600000000)
             self.nn(nodes[0].get('resolved'))
 
-            self.len(1, await core.nodes('risk:threat:name=apt1 :resolved -> risk:threat'))
+            self.len(1, await core.nodes('risk:threat:name=apt1 :resolved -> ou:org +:name="pla unit 61398"'))
             self.len(1, await core.nodes('risk:threat:name=apt1 -> doc:reference'))
 
             await core.nodes('risk:threat:name=apt1 [ +(targeted)> {[ meta:topic=cybersecurity ]} ]')
             self.len(1, await core.nodes('risk:threat:name=apt1 -(targeted)> meta:topic'))
 
-            nodes = await core.nodes('risk:threat:name=apt1 -> risk:threat:supersedes')
+            nodes = await core.nodes('risk:threat:name=apt1 -> risk:threat:reporter:supersedes')
             self.len(1, nodes)
             self.propeq(nodes[0], 'name', 'apt1next')
 
@@ -303,27 +303,27 @@ class RiskModelTest(s_t_utils.SynTest):
                 :name="WikiLeaks ACME      Leak"
                 :desc="WikiLeaks leaked ACME stuff."
                 :time=20231102
-                :victim={ gen.ou.org acme }
-                :actor={ gen.ou.org wikileaks }
-                :recipient={ gen.ou.org everyone }
+                :victim={ gen.org acme }
+                :actor={ gen.org wikileaks }
+                :recipient={ gen.org everyone }
                 :type=public
                 :public=(true)
                 :urls=(https://wikileaks.org/acme,)
-                :reporter={ gen.ou.org vertex }
+                :reporter={ gen.org vertex }
                 :reporter:name=vertex
                 :size:bytes=99
                 :size:count=33
                 :size:percent=12
             ]''')
             self.len(1, nodes)
-            self.propeq(nodes[0], 'name', 'wikileaks acme leak')
+            self.propeq(nodes[0], 'name', 'WikiLeaks ACME Leak')
             self.propeq(nodes[0], 'desc', 'WikiLeaks leaked ACME stuff.')
             self.propeq(nodes[0], 'time', 1698883200000000)
             self.propeq(nodes[0], 'type', 'public.')
             self.propeq(nodes[0], 'public', 1)
             self.propeq(nodes[0], 'size:bytes', 99)
             self.propeq(nodes[0], 'size:count', 33)
-            self.propeq(nodes[0], 'size:percent', 12)
+            self.propeq(nodes[0], 'size:percent', '12')
             self.propeq(nodes[0], 'urls', ('https://wikileaks.org/acme',))
             self.propeq(nodes[0], 'reporter:name', 'vertex')
 
@@ -338,20 +338,19 @@ class RiskModelTest(s_t_utils.SynTest):
                 :desc="APT99 extorted ACME for a zillion vertex coins."
                 :type=fingain
                 :actor={[ entity:contact=* :name=agent99 ]}
-                :victim={ gen.ou.org acme }
-                :target={ gen.ou.org acme }
+                :victim={ gen.org acme }
                 :success=(true)
                 :enacted=(true)
                 :public=(true)
                 :public:url=https://apt99.com/acme
-                :compromise={[ risk:compromise=* :victim={ gen.ou.org acme } ]}
-                :reporter={ gen.ou.org vertex }
+                :compromise={[ risk:compromise=* :victim={ gen.org acme } ]}
+                :reporter={ gen.org vertex }
                 :reporter:name=vertex
                 :paid:price=12345
             ]''')
 
             self.len(1, nodes)
-            self.propeq(nodes[0], 'name', 'apt99 extorted acme')
+            self.propeq(nodes[0], 'name', 'APT99 Extorted ACME')
             self.propeq(nodes[0], 'desc', 'APT99 extorted ACME for a zillion vertex coins.')
             self.propeq(nodes[0], 'type', 'fingain.')
             self.propeq(nodes[0], 'public', 1)
@@ -362,16 +361,17 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'paid:price', '12345')
 
             self.len(1, await core.nodes('risk:extortion :victim -> ou:org +:name=acme'))
-            self.len(1, await core.nodes('risk:extortion :target -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:extortion :actor -> entity:contact +:name=agent99'))
             self.len(1, await core.nodes('risk:extortion -> risk:compromise :victim -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:extortion :reporter -> ou:org +:name=vertex'))
 
             nodes = await core.nodes('''
                 [ risk:vulnerable=*
-                    :period=(2022, ?)
+                    :period=(2022, 20230101)
                     :to={[ risk:vuln=* :name=redtree ]}
-                    :mitigated=true
+                    :id=VULN-01
+                    :status=done
+                    :assignee={[ syn:user=root ]}
                     :mitigations={[
                         ( risk:mitigation=* :name=patchstuff )
                         ( meta:technique=* :name=dothing )
@@ -381,8 +381,10 @@ class RiskModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('to'))
-            self.propeq(nodes[0], 'mitigated', True)
-            self.propeq(nodes[0], 'period', (1640995200000000, 9223372036854775807, 0xffffffffffffffff))
+            self.propeq(nodes[0], 'id', 'VULN-01')
+            self.propeq(nodes[0], 'status', 'done')
+            self.propeq(nodes[0], 'assignee', core.auth.rootuser.iden, type='syn:user')
+            self.propeq(nodes[0], 'period', (1640995200000000, 1672531200000000, 31536000000000))
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vulnerable <(shows)- inet:flow'))
 
@@ -462,7 +464,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('attack'))
             self.nn(nodes[0].get('reporter'))
-            self.propeq(nodes[0], 'name', 'the big one')
+            self.propeq(nodes[0], 'name', 'The Big One')
             self.propeq(nodes[0], 'reporter:name', 'vertex')
             self.propeq(nodes[0], 'provider:name', 'desert power')
             self.propeq(nodes[0], 'type', 'service.power.')
@@ -474,6 +476,31 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:outage :reporter -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('risk:outage :provider -> ou:org +:name="desert power"'))
 
+    async def test_model_risk_threat_resolved(self):
+
+        async with self.getTestCore() as core:
+
+            # risk:threat implements both entity:resolvable and meta:reported,
+            # each of which defines a :resolved property. entity:resolvable is
+            # declared first so its ou:org/ps:person poly wins over
+            # meta:reported's self-referential {$self} type.
+            resolved = core.model.prop('risk:threat:resolved')
+            self.true(resolved.type.ispoly)
+            self.eq({'ou:org', 'ps:person'}, set(resolved.type.typeset))
+            self.eq(['entity:resolvable:resolved', 'meta:reported:resolved'], sorted(resolved.ifaces))
+
+            # :resolved accepts an ou:org...
+            self.len(1, await core.nodes('[ risk:threat=* :resolved={[ ou:org=({"name": "pla unit 61398"}) ]} ]'))
+            self.len(1, await core.nodes('risk:threat :resolved -> ou:org +:name="pla unit 61398"'))
+
+            # ...and a ps:person.
+            self.len(1, await core.nodes('[ risk:threat=({"name": "jia"}) :resolved={[ ps:person=* :name="jia tan" ]} ]'))
+            self.len(1, await core.nodes('risk:threat:name=jia :resolved -> ps:person +:name="jia tan"'))
+
+            # a risk:threat is no longer a valid :resolved value
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ risk:threat=({"name": "bad"}) :resolved={[ risk:threat=(foo, bar) ]} ]')
+
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
@@ -484,12 +511,12 @@ class RiskModelTest(s_t_utils.SynTest):
                     :type=foo.bar
                     :desc=BazFaz
                     :reporter:name=vertex
-                    :reporter = { gen.ou.org vertex }
+                    :reporter = { gen.org vertex }
                     +(addresses)> {[ risk:vuln=* meta:technique=* ]}
                     +(uses)> {[ meta:rule=* it:hardware=* ]}
             ]''')
-            self.propeq(nodes[0], 'name', 'foobar')
-            self.propeq(nodes[0], 'names', ('bar', 'foo'))
+            self.propeq(nodes[0], 'name', 'FooBar')
+            self.propeq(nodes[0], 'names', ('Bar', 'Foo'))
             self.propeq(nodes[0], 'desc', 'BazFaz')
             self.propeq(nodes[0], 'reporter:name', 'vertex')
             self.propeq(nodes[0], 'type', 'foo.bar.')
@@ -513,7 +540,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :victim:name=target
                     :time=20230101
                     :value=9999.99
-                    :reporter={ gen.ou.org vertex }
+                    :reporter={ gen.org vertex }
                     :reporter:name=vertex
                     +(stole)> {[ file:bytes=* ]}
             ]''')

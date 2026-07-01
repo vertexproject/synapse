@@ -7,15 +7,15 @@ modeldefs = (
                 'doc': 'An interface which is implemented by entity identifier forms.'}),
 
             ('entity:action', {
-                'template': {'title': 'action'},
+                'template': {'title': 'action', 'verb': 'carried out'},
                 'doc': 'Properties which are common to actions taken by entities.',
                 'props': (
 
                     ('actor', ('entity:actor', {}), {
-                        'doc': 'The actor who carried out the {title}.'}),
+                        'doc': 'The actor who {verb} the {title}.'}),
 
                     ('actor:name', ('entity:name', {}), {
-                        'doc': 'The name of the actor who carried out the {title}.'}),
+                        'doc': 'The name of the actor who {verb} the {title}.'}),
                 ),
             }),
 
@@ -42,15 +42,19 @@ modeldefs = (
                 ),
                 'doc': 'An interface implemented by activities which an actor may participate in.'}),
 
+            ('entity:attendable', {
+                'template': {'title': 'activity'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
+                'doc': 'An interface implemented by activities which an actor may attend.'}),
+
             ('entity:supportable', {
                 'doc': 'An interface implemented by activities which may be supported in by an actor.'}),
 
             ('entity:creatable', {
                 'template': {'title': 'item'},
                 'props': (
-                    ('created', ('time', {}), {
-                        'doc': 'The time that the {title} was created.'}),
-
                     ('creator', ('entity:actor', {}), {
                         'doc': 'The primary actor which created the {title}.'}),
 
@@ -58,6 +62,9 @@ modeldefs = (
                         'doc': 'The name of the primary actor which created the {title}.'}),
                 ),
                 'doc': 'An interface implemented by forms which represent things made or created by an actor.'}),
+
+            ('entity:destroyable', {
+                'doc': 'An interface implemented by forms which represent things which can be destroyed.'}),
 
             ('entity:contactable', {
 
@@ -86,13 +93,13 @@ modeldefs = (
                     ('names', ('array', {'type': 'entity:name'}), {
                         'doc': 'An array of alternate entity names for the {title}.'}),
 
-                    ('lifespan', ('ival', {}), {
+                    ('lifespan', ('entity:lifespan', {}), {
                         'virts': (
 
-                            ('min', None, {
+                            ('began', None, {
                                 'doc': 'The date of birth for an individual or founded date for an organization.'}),
 
-                            ('max', None, {
+                            ('ended', None, {
                                 'doc': 'The date of death for an individual or dissolved date for an organization.'}),
 
                             ('duration', None, {
@@ -122,11 +129,11 @@ modeldefs = (
                     ('phones', ('array', {'type': 'tel:phone'}), {
                         'doc': 'An array of alternate telephone numbers for the {title}.'}),
 
-                    ('user', ('inet:user', {}), {
-                        'alts': ('users',),
+                    ('username', ('entity:name', {}), {
+                        'alts': ('usernames',),
                         'doc': 'The primary user name for the {title}.'}),
 
-                    ('users', ('array', {'type': 'inet:user'}), {
+                    ('usernames', ('array', {'type': 'entity:name'}), {
                         'doc': 'An array of alternate user names for the {title}.'}),
 
                     ('creds', ('array', {'type': 'auth:credential'}), {
@@ -204,6 +211,9 @@ modeldefs = (
 
         'types': (
 
+            ('entity:lifespan', ('ival', {'names': {'min': 'began', 'max': 'ended'}}), {
+                'doc': 'An interval representing the lifespan of an entity, from when it began until it ended.'}),
+
             ('entity:individual', (
                     ('ps:person', {}),
                     ('entity:contact', {}),
@@ -217,19 +227,22 @@ modeldefs = (
                         {'cmpr': '^='}
                     ]
                 },
+                'props': (),
                 'doc': 'A name used to refer to an entity.'}),
 
-            ('entity:title', ('str', {'onespace': True, 'lower': True}), {
+            ('entity:title', ('title', {}), {
                 'interfaces': (
                     ('risk:targetable', {}),
                 ),
                 'prevnames': ('ou:jobtitle', 'ou:role'),
+                'props': (),
                 'doc': 'A title or position name used by an entity.'}),
 
             ('entity:contact:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of entity contact types.'}),
 
             ('entity:contact', ('guid', {}), {
@@ -238,6 +251,7 @@ modeldefs = (
                     ('entity:actor', {}),
                     ('entity:singular', {}),
                     ('entity:multiple', {}),
+                    ('risk:targetable', {}),
                     ('entity:resolvable', {}),
                     ('entity:contactable', {}),
                     ('meta:observable', {}),
@@ -251,6 +265,12 @@ modeldefs = (
                     ),
                 },
 
+                'props': (
+
+                    ('type', ('entity:contact:type:taxonomy', {}), {
+                        'doc': 'The contact type.'}),
+
+                ),
                 'doc': 'A set of contact information which is used by an entity.'}),
 
             ('entity:history', ('guid', {}), {
@@ -258,27 +278,68 @@ modeldefs = (
                 'interfaces': (
                     ('entity:contactable', {}),
                 ),
+                'props': (
+
+                    ('current', ('entity:contactable', {}), {
+                        'doc': 'The current version of this historical contact.'}),
+                ),
                 'doc': 'Historical contact information about another contact.'}),
 
             ('entity:contactlist', ('guid', {}), {
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the contact list.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the contact list.'}),
+
+                    ('source', (
+                            ('it:host', {}),
+                            ('inet:service:account', {}),
+                            ('file:bytes', {})
+                        ), {
+                        'doc': 'The source that the contact list was extracted from.'}),
+                ),
                 'doc': 'A list of contacts.'}),
+
+            ('entity:contactlist:entry', ('guid', {}), {
+                'props': (
+                    ('list', ('entity:contactlist', {}), {
+                        'doc': 'The contact list which contains the entry.'}),
+
+                    ('contact', ('entity:contact', {}), {
+                        'doc': 'The contact which was included in the list.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period when the contact was included in the list.'}),
+                ),
+                'doc': 'An entry in a contact list.'}),
 
             ('entity:relationship:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of entity relationship types.'}),
-
-            ('entity:relationship:status:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of entity relationship statuses.'}),
 
             ('entity:relationship', ('guid', {}), {
                 'template': {'title': 'relationship'},
                 'interfaces': (
                     ('meta:reported', {}),
+                ),
+                'props': (
+
+                    ('type', ('entity:relationship:type:taxonomy', {}), {
+                        'doc': 'The type of relationship.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period when the relationship existed.'}),
+
+                    ('source', ('entity:actor', {}), {
+                        'doc': 'The source entity in the relationship.'}),
+
+                    ('target', ('entity:actor', {}), {
+                        'doc': 'The target entity in the relationship.'}),
                 ),
                 'doc': 'A directional relationship between two actor entities.'}),
 
@@ -286,10 +347,51 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of types of possession.'}),
 
             ('entity:had', ('guid', {}), {
+                'template': {'title': 'possession'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+
+                    ('actor', ('entity:actor', {}), {
+                        'doc': 'The entity which had the item.'}),
+
+                    ('actor:name', ('entity:name', {}), {
+                        'doc': 'The name of the entity which had the item.'}),
+
+                    ('period', None, {
+                        'doc': 'The time period when the entity had the item.'}),
+
+                    ('item', ('meta:havable', {}), {
+                        'doc': 'The item possessed by the entity.'}),
+
+                    ('type', ('entity:had:type:taxonomy', {}), {
+                        'doc': 'A taxonomy for different types of possession.'}),
+
+                    # TODO: add a purchase property to link back to a purchase event?
+
+                ),
                 'doc': 'An item which was possessed by an actor.'}),
+
+            ('entity:owned', ('entity:had', {}), {
+                'template': {'title': 'ownership'},
+                'props': (
+
+                    ('actor', None, {
+                        'doc': 'The entity which owned the item.'}),
+
+                    ('actor:name', None, {
+                        'doc': 'The name of the entity which owned the item.'}),
+
+                    ('percent', ('percent', {}), {
+                        'doc': 'The percentage of the item owned by the owner.'}),
+
+                ),
+                'doc': 'An item which was owned by an actor.'}),
 
             ('entity:conversation', ('guid', {}), {
                 'doc': 'A conversation between entities.'}),
@@ -298,13 +400,8 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of goal types.'}),
-
-            ('entity:goal:status:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of goal statuses.'}),
 
             ('entity:goal', ('guid', {}), {
                 'template': {'title': 'goal'},
@@ -317,6 +414,21 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                     ),
                 },
+                'props': (
+
+                    ('name', ('base:name', {}), {
+                        'alts': ('names',),
+                        'doc': 'A terse name for the goal.'}),
+
+                    ('names', ('array', {'type': 'base:name'}), {
+                        'doc': 'Alternative names for the goal.'}),
+
+                    ('type', ('entity:goal:type:taxonomy', {}), {
+                        'doc': 'A type taxonomy entry for the goal.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the goal.'}),
+                ),
                 'doc': 'A stated or assessed goal.'}),
 
             ('entity:motive', ('guid', {}), {
@@ -333,13 +445,9 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'prevnames': ('ou:camptype',),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of campaign types.'}),
-
-            ('entity:campaign:status:taxonomy', ('taxonomy', {}), {
-                'interfaces': (
-                    ('meta:taxonomy', {}),
-                ),
-                'doc': 'A hierarchical taxonomy of campaign statuses.'}),
 
             ('entity:campaign', ('guid', {}), {
                 'template': {'title': 'campaign'},
@@ -359,6 +467,44 @@ modeldefs = (
                         {'type': 'prop', 'opts': {'name': 'period'}},
                     ),
                 },
+                'props': (
+
+                    ('id', (
+                        ('it:mitre:attack:campaign:id', {}),
+                        ('base:id', {}),
+                    ), {
+                        'alts': ('ids',),
+                        'doc': 'A unique ID given to the campaign.'}),
+
+                    ('ids', ('array', {'type': (('it:mitre:attack:campaign:id', {}), ('base:id', {}))}), {
+                        'doc': 'An array of alternate IDs given to the campaign.'}),
+
+                    ('name', ('entity:name', {}), {
+                        'alts': ('names',),
+                        'doc': 'The primary name of the {title}.'}),
+
+                    ('names', ('array', {'type': 'entity:name'}), {
+                        'doc': 'A list of alternate names for the {title}.'}),
+
+                    ('slogan', ('lang:phrase', {}), {
+                        'doc': 'The slogan used by the campaign.'}),
+
+                    ('success', ('bool', {}), {
+                        'doc': 'Set to true if the campaign achieved its goals.'}),
+
+                    ('sophistication', ('meta:score', {}), {
+                        'doc': 'The assessed sophistication of the campaign.'}),
+
+                    ('type', ('entity:campaign:type:taxonomy', {}), {
+                        'doc': 'A type taxonomy entry for the campaign.',
+                        'prevnames': ('camptype',)}),
+
+                    ('cost', ('econ:price', {}), {
+                        'doc': 'The actual cost of the campaign.'}),
+
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
+                ),
                 'doc': 'Activity in pursuit of a goal.'}),
 
             ('entity:conflict', ('guid', {}), {
@@ -366,20 +512,33 @@ modeldefs = (
                 'interfaces': (
                     ('base:activity', {}),
                 ),
+                'props': (
+
+                    ('name', ('event:name', {}), {
+                        'doc': 'The name of the conflict.'}),
+
+                    ('adversaries', ('array', {'type': 'entity:actor'}), {
+                        'doc': 'The primary adversaries in conflict with one another.'}),
+                ),
                 'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),
 
-            ('entity:contribution', ('guid', {}), {
-                'template': {'title': 'contribution'},
+            ('entity:contributed', ('guid', {}), {
+                'template': {'title': 'contribution', 'verb': 'made'},
                 'interfaces': (
-                    ('entity:action', {}),
+                    ('entity:event', {}),
+                ),
+                'props': (
+
+                    ('campaign', ('entity:campaign', {}), {
+                        'doc': 'The campaign receiving the contribution.'}),
+
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The assessed value of the contribution.'}),
                 ),
                 'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
 
-            ('entity:discovery', ('guid', {}), {
-                'doc': 'A discovery made by an actor.'}),
-
             ('entity:studied', ('guid', {}), {
-                'template': {'title': 'studied'},
+                'template': {'title': 'study', 'verb': 'undertook'},
                 'interfaces': (
                     ('entity:activity', {}),
                 ),
@@ -399,7 +558,7 @@ modeldefs = (
                 'doc': 'A period when an actor studied or was educated.'}),
 
             ('entity:achieved', ('guid', {}), {
-                'template': {'title': 'achieved'},
+                'template': {'title': 'achievement', 'verb': 'earned'},
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'actor::name'}},
@@ -418,7 +577,7 @@ modeldefs = (
                 'doc': 'An event where an actor achieved a goal or was given an award.'}),
 
             ('entity:believed', ('guid', {}), {
-                'template': {'title': 'believed'},
+                'template': {'title': 'belief', 'activity': 'was held', 'verb': 'held'},
                 'interfaces': (
                     ('entity:activity', {}),
                 ),
@@ -429,7 +588,7 @@ modeldefs = (
                 'doc': 'A period where an actor held a belief.'}),
 
             ('entity:discovered', ('guid', {}), {
-                'template': {'title': 'discovery'},
+                'template': {'title': 'discovery', 'verb': 'made'},
                 'interfaces': (
                     ('entity:event', {}),
                 ),
@@ -439,8 +598,19 @@ modeldefs = (
                 ),
                 'doc': 'An event where an entity made a discovery.'}),
 
+            ('entity:destroyed', ('guid', {}), {
+                'template': {'title': 'destruction'},
+                'interfaces': (
+                    ('entity:event', {}),
+                ),
+                'props': (
+                    ('item', ('entity:destroyable', {}), {
+                        'doc': 'The item destroyed by the actor.'}),
+                ),
+                'doc': 'An event where an actor destroyed an item.'}),
+
             ('entity:signed', ('guid', {}), {
-                'template': {'title': 'signed'},
+                'template': {'title': 'signing'},
                 'interfaces': (
                     ('entity:event', {}),
                 ),
@@ -451,7 +621,7 @@ modeldefs = (
                 'doc': 'An event where an actor signed a document.'}),
 
             ('entity:asked', ('guid', {}), {
-                'template': {'title': 'ask'},
+                'template': {'title': 'ask', 'verb': 'made'},
                 'interfaces': (
                     ('entity:stance', {}),
                 ),
@@ -459,7 +629,7 @@ modeldefs = (
                 'doc': 'An event where an actor made an ask as part of a negotiation.'}),
 
             ('entity:offered', ('guid', {}), {
-                'template': {'title': 'offer'},
+                'template': {'title': 'offer', 'verb': 'made'},
                 'interfaces': (
                     ('entity:stance', {}),
                 ),
@@ -471,11 +641,14 @@ modeldefs = (
                     ('entity:activity', {}),
                 ),
                 'props': (
-                    ('activity', ('base:activity', {}), {
+                    ('activity', ('entity:attendable', {}), {
                         'doc': 'The activity attended by the actor.'}),
 
-                    ('role', ('base:name', {}), {
+                    ('role', ('entity:title', {}), {
                         'doc': 'The role the actor played in attending the activity.'}),
+
+                    ('inperson', ('bool', {}), {
+                        'doc': 'Set if the actor attended the activity in person.'}),
                 ),
                 'doc': 'A period where an actor attended an event or activity.'}),
 
@@ -525,6 +698,12 @@ modeldefs = (
                     ('entity:activity', {}),
                 ),
                 'props': (
+                    ('actor', None, {
+                        'doc': 'The actor who participated in the activity.'}),
+
+                    ('actor:name', None, {
+                        'doc': 'The name of the actor who participated in the activity.'}),
+
                     ('activity', ('entity:participable', {}), {
                         'doc': 'The activity which the actor participated in.'}),
 
@@ -535,13 +714,13 @@ modeldefs = (
                 'doc': 'A period where an actor participated in an activity.'}),
 
             ('entity:said', ('guid', {}), {
-                'template': {'title': 'statement'},
+                'template': {'title': 'statement', 'verb': 'made'},
                 'interfaces': (
                     ('entity:activity', {}),
                     ('meta:recordable', {}),
                 ),
                 'props': (
-                    ('text', ('str', {}), {
+                    ('text', ('text', {}), {
                         'doc': 'The transcribed text of what the actor said.'}),
                 ),
                 'doc': 'A statement made by an actor.'}),
@@ -584,22 +763,22 @@ modeldefs = (
 
         'edges': (
 
-            (('entity:actor', 'used', 'meta:observable'), {
+            (('entity:actor', 'used', 'meta:usable'), {
                 'doc': 'The actor used the target node.'}),
 
             (('entity:contactlist', 'has', 'entity:contact'), {
                 'doc': 'The contact list contains the contact.'}),
 
-            (('entity:action', 'used', 'meta:observable'), {
+            (('entity:action', 'used', 'meta:usable'), {
                 'doc': 'The action was taken using the target node.'}),
 
-            (('entity:action', 'had', 'entity:goal'), {
-                'doc': 'The action was taken in pursuit of the goal.'}),
+            (('entity:activity', 'supported', 'entity:goal'), {
+                'doc': 'The activity supported the goal.'}),
 
-            (('entity:contribution', 'had', 'econ:lineitem'), {
+            (('entity:contributed', 'had', 'econ:lineitem'), {
                 'doc': 'The contribution includes the line item.'}),
 
-            (('entity:contribution', 'had', 'econ:payment'), {
+            (('entity:contributed', 'had', 'econ:payment'), {
                 'doc': 'The contribution includes the payment.'}),
 
             (('entity:studied', 'included', 'edu:class'), {
@@ -613,165 +792,6 @@ modeldefs = (
 
             (('entity:campaign', 'ledto', 'econ:purchase'), {
                 'doc': 'The campaign led to the purchase.'}),
-        ),
-
-        'forms': (
-
-            ('entity:title', {}, ()),
-
-            ('entity:name', {}, ()),
-
-            ('entity:contact:type:taxonomy', {}, ()),
-            ('entity:contact', {}, (
-
-                ('type', ('entity:contact:type:taxonomy', {}), {
-                    'doc': 'The contact type.'}),
-
-            )),
-
-            ('entity:history', {}, (
-
-                ('current', ('entity:contactable', {}), {
-                    'doc': 'The current version of this historical contact.'}),
-            )),
-
-            ('entity:contactlist', {}, (
-
-                ('name', ('base:name', {}), {
-                    'doc': 'The name of the contact list.'}),
-
-                ('source', (
-                        ('it:host', {}),
-                        ('inet:service:account', {}),
-                        ('file:bytes', {})
-                    ), {
-                    'doc': 'The source that the contact list was extracted from.'}),
-            )),
-
-            ('entity:had:type:taxonomy', {}, ()),
-            ('entity:had', {}, (
-
-                ('item', ('meta:havable', {}), {
-                    'doc': 'The item owned by the entity.'}),
-
-                ('actor', ('entity:actor', {}), {
-                    'doc': 'The entity which possessed the item.'}),
-
-                ('type', ('entity:had:type:taxonomy', {}), {
-                    'doc': 'A taxonomy for different types of possession.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period when the entity had the item.'}),
-
-                ('percent', ('hugenum', {}), {
-                    'doc': 'The percentage of the item owned by the owner.'}),
-
-                # TODO: add a purchase property to link back to a purchase event?
-
-            )),
-            ('entity:relationship:type:taxonomy', {}, ()),
-            ('entity:relationship', {}, (
-
-                ('type', ('entity:relationship:type:taxonomy', {}), {
-                    'doc': 'The type of relationship.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period when the relationship existed.'}),
-
-                ('source', ('entity:actor', {}), {
-                    'doc': 'The source entity in the relationship.'}),
-
-                ('target', ('entity:actor', {}), {
-                    'doc': 'The target entity in the relationship.'}),
-            )),
-
-            ('entity:goal:type:taxonomy', {}, ()),
-            ('entity:goal', {}, (
-
-                ('name', ('base:name', {}), {
-                    'alts': ('names',),
-                    'doc': 'A terse name for the goal.'}),
-
-                ('names', ('array', {'type': 'base:name'}), {
-                    'doc': 'Alternative names for the goal.'}),
-
-                ('type', ('entity:goal:type:taxonomy', {}), {
-                    'doc': 'A type taxonomy entry for the goal.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the goal.'}),
-            )),
-
-            ('entity:campaign:type:taxonomy', {
-                'prevnames': ('ou:camptype',)}, ()),
-
-            ('entity:campaign', {}, (
-
-                ('id', (
-                    ('it:mitre:attack:campaign:id', {}),
-                    ('base:id', {}),
-                ), {
-                    'alts': ('ids',),
-                    'doc': 'A unique ID given to the campaign.'}),
-
-                ('ids', ('array', {'type': (('it:mitre:attack:campaign:id', {}), ('base:id', {}))}), {
-                    'doc': 'An array of alternate IDs given to the campaign.'}),
-
-                ('slogan', ('lang:phrase', {}), {
-                    'doc': 'The slogan used by the campaign.'}),
-
-                ('success', ('bool', {}), {
-                    'doc': 'Set to true if the campaign achieved its goals.'}),
-
-                ('sophistication', ('meta:score', {}), {
-                    'doc': 'The assessed sophistication of the campaign.'}),
-
-                ('type', ('entity:campaign:type:taxonomy', {}), {
-                    'doc': 'A type taxonomy entry for the campaign.',
-                    'prevnames': ('camptype',)}),
-
-                ('cost', ('econ:price', {}), {
-                    'doc': 'The actual cost of the campaign.'}),
-
-                ('budget', ('econ:price', {}), {
-                    'doc': 'The budget allocated to execute the campaign.'}),
-
-                ('tag', ('syn:tag', {}), {
-                    'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
-            )),
-
-            ('entity:conflict', {}, (
-
-                ('name', ('event:name', {}), {
-                    'doc': 'The name of the conflict.'}),
-
-                ('adversaries', ('array', {'type': 'entity:actor'}), {
-                    'doc': 'The primary adversaries in conflict with one another.'}),
-            )),
-            ('entity:contribution', {}, (
-
-                ('campaign', ('entity:campaign', {}), {
-                    'doc': 'The campaign receiving the contribution.'}),
-
-                ('value', ('econ:price', {}), {
-                    'doc': 'The assessed value of the contribution.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the contribution occurred.'}),
-            )),
-
-            ('entity:discovery', {}, (
-
-                ('actor', ('entity:actor', {}), {
-                    'doc': 'The actor who made the discovery.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time when the discovery was made.'}),
-
-                ('item', ('meta:discoverable', {}), {
-                    'doc': 'The item which was discovered.'}),
-            )),
-
         ),
     },
 )

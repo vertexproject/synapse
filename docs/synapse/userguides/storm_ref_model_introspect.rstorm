@@ -7,101 +7,184 @@
 Storm Reference - Model Introspection
 =====================================
 
-This section provides a brief overview / tutorial of some basic Storm queries to allow introspection / navigation of Synapse's:
-
-- `Data Model`_
-- `Analytical Model`_
-
-The sample queries below are meant to help users new to Synapse and Storm get started examining forms and tags within a Cortex. The queries all use standard Storm syntax and operations (such as pivots). For more detail on using Storm, see :ref:`storm-ref-intro` and related Storm topics.
+This section describes how you can examine (perform introspection on) Synapse's **Data Model** (types, forms, etc.)
+and **Analytical Model** (tags) from within Synapse itself using Storm. (For details on using Storm, see :ref:`storm-ref-intro`
+and related Storm topics.)
 
 .. _introspect-data-model:
 
 Data Model
 ----------
 
-Analysts working with the data in the Synapse hypergraph will quickly become familiar with the forms they work with most often. However, as the model expands - or when first learning Synapse - it is helpful to be able to easily reference forms that may be less familiar, as well as how different forms relate to each other.
+Synapse's data model is the essential framework that supports the consistent, structural representation of
+analytically relevant data and relationships. The effective use of the data model is the key that unlocks
+Synapse's powerful analysis and intelligence capabilities.
 
-While the data model can be referenced within the Synapse source code_ or via the auto-generated :ref:`dm-index` documentation, it can be inconvenient to stop in the middle of an analytical workflow to search for the correct documentation. It is even more challenging to stop and browse through extensive documentation when you’re not sure what you’re looking for (or whether an appropriate form exists for your needs).
+There are many ways to examine Synapse's data model, including through the Synapse source code_ or via the auto-generated
+:ref:`dm-index` documentation. You can also explore the data model and its elements from within Synapse itself,
+using the Storm query language.
 
-For these reasons Synapse supports **data model introspection** within the Synapse hypergraph itself - that is, the Synapse data model is itself data stored within the Cortex. Introspection allows users to obtain the model definition for a given Cortex at run-time. The model definition contains a list of all native and custom types, forms, and properties supported by the current Cortex.
+.. TIP::
+  
+  `Synapse Enterprise`_ customers or users with a Synapse `demo stack`_ can also use the `Optic`_ UI (specifically Optic's
+  `Data Model Explorer`_, located in the Help Tool) to examine the data model.
 
-These model elements are generated as nodes in the Cortex from the current Synapse data model when a Cortex is initialized or when a new module is loaded. As nodes, they can be lifted, filtered, and pivoted across just like other nodes. However, the model-specific nodes do not persist permanently in storage and they cannot be modified (edited) or tagged. Because they are generated at run-time they are known as run-time nodes or **runt nodes.**
+Synapse is able to read the current data model definition (all native and custom (extended) model elements) on
+demand and project the model as nodes within the Cortex itself. Because these nodes are generated on demand
+(at run-time) they are known as run-time nodes or **runt nodes**.
 
-The following runt node forms are used to represent the Synapse data model for types, forms, and properties, respectively.
+The following runt node forms are used to represent the Synapse data model for types, forms, properties, and interfaces,
+respectively:
 
 - ``syn:type``
 - ``syn:form``
 - ``syn:prop``
+- ``syn:interface``
 
-As nodes within the Cortex, these forms can be lifted, filtered, and pivoted across using the Storm query language, just like any other nodes (with the exception of editing or tagging). Refer to the various Storm documents for details on Storm syntax. A few simple example queries are provided below to illustrate some common operations for model introspection.
+.. NOTE::
+  
+  Additional runt node forms exist besides the ones listed above. To view all of the runt forms in Synapse, use
+  the following command:
+  
+  ::
+    
+    syn:form:runt=true
+  
+
+Because runt nodes are generated from the data model when requested, they cannot be modified (edited) or tagged.
+However, you can lift, filter, and pivot across them using Storm, just like any other nodes.
+
+Refer to the various Storm documents for details on Storm syntax. A few simple example queries are provided below
+to illustrate some common operations for model introspection. (The :ref:`storm-limit` command is used in some 
+examples to display a sampling of results for illustrative purposes.)
 
 Example Queries
 +++++++++++++++
 
-- Display all current types / forms / properties:
+Types
+~~~~~
+
+Display all types:
+
+.. storm-cli:: syn:type | limit 3
+
+Display a specific type:
+
+.. storm-cli:: syn:type=inet:fqdn
+
+Display all types that are sub-types of ``str`` (string):
+
+.. storm-cli:: syn:type:parent=str | limit 3
+
+.. TIP::
+
+  Sub-types (``syn:type:parent``) are derived from a base type, but may have:
+  
+  - a specific purpose (e.g., it is helpful to distinguish strings that are HTTP header names from other arbitrary strings);
+    and / or
+  - additional (or alternate) constraints (``:opts``) on how the string can look and how it is normalized. For example, a
+    Society for Worldwide Interbank Financial Telecommunication (SWIFT) Bank Identifier Code (BIC) used for routing
+    financial transactions is a string, but one that has a specific format. An ``econ:bank:swift:bic`` in Synapse
+    extends (is a ``subof``) the ``str`` type that uses a regular expression (regex) to ensure that only properly formatted
+    BIC values are created.
+
+Forms
+~~~~~
+
+Display all forms:
+
+.. storm-cli:: syn:form | limit 3
+
+Display a specific form:
+
+.. storm-cli:: syn:form=inet:ip
+
+Display all of the properties of a specific form:
+
+.. storm-cli:: syn:prop:form=inet:ip | limit 3
+
+.. TIP::
+  
+  A form's properties include its primary and secondary properties. Because meta properties (``.created`` and
+  ``.updated``) exist on every form, Synapse does not include them for purposes of generating runt nodes.
+
+Display a specific property of a specific form:
+
+.. storm-cli:: syn:prop=inet:ip:place:loc
+
+Display all of the forms that are tagged ``#cno.threat.sparkling_unicorn``:
+
+.. storm-pre:: [ inet:fqdn=woot.com inet:ip=123.120.96.42 crypto:hash:sha256=5f6b2a0d1d966fc4f1ed292b46240767f4acb06c13512b0061b434ae2a692fa1 +#cno.threat.sparkling_unicorn ]
+.. storm-cli:: #cno.threat.sparkling_unicorn $form=$node.form -> { syn:form=$form } | uniq
+
+The query above assigns the variable ``$form`` to each node's form, uses :ref:`raw-pivot-syntax` to
+pivot to the associated ``syn:form`` runt nodes, and deduplicates the results.
 
 
-.. storm-cli:: syn:type | limit 2
+Properties
+~~~~~~~~~~
+
+Display all properties:
+
+.. storm-cli:: syn:prop | limit 3
+
+Display all properties that are **computed** by Synapse:
+
+.. storm-cli:: syn:prop:computed=true | limit 3
+
+.. TIP::
+  
+  **Computed** properties are secondary properties that are derived or extracted from a node's primary property. Synapse
+  computes and sets these properties automatically. Because they are based on the node's primary property, computed
+  properties are read-only and cannot be edited.
+
+Display all properties that are arrays:
+
+.. storm-cli:: syn:prop:array=true | limit 3
+
+Display all properties that can be of a specific type (e.g., an IP address / ``inet:ip``):
+
+.. storm-cli:: syn:prop:type*[=inet:ip] | limit 3
+
+.. TIP::
+  
+  All properties in Synapse must have a type, and any property can optionally be declared with more than one type.
+  This means that property types are arrays, and you need to use :ref:`array syntax <lift-by-arrays>` to query them.
 
 
+Interfaces
+~~~~~~~~~~
 
-.. storm-cli:: syn:form | limit 2
+Display all interfaces:
 
+.. storm-cli:: syn:interface | limit 3
 
+Display a specific interface:
 
-.. storm-cli:: syn:prop | limit 2
+.. storm-cli:: syn:interface=meta:taxonomy
 
+Display all **forms** that implement a specific interface (e.g., ``inet:proto:request``):
 
-- Display all types that are sub-types of 'string':
+.. storm-cli:: syn:form:interfaces*[=inet:proto:request] | limit 3
 
+Display all **interfaces** that implement a specific interface (e.g., ``base:activity``):
 
-.. storm-cli:: syn:type:subof = str | limit 2
+.. storm-cli:: syn:interface:interfaces*[=base:activity] | limit 3
 
-
-- Display a specific type:
-
-
-.. storm-cli:: syn:type = inet:fqdn 
-
-
-- Display a specific form:
-
-
-.. storm-cli:: syn:form = inet:fqdn
-
-
-- Display a specific property of a specific form:
+.. TIP::
+  
+  The queries above will return results (``syn:form`` or ``syn:interface`` runt nodes) that implement the
+  interface either directly or recursively (i.e., as the result of implementing another interface that
+  implements the interface you are querying).
 
 
-.. storm-cli:: syn:prop = inet:ip:loc
+Display all forms **referenced by** a specific form (i.e., which properties of this form are **also** forms):
 
+.. storm-cli:: syn:prop:form=file:bytes :type -> syn:type -> syn:form | limit 3
 
-- Display a specific form and all its secondary properties:
+Display all forms that **reference** a specific form (i.e., which forms **have** this form as a secondary property):
 
-
-.. storm-cli:: syn:prop:form = inet:fqdn | limit 2
-
-
-- Display all properties that accept the ``inet:fqdn`` type:
-
-
-.. storm-cli:: syn:prop:type *[ = inet:fqdn ] | limit 2
-
-
-- Display all forms **referenced by** a specific form (i.e., the specified form contains secondary properties that are themselves forms):
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-
-.. storm-cli:: syn:prop:form = inet:whois:rec :type -> syn:form
-
-
-- Display all forms that **reference** a specific form (i.e., the specified form is a secondary property of another form):
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-
-.. storm-cli:: syn:form = inet:whois:rec -> syn:prop:type :form -> syn:form
+.. storm-cli:: syn:form=file:bytes :type -> syn:type -> syn:prop:type | limit 3
 
 
 .. _introspect-analytical-model:
@@ -109,46 +192,57 @@ Example Queries
 Analytical Model
 ----------------
 
-As the number of tags used in the hypergraph increases, analysts must be able to readily identify tags, tag hierarchies, and the precise meaning of individual tags so they can be applied and interpreted correctly.
+Tags in Synapse are a set of user-defined hierarchical labels that are used to group related nodes and provide
+context to individual nodes. Tags often represent internal (or third-party) assessments, so they are effectively
+an **analytical model** of context and conclusions that are relevant for your organization's analysis needs. Synapse
+users need to be able to readily identify tags, tag hierarchies, and the precise meaning of individual tags so they
+can be applied and interpreted correctly and consistently.
 
-Unlike the runt nodes used for the Synapse data model, the ``syn:tag`` nodes that represent tags are regular objects in the Cortex that can be lifted, filtered, and pivoted across (as well as edited, tagged, and deleted) just like any other nodes. In a sense it is possible to perform **"analytical model introspection"** by examining the nodes representing a Cortex's analytical model (i.e., tags).
+You can query and navigate Synapse's analytical model using tags (``syn:tag`` nodes) similar to the way you navigate
+the data model using runt nodes. Note that ``syn:tag`` nodes are regular objects in the Cortex (**not** run-time nodes)
+that can be lifted, filtered, and pivoted across (as well as edited, tagged, and deleted) just like any other nodes.
 
-Lifting, filtering, and pivoting across ``syn:tag`` nodes is performed using the standard Storm query syntax; refer to the various Storm documents for details on using Storm. See also the ``syn:tag`` section of :ref:`storm-ref-type-specific` for additional details on working with ``syn:tag`` nodes.
+.. TIP::
+  
+  `Synapse Enterprise`_ customers or users with a Synapse `demo stack`_ can also use the `Optic`_ UI (specifically
+  Optic's `Tag Explorer`_, located in the Help Tool) to examine the analytical model.
 
-A few simple example queries are provided below to illustrate some common operations for working with tags. As Synapse does not include any pre-populated ``syn:tag`` nodes, these examples assume you have a Cortex where some number of tags have been created.
+You can lift, filter, and pivot across ``syn:tag`` nodes using the standard Storm query syntax; refer to the various
+Storm documents for details on using Storm. See also the ``syn:tag`` section of :ref:`storm-ref-type-specific`
+for additional details on working with ``syn:tag`` nodes.
+
+A few simple example queries are provided below to illustrate some common operations for working with tags. As Synapse
+does not include any pre-populated ``syn:tag`` nodes, these examples assume you have a Cortex where tags have been
+created.
 
 Example Queries
 +++++++++++++++
 
-- Lift a single tag:
+Lift a single tag:
 
-.. storm-pre:: [(syn:tag=cno.infra :doc="Top-level tag for infrastructre." :title = "Infrastructure") (syn:tag=cno.infra.anon :doc = "Top-level tag for anonymization services." :title="Anonymization services") (syn:tag = cno.infra.anon.tor :doc="Various types of Tor infrastructure, including: a server representing a Tor service or the associated IP address; a host known to be a Tor node / hosting a Tor service; contact information associated with an entity responsible for a given Tor node." :title="Tor Infrastructure") (syn:tag=cno.infra.anon.vpn :doc="A server representing an anonymous VPN service, or the associated IP address. Alternately, an FQDN explicilty denoting an anonymous VPN that resolves to the associated IP." :title = "Anonymous VPN")]
-.. storm-cli:: syn:tag = cno.infra.anon.tor
+.. storm-pre:: [ ( syn:tag=cno.infra :doc="Top-level tag for infrastructure." :title="Infrastructure" ) ( syn:tag=cno.infra.anon :doc="Top-level tag for anonymization services." :title="Anonymization services" ) ( syn:tag=cno.infra.anon.tor :doc="Infrastructure associated with the TOR network." :title="TOR infrastructure" ) ( syn:tag=cno.infra.anon.vpn :doc="A server representing an anonymous VPN service, or the associated IP address. Alternately, an FQDN explicitly denoting an anonymous VPN that resolves to the associated IP." :title = "Anonymous VPN" ) ]
+.. storm-cli:: syn:tag=cno.infra.anon.tor
 
+Lift all root tags:
 
-- Lift all root tags:
+.. storm-cli:: syn:tag:depth=0
 
+Lift all tags one level "down" from the specified tag:
 
-.. storm-cli:: syn:tag:depth = 0
+.. storm-cli:: syn:tag:up=cno.infra.anon
 
+Lift all tags that start with a given prefix, regardless of depth:
 
-- Lift all tags one level "down" from the specified tag:
+.. storm-cli:: syn:tag^=cno.infra
 
+Lift all tags that share the same base (rightmost) element:
 
-.. storm-cli:: syn:tag:up = cno.infra.anon
+.. storm-pre:: [ ( syn:tag=rep.uscisa.salt_typhoon :doc="Indicator or activity US-CISA calls (or associates with) Salt Typhoon." :title="Salt Typhoon (US-CISA)" ) ( syn:tag=rep.microsoft.salt_typhoon :doc="Indicator or activity Microsoft calls (or associates with) Salt Typhoon." :title="Salt Typhoon (Microsoft)" ) ]
+.. storm-cli:: syn:tag:base=salt_typhoon
 
-
-- Lift all tags that start with a given prefix, regardless of depth:
-
-
-.. storm-cli:: syn:tag ^= cno.infra
-
-
-- Lift all tags that share the same base (rightmost) element:
-
-.. storm-pre:: [(syn:tag=rep.uscert.sofacy :doc="Indicator or activity uscert calls (or associates with) sofacy." :title="sofacy(uscert)") (syn:tag=rep.talos.sofacy :doc="Indicator or activity talos calls (or associates with) sofacy." :title="sofacy(talos)")]
-.. storm-cli:: syn:tag:base = sofacy
-
-
-
+.. _Synapse Enterprise: https://vertex.link/synapse
+.. _demo stack: https://vertex.link/request-a-demo
+.. _Optic: {{SYN_DOCS_BASEURL}}/docs/optic/latest/index.html
+.. _Data Model Explorer: {{SYN_DOCS_BASEURL}}/docs/optic/latest/user_interface/userguides/get_help.html#using-data-model-explorer
+.. _Tag Explorer: {{SYN_DOCS_BASEURL}}/docs/optic/latest/user_interface/userguides/get_help.html#using-tag-explorer
 .. _code: https://github.com/vertexproject/synapse

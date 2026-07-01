@@ -17,7 +17,7 @@ import synapse.exc as s_exc
 vseps = ('.', '-', '_', '+')
 mask20 = 0xFFFFF
 mask60 = 0xFFFFFFFFFFFFFFF
-semverstr = r'''^(?P<maj>(0(?![0-9])|[1-9][0-9]*))\.(?P<min>(0(?![0-9])|[1-9][0-9]*))\.(?P<pat>(0(?![0-9])|[1-9][0-9]*))(\-(?P<pre>([0-9A-Za-z\-\.]+)))?(\+(?P<bld>([0-9A-Za-z\.\-]+)))?$'''
+semverstr = r'''^(?P<maj>(0(?![0-9])|[1-9][0-9]*))\.(?P<min>(0(?![0-9])|[1-9][0-9]*))\.(?P<pat>(0(?![0-9])|[1-9][0-9]*))(?P<pep>(a|b|rc)[0-9]+)?(\-(?P<pre>([0-9A-Za-z\-\.]+)))?(\+(?P<bld>([0-9A-Za-z\.\-]+)))?$'''
 semver_re = regex.compile(semverstr)
 
 def parseSemver(text):
@@ -46,11 +46,18 @@ def parseSemver(text):
     if not m:
         return None
     d = m.groupdict()
-    ret['major'] = int(d.get('maj'))
-    ret['minor'] = int(d.get('min'))
-    ret['patch'] = int(d.get('pat'))
+    maj = d.get('maj')
+    min_ = d.get('min')
+    pat = d.get('pat')
+    if maj is None or min_ is None or pat is None:  # pragma: no cover
+        return None
+
+    ret['major'] = int(maj)
+    ret['minor'] = int(min_)
+    ret['patch'] = int(pat)
 
     pre = d.get('pre')
+    pep = d.get('pep')
     bld = d.get('bld')
 
     if pre:
@@ -67,6 +74,8 @@ def parseSemver(text):
                 if part[0] == '0' and len(part) > 1:
                     return None
         ret['pre'] = pre
+    elif pep:
+        ret['pre'] = pep
 
     if bld:
         # Validate bld
@@ -184,12 +193,46 @@ def parseVersionParts(text, seps=vseps):
     return ret
 
 
+def parse(valu):
+    '''
+    Return a packaging.version.Version for a PEP 440 string or a legacy int tuple/list.
+
+    Accepts:
+      - str: any PEP 440 version string (e.g. "3.0.0", "3.0.0a20260617")
+      - tuple/list: legacy int triple (e.g. (3, 0, 0)) -- joined with "." first
+    '''
+    if isinstance(valu, (tuple, list)):
+        valu = '.'.join(str(x) for x in valu)
+    return p_version.Version(str(valu))
+
+
+def release(verstr=None):
+    '''
+    Return the (major, minor, patch) integer triple for a version string.
+
+    If verstr is None, uses the module-level version string.
+    Accepts PEP 440 strings or dot-separated int strings.
+    '''
+    if verstr is None:
+        verstr = version
+    if isinstance(verstr, (tuple, list)):
+        parts = list(verstr)
+    else:
+        parts = list(p_version.Version(str(verstr)).release)
+    # Pad or truncate to exactly 3
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
+
+
 def matches(vers, cmprvers):
     '''
     Check if a version string matches a version comparison string.
+    Accepts a PEP 440 string or a legacy int tuple/list for vers.
     '''
     spec = p_specifiers.SpecifierSet(cmprvers)
-    return p_version.Version(vers) in spec
+    return parse(vers) in spec
+
 
 def reqVersion(valu, reqver,
                exc=s_exc.BadVersion,
@@ -198,7 +241,7 @@ def reqVersion(valu, reqver,
     Require a given version tuple is valid for a given requirements string.
 
     Args:
-        valu Optional[Tuple[int, int, int]]: Major, minor and patch value to check.
+        valu: Version to check. May be a PEP 440 string or a legacy int tuple.
         reqver (str): A requirements version string.
         exc (s_exc.SynErr): The synerr class to raise.
         mesg (str): The message to pass in the exception.
@@ -214,15 +257,13 @@ def reqVersion(valu, reqver,
         raise exc(mesg=mesg, valu=valu, reqver=reqver)
 
     spec = p_specifiers.SpecifierSet(reqver)
-    verstr = fmtVersion(*valu)
-    vers = p_version.Version(verstr)
+    vers = parse(valu)
 
     if vers not in spec:
-        raise exc(mesg=mesg, valu=valu, verstr=verstr, reqver=reqver)
+        raise exc(mesg=mesg, valu=valu, verstr=str(vers), reqver=reqver)
 
 ##############################################################################
-# The following are touched during the release process by bumpversion.
-# Do not modify these directly.
-version = (3, 0, 0)
-verstring = '.'.join([str(x) for x in version])
+# The following are touched during the release process.
+# Edit version; commit is set during release.
+version = '3.0.0b1'
 commit = ''

@@ -42,7 +42,7 @@ class AxonHandlerMixin:
         '''
         return self.cell
 
-class AxonHttpUploadV1(AxonHandlerMixin, s_httpapi.StreamHandler):
+class AxonHttpUploadV3(AxonHandlerMixin, s_httpapi.StreamHandler):
 
     async def prepare(self):
         self.upfd = None
@@ -92,7 +92,7 @@ class AxonHttpUploadV1(AxonHandlerMixin, s_httpapi.StreamHandler):
         await self._save()
         return
 
-class AxonHttpHasV1(AxonHandlerMixin, s_httpapi.Handler):
+class AxonHttpHasV3(AxonHandlerMixin, s_httpapi.Handler):
 
     async def get(self, sha256):
         if not await self.allowed(('axon', 'has')):
@@ -112,7 +112,7 @@ reqValidAxonDel = s_config.getJsValidator({
     'required': ['sha256s'],
 })
 
-class AxonHttpDelV1(AxonHandlerMixin, s_httpapi.Handler):
+class AxonHttpDelV3(AxonHandlerMixin, s_httpapi.Handler):
 
     async def post(self):
 
@@ -221,7 +221,7 @@ class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
             await self.flush()
             await asyncio.sleep(0)
 
-class AxonHttpBySha256V1(AxonFileHandler):
+class AxonHttpBySha256V3(AxonFileHandler):
 
     async def head(self, sha256):
 
@@ -268,7 +268,7 @@ class AxonHttpBySha256V1(AxonFileHandler):
         resp = await self.getAxon().del_(sha256b)
         return self.sendRestRetn(resp)
 
-class AxonHttpBySha256InvalidV1(AxonFileHandler):
+class AxonHttpBySha256InvalidV3(AxonFileHandler):
 
     async def _handle_err(self, sha256, send_err=True):
         if not await self.reqAuthUser():
@@ -785,6 +785,9 @@ class Axon(s_cell.Cell):
     cellapi = AxonApi
     byterange = False
 
+    # The Axon migrates 2.x storage in place on startup (see _migrateAxonHistory).
+    reject2xStorage = False
+
     confdefs = {
         'max:bytes': {
             'description': 'The maximum number of bytes that can be stored in the Axon.',
@@ -975,11 +978,11 @@ class Axon(s_cell.Cell):
         return version
 
     def _initAxonHttpApi(self):
-        self.addHttpApi('/api/v1/axon/files/del', AxonHttpDelV1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/put', AxonHttpUploadV1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', AxonHttpHasV1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpBySha256V1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/by/sha256/(.*)', AxonHttpBySha256InvalidV1, {'cell': self})
+        self.addHttpApi('/api/v3/axon/files/del', AxonHttpDelV3, {'cell': self})
+        self.addHttpApi('/api/v3/axon/files/put', AxonHttpUploadV3, {'cell': self})
+        self.addHttpApi('/api/v3/axon/files/has/sha256/([0-9a-fA-F]{64}$)', AxonHttpHasV3, {'cell': self})
+        self.addHttpApi('/api/v3/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpBySha256V3, {'cell': self})
+        self.addHttpApi('/api/v3/axon/files/by/sha256/(.*)', AxonHttpBySha256InvalidV3, {'cell': self})
 
     def _addSyncItem(self, item, tick=None):
         self.axonhist.add(item, tick=tick)

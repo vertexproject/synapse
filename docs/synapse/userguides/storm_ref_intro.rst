@@ -19,7 +19,7 @@ access Synapse via the Synapse UI (also known as `Optic`_) and use Storm from th
   
 .. TIP::
   
-  If you're not sure which version of Synapse to start with, check out our `Getting Started guide`_.
+  If you're not sure which version of Synapse to start with, check out our :doc:`Getting Started guide </synapse/getting_started>`.
   
 
 .. _storm-bkgd:
@@ -67,15 +67,15 @@ Basic Storm Operations
 
 Storm allows users to perform all of the common operations used to interact with data in Synapse:
 
-- `Lift`_: retrieve data based on specified criteria.
-- `Filter`_: refine your results by including or excluding a subset of nodes based on specified criteria.
-- `Pivot`_: take a set of nodes and identify other nodes that share one or more property values with the
+- :doc:`Lift </synapse/userguides/storm_ref_lift>`: retrieve data based on specified criteria.
+- :doc:`Filter </synapse/userguides/storm_ref_filter>`: refine your results by including or excluding a subset of nodes based on specified criteria.
+- :doc:`Pivot </synapse/userguides/storm_ref_pivot>`: take a set of nodes and identify other nodes that share one or more property values with the
   lifted set.
-- `Traverse`_ light edges.
-- `Modify data`_: create, modify, annotate (tag), and delete nodes from Synapse.
-- `Run commands`_: Storm supports an extensible set of commands. Many commands provide specific
+- :ref:`Traverse <storm-traverse>` light edges.
+- :doc:`Modify data </synapse/userguides/storm_ref_data_mod>`: create, modify, annotate (tag), and delete nodes from Synapse.
+- :doc:`Run commands </synapse/userguides/storm_ref_cmd>`: Storm supports an extensible set of commands. Many commands provide specific
   functionality to extend the analytical power of Storm. Other Storm commands allow management of permissions
-  for users and roles, Synapse views and layers, and Synapse's `automation`_ features. You can display available
+  for users and roles, Synapse views and layers, and Synapse's :doc:`automation </synapse/userguides/storm_ref_automation>` features. You can display available
   commands by running ``help`` from the Storm CLI.
 
 Many Storm queries - even "complex" ones - can be constructed from this simple set of "building blocks". For
@@ -303,7 +303,7 @@ Storm has several notable features in the way it interacts with and operates on 
 important but also pretty intuitive; it's good to be familiar with them, but most users don't need to worry
 about them too much for standard Storm queries and operations (day-to-day interaction with Synapse data).
 
-These concepts are much more important if you're using more `advanced Storm`_ constructs such as variables,
+These concepts are much more important if you're using more :doc:`advanced Storm </synapse/userguides/index_storm_adv>` constructs such as variables,
 control flow, or functions. If you're writing advanced Storm queries, automation, or custom Power-Ups, you should be
 comfortable with these terms and behaviors.
 
@@ -424,10 +424,10 @@ In our experience, the more analysts use Storm, the more they want even greater 
 language to support their analytical workflow! To meet these demands, Storm evolved a number of advanced features,
 including:
 
-- `Variables`_
-- `Methods`_
-- `Control Flow`_
-- `Functions`_
+- :doc:`Variables </synapse/userguides/storm_adv_vars>`
+- :doc:`Methods </synapse/userguides/storm_adv_methods>`
+- :doc:`Control Flow </synapse/userguides/storm_adv_control>`
+- :doc:`Functions </synapse/userguides/storm_adv_functions>`
 - :ref:`stormtypes-libs-header`
 - :ref:`stormtypes-prim-header`
 
@@ -443,28 +443,11 @@ features are available to both "power users" and developers as needed:
 
 .. NOTE::
 
-  Synapse's `Rapid Power-Ups`_ are written entirely in Storm and exposed to Synapse users as Storm commands!
+  Synapse's :ref:`Rapid Power-Ups <rapid-powerups>` are written entirely in Storm and exposed to Synapse users as Storm commands!
 
 
 .. _open source: https://github.com/vertexproject/synapse
 .. _Quickstart: https://github.com/vertexproject/synapse-quickstart
 .. _demo instance: https://vertex.link/request-a-demo
-.. _Optic: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
-.. _Getting Started guide: https://synapse.docs.vertex.link/en/latest/synapse/quickstart.html
+.. _Optic: {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-optic/latest/index.html
 
-.. _Lift: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_lift.html
-.. _Filter: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_filter.html
-.. _Pivot: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_pivot.html
-.. _Traverse: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_pivot.html#traverse-walk-light-edges
-.. _`Modify data`: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_data_mod.html
-.. _`Run commands`: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html
-.. _automation: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_automation.html
-
-.. _advanced Storm: https://synapse.docs.vertex.link/en/latest/synapse/userguides/index_storm_adv.html
-
-.. _Variables: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_vars.html
-.. _Methods: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_methods.html
-.. _Control Flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html
-.. _Functions: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_functions.html
-
-.. _`Rapid Power-Ups`: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html#rapid-power-ups

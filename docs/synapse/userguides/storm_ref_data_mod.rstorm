@@ -25,15 +25,11 @@ The ability to create or modify data on the fly gives users a powerful degree of
   
   The following best practices will help prevent inadvertent changes to a Cortex:
   
-  - Where possible, :ref:`ug_fork_view` and test and perform your changes in the fork. Once you have validated the
-    changes, they can be merged into the parent view; if anything goes wrong, the fork can simply be deleted.
-    
-    - Note that in Synapse 2.x, all **delete** operations must be performed in the layer where the data to be deleted exists;
-      that is, if you are working in forked view, you cannot delete data in the underlying view/layer from the fork.
-  
-  - Use extreme caution when constructing complex Storm queries that may modify (or delete) large numbers of nodes.
-    It is **strongly recommended** that you validate the output of a query by first running the query on its own 
-    (without the edit or delete operations) to ensure it returns the expected results (set of nodes) before permanently
+  - **Always** :ref:`ug_fork_view` and perform your changes in the fork. Once you have validated the changes, they
+    can be merged into the parent view; if anything goes wrong, the fork can simply be deleted.
+  - Use caution when constructing complex Storm queries that may modify (or delete) large numbers of nodes. It is
+    **strongly recommended** that you validate the output of a query by first running the query on its own (without
+    the edit or delete operations) to ensure it returns the expected results (set of nodes) before permanently
     modifying or deleting those nodes.
   - Use the Synapse permissions system to enforce least privilege. Limit users to permissions appropriate for tasks
     they have been trained for / are responsible for.
@@ -54,7 +50,7 @@ See :ref:`storm-ref-type-specific` for details on special syntax or handling for
 Edit Mode
 ---------
 
-To perform an edit operation in Storm, you must enter “edit mode”. Edit mode makes use of several conventions to specify
+To perform an edit operation in Storm, you must enter edit mode. Edit mode makes use of several conventions to specify
 what changes should be made and to what data:
 
 - `Edit Brackets`_
@@ -68,9 +64,9 @@ what changes should be made and to what data:
 Edit Brackets
 +++++++++++++
 
-The use of square brackets ( ``[ ]`` ) within a Storm query can be thought of as entering "edit mode" to perform
-an edit operation. The data in the brackets specifies the changes to be made involving nodes, properties, light
-edges, and tags. The only exception is deleting nodes, which is done using the Storm :ref:`storm-delnode` command.
+The use of square brackets ( ``[ ]`` ) within a Storm query can be thought of as entering edit mode. The data in the
+brackets specifies the changes to be made involving nodes, properties, light edges, and tags. The only exception is
+deleting nodes, which is done using the Storm :ref:`storm-delnode` command.
 
 The square brackets used for the Storm data modification (edit) syntax indicate "perform the enclosed changes" in a
 generic way. Edit brackets are used to perform any of the following:
@@ -88,19 +84,15 @@ generic way. Edit brackets are used to perform any of the following:
 All of the above directives can be specified within a single set of brackets (subject to Storm logic and Storm's
 pipeline behavior).
 
-.. WARNING::
+.. NOTE::
   
   It is critical to remember that **the brackets are NOT a boundary that segregates nodes;** the brackets simply
-  indicate the start and end of an edit operation. In other words, the brackets do **NOT** separate "nodes the
-  modifications should apply to" from "nodes they should not apply to". Storm :ref:`storm-op-chain` with
-  left-to-right processing order still applies. Editing is simply another Storm operation, so the specified edits
+  indicate the start and end of an edit operation. Editing is simply another Storm operation, so the specified edits
   will be performed on **ALL nodes inbound to the edit operation** as part of the Storm pipeline, regardless of
   whether those nodes are within or outside the brackets.
   
   The exception is modifications that are placed within :ref:`edit-parens`, which can be used to segregate specific
   edit operations.
-
-.. NOTE::
   
   For simplicity, syntax examples below demonstrating how to add nodes, modify properties, etc. only use edit brackets.
   See :ref:`data-mod-combo` below for examples showing the use of edit brackets with and without edit parentheses.
@@ -111,11 +103,11 @@ pipeline behavior).
 Edit Parentheses
 ++++++++++++++++
 
-Storm supports the use of edit parentheses ( ``( )`` ) inside of :ref:`edit-brackets`. Edit parentheses ("parens")
+Storm supports the use of edit parentheses ( ``( )`` ) inside of :ref:`edit-brackets`. Edit parentheses (parens)
 explicitly limit a set of modifications to a specific node or nodes by enclosing the node(s) and their associated
-modification(s) within the parentheses. This "overrides" the default behavior for edit brackets, which is that every
+modification(s) within the parentheses. This overrides the default behavior for edit brackets, which is that every
 change specified within the brackets applies to **all nodes inbound to the edit operation.** Edit parens thus allow
-you to make limited changes "inline" with a more complex Storm query instead of having to use a smaller, separate
+you to make limited changes inline with a more complex Storm query instead of having to use a smaller, separate
 query to make those changes.
 
 Note that multiple sets of edit parens can be used within a single set of edit brackets; each set of edit parens
@@ -131,12 +123,12 @@ See :ref:`data-mod-combo` below for examples showing the use of edit brackets wi
 The Storm "try" operator can be used in edit operations when setting properties ( ``?=`` ) or adding tags ( ``+?#`` ).
 
 Properties in Synapse are subject to :ref:`gloss-type-enforce`. Type enforcement makes a reasonable attempt to ensure
-that a value "makes sense" for the property in question - that the value you specify for an ``inet:ip`` node looks
+that a value makes sense for the property in question - that the value you specify for an ``inet:ip`` node looks
 reasonably like an IP address (and not an FQDN or URL). If you try to set a property value that does not pass
 Synapse's type enforcement validation, Synapse will generate a ``BadTypeValu`` error. The error will cause the
 currently executing Storm query to halt and stop processing.
 
-When using the try operator, Synapse will to attempt (try) to set the property value. With the try operator,
+When using the try operator, Synapse will attempt (try) to set the property value. With the try operator,
 instead of halting in the event of a ``BadTypeValu`` error, Synapse will ignore the error (silently fail on that
 specific edit operation) but continue processing the rest of the Storm query.
 
@@ -144,17 +136,17 @@ The try operator is especially useful for Storm-based automated ingest of data w
 bad (improperly typed or poorly formatted) data, where a single badly-formatted entry could cause an ingest
 query to fail in the middle.
 
-For example:
+For example, the following query will silently fail to create an ``inet:ip`` node with the improper value ``woot.com``,
+but will continue to create the IP ``22.22.22.22``:
 
-``[ inet:ip ?= woot.com ]``
+.. storm-cli:: [ inet:ip?=woot.com inet:ip?=22.22.22.22 ]
 
-will silently fail to create an ``inet:ip`` node with the improper value ``woot.com``.
 
-In contrast:
+In contrast, the following query will throw a ``BadTypeValu`` error and exit when it encounters the invalid IP value.
+The rest of the query fails to run, and the IP ``22.22.22.22`` is never created:
 
-``[ inet:ip = woot.com ]``
-
-will throw a ``BadTypeValu`` error and exit.
+.. storm-fail:: true
+.. storm-cli:: [ inet:ip=woot.com inet:ip=22.22.22.22 ]
 
 .. TIP::
   
@@ -168,14 +160,14 @@ Tags and the "Try" Operator
 Tags are also nodes (``syn:tag`` nodes), and tag values are also subject to type enforcement. As such, the "try"
 operator can also be used when applying tags:
 
-``inet:ip = 58.158.177.102 [ +?#cno.infra.dns.sink.hole ]``
+``inet:ip=58.158.177.102 [ +?#cno.infra.dns.sink.hole ]``
  
 While Synapse automatically normalizes tag elements (e.g., by replacing dash characters ( ``-`` ) or spaces
 with underscores ( ``_`` )), some characters (such as ASCII symbols other than the underscore) are not allowed.
 The "try" operator may be useful when ingesting third-party data or constructing a tag using a :ref:`gloss-variable`
 where the variable may contain unexpected values. For example:
 
-``inet:ip = 8.8.8.8 [ +?#foo.$tag ]``
+``inet:ip=8.8.8.8 [ +?#foo.$tag ]``
 
 ... where ``$tag`` is a variable representing a tag element derived from the source data.
 
@@ -190,17 +182,17 @@ conditions are met.
 The ``*unset=`` operator will only set a property when it does not already have a value to prevent overwriting
 existing data. For example:
 
-``inet:ip = 1.2.3.4 [ :asn *unset= 12345 ]``
+``inet:ip=1.2.3.4 [ :asn *unset=12345 ]``
 
 will only set the ``:asn`` property on the ``inet:ip`` node if it is not already set. The conditional edit operators
 can also be combined with the "try" operator ( ``*unset?=`` ) to prevent failures due to bad data:
 
-``inet:ip = 1.2.3.4 [ :asn *unset?= invalid ]``
+``inet:ip=1.2.3.4 [ :asn *unset?=invalid ]``
 
 Variable values may also be used to control the conditional edit behavior, and allow two more values in addition to
 ``unset``; ``always`` and ``never``. For example:
 
-``$asn = 'always' $loc = 'never' inet:ip = 1.2.4.5 [ :place:loc *$loc= us :asn *$asn?= 12345 ]``
+``$asn=always $loc=never inet:ip=1.2.4.5 [ :place:loc *$loc=us :asn *$asn?=12345 ]``
 
 will never set the ``:place:loc`` property and will always attempt to set the ``:asn`` property. This behavior is useful
 when creating Storm ingest functions where fine tuned control over specific property edit behavior is needed. Rather
@@ -215,19 +207,20 @@ Autoadds and Depadds
 Synapse makes use of two optimization features when adding nodes or setting secondary properties: automatic additions
 (:ref:`gloss-autoadd`) and dependent additions (:ref:`gloss-depadd`).
 
-**Autoadd** is the process where, on node creation, Synapse will automatically set any secondary properties that are
-derived from a node's primary property. Because these secondary properties are based on the node's primary property
-(which cannot be changed once set), the secondary properties are read-only.
+**Autoadd** is the process where, on node creation, Synapse will automatically set any secondary properties that can
+be computed from a node's primary property. Because a node's primary property cannot be changed once set, computed
+secondary properties are read-only.
 
 For example, when creating the email address ``inet:email=visi@vertex.link``, Synapse will automatically set the
-node's secondary properties (the username ``inet:email:user=visi`` and domain ``inet:email:fqdn=vertex.link``).
+``inet:email`` node's secondary properties (the username ``:username=visi`` and domain ``:fqdn=vertex.link``).
 
 **Depadd** is the process where, on setting a node's secondary property value, if that property is of a type that is
-also a form, Synapse will automatically create the form with the corresponding primary property value. (You can view
+also a form, Synapse will automatically create the node with the corresponding primary property value. (You can view
 this as the secondary property "depending on" the existence of a node with the corresponding primary property.)
 
 To use the same example, when creating the email ``inet:email=visi@vertex.link`` and setting the secondary properties
-above, Synapse willl also create the associated nodes ``inet:user=visi`` and ``inet:fqdn=vertex.link``.
+above, Synapse will also create the associated nodes ``entity:name=visi`` and ``inet:fqdn=vertex.link`` if they do not
+exist.
 
 Autoadd and depadd work together (and recursively) to simplify adding data to Synapse.
 
@@ -250,58 +243,56 @@ Operation to add the specified node(s) to a Cortex.
 
 **Examples:**
 
-*Create a simple node (FQDN):*
+Create a simple node (FQDN):
 
-
-.. storm-pre:: [ inet:fqdn = woot.com ]
+.. storm-pre:: [ inet:fqdn=woot.com ]
 ::
 
-    [ inet:fqdn = woot.com ]
+    [ inet:fqdn=woot.com ]
 
+Create a composite (comp) node (DNS A record):
 
-*Create a composite (comp) node (DNS A record):*
-
-
-.. storm-pre:: [ inet:dns:a=(woot.com, 12.34.56.78) ]
+.. storm-pre:: [ inet:dns:a=( woot.com, 12.34.56.78 ) ]
 ::
 
-    [ inet:dns:a=(woot.com, 12.34.56.78) ]
+    [ inet:dns:a=( woot.com, 12.34.56.78 ) ]
 
+Create a GUID node by generating an arbitrary guid using the asterisk character:
 
-*Create a GUID node by generating an arbitrary guid using the asterisk character:*
-
-.. storm-pre:: [ risk:threat='*' ]
+.. storm-pre:: [ risk:threat=* ]
 ::
 
-    [ risk:threat='*' ]
+    [ risk:threat=* ]
 
+Create a GUID node by specifying a list of string values used to generate a predictable guid:
 
-*Create a GUID node by specifying a list of string values used to generate a predictable guid:*
-
-.. storm-pre:: [ risk:threat=(mandiant, apt1) ]
-
+.. storm-pre:: [ risk:threat=( apt1, mandiant ) ]
 ::
   
-  [ risk:threat=(mandiant, apt1) ]
+  [ risk:threat=( apt1, mandiant ) ]
 
+Create a GUID node using dictionary syntax to create a predictable guid **and** deconflict the node
+against any existing nodes in the Cortex with the same property values:
+
+.. storm-pre:: [ risk:threat=( { "name": "apt1", "reporter:name": "mandiant" } ) ]
+::
+  
+  [ risk:threat=( { "name": "apt1", "reporter:name": "mandiant" } ) ]
 
 .. TIP::
   
-  For information on the differences and use cases for arbitrary vs. predictable / deconflictable guids,
-  see the :ref:`type-guid` section of the :ref:`storm-ref-type-specific`.
+  For information on the differences and use cases for arbitrary guids, predictable guids, and
+  dictionary syntax, see the :ref:`type-guid` section of the :ref:`storm-ref-type-specific`.
   
-  Storm also includes various :ref:`storm-gen` ("generate") commands to simplify the creation
+  Storm also includes various :ref:`storm-gen` (generate) commands to simplify the creation
   of some common guid forms.
 
-
-*Create multiple nodes in a single edit operation:*
-
+Create multiple nodes in a single edit operation:
 
 .. storm-pre:: [ inet:fqdn=woot.com inet:ip=12.34.56.78 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
 ::
 
     [ inet:fqdn=woot.com inet:ip=12.34.56.78 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
-
 
 **Usage Notes:**
 
@@ -309,7 +300,7 @@ Operation to add the specified node(s) to a Cortex.
   node already exists, Synapse simply returns (lifts) the node.
 - When creating a *<form>* whose *<valu>* consists of multiple components, the components must be passed as a comma-separated
   list enclosed in parentheses.
-- Once a node is created, its primary property (*<form>* = *<valu>*) **cannot be modified.** The only way to "change"
+- Once a node is created, its primary property (*<form>*=*<valu>*) **cannot be modified.** The only way to "change"
   a node’s primary property is to create a new node (and optionally delete the old node).
 
 .. _prop-add-mod:
@@ -341,25 +332,22 @@ The same syntax is used to apply a new property or modify an existing property.
 
 **Examples:**
 
-*Add (or modify) a secondary property:*
-
+Add (or modify) a secondary property:
 
 .. storm-pre:: [ inet:ip=127.0.0.1 ] [ :place:loc=us.oh.wilmington ]
 ::
-
-    <inet:ip> [ :place:loc=us.oh.wilmington ]
-
+  
+  <inet:ip> [ :place:loc=us.oh.wilmington ]
 
 **Usage Notes:**
 
-- Specifying a property will set the *<prop> = <pval>* if it does not exist, or modify (overwrite) the *<prop> = <pval>*
+- Specifying a property will set the *<prop>=<pval>* if it does not exist, or modify (overwrite) the *<prop>=<pval>*
   if it already exists. **There is no prompt to confirm overwriting of an existing property.**
 - Storm will return an error if the inbound set of nodes contains any forms for which *<prop>* is not a valid property.
-  For example, attempting to set a ``:place:loc`` property when the inbound nodes contain both domains and IP addresses will
-  return an error as ``:place:loc`` is not a valid secondary property for a domain (``inet:fqdn``).
+  For example, attempting to set a ``:place:loc`` property when the inbound nodes contain both FQDNs and IP addresses will
+  return an error as ``:place:loc`` is not a valid secondary property for an FQDN (``inet:fqdn``).
 - Properties to be set or modified **must** be specified by their relative property name. For example, for the form ``foo:bar`` with
   the property ``baz`` (i.e., ``foo:bar:baz``) the relative property name is specified as ``:baz``.
-
 
 .. _prop-add-mod-subquery:
 
@@ -367,11 +355,11 @@ Add or Modify Properties Using Subqueries
 -----------------------------------------
 
 Secondary property values can be set using a **subquery** to assign the value. The subquery executes a Storm query to lift
-the node(s) whose primary property should be assigned as the value of the secondary property.
+the node(s) that should be assigned as the value of the secondary property.
 
-This is a specialized use case that is most useful when working with property values that are guids (see :ref:`gloss-guid`)
-as it avoids the need to type or copy and paste the guid value. Using a subquery allows you to reference the guid node using
-a more "human friendly" method.
+This is a specialized use case that is most useful when working with property values that are guid nodes (see :ref:`gloss-guid`).
+Using a subquery allows you to reference the node using a more human-friendly method (as opposed to needing
+to copy / paste the guid value).
 
 (See :ref:`storm-ref-subquery` for additional detail on subqueries.)
 
@@ -385,24 +373,21 @@ a more "human friendly" method.
 
 **Examples:**
 
-*Use a subquery to assign an organization's (ou:org) guid as the secondary property of a ps:contact node:*
+Use a subquery to assign an organization (``ou:org``) as the secondary property of an ``entity:contact`` node:
 
-.. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :websites+=https://www.justice.gov/ :name="U.S. Department of Justice" ]
-.. storm-pre:: [ entity:contact=d41d8cd98f00b204e9800998ecf8427e :org:name="U.S. Department of Justice" :place:address="950 Pennsylvania Avenue NW, Washington, DC, 20530-0001" :phone="+1 202-514-2000" :place:loc="us.dc.washington" ]
-.. storm-cli:: entity:contact:org:name="U.S. Department of Justice" [ :org={ ou:org:name="U.S. Department of Justice" } ]
+.. storm-pre:: [ ( ou:org=( { "name": "The Vertex Project",  } ) :websites+=https://vertex.link/ ) ( entity:contact=( { "name": "Ozzie the Pony", "type": "employee.vertex" } ) :org:name='The Vertex Project' ) ]
+.. storm-cli:: entity:contact:name='Ozzie the Pony' [ :org={ ou:org:name='The Vertex Project' } ]
 
-In the example above, the subquery ``ou:org:name="U.S. Department of Justice"`` is used to lift the organization node with
-that ``:name`` property value and assign the ``ou:org`` node's guid value to the ``:org`` property of the ``entity:contact`` node.
+In the example above, the subquery ``ou:org:name='The Vertex Project'`` is used to lift the organization node with
+that ``:name`` property value and assign the node to the ``:org`` property of the ``entity:contact`` node.
 
-*Use a subquery to assign one or more industries (ou:industry) to an organization (ou:org):*
+Use a subquery to assign one or more industries (``ind:industry``) to an organization:
 
-.. storm-pre:: [ ou:org=2848b564bf1e68563e3fea4ce27299f3 :name=apple :names=(apple, "apple, inc.") :phone="+1 408-996-1010" :place:loc=us.ca.cupertino]
-.. storm-pre:: [ ou:industry="*" :name="Computers and Electronics" ]
-.. storm-pre:: [ ou:industry="*" :name="Telecommunications" ]
-.. storm-cli:: ou:org:name=apple [ :industries+={ ou:industry:name="computers and electronics" ou:industry:name="telecommunications" } ]
+.. storm-pre:: [ ( ou:org=( { "name": "apple" } ) :names+='apple, inc.') ind:industry=( { "name": "c - manufacturing", "reporter:name": "isic" } ) ind:industry=( { "name": "k - telecommunications, computer programming, consultancy, computing infrastructure, and other information service activities", "reporter:name": "isic" } ) ]
+.. storm-cli:: ou:org:name=apple [ :industries+={ ind:industry:name~=manufacturing ind:industry:name~=telecommunications } ]
 
-In the example above, the subquery is used to lift the specified industry nodes (``ou:industry``) and assign both nodes'
-guid values to the ``ou:org:industries`` property for Apple's organization node.
+In the example above, the subquery is used to lift the specified industry nodes (``ind:industry``) and assign both nodes
+to the ``ou:org:industries`` property for Apple's organization node.
 
 .. NOTE::
 
@@ -416,8 +401,8 @@ guid values to the ``ou:org:industries`` property for Apple's organization node.
 - When using a subquery to assign a value to a property that takes only a single value, Storm will throw an error if
   the subquery returns more than one node.
 - When using a subquery to assign a property value, the subquery cannot iterate more than 128 times or Storm will throw
-  an error. For example, attempting to assign "all the industries" to a single organization ( ``ou:org=<guid> [ :industries+={ ou:industry } ]`` )
-  will error if there are more than 128 ``ou:industry`` nodes.
+  an error. For example, attempting to assign all industries to a single organization ( ``ou:org=<guid> [ :industries+={ ind:industry } ]`` )
+  will error if there are more than 128 ``ind:industry`` nodes.
 
 .. _prop-del:
 
@@ -426,35 +411,26 @@ Delete Properties
 
 Operation to delete (fully remove) one or more properties from the specified node(s).
 
-.. NOTE::
-  
-  In Synapse 2.x, a property must be deleted from the :ref:`gloss-layer` where the property exists. Generally speaking,
-  this means you must be in the :ref:`gloss-view` where the relevant layer is the topmost (writeable) layer in order to
-  delete the property.
-
 **Syntax:**
 
 *<query>* **[ -:** *<prop>* ... **]**
 
 **Examples:**
 
-*Delete the :place:loc property from an inet:ip node:*
-
+Delete the ``:place:loc`` property from an ``inet:ip`` node:
 
 .. storm-pre:: inet:ip=127.0.0.1 [ -:place:loc ]
 ::
+  
+  <inet:ip> [ -:place:loc ]
 
-    <inet:ip> [ -:place:loc ]
+Delete multiple properties from a ``doc:report`` node:
 
-
-*Delete multiple properties from a doc:report node:*
-
-
-.. storm-pre:: doc:report [ -:author -:desc ]
+.. storm-pre:: $creator={ [ entity:contact=( { "name": "savage", "type": "vertex.employee" } ) ] } [ doc:report=( { "title": "you're doing it wrong", "publisher:name": "vertex" } ) :creator=$creator :desc='YOU PEOPLE' ]
+.. storm-pre:: doc:report [ -:creator -:desc ]
 ::
-
-    <doc:report> [ -:author -:desc ]
-
+  
+  <doc:report> [ -:creator -:desc ]
 
 **Usage Notes:**
 
@@ -495,75 +471,64 @@ See :ref:`data-light-edge` for details on light edges.
 
 **Examples:**
 
-*Link the specified FQDN and IP to the doc:report node referenced by the Storm expression using a "refs" light edge:*
+Link the specified FQDN and IP to the ``doc:report`` node referenced by the Storm expression using a ``-(refs)>`` light edge:
 
-
-.. storm-pre:: inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report=a3759709982377809f28fc0555a38193 } ]
-.. storm-pre:: [inet:fqdn=newsonet.net inet:fqdn=staycools.net inet:fqdn=hugesoft.org inet:fqdn=purpledaily.com +#rep.mandiant.apt1]
+.. storm-pre:: [ inet:fqdn=woot.com inet:ip=1.2.3.4 doc:report=( { "title": "report about bad stuff", "publisher:name": "zscaler" } ) ]
+.. storm-pre:: inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report:title="report about bad stuff" } ]
 ::
+  
+  inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report:title="report about bad stuff" } ]
 
-    inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report=a3759709982377809f28fc0555a38193 } ]
+Link the specified ``doc:report`` node to the set of indicators Mandiant associates with APT1 (``#rep.mandiant.apt1``) using a ``-(refs)>`` light edge:
 
-
-*Link the specified doc:report node to the set of indicators tagged APT1 (#rep.mandiant.apt1) using a "refs" (references) light edge:*
-
-
-.. storm-pre:: doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
+.. storm-pre:: [ doc:report=( { "title": "apt1 report", "publisher:name": "mandiant"} ) inet:fqdn=newsonet.net inet:fqdn=staycools.net inet:fqdn=hugesoft.org inet:fqdn=purpledaily.com +#rep.mandiant.apt1 ]
+.. storm-pre:: doc:report:title="apt1 report" [ +(refs)> { #rep.mandiant.apt1 } ]
 ::
+  
+  doc:report:title="apt1 report" [ +(refs)> { #rep.mandiant.apt1 } ]
 
-    doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
+Link the specified threat cluster (``risk:threat``) to the technique used by the cluster with a ``-(used)>`` light edge:
 
-
-*Link the inet:whois:iprec netblock registration (whois) record to any IP address within the specified netblock range (as referenced by the Storm expression) that already exists in Synapse using an "ipwhois" light edge:*
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: [ ( inet:whois:iprec=6aa3294c11baddd193a545c6f29207d5 :name=OVH-CUST-3399212 :net:min=198.50.240.220 :net:max=198.50.240.223 ) ]
-    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
-
+.. storm-pre:: [ meta:technique=( { "name": "phishing", "reporter:name": "mitre" } ) risk:threat=( { "name": "forest blizzard", "reporter:name": "microsoft" } ) ]
+.. storm-pre:: risk:threat:name='forest blizzard' [ +(used)> { meta:technique:name=phishing } ]
 ::
+  
+  risk:threat:name='forest blizzard' [ +(used)> { meta:technique:name=phishing } ]
 
-    inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
+Link the specified threat cluster to a technique used by the cluster with a ``-(used)>`` light edge, creating the technique if it does not exist:
 
-
-*Link the inet:whois:iprec netblock registration (whois) record to every IP in the specified netblock range (as referenced by the Storm expression) using an "ipwhois" light edge, creating the IPs if they do not exist:*
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
-
+.. storm-pre:: risk:threat:name='forest blizzard' [ +(used)> { [ meta:technique=( { "name": "phishing", "reporter:name": "mitre" } ) ] } ]
 ::
+  
+  risk:threat:name='forest blizzard' [ +(used)> { [ meta:technique=( { "name": "phishing", "reporter:name": "mitre" } ) ] }
 
-    inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
+.. TIP::
+  
+  A ``meta:technique`` is a guid node; the example above uses :ref:`guid-dictionary` to create / deconflict the
+  ``meta:technique`` node based on the technique ``:name`` and ``:reporter:name``.
 
 
-*Link the specified doc:report node to a node contained in a variable using a  "refs" light edge:*
+Link the specified ``doc:report`` node to a node contained in a variable using a ``-(refs)>`` light edge:
 
-
-.. storm-pre:: $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
+.. storm-pre:: [ doc:report=( { "title": "\"It's all WINNTI\", says researcher", "publisher:name": "bloomberg" } ) ]
+.. storm-pre:: $fqdn={ inet:fqdn=woot.com } doc:report:title="\"It's all WINNTI\" says researcher" [ +(refs)> $fqdn ]
 ::
+  
+  $fqdn={ inet:fqdn=woot.com } doc:report:title="\"It's all WINNTI\", says researcher" [ +(refs)> $fqdn ]
 
-    $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
+.. TIP::
+  
+  In the example above, the document title includes double quotes (``"``), so the backslash (``\``) is needed
+  in order to escape those characters. See :ref:`storm-literals` for details on the use of single quotes,
+  double quotes, and escape characters in Storm.
 
 
 **Usage Notes:**
 
 - The plus sign ( ``+`` ) used with the light edge expression within the edit brackets is used to create the light edge(s).
-- Light edges can be created in either "direction" (e.g., with the directional arrow pointing either right ( ``+(<verb>)>`` )
+- Light edges can be created in either direction (e.g., with the directional arrow pointing either right ( ``+(<verb>)>`` )
   or left ( ``<(<verb>)+`` ) - whichever syntax is easier.
-- Synapse does not include any pre-existing light edges / light edge verbs. Users can create and define light edges to meet
-  their needs.
-- Synapse's data model documentation for :ref:`dm-forms` lists various light edges that can be used with each form, based on
-  The Vertex Project's recommendations. Use of these specific edges is not enforced by Synapse, although these edges may be
-  created by various Vertex-provided Power-Ups.
-- Light edge verbs are created "on the fly" when they are first used to link nodes; they do not need to be created
-  or defined in advance before they can be used.
-- A light edge's verb typically has a logical direction (a report "references" a set of indicators that it contains, but
-  the indicators do not "reference" the report). It is up to the user to create the light edges in the correct direction
-  and use forms that are sensical for the light edge verb. That is, there is nothing in the Storm syntax itself to prevent
-  users linking arbitrary nodes in arbitrary directions using arbitrary light edges.
-- The Storm :ref:`storm-edges`, :ref:`storm-lift`, and :ref:`storm-model` commands can be used to work with light edges
-  in Synapse.
+- The Storm :ref:`storm-edges` and :ref:`storm-lift` commands can be used to work with light edges in Synapse.
 
 
 .. _light-edge-del:
@@ -575,59 +540,56 @@ Operation that deletes the light edge linking the specified node(s) to the set o
 
 See :ref:`data-light-edge` for details on light edges.
 
-.. NOTE::
-  
-  In Synapse 2.x, a light edge must be deleted from the :ref:`gloss-layer` where the edge exists. Generally speaking,
-  this means you must be in the :ref:`gloss-view` where the relevant layer is the topmost (writeable) layer in order to
-  delete the edge.
-
 **Syntax:**
 
 *<query>* **[ -(** *<verb>* **)> {** *<storm>* **}** | *<valu>* **]**
 
 *<query>* **[ <(** *<verb>* **)- {** *<storm>* **}** | *<valu>* **]**
 
-.. CAUTION::
+.. NOTE::
   
-  The minus sign ( ``-`` ) used with a light edge **outside** any edit brackets simply instructs Storm to traverse ("walk")
+  The minus sign ( ``-`` ) used with a light edge **outside** any edit brackets simply instructs Storm to traverse (walk)
   the specified light edge (see :ref:`storm-traverse`). The minus sign used with a light edge **inside** edit brackets
   instructs Storm to **delete** the specified edges.
 
 **Examples:**
 
-*Delete the "refs" light edge linking the MD5 hash of the empty file to the specified doc:report node:*
+Delete the ``-(refs)>`` light edge linking the MD5 hash of the empty file to the specified ``doc:report`` node:
 
-
-.. storm-pre:: crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
+.. storm-pre:: [ crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e doc:report=( { "title": "report about bad stuff", "publisher:name": "zscaler" } ) ] 
+.. storm-pre:: crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report:title="report about bad stuff" } ]
 ::
+  
+  crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report:title="report about bad stuff" } ]
 
-    crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report=a3759709982377809f28fc0555a38193 } ]
 
+Delete the ``-(used)>`` light edge linking the threat cluster Forest Blizzard to the technique "phishing":
 
-*Delete the "ipwhois" light edge linking IP 1.2.3.4 to the specified netblock registration (whois) record:*
-
-..
-    FIXME - Correct this for 3.0.0 model changes when it is stable
-    .. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
-
+.. storm-pre:: [ risk:threat=( { "name": "forest blizzard", "reporter:name": "microsoft" } ) +(used)> { [ meta:technique=( { "name": "phishing", "reporter:name": "mitre" } ) ] } ]
+.. storm-pre:: risk:threat:name='forest blizzard' [ -(used)> { meta:technique:name=phishing } ]
 ::
+  
+  risk:threat:name='forest blizzard' [ -(used)> { meta:technique:name=phishing } ]
 
-    inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
+Delete the ``-(refs)>`` light edge linking the specified ``doc:report`` and a node contained in a variable:
 
-
-*Delete the "refs" light edge linking the specified doc:report and a node contained in a variable:*
-
-
-.. storm-pre:: $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
+.. storm-pre:: [ doc:report=( { "title": "\"It's all WINNTI\", says researcher", "publisher:name": "bloomberg" } ) +(refs)> { inet:fqdn=woot.com } ]
+.. storm-pre:: $fqdn={ inet:fqdn=woot.com } doc:report:title="\"It's all WINNTI\", says researcher" [ -(refs)> $fqdn ]
 ::
+  
+  $fqdn={ inet:fqdn=woot.com } doc:report:title="\"It's all WINNTI\", says researcher" [ -(refs)> $fqdn ]
 
-    $fqdn = { inet:fqdn=woot.com } doc:report=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
+.. TIP::
+  
+  In the example above, the document title includes double quotes (``"``), so the backslash (``\``) is needed
+  in order to escape those characters. See :ref:`storm-literals` for details on the use of single quotes,
+  double quotes, and escape characters in Storm.
 
 
 **Usage Notes:**
 
 - The minus sign ( ``-`` ) used with the light edge expression within the edit brackets is used to delete the light edge(s).
-- Light edges can be deleted in either "direction" (e.g., with the directional arrow pointing either right ( ``-(<verb>)>`` )
+- Light edges can be deleted in either direction (e.g., with the directional arrow pointing either right ( ``-(<verb>)>`` )
   or left ( ``<(<verb>)-`` ) - whichever syntax is easier.
 
 
@@ -648,17 +610,16 @@ Operation to add one or more tags to the specified node(s).
 
 **Examples:**
 
-*Add a single tag:*
+Add a single tag:
 
 .. storm-pre:: [ inet:ip=185.29.8.215 +#cno.infra.anon.tor.exit ]
 ::
   
   <inet:ip> [ +#cno.infra.anon.tor.exit ]
 
-*Add multiple tags:*
+Add multiple tags:
 
-
-.. storm-pre:: [inet:fqdn=blackcake.net] [ +#rep.mandiant.apt1 +#cno.infra.dns.sink.holed ]
+.. storm-pre:: [ inet:fqdn=blackcake.net ] [ +#rep.mandiant.apt1 +#cno.infra.dns.sink.holed ]
 ::
   
   <inet:fqdn> [ +#rep.mandiant.apt1 +#cno.infra.dns.sink.holed ]
@@ -697,35 +658,35 @@ Add tag property:
 
 **Examples:**
 
-*Add tag with single timestamp:*
+Add tag with single timestamp:
 
-
-.. storm-pre:: inet:fqdn [ +#cno.infra.dns.sink.holed=2018/11/27 ]
+.. storm-pre:: [ inet:fqdn=unwashedsound.com ]
+.. storm-pre:: inet:fqdn=unwashedsound.com [ +#cno.infra.dns.sink.holed=2018/11/27 ]
 ::
 
     <inet:fqdn> [ +#cno.infra.dns.sink.holed=2018/11/27 ]
 
 
-*Add tag with a time interval (min / max):*
+Add tag with a time interval (min / max):
 
-
-.. storm-pre:: inet:fqdn [ +#cno.infra.dns.sink.holed=(2014/11/06, 2016/11/06) ]
+.. storm-pre:: [ inet:fqdn=coffeehausblog.com ]
+.. storm-pre:: inet:fqdn=coffeehausblog.com [ +#cno.infra.dns.sink.holed=(2014/11/06, 2016/11/06) ]
 ::
 
     <inet:fqdn> [ +#cno.infra.dns.sink.holed=(2014/11/06, 2016/11/06) ]
 
 .. TIP::
   
-  Tag timestamps are intervals (ival types). See the :ref:`type-ival` section of the
+  Tag timestamps are interval (``ival``) types. See the :ref:`type-ival` section of the
   :ref:`storm-ref-type-specific` for details on interval behavior and working with intervals.
 
 
-*Add tag with custom tag property and value:*
+Add tag with custom tag property and value:
 
-.. storm-pre:: $tagpropinfo = ({"doc": "A risk tagprop."}) $lib.model.ext.addTagProp(risk, (int, ({})), $tagpropinfo) [inet:fqdn=woot.com +#rep.symantec:risk=87]
+.. storm-pre:: $tagpropinfo=({"doc": "A risk tagprop."}) $lib.model.ext.addTagProp(_risk, (int, ({})), $tagpropinfo) [inet:fqdn=woot.com +#rep.symantec:_risk=87]
 ::
 
-    <inet:fqdn> [ +#rep.symantec:risk = 87 ]
+    <inet:fqdn> [ +#rep.symantec:_risk=87 ]
 
 .. TIP::
   
@@ -762,7 +723,7 @@ Tag timestamps or tag properties can be modified using the same syntax used to a
 
 .. TIP::
   
-  Tag timestamps are intervals (ival types). See the :ref:`type-ival` section of the
+  Tag timestamps are interval (``ival``) types. See the :ref:`type-ival` section of the
   :ref:`storm-ref-type-specific` for details on interval behavior when modifying interval values.
 
 
@@ -776,11 +737,6 @@ Operation to delete one or more tags from the specified node(s).
 Removing a tag from a node differs from deleting the node representing a tag (a ``syn:tag`` node), which can be done using the Storm
 :ref:`storm-delnode` command.
 
-.. NOTE::
-  
-  In Synapse 2.x, a tag must be deleted from the :ref:`gloss-layer` where the tag exists. Generally speaking, this means
-  you must be in the :ref:`gloss-view` where the relevant layer is the topmost (writeable) layer in order to delete the tag.
-
 
 **Syntax:**
 
@@ -788,16 +744,16 @@ Removing a tag from a node differs from deleting the node representing a tag (a 
 
 **Examples:**
 
-*Remove a leaf tag (i.e., the final or rightmost element of the tag):*
+Remove a leaf tag (i.e., the final or rightmost element of the tag):
 
-
+.. storm-pre:: [ inet:ip=23.191.200.123 +#cno.infra.anon.tor.exit ]
 .. storm-pre:: inet:ip [ -#cno.infra.anon.tor.exit ]
 ::
 
     <inet:ip> [ -#cno.infra.anon.tor.exit ]
 
 
-*Remove a full tag (i.e., the entire tag):*
+Remove a full tag (i.e., the entire tag):
 
 .. storm-pre::  inet:ip [ -#cno ]
 ::
@@ -849,12 +805,12 @@ Remove a tag property:
 
 **Example:**
 
-*Remove the custom tag property ':risk' from a tag:*
+Remove the custom tag property ``:_risk`` from a tag:
 
-.. storm-pre:: inet:fqdn=woot.com [ -#rep.symantec:risk ]
+.. storm-pre:: inet:fqdn=woot.com [ -#rep.symantec:_risk ]
 ::
 
-    <inet:fqdn> [ -#rep.symantec:risk ]
+    <inet:fqdn> [ -#rep.symantec:_risk ]
 
 
 .. _data-mod-combo:
@@ -868,8 +824,7 @@ Storm allows you to perform multiple edits within a single edit operation (set o
 Simple Examples
 +++++++++++++++
 
-*Create a node and add secondary properties:*
-
+Create a node and add secondary properties:
 
 .. storm-pre:: [ inet:ip=94.75.194.194 :place:loc=nl :asn=60781 ]
 ::
@@ -877,8 +832,7 @@ Simple Examples
     [ inet:ip=94.75.194.194 :place:loc=nl :asn=60781 ]
 
 
-*Create a node and add a tag:*
-
+Create a node and add a tag:
 
 .. storm-pre:: [ inet:fqdn=blackcake.net +#rep.mandiant.apt1 ]
 ::
@@ -916,12 +870,13 @@ Consider the following Storm query that uses only edit brackets:
 
 The query will:
 
-- Lift all domains that Mandiant associates with APT1 (i.e., tagged ``#rep.mandiant.apt1``).
+- Lift all domains that Mandiant associates with APT1 (``#rep.mandiant.apt1``).
 - Create the new domain ``somedomain.com`` (if it does not already exist) or lift it (if it does).
 - Apply the tag ``#rep.eset.sednit`` to the domain ``somedomain.com`` **and** to all of the domains tagged
   ``#rep.mandiant.apt1`` (because those FQDNs are inbound to the edit operation / edit brackets).
 
-We can see the effects in the output of our example query:
+We can see the effects in the output of our example query. All of the FQDNs tagged ``#rep.mandiant.apt1``
+are also tagged ``#rep.eset.sednit``:
 
 .. storm-cli:: inet:fqdn#rep.mandiant.apt1 [ inet:fqdn=somedomain.com +#rep.eset.sednit ]
 
@@ -937,11 +892,12 @@ Consider the same query using edit parens inside the brackets:
 
 Because we used the edit parens, the query will:
 
-- Lift all domains that Mandiant associates with APT1 (i.e., tagged ``#rep.mandiant.apt1``).
+- Lift all domains that Mandiant associates with APT1.
 - Create the new domain ``somedomain.com`` (if it does not already exist) or lift it (if it does).
 - Apply the tag ``rep.eset.sednit`` **only** to the domain ``somedomain.com``.
 
-We can see the difference in the output of the example query:
+We can see the difference in the output of the example query. Only the FQDN ``somedomain.com`` was
+tagged ``#rep.eset.sednit``:
 
 .. storm-cli:: inet:fqdn#rep.mandiant.apt1 [ ( inet:fqdn=somedomain.com +#rep.eset.sednit ) ]
 
@@ -950,12 +906,10 @@ We can see the difference in the output of the example query:
 
 Consider the following Storm query that uses only edit brackets:
 
-
-.. storm-pre:: [inet:ip=1.2.3.4 :asn=1111 inet:ip=5.6.7.8 :asn=2222]
+.. storm-pre:: [ inet:ip=1.2.3.4 :asn=1111 inet:ip=5.6.7.8 :asn=2222 ]
 ::
 
-    [inet:ip=1.2.3.4 :asn=1111 inet:ip=5.6.7.8 :asn=2222]
-
+    [ inet:ip=1.2.3.4 :asn=1111 inet:ip=5.6.7.8 :asn=2222 ]
 
 The query will:
 
@@ -964,23 +918,20 @@ The query will:
 - Create (or lift) the IP address ``5.6.7.8``.
 - Set the ``:asn`` property for **both** IP addresses to ``2222``.
 
-We can see the effects in the output of our example query:
+We can see the effects in the output of our example query. Both IPs have the ASN ``2222``:
 
-
-.. storm-cli:: [inet:ip=1.2.3.4 :asn=1111 inet:ip=5.6.7.8 :asn=2222]
+.. storm-cli:: [ inet:ip=1.2.3.4 :asn=1111 inet:ip=5.6.7.8 :asn=2222 ]
 
 
 Consider the same query using edit parens inside the brackets:
 
-
-.. storm-pre:: [ (inet:ip=1.2.3.4 :asn=1111) (inet:ip=5.6.7.8 :asn=2222) ]
+.. storm-pre:: [ ( inet:ip=1.2.3.4 :asn=1111 ) ( inet:ip=5.6.7.8 :asn=2222 ) ]
 ::
 
-    [ (inet:ip=1.2.3.4 :asn=1111) (inet:ip=5.6.7.8 :asn=2222) ]
+    [ ( inet:ip=1.2.3.4 :asn=1111 ) ( inet:ip=5.6.7.8 :asn=2222 ) ]
 
 
-Because the brackets separate the two sets of modifications, IP ``1.2.3.4`` has its ``:asn``
+Because the edit parens separate the two sets of modifications, IP ``1.2.3.4`` has its ``:asn``
 property set to ``1111`` while IP ``5.6.7.8`` has its ``:asn`` property set to ``2222``:
 
-.. storm-cli:: [ (inet:ip=1.2.3.4 :asn=1111) (inet:ip=5.6.7.8 :asn=2222) ]
-
+.. storm-cli:: [ ( inet:ip=1.2.3.4 :asn=1111 ) ( inet:ip=5.6.7.8 :asn=2222 ) ]

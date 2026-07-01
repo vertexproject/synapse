@@ -92,7 +92,8 @@ _oper: stormfunc | initblock | emptyblock | finiblock | trycatch | subquery | _f
 BREAK.4: /break(?=[\s\}])/
 CONTINUE.4: /continue(?=[\s\}])/
 
-catchblock: "catch" _valu "as" VARTOKN "{" query "}"
+_catchvalu: _basevalu | NONQUOTEWORD
+catchblock: "catch" _catchvalu "as" VARTOKN "{" query "}"
 trycatch: "try" "{" query "}" catchblock*
 
 _STOP.4: /stop(?=($|[\s\}]))/
@@ -176,12 +177,11 @@ formpivotin: _LEFTPIVOT "*"
 
 formjoinin: _LEFTJOIN "*"
 
-operrelprop: pivotprop _RIGHTPIVOT (pivottarg | pivottarglist) -> operrelprop_pivot
-           | pivotprop _RIGHTPIVOT "*" -> operrelprop_pivotout
-           | pivotprop _RIGHTJOIN (pivottarg | pivottarglist) -> operrelprop_join
-           | pivotprop _RIGHTJOIN "*" -> operrelprop_joinout
+operrelprop: (relpropvalue | relpropvalueas) _RIGHTPIVOT (pivottarg | pivottarglist) -> operrelprop_pivot
+           | (relpropvalue | relpropvalueas) _RIGHTPIVOT "*" -> operrelprop_pivotout
+           | (relpropvalue | relpropvalueas) _RIGHTJOIN (pivottarg | pivottarglist) -> operrelprop_join
+           | (relpropvalue | relpropvalueas) _RIGHTJOIN "*" -> operrelprop_joinout
 
-pivotprop: relprop virtprop? -> relpropvalue
 pivottarg: PROPS | WILDPROPS | _varvalu
          | (PROPS | "(" _varvalu ")") virtprop -> pivottargvirt
 pivottarglist: "(" pivottarg ("," | ("," pivottarg)*) ")"
@@ -367,7 +367,8 @@ _argvalu: _rootvalu | valulist | embedquery
 // Used for most instances of values
 _basevalu: _argvalu | baresubquery
 
-_valu: _basevalu | NONQUOTEWORD
+valueas: (_basevalu | NONQUOTEWORD) "as" (BASEPROP | _varvalu)
+_valu: _basevalu | NONQUOTEWORD | valueas
 
 evalvalu: _valu
 exprdict: "{" ((_jsonexprval | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_jsonexprval | VARTOKN) ("," (_jsonexprval | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_jsonexprval | VARTOKN))* ","? )? "}"
@@ -491,8 +492,9 @@ _NOT: "not"
 notcond: _NOT _cond
 
 hasrelpropcond: relprop virtprop?
-relpropcond: relpropvalue _cmpr _valu
+relpropcond: (relpropvalue | relpropvalueas) _cmpr _valu
 relpropvalue: relprop virtprop?
+relpropvalueas: relprop virtprop? "as" (BASEPROP | _varvalu)
 
 hasvirtpropcond: (virtprop | barevirtprop)
 virtpropcond: virtpropvalue _cmpr _valu

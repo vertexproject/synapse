@@ -46,8 +46,8 @@ def build_status_list(members, cell_infos):
             status.update({
                 'nexs_indx': cell_info.get('nexsindx', 0),
                 'role': 'leader' if cell_info.get('active') else 'follower',
-                'version': str(info.get('cell', {}).get('verstring', '')),
-                'synapse': str(info.get('synapse', {}).get('verstring', '')),
+                'version': str(info.get('cell', {}).get('version', '')),
+                'synapse': str(info.get('synapse', {}).get('version', '')),
                 'online': 'True',
                 'ready': str(cell_info.get('ready', False))
             })

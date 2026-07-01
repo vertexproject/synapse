@@ -232,7 +232,7 @@ class StormlibVaultTest(s_test.SynTest):
 
             # Remove permission on global vault
             opts = {'vars': {'iden': visi1.iden, 'giden': giden}}
-            q = '$vault = $lib.vault.get($giden) return($vault.setPerm($iden, $lib.null))'
+            q = '$vault = $lib.vault.get($giden) return($vault.setPerm($iden, (null)))'
             self.true(await core.callStorm(q, opts=opts))
 
             opts = {'user': visi1.iden}

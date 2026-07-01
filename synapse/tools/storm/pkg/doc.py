@@ -92,6 +92,9 @@ async def buildPkgDocs(outp, pkgpath: str, rst_only: bool =False):
         with s_common.genfile(builtrst) as fd:
             buf = fd.read().decode()
 
+        # Substitute the docs base URL token with the resolved value
+        buf = s_common.substDocsBaseUrl(buf)
+
         # Remove highglight:: none directives
         buf = buf.replace('.. highlight:: none\n', '')
 

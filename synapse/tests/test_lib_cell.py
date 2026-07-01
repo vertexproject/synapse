@@ -129,10 +129,9 @@ class EchoAuthApi(s_cell.CellApi):
 
 class EchoAuth(s_cell.Cell):
     cellapi = EchoAuthApi
-    # non-default commit / version / verstring
+    # non-default commit / version
     COMMIT = 'mycommit'
-    VERSION = (1, 2, 3)
-    VERSTRING = '1.2.3'
+    VERSION = '1.2.3'
 
     async def answer(self):
         return 42
@@ -505,8 +504,7 @@ class CellTest(s_t_utils.SynTest):
     async def test_cell_getinfo(self):
         async with self.getTestCore() as cell:
             cell.COMMIT = 'mycommit'
-            cell.VERSION = (1, 2, 3)
-            cell.VERSTRING = '1.2.3'
+            cell.VERSION = '1.2.3'
 
             cell.features.update({
                 'testvalu': 2
@@ -525,8 +523,7 @@ class CellTest(s_t_utils.SynTest):
                 nxfo = cnfo.get('nexus')
                 snfo = info.get('synapse')
                 self.eq(cnfo.get('commit'), 'mycommit')
-                self.eq(cnfo.get('version'), (1, 2, 3))
-                self.eq(cnfo.get('verstring'), '1.2.3')
+                self.eq(cnfo.get('version'), '1.2.3')
                 self.eq(cnfo.get('type'), 'cortex')
                 self.true(cnfo.get('active'))
                 self.none(cnfo.get('mirror', True))
@@ -550,7 +547,7 @@ class CellTest(s_t_utils.SynTest):
 
                 # Synapse information
                 self.eq(snfo.get('version'), s_version.version)
-                self.eq(snfo.get('verstring'), s_version.verstring),
+                self.eq(snfo.get('version'), s_version.version),
                 self.eq(snfo.get('commit'), s_version.commit)
 
                 netw = cnfo.get('network')
@@ -594,12 +591,12 @@ class CellTest(s_t_utils.SynTest):
                 cnfo1 = await cell01.getCellInfo()
                 nxfo1 = cnfo1['cell']['nexus']
                 self.none(cnfo0['cell']['mirror'])
-                self.eq(cnfo0['cell']['version'], (1, 2, 3))
+                self.eq(cnfo0['cell']['version'], '1.2.3')
                 self.false(nxfo0.get('uplink:ready'))
                 self.true(nxfo0.get('ready'))
 
                 self.eq(cnfo1['cell']['mirror'], 'aha://root@cell...')
-                self.eq(cnfo1['cell']['version'], (1, 2, 3))
+                self.eq(cnfo1['cell']['version'], '1.2.3')
 
                 self.true(nxfo1.get('uplink:ready'))
                 self.true(nxfo1.get('ready'))
@@ -1328,23 +1325,23 @@ class CellTest(s_t_utils.SynTest):
             hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
 
             async with self.getHttpSess(port=hport) as sess:
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue')
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/onepass/issue')
                 answ = await resp.json()
                 self.eq('err', answ['status'])
                 self.eq('NotAuthenticated', answ['code'])
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
 
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue')
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/onepass/issue')
                 answ = await resp.json()
                 self.eq('err', answ['status'])
                 self.eq('SchemaViolation', answ['code'])
 
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': 'newp'})
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/onepass/issue', json={'user': 'newp'})
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': visi.iden})
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/onepass/issue', json={'user': visi.iden})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
 
@@ -1359,7 +1356,7 @@ class CellTest(s_t_utils.SynTest):
 
             # purposely give a negative expire for test...
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': visi.iden, 'duration': -1000})
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/onepass/issue', json={'user': visi.iden, 'duration': -1000})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
                 onepass = answ['result']
@@ -1810,7 +1807,7 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestAxon(conf={'auth:passwd': 'root'}) as axon:
             await axon.enter_context(self.withSetLoggingMock())
             addr, port = await axon.addHttpsPort(0)
-            url = f'https+insecure://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
+            url = f'https+insecure://root:root@localhost:{port}/api/v3/axon/files/by/sha256/'
 
             # Make our first backup
             async with self.getTestCore() as core:
@@ -1943,7 +1940,7 @@ class CellTest(s_t_utils.SynTest):
                 async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, conf={'auth:passwd': 'root'},
                                             dirn=adr0) as axon00:
                     addr, port = await axon00.addHttpsPort(0)
-                    url = f'https+insecure://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
+                    url = f'https+insecure://root:root@localhost:{port}/api/v3/axon/files/by/sha256/'
 
                     async with self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=cdr0) as core00:
                         async with self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=cdr1,
@@ -2025,7 +2022,7 @@ class CellTest(s_t_utils.SynTest):
                 async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, conf={'auth:passwd': 'root'},
                                             dirn=adr0) as axon00:
                     addr, port = await axon00.addHttpsPort(0)
-                    url = f'https+insecure://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
+                    url = f'https+insecure://root:root@localhost:{port}/api/v3/axon/files/by/sha256/'
 
                     async with self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=cdr0) as core00:
                         async with self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=cdr1,
@@ -2441,7 +2438,7 @@ class CellTest(s_t_utils.SynTest):
 
                 async with self.getHttpSess(auth=('root', 'root'), port=hport) as bsess:
 
-                    async with bsess.ws_connect(f'wss://localhost:{hport}/api/v1/behold') as sock:
+                    async with bsess.ws_connect(f'wss://localhost:{hport}/api/v3/behold') as sock:
 
                         async def beholdConsumer():
                             await sock.send_json({'type': 'call:init'})
@@ -2459,7 +2456,7 @@ class CellTest(s_t_utils.SynTest):
                         self.true(await asyncio.wait_for(bstrt.wait(), timeout=12))
 
                         async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
-                            resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')
+                            resp = await sess.get(f'https://localhost:{hport}/api/v3/healthcheck')
                             answ = await resp.json()
                             self.eq('ok', answ['status'])
 
@@ -2485,7 +2482,7 @@ class CellTest(s_t_utils.SynTest):
                         self.eq(rname, 'SomeTestCertificate')
 
                         async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
-                            resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')
+                            resp = await sess.get(f'https://localhost:{hport}/api/v3/healthcheck')
                             answ = await resp.json()
                             self.eq('ok', answ['status'])
 
@@ -2552,12 +2549,12 @@ class CellTest(s_t_utils.SynTest):
 
                 headers0 = {'X-API-KEY': rtk0}
 
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers0,
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/onepass/issue', headers=headers0,
                                        json={'user': lowuser})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
 
-                resp = await sess.get(f'https://localhost:{hport}/api/v1/auth/roles', headers=headers0)
+                resp = await sess.get(f'https://localhost:{hport}/api/v3/auth/roles', headers=headers0)
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
 
@@ -2585,7 +2582,7 @@ class CellTest(s_t_utils.SynTest):
 
                 # Expired token fails
                 headers2 = {'X-API-KEY': rtk1}
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/onepass/issue', headers=headers2,
                                        json={'user': lowuser})
                 self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
@@ -2599,7 +2596,7 @@ class CellTest(s_t_utils.SynTest):
 
                 # New token works
                 headers2 = {'X-API-KEY': rtk3}
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/onepass/issue', headers=headers2,
                                        json={'user': lowuser})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
@@ -2607,7 +2604,7 @@ class CellTest(s_t_utils.SynTest):
                 # Delete the token - it no longer works
                 await cell.delUserApiKey(rtdf3.get('iden'))
 
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/onepass/issue', headers=headers2,
                                        json={'user': lowuser})
                 self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
@@ -2615,7 +2612,7 @@ class CellTest(s_t_utils.SynTest):
 
                 # Backup token works
                 headers2 = {'X-API-KEY': bkk0}
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/onepass/issue', headers=headers2,
                                        json={'user': lowuser})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
@@ -2628,7 +2625,7 @@ class CellTest(s_t_utils.SynTest):
 
                 # New token works
                 headers2 = {'X-API-KEY': ltk0}
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/password/{lowuser}', headers=headers2,
                                        json={'passwd': 'secret'})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
@@ -2647,14 +2644,14 @@ class CellTest(s_t_utils.SynTest):
 
                 # Lock users cannot use their API keys
                 await cell.setUserLocked(lowuser, True)
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/password/{lowuser}', headers=headers2,
                                        json={'passwd': 'secret'})
                 self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
                 await cell.delUser(lowuser)
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
+                resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/password/{lowuser}', headers=headers2,
                                        json={'passwd': 'secret'})
                 self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
@@ -2738,7 +2735,7 @@ class CellTest(s_t_utils.SynTest):
         self.len(1, msgs)
 
         mesg = f'Sysctl values different than expected: {", ".join(sysvals)}. '
-        mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
+        mesg += 'See https://docs.vertex.link/docs/synapse/latest/devopsguide.html#performance-tuning '
         mesg += 'for information about these sysctl parameters.'
         self.eq(msgs[0]['message'], mesg)
         self.eq(msgs[0]['params']['sysctls'], [
@@ -2773,26 +2770,26 @@ class CellTest(s_t_utils.SynTest):
         self.len(0, data, msg=data)
 
     async def test_cell_version_regression(self):
-        oldver = (0, 1, 0)
-        newver = (0, 2, 0)
+        oldverstr = '0.1.0'
+        newverstr = '0.2.0'
 
         class TestCell(s_cell.Cell):
-            VERSION = newver
+            VERSION = newverstr
 
         with self.getTestDir() as dirn:
             async with self.getTestCell(TestCell, dirn=dirn):
                 pass
 
             with self.raises(s_exc.BadVersion) as exc:
-                with mock.patch.object(TestCell, 'VERSION', oldver):
+                with mock.patch.object(TestCell, 'VERSION', oldverstr):
                     with self.getLoggerStream('synapse.lib.cell') as stream:
                         async with self.getTestCell(TestCell, dirn=dirn):
                             pass
 
-            mesg = f'Cell version regression (testcell) is not allowed! Stored version: {newver}, current version: {oldver}.'
+            mesg = f'Cell version regression (testcell) is not allowed! Stored version: {newverstr}, current version: {oldverstr}.'
             self.eq(exc.exception.get('mesg'), mesg)
-            self.eq(exc.exception.get('currver'), oldver)
-            self.eq(exc.exception.get('lastver'), newver)
+            self.eq(exc.exception.get('currver'), oldverstr)
+            self.eq(exc.exception.get('lastver'), newverstr)
 
             stream.seek(0)
             data = stream.read()
@@ -2801,29 +2798,43 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCell(TestCell, dirn=dirn):
                 pass
 
+        # Legacy tuple stored in cellinfo passes through parse() on upgrade
         with self.getTestDir() as dirn:
-            async with self.getTestCell(s_cell.Cell, dirn=dirn):
+            async with self.getTestCell(TestCell, dirn=dirn) as cell:
+                # Simulate a legacy deployment that stored cell:version as a tuple
+                cell.cellinfo.set('cell:version', (0, 2, 0))
+
+            # Reopening should not raise: parse((0, 2, 0)) == parse('0.2.0')
+            async with self.getTestCell(TestCell, dirn=dirn):
                 pass
 
-            synver = list(s_version.version)
-            synver[1] -= 1
-            synver = tuple(synver)
+        with self.getTestDir() as dirn:
+            # Store a "future" synapse version, then try to start with a lower one
+            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
+                cell.cellinfo.set('synapse:version', '99.0.0')
+
+            lowerversion = s_version.version
 
             with self.raises(s_exc.BadVersion) as exc:
-                with mock.patch.object(s_version, 'version', synver):
-                    with self.getLoggerStream('synapse.lib.cell') as stream:
-                        async with self.getTestCell(s_cell.Cell, dirn=dirn):
-                            pass
+                with self.getLoggerStream('synapse.lib.cell') as stream:
+                    async with self.getTestCell(s_cell.Cell, dirn=dirn):
+                        pass  # pragma: no cover
 
-            mesg = f'Synapse version regression (cell) is not allowed! Stored version: {s_version.version}, current version: {synver}.'
+            mesg = f'Synapse version regression (cell) is not allowed! Stored version: 99.0.0, current version: {lowerversion}.'
             self.eq(exc.exception.get('mesg'), mesg)
-            self.eq(exc.exception.get('currver'), synver)
-            self.eq(exc.exception.get('lastver'), s_version.version)
+            self.eq(exc.exception.get('currver'), lowerversion)
+            self.eq(exc.exception.get('lastver'), '99.0.0')
 
             stream.seek(0)
             data = stream.read()
             self.isin(mesg, data)
 
+        # Legacy tuple stored in synapse:version passes through parse() on upgrade
+        with self.getTestDir() as dirn:
+            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
+                cell.cellinfo.set('synapse:version', s_version.version)
+
+            # Reopening should not raise: parse(tuple) == parse(version) same release
             async with self.getTestCell(s_cell.Cell, dirn=dirn):
                 pass
 
@@ -2952,6 +2963,25 @@ class CellTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.LinkShutDown):
                 self.none(await cell.getAhaProxy())
+
+    async def test_cell_bump_aha_proxy(self):
+
+        async with self.getTestCell() as cell:
+
+            # no ahaclient configured: returns without error
+            await cell._bumpAhaProxy()
+
+            class MockClient:
+                async def proxy(self, timeout=None):
+                    raise s_exc.LinkShutDown(mesg='forced reconnect failed')
+
+            cell.ahaclient = MockClient()
+
+            # the except block must swallow the error and log it
+            # (before the fix, awaiting the getLogExtra dict raised TypeError)
+            with self.getLoggerStream('synapse.lib.cell') as stream:
+                await cell._bumpAhaProxy()
+                await stream.expect('Error forcing AHA reconnect.', timeout=1)
 
     async def test_stream_backup_exception(self):
 
@@ -3177,3 +3207,45 @@ class CellTest(s_t_utils.SynTest):
                         break
 
                 await task
+
+    async def test_cell_shutdown_demote_peers_timeout(self):
+
+        async with self.getTestCell() as cell:
+
+            async def boom(*args, **kwargs):
+                raise TimeoutError()
+
+            cell.isactive = True
+            cell.ahaclient = mock.Mock()
+
+            with mock.patch.object(cell, '_getDemotePeers', boom):
+                with self.getLoggerStream('synapse.lib.cell') as stream:
+                    self.false(await cell.shutdown(timeout=5))
+                await stream.expect('timeout reached while finding demote peers')
+
+    async def test_cell_shutdown_budget_exhausted(self):
+
+        async with self.getTestCell() as cell:
+
+            with self.getLoggerStream('synapse.lib.cell') as stream:
+                self.false(await cell.shutdown(timeout=0))
+            await stream.expect('timeout reached before tasks phase')
+
+    async def test_cell_shutdown_drain_plumbed(self):
+
+        async with self.getTestCell() as cell:
+
+            seen = {}
+            orig = cell.boss.shutdown
+
+            async def spy(timeout=None, drain=False):
+                seen['timeout'] = timeout
+                seen['drain'] = drain
+                return await orig(timeout=timeout, drain=drain)
+
+            with mock.patch.object(cell.boss, 'shutdown', spy):
+                self.true(await cell.shutdown(timeout=5, drain=False))
+
+            self.false(seen['drain'])
+            self.lt(seen['timeout'], 5.0)
+            self.gt(seen['timeout'], 0.0)

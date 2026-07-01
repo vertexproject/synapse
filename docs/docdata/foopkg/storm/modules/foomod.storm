@@ -3,7 +3,7 @@ function onload() {
           :name="foomod"
           :type="foo"
     ]
-    fini { return($lib.null) }
+    fini { return((null)) }
 }
 
 function bar(x, y) {

@@ -40,7 +40,7 @@ test:int $lib.csv.emit($node, $node.props.loc) | count
 class CsvToolTest(s_t_utils.SynTest):
 
     def _getOldSynVers(self):
-        return (0, 0, 0)
+        return '0.0.0'
 
     async def test_csvtool_import(self):
 

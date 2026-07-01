@@ -3,8 +3,16 @@ modeldefs = (
         'types': (
 
             ('belief:system', ('guid', {}), {
+                'template': {'title': 'belief system', 'activity': 'was active'},
                 'interfaces': (
                     ('meta:believable', {}),
+                    ('entity:participable', {}),
+                ),
+                'props': (
+
+                    ('type', ('belief:system:type:taxonomy', {}), {
+                        'doc': 'A taxonometric type for the belief system.'}),
+
                 ),
                 'doc': 'A belief system such as an ideology, philosophy, or religion.'}),
 
@@ -12,45 +20,17 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of belief system types.'}),
 
             ('belief:tenet', ('guid', {}), {
+                'template': {'title': 'tenet', 'activity': 'was active'},
                 'interfaces': (
                     ('meta:believable', {}),
+                    ('entity:participable', {}),
                 ),
+                'props': (),
                 'doc': 'A concrete tenet potentially shared by multiple belief systems.'}),
-
-            ('belief:subscriber', ('guid', {}), {
-                'doc': 'A contact which subscribes to a belief system.'}),
-        ),
-        'forms': (
-
-            ('belief:system', {}, (
-
-                ('name', ('base:name', {}), {
-                    'doc': 'The name of the belief system.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the belief system.'}),
-
-                ('type', ('belief:system:type:taxonomy', {}), {
-                    'doc': 'A taxonometric type for the belief system.'}),
-
-                ('began', ('time', {}), {
-                    'doc': 'The time that the belief system was first observed.'}),
-
-            )),
-
-            ('belief:system:type:taxonomy', {}, ()),
-
-            ('belief:tenet', {}, (
-
-                ('name', ('base:name', {}), {
-                    'doc': 'The name of the tenet.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the tenet.'}),
-            )),
         ),
         'edges': (
 

@@ -744,8 +744,8 @@ The ready column indicates that a service has entered into the realtime change w
                     } else {
                         $status.role = 'follower'
                     }
-                    $status.version = $info.cell.verstring
-                    $status.synapse_version = $info.synapse.verstring
+                    $status.version = $info.cell.version
+                    $status.synapse_version = $info.synapse.version
                 }
                 $group_status.append($status)
             }

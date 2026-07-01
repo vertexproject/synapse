@@ -46,7 +46,7 @@ Connect With Us
 
 .. _dockerhub: https://v.vtx.lk/synapse-dockerhub
 
-.. _guide: https://synapse.docs.vertex.link/en/latest/synapse/quickstart.html
+.. _guide: https://docs.vertex.link/docs/synapse/latest/quickstart.html
 
 .. _synapse_quickstart: https://github.com/vertexproject/synapse-quickstart
 
@@ -57,5 +57,3 @@ Connect With Us
 .. _Twitter: https://v.vtx.lk/twitter
 
 .. _LinkedIn: https://www.linkedin.com/company/vertexproject
-
-

@@ -14,7 +14,7 @@ class GisLib(s_stormtypes.Lib):
                   'args': (
                       {'name': 'lon', 'type': 'float', 'desc': 'The longitude in degrees.'},
                       {'name': 'lat', 'type': 'float', 'desc': 'The latitude in degrees.'},
-                      {'name': 'dist', 'type': 'int', 'desc': 'A distance in geo:dist base units (mm).'},
+                      {'name': 'dist', 'type': 'int', 'desc': 'A distance in phys:distance base units (mm).'},
                   ),
                   'returns': {'type': 'list', 'desc': 'A tuple of (lonmin, lonmax, latmin, latmax).', }
         }},

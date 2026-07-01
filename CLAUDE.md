@@ -53,6 +53,7 @@ The alias is always `s_` followed by the last segment of the module path.
 - **Cond-Space**: Add a line of white space after a conditional block
 - **Import-Order**: Standard library imports come first, then synapse imports. They **MUST** be ordered from shortest to longest and use alphanumeric sorting to break ties.
 - **No-Unicode-Arrows**: Do **not** use unicode arrow characters (e.g. `→`, `←`, `⇒`) in code or comments.
+- **Exc-Choice**: Raise `s_exc.BadArg` to reject input you know is bad (validation, missing/duplicate things the caller named, bad types/formats). Use `s_exc.StormRuntimeError` sparingly, only for failures that happen *after* the args are accepted and processed. Do not use the removed `BadOperArg`.
 
 ### Naming Conventions
 
@@ -98,7 +99,8 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
 |---------------------------------|---------|
 | `synapse.tools.storm`           | Storm CLI |
 | `synapse.tools.storm.pkg.gen`   | Storm package generation |
-| `synapse.tools.utils.changelog` | Generate changelog entry |
+| `vtxtools.changelog synapse`    | Generate changelog entry (run from monorepo root) |
+| `vtxtools.update_datamodel`     | Regenerate `docs/datamodel.md` — always run from the repo root after any data model change: `python -m vtxtools.update_datamodel` |
 
 ## Documentation
 
@@ -106,6 +108,7 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
 - Build: `cd docs && make html`
 - Files with the `.rstorm` extension are converted to `.rst` using the `synapse.tools.utils.rstorm` tool.
 - Key docs: `adminguide.rstorm`, `deploymentguide.rst`, `devopsguide.rst`, `httpapi.rst`
+- Whenever possible, use sphinx references for linking between documents/sections.
 
 ## Docker
 

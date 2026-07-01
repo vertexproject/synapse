@@ -106,7 +106,7 @@ def bbox(lat, lon, dist):
     Args:
         lat (float): The latitude in degrees
         lon (float): The longitude in degrees
-        dist (int): A distance in geo:dist base units (mm)
+        dist (int): A distance in phys:distance base units (mm)
 
     Returns:
         (float,float,float,float): (latmin, latmax, lonmin, lonmax)

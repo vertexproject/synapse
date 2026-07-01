@@ -98,7 +98,7 @@ class StormScrapeTest(s_test.SynTest):
             self.len(2, core.modsbyiface.get('scrape'))
 
             msgs = await core.stormlist(q, opts={'vars': {'text': text}})
-            self.stormIsInPrint('entity:name=alice', msgs)
+            self.stormIsInPrint('entity:name=Alice', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar.com', msgs)
             self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
             self.stormIsInPrint('inet:url=https://giggles.com/mallory.html', msgs)
@@ -123,8 +123,8 @@ class StormScrapeTest(s_test.SynTest):
                             ('inet:fqdn', 'giggles.com'),
                             ('inet:fqdn', 'newpers.net'),
                             ('entity:name', 'billy'),
-                            ('entity:name', 'alice'),
-                            ('entity:name', 'mallory'),
+                            ('entity:name', 'Alice'),
+                            ('entity:name', 'Mallory'),
                             ('inet:url', 'https://giggles.com/mallory.html')))
 
         conf = {'storm:interface:scrape': False, }
@@ -137,7 +137,7 @@ class StormScrapeTest(s_test.SynTest):
             self.len(2, core.modsbyiface.get('scrape'))
 
             msgs = await core.stormlist(q, opts={'vars': {'text': text}})
-            self.stormNotInPrint('entity:name=alice', msgs)
+            self.stormNotInPrint('entity:name=Alice', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar.com', msgs)
             self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
 
@@ -164,6 +164,16 @@ class StormScrapeTest(s_test.SynTest):
             varz = {'text': text}
             result = await core.callStorm(query, opts={'vars': varz})
             self.eq(result, {'inet:ip=(4, 16909060)': 1, 'inet:fqdn=foo.bar': 1, 'inet:fqdn=woot.com': 1})
+
+            # a scraped crypto currency address dedups on its normed (chain, iden)
+            # value rather than the unhashable guid constructor dict (SYN-10938)
+            cointext = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2 then 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2 again'
+            query = '''$tally = $lib.stats.tally() for ($form, $ndef) in $lib.scrape.ndefs($text)
+            { $tally.inc(`{$form}={$ndef}`) }
+            fini { return ( $tally ) }
+            '''
+            result = await core.callStorm(query, opts={'vars': {'text': cointext}})
+            self.eq(result, {"crypto:currency:address=('673291fe74aaf588cb4f69f833330273', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')": 1})
 
             # $lib.scrape.context() - this is currently just wrapping s_scrape.contextscrape
             query = '''$list = () for $info in $lib.scrape.context($text)

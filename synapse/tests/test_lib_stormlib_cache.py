@@ -79,7 +79,7 @@ class StormlibCacheTest(s_test.SynTest):
             ## a function still has the outer scope as its root
             rets = await core.callStorm('''
                 $val = zero
-                $sent = $lib.null
+                $sent = (null)
 
                 function cb(key) {
                     $sent = $val
@@ -108,7 +108,7 @@ class StormlibCacheTest(s_test.SynTest):
             rets = await core.callStorm('''
                 $val = zero
                 $vals = ([])
-                $sent = $lib.null
+                $sent = (null)
 
                 $cache = $lib.cache.fixed(${
                     $sent = $val

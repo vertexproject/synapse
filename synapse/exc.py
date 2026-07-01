@@ -140,7 +140,7 @@ class BadDataValu(SynErr):
     pass
 
 class BadArg(SynErr):
-    ''' Improper function arguments '''
+    ''' Improper function arguments. Raised to reject input we know is bad. '''
     pass
 
 class BadState(SynErr): pass
@@ -149,10 +149,6 @@ class BadFileExt(SynErr): pass
 class BadIndxValu(SynErr): pass
 class BadMesgVers(SynErr): pass
 class BadMesgFormat(SynErr): pass
-class BadOperArg(SynErr):
-    ''' Improper storm function arguments '''
-    pass
-
 class BadOptValu(SynErr): pass
 class BadVersion(SynErr):
     '''Generic Bad Version exception.'''
@@ -255,6 +251,18 @@ class IsDeprLocked(SynErr):
         super().__init__(*args, **info)
 
 class IsRuntForm(SynErr): pass
+
+class JsonRpcError(SynErr):
+    '''
+    A JSON-RPC error carrying an application-defined code (and optional data).
+
+    This should contain a numeric ``code`` and a ``mesg``. An optional ``data`` value
+    may be provided to convey additional structured information to the caller.
+    '''
+    @classmethod
+    def init(cls, code, mesg, **kwargs):
+        return cls(code=code, mesg=mesg, **kwargs)
+
 class ShuttingDown(SynErr): pass
 
 class LayerInUse(SynErr): pass
@@ -400,7 +408,12 @@ class StepTimeout(SynErr):
     '''
     pass
 
-class StormRuntimeError(SynErr): pass
+class StormRuntimeError(SynErr):
+    '''
+    A runtime failure during Storm execution. Use sparingly, for things that go wrong
+    after we have accepted and processed the args. To reject bad input, raise BadArg.
+    '''
+    pass
 class StormVarListError(StormRuntimeError): pass
 
 class FatalErr(SynErr):

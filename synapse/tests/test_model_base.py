@@ -1,5 +1,3 @@
-import synapse.common as s_common
-
 import synapse.tests.utils as s_t_utils
 
 class BaseTest(s_t_utils.SynTest):
@@ -35,11 +33,11 @@ class BaseTest(s_t_utils.SynTest):
             $lib.model.ext.addForm(_test:taxonomy, taxonomy, ({}), $info)
             '''
             await core.callStorm(q)
-            nodes = await core.nodes('[_test:taxonomy=foo.bar.baz :title="title words" :desc="a test taxonomy" :sort=1 ]')
+            nodes = await core.nodes('[_test:taxonomy=foo.bar.baz :name="title words" :desc="a test taxonomy" :sort=1 ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('_test:taxonomy', 'foo.bar.baz.'))
-            self.propeq(node, 'title', 'title words')
+            self.propeq(node, 'name', 'title words')
             self.propeq(node, 'desc', 'a test taxonomy')
             self.propeq(node, 'sort', 1)
             self.propeq(node, 'base', 'baz')
@@ -62,6 +60,10 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('entity:contact:name=visi -> meta:note'))
             self.len(1, await core.nodes('meta:note:type=hehe.haha -> meta:note:type:taxonomy'))
 
+            # meta:note implements entity:creatable
+            self.true(core.model.form('meta:note').implements('entity:creatable'))
+            self.len(1, await core.nodes('meta:note [ :creator:name=visi ] +:creator:name=visi'))
+
             # Notes are always unique when made by note.add
             nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
             self.len(2, await core.nodes('meta:note'))
@@ -72,7 +74,7 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'text', 'yieldnote')
 
-            nodes = await core.nodes('note.add --yield "nonodes" | [ :replyto=* ]')
+            nodes = await core.nodes('note.add --yield "nonodes" | [ :replyto=* as meta:note ]')
             self.len(1, nodes)
             self.propeq(nodes[0], 'text', 'nonodes')
             self.nn(nodes[0].get('created'))
@@ -99,7 +101,7 @@ class BaseTest(s_t_utils.SynTest):
             sorc = nodes[0]
 
             self.propeq(sorc, 'type', 'osint.')
-            self.propeq(sorc, 'name', 'foo bar')
+            self.propeq(sorc, 'name', 'FOO Bar')
             self.propeq(sorc, 'url', 'https://foo.bar/index.html')
             self.propeq(sorc, 'ingest:offset', 17)
             self.propeq(sorc, 'ingest:cursor', 'Woot Woot')
@@ -141,7 +143,7 @@ class BaseTest(s_t_utils.SynTest):
 
             self.nn(nodes[0].get('creator'))
             self.propeq(nodes[0], 'type', 'foo.bar.')
-            self.propeq(nodes[0], 'status', 'disabled.falsepos.')
+            self.propeq(nodes[0], 'status', 'disabled.falsepos')
             self.propeq(nodes[0], 'created', 1580601600000000)
             self.propeq(nodes[0], 'updated', 1648771200000000)
             self.propeq(nodes[0], 'name', 'My Rule')
@@ -225,7 +227,9 @@ class BaseTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            org0 = s_common.guid()
+            self.true(core.model.form('meta:cluster').implements('meta:reported'))
+
+            org0 = (await core.nodes('[ ou:org=* ]'))[0].ndef[1]
 
             nodes = await core.nodes('''[
                 meta:cluster=*
@@ -236,8 +240,12 @@ class BaseTest(s_t_utils.SynTest):
                     :type=fraud.scam
                     :desc="A cluster of scam-related addresses."
                     :tag=rep.vertex.cluster.1234
-                    :reporter=$org
+                    :reporter={ ou:org=$org }
                     :reporter:name=vertex
+                    :reporter:url=https://vertex.link/clusters/1234
+                    :reporter:period=(2020, 2023)
+                    :reporter:deprecated=20230101
+                    :reporter:supersedes={[ meta:cluster=* :name="old cluster" ]}
             ]''', opts={'vars': {'org': org0}})
             self.len(1, nodes)
             node = nodes[0]
@@ -250,6 +258,16 @@ class BaseTest(s_t_utils.SynTest):
             self.propeq(node, 'tag', 'rep.vertex.cluster.1234')
             self.propeq(node, 'reporter', org0)
             self.propeq(node, 'reporter:name', 'vertex')
+            self.propeq(node, 'reporter:url', 'https://vertex.link/clusters/1234')
+            self.propeq(node, 'reporter:deprecated', 1672531200000000)
+
+            # meta:reported uses an ival :reporter:period with created/removed virts and no longer has a :created prop
+            self.none(core.model.form('meta:cluster').prop('created'))
+            self.eq(1577836800000000, node.get('reporter:period.created'))
+            self.eq(1672531200000000, node.get('reporter:period.removed'))
+            self.len(1, await core.nodes('meta:cluster +:reporter:period.created>=2019'))
+            self.len(0, await core.nodes('meta:cluster +:reporter:period.created>=2021'))
+            self.len(1, await core.nodes('meta:cluster:name="activity cluster 1" :reporter:supersedes -> meta:cluster +:name="old cluster"'))
             self.len(1, await core.nodes('meta:cluster -> meta:cluster:type:taxonomy'))
 
     async def test_model_feed(self):
@@ -308,13 +326,6 @@ class BaseTest(s_t_utils.SynTest):
 
             # edges
             nodes = await core.nodes('''
-                [ risk:tool:software=*
-                    +(uses)> { meta:algorithm:name=sha-256 }
-                ]
-            ''')
-            self.len(1, await core.nodes('risk:tool:software -(uses)> meta:algorithm'))
-
-            nodes = await core.nodes('''
                 [ it:software=*
                     +(uses)> { meta:algorithm:name=sha-256 }
                 ]
@@ -333,3 +344,64 @@ class BaseTest(s_t_utils.SynTest):
                 [ +(generated)> { [inet:ip=1.2.3.4] } ]
             ''')
             self.len(1, await core.nodes('meta:algorithm -(generated)> inet:ip'))
+
+    async def test_model_base_meta_activity(self):
+
+        async with self.getTestCore() as core:
+
+            form = core.model.form('meta:activity')
+            self.true(form.implements('entity:attendable'))
+            self.true(form.implements('base:activity'))
+
+            nodes = await core.nodes('''
+                [ meta:activity=*
+                    :name="company offsite"
+                    :desc="annual offsite"
+                    :period=(20250101, 20250102)
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'name', 'company offsite')
+            self.propeq(nodes[0], 'period', (1735689600000000, 1735776000000000, 86400000000))
+
+            self.len(1, await core.nodes('''
+                [ entity:attended=*
+                    :actor={[ ps:person=* ]}
+                    :activity={ meta:activity:name="company offsite" }
+                    :inperson=0
+                ]
+            '''))
+            self.len(1, await core.nodes('entity:attended :activity -> meta:activity +:name="company offsite"'))
+
+    async def test_model_base_meta_task(self):
+
+        async with self.getTestCore() as core:
+
+            for fname in ('proj:ticket', 'risk:alert', 'risk:vulnerable', 'ou:enacted', 'it:dev:repo:issue'):
+                form = core.model.form(fname)
+                self.true(form.implements('meta:task'))
+                self.true(form.implements('entity:participable'))
+                self.true(form.implements('base:activity'))
+                self.true(form.implements('meta:causal'))
+
+            nodes = await core.nodes('''
+                [ proj:ticket=*
+                    :name=tkt
+                    :period=(20250101, 20250201)
+                    :creator={[ syn:user=root ]}
+                    :created=20250101
+                ]
+            ''')
+            self.propeq(nodes[0], 'period', (1735689600000000, 1738368000000000, 2678400000000))
+
+            self.len(1, await core.nodes('''
+                [ entity:participated=*
+                    :actor={[ syn:user=root ]}
+                    :activity={ proj:ticket:name=tkt }
+                    :role=reporter
+                ]
+            '''))
+            self.len(1, await core.nodes('entity:participated:role=reporter :activity -> proj:ticket +:name=tkt'))
+
+            self.len(1, await core.nodes('[ ( proj:ticket=* :name=src ) +(ledto)> { proj:ticket:name=tkt } ]'))
+            self.len(1, await core.nodes('proj:ticket:name=src -(ledto)> proj:ticket'))

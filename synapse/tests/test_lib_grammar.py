@@ -52,7 +52,7 @@ Queries = [
     'test:array*[=1.2.3.4]',
     'macro.set hehe ${ inet:ip }',
     '$q=${#foo.bar}',
-    'metrics.edits.byprop inet:fqdn:domain --newv $lib.null',
+    'metrics.edits.byprop inet:fqdn:domain --newv (null)',
     'tee // comment',
     'inet:fqdn=newp.com\n | tee\n { inet:fqdn } // faz\n | uniq',
     'inet:fqdn=newp.com\n | tee\n { inet:fqdn }\n /* faz */\n | uniq',
@@ -659,7 +659,7 @@ Queries = [
     '$foo=(truesec.com,)',
     '[test:str=foo +#$tag.index(0):$tag.index(1)=$tag.index(2)]',
     'test:str#$tag.index(0):$tag.index(1)',
-    'if $lib.true { } $lib.print(`User: {$lib.true}`)',
+    'if (true) { } $lib.print(`User: {(true)}`)',
     '$foo.`{$bar.baz}`=$bar',
     '$foo.`{$bar.baz}` = $bar',
     '$foo.($bar.baz)=$bar',
@@ -797,6 +797,10 @@ Queries = [
     '[ +#foo:var.$var=2020 ]',
     '[test:str=foo +#baz?=(null)]',
     '$ts="" [test:str=foo +?#bar?=$ts]',
+    ':hehe as test:str -> test:str',
+    '[test:str=foo :hehe = 5 as test:str]',
+    '[test:str=foo :hehe = 5 as $t]',
+    'test:str +:poly as test:str=foo'
 ]
 
 # Generated with print_parse_list below
@@ -842,7 +846,7 @@ _ParseResults = [
     'Query: [LiftByArray: [Const: test:array, Const: =, Const: 1.2.3.4]]',
     'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery:  inet:ip ]]]',
     'Query: [SetVarOper: [Const: q, EmbedQuery: #foo.bar]]',
-    'Query: [CmdOper: [Const: metrics.edits.byprop, List: [Const: inet:fqdn:domain, Const: --newv, VarDeref: [VarValue: [Const: lib], Const: null]]]]',
+    'Query: [CmdOper: [Const: metrics.edits.byprop, List: [Const: inet:fqdn:domain, Const: --newv, DollarExpr: [Const: None]]]]',
     'Query: [CmdOper: [Const: tee, Const: ()]]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: newp.com], CmdOper: [Const: tee, List: [ArgvQuery: [Query: [LiftProp: [Const: inet:fqdn]]]]], CmdOper: [Const: uniq, Const: ()]]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: newp.com], CmdOper: [Const: tee, List: [ArgvQuery: [Query: [LiftProp: [Const: inet:fqdn]]]]], CmdOper: [Const: uniq, Const: ()]]',
@@ -1356,7 +1360,7 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: foo, List: [Const: truesec.com]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagPropSet: [TagProp: [TagName: [FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 0], CallKwargs: []]], FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 1], CallKwargs: []]], Const: =, FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 2], CallKwargs: []]]]',
     'Query: [LiftFormTagProp: [FormTagProp: [Const: test:str, TagName: [FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 0], CallKwargs: []]], FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 1], CallKwargs: []]]]]',
-    'Query: [IfStmt: [IfClause: [VarDeref: [VarValue: [Const: lib], Const: true], SubQuery: [Query: []]]], VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [FormatString: [Const: User: , VarDeref: [VarValue: [Const: lib], Const: true]]], CallKwargs: []]]]',
+    'Query: [IfStmt: [IfClause: [DollarExpr: [Bool: True], SubQuery: [Query: []]]], VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [FormatString: [Const: User: , DollarExpr: [Bool: True]]], CallKwargs: []]]]',
     'Query: [SetItemOper: [VarValue: [Const: foo], FormatString: [VarDeref: [VarValue: [Const: bar], Const: baz]], VarValue: [Const: bar]]]',
     'Query: [SetItemOper: [VarValue: [Const: foo], FormatString: [VarDeref: [VarValue: [Const: bar], Const: baz]], VarValue: [Const: bar]]]',
     'Query: [SetItemOper: [VarValue: [Const: foo], DollarExpr: [VarDeref: [VarValue: [Const: bar], Const: baz]], VarValue: [Const: bar]]]',
@@ -1493,7 +1497,11 @@ _ParseResults = [
     'Query: [EditTagPropVirtSet: [TagProp: [TagName: [Const: foo], Const: var], VirtProp: [Const: prec], Const: =, Const: 2020]]',
     'Query: [EditTagPropVirtSet: [TagProp: [TagName: [Const: foo], Const: var], VirtProp: [VarValue: [Const: var]], Const: =, Const: 2020]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagAdd: [TagName: [Const: baz], Const: ?=, DollarExpr: [Const: None]]]',
-    'Query: [SetVarOper: [Const: ts, Const: ], EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagAdd: [TagName: [Const: bar], Const: ?=, VarValue: [Const: ts]]]'
+    'Query: [SetVarOper: [Const: ts, Const: ], EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagAdd: [TagName: [Const: bar], Const: ?=, VarValue: [Const: ts]]]',
+    'Query: [PropPivot: [RelPropValue: [RelProp: [Const: hehe], Const: test:str], PivotTarget: [Const: test:str]], isjoin=False]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSet: [RelProp: [Const: hehe], Const: =, ValueAs: [Const: 5, Const: test:str]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSet: [RelProp: [Const: hehe], Const: =, ValueAs: [Const: 5, VarValue: [Const: t]]]]',
+    'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: poly], Const: test:str], Const: =, Const: foo]]]'
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1615,13 +1623,13 @@ class GrammarTest(s_t_utils.SynTest):
 
         query = '''function itworks() {
                 $lib.print('it works')
-                return ( $lib.true )
+                return ( true )
             }
 
             $itworks()
 
-            function foo(baz=$lib.true, faz) {
-                return ( $lib.true )
+            function foo(baz=(true), faz) {
+                return ( true )
             }
 
             $foo()'''
@@ -1629,13 +1637,13 @@ class GrammarTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('at'), 160)
+        self.eq(errinfo.get('at'), 155)
         self.eq(errinfo.get('line'), 8)
         self.eq(errinfo.get('column'), 25)
         self.eq(errinfo.get('mesg'),
                 'Positional parameter "faz" follows keyword parameter in definition')
 
-        query = '''function foo(bar, baz, bar) { return ( $lib.true ) }'''
+        query = '''function foo(bar, baz, bar) { return ( true ) }'''
         parser = s_parser.Parser(query)
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()

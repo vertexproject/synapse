@@ -61,11 +61,11 @@ class TaskLibTest(s_test.SynTest):
                         await task1
 
                     # No task matches
-                    with self.raises(s_exc.StormRuntimeError) as exc:
+                    with self.raises(s_exc.BadArg) as exc:
                         await prox01.callStorm('task.kill newp')
                     self.isin('does not match any tasks', exc.exception.get('mesg'))
 
-                    with self.raises(s_exc.StormRuntimeError) as exc:
+                    with self.raises(s_exc.BadArg) as exc:
                         await prox01.callStorm('task.kill ""')
                     self.isin('empty task iden prefix', exc.exception.get('mesg'))
 
@@ -73,14 +73,14 @@ class TaskLibTest(s_test.SynTest):
                     task2 = aha.schedCoro(core00.stormlist('$lib.print(root) $lib.time.sleep(10)', opts={'task': iden2}))
 
                     # Matches exist but we don't have perms to see them
-                    with self.raises(s_exc.StormRuntimeError) as exc:
+                    with self.raises(s_exc.BadArg) as exc:
                         await prox01.callStorm('task.kill c7fc')
                     self.isin('does not match any tasks', exc.exception.get('mesg'))
 
                     await user.addRule((True, ('task', 'del')))
 
                     # Multiple matches
-                    with self.raises(s_exc.StormRuntimeError) as exc:
+                    with self.raises(s_exc.BadArg) as exc:
                         await prox01.callStorm('task.kill c7fc')
                     self.isin('more than one task', exc.exception.get('mesg'))
 

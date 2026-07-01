@@ -5,7 +5,7 @@ import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version
 
-reqver = '>=3.0.0,<4.0.0'
+reqver = '>=3.0.0b1,<4.0.0'
 
 descr = 'List AHA services.'
 
@@ -20,7 +20,7 @@ async def main(argv, outp=s_output.stdout):
             try:
                 s_version.reqVersion(prox._getSynVers(), reqver)
             except s_exc.BadVersion as e:  # pragma: no cover
-                valu = s_version.fmtVersion(*e.get('valu'))
+                valu = e.get('valu')
                 outp.printf(f'Proxy version {valu} is outside of the aha supported range ({reqver}).')
                 return 1
             classes = prox._getClasses()

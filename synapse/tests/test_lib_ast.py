@@ -20,7 +20,7 @@ foo_stormpkg = {
     'name': 'foo',
     'desc': 'The Foo Module',
     'version': (0, 0, 1),
-    'synapse_version': '>=3.0.0,<4.0.0',
+    'synapse_version': '>=3.0.0b1,<4.0.0',
     'modules': [
         {
             'name': 'hehe.haha',
@@ -137,7 +137,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
             self.len(1, nodes)
             nodenid = s_common.int64un(nodes[0].nid)
-            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
+            self.eq(nodes[0].ndef, ('entity:name', 'Vertex Project'))
 
             nodes = await core.nodes('', opts={'mode': 'lookup'})
             self.len(0, nodes)
@@ -158,7 +158,7 @@ class AstTest(s_test.SynTest):
             core.model._lookup_hints = [('entity:name', '!!='), ('entity:name', '^=')]
             nodes = await core.nodes('Vertex', opts={'mode': 'lookup'})
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
+            self.eq(nodes[0].ndef, ('entity:name', 'Vertex Project'))
             core.model._lookup_hints = None
 
             # a scrape match that covers only part of a whitespace-token must not
@@ -168,13 +168,13 @@ class AstTest(s_test.SynTest):
             await core.nodes('[ inet:ip=1.2.3.4 ]')
             nodes = await core.nodes('1.2.3.4Vertex', opts={'mode': 'lookup'})
             ndefs = {n.ndef for n in nodes}
-            self.notin(('entity:name', 'vertex project'), ndefs)
+            self.notin(('entity:name', 'Vertex Project'), ndefs)
 
             # a quoted token containing whitespace must be treated as a single
             # remainder token, not split on the internal space
             nodes = await core.nodes('"Vertex Project"', opts={'mode': 'lookup'})
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('entity:name', 'vertex project'))
+            self.eq(nodes[0].ndef, ('entity:name', 'Vertex Project'))
 
     async def test_try_set(self):
         '''
@@ -350,7 +350,7 @@ class AstTest(s_test.SynTest):
             self.none(nodes[0].get('tick'))
 
             # pivot
-            q = 'test:str=foo $var=hehe :$var -> test:str'
+            q = 'test:str=foo $var=hehe :$var as test:str -> test:str'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('heval', nodes[0].ndef[1])
@@ -658,13 +658,13 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.sorteq(nodes[0].getTagNames(), ('base', 'base.11', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
-            q = '$foo=$lib.null [test:str=bar +?#base.$foo]'
+            q = '$foo=(null) [test:str=bar +?#base.$foo]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.len(0, nodes[0].getTags())
 
             with self.raises(s_exc.BadTypeValu) as err:
-                q = '$foo=$lib.null [test:str=bar +#base.$foo]'
+                q = '$foo=(null) [test:str=bar +#base.$foo]'
                 await core.nodes(q)
             self.isin('Null value from var $foo', err.exception.errinfo.get('mesg'))
 
@@ -724,7 +724,7 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.none(await core.callStorm('$foo = $lib.null return($foo.bar.baz)'))
+            self.none(await core.callStorm('$foo = (null) return($foo.bar.baz)'))
 
             q = '''
             $d = ({"foo": "bar", "bar": "baz", "baz": "biz"})
@@ -869,7 +869,7 @@ class AstTest(s_test.SynTest):
             forkiden = fork.get('iden')
 
             await core.nodes('[ test:arrayprop=(othr,) ]')
-            await core.nodes('[ test:arrayprop=(self,) :children=((self,), (othr,)) ]', opts={'view': forkiden})
+            await core.nodes('[ test:arrayprop=(self,) :children={[ test:arrayprop=(self,) test:arrayprop=(othr,) ]} ]', opts={'view': forkiden})
             nodes = await core.nodes('test:arrayprop=(self,) -> *', opts={'view': forkiden})
             self.len(1, nodes)
 
@@ -914,11 +914,11 @@ class AstTest(s_test.SynTest):
             self.len(3, await core.nodes('test:str=ndefs :polyarry -> *'))
             self.len(2, await core.nodes('test:str=ndefs :polyarry -> it:dev:int'))
 
-            await core.nodes('[ entity:contribution=* :actor={[ ps:person=* ]} ]')
+            await core.nodes('[ entity:contributed=* :actor={[ ps:person=* ]} ]')
             nodes = await core.nodes('ps:person <- *')
             self.len(1, nodes)
-            self.eq('entity:contribution', nodes[0].ndef[0])
-            await core.nodes('entity:contribution [ -:actor ]')
+            self.eq('entity:contributed', nodes[0].ndef[0])
+            await core.nodes('entity:contributed [ -:actor ]')
             self.len(0, await core.nodes('ps:person <- *'))
 
     async def test_ast_pivot(self):
@@ -932,7 +932,7 @@ class AstTest(s_test.SynTest):
                 it:log:event=(event,)
                 it:exec:query=(query,)
                 it:exec:screenshot=(screenshot,)
-                :host=(host,)
+                :host=(host,) as it:host
 
                 it:exec:screenshot=(nohost,)
 
@@ -1041,31 +1041,102 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('inet:fqdn=vertex.link -(refs)> newp:*')
 
+    async def test_ast_valueas(self):
+
+        async with self.getTestCore() as core:
+
+            # editpropset with value cast
+            nodes = await core.nodes('[test:str=foo :poly=5 as test:str]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'poly', '5', type='test:str')
+
+            # editpropset with variable type
+            nodes = await core.nodes('$t=test:str [test:str=bar :poly=10 as $t]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'poly', '10', type='test:str')
+
+            # editpropset with try-set on bad cast (no error)
+            nodes = await core.nodes('[test:str=baz :tick?=notanint as test:int]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('tick'))
+
+            # relpropcond with property cast
+            await core.nodes('[test:str=castme :poly=42 as test:str]')
+            nodes = await core.nodes('test:str=castme +:poly as test:str = 42')
+            self.len(1, nodes)
+
+            # relpropcond with variable type
+            nodes = await core.nodes('$t=test:str test:str=castme +:poly as $t = 42')
+            self.len(1, nodes)
+
+            # valueas with a poly target type
+            nodes = await core.nodes('[test:str=polycast :poly=42 as test:poly]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'poly', 42, type='test:int')
+
+            # relprop cast to poly type
+            await core.nodes('[test:str=polyfilter :poly=42 as test:int]')
+            nodes = await core.nodes('test:str=polyfilter +:poly as test:poly=42')
+            self.len(1, nodes)
+
+            # backward compat - pivot as
+            await core.nodes('[test:comp=(127,newp)] [test:comp=(127,127)]')
+            mesgs = await core.stormlist('test:comp :haha as test:str -> test:str')
+            nodes = [m for m in mesgs if m[0] == 'node']
+            self.len(0, [m for m in mesgs if m[0] == 'warn'])
+
+            # backward compat - "as" as literal value
+            nodes = await core.nodes('[test:str=foo :hehe=as]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 'as')
+
+            # error - bad cast returns undef, EditPropSet raises BadTypeValu
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[test:str=foo :hehe=notavalidint as test:int]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('$foo=notavalidint as test:int [test:str=foo :hehe=$foo]')
+
+            # error - bad type name
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('[test:str=foo :hehe=5 as nosuch:type]')
+
+            # a value that cannot norm as the cast type yields undef, so the
+            # filter/pivot matches nothing rather than raising
+            await core.nodes('[test:str=ascast :poly=hello as test:str]')
+            self.len(0, await core.nodes('test:str=ascast +:poly as test:int=1'))
+            self.len(0, await core.nodes('test:str=ascast :poly as test:int -> *'))
+
+            # accessing an unset array prop yields undef, so a pivot/filter on it matches nothing
+            await core.nodes('[test:str=bare]')
+            self.len(0, await core.nodes('test:str=bare :inhstrarry -> *'))
+            self.len(0, await core.nodes('test:str=bare +:inhstrarry*[=foo]'))
+
     async def test_ast_lift(self):
 
         async with self.getTestCore() as core:
 
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
             q = '''[
                 it:log:event=(event,)
                 it:exec:query=(query,)
                 it:exec:screenshot=(screenshot,)
-                :host=(host,)
+                :host=(host,) as it:host
 
                 it:exec:screenshot=(nohost,)
 
-                (inet:dns:a=(vertex.link, 1.2.3.4) +#bar:score=4)
-                (inet:dns:aaaa=(vertex.link, 1::) +#bar:score=2)
-                (inet:dns:mx=(vertex.link, foo.com) +#bar:score=3)
-                (inet:dns:ns=(vertex.link, bar.com) +#bar:score=1)
-                +#foo:score=5
+                (inet:dns:a=(vertex.link, 1.2.3.4) +#bar:_score=4)
+                (inet:dns:aaaa=(vertex.link, 1::) +#bar:_score=2)
+                (inet:dns:mx=(vertex.link, foo.com) +#bar:_score=3)
+                (inet:dns:ns=(vertex.link, bar.com) +#bar:_score=1)
+                +#foo:_score=5
             ]'''
             await core.nodes(q)
 
             self.len(4, await core.nodes('it:host:event'))
             self.len(4, await core.nodes('it:host:event#foo'))
-            self.len(4, await core.nodes('it:host:event#foo:score=5'))
+            self.len(4, await core.nodes('it:host:event#foo:_score=5'))
             self.len(3, await core.nodes('it:host:event:host'))
             self.len(3, await core.nodes('it:host:event:host=(host,)'))
 
@@ -1084,23 +1155,23 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('inet:dns:*#foo'))
             self.len(2, await core.nodes('inet:dns:a*#foo'))
 
-            self.len(4, await core.nodes('inet:dns*#foo:score'))
-            self.len(4, await core.nodes('inet:dns:*#foo:score'))
-            self.len(2, await core.nodes('inet:dns:a*#foo:score'))
+            self.len(4, await core.nodes('inet:dns*#foo:_score'))
+            self.len(4, await core.nodes('inet:dns:*#foo:_score'))
+            self.len(2, await core.nodes('inet:dns:a*#foo:_score'))
 
-            self.len(4, await core.nodes('inet:dns*#foo:score=5'))
-            self.len(4, await core.nodes('inet:dns:*#foo:score=5'))
-            self.len(2, await core.nodes('inet:dns:a*#foo:score=5'))
+            self.len(4, await core.nodes('inet:dns*#foo:_score=5'))
+            self.len(4, await core.nodes('inet:dns:*#foo:_score=5'))
+            self.len(2, await core.nodes('inet:dns:a*#foo:_score=5'))
 
             lval = 0
-            for node in await core.nodes('inet:dns*#bar:score'):
-                valu = node.getTagProp('bar', 'score')
+            for node in await core.nodes('inet:dns*#bar:_score'):
+                valu = node.getTagProp('bar', '_score')
                 self.gt(valu, lval)
                 lval = valu
 
             lval = 0
-            for node in await core.nodes('inet:dns*#bar:score>0'):
-                valu = node.getTagProp('bar', 'score')
+            for node in await core.nodes('inet:dns*#bar:_score>0'):
+                valu = node.getTagProp('bar', '_score')
                 self.gt(valu, lval)
                 lval = valu
 
@@ -1128,12 +1199,12 @@ class AstTest(s_test.SynTest):
             self.len(2, await core.nodes('test:interface:names*[=foo]'))
             self.len(3, await core.nodes('test:interface:names*[^=foo]'))
 
-            await core.nodes('[ test:hasiface=foo :sandbox:file=* ]')
+            await core.nodes('[ test:hasiface=foo :sandbox:file=* as file:bytes ]')
             self.len(1, await core.nodes('test:hasiface:sandbox:file'))
             self.len(1, await core.nodes('test:interface:sandbox:file'))
             self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
 
-            self.len(1, await core.nodes('[ test:hasiface=* :sandbox:file=(host,) ]'))
+            self.len(1, await core.nodes('[ test:hasiface=* :sandbox:file=(host,) as file:bytes ]'))
             self.len(1, await core.nodes('test:hasiface:sandbox:file=(host,)'))
             self.len(1, await core.nodes('test:interface:sandbox:file=(host,)'))
             self.len(1, await core.nodes('inet:proto:request:sandbox:file=(host,)'))
@@ -1258,7 +1329,7 @@ class AstTest(s_test.SynTest):
                 await core.addFormProp('test:int', '_hehe', ('array', {'type': None}), {})
 
             with self.raises(s_exc.BadPropDef):
-                await core.addTagProp('array', ('array', {'type': 'int'}), {})
+                await core.addTagProp('_array', ('array', {'type': 'int'}), {})
 
             await core.addFormProp('test:int', '_hehe', ('array', {'type': 'int'}), {})
             nodes = await core.nodes('[ test:int=9999 :_hehe=(1, 2, 3) ]')
@@ -1397,14 +1468,14 @@ class AstTest(s_test.SynTest):
             with mock.patch('synapse.lib.editor.NodeEditor._addNode', checkAdd):
 
                 # test property assignment with subquery value
-                await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
+                await core.nodes('[(ind:industry=* :name=foo)] [(ind:industry=* :name=bar)] [+#sqa]')
 
                 adds = []
-                nodes = await core.nodes('[ ou:org=* :name=visiacme :industries={ou:industry#sqa}]')
+                nodes = await core.nodes('[ ou:org=* :name=visiacme :industries={ind:industry#sqa}]')
                 self.len(1, nodes)
                 self.len(2, nodes[0].get('industries'))
 
-                # There should be no adds for ou:industry nodes
+                # There should be no adds for ind:industry nodes
                 self.len(2, adds)
                 self.eq(adds[0][0], 'ou:org')
                 self.eq(adds[1], ('entity:name', 'visiacme'))
@@ -1431,7 +1502,7 @@ class AstTest(s_test.SynTest):
                 self.len(2, nodes[0].get('industries'))
 
                 adds.clear()
-                nodes = await core.nodes('ou:org:name=visiacme [ :industries-={ou:industry:name=foo} ]')
+                nodes = await core.nodes('ou:org:name=visiacme [ :industries-={ind:industry:name=foo} ]')
                 self.len(1, nodes)
                 self.len(1, nodes[0].get('industries'))
 
@@ -1439,7 +1510,7 @@ class AstTest(s_test.SynTest):
                 self.len(0, adds)
 
                 adds.clear()
-                nodes = await core.nodes('ou:org:name=visiacme [ :industries+={ou:industry:name=foo} ]')
+                nodes = await core.nodes('ou:org:name=visiacme [ :industries+={ind:industry:name=foo} ]')
                 self.len(1, nodes)
                 self.len(2, nodes[0].get('industries'))
 
@@ -1570,13 +1641,13 @@ class AstTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': '0.0.1',
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
         }
 
         stormpkg = {
             'name': 'stormpkg',
             'version': '1.2.3',
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.old',
@@ -1588,7 +1659,7 @@ class AstTest(s_test.SynTest):
         stormpkgnew = {
             'name': 'stormpkg',
             'version': '1.2.4',
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.new',
@@ -1600,7 +1671,7 @@ class AstTest(s_test.SynTest):
         jsonpkg = {
             'name': 'jsonpkg',
             'version': '1.2.3',
-            'synapse_version': '>=3.0.0,<4.0.0',
+            'synapse_version': '>=3.0.0b1,<4.0.0',
             'docs': (
                 {
                  'title': 'User Guide',
@@ -1764,7 +1835,7 @@ class AstTest(s_test.SynTest):
             $lib.print(`retn is: {$retn}`)
             '''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint('retn is: $lib.null', msgs)
+            self.stormIsInPrint('retn is: null', msgs)
             self.stormIsInPrint('retn is: 1', msgs)
 
             # Allow plumbing through args as keywords
@@ -1927,11 +1998,11 @@ class AstTest(s_test.SynTest):
             # call an import and have it's module local variables be mapped in to its own scope
             q = '''
             $test = $lib.import(importnest)
-            $haha = $test.outer($lib.false, $(33))
+            $haha = $test.outer((false), $(33))
             $lib.print($haha)
-            $hehe = $test.outer($lib.true, $(17))
+            $hehe = $test.outer((true), $(17))
             $lib.print($hehe)
-            $retn = $lib.import(importnest).outer($lib.true, $(90))
+            $retn = $lib.import(importnest).outer((true), $(90))
             $lib.print($retn)
             $lib.print(`counter is {$test.counter}`)
             '''
@@ -2135,10 +2206,10 @@ class AstTest(s_test.SynTest):
 
             self.eq('foo', await core.callStorm('$template="{func}" return($template.format(func=foo))'))
 
-            msgs = await core.stormlist('$lib.null()')
+            msgs = await core.stormlist('$n=(null) $n()')
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.stormIsInErr("'null' object is not callable: lib.null()", msgs)
+            self.stormIsInErr("'null' object is not callable: n()", msgs)
 
             msgs = await core.stormlist('$foo=bar $foo()')
             erfo = [m for m in msgs if m[0] == 'err'][0]
@@ -3023,6 +3094,137 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('no', msgs)
 
+    async def test_ast_typed_arithmetic(self):
+
+        oneday = 86400000000
+
+        async with self.getTestCore() as core:
+
+            # time - time -> duration
+            q = '''$a=$lib.cast(time, '2020-01-02') $b=$lib.cast(time, '2020-01-01')
+                   $r=($a - $b) return(($r.type, $r.value))'''
+            self.eq(('duration', oneday), await core.callStorm(q))
+
+            # operand order via subtraction must stay correct (negative -> raise)
+            q = '''$a=$lib.cast(time, '2020-01-01') $b=$lib.cast(time, '2020-01-02')
+                   return(($a - $b))'''
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(q)
+
+            # time + duration -> time
+            q = '''$a=$lib.cast(time, '2020-01-01') $d=$lib.cast(duration, '1D')
+                   $r=($a + $d) return(($r.type, $lib.repr(time, $r.value)))'''
+            typ, rep = await core.callStorm(q)
+            self.eq('time', typ)
+            self.eq('2020-01-02T00:00:00Z', rep)
+
+            # time - duration -> time
+            q = '''$a=$lib.cast(time, '2020-01-02') $d=$lib.cast(duration, '1D')
+                   $r=($a - $d) return(($r.type, $lib.repr(time, $r.value)))'''
+            typ, rep = await core.callStorm(q)
+            self.eq('time', typ)
+            self.eq('2020-01-01T00:00:00Z', rep)
+
+            # duration + duration -> duration
+            q = '''$a=$lib.cast(duration, '1D') $b=$lib.cast(duration, '12:00:00')
+                   $r=($a + $b) return(($r.type, $r.value))'''
+            self.eq(('duration', oneday + (oneday // 2)), await core.callStorm(q))
+
+            # duration - duration -> duration
+            q = '''$a=$lib.cast(duration, '2D') $b=$lib.cast(duration, '1D')
+                   $r=($a - $b) return(($r.type, $r.value))'''
+            self.eq(('duration', oneday), await core.callStorm(q))
+
+            # duration + time -> time (commutative add, duration on the left)
+            q = '''$d=$lib.cast(duration, '1D') $a=$lib.cast(time, '2020-01-01')
+                   $r=($d + $a) return(($r.type, $lib.repr(time, $r.value)))'''
+            typ, rep = await core.callStorm(q)
+            self.eq('time', typ)
+            self.eq('2020-01-02T00:00:00Z', rep)
+
+            # duration * scalar -> duration (both operand orders)
+            q = '''$a=$lib.cast(duration, '1D') $r=($a * 3) return(($r.type, $r.value))'''
+            self.eq(('duration', oneday * 3), await core.callStorm(q))
+
+            q = '''$a=$lib.cast(duration, '1D') $r=(3 * $a) return(($r.type, $r.value))'''
+            self.eq(('duration', oneday * 3), await core.callStorm(q))
+
+            # directional operators are not silently swapped: duration - time has
+            # no typed handler, so it falls back to numeric math (a plain Number)
+            # rather than reusing the time - duration result
+            q = '''$a=$lib.cast(time, '2020-01-01') $d=$lib.cast(duration, '1D')
+                   $r=($d - $a) return($r.type)'''
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm(q)
+
+            # a string operand on a time norms as a duration in either order
+            q = '''$a=$lib.cast(time, '2020-01-01')
+                   $r=($a + '1D') return(($r.type, $lib.repr(time, $r.value)))'''
+            self.eq(('time', '2020-01-02T00:00:00Z'), await core.callStorm(q))
+
+            q = '''$a=$lib.cast(time, '2020-01-01')
+                   $r=('1D' + $a) return(($r.type, $lib.repr(time, $r.value)))'''
+            self.eq(('time', '2020-01-02T00:00:00Z'), await core.callStorm(q))
+
+            q = '''$a=$lib.cast(time, '2020-01-02')
+                   $r=($a - '1D') return(($r.type, $lib.repr(time, $r.value)))'''
+            self.eq(('time', '2020-01-01T00:00:00Z'), await core.callStorm(q))
+
+            # ...but a time minus a time-string yields a duration
+            q = '''$a=$lib.cast(time, '2020-01-02')
+                   $r=($a - '2020-01-01') return(($r.type, $r.value))'''
+            self.eq(('duration', oneday), await core.callStorm(q))
+
+            # a string operand on a duration norms as a duration in either order
+            q = '''$a=$lib.cast(duration, '1D') $r=($a + '1D') return(($r.type, $r.value))'''
+            self.eq(('duration', oneday * 2), await core.callStorm(q))
+
+            q = '''$a=$lib.cast(duration, '1D') $r=('1D' + $a) return(($r.type, $r.value))'''
+            self.eq(('duration', oneday * 2), await core.callStorm(q))
+
+            q = '''$a=$lib.cast(duration, '2D') $r=($a - '1D') return(($r.type, $r.value))'''
+            self.eq(('duration', oneday), await core.callStorm(q))
+
+            # ...but a duration plus a time-string yields a time
+            q = '''$a=$lib.cast(duration, '1D')
+                   $r=($a + '2020-01-01') return(($r.type, $lib.repr(time, $r.value)))'''
+            self.eq(('time', '2020-01-02T00:00:00Z'), await core.callStorm(q))
+
+            # subtracting a time from a duration is not meaningful
+            q = '''$a=$lib.cast(duration, '1D') return(($a - '2020-01-01'))'''
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm(q)
+
+            # typed duration result still coerces to its int micros for numeric use
+            q = '''$a=$lib.cast(time, '2020-01-02') $b=$lib.cast(time, '2020-01-01')
+                   return((($a - $b) + 0))'''
+            self.eq(oneday, await core.callStorm(q))
+
+            # stormrepr of a typed result dispatches through the result type
+            q = '''$a=$lib.cast(time, '2020-01-02') $b=$lib.cast(time, '2020-01-01')
+                   return($lib.repr(duration, ($a - $b).value))'''
+            self.eq('1D 00:00:00', await core.callStorm(q))
+
+            # regression: unsupported typed combos fall back to numeric math
+            # (the result is a plain Number with no model type, not a typed Valu)
+            q = '''$a=$lib.cast(time, '2020-01-01') $b=$lib.cast(time, '2020-01-01')
+                   $r=($a + $b) return($r.type)'''
+            with self.raises(s_exc.NoSuchName):
+                await core.callStorm(q)
+
+            q = '''$a=$lib.cast(time, '2020-01-01') $b=$lib.cast(time, '2020-01-01')
+                   return(($a + $b))'''
+            self.eq(1577836800000000 * 2, int(await core.callStorm(q)))
+
+            # an other operand that cannot be wrapped as a typed value (e.g. a
+            # list) declines typed dispatch and falls back to numeric math
+            q = '''$d=$lib.cast(duration, '1D') $x=([1]) return(($d + $x))'''
+            with self.raises(s_exc.BadCast):
+                await core.callStorm(q)
+
+            # regression: plain numeric arithmetic is unaffected
+            self.eq(5, await core.callStorm('return((2 + 3))'))
+
     async def test_ast_optimization(self):
 
         calls = []
@@ -3170,7 +3372,7 @@ class AstTest(s_test.SynTest):
 
         with mock.patch('synapse.lib.view.View.nodesByTag', checkTag):
             async with self.getTestCore() as core:
-                self.len(1, await core.nodes('[inet:asn=200 :owner:name=visi]'))
+                self.len(1, await core.nodes('[inet:asn=200 :registrant:name=visi]'))
                 self.len(1, await core.nodes('[test:int=12 +#visi]'))
                 self.len(1, await core.nodes('[test:int=99 +#visi]'))
 
@@ -3181,7 +3383,7 @@ class AstTest(s_test.SynTest):
 
                 calls = []
                 # not for non-runtsafe
-                nodes = await core.nodes('inet:asn:owner:name $valu=:owner:name test:int +#$valu')
+                nodes = await core.nodes('inet:asn:registrant:name $valu=:registrant:name test:int +#$valu')
                 self.len(2, nodes)
                 self.len(0, calls)
 
@@ -3232,8 +3434,8 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_condeval(self):
         async with self.getTestCore() as core:
-            self.len(1, await core.nodes('[ inet:ip=1.2.3.4 :asn=20 +#foo ] +$lib.true'))
-            self.len(0, await core.nodes('inet:ip=1.2.3.4  +(#foo and $lib.false)'))
+            self.len(1, await core.nodes('[ inet:ip=1.2.3.4 :asn=20 +#foo ] +$((true))'))
+            self.len(0, await core.nodes('inet:ip=1.2.3.4  +(#foo and not #foo)'))
             self.len(0, await core.nodes('inet:ip=1.2.3.4  +$(:asn + 20 >= 42)'))
 
             opts = {'vars': {'sha256': hashlib.sha256(b'asdf').hexdigest()}}
@@ -3515,7 +3717,7 @@ class AstTest(s_test.SynTest):
             await highlighteq('newp', '[ test:str=foo +#foo=newp ]')
 
             await core.nodes('''
-                $regx = ($lib.null, $lib.null, "[0-9]{4}")
+                $regx = ((null), (null), "[0-9]{4}")
                 $lib.model.tags.set(cno.cve, regex, $regx)
             ''')
 
@@ -3529,9 +3731,9 @@ class AstTest(s_test.SynTest):
 
             await highlighteq('newp', '[ test:str=foo +#(foo).min=newp ]')
 
-            await core.addTagProp('ival', ('ival', {}), {})
+            await core.addTagProp('_ival', ('ival', {}), {})
 
-            await highlighteq('+#foo:ival=newp', '[ test:str=foo +#foo:ival=newp ]')
+            await highlighteq('+#foo:_ival=newp', '[ test:str=foo +#foo:_ival=newp ]')
 
     async def test_ast_bulkedges(self):
 
@@ -3851,12 +4053,12 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
-            await core.nodes('[ test:str=foo +#tagaa=2023 +#tagaa:score=5 <(refs)+ { test:str=foo } ]')
-            await core.nodes('[ test:str=bar +#tagab=2024 +#tagab:score=6 ]')
-            await core.nodes('[ test:str=baz +#tagba=2023 +#tagba:score=7 ]')
-            await core.nodes('[ test:str=faz +#tagbb=2024 +#tagbb:score=8 ]')
+            await core.nodes('[ test:str=foo +#tagaa=2023 +#tagaa:_score=5 <(refs)+ { test:str=foo } ]')
+            await core.nodes('[ test:str=bar +#tagab=2024 +#tagab:_score=6 ]')
+            await core.nodes('[ test:str=baz +#tagba=2023 +#tagba:_score=7 ]')
+            await core.nodes('[ test:str=faz +#tagbb=2024 +#tagbb:_score=8 ]')
 
             self.len(2, await core.nodes('test:str +#taga*'))
             self.len(1, await core.nodes('test:str +#tagaa=2023'))
@@ -3912,56 +4114,56 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*=2023')
 
-            self.len(2, await core.nodes('test:str +#taga*:score'))
-            self.len(1, await core.nodes('test:str +#tagaa:score=5'))
-            self.len(1, await core.nodes('test:str +#tagaa:score<(2+4)'))
-            self.len(0, await core.nodes('test:str +#tagaa:score<-5'))
-            self.len(1, await core.nodes('test:str +#tagaa:score*range=(4,6)'))
-            self.len(0, await core.nodes('test:str +#taga*:score <- *'))
-            self.len(1, await core.nodes('test:str +#taga*:score <(*)- *'))
-            self.len(3, await core.nodes('test:str +#taga*:score <+(*)- *'))
-            self.len(2, await core.nodes('$tag=taga* test:str +#$tag:score'))
-            self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:score=5'))
-            self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:score*range=(4,6)'))
+            self.len(2, await core.nodes('test:str +#taga*:_score'))
+            self.len(1, await core.nodes('test:str +#tagaa:_score=5'))
+            self.len(1, await core.nodes('test:str +#tagaa:_score<(2+4)'))
+            self.len(0, await core.nodes('test:str +#tagaa:_score<-5'))
+            self.len(1, await core.nodes('test:str +#tagaa:_score*range=(4,6)'))
+            self.len(0, await core.nodes('test:str +#taga*:_score <- *'))
+            self.len(1, await core.nodes('test:str +#taga*:_score <(*)- *'))
+            self.len(3, await core.nodes('test:str +#taga*:_score <+(*)- *'))
+            self.len(2, await core.nodes('$tag=taga* test:str +#$tag:_score'))
+            self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:_score=5'))
+            self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:_score*range=(4,6)'))
 
             with self.raises(s_exc.BadSyntax):
-                await core.nodes('test:str +#taga*:score=2023')
+                await core.nodes('test:str +#taga*:_score=2023')
 
             with self.raises(s_exc.BadSyntax):
-                await core.nodes('test:str +#taga*:score@=2023')
+                await core.nodes('test:str +#taga*:_score@=2023')
 
             with self.raises(s_exc.BadSyntax):
-                await core.nodes('test:str +#taga*:score>2023')
+                await core.nodes('test:str +#taga*:_score>2023')
 
             with self.raises(s_exc.BadSyntax):
-                await core.nodes('test:str +#taga*:score<(3+5)')
+                await core.nodes('test:str +#taga*:_score<(3+5)')
 
             with self.raises(s_exc.BadSyntax):
-                await core.nodes('test:str +#taga*:score.min>=2023')
+                await core.nodes('test:str +#taga*:_score.min>=2023')
 
             with self.raises(s_exc.NoSuchVirt):
-                await core.nodes('test:str +#tagaa:score.min>=2023')
+                await core.nodes('test:str +#tagaa:_score.min>=2023')
 
             with self.raises(s_exc.StormRuntimeError):
-                await core.nodes('$tag=taga* test:str +#$tag:score=2023')
+                await core.nodes('$tag=taga* test:str +#$tag:_score=2023')
 
             with self.raises(s_exc.StormRuntimeError):
-                await core.nodes('$tag=taga* test:str +#foo.$"tag":score=2023')
+                await core.nodes('$tag=taga* test:str +#foo.$"tag":_score=2023')
 
             with self.raises(s_exc.BadSyntax):
-                await core.nodes('$tag=taga* test:str +#foo*.$"tag":score=2023')
+                await core.nodes('$tag=taga* test:str +#foo*.$"tag":_score=2023')
 
             with self.raises(s_exc.BadSyntax):
-                await core.nodes('$tag=taga test:str +#foo.$"tag".*:score=2023')
+                await core.nodes('$tag=taga test:str +#foo.$"tag".*:_score=2023')
 
             with self.raises(s_exc.BadSyntax):
-                await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*:score=2023')
+                await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*:_score=2023')
 
     async def test_ast_virts(self):
 
         async with self.getTestCore() as core:
 
-            await core.addTagProp('ival', ('ival', {}), {})
+            await core.addTagProp('_ival', ('ival', {}), {})
             opts = {'vars': {
                 'ival1': ('2020-01-01, 2025-01-02'),
                 'ival2': ('2022-01-01, 2024-01-02'),
@@ -3970,13 +4172,13 @@ class AstTest(s_test.SynTest):
                 'ival5': ('2025-01-01, ?')
             }}
             await core.nodes('''[
-                (entity:campaign=(c1,) :period=$ival1 +#tag=$ival1 +#tag:ival=$ival1)
-                (entity:campaign=* :period=$ival2 +#tag=$ival2 +#tag:ival=$ival2)
-                (entity:campaign=* :period=$ival3 +#tag=$ival3 +#tag:ival=$ival3)
-                (entity:campaign=* :period=$ival4 +#tag=$ival4 +#tag:ival=$ival4)
-                (entity:campaign=* :period=$ival5 +#tag=$ival5 +#tag:ival=$ival5)
+                (entity:campaign=(c1,) :period=$ival1 +#tag=$ival1 +#tag:_ival=$ival1)
+                (entity:campaign=* :period=$ival2 +#tag=$ival2 +#tag:_ival=$ival2)
+                (entity:campaign=* :period=$ival3 +#tag=$ival3 +#tag:_ival=$ival3)
+                (entity:campaign=* :period=$ival4 +#tag=$ival4 +#tag:_ival=$ival4)
+                (entity:campaign=* :period=$ival5 +#tag=$ival5 +#tag:_ival=$ival5)
                 (entity:campaign=*)
-                (entity:contribution=* :campaign=(c1,))
+                (entity:contributed=* :campaign=(c1,) as entity:campaign)
                 (test:hasiface=foo :seen=$ival1)
                 (test:hasiface=bar :seen=$ival2)
             ]''', opts=opts)
@@ -3989,9 +4191,9 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('entity:campaign.created $val=2020 +#(tag).min=$val'))
             self.len(1, await core.nodes('entity:campaign.created +#(tag).max=?'))
             self.len(1, await core.nodes('entity:campaign.created +#(tag).duration=?'))
-            self.len(1, await core.nodes('entity:campaign.created +#tag:ival.min=2020'))
-            self.len(1, await core.nodes('entity:campaign.created +:period.min=2020'))
-            self.len(1, await core.nodes('entity:campaign.created +entity:campaign:period.min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created +#tag:_ival.min=2020'))
+            self.len(1, await core.nodes('entity:campaign.created +:period.began=2020'))
+            self.len(1, await core.nodes('entity:campaign.created +entity:campaign:period.began=2020'))
             self.len(1, await core.nodes('test:hasiface +test:interface:seen.min=2020'))
 
             self.len(0, await core.nodes('#(newp).min'))
@@ -4024,26 +4226,26 @@ class AstTest(s_test.SynTest):
                         last = valu
 
             tests = (
-                ('#(tag)', '#tag', None),
-                ('#tag:ival', 'ival', 'tag'),
-                ('entity:campaign#(tag)', '#tag', None),
-                ('entity:campaign#tag:ival', 'ival', 'tag'),
-                ('entity:campaign:period', 'period', None),
+                ('#(tag)', '#tag', None, 'min', 'max'),
+                ('#tag:_ival', '_ival', 'tag', 'min', 'max'),
+                ('entity:campaign#(tag)', '#tag', None, 'min', 'max'),
+                ('entity:campaign#tag:_ival', '_ival', 'tag', 'min', 'max'),
+                ('entity:campaign:period', 'period', None, 'began', 'ended'),
             )
 
-            for (lift, prop, tag) in tests:
-                await check(f'{lift}.min', prop, tag, ival._getMin)
-                await check(f'{lift}.max', prop, tag, ival._getMax)
+            for (lift, prop, tag, vmin, vmax) in tests:
+                await check(f'{lift}.{vmin}', prop, tag, ival._getMin)
+                await check(f'{lift}.{vmax}', prop, tag, ival._getMax)
                 await check(f'{lift}.duration', prop, tag, ival._getDuration)
 
             queries = (
                 '#(tag).min=2020 return(#(tag).min)',
                 '#(tag).min=2020 for $i in (#(tag).min,) { return($i) }',
-                'entity:campaign:period.min=2020 return(:period.min)',
-                'entity:campaign:period.min=2020 $virt=min return(:period.$virt)',
+                'entity:campaign:period.began=2020 return(:period.began)',
+                'entity:campaign:period.began=2020 $virt=began return(:period.$virt)',
                 'entity:campaign#(tag).min=2020 return(#(tag).min)',
-                'entity:campaign#tag:ival.min=2020 return(#tag:ival.min)',
-                'entity:contribution return(:campaign::period.min)'
+                'entity:campaign#tag:_ival.min=2020 return(#tag:_ival.min)',
+                'entity:contributed return(:campaign::period.began)'
             )
 
             for query in queries:
@@ -4052,17 +4254,17 @@ class AstTest(s_test.SynTest):
             queries = (
                 '#(tag).min=2020 return(#(tag).max)',
                 '#(tag).min=2020 for $i in (#(tag).max,) { return($i) }',
-                'entity:campaign:period.min=2020 return(:period.max)',
-                'entity:campaign:period.min=2020 $virt=max return(:period.$virt)',
+                'entity:campaign:period.began=2020 return(:period.ended)',
+                'entity:campaign:period.began=2020 $virt=ended return(:period.$virt)',
                 'entity:campaign#(tag).min=2020 return(#(tag).max)',
-                'entity:campaign#tag:ival.min=2020 return(#tag:ival.max)',
-                'entity:contribution return(:campaign::period.max)'
+                'entity:campaign#tag:_ival.min=2020 return(#tag:_ival.max)',
+                'entity:contributed return(:campaign::period.ended)'
             )
 
             for query in queries:
                 self.gt(await core.callStorm(query), 1577836800000000)
 
-            self.none(await core.callStorm("return(#tag:ival.max)"))
+            self.none(await core.callStorm("return(#tag:_ival.max)"))
 
             with self.raises(s_exc.StormRuntimeError):
                 query = await core.getStormQuery('$foo=#(tag).min')
@@ -4158,7 +4360,7 @@ class AstTest(s_test.SynTest):
                 (test:virtiface=(v2,) :server=udp://5.6.7.8:90)
                 (test:virtiface=(v3,))
                 (test:virtiface2=(v4,) :server=tcp://9.10.11.12:100)
-                (test:str=piv1 :pivvirt=(v1,))
+                (test:str=piv1 :pivvirt=(v1,) as test:virtiface)
                 (test:arrayprop=* :ints=(10, 20, 30))
                 (test:pivcomp=(targ1, lulz1) :size=20)
                 (inet:server=tcp://1.2.3.4:80)
@@ -4210,7 +4412,7 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:float', 14.5))
 
-            nodes = await core.nodes('test:float +(:open = $lib.null)')
+            nodes = await core.nodes('test:float +(:open = (null))')
             self.len(0, nodes)
 
             nodes = await core.nodes('test:float +(:closed = :open)')
@@ -4326,7 +4528,7 @@ class AstTest(s_test.SynTest):
                 [(test:str=test2 +(refs)> {test:str=$test})]
             }
             $lib.macro.set(test.edge, $q)
-            return($lib.true)
+            return((true))
             '''
             self.true(await core.callStorm(q))
 
@@ -4345,7 +4547,7 @@ class AstTest(s_test.SynTest):
                 test:str=test1 -> { test:str=$valu }
             }
             $lib.macro.set(test.pivot, $q)
-            return($lib.true)
+            return((true))
             '''
             self.true(await core.callStorm(q))
 
@@ -4360,7 +4562,7 @@ class AstTest(s_test.SynTest):
                 for $x in $q { $lib.print(bar) }
             }
             $lib.macro.set(test, $q)
-            return($lib.true)
+            return((true))
             '''
             self.true(await core.callStorm(q))
 

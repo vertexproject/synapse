@@ -21,7 +21,7 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
 
     async def test_storm_pkg_doc_base(self):
 
-        with self.getTestDir(mirror='testpkg_build_docs') as dirn:
+        with self.setTstEnvars(SYN_DOCS_BASEURL=None), self.getTestDir(mirror='testpkg_build_docs') as dirn:
             testpkgfp = os.path.join(dirn, 'testpkg.yaml')
             self.true(os.path.isfile(testpkgfp))
             argv = [testpkgfp, ]
@@ -42,6 +42,9 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
             self.isin('inet:asn=1\n', text)
             self.notin(':orphan:', text)
             self.notin(':tocdepth:', text)
+            # Token is substituted with the default base URL.
+            self.isin('https://docs.vertex.link/docs/synapse/latest/index.html', text)
+            self.notin('{{SYN_DOCS_BASEURL}}', text)
 
             text = s_common.getbytes(os.path.join(builddir, 'stormpackage.md')).decode()
             self.isin(':   baz (str): The baz.', text)
@@ -124,3 +127,18 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
             with mock.patch('os.system', new=nopandoc):
                 argv = [testpkgfp, ]
                 self.eq(1, await s_t_gendocs.main(argv))
+
+    async def test_storm_pkg_doc_baseurl(self):
+        # Build with SYN_DOCS_BASEURL overridden to verify the token is replaced.
+        with self.getTestDir(mirror='testpkg_build_docs') as dirn:
+            testpkgfp = os.path.join(dirn, 'testpkg.yaml')
+            argv = [testpkgfp, ]
+            with self.setTstEnvars(SYN_DOCS_BASEURL='https://example.com'):
+                r = await s_t_gendocs.main(argv)
+            self.eq(r, 0)
+
+            builddir = os.path.join(dirn, 'docs', '_build')
+            text = s_common.getbytes(os.path.join(builddir, 'bar.md')).decode()
+            self.isin('https://example.com/docs/synapse/latest/index.html', text)
+            self.notin('https://docs.vertex.link', text)
+            self.notin('{{SYN_DOCS_BASEURL}}', text)

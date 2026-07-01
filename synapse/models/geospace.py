@@ -247,7 +247,7 @@ class Dist(s_types.Int):
 
         norm = int(valu * mult) + self.baseoff
         if norm < 0:
-            mesg = f'A geo:dist may not be negative: {text}'
+            mesg = f'A phys:distance may not be negative: {text}'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         return norm, {}
@@ -339,7 +339,7 @@ class LatLong(s_types.Type):
     async def _normCmprValu(self, valu):
         latlong, dist = valu
         rlatlong = (await self.modl.type('geo:latlong').norm(latlong))[0]
-        rdist = (await self.modl.type('geo:dist').norm(dist))[0]
+        rdist = (await self.modl.type('phys:distance').norm(dist))[0]
         return rlatlong, rdist
 
     async def _cmprNear(self, valu):
@@ -353,7 +353,7 @@ class LatLong(s_types.Type):
 
     async def _storLiftNear(self, cmpr, valu):
         latlong = (await self.norm(valu[0]))[0]
-        dist = (await self.modl.type('geo:dist').norm(valu[1]))[0]
+        dist = (await self.modl.type('phys:distance').norm(valu[1]))[0]
         return ((cmpr, (latlong, dist), self.stortype),)
 
     async def _normPyStr(self, valu, view=None):
@@ -407,7 +407,7 @@ modeldefs = (
                         'doc': 'The geopolitical location where the {title} {happened}.'}),
 
                     ('name', ('geo:name', {}), {
-                        'doc': 'The name where the {title} {happened}.'}),
+                        'doc': 'The name of the place where the {title} {happened}.'}),
 
                     ('address', ('geo:address', {}), {
                         'doc': 'The postal address where the {title} {happened}.'}),
@@ -418,13 +418,13 @@ modeldefs = (
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The latlong where the {title} {happened}.'}),
 
-                    ('latlong:accuracy', ('geo:dist', {}), {
+                    ('latlong:accuracy', ('phys:distance', {}), {
                         'doc': 'The accuracy of the latlong where the {title} {happened}.'}),
 
                     ('altitude', ('geo:altitude', {}), {
                         'doc': 'The altitude where the {title} {happened}.'}),
 
-                    ('altitude:accuracy', ('geo:dist', {}), {
+                    ('altitude:accuracy', ('phys:distance', {}), {
                         'doc': 'The accuracy of the altitude where the {title} {happened}.'}),
 
                     ('country', ('pol:country', {}), {
@@ -432,19 +432,13 @@ modeldefs = (
 
                     ('country:code', ('iso:3166:alpha2', {}), {
                         'doc': 'The country code where the {title} {happened}.'}),
-
-                    ('bbox', ('geo:bbox', {}), {
-                        'doc': 'A bounding box which encompasses where the {title} {happened}.'}),
-
-                    ('geojson', ('geo:json', {}), {
-                        'doc': 'A GeoJSON representation of where the {title} {happened}.'}),
                 ),
             }),
         ),
 
         'types': (
 
-            ('geo:dist', (None, {'ctor': 'synapse.models.geospace.Dist'}), {
+            ('phys:distance', (None, {'ctor': 'synapse.models.geospace.Dist'}), {
                 'ex': '10 km',
                 'doc': 'A geographic distance (base unit is mm).'}),
             ('geo:area', (None, {'ctor': 'synapse.models.geospace.Area'}), {
@@ -455,9 +449,20 @@ modeldefs = (
                 'doc': 'A Lat/Long string specifying a point on Earth.'}),
 
             ('geo:telem', ('guid', {}), {
+                'template': {'title': 'item'},
                 'interfaces': (
-                    ('phys:tangible', {'template': {'title': 'object'}}),
-                    ('geo:locatable', {'template': {'title': 'object'}}),
+                    ('phys:tangible', {}),
+                ),
+                'props': (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the telemetry measurements were taken.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the telemetry sample.'}),
+
+                    ('node', ('geo:locatable', {}), {
+                        'doc': 'The node that was observed at the associated time and place.'}),
                 ),
                 'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
 
@@ -465,12 +470,44 @@ modeldefs = (
                 'doc': 'GeoJSON structured JSON data.'}),
 
             ('geo:name', ('base:name', {}), {
+                'props': (),
                 'doc': 'An unstructured place name or address.'}),
 
             ('geo:place', ('guid', {}), {
                 'template': {'title': 'place'},
                 'interfaces': (
                     ('geo:locatable', {'prefix': ''}),
+                    ('risk:targetable', {}),
+                ),
+                'props': (
+
+                    ('id', ('base:id', {}), {
+                        'doc': 'A type specific identifier such as an airport ID.'}),
+
+                    ('type', ('geo:place:type:taxonomy', {}), {
+                        'doc': 'The type of place.'}),
+
+                    ('name', ('geo:name', {}), {
+                        'alts': ('names',),
+                        'doc': 'The name of the place.'}),
+
+                    ('names', ('array', {'type': 'geo:name'}), {
+                        'doc': 'An array of alternative place names.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the place.'}),
+
+                    ('photo', ('file:bytes', {}), {
+                        'doc': 'The image file to use as the primary image of the place.'}),
+
+                    ('addresses', ('array', {'type': 'geo:address'}), {
+                        'doc': 'An array of postal addresses for the place.'}),
+
+                    ('bbox', ('geo:bbox', {}), {
+                        'doc': 'A bounding box which encompasses the place.'}),
+
+                    ('geojson', ('geo:json', {}), {
+                        'doc': 'A GeoJSON representation of the place.'}),
                 ),
                 'doc': 'A geographic place.'}),
 
@@ -478,10 +515,12 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'prevnames': ('geo:place:taxonomy',),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of place types.',
             }),
 
-            ('geo:address', ('str', {'lower': True, 'onespace': True}), {
+            ('geo:address', ('title', {}), {
                 'doc': 'A street/mailing address string.'}),
 
             ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
@@ -501,7 +540,7 @@ modeldefs = (
                                         ('ymax', 'geo:latitude'))}), {
                 'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.'}),
 
-            ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
+            ('geo:altitude', ('phys:distance', {'baseoff': 6371008800}), {
                 'doc': "A negative or positive offset from Mean Sea Level (6,371.0088km from Earth's core)."}),
         ),
 
@@ -509,47 +548,5 @@ modeldefs = (
             (('geo:place', 'contains', 'geo:place'), {
                 'doc': 'The source place completely contains the target place.'}),
         ),
-
-        'forms': (
-
-            ('geo:name', {}, ()),
-
-            ('geo:telem', {}, (
-
-                ('time', ('time', {}), {
-                    'doc': 'The time that the telemetry measurements were taken.'}),
-
-                ('desc', ('str', {}), {
-                    'doc': 'A description of the telemetry sample.'}),
-
-                ('node', ('meta:observable', {}), {
-                    'doc': 'The node that was observed at the associated time and place.'}),
-            )),
-
-            ('geo:place:type:taxonomy', {
-                'prevnames': ('geo:place:taxonomy',)}, ()),
-
-            ('geo:place', {}, (
-
-                ('id', ('base:id', {}), {
-                    'doc': 'A type specific identifier such as an airport ID.'}),
-
-                ('type', ('geo:place:type:taxonomy', {}), {
-                    'doc': 'The type of place.'}),
-
-                ('name', ('geo:name', {}), {
-                    'alts': ('names',),
-                    'doc': 'The name of the place.'}),
-
-                ('names', ('array', {'type': 'geo:name'}), {
-                    'doc': 'An array of alternative place names.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A description of the place.'}),
-
-                ('photo', ('file:bytes', {}), {
-                    'doc': 'The image file to use as the primary image of the place.'}),
-            )),
-        )
     },
 )

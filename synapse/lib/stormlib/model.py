@@ -28,16 +28,16 @@ stormcmds = [
             init {
                 if $cmdopts.unlock {
                     $lib.print(`Unlocking: {$cmdopts.name}`)
-                    $lib.model.deprecated.lock($cmdopts.name, $lib.false)
+                    $lib.model.deprecated.lock($cmdopts.name, (false))
                 } else {
                     if ($cmdopts.name = "*") {
                         $lib.print("Locking all deprecated model elements.")
                         for ($name, $locked) in $lib.model.deprecated.locks() {
-                            if (not $locked) { $lib.model.deprecated.lock($name, $lib.true) }
+                            if (not $locked) { $lib.model.deprecated.lock($name, (true)) }
                         }
                     } else {
                         $lib.print(`Locking: {$cmdopts.name}`)
-                        $lib.model.deprecated.lock($cmdopts.name, $lib.true)
+                        $lib.model.deprecated.lock($cmdopts.name, (true))
                     }
                 }
             }
@@ -64,7 +64,7 @@ stormcmds = [
         'storm': '''
             init {
 
-                $ok = $lib.true
+                $ok = (true)
                 $lib.print("Checking the cortex for model flag day readiness...")
 
                 $locks = $lib.model.deprecated.locks()
@@ -75,7 +75,7 @@ stormcmds = [
                         $lib.print(`{$name} is locked`)
                     } else {
                         $lib.warn(`{$name} is not yet locked`)
-                        $ok = $lib.false
+                        $ok = (false)
                     }
 
                 }
@@ -88,7 +88,7 @@ stormcmds = [
                     for $layr in $lib.layer.list() {
                         if $layr.getPropCount($name) {
                             $lib.warn(`Layer {$layr.iden} still contains {$name}`)
-                            $ok = $lib.false
+                            $ok = (false)
                         }
                     }
                 }
@@ -128,7 +128,7 @@ class LibModelTags(s_stormtypes.Lib):
         Examples:
             Create a tag model for the ``cno.cve`` tag::
 
-                $regx = ([null, null, "[0-9]{4}", "[0-9]{5}"])
+                $regx = ([(null), (null), "[0-9]{4}", "[0-9]{5}"])
                 $lib.model.tags.set(cno.cve, regex, $regx)''',
          'type': {'type': 'function', '_funcname': '_setTagModel',
                   'args': (

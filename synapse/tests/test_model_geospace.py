@@ -7,18 +7,14 @@ geotestmodel = (
     {
 
         'types': (
-            ('test:latlong', ('geo:latlong', {}), {}),
-            ('test:distoff', ('geo:dist', {'baseoff': 1000}), {}),
-        ),
-
-        'forms': (
-
-            ('test:latlong', {}, (
-                ('lat', ('geo:latitude', {}), {}),
-                ('long', ('geo:longitude', {}), {}),
-                ('dist', ('geo:dist', {}), {}),
-            )),
-            ('test:distoff', {}, ()),
+            ('test:latlong', ('geo:latlong', {}), {
+                'props': (
+                    ('lat', ('geo:latitude', {}), {}),
+                    ('long', ('geo:longitude', {}), {}),
+                    ('dist', ('phys:distance', {}), {}),
+                ),
+            }),
+            ('test:distoff', ('phys:distance', {'baseoff': 1000}), {'props': ()}),
         ),
     },
 )
@@ -189,7 +185,7 @@ class GeoTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadTypeValu, t.norm('not valid dms'))
 
             # Geo-dist tests
-            formname = 'geo:dist'
+            formname = 'phys:distance'
             t = core.model.type(formname)
 
             self.eq(await t.norm('11 mm'), (11, {}))
@@ -241,32 +237,35 @@ class GeoTest(s_t_utils.SynTest):
                     :address="208 Datong Road, Pudong District, Shanghai, China"
                     :address:city="  Shanghai  "
                     :loc=us.hehe.haha
-                    :photo=*
+                    :photo=* as file:bytes
                     :latlong=(34.1341, -118.3215)
                     :latlong:accuracy=2m
                     :altitude=200m
                     :altitude:accuracy=2m
                     :bbox="2.11, 2.12, -4.88, -4.9"
+                    :addresses=("123 Main Street", "456 Side Street")
                 ]
             ''')
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'id', 'IAD')
-            self.propeq(node, 'name', 'vertex hq')
+            self.propeq(node, 'name', 'Vertex HQ')
             self.propeq(node, 'loc', 'us.hehe.haha')
             self.propeq(node, 'latlong', (34.1341, -118.3215))
             self.propeq(node, 'latlong:accuracy', 2000)
             self.propeq(node, 'altitude', 6371208800)
             self.propeq(node, 'altitude:accuracy', 2000)
             self.propeq(node, 'desc', 'The place where Vertex Project hangs out at!')
-            self.propeq(node, 'address', '208 datong road, pudong district, shanghai, china')
-            self.propeq(node, 'address:city', 'shanghai')
+            self.propeq(node, 'address', '208 Datong Road, Pudong District, Shanghai, China')
+            self.propeq(node, 'address:city', 'Shanghai')
             self.nn(node.get('photo'))
 
             self.len(1, await core.nodes('geo:place :photo -> file:bytes'))
 
             self.propeq(node, 'bbox', (2.11, 2.12, -4.88, -4.9))
             self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
+
+            self.propeq(node, 'addresses', ('123 Main Street', '456 Side Street'))
 
             self.len(1, await core.nodes('geo:place -> geo:place:type:taxonomy'))
 
@@ -276,13 +275,22 @@ class GeoTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'latlong', (11.38, 20.01))
             nodes = await core.nodes('[ geo:place=(hehe, haha) :names=("Foo  Bar ", baz) ] -> geo:name')
-            self.eq(('baz', 'foo bar'), [n.ndef[1] for n in nodes])
+            self.eq(('Foo Bar', 'baz'), [n.ndef[1] for n in nodes])
 
             nodes = await core.nodes('geo:place=(hehe, haha)')
             node = nodes[0]
 
             self.len(1, nodes := await core.nodes('[ geo:place=({"name": "baz"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
+
+            # geo:place implements the risk:targetable interface
+            self.isin('risk:targetable', core.model.form('geo:place').ifaces)
+            nodes = await core.nodes('''
+                $place = {[ geo:place=({"name": "vertex hq"}) ]}
+                [ entity:contact=({"name": "apt1"}) ] { [ +(targeted)> $place ] }
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('geo:place:name="vertex hq" <(targeted)- entity:contact'))
 
     async def test_eq(self):
 
@@ -345,14 +353,14 @@ class GeoTest(s_t_utils.SynTest):
             guid5 = s_common.guid()
             props = {'latlong': '35.118660, -118.300470'}
             opts = {'vars': {'valu': guid5, 'p': props}}
-            q = '[(tel:mob:telem=$valu :place:latlong=$p.latlong)]'
+            q = '[(it:host:telem=$valu :place:latlong=$p.latlong)]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
             guid6 = s_common.guid()
             props = {'latlong': '33.118660, -118.300470'}
             opts = {'vars': {'valu': guid6, 'p': props}}
-            q = '[(tel:mob:telem=$valu :place:latlong=$p.latlong)]'
+            q = '[(it:host:telem=$valu :place:latlong=$p.latlong)]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
 
@@ -404,7 +412,7 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:latlong*near=((10, 10), 30km)')
             self.len(2, nodes)
 
-            # Ensure geo:dist inherits from IntBase correctly
+            # Ensure phys:distance inherits from IntBase correctly
             nodes = await core.nodes('test:latlong +:dist>5m')
             self.len(2, nodes)
             nodes = await core.nodes('test:latlong +:dist>=5m')
@@ -463,7 +471,7 @@ class GeoTest(s_t_utils.SynTest):
                 [ geo:telem=*
                     :time=20220618
                     :desc=foobar
-                    :node={[ tel:phone=1234 ]}
+                    :node={[ inet:ip=1.2.3.4 ]}
 
                     :place={[ geo:place=({"name": "Woot"}) ]}
                     :place:loc=us.ny.woot
@@ -479,15 +487,15 @@ class GeoTest(s_t_utils.SynTest):
                     :phys:width=5m
                     :phys:height=10m
                     :phys:length=20m
-                    :phys:volume=1000m
+                    :phys:volume=1000l
                 ]
             ''')
             self.propeq(nodes[0], 'time', 1655510400000000)
             self.propeq(nodes[0], 'desc', 'foobar')
-            self.propeq(nodes[0], 'place:name', 'woot')
+            self.propeq(nodes[0], 'place:name', 'Woot')
             self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))
-            self.propeq(nodes[0], 'node', '1234', type='tel:phone')
-            self.len(1, await core.nodes('tel:phone=1234'))
+            self.propeq(nodes[0], 'node', (4, 0x01020304), type='inet:ip')
+            self.len(1, await core.nodes('inet:ip=1.2.3.4'))
 
             self.nn(nodes[0].get('place'))
             self.nn('us.ny.woot', nodes[0].get('place:loc'))
@@ -500,7 +508,7 @@ class GeoTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'phys:width', 5000)
             self.propeq(nodes[0], 'phys:height', 10000)
             self.propeq(nodes[0], 'phys:length', 20000)
-            self.propeq(nodes[0], 'phys:volume', 1000000)
+            self.propeq(nodes[0], 'phys:volume', '1000000')
 
     async def test_model_geospace_area(self):
 

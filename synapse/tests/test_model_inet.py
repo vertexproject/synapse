@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import synapse.exc as s_exc
@@ -24,7 +25,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ inet:ssh:handshake=*
-                    :flow=*
+                    :flow=* as inet:flow
                     :client=5.5.5.5
                     :server=1.2.3.4:22
                     :client:key={[ crypto:key:rsa=* ]}
@@ -41,7 +42,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ inet:rdp:handshake=*
-                    :flow=*
+                    :flow=* as inet:flow
                     :client=5.5.5.5
                     :server=1.2.3.4:22
                     :client:hostname=SYNCODER
@@ -51,7 +52,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'client', 'tcp://5.5.5.5')
             self.propeq(nodes[0], 'server', 'tcp://1.2.3.4:22')
-            self.propeq(nodes[0], 'client:keyboard:layout', 'azerty')
+            self.propeq(nodes[0], 'client:keyboard:layout', 'AZERTY')
 
             self.len(1, await core.nodes('inet:rdp:handshake :flow -> inet:flow'))
             self.len(1, await core.nodes('inet:rdp:handshake :client:hostname -> it:hostname'))
@@ -153,8 +154,9 @@ class InetModelTest(s_t_utils.SynTest):
             udpsub = (t.prototype.typehash, 'udp', {})
             icmpsub = (t.prototype.typehash, 'icmp', {})
 
-            # Proto defaults to tcp
-            adds = (('inet:ip', (4, 16909060), ipinfo),)
+            # Proto defaults to tcp. The 'ip' virt type is the inet:ip form, so an
+            # add is automatically recorded that carries the inet:ip norminfo.
+            adds = [('inet:ip', (4, 16909060), ipinfo)]
             subs = {'proto': tcpsub}
             virts = {'ip': ((4, 16909060), 26)}
             self.eq(await t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'adds': adds, 'subs': subs, 'virts': virts}))
@@ -179,7 +181,7 @@ class InetModelTest(s_t_utils.SynTest):
             portsub = (t.porttype.typehash, 2, {})
 
             # IPv6 - bare IPv6 now gets brackets
-            adds = (('inet:ip', (6, 1), ipinfo),)
+            adds = [('inet:ip', (6, 1), ipinfo)]
             subs = {'proto': icmpsub}
             virts = {'ip': ((6, 1), 26)}
             self.eq(await t.norm('icmp://::1'), ('icmp://[::1]', {'adds': adds, 'subs': subs, 'virts': virts}))
@@ -194,23 +196,35 @@ class InetModelTest(s_t_utils.SynTest):
             ipnorm, ipinfo = await t.iptype.norm('::fFfF:0102:0304')
             ipsub = (t.iptype.typehash, (6, 0xffff01020304), ipinfo)
 
-            adds = (('inet:ip', (6, 0xffff01020304), ipinfo),)
+            adds = [('inet:ip', (6, 0xffff01020304), ipinfo)]
             virts = {'ip': ((6, 0xffff01020304), 26), 'port': (2, 9)}
             self.eq(await t.norm('tcp://[::fFfF:0102:0304]:2'),
                     ('tcp://[::ffff:1.2.3.4]:2', {'adds': adds, 'subs': subs, 'virts': virts}))
             await self.asyncraises(s_exc.BadTypeValu, t.norm('tcp://[::1'))  # bad ipv6 w/ port
 
+            # a SockAddr type with a default port fills the port virt (and
+            # appends it to the repr) when a value is given without one. This
+            # exercises the defport branches for bracketed, bare, and tuple
+            # IPv6 inputs.
+            dt = t.clone({'defport': 443})
+            portvirt = (443, t.porttype.stortype)
+            for valu in ('tcp://[::1]', 'tcp://::1', (6, 1)):
+                norm, info = await dt.norm(valu)
+                self.eq(norm, 'tcp://[::1]:443')
+                self.eq(info['virts']['port'], portvirt)
+                self.eq(info['virts']['ip'], ((6, 1), t.iptype.stortype))
+
     async def test_asn_collection(self):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ inet:asn=123 :owner:name=COOL :owner={[ ou:org=* ]} :seen=(2020, 2021) ]')
+            nodes = await core.nodes('[ inet:asn=123 :registrant:name=COOL :registrant={[ ou:org=* ]} :seen=(2020, 2021) ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:asn', 123))
-            self.propeq(node, 'owner:name', 'cool')
+            self.propeq(node, 'registrant:name', 'COOL')
             self.propeq(nodes[0], 'seen', (1577836800000000, 1609459200000000, 31622400000000))
-            self.len(1, await core.nodes('inet:asn :owner -> ou:org'))
+            self.len(1, await core.nodes('inet:asn :registrant -> ou:org'))
 
             nodes = await core.nodes('[ inet:asnet=(54959, (1.2.3.4, 5.6.7.8)) :seen=2022 ]')
             self.len(1, nodes)
@@ -287,7 +301,7 @@ class InetModelTest(s_t_utils.SynTest):
                                     'host': (t.fqdntype.hosttype.typehash, 'link', {}),
                                     'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
                                 'host': (t.fqdntype.hosttype.typehash, 'vertex', {})}}),
-                            'user': (t.usertype.typehash, 'unittest', {})}})
+                            'username': (t.usertype.typehash, 'UnitTest', {})}})
             self.eq(await t.norm(email), expected)
 
             valu = (await t.norm('bob\udcfesmith@woot.com'))[0]
@@ -305,7 +319,7 @@ class InetModelTest(s_t_utils.SynTest):
             expected_ndef = (formname, valu.lower())
             expected_props = {
                 'fqdn': 'vertex.link',
-                'user': 'unittest',
+                'username': 'UnitTest',
             }
 
             nodes = await core.nodes('[inet:email=UnitTest@Vertex.link]')
@@ -313,12 +327,12 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:email', 'unittest@vertex.link'))
             self.propeq(node, 'fqdn', 'vertex.link')
-            self.propeq(node, 'user', 'unittest')
+            self.propeq(node, 'username', 'UnitTest')
 
             nodes = await core.nodes('[ inet:email=visi+Synapse@vertex.link ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'visi+synapse@vertex.link')
-            self.propeq(nodes[0], 'user', 'visi+synapse')
+            self.propeq(nodes[0], 'username', 'visi+Synapse')
             self.propeq(nodes[0], 'plus', 'synapse')
             self.propeq(nodes[0], 'base', 'visi@vertex.link')
             self.len(1, await core.nodes('inet:email=visi+synapse@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
@@ -326,7 +340,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:email=visi++Synapse@vertex.link ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'visi++synapse@vertex.link')
-            self.propeq(nodes[0], 'user', 'visi++synapse')
+            self.propeq(nodes[0], 'username', 'visi++Synapse')
             self.propeq(nodes[0], 'plus', '+synapse')
             self.propeq(nodes[0], 'base', 'visi@vertex.link')
             self.len(1, await core.nodes('inet:email=visi++synapse@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
@@ -334,7 +348,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:email=visi+Synapse+foo@vertex.link ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'visi+synapse+foo@vertex.link')
-            self.propeq(nodes[0], 'user', 'visi+synapse+foo')
+            self.propeq(nodes[0], 'username', 'visi+Synapse+foo')
             self.propeq(nodes[0], 'plus', 'synapse+foo')
             self.propeq(nodes[0], 'base', 'visi@vertex.link')
             self.len(1, await core.nodes('inet:email=visi+synapse+foo@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
@@ -342,7 +356,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:email=visi+@vertex.link ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'visi+@vertex.link')
-            self.propeq(nodes[0], 'user', 'visi+')
+            self.propeq(nodes[0], 'username', 'visi+')
             self.propeq(nodes[0], 'plus', '')
             self.propeq(nodes[0], 'base', 'visi@vertex.link')
             self.len(1, await core.nodes('inet:email=visi+@vertex.link :base -> inet:email +inet:email=visi@vertex.link'))
@@ -350,7 +364,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:email=+@vertex.link ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], '+@vertex.link')
-            self.propeq(nodes[0], 'user', '+')
+            self.propeq(nodes[0], 'username', '+')
             self.propeq(nodes[0], 'plus', '')
             self.propeq(nodes[0], 'base', '@vertex.link')
             self.len(1, await core.nodes('inet:email="+@vertex.link" :base -> inet:email +inet:email="@vertex.link"'))
@@ -358,7 +372,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:email=++@vertex.link ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], '++@vertex.link')
-            self.propeq(nodes[0], 'user', '++')
+            self.propeq(nodes[0], 'username', '++')
             self.propeq(nodes[0], 'plus', '+')
             self.propeq(nodes[0], 'base', '@vertex.link')
             self.len(1, await core.nodes('inet:email="++@vertex.link" :base -> inet:email +inet:email="@vertex.link"'))
@@ -366,7 +380,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:email=+++@vertex.link ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], '+++@vertex.link')
-            self.propeq(nodes[0], 'user', '+++')
+            self.propeq(nodes[0], 'username', '+++')
             self.propeq(nodes[0], 'plus', '++')
             self.propeq(nodes[0], 'base', '@vertex.link')
             self.len(1, await core.nodes('inet:email="+++@vertex.link" :base -> inet:email +inet:email="@vertex.link"'))
@@ -380,8 +394,8 @@ class InetModelTest(s_t_utils.SynTest):
                     :period=(20250701, 20250702)
 
                     :server=1.2.3.4:443
-                    :server:host=*
-                    :server:proc=*
+                    :server:host=* as it:host
+                    :server:proc=* as it:exec:proc
                     :server:txcount=33
                     :server:txbytes=2
                     :server:handshake="OHai!"
@@ -390,8 +404,8 @@ class InetModelTest(s_t_utils.SynTest):
                     :server:software:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
 
                     :client=5.5.5.5
-                    :client:host=*
-                    :client:proc=*
+                    :client:host=* as it:host
+                    :client:proc=* as it:exec:proc
                     :client:txcount=30
                     :client:txbytes=1
                     :client:handshake="Hello There"
@@ -405,8 +419,8 @@ class InetModelTest(s_t_utils.SynTest):
                     :ip:proto=6
                     :ip:tcp:flags=(0x20)
 
-                    :sandbox:file=*
-                    :capture:host=*
+                    :sandbox:file=* as file:bytes
+                    :capture:host=* as it:host
                 ]
             ''')
 
@@ -416,14 +430,14 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'client:txcount', 30)
             self.propeq(nodes[0], 'client:txbytes', 1)
             self.propeq(nodes[0], 'client:handshake', 'Hello There')
-            self.propeq(nodes[0], 'client:software:names', ('haha', 'hehe'))
+            self.propeq(nodes[0], 'client:software:names', ('HeHe', 'haha'))
             self.propeq(nodes[0], 'client:software:cpes', ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
 
             self.propeq(nodes[0], 'server', 'tcp://1.2.3.4:443')
             self.propeq(nodes[0], 'server:txcount', 33)
             self.propeq(nodes[0], 'server:txbytes', 2)
             self.propeq(nodes[0], 'server:handshake', 'OHai!')
-            self.propeq(nodes[0], 'server:software:names', ('bazfaz', 'foobar'))
+            self.propeq(nodes[0], 'server:software:names', ('FooBar', 'bazfaz'))
             self.propeq(nodes[0], 'server:software:cpes', ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
 
             self.propeq(nodes[0], 'tot:txcount', 63)
@@ -636,14 +650,69 @@ class InetModelTest(s_t_utils.SynTest):
             # Delete a domain node in a lower layer so the _onAddFqdn hook re-adds it during merge
             await core.nodes('[ inet:fqdn=test.fqdn ]')
 
-            view = await core.callStorm('return($lib.view.get().fork().iden)')
-            opts = {'view': view}
+            forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': forkiden}
 
             await core.nodes('[ inet:fqdn=cool.test.fqdn ]', opts=opts)
             await core.nodes('inet:fqdn=test.fqdn | delnode')
+
+            forkview = core.getView(forkiden)
             await core.nodes('$lib.view.get().merge()', opts=opts)
+            self.true(await forkview.waitfini(timeout=5))
 
             self.len(1, await core.nodes('[ inet:fqdn=test.fqdn ]'))
+
+    async def test_fqdn_idna(self):
+        async with self.getTestCore() as core:
+
+            t = core.model.type('inet:fqdn')
+
+            # Normalization must not take an excessive amount of time. Older idna
+            # releases were vulnerable to denial-of-service (CVE-2024-3651) where
+            # crafted, very long inputs caused excessive CPU during encoding.
+            # Whether the value is accepted or rejected, it must resolve well
+            # under this bound rather than blowing up.
+            crafted = (
+                'xn--' + ('a1' * 20000) + '.link',  # long punycode-shaped label
+                'ß' * 8000 + '.link',               # many uts46-mapped codepoints
+                ('a' * 60 + '.') * 1000 + 'link',   # many labels
+            )
+            for valu in crafted:
+                t0 = asyncio.get_running_loop().time()
+                try:
+                    await t.norm(valu)
+                except s_exc.BadTypeValu:
+                    pass
+
+                self.lt(asyncio.get_running_loop().time() - t0, 10.0)
+
+            # Default-ignorable codepoints are the class of values whose idna
+            # normalization changed: older idna preserved and punycode encoded
+            # them, while the current library strips them during UTS46 mapping.
+            # Each of these now normalizes away the ignorable codepoint.
+            ignorables = (
+                '\u115f',  # HANGUL CHOSEONG FILLER
+                '\u1160',  # HANGUL JUNGSEONG FILLER
+                '\u17b4',  # KHMER VOWEL INHERENT AQ
+                '\u17b5',  # KHMER VOWEL INHERENT AA
+                '\u3164',  # HANGUL FILLER
+                '\uffa0',  # HALFWIDTH HANGUL FILLER
+            )
+            for cp in ignorables:
+                self.eq((await t.norm(f'a{cp}b.link'))[0], 'ab.link')
+
+            # An older Synapse (older idna) stored 'a\u115fa.link' as the punycode
+            # value 'xn--aa-iuk.link'. Decoding the stored value recovers the
+            # unicode form (filler preserved), and renormalizing it under the
+            # current library strips the filler to 'aa.link' - this decode +
+            # renormalize is what the 2.x to 3.x migration performs.
+            self.eq(t.repr('xn--aa-iuk.link'), 'a\u115fa.link')
+            self.eq((await t.norm(t.repr('xn--aa-iuk.link')))[0], 'aa.link')
+
+            # Re-normalizing the stored punycode value directly is a no-op: idna
+            # treats an existing A-label as already valid, so the drift can only
+            # be corrected by decoding the value back to unicode first.
+            self.eq((await t.norm('xn--aa-iuk.link'))[0], 'xn--aa-iuk.link')
 
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
@@ -691,7 +760,7 @@ class InetModelTest(s_t_utils.SynTest):
             issuffix(n4)   # link should be a suffix
 
             # Make one of the FQDNs a suffix and make sure its children become zones
-            nodes = await core.nodes('[inet:fqdn=vertex.link :issuffix=$lib.true]')
+            nodes = await core.nodes('[inet:fqdn=vertex.link :issuffix=true]')
             n3 = nodes[0]
 
             isboth(n3)     # vertex.link should now be both because we made it a suffix
@@ -707,7 +776,7 @@ class InetModelTest(s_t_utils.SynTest):
             isneither(n2)  # still neither as parent is not a suffix
 
             # Remove the FQDN's suffix status and make sure its children lose zone status
-            nodes = await core.nodes('[inet:fqdn=vertex.link :issuffix=$lib.false]')
+            nodes = await core.nodes('[inet:fqdn=vertex.link :issuffix=false]')
             n3 = nodes[0]
             iszone(n3)     # vertex.link should now be a zone because we removed its suffix status
             nodes = await core.nodes('inet:fqdn=abc.vertex.link')
@@ -771,12 +840,13 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_http_response_header(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:http:response:header=(Cool, Cooler)]')
+            nodes = await core.nodes('[inet:http:response:header=(Cool, Cooler) :seen=2022]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:http:response:header', ('cool', 'Cooler')))
             self.propeq(node, 'name', 'cool')
             self.propeq(node, 'value', 'Cooler')
+            self.nn(node.get('seen'))
 
     async def test_http_param(self):
         async with self.getTestCore() as core:
@@ -809,13 +879,14 @@ class InetModelTest(s_t_utils.SynTest):
                 'sandbox:file': sand,
                 'respiden': respiden,
             }
+
             q = '''[inet:http:response=$p.respiden
                 :time=2015
-                :flow=$p.flow
+                :flow=$p.flow as inet:flow
                 :code=200
                 :reason=OK
                 :headers=((baz, faz),)
-                :body=$p.body
+                :body=$p.body as file:bytes
                 :client=1.2.3.4
                 :server="5.5.5.5:443"
             ]'''
@@ -834,21 +905,21 @@ class InetModelTest(s_t_utils.SynTest):
 
             q = '''[inet:http:request=$valu
                 :time=2015
-                :flow=$p.flow
+                :flow=$p.flow as inet:flow
                 :method=gEt
                 :query="hoho=1&qaz=bar"
                 :path="/woot/hehe/"
-                :body=$p.body
+                :body=$p.body as file:bytes
                 :headers=((foo, bar),)
                 :header:host=vertex.link
                 :header:referer="https://google.com?s=awesome"
-                :response=$p.respiden
+                :response=$p.respiden as inet:http:response
                 :client=1.2.3.4
-                :client:host=$p."client:host"
+                :client:host=$p."client:host" as it:host
                 :server="5.5.5.5:443"
-                :server:host=$p."server:host"
-                :session=$p.sess
-                :sandbox:file=$p."sandbox:file"
+                :server:host=$p."server:host" as it:host
+                :session=$p.sess as inet:http:session
+                :sandbox:file=$p."sandbox:file" as file:bytes
             ]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': iden, 'p': props}})
             self.len(1, nodes)
@@ -856,7 +927,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('inet:http:request', iden))
             self.propeq(node, 'time', 1420070400000000)
             self.propeq(node, 'flow', flow)
-            self.propeq(node, 'method', 'gEt')
+            self.propeq(node, 'method', 'GET')
             self.propeq(node, 'query', 'hoho=1&qaz=bar')
             self.propeq(node, 'path', '/woot/hehe/')
             self.propeq(node, 'body', body)
@@ -873,45 +944,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:http:request -> inet:http:request:header'))
             self.len(1, await core.nodes('inet:http:request :response -> inet:http:response -> inet:http:response:header'))
 
-            nodes = await core.nodes('inet:http:request -> inet:http:session [ :contact=* ]')
+            nodes = await core.nodes('inet:http:request -> inet:http:session [ :contact=* as entity:contact ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('contact'))
-
-    async def test_iface(self):
-        async with self.getTestCore() as core:
-            netw = s_common.guid()
-            host = s_common.guid()
-            valu = s_common.guid()
-            props = {
-                'host': host,
-                'network': netw
-            }
-            q = '''[(inet:iface=$valu
-                :host=$p.host
-                :network=$p.network
-                :type=Cool
-                :mac="ff:00:ff:00:ff:00"
-                :ip=1.2.3.4
-                :phone=12345678910
-                :wifi:ap:ssid="hehe haha"
-                :wifi:ap:bssid="00:ff:00:ff:00:ff"
-                :mob:imei=123456789012347
-                :mob:imsi=12345678901234
-            )]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:iface', valu))
-            self.propeq(node, 'host', host)
-            self.propeq(node, 'network', netw)
-            self.propeq(node, 'type', 'cool.')
-            self.propeq(node, 'mac', 'ff:00:ff:00:ff:00')
-            self.propeq(node, 'ip', (4, 0x01020304))
-            self.propeq(node, 'phone', '12345678910')
-            self.propeq(node, 'wifi:ap:ssid', 'hehe haha')
-            self.propeq(node, 'wifi:ap:bssid', '00:ff:00:ff:00:ff')
-            self.propeq(node, 'mob:imei', 123456789012347)
-            self.propeq(node, 'mob:imsi', 12345678901234)
 
     async def test_ipv4(self):
         formname = 'inet:ip'
@@ -990,7 +1025,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :asn=3
                     :dns:rev=vertex.link
 
-                    :place=*
+                    :place=* as geo:place
                     :place:loc=us
                     :place:latlong=(-50.12345, 150.56789)
                 ]
@@ -1237,11 +1272,11 @@ class InetModelTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadTypeValu, t.norm('GG:ff:FF:ff:FF:ff'))
 
             # Form Tests ======================================================
-            nodes = await core.nodes('[inet:mac="00:00:00:00:00:00" :vendor=* :vendor:name=Cool]')
+            nodes = await core.nodes('[inet:mac="00:00:00:00:00:00" :vendor=* as ou:org :vendor:name=Cool]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:mac', '00:00:00:00:00:00'))
-            self.propeq(node, 'vendor:name', 'cool')
+            self.propeq(node, 'vendor:name', 'Cool')
 
             self.len(1, await core.nodes('inet:mac -> ou:org'))
 
@@ -1442,6 +1477,37 @@ class InetModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:net="::/0" ]')
 
+    async def test_cidr(self):
+        async with self.getTestCore() as core:
+
+            t = core.model.type('inet:cidr')
+            self.true(t.opts.get('cidr'))
+
+            self.eq(((4, 0x01020300), (4, 0x010203ff)), (await t.norm('1.2.3.0/24'))[0])
+            self.eq(((4, 0x01020300), (4, 0x010203ff)), (await t.norm('1.2.3.0-1.2.3.255'))[0])
+            self.eq(((4, 0x01020304), (4, 0x01020304)), (await t.norm('1.2.3.4/32'))[0])
+            self.eq(((4, 0x01020304), (4, 0x01020304)), (await t.norm(('1.2.3.4', '1.2.3.4')))[0])
+
+            valu = '1.2.3.0-1.2.3.10'
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(valu)
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('1.2.3.1-1.2.3.255')
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm(('1.2.3.0', '1.2.3.10'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await t.norm('2001:db8::-2001:db8::a')
+
+            self.eq(((6, 0x20010db8000000000000000000000000), (6, 0x20010db80000001fffffffffffffffff)),
+                    (await t.norm('2001:db8::/59'))[0])
+
+            net = core.model.type('inet:net')
+            self.false(net.opts.get('cidr'))
+            self.eq(((4, 0x01020300), (4, 0x01020304)), (await net.norm('1.2.3.0-1.2.3.4'))[0])
+
     async def test_port(self):
         tname = 'inet:port'
         async with self.getTestCore() as core:
@@ -1472,7 +1538,7 @@ class InetModelTest(s_t_utils.SynTest):
                                     'issuffix': (t.emailtype.fqdntype.booltype.typehash, 1, {}),
                                 }}),
                             }}),
-                            'user': (t.emailtype.usertype.typehash, 'visi', {})}})
+                            'username': (t.emailtype.usertype.typehash, 'visi', {})}})
 
             self.eq(await t.norm('FooBar'), ('foobar', {'subs': {}}))
             self.eq(await t.norm('visi@vertex.link'), ('visi@vertex.link', {'subs': {'email': emailsub}}))
@@ -1544,19 +1610,13 @@ class InetModelTest(s_t_utils.SynTest):
                 for p, v in props.items():
                     self.propeq(node, p, v)
 
-            nodes = await core.nodes('[ it:network=* :dns:resolvers=(([4, 1]),)]')
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=(udp://0.0.0.1:53,)]')
             self.propeq(nodes[0], 'dns:resolvers', ('udp://0.0.0.1:53',))
 
             nodes = await core.nodes('it:network -> inet:server')
             self.propeq(nodes[0], '.ip', (4, 1))
 
-            nodes = await core.nodes('[ it:network=* :dns:resolvers=(([6, 1]),)]')
-            self.propeq(nodes[0], 'dns:resolvers', ('udp://[::1]:53',))
-
-            nodes = await core.nodes('[ it:network=* :dns:resolvers=("::1",)]')
-            self.propeq(nodes[0], 'dns:resolvers', ('udp://[::1]:53',))
-
-            nodes = await core.nodes('[ it:network=* :dns:resolvers=("[::1]",)]')
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=(udp://[::1]:53,)]')
             self.propeq(nodes[0], 'dns:resolvers', ('udp://[::1]:53',))
 
             # Bare and bracketed IPv6 should deconflict to same node
@@ -1594,6 +1654,10 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.eq(ctx.exception.get('mesg'), 'inet:sockaddr protocol must be one of: tcp,udp,icmp,gre')
 
+    def _urlhostsub(self, t, typename, norm, norminfo):
+        # build the expected inet:url:host poly sub for the given underlying value.
+        return (t.hostpoly.typehash, (typename, norm), {'adds': ((typename, norm, norminfo),)})
+
     async def test_url(self):
         formname = 'inet:url'
         async with self.getTestCore() as core:
@@ -1617,7 +1681,7 @@ class InetModelTest(s_t_utils.SynTest):
                     'path': (t.strtype.typehash, '/hehe\udcfestuff.asp', {}),
                     'port': (t.porttype.typehash, 80, {}),
                     'params': (t.strtype.typehash, '', {}),
-                    'fqdn': (t.fqdntype.typehash, 'www.googlesites.com', {'subs': {
+                    'host': self._urlhostsub(t, 'inet:fqdn', 'www.googlesites.com', {'subs': {
                         'domain': (t.fqdntype.typehash, 'googlesites.com', {'subs': {
                             'host': (t.fqdntype.hosttype.typehash, 'googlesites', {}),
                             'domain': (t.fqdntype.typehash, 'com', {'subs': {
@@ -1639,7 +1703,7 @@ class InetModelTest(s_t_utils.SynTest):
                     'path': (t.strtype.typehash, '/600x400/000/fff.png&text=cat@bam.com', {}),
                     'port': (t.porttype.typehash, 443, {}),
                     'params': (t.strtype.typehash, '', {}),
-                    'fqdn': (t.fqdntype.typehash, 'dummyimage.com', {'subs': {
+                    'host': self._urlhostsub(t, 'inet:fqdn', 'dummyimage.com', {'subs': {
                         'domain': (t.fqdntype.typehash, 'com', {'subs': {
                             'host': (t.fqdntype.hosttype.typehash, 'com', {}),
                             'issuffix': (t.fqdntype.booltype.typehash, 1, {}),
@@ -1648,7 +1712,7 @@ class InetModelTest(s_t_utils.SynTest):
                 }})
                 self.eq(valu, expected)
 
-            ipsub = (t.iptype.typehash, (4, 0), {'subs': {
+            ipsub = self._urlhostsub(t, 'inet:ip', (4, 0), {'subs': {
                         'type': (t.iptype.typetype.typehash, 'private', {}),
                         'version': (t.iptype.verstype.typehash, 4, {})}})
 
@@ -1658,7 +1722,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': (t.lowstrtype.typehash, 'http', {}),
                 'path': (t.strtype.typehash, '/index.html', {}),
                 'params': (t.strtype.typehash, '?foo=bar', {}),
-                'ip': ipsub,
+                'host': ipsub,
                 'port': (t.porttype.typehash, 80, {}),
                 'base': (t.strtype.typehash, 'http://0.0.0.0/index.html', {}),
             }})
@@ -1670,13 +1734,13 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': (t.lowstrtype.typehash, 'http', {}),
                 'path': (t.strtype.typehash, '/index.html', {}),
                 'params': (t.strtype.typehash, '?foo=bar', {}),
-                'ip': ipsub,
+                'host': ipsub,
                 'port': (t.porttype.typehash, 80, {}),
                 'base': (t.strtype.typehash, 'http://0.0.0.0/index.html', {}),
             }})
             self.eq(valu, expected)
 
-            ipsub = (t.iptype.typehash, (6, 1), {'subs': {
+            ipsub = self._urlhostsub(t, 'inet:ip', (6, 1), {'subs': {
                         'type': (t.iptype.typetype.typehash, 'loopback', {}),
                         'scope': (t.iptype.scopetype.typehash, 'link-local', {}),
                         'version': (t.iptype.verstype.typehash, 6, {})}})
@@ -1689,7 +1753,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': (t.lowstrtype.typehash, 'smb', {}),
                 'params': (t.strtype.typehash, '', {}),
                 'path': (t.strtype.typehash, '/share/path/to/filename.txt', {}),
-                'ip': ipsub,
+                'host': ipsub,
             }})
             self.eq(valu, expected)
 
@@ -1702,7 +1766,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'path': (t.strtype.typehash, '/share/filename.txt', {}),
                 'params': (t.strtype.typehash, '', {}),
                 'port': (t.porttype.typehash, 1234, {}),
-                'ip': ipsub,
+                'host': ipsub,
             }})
             self.eq(valu, expected)
 
@@ -1712,7 +1776,7 @@ class InetModelTest(s_t_utils.SynTest):
             expected = (url, {'subs': {
                 'base': (t.strtype.typehash, url, {}),
                 'proto': (t.lowstrtype.typehash, 'https', {}),
-                'fqdn': (t.fqdntype.typehash, 'server', {'subs': {
+                'host': self._urlhostsub(t, 'inet:fqdn', 'server', {'subs': {
                     'host': (t.fqdntype.hosttype.typehash, 'server', {}),
                     'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
                 'params': (t.strtype.typehash, '', {}),
@@ -1726,12 +1790,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:url', 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'))
-            self.propeq(node, 'fqdn', 'vertex.link')
+            self.propeq(node, 'host', 'vertex.link', type='inet:fqdn')
             self.propeq(node, 'passwd', 'hunter2')
             self.propeq(node, 'path', '/coolthings')
             self.propeq(node, 'port', 1337)
             self.propeq(node, 'proto', 'https')
-            self.propeq(node, 'user', 'vertexmc')
+            self.propeq(node, 'username', 'vertexmc')
             self.propeq(node, 'base', 'https://vertexmc:hunter2@vertex.link:1337/coolthings')
             self.propeq(node, 'params', '?a=1')
 
@@ -1739,7 +1803,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:url', 'https://vertex.link?a=1'))
-            self.propeq(node, 'fqdn', 'vertex.link')
+            self.propeq(node, 'host', 'vertex.link', type='inet:fqdn')
             self.propeq(node, 'path', '')
 
             # equality comparator behavior
@@ -1755,7 +1819,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:url="https://+:80/woot" ]')
             self.len(1, nodes)
 
-            self.none(nodes[0].get('fqdn'))
+            self.none(nodes[0].get('host'))
 
             q = '''
             [
@@ -1774,49 +1838,49 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'proto', 'http')
             self.propeq(nodes[0], 'path', '/index.html')
             self.propeq(nodes[0], 'params', '')
-            self.propeq(nodes[0], 'ip', (6, 0xfedcba9876543210fedcba9876543210))
+            self.propeq(nodes[0], 'host', (6, 0xfedcba9876543210fedcba9876543210), type='inet:ip')
             self.propeq(nodes[0], 'port', 80)
 
             self.propeq(nodes[1], 'base', 'http://[1080::8:800:200c:417a]/index.html')
             self.propeq(nodes[1], 'proto', 'http')
             self.propeq(nodes[1], 'path', '/index.html')
             self.propeq(nodes[1], 'params', '?foo=bar')
-            self.propeq(nodes[1], 'ip', (6, 0x108000000000000000080800200c417a))
+            self.propeq(nodes[1], 'host', (6, 0x108000000000000000080800200c417a), type='inet:ip')
             self.propeq(nodes[1], 'port', 80)
 
             self.propeq(nodes[2], 'base', 'http://[3ffe:2a00:100:7031::1]')
             self.propeq(nodes[2], 'proto', 'http')
             self.propeq(nodes[2], 'path', '')
             self.propeq(nodes[2], 'params', '')
-            self.propeq(nodes[2], 'ip', (6, 0x3ffe2a00010070310000000000000001))
+            self.propeq(nodes[2], 'host', (6, 0x3ffe2a00010070310000000000000001), type='inet:ip')
             self.propeq(nodes[2], 'port', 80)
 
             self.propeq(nodes[3], 'base', 'http://[1080::8:800:200c:417a]/foo')
             self.propeq(nodes[3], 'proto', 'http')
             self.propeq(nodes[3], 'path', '/foo')
             self.propeq(nodes[3], 'params', '')
-            self.propeq(nodes[3], 'ip', (6, 0x108000000000000000080800200c417a))
+            self.propeq(nodes[3], 'host', (6, 0x108000000000000000080800200c417a), type='inet:ip')
             self.propeq(nodes[3], 'port', 80)
 
             self.propeq(nodes[4], 'base', 'http://[::192.9.5.5]/ipng')
             self.propeq(nodes[4], 'proto', 'http')
             self.propeq(nodes[4], 'path', '/ipng')
             self.propeq(nodes[4], 'params', '')
-            self.propeq(nodes[4], 'ip', (6, 0xc0090505))
+            self.propeq(nodes[4], 'host', (6, 0xc0090505), type='inet:ip')
             self.propeq(nodes[4], 'port', 80)
 
             self.propeq(nodes[5], 'base', 'http://[::ffff:129.144.52.38]:80/index.html')
             self.propeq(nodes[5], 'proto', 'http')
             self.propeq(nodes[5], 'path', '/index.html')
             self.propeq(nodes[5], 'params', '')
-            self.propeq(nodes[5], 'ip', (6, 0xffff81903426))
+            self.propeq(nodes[5], 'host', (6, 0xffff81903426), type='inet:ip')
             self.propeq(nodes[5], 'port', 80)
 
             self.propeq(nodes[6], 'base', 'https://[2010:836b:4179::836b:4179]')
             self.propeq(nodes[6], 'proto', 'https')
             self.propeq(nodes[6], 'path', '')
             self.propeq(nodes[6], 'params', '')
-            self.propeq(nodes[6], 'ip', (6, 0x2010836b4179000000000000836b4179))
+            self.propeq(nodes[6], 'host', (6, 0x2010836b4179000000000000836b4179), type='inet:ip')
             self.propeq(nodes[6], 'port', 443)
 
             self.len(1, await core.nodes('[ inet:url=https://vertex.link +(uses)> {[ meta:technique=* ]} ]'))
@@ -1824,7 +1888,7 @@ class InetModelTest(s_t_utils.SynTest):
             # Bare IPv6 in URLs should get brackets
             valu = await t.norm('http://::1/path')
             self.eq(valu[0], 'http://[::1]/path')
-            self.eq(valu[1]['subs']['ip'], ipsub)
+            self.eq(valu[1]['subs']['host'], ipsub)
             self.eq(valu[1]['subs']['base'], (t.strtype.typehash, 'http://[::1]/path', {}))
             self.eq(valu[1]['subs']['port'], (t.porttype.typehash, 80, {}))
 
@@ -1883,7 +1947,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': protosub,
                 'path': (t.strtype.typehash, 'c:/Users/BarUser/stuff/moar/stuff.txt', {}),
                 'params': paramsub,
-                'fqdn': (t.fqdntype.typehash, 'localhost', {'subs': lhostsub}),
+                'host': self._urlhostsub(t, 'inet:fqdn', 'localhost', {'subs': lhostsub}),
                 'base': (t.strtype.typehash, url, {}),
             }})
             self.eq(await t.norm(url), expected)
@@ -1902,7 +1966,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': protosub,
                 'path': (t.strtype.typehash, '/home/visi/synapse/README.rst', {}),
                 'params': paramsub,
-                'fqdn': (t.fqdntype.typehash, 'localhost', {'subs': lhostsub}),
+                'host': self._urlhostsub(t, 'inet:fqdn', 'localhost', {'subs': lhostsub}),
                 'base': (t.strtype.typehash, url, {}),
             }})
             self.eq(await t.norm(url), expected)
@@ -1921,7 +1985,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': protosub,
                 'params': paramsub,
                 'path': (t.strtype.typehash, '/path/to/foo.txt', {}),
-                'fqdn': (t.fqdntype.typehash, 'somehost', {'subs': {
+                'host': self._urlhostsub(t, 'inet:fqdn', 'somehost', {'subs': {
                     'host': (t.fqdntype.hosttype.typehash, 'somehost', {}),
                     'issuffix': (t.fqdntype.booltype.typehash, 1, {})}}),
                 'base': (t.strtype.typehash, url, {}),
@@ -1960,7 +2024,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': protosub,
                 'path': (t.strtype.typehash, '/home/bar/baz/biz.html', {}),
                 'params': paramsub,
-                'fqdn': (t.fqdntype.typehash, 'foo.vertex.link', {'subs': {
+                'host': self._urlhostsub(t, 'inet:fqdn', 'foo.vertex.link', {'subs': {
                     'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
                         'domain': (t.fqdntype.typehash, 'link', {'subs': {
@@ -1976,7 +2040,7 @@ class InetModelTest(s_t_utils.SynTest):
             url = 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/'
             expected = (url, {'subs': {
                 'proto': protosub,
-                'fqdn': (t.fqdntype.typehash, 'somehost.vertex.link', {'subs': {
+                'host': self._urlhostsub(t, 'inet:fqdn', 'somehost.vertex.link', {'subs': {
                     'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
                         'domain': (t.fqdntype.typehash, 'link', {'subs': {
@@ -1987,7 +2051,7 @@ class InetModelTest(s_t_utils.SynTest):
                     'host': (t.fqdntype.hosttype.typehash, 'somehost', {})}}),
                 'base': (t.strtype.typehash, 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/', {}),
                 'path': (t.strtype.typehash, 'c:/invisig0th/code/synapse/', {}),
-                'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+                'username': (t.usertype.typehash, 'visi@vertex.link', {}),
                 'params': paramsub,
             }})
             self.eq(await t.norm(url), expected)
@@ -1996,11 +2060,11 @@ class InetModelTest(s_t_utils.SynTest):
             expected = (url, {'subs': {
                 'proto': protosub,
                 'base': (t.strtype.typehash, 'file://foo@bar.com:neato@burrito@7.7.7.7/c:/invisig0th/code/synapse/', {}),
-                'ip': (t.iptype.typehash, (4, 117901063), {'subs': {
+                'host': self._urlhostsub(t, 'inet:ip', (4, 117901063), {'subs': {
                     'type': (t.iptype.typetype.typehash, 'unicast', {}),
                     'version': (t.iptype.verstype.typehash, 4, {})}}),
                 'path': (t.strtype.typehash, 'c:/invisig0th/code/synapse/', {}),
-                'user': (t.lowstrtype.typehash, 'foo@bar.com', {}),
+                'username': (t.usertype.typehash, 'foo@bar.com', {}),
                 'passwd': (t.passtype.typehash, 'neato@burrito', {'subs': {
                     'md5': (t.passtype.md5.typehash, 'a8e174c5a70f75a78173b6f056e6391b', {}),
                     'sha1': (t.passtype.sha1.typehash, '3d7b1484dd08034c00c4194b4b51625b55128982', {}),
@@ -2027,12 +2091,12 @@ class InetModelTest(s_t_utils.SynTest):
             expected = (url, {'subs': {
                 'proto': protosub,
                 'path': (t.strtype.typehash, 'c:/invisig0th/code/synapse/', {}),
-                'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+                'username': (t.usertype.typehash, 'visi@vertex.link', {}),
                 'passwd': (t.passtype.typehash, 'password', {'subs': {
                     'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
                     'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
                     'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
-                'fqdn': (t.fqdntype.typehash, 'somehost.vertex.link', {'subs': {
+                'host': self._urlhostsub(t, 'inet:fqdn', 'somehost.vertex.link', {'subs': {
                     'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
                         'domain': (t.fqdntype.typehash, 'link', {'subs': {
@@ -2063,7 +2127,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': protosub,
                 'params': paramsub,
                 'path': (t.strtype.typehash, '/SharedDir/Unc/FilePath', {}),
-                'fqdn': (t.fqdntype.typehash, 'host.vertex.link', {'subs': {
+                'host': self._urlhostsub(t, 'inet:fqdn', 'host.vertex.link', {'subs': {
                     'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
                         'domain': (t.fqdntype.typehash, 'link', {'subs': {
@@ -2084,7 +2148,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'params': paramsub,
                 'base': (t.strtype.typehash, 'file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path', {}),
                 'path': (t.strtype.typehash, '/SharedDir/Firefox/Unc/File/Path', {}),
-                'fqdn': (t.fqdntype.typehash, 'host.vertex.link', {'subs': {
+                'host': self._urlhostsub(t, 'inet:fqdn', 'host.vertex.link', {'subs': {
                     'domain': (t.fqdntype.typehash, 'vertex.link', {'subs': {
                         'host': (t.fqdntype.hosttype.typehash, 'vertex', {}),
                         'domain': (t.fqdntype.typehash, 'link', {'subs': {
@@ -2110,7 +2174,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(norm_host[0], 'vertex.link')
             self.eq(repr_host, 'vertex.link')
 
-            hostsub = (fqdntype.typehash, norm_host[0], norm_host[1])
+            hostsub = self._urlhostsub(t, 'inet:fqdn', norm_host[0], norm_host[1])
             await self._test_types_url_behavior(t, 'fqdn', host, hostsub, repr_host)
 
     async def test_url_ipv4(self):
@@ -2124,7 +2188,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(norm_host[0], (4, 3232235777))
             self.eq(repr_host, '192.168.1.1')
 
-            hostsub = (iptype.typehash, norm_host[0], norm_host[1])
+            hostsub = self._urlhostsub(t, 'inet:ip', norm_host[0], norm_host[1])
             await self._test_types_url_behavior(t, 'ipv4', host, hostsub, repr_host)
 
     async def test_url_ipv6(self):
@@ -2138,7 +2202,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(norm_host[0], (6, 1))
             self.eq(repr_host, '::1')
 
-            hostsub = (iptype.typehash, norm_host[0], norm_host[1])
+            hostsub = self._urlhostsub(t, 'inet:ip', norm_host[0], norm_host[1])
             await self._test_types_url_behavior(t, 'ipv6', host, hostsub, repr_host)
 
             # IPv6 Port Special Cases
@@ -2148,7 +2212,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'scope': (iptype.scopetype.typehash, 'global', {}),
                 'version': (iptype.verstype.typehash, 6, {})
             }
-            self.eq(weird[1]['subs']['ip'], (iptype.typehash, (6, 0x10081), {'subs': ipsubs}))
+            self.eq(weird[1]['subs']['host'], self._urlhostsub(t, 'inet:ip', (6, 0x10081), {'subs': ipsubs}))
             self.eq(weird[1]['subs']['port'], (core.model.type('inet:port').typehash, 80, {}))
 
             await self.asyncraises(s_exc.BadTypeValu, t.norm('http://0:0:0:0:0:0:0:0:81/'))
@@ -2162,20 +2226,17 @@ class InetModelTest(s_t_utils.SynTest):
             host_port = f'[{host}]'
             repr_host = f'[{repr_host}]'
 
-        if htype in ('ipv4', 'ipv6'):
-            htype = 'ip'
-
         # URL with auth and port.
         url = f'https://user:password@{host_port}:1234/a/b/c/'
         expected = (f'https://user:password@{repr_host}:1234/a/b/c/', {'subs': {
             'proto': (t.lowstrtype.typehash, 'https', {}),
             'path': (t.strtype.typehash, '/a/b/c/', {}),
-            'user': (t.lowstrtype.typehash, 'user', {}),
+            'username': (t.usertype.typehash, 'user', {}),
             'passwd': (t.passtype.typehash, 'password', {'subs': {
                 'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
                 'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
                 'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
-            htype: norm_host,
+            'host': norm_host,
             'port': (t.porttype.typehash, 1234, {}),
             'base': (t.strtype.typehash, f'https://user:password@{repr_host}:1234/a/b/c/', {}),
             'params': (t.strtype.typehash, '', {})
@@ -2187,11 +2248,11 @@ class InetModelTest(s_t_utils.SynTest):
         expected = (f'lando://visi@vertex.link@{repr_host}:40000/auth/gateway', {'subs': {
             'proto': (t.lowstrtype.typehash, 'lando', {}),
             'path': (t.strtype.typehash, '/auth/gateway', {}),
-            'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+            'username': (t.usertype.typehash, 'visi@vertex.link', {}),
             'base': (t.strtype.typehash, f'lando://visi@vertex.link@{repr_host}:40000/auth/gateway', {}),
             'port': (t.porttype.typehash, 40000, {}),
             'params': (t.strtype.typehash, '', {}),
-            htype: norm_host,
+            'host': norm_host,
         }})
         self.eq(await t.norm(url), expected)
 
@@ -2200,7 +2261,7 @@ class InetModelTest(s_t_utils.SynTest):
         expected = (f'balthazar://root:foo@@@bar@{repr_host}:1234/', {'subs': {
             'proto': (t.lowstrtype.typehash, 'balthazar', {}),
             'path': (t.strtype.typehash, '/', {}),
-            'user': (t.lowstrtype.typehash, 'root', {}),
+            'username': (t.usertype.typehash, 'root', {}),
             'passwd': (t.passtype.typehash, 'foo@@@bar', {'subs': {
                 'md5': (t.passtype.md5.typehash, '43947b88f0eb686bfc5c4237ffd36beb', {}),
                 'sha1': (t.passtype.sha1.typehash, 'd29614eb55f9aa29efd8f3105ed60b8881dc81dd', {}),
@@ -2208,7 +2269,7 @@ class InetModelTest(s_t_utils.SynTest):
             'base': (t.strtype.typehash, f'balthazar://root:foo@@@bar@{repr_host}:1234/', {}),
             'port': (t.porttype.typehash, 1234, {}),
             'params': (t.strtype.typehash, '', {}),
-            htype: norm_host,
+            'host': norm_host,
         }})
         self.eq(await t.norm(url), expected)
 
@@ -2217,7 +2278,7 @@ class InetModelTest(s_t_utils.SynTest):
         expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host}:44343', {'subs': {
             'proto': (t.lowstrtype.typehash, 'calrissian', {}),
             'path': (t.strtype.typehash, '', {}),
-            'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+            'username': (t.usertype.typehash, 'visi@vertex.link', {}),
             'passwd': (t.passtype.typehash, 'surround@', {'subs': {
                 'md5': (t.passtype.md5.typehash, '494346410c1c4a4b98feb1b1956a71ae', {}),
                 'sha1': (t.passtype.sha1.typehash, 'ba9b515889b5d7f1bb1d13f13409e1f7518f7c20', {}),
@@ -2225,7 +2286,7 @@ class InetModelTest(s_t_utils.SynTest):
             'base': (t.strtype.typehash, f'calrissian://visi%40vertex.link:surround%40@{repr_host}:44343', {}),
             'port': (t.porttype.typehash, 44343, {}),
             'params': (t.strtype.typehash, '', {}),
-            htype: norm_host,
+            'host': norm_host,
         }})
         self.eq(await t.norm(url), expected)
 
@@ -2234,7 +2295,7 @@ class InetModelTest(s_t_utils.SynTest):
         expected = (f'https://visi@vertex.link:neato@burrito@{repr_host}/?q=@foobarbaz', {'subs': {
             'proto': (t.lowstrtype.typehash, 'https', {}),
             'path': (t.strtype.typehash, '/', {}),
-            'user': (t.lowstrtype.typehash, 'visi@vertex.link', {}),
+            'username': (t.usertype.typehash, 'visi@vertex.link', {}),
             'passwd': (t.passtype.typehash, 'neato@burrito', {'subs': {
                 'md5': (t.passtype.md5.typehash, 'a8e174c5a70f75a78173b6f056e6391b', {}),
                 'sha1': (t.passtype.sha1.typehash, '3d7b1484dd08034c00c4194b4b51625b55128982', {}),
@@ -2242,7 +2303,7 @@ class InetModelTest(s_t_utils.SynTest):
             'base': (t.strtype.typehash, f'https://visi@vertex.link:neato@burrito@{repr_host}/', {}),
             'port': (t.porttype.typehash, 443, {}),
             'params': (t.strtype.typehash, '?q=@foobarbaz', {}),
-            htype: norm_host,
+            'host': norm_host,
         }})
         self.eq(await t.norm(url), expected)
 
@@ -2252,12 +2313,12 @@ class InetModelTest(s_t_utils.SynTest):
         expected = (f'https://user:password@{repr_host}/a/b/c/?foo=bar&baz=faz', {'subs': {
             'proto': (t.lowstrtype.typehash, 'https', {}),
             'path': (t.strtype.typehash, '/a/b/c/', {}),
-            'user': (t.lowstrtype.typehash, 'user', {}),
+            'username': (t.usertype.typehash, 'user', {}),
             'passwd': (t.passtype.typehash, 'password', {'subs': {
                 'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
                 'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
                 'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
-            htype: norm_host,
+            'host': norm_host,
             'port': (t.porttype.typehash, 443, {}),
             'base': (t.strtype.typehash, f'https://user:password@{repr_host}/a/b/c/', {}),
             'params': (t.strtype.typehash, '?foo=bar&baz=faz', {})
@@ -2270,12 +2331,12 @@ class InetModelTest(s_t_utils.SynTest):
         expected = (f'arbitrary://user:password@{repr_host}/a/b/c/', {'subs': {
             'proto': (t.lowstrtype.typehash, 'arbitrary', {}),
             'path': (t.strtype.typehash, '/a/b/c/', {}),
-            'user': (t.lowstrtype.typehash, 'user', {}),
+            'username': (t.usertype.typehash, 'user', {}),
             'passwd': (t.passtype.typehash, 'password', {'subs': {
                 'md5': (t.passtype.md5.typehash, '5f4dcc3b5aa765d61d8327deb882cf99', {}),
                 'sha1': (t.passtype.sha1.typehash, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', {}),
                 'sha256': (t.passtype.sha256.typehash, '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', {})}}),
-            htype: norm_host,
+            'host': norm_host,
             'base': (t.strtype.typehash, f'arbitrary://user:password@{repr_host}/a/b/c/', {}),
             'params': (t.strtype.typehash, '', {})
         }})
@@ -2287,8 +2348,8 @@ class InetModelTest(s_t_utils.SynTest):
         expected = (f'https://user@{repr_host}:1234/a/b/c/', {'subs': {
             'proto': (t.lowstrtype.typehash, 'https', {}),
             'path': (t.strtype.typehash, '/a/b/c/', {}),
-            'user': (t.lowstrtype.typehash, 'user', {}),
-            htype: norm_host,
+            'username': (t.usertype.typehash, 'user', {}),
+            'host': norm_host,
             'port': (t.porttype.typehash, 1234, {}),
             'base': (t.strtype.typehash, f'https://user@{repr_host}:1234/a/b/c/', {}),
             'params': (t.strtype.typehash, '', {})
@@ -2301,7 +2362,7 @@ class InetModelTest(s_t_utils.SynTest):
         expected = (f'https://{repr_host}:1234/a/b/c/', {'subs': {
             'proto': (t.lowstrtype.typehash, 'https', {}),
             'path': (t.strtype.typehash, '/a/b/c/', {}),
-            htype: norm_host,
+            'host': norm_host,
             'port': (t.porttype.typehash, 1234, {}),
             'base': (t.strtype.typehash, f'https://{repr_host}:1234/a/b/c/', {}),
             'params': (t.strtype.typehash, '', {})
@@ -2313,7 +2374,7 @@ class InetModelTest(s_t_utils.SynTest):
         expected = (f'https://{repr_host}:1234', {'subs': {
             'proto': (t.lowstrtype.typehash, 'https', {}),
             'path': (t.strtype.typehash, '', {}),
-            htype: norm_host,
+            'host': norm_host,
             'port': (t.porttype.typehash, 1234, {}),
             'base': (t.strtype.typehash, f'https://{repr_host}:1234', {}),
             'params': (t.strtype.typehash, '', {})
@@ -2325,7 +2386,7 @@ class InetModelTest(s_t_utils.SynTest):
         expected = (f'a://{repr_host}', {'subs': {
             'proto': (t.lowstrtype.typehash, 'a', {}),
             'path': (t.strtype.typehash, '', {}),
-            htype: norm_host,
+            'host': norm_host,
             'base': (t.strtype.typehash, f'a://{repr_host}', {}),
             'params': (t.strtype.typehash, '', {})
         }})
@@ -2347,7 +2408,7 @@ class InetModelTest(s_t_utils.SynTest):
             url = url[0]
             self.propeq(url, 'port', 443)
             self.propeq(url, 'params', '')
-            self.propeq(url, 'fqdn', 'vertex.link')
+            self.propeq(url, 'host', 'vertex.link', type='inet:fqdn')
             self.propeq(url, 'proto', 'https')
             self.propeq(url, 'base', 'https://vertex.link/a_cool_program.exe')
 
@@ -2382,13 +2443,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:fqdn=vertex.link'))
             self.len(1, await core.nodes('inet:fqdn=cool.vertex.newp'))
 
-    async def test_user(self):
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:user="cool User "]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('inet:user', 'cool user'))
-
     async def test_whois_collection(self):
 
         async with self.getTestCore() as core:
@@ -2402,7 +2456,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'success': True,
                 'rec': rec,
             }
-            q = '[(inet:whois:ipquery=$valu :time=$p.time :fqdn=$p.fqdn :success=$p.success :rec=$p.rec :ip=$p.ip)]'
+            q = '[(inet:whois:ipquery=$valu :time=$p.time :fqdn=$p.fqdn :success=$p.success :rec=$p.rec as inet:whois:iprecord :ip=$p.ip)]'
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2449,9 +2503,9 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:record', '0c63f6b67c9a3ca40f9f942957a718e9'))
             self.propeq(node, 'fqdn', 'woot.com')
-            self.propeq(node, 'text', 'yelling at pennywise@vertex.link loudly')
-            self.propeq(node, 'registrar:name', 'cool registrar')
-            self.propeq(node, 'registrant:name', 'cool registrant')
+            self.propeq(node, 'text', 'YELLING AT pennywise@vertex.link LOUDLY')
+            self.propeq(node, 'registrar:name', 'cool REGISTRAR')
+            self.propeq(node, 'registrant:name', 'cool REGISTRANT')
             self.len(1, await core.nodes('inet:whois:record :registrar -> ou:org +:name="cool registrar"'))
             self.len(1, await core.nodes('inet:whois:record :registrant -> ou:org +:name="cool registrant"'))
             self.nn(node.get('seen'))
@@ -2459,7 +2513,7 @@ class InetModelTest(s_t_utils.SynTest):
             with self.getLoggerStream('synapse.datamodel') as stream:
                 nodes = await core.nodes('[ inet:whois:record=* :text="Contact: pennywise@vertex.link" ]')
                 self.len(1, nodes)
-                self.propeq(nodes[0], 'text', 'contact: pennywise@vertex.link')
+                self.propeq(nodes[0], 'text', 'Contact: pennywise@vertex.link')
                 self.none(nodes[0].get('fqdn'))
 
             stream.seek(0)
@@ -2492,9 +2546,9 @@ class InetModelTest(s_t_utils.SynTest):
                 :registrar:name=" ARIN "
                 :registrant={[ ou:org=* :name=" VERTEX Project " ]}
                 :registrant:name=" VERTEX Project "
-                :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
+                :contacts={[ entity:contact=$addlcontact ]} :country=$p.country :status=$p.status :type=$p.type
                 :links=$p.links :seen=2022)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv4, 'p': props}})
+            nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv4, 'p': props, 'addlcontact': addlcontact}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:iprecord', rec_ipv4))
@@ -2508,8 +2562,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(node, 'asn', 12345)
             self.propeq(node, 'id', 'NET-10-0-0-0-1')
             self.propeq(node, 'name', 'vtx')
-            self.propeq(node, 'registrar:name', 'arin')
-            self.propeq(node, 'registrant:name', 'vertex project')
+            self.propeq(node, 'registrar:name', 'ARIN')
+            self.propeq(node, 'registrant:name', 'VERTEX Project')
             self.propeq(node, 'parentid', 'NET-10-0-0-0-0')
             self.propeq(node, 'contacts', (addlcontact,))
             self.propeq(node, 'country', 'us')
@@ -2556,7 +2610,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(node, 'name', 'EU-VTX-1')
             self.propeq(node, 'country', 'tp')
             self.propeq(node, 'status', 'renew prohibited')
-            self.propeq(node, 'type', 'allocated-by-rir')
+            self.propeq(node, 'type', 'allocated-BY-rir')
 
             # check regid pivot
             scmd = f'inet:whois:iprecord={rec_ipv4} :parentid -> inet:whois:iprecord:id'
@@ -2575,7 +2629,7 @@ class InetModelTest(s_t_utils.SynTest):
                 [ inet:wifi:ap=*
                     :ssid="The Best SSID2 "
                     :bssid=00:11:22:33:44:55
-                    :place=*
+                    :place=* as geo:place
                     :channel=99
                     :place:latlong=(20, 30)
                     :place:latlong:accuracy=10km
@@ -2678,7 +2732,7 @@ class InetModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[inet:banner=("tcp://1.2.3.4:443", "Hi There")]')
+            nodes = await core.nodes('[inet:banner=({"server": "tcp://1.2.3.4:443", "text": "Hi There"})]')
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'text', 'Hi There')
@@ -2687,14 +2741,29 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:dev:str="Hi There"'))
             self.len(1, await core.nodes('inet:ip=1.2.3.4'))
 
-            nodes = await core.nodes('[inet:banner=("tcp://::ffff:8.7.6.5", sup)]')
+            # the server/text combination deconflicts to the same guid node
+            nodes = await core.nodes('[inet:banner=({"server": "tcp://1.2.3.4:443", "text": "Hi There"})]')
+            self.len(1, nodes)
+            self.eq(node.ndef, nodes[0].ndef)
+
+            self.len(1, await core.nodes('inet:banner'))
+
+            nodes = await core.nodes('''
+                [ inet:banner=({"server": "tcp://::ffff:8.7.6.5", "text": "sup"})
+                    :certificate={[ crypto:x509:cert=* :serial=00 ]}
+                ]
+            ''')
             self.len(1, nodes)
             node = nodes[0]
             self.propeq(node, 'text', 'sup')
             self.propeq(node, 'server', 'tcp://[::ffff:8.7.6.5]')
+            self.nn(node.get('certificate'))
 
             self.len(1, await core.nodes('it:dev:str="sup"'))
             self.len(1, await core.nodes('inet:ip="::ffff:8.7.6.5"'))
+            self.len(1, await core.nodes('inet:banner -> crypto:x509:cert'))
+
+            self.len(2, await core.nodes('inet:banner'))
 
     async def test_search_query(self):
         async with self.getTestCore() as core:
@@ -2712,8 +2781,9 @@ class InetModelTest(s_t_utils.SynTest):
                     :time=$p.time
                     :text=$p.text
                     :engine=$p.engine
-                    :host=$p.host
-                    :account=*
+                    :host=$p.host as it:host
+                    :actor=* as inet:service:account
+                    :request={[ inet:http:request=* ]}
             ]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': iden, 'p': props}})
             self.len(1, nodes)
@@ -2723,7 +2793,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(node, 'text', 'hi there')
             self.propeq(node, 'engine', 'roofroof')
             self.propeq(node, 'host', host)
-            self.len(1, await core.nodes('inet:search:query :account -> inet:service:account'))
+            self.len(1, await core.nodes('inet:search:query :actor -> inet:service:account'))
+            self.len(1, await core.nodes('inet:search:query :request -> inet:http:request'))
 
             residen = s_common.guid()
             props = {
@@ -2733,7 +2804,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'text': 'woot woot woot',
                 'title': 'this is a title',
             }
-            q = '[inet:search:result=$valu :query=$p.query :url=$p.url :rank=$p.rank :text=$p.text :title=$p.title]'
+            q = '[inet:search:result=$valu :query=$p.query as inet:search:query :url=$p.url :rank=$p.rank :text=$p.text :title=$p.title]'
             nodes = await core.nodes(q, opts={'vars': {'valu': residen, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2762,10 +2833,10 @@ class InetModelTest(s_t_utils.SynTest):
                 :body="there are mad sploitz here!"
                 :headers=(('to', 'Visi Stark <visi@vertex.link>'),)
                 :cc=(baz@faz.org, foo@bar.com, baz@faz.org)
-                :bytes="*"
+                :bytes=* as file:bytes
                 :received:from:ip=1.2.3.4
                 :received:from:fqdn=smtp.vertex.link
-                :flow=$flow
+                :flow=$flow as inet:flow
                 :links={[
                     inet:hyperlink=*
                         :url=https://www.vertex.link
@@ -2773,7 +2844,7 @@ class InetModelTest(s_t_utils.SynTest):
                 ]}
                 :attachments={[
                     file:attachment=*
-                        :file=*
+                        :file=* as file:bytes
                         :path=sploit.exe
                 ]}
             ]
@@ -2811,8 +2882,8 @@ class InetModelTest(s_t_utils.SynTest):
                 :ingress=1.2.3.4:443
                 :egress=5.5.5.5
                 :type=vpn
-                :anon=$lib.true
-                :operator = {[ entity:contact=* :email=visi@vertex.link ]}
+                :anon=true
+                :actor = {[ entity:contact=* :email=visi@vertex.link ]}
             ]''')
             self.len(1, nodes)
 
@@ -2837,19 +2908,70 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
             [ inet:egress=*
-                :host = *
-                :host:iface = *
+                :host = * as it:host
+                :host:nic = * as it:nic
                 :client=1.2.3.4
             ]
             ''')
 
             self.len(1, nodes)
             self.nn(nodes[0].get('host'))
-            self.nn(nodes[0].get('host:iface'))
+            self.nn(nodes[0].get('host:nic'))
             self.propeq(nodes[0], 'client', 'tcp://1.2.3.4')
 
             self.len(1, await core.nodes('inet:egress -> it:host'))
-            self.len(1, await core.nodes('inet:egress -> inet:iface'))
+            self.len(1, await core.nodes('inet:egress -> it:nic'))
+
+    async def test_model_inet_data_link(self):
+
+        async with self.getTestCore() as core:
+
+            self.true(core.model.form('inet:data:link').implements('base:activity'))
+
+            nodes = await core.nodes('''[
+                inet:data:link=*
+                    :source={[ it:nic=* :name=eth0 ]}
+                    :source:ip=1.2.3.4
+                    :source:mac=00:11:22:33:44:55
+                    :source:network={[ it:network=* ]}
+                    :target={[ it:nic=* :name=eth1 ]}
+                    :target:ip=5.6.7.8
+                    :target:mac=aa:bb:cc:dd:ee:ff
+                    :target:network={[ it:network=* ]}
+                    :period=(2021, 2022)
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('source')[0], 'it:nic')
+            self.eq(node.get('target')[0], 'it:nic')
+            self.propeq(node, 'source:mac', '00:11:22:33:44:55')
+            self.propeq(node, 'target:mac', 'aa:bb:cc:dd:ee:ff')
+            self.nn(node.get('source:network'))
+            self.nn(node.get('target:network'))
+            self.propeq(node, 'period', (1609459200000000, 1640995200000000, 31536000000000))
+            self.len(1, await core.nodes('inet:data:link +:source:ip=1.2.3.4'))
+            self.len(1, await core.nodes('inet:data:link +:target:ip=5.6.7.8'))
+            self.len(1, await core.nodes('inet:data:link :target:network -> it:network'))
+            self.len(1, await core.nodes('inet:data:link :source:network -> it:network'))
+            self.len(1, await core.nodes('inet:data:link :source:ip -> inet:ip'))
+            self.len(1, await core.nodes('inet:data:link :target:ip -> inet:ip'))
+
+            # inet:wifi:link extends inet:data:link, narrowing source/target to it:wifi:nic
+            self.eq(core.model.form('inet:wifi:link').type.subof, 'inet:data:link')
+            self.true(core.model.form('inet:wifi:link').implements('base:activity'))
+
+            nodes = await core.nodes('''[
+                inet:wifi:link=*
+                    :source={[ it:wifi:nic=* :ssid=ap1 ]}
+                    :target={[ it:wifi:nic=* ]}
+                    :target:ssid=ap2
+                    :target:network={[ it:network=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('source')[0], 'it:wifi:nic')
+            self.eq(nodes[0].get('target')[0], 'it:wifi:nic')
+            self.propeq(nodes[0], 'target:ssid', 'ap2')
+            self.nn(nodes[0].get('target:network'))
 
     async def test_model_inet_tls_handshake(self):
 
@@ -2865,13 +2987,13 @@ class InetModelTest(s_t_utils.SynTest):
                 [
                     inet:tls:handshake=*
                         :time=now
-                        :flow=*
+                        :flow=* as inet:flow
                         :server=$server
-                        :server:cert=*
+                        :server:cert=* as crypto:x509:cert
                         :server:ja3s=$ja3s
                         :server:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1
                         :client=$client
-                        :client:cert=*
+                        :client:cert=* as crypto:x509:cert
                         :client:ja3=$ja3
                 ]
             ''', opts={'vars': props})
@@ -2926,7 +3048,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             provname = 'Slack Corp'
             opts = {'vars': {'provname': provname}}
-            nodes = await core.nodes('gen.ou.org $provname', opts=opts)
+            nodes = await core.nodes('gen.org $provname', opts=opts)
             self.len(1, nodes)
             provider = nodes[0]
 
@@ -2957,17 +3079,17 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
             self.propeq(nodes[0], 'id', 'foo')
             self.propeq(nodes[0], 'type', 'foo.bar.')
-            self.propeq(nodes[0], 'family', 'foofam')
+            self.propeq(nodes[0], 'family', 'FooFam')
             self.propeq(nodes[0], 'url', 'https://slack.com')
             self.propeq(nodes[0], 'urls', ('https://slacker.com',))
             self.propeq(nodes[0], 'zones', ('slack.com', 'slacker.com'))
-            self.propeq(nodes[0], 'name', 'slack')
+            self.propeq(nodes[0], 'name', 'Slack')
             self.propeq(nodes[0], 'names', ('slack chat',))
             self.propeq(nodes[0], 'desc', ' Slack is a team communication platform.\n\n Be less busy.')
             self.eq(nodes[0].repr('status'), 'available')
             self.eq(nodes[0].repr('period'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
             self.propeq(nodes[0], 'provider', provider.ndef[1])
-            self.propeq(nodes[0], 'provider:name', provname.lower())
+            self.propeq(nodes[0], 'provider:name', provname)
             self.eq(nodes[0].repr('seen'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
             platform = nodes[0]
 
@@ -3014,7 +3136,7 @@ class InetModelTest(s_t_utils.SynTest):
             [
                 (inet:service:account=(blackout, account, vertex, slack)
                     :id=U7RN51U1J
-                    :user=blackout
+                    :username=blackout
                     :url=https://vertex.link/users/blackout
                     :email=blackout@vertex.link
                     :profile=$profile
@@ -3022,15 +3144,15 @@ class InetModelTest(s_t_utils.SynTest):
                         inet:service:tenant=({"id": "VS-31337"})
                             :profile=$profile
                     ]}
-                    :rules=($rule01, $rule00, $rule01)
+                    :rules={[ inet:service:rule=$rule01 inet:service:rule=$rule00 inet:service:rule=$rule01 ]}
                     :seen=(2022, 2023)
                 )
 
                 (inet:service:account=(visi, account, vertex, slack)
                     :id=U2XK7PUVB
-                    :user=visi
+                    :username=visi
                     :email=visi@vertex.link
-                    :parent=*
+                    :parent=* as inet:service:account
                 )
             ]
             '''
@@ -3042,14 +3164,14 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
             self.propeq(accounts[0], 'id', 'U7RN51U1J')
-            self.propeq(accounts[0], 'user', 'blackout')
+            self.propeq(accounts[0], 'username', 'blackout')
             self.propeq(accounts[0], 'url', 'https://vertex.link/users/blackout')
             self.propeq(accounts[0], 'email', 'blackout@vertex.link')
             self.propeq(accounts[0], 'rules', (rule01, rule00, rule01))
 
             self.eq(accounts[1].ndef, ('inet:service:account', s_common.guid(('visi', 'account', 'vertex', 'slack'))))
             self.propeq(accounts[1], 'id', 'U2XK7PUVB')
-            self.propeq(accounts[1], 'user', 'visi')
+            self.propeq(accounts[1], 'username', 'visi')
             self.propeq(accounts[1], 'email', 'visi@vertex.link')
             blckacct, visiacct = accounts
 
@@ -3062,11 +3184,19 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('entity:contact:email=foo@bar.com -> (inet:service:account, inet:service:tenant)')
             self.sorteq(['inet:service:account', 'inet:service:tenant'], [n.ndef[0] for n in nodes])
 
+            # inet:service:platform and inet:service:account implement the risk:targetable interface
+            self.isin('risk:targetable', core.model.form('inet:service:platform').ifaces)
+            self.isin('risk:targetable', core.model.form('inet:service:account').ifaces)
+            self.len(1, await core.nodes('inet:service:platform=(slack,) { [ <(targeted)+ {[ entity:contact=({"name": "apt1"}) ]} ] }'))
+            self.len(1, await core.nodes('inet:service:platform=(slack,) <(targeted)- entity:contact:name=apt1'))
+            self.len(1, await core.nodes('inet:service:account:username=visi { [ <(targeted)+ { entity:contact:name=apt1 } ] }'))
+            self.len(1, await core.nodes('inet:service:account:username=visi <(targeted)- entity:contact:name=apt1'))
+
             q = '''
             [ inet:service:role=(developers, group, vertex, slack)
                 :id=X1234
                 :name="developers, developers, developers"
-                :rules=($rule01, $rule00, $rule01)
+                :rules={[ inet:service:rule=$rule01 inet:service:rule=$rule00 inet:service:rule=$rule01 ]}
             ]
             '''
             nodes = await core.nodes(q, opts=opts)
@@ -3081,15 +3211,15 @@ class InetModelTest(s_t_utils.SynTest):
             $role = {[ inet:service:role=$devsiden ]}
             [
                 (inet:service:member=(blackout, developers, group, vertex, slack)
-                    :account=$blckiden
+                    :account=$blckiden as inet:service:account
                     :of=$role
                     :period=(20230601, ?)
-                    :creator=$visiiden
-                    :remover=$visiiden
+                    :creator=$visiiden as inet:service:account
+                    :remover=$visiiden as inet:service:account
                 )
 
                 (inet:service:member=(visi, developers, group, vertex, slack)
-                    :account=$visiiden
+                    :account=$visiiden as inet:service:account
                     :of=$role
                     :period=(20150101, ?)
                 )
@@ -3117,9 +3247,9 @@ class InetModelTest(s_t_utils.SynTest):
 
             q = '''
             [ inet:service:session=*
-                :creator=$blckiden
+                :creator=$blckiden as inet:service:account
                 :period=(202405160900, 202405161055)
-                :http:session=*
+                :http:session=* as inet:http:session
             ]
             '''
             opts = {'vars': {'blckiden': blckacct.ndef[1]}}
@@ -3176,8 +3306,8 @@ class InetModelTest(s_t_utils.SynTest):
                 :id=C1234
                 :name=general
                 :period=(20150101, ?)
-                :creator=$visiiden
-                :platform=$platiden
+                :creator=$visiiden as inet:service:account
+                :platform=$platiden as inet:service:platform
                 :topic=' My Topic   '
                 :profile={[ entity:contact=({"email": "foo@bar.com"}) ]}
             ]
@@ -3190,7 +3320,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:channel', s_common.guid(('general', 'channel', 'vertex', 'slack'))))
             self.propeq(nodes[0], 'name', 'general')
-            self.propeq(nodes[0], 'topic', 'my topic')
+            self.propeq(nodes[0], 'topic', 'My Topic')
             self.propeq(nodes[0], 'period', (1420070400000000, 9223372036854775807, 0xffffffffffffffff))
             self.propeq(nodes[0], 'creator', visiacct.ndef[1])
             self.propeq(nodes[0], 'platform', platform.ndef[1])
@@ -3200,16 +3330,16 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [
                 (inet:service:member=(visi, general, channel, vertex, slack)
-                    :account=$visiiden
+                    :account=$visiiden as inet:service:account
                     :period=(20150101, ?)
                 )
 
                 (inet:service:member=(blackout, general, channel, vertex, slack)
-                    :account=$blckiden
+                    :account=$blckiden as inet:service:account
                     :period=(20230601, ?)
                 )
 
-                :platform=$platiden
+                :platform=$platiden as inet:service:platform
                 :of={[ inet:service:channel=$chnliden ]}
             ]
             '''
@@ -3237,9 +3367,9 @@ class InetModelTest(s_t_utils.SynTest):
             [
                 (inet:service:message=(blackout, developers, 1715856900000000, vertex, slack)
                     :type=chat.group
-                    :role=$devsiden
-                    :public=$lib.false
-                    :repost=*
+                    :to=$devsiden as inet:service:role
+                    :public=false
+                    :repost=* as inet:service:message
                     :mentions={[
                          (inet:service:role=$devsiden)
                          (inet:service:account=$blckiden)
@@ -3249,25 +3379,25 @@ class InetModelTest(s_t_utils.SynTest):
 
                 (inet:service:message=(blackout, visi, 1715856900000000, vertex, slack)
                     :type=chat.direct
-                    :to=$visiiden
-                    :public=$lib.false
+                    :to=$visiiden as inet:service:account
+                    :public=false
                     :mentions?={[ file:attachment=* ]}
                 )
 
                 (inet:service:message=(blackout, general, 1715856900000000, vertex, slack)
                     :type=chat.channel
-                    :channel=$gnrliden
-                    :public=$lib.true
+                    :to=$gnrliden as inet:service:channel
+                    :public=true
                 )
 
-                :account=$blckiden
+                :actor=$blckiden as inet:service:account
                 :text="omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                :links+=$linkiden
+                :links+=$linkiden as inet:hyperlink
                 :attachments+={[ file:attachment=* ]}
 
                 :place:name=nyc
-                :place = { gen.geo.place nyc }
-                :file=*
+                :place = { gen.place nyc }
+                :file=* as file:bytes
 
                 :client:software = {[ it:software=* :name=woot ]}
                 :client:software:name = woot
@@ -3284,7 +3414,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(3, nodes)
             for node in nodes:
 
-                self.propeq(node, 'account', blckacct.ndef[1])
+                self.eq(node.get('actor'), blckacct.ndef)
                 self.propeq(node, 'text', "omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ")
                 self.propeq(node, 'links', [msglink.ndef[1]])
 
@@ -3295,7 +3425,7 @@ class InetModelTest(s_t_utils.SynTest):
                 self.propeq(node, 'place:name', 'nyc')
 
             self.nn(nodes[0].get('repost'))
-            self.propeq(nodes[0], 'role', devsgrp.ndef[1])
+            self.eq(nodes[0].get('to'), devsgrp.ndef)
             self.propeq(nodes[0], 'public', 0)
             self.propeq(nodes[0], 'type', 'chat.group.')
             self.eq(
@@ -3303,12 +3433,12 @@ class InetModelTest(s_t_utils.SynTest):
                 (('inet:service:account', blckacct.ndef[1]), ('inet:service:role', devsgrp.ndef[1]))
             )
 
-            self.propeq(nodes[1], 'to', visiacct.ndef[1])
+            self.eq(nodes[1].get('to'), visiacct.ndef)
             self.propeq(nodes[1], 'public', 0)
             self.propeq(nodes[1], 'type', 'chat.direct.')
             self.none(nodes[1].get('mentions'))
 
-            self.propeq(nodes[2], 'channel', gnrlchan.ndef[1])
+            self.eq(nodes[2].get('to'), gnrlchan.ndef)
             self.propeq(nodes[2], 'public', 1)
             self.propeq(nodes[2], 'type', 'chat.channel.')
 
@@ -3335,7 +3465,7 @@ class InetModelTest(s_t_utils.SynTest):
             [ inet:service:resource=(web, api, vertex, slack)
                 :desc="The Web API supplies a collection of HTTP methods that underpin the majority of Slack app functionality."
                 :name="Slack Web APIs"
-                :platform=$platiden
+                :platform=$platiden as inet:service:platform
                 :type=slack.web.api
                 :url="https://slack.com/api"
             ]
@@ -3346,7 +3476,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.propeq(nodes[0], 'desc', 'The Web API supplies a collection of HTTP methods that underpin the majority of Slack app functionality.')
-            self.propeq(nodes[0], 'name', 'slack web apis')
+            self.propeq(nodes[0], 'name', 'Slack Web APIs')
             self.propeq(nodes[0], 'platform', platform.ndef[1])
             self.propeq(nodes[0], 'type', 'slack.web.api.')
             self.propeq(nodes[0], 'url', 'https://slack.com/api')
@@ -3354,11 +3484,11 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ inet:service:bucket:item=*
-                    :creator={ inet:service:account:user=visi }
+                    :creator={ inet:service:account:username=visi }
                     :bucket={[ inet:service:bucket=* :name=foobar
-                        :creator={ inet:service:account:user=visi }
+                        :creator={ inet:service:account:username=visi }
                     ]}
-                    :file=*
+                    :file=* as file:bytes
                     :file:name=woot.exe
                 ]
             ''')
@@ -3375,10 +3505,10 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [ inet:service:access=(api, blackout, 1715856900000000, vertex, slack)
                 :action=foo.bar
-                :account=$blckiden
-                :platform=$platiden
-                :resource=$rsrciden
-                :success=$lib.true
+                :actor=$blckiden as inet:service:account
+                :platform=$platiden as inet:service:platform
+                :resource=$rsrciden as inet:service:resource
+                :success=true
                 :time=(1715856900000000)
             ]
             '''
@@ -3391,70 +3521,153 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             self.propeq(nodes[0], 'action', 'foo.bar.')
-            self.propeq(nodes[0], 'account', blckacct.ndef[1])
+            self.eq(nodes[0].get('actor'), blckacct.ndef)
             self.propeq(nodes[0], 'platform', platform.ndef[1])
             self.propeq(nodes[0], 'resource', resource.ndef[1])
             self.propeq(nodes[0], 'success', 1)
             self.propeq(nodes[0], 'time', 1715856900000000)
 
             q = '''
+            [ inet:service:error=(slack, AUTH_FAILED)
+                :platform=$platiden as inet:service:platform
+                :code=AUTH_FAILED
+                :name="Authentication Failed"
+                :desc="The provided credentials were rejected."
+            ]
+            '''
+            opts = {'vars': {'platiden': platform.ndef[1]}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            errnode = nodes[0]
+            self.propeq(nodes[0], 'platform', platform.ndef[1])
+            self.propeq(nodes[0], 'code', 'AUTH_FAILED')
+            self.propeq(nodes[0], 'name', 'Authentication Failed')
+            self.propeq(nodes[0], 'desc', 'The provided credentials were rejected.')
+
+            q = '''
+            inet:service:access=(api, blackout, 1715856900000000, vertex, slack)
+            [ :error={ inet:service:error=(slack, AUTH_FAILED) } :error:reason="bad password" ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'error', errnode.ndef[1])
+            self.propeq(nodes[0], 'error:reason', 'bad password')
+            self.len(1, await core.nodes('inet:service:access -> inet:service:error'))
+
+            q = '''
             [ inet:service:message=(visi, says, relax)
                 :title="Hehe Haha"
                 :hashtags="#hehe,#haha,#hehe"
-                :thread={[
-                    inet:service:thread=*
+                :replyto={[
+                    inet:service:message=(visi, says, hello)
                         :title="Woot  Woot"
-                        :message=(visi, says, hello)
-                        :channel={[
-                            inet:service:channel=(synapse, subreddit)
-                                :name="/r/synapse"
-                        ]}
                 ]}
             ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.propeq(nodes[0], 'hashtags', ['#haha', '#hehe'])
-            self.len(1, await core.nodes('inet:service:message=(visi, says, hello) -> inet:service:thread:message'))
+            self.propeq(nodes[0], 'title', 'Hehe Haha')
             self.len(1, await core.nodes('''
                 inet:service:message:title="hehe haha"
-                :thread -> inet:service:thread
+                :replyto -> inet:service:message
                 +:title="woot woot"
             '''))
-            self.len(2, await core.nodes('inet:service:thread -> inet:service:message'))
-
-            self.len(1, await core.nodes('''
-                inet:service:message:title="hehe haha"
-                :thread -> inet:service:thread
-                :channel -> inet:service:channel
-                +:name="/r/synapse"
-            '''))
+            self.len(1, await core.nodes('inet:service:message:replyto -> inet:service:message +:title="woot woot"'))
 
             nodes = await core.nodes('''
                 [ inet:service:relationship=*
-                    :source={ inet:service:account:user=visi }
-                    :target={ inet:service:account:user=visi }
+                    :source={ inet:service:account:username=visi }
+                    :target={ inet:service:account:username=visi }
                     :type=follows
                 ]
             ''')
             self.nn(nodes[0].get('source'))
             self.nn(nodes[0].get('target'))
             self.propeq(nodes[0], 'type', 'follows.')
-            self.len(1, await core.nodes('inet:service:relationship :source -> inet:service:account +:user=visi'))
-            self.len(1, await core.nodes('inet:service:relationship :target -> inet:service:account +:user=visi'))
+            self.len(1, await core.nodes('inet:service:relationship :source -> inet:service:account +:username=visi'))
+            self.len(1, await core.nodes('inet:service:relationship :target -> inet:service:account +:username=visi'))
 
             nodes = await core.nodes('''
                 [ inet:service:emote=*
-                    :creator={ inet:service:account:user=visi }
+                    :actor={ inet:service:account:username=visi }
                     :about={[ it:dev:repo=* :name=vertex ]}
                     :text=":gothparrot:"
                 ]
             ''')
             self.nn(nodes[0].get('about'))
-            self.nn(nodes[0].get('creator'))
+            self.nn(nodes[0].get('actor'))
             self.propeq(nodes[0], 'text', ':gothparrot:')
             self.len(1, await core.nodes('inet:service:emote :about -> it:dev:repo +:name=vertex'))
-            self.len(1, await core.nodes('inet:service:emote :creator -> inet:service:account +:user=visi'))
+            self.len(1, await core.nodes('inet:service:emote :actor -> inet:service:account +:username=visi'))
+
+            # inet:service:comment uses the inet:service:commentable interface for :about
+            nodes = await core.nodes('''
+                [ inet:service:comment=*
+                    :creator={ inet:service:account:username=visi }
+                    :about={[ it:dev:repo:issue=* :name="a bug" ]}
+                    :text="i can reproduce this"
+                    :title="me too"
+                    :public=true
+                    :url=https://github.com/vertexproject/synapse/issues/1#c1
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('creator'))
+            self.true(core.model.form('inet:service:comment').implements('inet:service:object'))
+            self.eq('it:dev:repo:issue', nodes[0].get('about')[0])
+            self.propeq(nodes[0], 'text', 'i can reproduce this')
+            self.propeq(nodes[0], 'title', 'me too')
+            self.propeq(nodes[0], 'public', 1)
+            self.len(1, await core.nodes('inet:service:comment :about -> it:dev:repo:issue +:name="a bug"'))
+            self.len(1, await core.nodes('inet:service:comment :creator -> inet:service:account +:username=visi'))
+
+            # comments can be about an it:dev:repo:diff and threaded via :replyto
+            nodes = await core.nodes('''
+                [ inet:service:comment=*
+                    :about={[ it:dev:repo:diff=* ]}
+                    :replyto={ inet:service:comment:title="me too" }
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('it:dev:repo:diff', nodes[0].get('about')[0])
+            self.len(1, await core.nodes('inet:service:comment :about -> it:dev:repo:diff'))
+            self.len(1, await core.nodes('inet:service:comment:replyto -> inet:service:comment +:title="me too"'))
+
+            # forms which do not implement inet:service:commentable are rejected for :about
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:service:comment=* :about={[ it:dev:repo=* ]} ]')
+
+            # inet:service:label generalizes labels and implements inet:service:object
+            nodes = await core.nodes('''
+                [ inet:service:label=*
+                    :name="good first issue"
+                    :desc="a label for newcomer-friendly issues"
+                    :creator={ inet:service:account:username=visi }
+                ]
+            ''')
+            self.len(1, nodes)
+            self.true(core.model.form('inet:service:label').implements('inet:service:object'))
+            self.propeq(nodes[0], 'name', 'good first issue')
+            self.propeq(nodes[0], 'desc', 'a label for newcomer-friendly issues')
+            self.len(1, await core.nodes('inet:service:label :creator -> inet:service:account +:username=visi'))
+
+            # inet:service:labeled records a label applied to an inet:service:labelable node
+            nodes = await core.nodes('''
+                [ inet:service:labeled=*
+                    :label={ inet:service:label:name="good first issue" }
+                    :about={[ it:dev:repo:issue=* :name="needs triage" ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('inet:service:label', nodes[0].get('label')[0])
+            self.eq('it:dev:repo:issue', nodes[0].get('about')[0])
+            self.len(1, await core.nodes('inet:service:labeled :label -> inet:service:label +:name="good first issue"'))
+            self.len(1, await core.nodes('inet:service:labeled :about -> it:dev:repo:issue +:name="needs triage"'))
+
+            # forms which do not implement inet:service:labelable are rejected for :about
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:service:labeled=* :about={[ it:dev:repo=* ]} ]')
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:service:relationship=* :source={[it:dev:str=foo]} ]')
@@ -3493,8 +3706,21 @@ class InetModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('creator'))
             self.nn(nodes[0].get('platform'))
 
-            self.len(1, await core.nodes('inet:service:action | limit 1 | [ :agent={ inet:service:agent } ]'))
+            self.len(1, await core.nodes('inet:service:action | limit 1 | [ :actor={ inet:service:agent } ]'))
             self.len(1, await core.nodes('inet:service:platform | limit 1 | [ :software={[ it:software=(hehe, haha) ]} ]'))
+
+            # an inet:service:object creator/remover may be a service agent as well as an account
+            nodes = await core.nodes('''
+                inet:service:channel:id=C1234 [
+                    :creator={ inet:service:agent | limit 1 }
+                    :remover={ inet:service:agent | limit 1 }
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('inet:service:agent', nodes[0].get('creator')[0])
+            self.eq('inet:service:agent', nodes[0].get('remover')[0])
+            self.len(1, await core.nodes('inet:service:channel:id=C1234 :creator -> inet:service:agent'))
+            self.len(1, await core.nodes('inet:service:channel:id=C1234 :remover -> inet:service:agent'))
 
     async def test_ipv4_fallback(self):
 

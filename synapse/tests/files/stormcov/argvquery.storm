@@ -1,6 +1,6 @@
 function foo() {
     tee {
-        if $lib.true {
+        if (true) {
             stop
         }
     } {}

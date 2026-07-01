@@ -18,6 +18,8 @@ class CortexLibTest(s_test.SynTest):
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
+            lowkey, _ = await core.addUserApiKey(lowuser, 'test')
 
             # Define a handler. Add storm for each METHOD we support
             q = '''
@@ -105,7 +107,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 '''
                 await core.callStorm(q, opts={'vars': {'iden': iden}})
 
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:  # type: aiohttp.ClientSession
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:  # type: aiohttp.ClientSession
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
                 self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
@@ -250,7 +252,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 q = '''$api = $lib.cortex.httpapi.add('echo/(.*)/([a-zA-Z0-9]*)?')
                 $api.methods.get = ${
                 $data = ({
-                    "echo": $lib.true,
+                    "echo": true,
                     "method": $request.method,
                     "headers": $request.headers,
                     "params": $request.params,
@@ -271,8 +273,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 '''
                 echoiden = await core.callStorm(q)
 
-                url = f'https://lowuser:secret@localhost:{hport}/api/ext/echo/sup/?echo=test&giggle=haha&echo=eggs'
-                resp = await sess.get(url, headers=(('hehe', 'haha'), ('apikey', 'secret'), ('hehe', 'badjoke')),
+                url = f'https://localhost:{hport}/api/ext/echo/sup/?echo=test&giggle=haha&echo=eggs'
+                resp = await sess.get(url, headers=(('hehe', 'haha'), ('apikey', 'secret'), ('hehe', 'badjoke'), ('X-API-KEY', lowkey)),
                                       json={'look': 'at this!'},
                                       )
                 self.eq(resp.status, http.HTTPStatus.OK)
@@ -288,8 +290,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.isin('client', data)
                 self.eq(data.get('uri'), '/api/ext/echo/sup/?echo=test&giggle=haha&echo=eggs')
 
-                url = f'https://lowuser:secret@localhost:{hport}/api/ext/echo/words/wOw'
-                resp = await sess.get(url, headers=(('hehe', 'haha'), ('apikey', 'secret'), ('hehe', 'badjoke')),
+                url = f'https://localhost:{hport}/api/ext/echo/words/wOw'
+                resp = await sess.get(url, headers=(('hehe', 'haha'), ('apikey', 'secret'), ('hehe', 'badjoke'), ('X-API-KEY', lowkey)),
                                       data=b'hehe',
                                       )
                 self.eq(resp.status, http.HTTPStatus.OK)
@@ -350,6 +352,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
+            lowkey, _ = await core.addUserApiKey(lowuser, 'test')
 
             q = '''$api = $lib.cortex.httpapi.add(testpath00)
             $api.methods.get = ${
@@ -361,7 +365,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             iden, uname = await core.callStorm(q)
             self.eq(uname, 'root')
 
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:  # type: aiohttp.ClientSession
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:  # type: aiohttp.ClientSession
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
                 self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
@@ -390,7 +394,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
 
-            async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:  # type: aiohttp.ClientSession
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': lowkey}) as sess:  # type: aiohttp.ClientSession
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
                 self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
@@ -411,6 +415,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
 
             # Define a few handlers
             q = '''
@@ -437,7 +442,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             $api.pool = (true)
             $api.perms = (
                 ({"perm": ["hehe", "haha"]}),
-                ({"perm": ["some", "thing"], "default": $lib.true}),
+                ({"perm": ["some", "thing"], "default": true}),
             )
             return ( $api.iden )
             '''
@@ -447,7 +452,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             $api = $lib.cortex.httpapi.add('hehe')
             $api.methods.get = ${ $request.reply(200, headers=({"yup": "hehe"}), body=({"path": $request.path})) }
             $api.methods.head = ${ $request.reply(200, headers=({"yup": "hehe"})) }
-            $api.authenticated = $lib.false
+            $api.authenticated = (false)
             $api.owner = $lowuser
             return ( $api.iden )
             '''
@@ -456,7 +461,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             q = '''
             $api = $lib.cortex.httpapi.add('wow')
             $api.methods.get = ${ $request.reply(200, body=({"path": $request.path})) }
-            $api.authenticated = $lib.false
+            $api.authenticated = (false)
             $api.vars.hehe = wow
             $api.vars.items = (1, 2, (3) )
             return ( $api.iden )
@@ -511,7 +516,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint(f'3     | {iden3}', msgs)
 
             q = '''
-            $ret = $lib.null $api = $lib.cortex.httpapi.getByPath($pth)
+            $ret = (null) $api = $lib.cortex.httpapi.getByPath($pth)
             if $api { $ret = $api.iden}
             return ( $ret )
             '''
@@ -520,7 +525,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.none(await core.callStorm(q, opts={'vars': {'pth': 'newpnewpnewp'}}))
 
             # Order matters. The hehe/haha path occurs after the wildcard.
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
                 data = await resp.json()
                 self.eq(data.get('path'), 'hehe/haha')
@@ -550,7 +555,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint(f'3     | {iden3}', msgs)
 
             # The wildcard handler does not match the more specific request as a result of the new order
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
                 data = await resp.json()
                 self.eq(data.get('path'), 'hehe/haha')
@@ -706,6 +711,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             await core.setUserPasswd(root, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
+            lowkey, _ = await core.addUserApiKey(lowuser, 'test')
 
             q = '''$api = $lib.cortex.httpapi.add('auth')
             $api.methods.get = ${
@@ -715,7 +722,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             '''
             iden = await core.callStorm(q)
 
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
                 self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
@@ -728,7 +735,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 data = await resp.json()
                 self.eq(data.get('code'), 'NotAuthenticated')
 
-                q = '$api = $lib.cortex.httpapi.get($iden) $api.authenticated=$lib.false'
+                q = '$api = $lib.cortex.httpapi.get($iden) $api.authenticated=(false)'
                 msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})
                 self.stormHasNoWarnErr(msgs)
 
@@ -751,14 +758,14 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
             # The user value is populated for authenticated requests which
             # indicates who the requester's user iden is.
-            async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': lowkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
                 self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
                 self.eq(data.get('user'), '')
 
-                q = '$api = $lib.cortex.httpapi.get($iden) $api.authenticated=$lib.true'
+                q = '$api = $lib.cortex.httpapi.get($iden) $api.authenticated=(true)'
                 msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})
                 self.stormHasNoWarnErr(msgs)
 
@@ -785,6 +792,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
 
             # Define a handler that makes its own response headers, bytes, body.
             q = '''
@@ -801,7 +809,7 @@ $request.reply(200, headers=$headers, body=$body)
             '''
             await core.callStorm(q)
 
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/raw')
                 self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq(resp.headers.get('Content-Type'), 'application/json')
@@ -816,6 +824,7 @@ $request.reply(200, headers=$headers, body=$body)
         async with self.getTestCore() as core:
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
 
             # Example which uses the sendcode / sendheaders / sendbody
             # methods in order to implement a streaming API endpoint
@@ -834,7 +843,7 @@ for $i in $values {
             '''
             iden00 = await core.callStorm(q)
 
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/jsonlines')
                 self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq(resp.headers.get('Content-Type'), 'text/plain; charset=utf8')
@@ -869,6 +878,7 @@ for $i in $values {
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            lowkey, _ = await core.addUserApiKey(lowuser, 'test')
 
             # Set a handler which requires a single permission
 
@@ -896,13 +906,13 @@ for $i in $values {
             $data = ({'path': $request.path})
             $request.reply(200, body=$data)
             }
-            $api.perms = ( ({'perm': ['foocorp', 'http', 'user']}), ({'perm': ['apiuser'], 'default': $lib.true}) )
+            $api.perms = ( ({'perm': ['foocorp', 'http', 'user']}), ({'perm': ['apiuser'], 'default': true}) )
             $api.runas = user
             return ( $api.iden )
             '''
             iden1 = await core.callStorm(q)
 
-            async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': lowkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
                 self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 data = await resp.json()
@@ -954,7 +964,7 @@ for $i in $values {
 
             // Clear the perms down for extend()
             $api.perms = (hehe.haha,)
-            $api.perms.extend( (["woah.dude", {"perm": ["giggle", "clown"], "default": $lib.true}, "a.b.c" ]) )
+            $api.perms.extend( (["woah.dude", {"perm": ["giggle", "clown"], "default": true}, "a.b.c" ]) )
 
             // Pop some values
             $pdef = $perms.pop()
@@ -996,7 +1006,7 @@ for $i in $values {
             self.eq(aprm, mesg.get('data').get('ref'))
 
             with self.raises(s_exc.StormRuntimeError) as cm:
-                q = '$api=$lib.cortex.httpapi.get($iden) while $lib.true { $api.perms.pop() } '
+                q = '$api=$lib.cortex.httpapi.get($iden) while (true) { $api.perms.pop() } '
                 await core.callStorm(q, opts={'vars': {'iden': iden2}})
             self.eq(cm.exception.get('mesg'), 'The permissions list is empty. Nothing to pop.')
 
@@ -1007,6 +1017,7 @@ for $i in $values {
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            lowkey, _ = await core.addUserApiKey(lowuser, 'test')
 
             def_view = await core.callStorm('return ( $lib.view.get().iden )')
 
@@ -1022,7 +1033,7 @@ for $i in $values {
             '''
             iden = await core.callStorm(q)
 
-            async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': lowkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath')
                 data = await resp.json()
                 self.eq(data.get('view'), def_view)
@@ -1074,6 +1085,7 @@ for $i in $values {
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
 
             q = '''$api = $lib.cortex.httpapi.add(testpath)
             $api.methods.get = ${
@@ -1101,7 +1113,7 @@ for $i in $values {
             iden, uname = await core.callStorm(q)
             self.eq(uname, 'root')
 
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath',
                                       headers=(('secret-KEY', 'myluggagecombination'), ('aaa', 'zzz'), ('aaa', 'wtaf')),
                                       params=(('hehe', 'haha'), ('wow', 'words'), ('hehe', 'badjoke'), ('HeHe', ':)'))
@@ -1144,6 +1156,7 @@ for $i in $values {
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
 
             q = '''$api = $lib.cortex.httpapi.add(testpath)
             $api.methods.get =  ${ $data = ({"hehe": $hehe }) $request.reply(200, body=$data) }
@@ -1154,7 +1167,7 @@ for $i in $values {
             '''
             iden = await core.callStorm(q)
 
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath',)
                 data = await resp.json()
                 self.eq(data.get('hehe'), 'haha')
@@ -1220,6 +1233,7 @@ for $i in $values {
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
 
             # nothing
             q = '''$api = $lib.cortex.httpapi.add(testpath)
@@ -1227,13 +1241,13 @@ for $i in $values {
             return ( ($api.iden) )'''
             iden = await core.callStorm(q)
 
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath?asn=0')
                 self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data, 0)
 
-                msgs = await core.stormlist('$api=$lib.cortex.httpapi.get($iden) $api.readonly = $lib.true',
+                msgs = await core.stormlist('$api=$lib.cortex.httpapi.get($iden) $api.readonly = (true)',
                                             opts={'vars': {'iden': iden}})
                 self.stormHasNoWarnErr(msgs)
 
@@ -1261,6 +1275,7 @@ for $i in $values {
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
 
             # nothing
             q = '''$api = $lib.cortex.httpapi.add(bad00)
@@ -1310,7 +1325,7 @@ for $i in $values {
             return ( ($api.iden) )'''
             iden07 = await core.callStorm(q)
 
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/bad00')
                 self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
@@ -1373,6 +1388,7 @@ for $i in $values {
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
 
             q = '''$api = $lib.cortex.httpapi.add(dyn00)
             $api.methods.get =  ${
@@ -1386,7 +1402,7 @@ for $i in $values {
                     $request.reply(301, headers=$headers)
                 } else {
                     $api.vars.n = (3)
-                    $api.vars.melt = $lib.true
+                    $api.vars.melt = (true)
                     $api.path = dyn00
                     $request.reply(200, body=({"end": "youMadeIt", "melt": $melt}) )
                     if $melt {
@@ -1395,11 +1411,11 @@ for $i in $values {
                 }
             }
             $api.vars.n = (3)
-            $api.vars.melt = $lib.false
+            $api.vars.melt = (false)
             return ( ($api.iden) )'''
             iden00 = await core.callStorm(q)
 
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/dyn00')  # type: aiohttp.ClientResponse
                 self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq(resp.url.path, '/api/ext/redir01')
@@ -1425,6 +1441,7 @@ for $i in $values {
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
 
             q = '''$api = $lib.cortex.httpapi.add(stuff)
             $api.methods.get =  ${
@@ -1433,7 +1450,7 @@ for $i in $values {
             return ( ($api.iden) )'''
             iden00 = await core.callStorm(q)
 
-            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+            async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
                 self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq(resp.headers.get('Weee'), 'valu')
@@ -1449,6 +1466,7 @@ for $i in $values {
         async with self.getTestCore(conf={'https:headers': {'Key1': 'Valu1'}}) as core:
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
             addr, hport = await core.addHttpsPort(0)
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
 
             q = '''$api = $lib.cortex.httpapi.add(stuff)
             $api.methods.get =  ${
@@ -1467,7 +1485,7 @@ for $i in $values {
                     yield mesg
 
             with mock.patch('synapse.cortex.Cortex.storm', new=storm) as patch:
-                async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
                     self.eq(resp.status, http.HTTPStatus.OK)
                     self.false(data['opts'].get('mirror'))
@@ -1513,5 +1531,9 @@ for $i in $values {
 
             self.none(await core.callStorm('return($lib.cortex.getNdefByNid((99999)))'))
             self.none(await core.callStorm('return($lib.cortex.getNidByNdef((test:str, newp)))'))
+            self.none(await core.callStorm('return($lib.cortex.getNidByNdef((newp, newp)))'))
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.cortex.getNidByNdef((newp, newp, newp)))')
 
             self.len(0, await core.nodes('yield (99999)'))

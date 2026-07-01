@@ -3,6 +3,7 @@ import sys
 import asyncio
 import logging
 import weakref
+import datetime
 import traceback
 import collections
 
@@ -80,6 +81,17 @@ def getLogExtra(**kwargs):
     return extra
 
 class JsonFormatter(logging.Formatter):
+
+    def formatTime(self, record, datefmt=None):
+
+        dt = datetime.datetime.fromtimestamp(record.created, tz=datetime.timezone.utc)
+
+        if datefmt is not None:
+            return dt.strftime(datefmt)
+
+        # Inlined frstring from s_time.repr(); but we don't use s_time.repr() since it is variable length output and
+        # has extra functionality that we don't need for log timestamp formatting.
+        return f'{dt.year:04d}-{dt.month:02d}-{dt.day:02d}T{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}.{dt.microsecond:06d}Z'
 
     def genLogInfo(self, record):
 

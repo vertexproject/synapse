@@ -41,8 +41,8 @@ stormcmds = (
                           'help': 'This vault is a global-scoped vault.'}),
         ),
         'storm': '''
-            $owner = $lib.null
-            $scope = $lib.null
+            $owner = (null)
+            $scope = (null)
 
             $exclusive_args = (0)
             if $cmdopts.user { $exclusive_args = ($exclusive_args + 1) }
@@ -265,7 +265,7 @@ stormcmds = (
                 $lib.exit('One of `--user <username>` or `--role <rolename>` is required.')
             }
 
-            $level = $lib.null
+            $level = (null)
             if $cmdopts.level {
                 $level = $lib.auth.easyperm.level.($cmdopts.level)
                 if (not $level) {
@@ -377,7 +377,7 @@ class LibVault(s_stormtypes.Lib):
     )
     _storm_lib_path = ('vault',)
     _storm_query = '''
-        function print(vault, showsecrets=$lib.false) {
+        function print(vault, showsecrets=(false)) {
             $lvlnames = ({})
             for ($name, $level) in $lib.auth.easyperm.level {
                 $level = $lib.cast(str, $level)
@@ -422,7 +422,7 @@ class LibVault(s_stormtypes.Lib):
             }
 
             if $showsecrets {
-                if ($vault.secrets = $lib.null) {
+                if ($vault.secrets = null) {
                     $lib.print('  Secrets: Cannot display secrets - no edit permission to vault.')
                 } elif ($lib.len($vault.secrets) != (0)) {
                     $lib.print('  Secrets:')

@@ -27,10 +27,24 @@ modeldefs = (
 
         'types': (
             ('auth:passwd', (None, {'ctor': 'synapse.models.auth.Passwd', 'strip': False}), {
+                'template': {'title': 'password'},
                 'interfaces': (
                     ('auth:credential', {}),
                     ('crypto:hashable', {}),
-                    ('meta:observable', {'template': {'title': 'password'}}),
+                    ('meta:observable', {}),
+                ),
+                'props': (
+                    ('md5', ('crypto:hash:md5', {}), {
+                        'computed': True,
+                        'doc': 'The MD5 hash of the password.'}),
+
+                    ('sha1', ('crypto:hash:sha1', {}), {
+                        'computed': True,
+                        'doc': 'The SHA1 hash of the password.'}),
+
+                    ('sha256', ('crypto:hash:sha256', {}), {
+                        'computed': True,
+                        'doc': 'The SHA256 hash of the password.'}),
                 ),
                 'doc': 'A password string.'}),
         ),
@@ -39,22 +53,6 @@ modeldefs = (
             ('auth:credential', {
                 'doc': 'An interface implemented by authentication credential forms.',
             }),
-        ),
-
-        'forms': (
-            ('auth:passwd', {}, (
-                ('md5', ('crypto:hash:md5', {}), {
-                    'computed': True,
-                    'doc': 'The MD5 hash of the password.'}),
-
-                ('sha1', ('crypto:hash:sha1', {}), {
-                    'computed': True,
-                    'doc': 'The SHA1 hash of the password.'}),
-
-                ('sha256', ('crypto:hash:sha256', {}), {
-                    'computed': True,
-                    'doc': 'The SHA256 hash of the password.'}),
-            )),
         ),
 
     },

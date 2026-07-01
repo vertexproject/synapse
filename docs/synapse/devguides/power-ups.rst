@@ -82,7 +82,7 @@ the **Storm Package** YAML file to locate their contents::
 
     function woot(text) {
         $lib.print($text)
-        return($lib.null)
+        return((null))
     }
 
 ``storm/commands/acme.hello.sayhi.storm``::
@@ -97,7 +97,7 @@ Building / Loading
 
 To build and load **Storm Packages**, use the ``storm.pkg.gen`` tool included within Synapse. For
 this example, we will assume you have deployed your Synapse environment according to the
-`Deployment Guide`_::
+:doc:`Deployment Guide </synapse/deploymentguide>`::
 
     python -m synapse.tools.storm.pkg.gen acme-hello.yaml --push aha://cortex...
 
@@ -152,6 +152,8 @@ runtime and accessible using the implicit variable ``$modconf``::
             // Do something using $i...
         }
     }
+
+.. _privileged-modules:
 
 Privileged Modules
 -------------------
@@ -394,5 +396,4 @@ the specified query as though it were run like this::
 
 Any printed output, including warnings, will be displayed in the **Optic** ``Console Tool``.
 
-.. _Deployment Guide: https://synapse.docs.vertex.link/en/latest/synapse/deploymentguide.html
 .. _Acme-Hello Example: https://github.com/vertexproject/synapse/tree/master/examples/power-ups/rapid/acme-hello

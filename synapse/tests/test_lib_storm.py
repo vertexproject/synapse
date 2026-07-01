@@ -12,6 +12,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
+import synapse.lib.time as s_time
 import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -621,7 +622,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('''
                 try {
                     $lib.raise(foo, test)
-                } catch $lib.true as err{
+                } catch (true) as err{
                     $lib.print('caught')
                 }
                 ''')
@@ -639,7 +640,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('''
             try {
                 $lib.raise(foo, test)
-            } catch (1, $lib.true, foo) as err {
+            } catch (1, true, foo) as err {
                 $lib.print(`caught err={$err}`)
             }
             ''')
@@ -769,8 +770,8 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:ip=1.2.3.4', opts={'view': view1}))
 
-            self.len(0, await core.nodes('$x = $lib.null if ($x and $x > 20) { [ entity:contact=* ] }'))
-            self.len(1, await core.nodes('$x = $lib.null if ($lib.true or $x > 20) { [ entity:contact=* ] }'))
+            self.len(0, await core.nodes('$x = (null) if ($x and $x > 20) { [ entity:contact=* ] }'))
+            self.len(1, await core.nodes('$x = (null) if (true or $x > 20) { [ entity:contact=* ] }'))
 
             visi = await core.auth.addUser('visi')
             await visi.setPasswd('secret')
@@ -791,7 +792,7 @@ class StormTest(s_t_utils.SynTest):
                                 return($lib.queue.list())
                             }
                             function dyniter() {
-                                for $item in $lib.queue.add(dyniter).gets(wait=$lib.false) {}
+                                for $item in $lib.queue.add(dyniter).gets(wait=(false)) {}
                                 return(woot)
                             }
                         ''',
@@ -868,11 +869,13 @@ class StormTest(s_t_utils.SynTest):
             self.eq(s_version.version, await core.callStorm('return($lib.version.synapse)'))
             self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse, ">=2.9.0"))'))
             self.false(await core.callStorm('return($lib.version.matches($lib.version.synapse, ">0.0.1,<2.0"))'))
+            # matches also accepts a list for backward compatibility
+            self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse.split("."), ">=2.9.0"))'))
 
             # check that the feed API uses toprim
             email = await core.callStorm('''
                 $iden = $lib.guid()
-                $props = ({"email": "visi@vertex.link"})
+                $props = ({"email": ["inet:email", "visi@vertex.link"]})
                 $lib.feed.ingest((
                     ( (entity:contact, $iden), ({"props": $props})),
                 ))
@@ -883,7 +886,7 @@ class StormTest(s_t_utils.SynTest):
 
             email = await core.callStorm('''
                 $iden = $lib.guid()
-                $props = ({"email": "visi@vertex.link"})
+                $props = ({"email": ["inet:email", "visi@vertex.link"]})
                 yield $lib.feed.genr((
                     ( (entity:contact, $iden), ({"props": $props})),
                 ))
@@ -952,8 +955,8 @@ class StormTest(s_t_utils.SynTest):
                 }
                 return($list)''', opts=opts))
 
-            await core.addTagProp('score', ('int', {}), {})
-            await core.callStorm('[ inet:ip=11.22.33.44 :asn=99 inet:fqdn=55667788.link +#foo=2020 +#foo:score=100]', opts=opts)
+            await core.addTagProp('_score', ('int', {}), {})
+            await core.callStorm('[ inet:ip=11.22.33.44 :asn=99 inet:fqdn=55667788.link +#foo=2020 +#foo:_score=100]', opts=opts)
             await core.callStorm('inet:ip=11.22.33.44 $node.data.set(foo, bar)', opts=opts)
             await core.callStorm('inet:ip=11.22.33.44 [ +(refs)> { inet:asn=99 } ]', opts=opts)
 
@@ -980,32 +983,32 @@ class StormTest(s_t_utils.SynTest):
             self.eq((1577836800000000, 1577836800000001, 1), sodes[0]['tags']['foo'])
             self.eq((('inet:asn', 99), 16393, None), sodes[0]['props']['asn'])
             self.eq(((4, 185999660), 26, None), sodes[1]['valu'])
-            self.eq((('str', 'unicast'), 16385, None), sodes[1]['props']['type'])
+            self.eq((('str:lower', 'unicast'), 16385, None), sodes[1]['props']['type'])
             self.eq((('inet:asn', 56), 16393, None), sodes[1]['props']['asn'])
 
-            nodes = await core.nodes('[inet:ip=11.22.33.44 +#bar:score=200]')
+            nodes = await core.nodes('[inet:ip=11.22.33.44 +#bar:_score=200]')
 
             bylayer = await core.callStorm('inet:ip=11.22.33.44 return($node.getByLayer())', opts=opts)
             self.ne(bylayer['ndef'], layr)
             self.eq(bylayer['props']['asn'], layr)
             self.eq(bylayer['tags']['foo'], layr)
             self.ne(bylayer['props']['type'], layr)
-            self.eq(bylayer['tagprops']['foo']['score'], layr)
-            self.ne(bylayer['tagprops']['bar']['score'], layr)
+            self.eq(bylayer['tagprops']['foo']['_score'], layr)
+            self.ne(bylayer['tagprops']['bar']['_score'], layr)
 
             ipnid = s_common.ehex(nodes[0].nid)
 
             msgs = await core.stormlist('inet:ip=11.22.33.44 | merge', opts=opts)
             self.stormIsInPrint(f'{ipnid} inet:ip:asn = 99', msgs)
             self.stormIsInPrint(f"{ipnid} inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
-            self.stormIsInPrint(f'{ipnid} inet:ip#foo:score = 100', msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip#foo:_score = 100', msgs)
             self.stormIsInPrint(f"{ipnid} inet:ip DATA foo = 'bar'", msgs)
             self.stormIsInPrint(f'{ipnid} inet:ip +(refs)>', msgs)
 
             msgs = await core.stormlist('ps:person | merge --diff', opts=opts)
             self.stormIsInPrint(f'{ipnid} inet:ip:asn = 99', msgs)
             self.stormIsInPrint(f"{ipnid} inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
-            self.stormIsInPrint(f'{ipnid} inet:ip#foo:score = 100', msgs)
+            self.stormIsInPrint(f'{ipnid} inet:ip#foo:_score = 100', msgs)
             self.stormIsInPrint(f"{ipnid} inet:ip DATA foo = 'bar'", msgs)
             self.stormIsInPrint(f'{ipnid} inet:ip +(refs)>', msgs)
 
@@ -1023,7 +1026,7 @@ class StormTest(s_t_utils.SynTest):
             # confirm that we moved node data and light edges
             self.eq('bar', await core.callStorm('inet:ip=11.22.33.44 return($node.data.get(foo))'))
             self.eq(99, await core.callStorm('inet:ip=11.22.33.44 -(refs)> inet:asn return($node.value)'))
-            self.eq(100, await core.callStorm('inet:ip=11.22.33.44 return(#foo:score)'))
+            self.eq(100, await core.callStorm('inet:ip=11.22.33.44 return(#foo:_score)'))
 
             sodes = await core.callStorm('inet:ip=11.22.33.44 return($node.getStorNodes())', opts=opts)
             self.eq({}, sodes[0])
@@ -1167,11 +1170,11 @@ class StormTest(s_t_utils.SynTest):
                         self.write(s_msgpack.en(pode))
                         self.flush()
 
-            core.addHttpApi('/api/v1/exptest/(.*)', ExpHandler, {'cell': core})
+            core.addHttpApi('/api/v3/exptest/(.*)', ExpHandler, {'cell': core})
             port = (await core.addHttpsPort(0, host='127.0.0.1'))[1]
             async with self.getTestCore() as subcore:
                 # test that we get nodes, but in this vase, incoming node get priority
-                byyield = await subcore.nodes(f'[inet:url="https://127.0.0.1:{port}/api/v1/exptest/neat"] | nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
+                byyield = await subcore.nodes(f'[inet:url="https://127.0.0.1:{port}/api/v3/exptest/neat"] | nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v3/exptest/kewl')
                 self.len(count, byyield)
                 for node in byyield:
                     self.eq(node.form.name, 'test:str')
@@ -1183,21 +1186,21 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, url)
                 url = url[0]
                 self.propeq(url, 'proto', 'https')
-                self.propeq(url, 'path', '/api/v1/exptest/neat')
+                self.propeq(url, 'path', '/api/v3/exptest/neat')
                 self.propeq(url, 'params', '')
-                self.propeq(url, 'ip', (4, 2130706433))
-                self.propeq(url, 'base', f'https://127.0.0.1:{port}/api/v1/exptest/neat')
+                self.propeq(url, 'host', (4, 2130706433), type='inet:ip')
+                self.propeq(url, 'base', f'https://127.0.0.1:{port}/api/v3/exptest/neat')
                 self.propeq(url, 'port', port)
 
                 # now test that param works
-                byyield = await subcore.nodes(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
+                byyield = await subcore.nodes(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v3/exptest/kewl')
                 self.len(count, byyield)
                 for node in byyield:
                     self.eq(node.form.name, 'test:guid')
                     self.isin('foo.bar', node.getTagNames())
 
                 # bad response should give no nodes
-                msgs = await subcore.stormlist(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/lolnope/')
+                msgs = await subcore.stormlist(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v3/lolnope/')
                 self.stormHasNoErr(msgs)
                 self.stormIsInWarn('nodes.import got HTTP error code', msgs)
                 nodes = [x for x in msgs if x[0] == 'node']
@@ -1228,7 +1231,7 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadDataValu):
                 await core.nodes(" [ test:str='pluto\udcbaneptune' ]")
 
-            nodes = await core.nodes('[ doc:report=* :publisher:name=woot ] $name=:publisher:name [ :publisher={ gen.ou.org $name } ]')
+            nodes = await core.nodes('[ doc:report=* :publisher:name=woot ] $name=:publisher:name [ :publisher={ gen.org $name } ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('publisher'))
 
@@ -1392,7 +1395,7 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('diff --prop foo:bar', opts=altview)
 
-            with self.raises(s_exc.StormRuntimeError) as cm:
+            with self.raises(s_exc.BadArg) as cm:
                 await core.nodes('diff --prop foo:bar --tag newp.newp', opts=altview)
             self.eq(cm.exception.get('mesg'),
                     'You may specify --tag *or* --prop but not both.')
@@ -1590,7 +1593,7 @@ class StormTest(s_t_utils.SynTest):
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             altview = {'view': viewiden}
 
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
             await core.nodes('[ ou:org=(org1,) :name=hehe ]')
 
@@ -1600,9 +1603,9 @@ class StormTest(s_t_utils.SynTest):
                 :name=haha
                 :desc=cool
                 :lifespan=(2021, ?)
-                +#one:score=1
-                +#two:score=2
-                +#three:score=3
+                +#one:_score=1
+                +#two:_score=2
+                +#three:_score=3
                 +#haha.four
                 +#haha.five
             ]
@@ -1615,8 +1618,8 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('diff | merge --only-tags --include-tags one two --apply', opts=altview)
             nodes = await core.nodes('ou:org')
             self.sorteq(list(nodes[0].getTagNames()), ['one', 'two'])
-            self.eq(nodes[0].getTagProp('one', 'score'), 1)
-            self.eq(nodes[0].getTagProp('two', 'score'), 2)
+            self.eq(nodes[0].getTagProp('one', '_score'), 1)
+            self.eq(nodes[0].getTagProp('two', '_score'), 2)
             self.len(0, nodes[0].getTagProps('three'))
             self.len(2, await core.nodes('syn:tag'))
 
@@ -1633,7 +1636,7 @@ class StormTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'desc', 'cool')
             self.none(nodes[0].get('phone'))
             self.none(nodes[0].get('lifespan'))
-            self.eq(nodes[0].getTagProp('three', 'score'), 3)
+            self.eq(nodes[0].getTagProp('three', '_score'), 3)
             self.len(6, await core.nodes('syn:tag'))
 
             await core.nodes('diff | merge --exclude-props ou:org:phone --apply', opts=altview)
@@ -1676,7 +1679,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
             visi = await core.auth.addUser('visi')
             opts = {'user': visi.iden}
@@ -1701,7 +1704,7 @@ class StormTest(s_t_utils.SynTest):
                     +(refs)> { entity:name=test }
                     +#test1.foo=now
                     +#test2
-                    +#test3:score=42
+                    +#test3:_score=42
                 ]
                 $node.data.set(foo, bar)
             ''', opts=view2opts)
@@ -1796,7 +1799,7 @@ class StormTest(s_t_utils.SynTest):
             layr2 = layrs[1]['iden']
             layr1 = layrs[2]['iden']
 
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
             msgs = await core.stormlist('[ inet:fqdn=foo.com ] | movenodes --destlayer $node')
             self.stormIsInErr('movenodes arguments must be runtsafe.', msgs)
@@ -1827,7 +1830,7 @@ class StormTest(s_t_utils.SynTest):
                 :desc=layr1
                 :name=foo
                 +#hehe.haha=2022
-                +#one:score=1
+                +#one:_score=1
                 +(_bar)> {[ ou:org=(bar,) :name=bar]}
             ]
             $node.data.set(foo, bar)
@@ -1841,13 +1844,13 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org.created', msgs)
             self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org:desc', msgs)
             self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org#hehe.haha', msgs)
-            self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org#one:score', msgs)
+            self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org#one:_score', msgs)
             self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org DATA', msgs)
             self.stormIsInPrint(f'{layr2} add {nodeiden} ou:org -(_bar)>', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden}', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org:desc', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org#hehe.haha', msgs)
-            self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org#one:score', msgs)
+            self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org#one:_score', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org DATA', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org -(_bar)>', msgs)
 
@@ -1859,7 +1862,7 @@ class StormTest(s_t_utils.SynTest):
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0][1], 'layr1')
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1640995200000001, 1))
-            self.eq(sode['tagprops'].get('one').get('score')[0], 1)
+            self.eq(sode['tagprops'].get('one').get('_score')[0], 1)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view2))
             data = await core.callStorm('ou:org=(foo,) return($node.data.get(foo))', opts=view2)
             self.eq(data, 'bar')
@@ -1869,8 +1872,8 @@ class StormTest(s_t_utils.SynTest):
                 :desc=overwritten
                 :name=foo
                 +#hehe.haha=2023
-                +#one:score=2
-                +#two:score=1
+                +#one:_score=2
+                +#two:_score=1
                 +(_baz)> {[ ou:org=(baz,) :name=baz ]}
             ]
             $node.data.set(foo, baz)
@@ -1887,8 +1890,8 @@ class StormTest(s_t_utils.SynTest):
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0][1], 'layr1')
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001, 31536000000001))
-            self.eq(sode['tagprops'].get('one').get('score')[0], 1)
-            self.eq(sode['tagprops'].get('two').get('score')[0], 1)
+            self.eq(sode['tagprops'].get('one').get('_score')[0], 1)
+            self.eq(sode['tagprops'].get('two').get('_score')[0], 1)
 
             self.len(1, await core.nodes('ou:org=(foo,)', opts=view3))
             self.len(1, await core.nodes('ou:org=(foo,) -(_baz)> *', opts=view3))
@@ -1903,8 +1906,8 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
             sode = sodes[0]
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001, 31536000000001))
-            self.eq(sode['tagprops'].get('one').get('score')[0], 1)
-            self.eq(sode['tagprops'].get('two').get('score')[0], 1)
+            self.eq(sode['tagprops'].get('one').get('_score')[0], 1)
+            self.eq(sode['tagprops'].get('two').get('_score')[0], 1)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view2))
             self.len(1, await core.nodes('ou:org=(foo,) -(_baz)> *', opts=view2))
             data = await core.callStorm('ou:org=(foo,) return($node.data.get(foo))', opts=view2)
@@ -1916,8 +1919,8 @@ class StormTest(s_t_utils.SynTest):
             [ ou:org=(foo,)
                 :desc=prio
                 +#hehe.haha=2024
-                +#one:score=2
-                +#two:score=2
+                +#one:_score=2
+                +#two:_score=2
                 +(_prio)> {[ ou:org=(prio,) ]}
             ]
             $node.data.set(foo, prio)
@@ -1932,8 +1935,8 @@ class StormTest(s_t_utils.SynTest):
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0][1], 'prio')
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1704067200000001, 63072000000001))
-            self.eq(sode['tagprops'].get('one').get('score')[0], 2)
-            self.eq(sode['tagprops'].get('two').get('score')[0], 2)
+            self.eq(sode['tagprops'].get('one').get('_score')[0], 2)
+            self.eq(sode['tagprops'].get('two').get('_score')[0], 2)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view3))
             self.len(1, await core.nodes('ou:org=(foo,) -(_baz)> *', opts=view3))
             self.len(1, await core.nodes('ou:org=(foo,) -(_prio)> *', opts=view3))
@@ -1953,7 +1956,7 @@ class StormTest(s_t_utils.SynTest):
             { for $i in $lib.range(1001) {
                 $prop = `_test{$i}`
                 [ :$prop = $i
-                  +#$prop:score = $i
+                  +#$prop:_score = $i
                   +(`_a{$i}`)> { ou:org=(cov,) }
                 ]
                 $node.data.set($prop, $i)
@@ -1994,6 +1997,68 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ou:org=(perms,) :desc=foo]', opts=view2))
             await core.nodes('ou:org=(perms,) | movenodes --apply', opts=view3)
 
+    async def test_storm_movenodes_perms(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('_score', ('int', {}), {})
+
+            visi = await core.auth.addUser('visi')
+
+            view2 = await core.callStorm('return($lib.view.get().fork())')
+            view2opts = {'user': visi.iden, 'view': view2['iden']}
+            layr2 = view2['layers'][0]['iden']
+            layr1 = view2['layers'][1]['iden']
+
+            await core.nodes('[ entity:name=test ]')
+
+            await core.nodes('''
+                [ entity:contact=*
+                    :name=test0
+                    +(refs)> { entity:name=test }
+                    +#test1.foo=now
+                    +#test3:_score=42
+                ]
+                $node.data.set(foo, bar)
+            ''', opts={'view': view2['iden']})
+
+            await visi.addRule((True, ('view',)))
+
+            # grant the non-prop perms up front so the walk focuses on the
+            # split node.prop.set/del.<form>.<prop> perms that movenodes checks
+            await visi.addRule((True, ('node', 'tag', 'del')), gateiden=layr2)
+            await visi.addRule((True, ('node', 'tag', 'add')), gateiden=layr1)
+            await visi.addRule((True, ('node', 'data', 'del')), gateiden=layr2)
+            await visi.addRule((True, ('node', 'data', 'set')), gateiden=layr1)
+            await visi.addRule((True, ('node', 'edge', 'del')), gateiden=layr2)
+            await visi.addRule((True, ('node', 'edge', 'add')), gateiden=layr1)
+
+            q = f'entity:contact | movenodes --apply --srclayers {layr2} --destlayer {layr1}'
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes(q, opts=view2opts)
+            self.eq('node.del.entity:contact', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'del')), gateiden=layr2)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes(q, opts=view2opts)
+            self.eq('node.add.entity:contact', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'add')), gateiden=layr1)
+
+            # the property perms must use the declared split <form>.<prop> form
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes(q, opts=view2opts)
+            self.eq('node.prop.del.entity:contact.name', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'prop', 'del')), gateiden=layr2)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes(q, opts=view2opts)
+            self.eq('node.prop.set.entity:contact.name', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'prop', 'set')), gateiden=layr1)
+
+            # all required perms are now granted; the move succeeds
+            await core.nodes(q, opts=view2opts)
+
     async def test_cortex_keepalive(self):
         async with self.getTestCore() as core:
             opts = {'keepalive': 1}
@@ -2011,7 +2076,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.nodes('[ inet:asn=10 :owner:name=hehe ]')
+            await core.nodes('[ inet:asn=10 :registrant:name=hehe ]')
 
             nodes = await core.nodes('[ inet:ip=1.2.3.4 :asn=10 ]')
             await nodes[0].getEmbeds({'asn::newp': {}})
@@ -2024,19 +2089,24 @@ class StormTest(s_t_utils.SynTest):
             node.sodes[0]['props']['asn'] = (('inet:asn', (4, 999)), 0)
             embd = await node.getEmbeds({'asn': {}})
             self.eq(embd, {})
+
+            # getEmbeds with an ndef whose form has been removed from the model
+            node.sodes[0]['props']['asn'] = (('not:a:real:form', 'foo'), 0)
+            embd = await node.getEmbeds({'asn': {}})
+            self.eq(embd, {})
             node.sodes[0]['props']['asn'] = save
 
-            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('owner:name',)}}}}
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('registrant:name',)}}}}
             msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
 
             nodes = [m[1] for m in msgs if m[0] == 'node']
 
             node = nodes[0]
             self.eq('inet:asn', node[1]['embeds']['asn']['$form'])
-            self.eq('hehe', node[1]['embeds']['asn']['owner:name'][1])
+            self.eq('hehe', node[1]['embeds']['asn']['registrant:name'][1])
 
             opts = {'node:opts': {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}}
-            msgs = await core.stormlist('[ ou:org=* :place:country=* :email=visi@vertex.link ]', opts=opts)
+            msgs = await core.stormlist('[ ou:org=* :place:country=* as pol:country :email=visi@vertex.link ]', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
 
@@ -2169,14 +2239,14 @@ class StormTest(s_t_utils.SynTest):
 
             # embed through `econ:pay:instrument` type that extends from `ndef`
             await core.nodes('''
-                [ econ:payment=* :instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
+                [ econ:payment=* :actor:instrument={ [ econ:pay:card=(testcard,) :name=infime ] } ]
             ''')
 
             opts = {
                 'node:opts': {
                     'embeds': {
                         'econ:payment': {
-                            'instrument': ['name'],
+                            'actor:instrument': ['name'],
                         }
                     }
                 }
@@ -2186,8 +2256,8 @@ class StormTest(s_t_utils.SynTest):
             self.eq('econ:payment', node[0][0])
 
             embeds = node[1]['embeds']
-            self.nn(embeds['instrument']['$nid'])
-            self.eq('infime', embeds['instrument']['name'][1])
+            self.nn(embeds['actor:instrument']['$nid'])
+            self.eq('infime', embeds['actor:instrument']['name'][1])
 
             # embeds include virtual prop values
             await core.nodes('''[
@@ -2213,21 +2283,22 @@ class StormTest(s_t_utils.SynTest):
             self.eq(1577836800000000, embeds['gprop']['seen.min'])
             self.eq(1609459200000000, embeds['gprop']['seen.max'])
             self.eq(31622400000000, embeds['gprop']['seen.duration'])
+            self.eq(s_time.PREC_MICRO, embeds['gprop']['seen.precision'])
 
             self.eq((('test:int', 5), ('test:str', 'foo')), embeds['gprop::name']['polyarry'])
             self.eq(2, embeds['gprop::name']['polyarry.size'])
 
             # embeds include meta prop values
-            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', '.updated', 'owner:name')}}}}
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', '.updated', 'registrant:name')}}}}
             msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             embeds = node[1]['embeds']
             self.nn(embeds['asn']['.created'])
             self.nn(embeds['asn']['.updated'])
-            self.eq('hehe', embeds['asn']['owner:name'][1])
+            self.eq('hehe', embeds['asn']['registrant:name'][1])
 
             # embeds with meta props and show:storage
-            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'owner:name')}}, 'show:storage': True}}
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'registrant:name')}}, 'show:storage': True}}
             msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             embeds = node[1]['embeds']
@@ -2235,7 +2306,7 @@ class StormTest(s_t_utils.SynTest):
             storage = node[1]['storage']
             self.nn(storage[0].get('embeds'))
             self.nn(storage[0]['embeds'].get('asn::.created'))
-            self.nn(storage[0]['embeds'].get('asn::owner:name'))
+            self.nn(storage[0]['embeds'].get('asn::registrant:name'))
 
             # embeds with meta props and show:storage in a fork view
             # covering the continue-if-unset logic in _joinEmbedStor
@@ -2246,31 +2317,31 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('[ inet:ip=5.5.5.5 :asn=20 ]')
 
             # modify the embedded asn node only in the fork layer
-            await core.stormlist('inet:asn=20 [ :owner:name=forkname ]', opts={'view': embfork})
+            await core.stormlist('inet:asn=20 [ :registrant:name=forkname ]', opts={'view': embfork})
 
-            # the fork layer has owner:name in props but the base does not,
+            # the fork layer has registrant:name in props but the base does not,
             # covering "if relProp not in props: continue" for the base layer
-            opts = {'view': embfork, 'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'owner:name')}}, 'show:storage': True}}
+            opts = {'view': embfork, 'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'registrant:name')}}, 'show:storage': True}}
             msgs = await core.stormlist('inet:ip=5.5.5.5', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             embeds = node[1]['embeds']
             self.nn(embeds['asn']['.created'])
-            self.eq('forkname', embeds['asn']['owner:name'][1])
+            self.eq('forkname', embeds['asn']['registrant:name'][1])
             storage = node[1]['storage']
             self.len(2, storage)
-            # fork layer should have owner:name embed
+            # fork layer should have registrant:name embed
             top = storage[0].get('embeds', {})
-            self.nn(top.get('asn::owner:name'))
-            # base layer should not have owner:name embed (prop not in that layer)
+            self.nn(top.get('asn::registrant:name'))
+            # base layer should not have registrant:name embed (prop not in that layer)
             bot = storage[1].get('embeds', {})
-            self.none(bot.get('asn::owner:name'))
+            self.none(bot.get('asn::registrant:name'))
             # base layer should still have .created embed
             self.nn(bot.get('asn::.created'))
 
             # embeds with meta props in a fork where the embedded node
             # has no storage at all in the top layer (no meta/props dicts)
             embfork2 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': embfork})
-            opts = {'view': embfork2, 'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'owner:name')}}, 'show:storage': True}}
+            opts = {'view': embfork2, 'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'registrant:name')}}, 'show:storage': True}}
             msgs = await core.stormlist('inet:ip=5.5.5.5', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             storage = node[1]['storage']
@@ -2365,7 +2436,7 @@ class StormTest(s_t_utils.SynTest):
             self.isin(('inet:url', url), [pode[0] for pode in podes])
 
             # Redirects still record the original address
-            durl = f'https://127.0.0.1:{port}/api/v1/active'
+            durl = f'https://127.0.0.1:{port}/api/v3/active'
             params = (('redirect', durl),)
             url = f'https://127.0.0.1:{port}/api/v0/test?{u_parse.urlencode(params)}'
             # Redirect again...
@@ -2505,7 +2576,7 @@ class StormTest(s_t_utils.SynTest):
                         return(
                             $lib.dmon.add(${
                                 $queue = $lib.queue.byname(dmonloop)
-                                while $lib.true {
+                                while (true) {
                                     ($offs, $mesg) = $queue.get()
 
                                     switch $mesg.0 {
@@ -2647,7 +2718,7 @@ class StormTest(s_t_utils.SynTest):
                     return($foo.bar)
                 }
             '''))
-            with self.raises(s_exc.NoSuchVar):
+            with self.raises(s_exc.NoSuchType):
                 await core.callStorm('[entity:contact=*] $foo = $node.repr() $foo = $lib.undef return($foo)')
 
             with self.raises(s_exc.StormRuntimeError):
@@ -2673,7 +2744,7 @@ class StormTest(s_t_utils.SynTest):
                 $foo.0 = woot
                 return($foo)
             '''))
-            with self.raises(s_exc.NoSuchVar):
+            with self.raises(s_exc.NoSuchType):
                 await core.callStorm('$foo = 10 $foo = $lib.undef return($foo)')
 
     async def test_storm_pkg_onload_bootup(self):
@@ -3080,7 +3151,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=foo +#hehe.haha=((20), (30)) ]'))
             self.len(1, await core.nodes('syn:tag=hehe.haha [:doc="haha doc" :title="haha title"]'))
 
-            with self.raises(s_exc.BadOperArg):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('movetag hehe hehe')
 
             await core.nodes('movetag hehe woot')
@@ -3162,13 +3233,13 @@ class StormTest(s_t_utils.SynTest):
 
         # Move a tag with tagprops
         async def seed_tagprops(core):
-            await core.addTagProp('test', ('int', {}), {})
-            await core.addTagProp('note', ('str', {}), {})
-            q = '[test:int=1 +#hehe.haha +#hehe:test=1138 +#hehe.beep:test=8080 +#hehe.beep:note="oh my"]'
+            await core.addTagProp('_test', ('int', {}), {})
+            await core.addTagProp('_note', ('str', {}), {})
+            q = '[test:int=1 +#hehe.haha +#hehe:_test=1138 +#hehe.beep:_test=8080 +#hehe.beep:_note="oh my"]'
             nodes = await core.nodes(q)
-            self.eq(nodes[0].getTagProp('hehe', 'test'), 1138)
-            self.eq(nodes[0].getTagProp('hehe.beep', 'test'), 8080)
-            self.eq(nodes[0].getTagProp('hehe.beep', 'note'), 'oh my')
+            self.eq(nodes[0].getTagProp('hehe', '_test'), 1138)
+            self.eq(nodes[0].getTagProp('hehe.beep', '_test'), 8080)
+            self.eq(nodes[0].getTagProp('hehe.beep', '_note'), 'oh my')
 
         async with self.getTestCore() as core:
             await seed_tagprops(core)
@@ -3177,9 +3248,9 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('#hehe'))
             nodes = await core.nodes('#woah')
             self.len(1, nodes)
-            self.eq(nodes[0]._getTagPropsDict(), {'woah': {'test': 1138},
-                                        'woah.beep': {'test': 8080,
-                                                      'note': 'oh my'}
+            self.eq(nodes[0]._getTagPropsDict(), {'woah': {'_test': 1138},
+                                        'woah.beep': {'_test': 8080,
+                                                      '_note': 'oh my'}
                                        })
 
         async with self.getTestCore() as core:
@@ -3189,9 +3260,9 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('#hehe'))
             nodes = await core.nodes('#woah')
             self.len(1, nodes)
-            self.eq(nodes[0]._getTagPropsDict(), {'hehe': {'test': 1138},
-                                        'woah.beep': {'test': 8080,
-                                                      'note': 'oh my'}
+            self.eq(nodes[0]._getTagPropsDict(), {'hehe': {'_test': 1138},
+                                        'woah.beep': {'_test': 8080,
+                                                      '_note': 'oh my'}
                                        })
 
             # Test perms
@@ -3220,13 +3291,13 @@ class StormTest(s_t_utils.SynTest):
 
             # basic 2-cycle test
             await core.nodes('movetag basic.one basic.two')
-            with self.raises(s_exc.BadOperArg):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('movetag basic.two basic.one')
 
             # 3-cycle test
             await core.nodes('movetag bicycle tricycle')
             await core.nodes('movetag unicycle bicycle')
-            with self.raises(s_exc.BadOperArg):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('movetag tricycle unicycle')
 
             self.len(1, await core.nodes('[test:str=badcycle +#unicycle]'))
@@ -3238,7 +3309,7 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('movetag there are')   # A -> B
             await core.nodes('movetag four tags')   # C -> D
             await core.nodes('movetag tags there')  # D -> A
-            with self.raises(s_exc.BadOperArg):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('movetag are four')    # B -> C (creates the cycle)
 
             # make a pre-existing cycle to ensure we can break break that with move tag
@@ -3272,7 +3343,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[syn:tag=a :isnow=test]'))
             self.len(1, await core.nodes('[syn:tag=test :isnow=not]'))
 
-            with self.raises(s_exc.BadOperArg):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('movetag this is')
 
         async with self.getTestCore() as core:
@@ -3290,10 +3361,10 @@ class StormTest(s_t_utils.SynTest):
         # Sad path
         async with self.getTestCore() as core:
             # Test moving a tag to itself
-            with self.raises(s_exc.BadOperArg):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('movetag foo.bar foo.bar')
             # Test moving a tag which does not exist
-            with self.raises(s_exc.BadOperArg):
+            with self.raises(s_exc.BadArg):
                 await core.nodes('movetag foo.bar duck.knight')
 
             # Runtsafety test
@@ -3502,6 +3573,80 @@ class StormTest(s_t_utils.SynTest):
             testmax = await core.nodes('ou:org | max #minmax')
             self.eq(testmax[0].ndef, maxnodes[0].ndef)
 
+            # --size option: max yields top-N in descending order
+            nodes = await core.nodes('test:guid | max :tick --size 2')
+            self.len(2, nodes)
+            self.propeq(nodes[0], 'tick', maxval)
+            self.propeq(nodes[1], 'tick', midval)
+
+            nodes = await core.nodes('test:guid | max :tick --size 3')
+            self.len(3, nodes)
+            self.propeq(nodes[0], 'tick', maxval)
+            self.propeq(nodes[1], 'tick', midval)
+            self.propeq(nodes[2], 'tick', minval)
+
+            # --size larger than node count yields all nodes
+            nodes = await core.nodes('test:guid | max :tick --size 50')
+            self.len(3, nodes)
+
+            # --size via storm variable
+            nodes = await core.nodes('$n=2 test:guid | max :tick --size $n')
+            self.len(2, nodes)
+            self.propeq(nodes[0], 'tick', maxval)
+
+            # default (no --size) yields one node (backward compat)
+            nodes = await core.nodes('test:guid | max :tick')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'tick', maxval)
+
+            # cap exceeded raises BadArg
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:guid | max :tick --size 101')
+
+            # below minimum raises BadArg
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:guid | max :tick --size 0')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:guid | max :tick --size -1')
+
+            # --size option: min yields bottom-N in ascending order
+            nodes = await core.nodes('test:guid | min :tick --size 2')
+            self.len(2, nodes)
+            self.propeq(nodes[0], 'tick', minval)
+            self.propeq(nodes[1], 'tick', midval)
+
+            nodes = await core.nodes('test:guid | min :tick --size 3')
+            self.len(3, nodes)
+            self.propeq(nodes[0], 'tick', minval)
+            self.propeq(nodes[1], 'tick', midval)
+            self.propeq(nodes[2], 'tick', maxval)
+
+            # --size larger than node count yields all nodes
+            nodes = await core.nodes('test:guid | min :tick --size 50')
+            self.len(3, nodes)
+
+            # --size via storm variable
+            nodes = await core.nodes('$n=2 test:guid | min :tick --size $n')
+            self.len(2, nodes)
+            self.propeq(nodes[0], 'tick', minval)
+
+            # default (no --size) yields one node (backward compat)
+            nodes = await core.nodes('test:guid | min :tick')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'tick', minval)
+
+            # cap exceeded raises BadArg
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:guid | min :tick --size 101')
+
+            # below minimum raises BadArg
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:guid | min :tick --size 0')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test:guid | min :tick --size -1')
+
     async def test_scrape(self):
 
         async with self.getTestCore() as core:
@@ -3550,6 +3695,14 @@ class StormTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
             self.eq(nodes[1].ndef, ('inet:fqdn', 'fxp.com'))
+
+            # scraped crypto currency addresses resolve their chain via the gutor
+            nodes = await core.nodes('$foo="1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2" | scrape $foo --yield --forms crypto:currency:address')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('crypto:currency:address', ('673291fe74aaf588cb4f69f833330273', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')))
+            self.propeq(nodes[0], 'iden', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
+            # the scraped address materializes its chain with the :symbol set via the gutor
+            self.len(1, await core.nodes('crypto:currency:address -> crypto:currency:chain +:symbol=btc'))
 
             # per-node tests
 
@@ -3704,6 +3857,13 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[3].ndef[0], ('test:str'))
             self.eq(nodes[4].ndef, ('inet:ip', (4, 0x01020304)))
 
+            # A single query passed as a plain string arg
+            q = 'inet:ip=1.2.3.4 | tee --join $q'
+            nodes = await core.nodes(q, {'vars': {'q': '-> *'}})
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef, ('inet:ip', (4, 0x01020304)))
+
             # Empty queries are okay - they will just return the input node
             q = 'inet:ip=1.2.3.4 | tee {}'
             nodes = await core.nodes(q)
@@ -3718,7 +3878,7 @@ class StormTest(s_t_utils.SynTest):
 
             # Sad path
             q = 'inet:ip=1.2.3.4 | tee'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            await self.asyncraises(s_exc.BadArg, core.nodes(q))
 
             # Runtsafe tee
             q = 'tee { inet:ip=1.2.3.4 } { inet:ip -> * }'
@@ -3814,7 +3974,7 @@ class StormTest(s_t_utils.SynTest):
 
             # No input test
             q = 'tee'
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadArg):
                 await core.nodes(q)
 
             # Runtsafety test
@@ -4456,7 +4616,7 @@ class StormTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_version': '>=3.0.0,<4.0.0',
+                'synapse_version': '>=3.0.0b1,<4.0.0',
                 'commands': ({
                                  'name': 'testcmd',
                                  'descr': 'test command',
@@ -4781,7 +4941,7 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_derefprops(self):
         async with self.getTestCore() as core:
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
             mesg = "Expected value of type 'str', got '"
 
@@ -4828,13 +4988,13 @@ class StormTest(s_t_utils.SynTest):
                 self.true(exc.exception.get('mesg').startswith(mesg))
 
             # formtagprop
-            msgs = await core.stormlist('$form = inet:fqdn *$form#foo:score')
+            msgs = await core.stormlist('$form = inet:fqdn *$form#foo:_score')
             self.stormHasNoWarnErr(msgs)
 
             for inval in invals:
                 opts = {'vars': {'form': inval}}
                 with self.raises(s_exc.StormRuntimeError) as exc:
-                    await core.nodes('*$form#newp:score', opts=opts)
+                    await core.nodes('*$form#newp:_score', opts=opts)
                 self.true(exc.exception.get('mesg').startswith(mesg))
 
             # Check Storm Str types
@@ -5005,6 +5165,11 @@ class StormTest(s_t_utils.SynTest):
                     'layr3': layr3,
                     'layr4': layr4,
                 }}
+
+                # visi can read these layers (so $lib.layer.get resolves them) but
+                # lacks push/pull perms, so the calls below still raise AuthDeny.
+                await visi.addRule((True, ('view', 'read')), gateiden=view0)
+                await visi.addRule((True, ('view', 'read')), gateiden=view2)
 
                 # lets get some auth denies...
                 async with core.getLocalProxy(user='visi') as asvisi:
@@ -5462,7 +5627,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             msgs = await core.stormlist('version')
-            self.stormIsInPrint(f'Synapse Version: {s_version.verstring}', msgs)
+            self.stormIsInPrint(f'Synapse Version: {s_version.version}', msgs)
             self.stormIsInPrint('Commit Hash:', msgs)
 
     async def test_storm_runas(self):
@@ -5577,7 +5742,7 @@ class StormTest(s_t_utils.SynTest):
             q = '''
                 for $i in $lib.range(12) {[ test:str=$i ]}
 
-                batch $lib.true --size 5 ${
+                batch (true) --size 5 ${
                     $vals=([])
                     for $n in $nodes { $vals.append($n.repr()) }
                     $lib.print((',').join($vals))
@@ -5592,7 +5757,7 @@ class StormTest(s_t_utils.SynTest):
             q = '''
                 for $i in $lib.range(12) { test:str=$i }
 
-                batch $lib.false --size 5 {
+                batch (false) --size 5 {
                     $vals=([])
                     for $n in $nodes { $vals.append($n.repr()) }
                     $lib.print((',').join($vals))
@@ -5606,23 +5771,23 @@ class StormTest(s_t_utils.SynTest):
 
             q = '''
                 for $i in $lib.range(12) { test:str=$i }
-                batch $lib.true --size 5 { yield $nodes }
+                batch (true) --size 5 { yield $nodes }
             '''
             msgs = await core.stormlist(q)
             self.len(12, [m for m in msgs if m[0] == 'node'])
 
             q = '''
                 for $i in $lib.range(12) { test:str=$i }
-                batch $lib.false --size 5 { yield $nodes }
+                batch (false) --size 5 { yield $nodes }
             '''
             msgs = await core.stormlist(q)
             self.len(12, [m for m in msgs if m[0] == 'node'])
 
-            with self.raises(s_exc.StormRuntimeError):
-                await core.nodes('batch $lib.true --size 20000 {}')
+            with self.raises(s_exc.BadArg):
+                await core.nodes('batch (true) --size 20000 {}')
 
             with self.raises(s_exc.StormRuntimeError):
-                await core.nodes('test:str batch $lib.true --size $node {}')
+                await core.nodes('test:str batch (true) --size $node {}')
 
     async def test_storm_queries(self):
         async with self.getTestCore() as core:
@@ -5797,23 +5962,23 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint("nest2", msgs)
             self.stormIsInPrint("nest3", msgs)
 
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
-            await core.nodes('[(doc:report=* :publisher:name=foo) (inet:ip=1.2.3.4 +#test:score=1)]')
+            await core.nodes('[(doc:report=* :publisher:name=foo) (inet:ip=1.2.3.4 +#test:_score=1)]')
 
             q = 'doc:report:publisher:name #test'
             self.len(2, await core.nodes(q))
             self.len(1, await core.nodes('#test'))
 
-            q = 'doc:report:publisher:name #test:score'
+            q = 'doc:report:publisher:name #test:_score'
             self.len(2, await core.nodes(q))
-            self.len(1, await core.nodes('#test:score'))
+            self.len(1, await core.nodes('#test:_score'))
 
             q = 'doc:report:publisher:name#test'
             msgs = await core.stormlist(q)
             self.stormIsInErr('No form named doc:report:publisher:name', msgs)
 
-            q = 'doc:report:publisher:name#test:score'
+            q = 'doc:report:publisher:name#test:_score'
             msgs = await core.stormlist(q)
             self.stormIsInErr('No form named doc:report:publisher:name', msgs)
 
@@ -5825,19 +5990,19 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInErr("Unexpected token 'default case'", msgs)
 
-            q = 'doc:report:publisher:name#test.*.bar:score'
+            q = 'doc:report:publisher:name#test.*.bar:_score'
             msgs = await core.stormlist(q)
             self.stormIsInErr("Unexpected token 'default case'", msgs)
 
     async def test_storm_copyto(self):
 
         async with self.getTestCore() as core:
-            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
 
-            msgs = await core.stormlist('[ inet:user=visi ] | copyto $node.repr()')
+            msgs = await core.stormlist('[ it:dev:str=visi ] | copyto $node.repr()')
             self.stormIsInErr('copyto arguments must be runtsafe', msgs)
 
-            msgs = await core.stormlist('[ inet:user=visi ] | copyto newp')
+            msgs = await core.stormlist('[ it:dev:str=visi ] | copyto newp')
             self.stormIsInErr('No such view:', msgs)
 
             layr = await core.callStorm('return($lib.layer.add().iden)')
@@ -5849,7 +6014,7 @@ class StormTest(s_t_utils.SynTest):
                 [ test:guid=* :size=1234 :tick=2020
                     +(refs)> { [ inet:ip=1.1.1.1 inet:ip=2.2.2.2 ] }
                     <(refs)+ { [ inet:ip=5.5.5.5 inet:ip=6.6.6.6 ] }
-                    +#foo.bar:score=10
+                    +#foo.bar:_score=10
                 ]
                 $node.data.set(foo, bar)
             ''')
@@ -5862,7 +6027,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:guid | copyto $view', opts={'vars': {'view': view}})
             self.stormHasNoWarnErr(msgs)
 
-            self.len(1, await core.nodes('test:guid +#foo.bar:score>1'))
+            self.len(1, await core.nodes('test:guid +#foo.bar:_score>1'))
             self.len(1, await core.nodes('test:guid +:tick=2020 :size -> test:int', opts=opts))
             nodes = await core.nodes('test:guid +:size=1234 -(refs)> inet:ip', opts=opts)
             self.len(1, nodes)

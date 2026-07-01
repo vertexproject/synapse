@@ -15,6 +15,7 @@ import synapse.lib.base as s_base
 import synapse.lib.scope as s_scope
 import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,7 @@ class NexsRoot(s_base.Base):
         self.writeholds = set()
 
         self.applytask = None
+        self.timeouttask = None
 
         self.ready = asyncio.Event()
         self.donexslog = self.cell.conf.get('nexslog:en')
@@ -577,7 +579,7 @@ class NexsRoot(s_base.Base):
         if mirurl is not None:
             self.client = await s_telepath.Client.anit(mirurl, onlink=self._onTeleLink)
             self.onfini(self.client)
-            self.client.schedCoro(self.connectTimeout())
+            self.timeouttask = self.client.schedCoro(self.connectTimeout())
 
         self.started = True
 
@@ -615,15 +617,20 @@ class NexsRoot(s_base.Base):
                 futu.set_exception(s_exc.LinkErr(mesg=mirrordisconnect))
 
     async def _onTeleLink(self, proxy):
-        self.miruplink.set()
+        if self.timeouttask is not None:
+            self.timeouttask.cancel()
+            await asyncio.wait([self.timeouttask])
+            self.timeouttask = None
+
         await self.delWriteHold(mirrordisconnect)
+        self.miruplink.set()
 
         def onfini():
             self.miruplink.clear()
             self.issuewait = False
 
             if self.client is not None and not self.client.isfini:
-                self.client.schedCoro(self.connectTimeout())
+                self.timeouttask = self.client.schedCoro(self.connectTimeout())
 
         proxy.onfini(onfini)
         proxy.schedCoro(self.runMirrorLoop(proxy))
@@ -637,9 +644,8 @@ class NexsRoot(s_base.Base):
             if features.get('dynmirror'):
                 await proxy.readyToMirror()
 
-            synvers = cellinfo['synapse']['version']
             cellvers = cellinfo['cell']['version']
-            if cellvers > self.cell.VERSION:
+            if s_version.parse(cellvers) > s_version.parse(self.cell.VERSION):
                 logger.error('Leader is a higher version than we are. Mirrors must be updated first. Entering read-only mode.')
                 await self.addWriteHold(leaderversion)
                 # this will fire again on reconnect...
@@ -674,9 +680,9 @@ class NexsRoot(s_base.Base):
 
                 offs = self.nexslog.index()
 
-                opts = {}
-                if synvers >= (2, 95, 0):
-                    opts['tellready'] = True
+                opts = {
+                    'tellready': True
+                }
 
                 genr = proxy.getNexusChanges(offs, **opts)
                 async for item in genr:
@@ -738,12 +744,10 @@ class NexsRoot(s_base.Base):
         try:
             await self.cell.ahaclient.waitready(timeout=5)
             proxy = await self.cell.ahaclient.proxy(timeout=5)
-            ahainfo = await proxy.getCellInfo()
-            ahavers = ahainfo['synapse']['version']
-            if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
+            if self.cell.ahasvcname is not None:
                 await proxy.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
 
-        except Exception as e: # pragma: no cover
+        except Exception: # pragma: no cover
             logger.exception(f'Error trying to set aha ready: {status}')
 
 class Pusher(s_base.Base, metaclass=RegMethType):

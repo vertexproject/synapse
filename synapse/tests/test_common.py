@@ -78,10 +78,6 @@ class CommonTest(s_t_utils.SynTest):
         self.ne('02efa9b7612f371dbb65a596cd303d9a', s_common.guid(item))
         self.eq('02efa9b7612f371dbb65a596cd303d9a', s_common.guid(s_common.flatten(item)))
 
-    def test_common_vertup(self):
-        self.eq(s_common.vertup('1.3.30'), (1, 3, 30))
-        self.true(s_common.vertup('30.40.50') > (9, 0))
-
     def test_common_file_helpers(self):
 
         # genfile
@@ -449,9 +445,9 @@ class CommonTest(s_t_utils.SynTest):
                 self.write(resp)
 
         async with self.getTestCore() as core:
-            core.addHttpApi('/api/v1/test_tornado/', JsonHandler, {'cell': core})
+            core.addHttpApi('/api/v3/test_tornado/', JsonHandler, {'cell': core})
             _, port = await core.addHttpsPort(0)
-            url = f'https://127.0.0.1:{port}/api/v1/test_tornado/'
+            url = f'https://127.0.0.1:{port}/api/v3/test_tornado/'
 
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, ssl=False) as resp:
@@ -468,3 +464,27 @@ class CommonTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.BadDataValu):
             s_common.queryhash('😀\ud83d\ude47')
+
+    def test_docs_baseurl(self):
+        # Default value when env var is not set.
+        with self.setTstEnvars(SYN_DOCS_BASEURL=None):
+            self.eq('https://docs.vertex.link', s_common.getDocsBaseUrl())
+
+        # Override via env var.
+        with self.setTstEnvars(SYN_DOCS_BASEURL='https://example.com'):
+            self.eq('https://example.com', s_common.getDocsBaseUrl())
+
+        # substDocsBaseUrl replaces the token with the resolved base URL.
+        token = s_common._DOCS_BASEURL_TOKEN
+        with self.setTstEnvars(SYN_DOCS_BASEURL=None):
+            result = s_common.substDocsBaseUrl(f'{token}/docs/synapse/latest/foo.html')
+            self.eq('https://docs.vertex.link/docs/synapse/latest/foo.html', result)
+
+        with self.setTstEnvars(SYN_DOCS_BASEURL='https://example.com'):
+            result = s_common.substDocsBaseUrl(f'{token}/docs/synapse/latest/foo.html')
+            self.eq('https://example.com/docs/synapse/latest/foo.html', result)
+
+        # Text with no token is returned unchanged.
+        with self.setTstEnvars():
+            plain = 'no token here'
+            self.eq(plain, s_common.substDocsBaseUrl(plain))

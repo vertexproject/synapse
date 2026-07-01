@@ -8,100 +8,35 @@ class LibGen(s_stormtypes.Lib):
     _storm_lib_path = ('gen',)
 
     _storm_query = '''
-        function __tryGutor(form, ctor, try) {
+        function _tryGutor(form, ctor, try) {
             if $try {
                 return({[ *$form?=$ctor ]})
             }
             return({[ *$form=$ctor ]})
         }
 
-        function _entityCampaignByName(name, reporter, try=(false)) {
-            $ctor = ({
-                "name": $name,
-                "reporter:name": $reporter,
-                "$props": {
-                    "reporter": $_ouOrgByName($reporter, try=$try),
-                },
-            })
-            return($__tryGutor(entity:campaign, $ctor, $try))
-        }
-
-        function _geoPlaceByName(name, try=(false)) {
-            $ctor = ({
-                "name": $name,
-            })
-            return($__tryGutor(geo:place, $ctor, $try))
-        }
-
-        function _itSoftwareByName(name, try=(false)) {
-            $ctor = ({
-                "name": $name,
-            })
-            return($__tryGutor(it:software, $ctor, $try))
-        }
-
-        function _langLanguageByName(name, try=(false)) {
-            $ctor = ({
-                "name": $name,
-            })
-            return($__tryGutor(lang:language, $ctor, $try))
-        }
-
-        function _ouIndustryByName(name, reporter, try=(false)) {
-            $ctor = ({
-                "name": $name,
-                "reporter:name": $reporter,
-                "$props": {
-                    "reporter": $_ouOrgByName($reporter, try=$try),
-                },
-            })
-            return($__tryGutor(ou:industry, $ctor, $try))
-        }
-
         function _ouOrgByName(name, try=(false)) {
             $ctor = ({
                 "name": $name,
             })
-            return($__tryGutor(ou:org, $ctor, $try))
+            return($_tryGutor(ou:org, $ctor, $try))
         }
 
-        function _polCountryByCode(code, try=(false)) {
+        function _countryByCode(code, try=(false)) {
             $ctor = ({
                 "code": $code,
             })
-            return($__tryGutor(pol:country, $ctor, $try))
+            return($_tryGutor(pol:country, $ctor, $try))
         }
 
-        function _polCountryOrgByCode(code, try=(false)) {
-            yield $_polCountryByCode($code, try=$try)
+        function _governmentByCode(code, try=(false)) {
+            yield $_countryByCode($code, try=$try)
             [ :government*unset=$_ouOrgByName(`{:code} government`) ]
             :government -> ou:org
             return($node)
         }
 
-        function _riskThreatByName(name, reporter, try=(false)) {
-            $ctor = ({
-                "name": $name,
-                "reporter:name": $reporter,
-                "$props": {
-                    "reporter": $_ouOrgByName($reporter, try=$try),
-                },
-            })
-            return($__tryGutor(risk:threat, $ctor, $try))
-        }
-
-        function _riskToolSoftByName(name, reporter, try=(false)) {
-            $ctor = ({
-                "name": $name,
-                "reporter:name": $reporter,
-                "$props": {
-                    "reporter": $_ouOrgByName($reporter, try=$try),
-                },
-            })
-            return($__tryGutor(risk:tool:software, $ctor, $try))
-        }
-
-        function _riskVulnByCve(cve, reporter, try=(false)) {
+        function _vulnByCve(cve, reporter, try=(false)) {
             if $try {
                 $cve = {[ it:sec:cve?=$cve ]}
                 if ($cve = null) { return() }
@@ -112,12 +47,9 @@ class LibGen(s_stormtypes.Lib):
             $ctor = ({
                 "id": $cve,
                 "reporter:name": $reporter,
-                "$props": {
-                    "reporter": $_ouOrgByName($reporter, try=$try),
-                }
             })
 
-            return($__tryGutor(risk:vuln, $ctor, $try))
+            return($_tryGutor(risk:vuln, $ctor, $try))
         }
     '''
 
@@ -127,7 +59,7 @@ _tryarg = ('--try', {'help': 'Type normalization will fail silently instead of r
 stormcmds = (
 
     {
-        'name': 'gen.ou.org',
+        'name': 'gen.org',
         'descr': 'Lift (or create) an ou:org node based on the organization name.',
         'cmdargs': (
             ('name', {'help': 'The name of the organization.'}),
@@ -136,130 +68,114 @@ stormcmds = (
         'storm': 'yield $lib.gen._ouOrgByName($cmdopts.name, try=$cmdopts.try)',
     },
     {
-        'name': 'gen.entity.campaign',
-        'descr': 'Lift (or create) an entity:campaign based on the name and reporting organization.',
+        'name': 'gen.campaign',
+        'descr': 'Lift (or create) an entity:campaign based on the name and reporter.',
         'cmdargs': (
             ('name', {'help': 'The name of the campaign.'}),
-            ('reporter', {'help': 'The name of the reporting organization.'}),
+            ('reporter', {'help': 'The name of the reporting entity.'}),
             _tryarg,
         ),
-        'storm': 'yield $lib.gen._entityCampaignByName($cmdopts.name, $cmdopts.reporter, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen._tryGutor(entity:campaign, ({"name": $cmdopts.name, "reporter:name": $cmdopts.reporter}), $cmdopts.try)',
     },
     {
-        'name': 'gen.it.software',
-        'descr': 'Lift (or create) an it:software node based on the software name.',
+        'name': 'gen.software',
+        'descr': 'Lift (or create) an it:software node based on the software name and reporter.',
         'cmdargs': (
             ('name', {'help': 'The name of the software.'}),
+            ('reporter', {'help': 'The name of the reporting entity.'}),
             _tryarg,
         ),
-        'storm': 'yield $lib.gen._itSoftwareByName($cmdopts.name, try=$cmdopts.try)'
+        'storm': 'yield $lib.gen._tryGutor(it:software, ({"name": $cmdopts.name, "reporter:name": $cmdopts.reporter}), $cmdopts.try)',
     },
     {
-        'name': 'gen.risk.threat',
+        'name': 'gen.threat',
         'descr': '''
             Lift (or create) a risk:threat node based on the threat name and reporter name.
 
             Examples:
 
                 // Yield a risk:threat node for the threat cluster "APT1" reported by "Mandiant".
-                gen.risk.threat apt1 mandiant
+                gen.threat apt1 mandiant
         ''',
         'cmdargs': (
             ('name', {'help': 'The name of the threat cluster. For example: APT1'}),
-            ('reporter', {'help': 'The name of the reporting organization. For example: Mandiant'}),
+            ('reporter', {'help': 'The name of the reporting entity. For example: Mandiant'}),
             _tryarg,
         ),
-        'storm': 'yield $lib.gen._riskThreatByName($cmdopts.name, $cmdopts.reporter, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen._tryGutor(risk:threat, ({"name": $cmdopts.name, "reporter:name": $cmdopts.reporter}), $cmdopts.try)',
     },
     {
-        'name': 'gen.risk.tool.software',
-        'descr': '''
-            Lift (or create) a risk:tool:software node based on the tool name and reporter name.
-
-            Examples:
-
-                // Yield a risk:tool:software node for the "redtree" tool reported by "vertex".
-                gen.risk.tool.software redtree vertex
-        ''',
-        'cmdargs': (
-            ('name', {'help': 'The tool name.'}),
-            ('reporter', {'help': 'The name of the reporting organization. For example: "recorded future"'}),
-            _tryarg,
-        ),
-        'storm': 'yield $lib.gen._riskToolSoftByName($cmdopts.name, $cmdopts.reporter, try=$cmdopts.try)',
-    },
-    {
-        'name': 'gen.risk.vuln',
+        'name': 'gen.vuln',
         'descr': '''
             Lift (or create) a risk:vuln node based on the CVE and reporter name.
 
             Examples:
 
                 // Yield a risk:vuln node for CVE-2012-0157 reported by Mandiant.
-                gen.risk.vuln CVE-2012-0157 Mandiant
+                gen.vuln CVE-2012-0157 Mandiant
         ''',
         'cmdargs': (
             ('cve', {'help': 'The CVE identifier.'}),
-            ('reporter', {'help': 'The name of the reporting organization.'}),
+            ('reporter', {'help': 'The name of the reporting entity.'}),
             _tryarg,
         ),
-        'storm': 'yield $lib.gen._riskVulnByCve($cmdopts.cve, $cmdopts.reporter, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen._vulnByCve($cmdopts.cve, $cmdopts.reporter, try=$cmdopts.try)',
     },
     {
-        'name': 'gen.ou.industry',
+        'name': 'gen.industry',
         'descr': '''
-            Lift (or create) an ou:industry node based on the industry name and reporter name.
+            Lift (or create) an ind:industry node based on the industry name and reporter name.
         ''',
         'cmdargs': (
             ('name', {'help': 'The industry name.'}),
-            ('reporter', {'help': 'The name of the reporting organization.'}),
+            ('reporter', {'help': 'The name of the reporting entity.'}),
             _tryarg,
         ),
-        'storm': 'yield $lib.gen._ouIndustryByName($cmdopts.name, $cmdopts.reporter, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen._tryGutor(ind:industry, ({"name": $cmdopts.name, "reporter:name": $cmdopts.reporter}), $cmdopts.try)',
     },
     {
-        'name': 'gen.pol.country',
+        'name': 'gen.country',
         'descr': '''
             Lift (or create) a pol:country node based on the 2 letter ISO-3166 country code.
 
             Examples:
 
                 // Yield the pol:country node which represents the country of Ukraine.
-                gen.pol.country ua
+                gen.country ua
         ''',
         'cmdargs': (
             ('code', {'help': 'The 2 letter ISO-3166 country code.'}),
             _tryarg,
         ),
-        'storm': 'yield $lib.gen._polCountryByCode($cmdopts.code, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen._countryByCode($cmdopts.code, try=$cmdopts.try)',
     },
     {
-        'name': 'gen.pol.country.government',
+        'name': 'gen.government',
         'descr': '''
             Lift (or create) the ou:org node representing a country's government based on the 2 letter ISO-3166 country code.
 
             Examples:
 
                 // Yield the ou:org node which represents the Government of Ukraine.
-                gen.pol.country.government ua
+                gen.government ua
         ''',
         'cmdargs': (
             ('code', {'help': 'The 2 letter ISO-3166 country code.'}),
             _tryarg,
         ),
-        'storm': 'yield $lib.gen._polCountryOrgByCode($cmdopts.code, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen._governmentByCode($cmdopts.code, try=$cmdopts.try)',
     },
     {
-        'name': 'gen.lang.language',
+        'name': 'gen.language',
         'descr': 'Lift (or create) a lang:language node based on the name.',
         'cmdargs': (
             ('name', {'help': 'The name of the language.'}),
             _tryarg,
         ),
-        'storm': 'yield $lib.gen._langLanguageByName($cmdopts.name, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen._tryGutor(lang:language, ({"name": $cmdopts.name}), $cmdopts.try)',
     },
     {
-        'name': 'gen.geo.place',
+        'name': 'gen.place',
         'descr': '''
             Lift (or create) a geo:place node based on the name.
         ''',
@@ -267,6 +183,6 @@ stormcmds = (
             ('name', {'help': 'The name of the place.'}),
             _tryarg,
         ),
-        'storm': 'yield $lib.gen._geoPlaceByName($cmdopts.name, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen._tryGutor(geo:place, ({"name": $cmdopts.name}), $cmdopts.try)',
     },
 )

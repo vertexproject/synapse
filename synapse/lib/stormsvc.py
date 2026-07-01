@@ -5,6 +5,7 @@ import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
+import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
@@ -68,9 +69,7 @@ stormcmds = (
                 $sname = $sdef.svcname
                 if $sname {} else { $sname = 'Unknown' }
                 $svers = $sdef.svcvers
-                if $svers {
-                    $svers = ('.').join($svers)
-                } else {
+                if (not $svers) {
                     $svers = 'Unknown'
                 }
                 $lib.print(`    {$iden} {$ready} ({$name}) ({$sname} @ {$svers}): {$url}`)
@@ -88,7 +87,7 @@ class StormSvc:
     '''
 
     _storm_svc_name = 'noname'
-    _storm_svc_vers = (0, 0, 1)
+    _storm_svc_vers = '0.0.1'
     _storm_svc_evts = {}  # type: ignore
     _storm_svc_pkgs = ()  # type: ignore
 
@@ -205,7 +204,8 @@ class StormSvcClient(s_base.Base):
 
         if 'CellApi' in names:
             cellinfo = await proxy.getCellInfo()
-            if (cellvers := cellinfo['synapse']['version']) < (3, 0, 0):
+            cellvers = cellinfo['synapse']['version']
+            if not s_version.matches(cellvers, '>=3.0.0b1'):
                 mesg = f'Service {self.name} ({self.iden}) is running Synapse {cellvers} and must be updated to >= 3.0.0'
                 logger.error(mesg)
                 raise s_exc.BadVersion(mesg=mesg)

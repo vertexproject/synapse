@@ -3,7 +3,7 @@ import synapse.lib.stormsvc as s_stormsvc
 
 class TestsvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'testsvc'
-    _storm_svc_vers = (0, 0, 1)
+    _storm_svc_vers = '0.0.1'
     _storm_svc_pkgs = (
         {
             'name': 'testsvc',

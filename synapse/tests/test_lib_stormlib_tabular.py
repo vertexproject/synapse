@@ -191,7 +191,7 @@ class TabularTest(s_test.SynTest):
                     "columns": [{"name": "Foo", "width": 20}],
                 }))
 
-                $lib.print($printer.row(($lib.null,)))
+                $lib.print($printer.row(((null),)))
                 $lib.print($printer.row((({"bar": "baz"}),)))
                 $lib.print($printer.row((${entity:name=cool},)))
             ''', opts=opts)

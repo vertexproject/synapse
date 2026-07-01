@@ -25,15 +25,14 @@ class FileTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ file:entry=* :path=foo/000.exe :file=* :seen=2022 ]')
-            self.len(1, nodes)
-            self.nn(nodes[0].get('file'))
-            self.propeq(nodes[0], 'path', 'foo/000.exe')
-            self.nn(nodes[0].get('seen'))
-            self.len(1, await core.nodes('file:entry :path -> file:path'))
-            self.len(1, await core.nodes('file:entry :file -> file:bytes'))
+            iface = core.model.ifaces.get('file:entry')
+            self.nn(iface)
+            propnames = {p[0] for p in iface['props']}
+            self.eq({'file', 'path'}, propnames)
+            ifnames = {n for (n, _) in iface.get('interfaces', ())}
+            self.notin('meta:observable', ifnames)
 
-            nodes = await core.nodes('[ file:exemplar:entry=* :path=foo/001.exe :file={file:bytes} :seen=2022 ]')
+            nodes = await core.nodes('[ file:exemplar:entry=* :path=foo/001.exe :file=* as file:bytes :seen=2022 ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
             self.propeq(nodes[0], 'path', 'foo/001.exe')
@@ -184,7 +183,7 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('file:mime:rar:entry :file -> file:bytes'))
             self.len(1, await core.nodes('file:mime:rar:entry :parent -> file:bytes'))
 
-            self.len(7, await core.nodes('file:bytes -> file:entry:file :path -> file:path | uniq'))
+            self.len(6, await core.nodes('file:bytes -> file:entry:file :path -> file:path | uniq'))
 
     async def test_model_filebytes_ssdeeps(self):
 
@@ -236,7 +235,7 @@ class FileTest(s_t_utils.SynTest):
 
             q = '''
             [ file:mime:pe=*
-                :file=$file
+                :file=$file as file:bytes
                 :imphash=$imphash
                 :richheader=$richheader
                 :pdbpath=c:/this/is/my/pdbstring
@@ -273,7 +272,7 @@ class FileTest(s_t_utils.SynTest):
 
             q = '''
             [ file:mime:pe:resource=*
-                :file=$file
+                :file=$file as file:bytes
                 :langid=0x409
                 :type=2
                 :sha256=$sha256
@@ -291,7 +290,7 @@ class FileTest(s_t_utils.SynTest):
 
             q = '''
             [ file:mime:pe:section=*
-                :file=$file
+                :file=$file as file:bytes
                 :name=wootwoot
                 :sha256=$sha256
             ]
@@ -311,7 +310,7 @@ class FileTest(s_t_utils.SynTest):
 
             q = '''
             [ file:mime:pe:export=*
-                :file=$file
+                :file=$file as file:bytes
                 :name=WootWoot
                 :rva=0x20202020
             ]
@@ -369,7 +368,7 @@ class FileTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 file:mime:macho:loadcmd=*
-                    :file=$file
+                    :file=$file as file:bytes
                     :type=27
                     :file:size=123456
             ]''', opts=opts)
@@ -381,10 +380,10 @@ class FileTest(s_t_utils.SynTest):
             # uuid
             nodes = await core.nodes('''[
                 file:mime:macho:uuid=*
-                    :file=$file
+                    :file=$file as file:bytes
                     :type=27
                     :file:size=32
-                    :uuid=BCAA4A0BBF703A5DBCF972F39780EB67
+                    :uuid=BCAA4A0BBF703A5DBCF972F39780EB67 as guid
             ]''', opts=opts)
             self.len(1, nodes)
             self.propeq(nodes[0], 'file', fileguid)
@@ -394,7 +393,7 @@ class FileTest(s_t_utils.SynTest):
             # version
             nodes = await core.nodes('''[
                 file:mime:macho:version=*
-                    :file=$file
+                    :file=$file as file:bytes
                     :file:size=32
                     :type=42
                     :version="7605.1.33.1.4"
@@ -410,7 +409,7 @@ class FileTest(s_t_utils.SynTest):
             opts = {'vars': {'file': fileguid, 'sha256': seghash}}
             nodes = await core.nodes('''[
                 file:mime:macho:segment=*
-                    :file=$file
+                    :file=$file as file:bytes
                     :file:size=48
                     :file:offs=1234
                     :type=1
@@ -455,8 +454,8 @@ class FileTest(s_t_utils.SynTest):
             norm, info = await base.norm('FOO.EXE')
             subs = info.get('subs')
 
-            self.eq('foo.exe', norm)
-            self.eq((base.exttype.typehash, 'exe', {}), subs.get('ext'))
+            self.eq('FOO.EXE', norm)
+            self.eq((base.exttype.typehash, 'EXE', {}), subs.get('ext'))
 
             await self.asyncraises(s_exc.BadTypeValu, base.norm('foo/bar.exe'))
             await self.asyncraises(s_exc.BadTypeValu, base.norm('/haha'))
@@ -466,8 +465,8 @@ class FileTest(s_t_utils.SynTest):
 
             norm, info = await path.norm('c:\\Windows\\System32\\calc.exe')
 
-            self.eq(norm, 'c:/windows/system32/calc.exe')
-            self.eq(info['virts']['dir'][0], 'c:/windows/system32')
+            self.eq(norm, 'c:/Windows/System32/calc.exe')
+            self.eq(info['virts']['dir'][0], 'c:/Windows/System32')
             self.eq(info['virts']['base'][0], 'calc.exe')
 
             norm, info = await path.norm(r'/foo////bar/.././baz.json')
@@ -553,9 +552,11 @@ class FileTest(s_t_utils.SynTest):
 
             def testmsoffice(n):
                 self.propeq(n, 'title', 'lolz')
-                self.propeq(n, 'author', 'deep_value')
+                self.nn(n.get('author'))
+                self.propeq(n, 'author:name', 'deep value')
                 self.propeq(n, 'subject', 'GME stonks')
-                self.propeq(n, 'application', 'stonktrader3000')
+                self.nn(n.get('application'))
+                self.propeq(n, 'application:name', 'stonktrader3000')
                 self.propeq(n, 'created', 1611100800000000)
                 self.propeq(n, 'lastsaved', 1611187200000000)
 
@@ -565,13 +566,15 @@ class FileTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 file:mime:msdoc=*
-                    :file=$fileguid
+                    :file=$fileguid as file:bytes
                     :file:offs=0
                     :file:data=(foo, bar)
                     :title=lolz
-                    :author=deep_value
+                    :author={[ entity:contact=* ]}
+                    :author:name="deep value"
                     :subject="GME stonks"
-                    :application=stonktrader3000
+                    :application={[ it:software=* ]}
+                    :application:name=stonktrader3000
                     :created=20210120
                     :lastsaved=20210121
             ]''', opts=opts)
@@ -580,13 +583,15 @@ class FileTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 file:mime:msxls=*
-                    :file=$fileguid
+                    :file=$fileguid as file:bytes
                     :file:offs=0
                     :file:data=(foo, bar)
                     :title=lolz
-                    :author=deep_value
+                    :author={[ entity:contact=* ]}
+                    :author:name="deep value"
                     :subject="GME stonks"
-                    :application=stonktrader3000
+                    :application={[ it:software=* ]}
+                    :application:name=stonktrader3000
                     :created=20210120
                     :lastsaved=20210121
             ]''', opts=opts)
@@ -595,13 +600,15 @@ class FileTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 file:mime:msppt=*
-                    :file=$fileguid
+                    :file=$fileguid as file:bytes
                     :file:offs=0
                     :file:data=(foo, bar)
                     :title=lolz
-                    :author=deep_value
+                    :author={[ entity:contact=* ]}
+                    :author:name="deep value"
                     :subject="GME stonks"
-                    :application=stonktrader3000
+                    :application={[ it:software=* ]}
+                    :application:name=stonktrader3000
                     :created=20210120
                     :lastsaved=20210121
             ]''', opts=opts)
@@ -617,10 +624,10 @@ class FileTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 file:mime:rtf=*
-                    :file=$fileguid
+                    :file=$fileguid as file:bytes
                     :file:offs=0
                     :file:data=(foo, bar)
-                    :guid=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    :guid=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa as guid
             ]''', opts=opts)
 
             self.len(1, nodes)
@@ -647,7 +654,7 @@ class FileTest(s_t_utils.SynTest):
                 self.propeq(n, 'file:data', ('foo', 'bar'))
                 self.propeq(n, 'desc', 'aaaa')
                 self.propeq(n, 'comment', 'bbbb')
-                self.propeq(n, 'text', 'foo bar')
+                self.propeq(n, 'text', '  Foo   Bar   ')
                 self.propeq(n, 'created', 1578236238000000)
                 self.propeq(n, 'id', 'a6b4')
                 self.propeq(n, 'author', conguid)
@@ -662,7 +669,7 @@ class FileTest(s_t_utils.SynTest):
             ]''', opts=opts)
 
             props = '''
-                :file=$fileguid
+                :file=$fileguid as file:bytes
                 :file:offs=0
                 :file:data=(foo, bar)
                 :desc=aaaa
@@ -670,7 +677,7 @@ class FileTest(s_t_utils.SynTest):
                 :text="  Foo   Bar   "
                 :created="2020-01-05 14:57:18"
                 :id=a6b4
-                :author=$conguid
+                :author=$conguid as entity:contact
                 :latlong="38.9582839,-77.358946"
                 :altitude="129 meters"'''
 
@@ -712,8 +719,8 @@ class FileTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ file:archive:entry=*
-                    :parent=*
-                    :file=*
+                    :parent=* as file:bytes
+                    :file=* as file:bytes
                     :path=foo/bar.exe
                     :added=20230630
                     :created=20230629
@@ -769,15 +776,15 @@ class FileTest(s_t_utils.SynTest):
 
             self.propeq(node, 'entry:primary', 'c:/some/stuff/prog~2/cmd.exe')
             self.propeq(node, 'entry:secondary', 'c:/some/stuff/program files/cmd.exe')
-            self.propeq(node, 'entry:extended', 'c:/some/actual/stuff/i/swear/cmd.exe')
-            self.propeq(node, 'entry:localized', 'c:/some/actual/archivos/i/swear/cmd.exe')
+            self.propeq(node, 'entry:extended', 'c:/some/actual/stuff/I/swear/cmd.exe')
+            self.propeq(node, 'entry:localized', 'c:/some/actual/archivos/I/swear/cmd.exe')
 
             self.propeq(node, 'entry:icon', '%windir%/system32/notepad.exe')
             self.propeq(node, 'environment:path', '%windir%/system32/cmd.exe')
             self.propeq(node, 'environment:icon', '%some%%envvar%')
 
-            self.propeq(node, 'working', '%homedrive%%homepath%')
-            self.propeq(node, 'relative', '..\\..\\..\\some\\foo.bar.txt')
+            self.propeq(node, 'working', '%HOMEDRIVE%%HOMEPATH%')
+            self.propeq(node, 'relative', 'some/foo.bar.txt')
             self.propeq(node, 'arguments', '/q /c copy %systemroot%\\system32\\msh*.exe')
             self.propeq(node, 'desc', "I've been here the whole time.")
 
@@ -804,14 +811,14 @@ class FileTest(s_t_utils.SynTest):
                 [ file:attachment=*
                     :path=Foo/Bar.exe
                     :text="foo bar"
-                    :file=*
+                    :file=* as file:bytes
                     :seen=2022
                 ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
             self.propeq(nodes[0], 'text', 'foo bar')
-            self.propeq(nodes[0], 'path', 'foo/bar.exe')
+            self.propeq(nodes[0], 'path', 'Foo/Bar.exe')
             self.nn(nodes[0].get('seen'))
 
             self.len(1, await core.nodes('file:attachment -> file:bytes'))
@@ -824,7 +831,7 @@ class FileTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ file:mime:pdf=*
                     :id=Foo-10
-                    :file=*
+                    :file=* as file:bytes
                     :title="Synapse Sizing Guide"
                     :subject="How to size a Synapse deployment."
                     :author:name=Vertex
@@ -841,10 +848,10 @@ class FileTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'title', 'Synapse Sizing Guide')
             self.propeq(nodes[0], 'subject', 'How to size a Synapse deployment.')
             self.propeq(nodes[0], 'keywords', ('bar', 'foo'))
-            self.propeq(nodes[0], 'tool:name', 'google docs renderer')
-            self.propeq(nodes[0], 'author:name', 'vertex')
-            self.propeq(nodes[0], 'language:name', 'klingon')
-            self.propeq(nodes[0], 'producer:name', 'zip zop software')
+            self.propeq(nodes[0], 'tool:name', 'Google Docs Renderer')
+            self.propeq(nodes[0], 'author:name', 'Vertex')
+            self.propeq(nodes[0], 'language:name', 'Klingon')
+            self.propeq(nodes[0], 'producer:name', 'Zip Zop Software')
             self.propeq(nodes[0], 'created', 1768435200000000)
             self.propeq(nodes[0], 'updated', 1768435200000000)
             self.len(1, await core.nodes('file:mime:pdf :file -> file:bytes'))

@@ -1,17 +1,17 @@
 function foo() {
-    if $lib.true {
+    if (true) {
         stop
     }
 
-    if $lib.false { $lib.print("no cover") } // pragma: no cover
+    if (false) { $lib.print("no cover") } // pragma: no cover
 
-    if $lib.false { // pragma: no cover start
+    if (false) { // pragma: no cover start
         $lib.print("multi-line no cover")
     } // pragma: no cover stop
 
-    if $lib.false { $lib.print("stop before start") } // pragma: no cover stop
+    if (false) { $lib.print("stop before start") } // pragma: no cover stop
 
-    if $lib.false { // pragma: no cover start
+    if (false) { // pragma: no cover start
         $lib.print("start in a block") // pragma: no cover start
     } // pragma: no cover stop
 }

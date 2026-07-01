@@ -8,7 +8,7 @@ class StormLibGisTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            lbox = await core.callStorm('return($lib.gis.bbox(-2.0783, 51.8994, $lib.cast(geo:dist, 1km)))')
+            lbox = await core.callStorm('return($lib.gis.bbox(-2.0783, 51.8994, $lib.cast(phys:distance, 1km)))')
             self.eq(lbox, (-2.0928746526154747,
                            -2.0637253473845254,
                            51.890406796362754,

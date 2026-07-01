@@ -41,6 +41,15 @@ timeunits = {
     'days': oneday,
 }
 
+durprecisions = {
+    'microsecond': 1,
+    'millisecond': 1000,
+    'second': onesec,
+    'minute': onemin,
+    'hour': onehour,
+    'day': oneday,
+}
+
 PREC_YEAR = 4
 PREC_MONTH = 8
 PREC_DAY = 12

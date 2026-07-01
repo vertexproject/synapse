@@ -83,7 +83,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.propeq(nodes[0], 'mode', 'cbc')
+            self.propeq(nodes[0], 'mode', 'CBC')
             self.nn(nodes[0].get('algorithm'))
             self.propeq(nodes[0], 'seed:passwd', 's3cret')
             self.nn(nodes[0].get('seed:algorithm'))
@@ -184,25 +184,32 @@ class CryptoModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ crypto:currency:client=(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)) ]')
+            nodes = await core.nodes('[ crypto:currency:chain=({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}) :name=Bitcoin ]')
+            self.len(1, nodes)
+            btciden = nodes[0].ndef[1]
+
+            nodes = await core.nodes('[ crypto:currency:chain=({"symbol": "eth", "id": "eip155:1"}) :name=Ethereum ]')
+            self.len(1, nodes)
+            ethiden = nodes[0].ndef[1]
+
+            nodes = await core.nodes('[ crypto:currency:client=(1.2.3.4, (({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)) ]')
             self.len(1, nodes)
 
             nodes = await core.nodes('''
-                crypto:currency:address=btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
-                [ :chain={[ crypto:currency:chain=* :id=ABC-123 :name="Vertex Coin" :symbol=VTX ]} ]
+                crypto:currency:address=(({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                 [ :seed={[ crypto:key:secret=(asdf,) ]} ]
             ''')
             self.propeq(nodes[0], 'seed', '91a14b40da052cb388bf6b6d7723adee', type='crypto:key:secret')
-            self.len(1, await core.nodes('crypto:currency:address -> crypto:currency:chain +:id=ABC-123 +:name="vertex coin" +:symbol=VTX'))
+            self.len(1, await core.nodes('crypto:currency:address -> crypto:currency:chain +:id="bip122:000000000019d6689c085ae165831e93" +:name=bitcoin +:symbol=btc'))
 
             nodes = await core.nodes('inet:client=1.2.3.4 -> crypto:currency:client -> crypto:currency:address')
-            self.propeq(nodes[0], 'coin', 'btc')
+            self.propeq(nodes[0], 'chain', btciden)
             self.propeq(nodes[0], 'iden', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
 
             # these would explode if the model was wrong
             self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact={[ entity:contact=* ]} ] -> entity:contact'))
             self.len(1, await core.nodes('crypto:currency:address:iden=1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
-            self.len(1, await core.nodes('crypto:currency:address:coin=btc'))
+            self.len(1, await core.nodes(f'crypto:currency:address:chain={btciden}'))
             self.len(1, await core.nodes('crypto:currency:client:inetaddr=1.2.3.4'))
 
             opts = {'vars': {
@@ -210,15 +217,15 @@ class CryptoModelTest(s_t_utils.SynTest):
                 'output': hashlib.sha256(b'qwer').hexdigest(),
             }}
 
-            payors = await core.nodes('[ crypto:payment:input=* :index=0 :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            payors = await core.nodes('[ crypto:payment:input=* :index=0 :transaction=(t1,) as crypto:currency:transaction :address=(({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
             self.propeq(payors[0], 'value', '30')
             self.propeq(payors[0], 'index', 0)
-            self.propeq(payors[0], 'address', ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.propeq(payors[0], 'address', (btciden, '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
-            payees = await core.nodes('[ crypto:payment:output=* :index=0 :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            payees = await core.nodes('[ crypto:payment:output=* :index=0 :transaction=(t1,) as crypto:currency:transaction :address=(({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
             self.propeq(payees[0], 'value', '30')
             self.propeq(payees[0], 'index', 0)
-            self.propeq(payees[0], 'address', ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.propeq(payees[0], 'address', (btciden, '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
             payor = payors[0].ndef[1]
             payee = payees[0].ndef[1]
@@ -228,19 +235,18 @@ class CryptoModelTest(s_t_utils.SynTest):
                     crypto:currency:transaction=(t1,)
                         :hash=0x01020304
                         :desc="Woot Woot"
-                        :block=(BTC, 998877)
+                        :block=(({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 998877)
                         :block:chain={[ crypto:currency:chain=* :name=bitcoin ]}
                         :success=1
                         :status:code=10
                         :status:message=success
-                        :to = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                        :from = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :to = (({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :from = (({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :fee = 0.0001
+                        :fee:limit = 0.001
+                        :fee:asked = 0.0002
                         :value = 30
                         :time = 20211031
-                        :eth:gasused = 10
-                        :eth:gaslimit = 20
-                        :eth:gasprice = 0.001
                         :contract:input = {[ file:bytes=({"sha256": $input}) ]}
                         :contract:output = {[ file:bytes=({"sha256": $output}) ]}
                 ]
@@ -249,19 +255,18 @@ class CryptoModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.propeq(node, 'hash', '01020304')
             self.propeq(node, 'desc', 'Woot Woot')
-            self.propeq(node, 'block', ('btc', 998877))
+            self.propeq(node, 'block', (btciden, 998877))
             self.nn(node.get('block:chain'))
             self.propeq(node, 'success', True)
             self.propeq(node, 'status:code', 10)
             self.propeq(node, 'status:message', 'success')
-            self.propeq(node, 'to', ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
-            self.propeq(node, 'from', ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.propeq(node, 'to', (btciden, '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.propeq(node, 'from', (btciden, '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.propeq(node, 'fee', '0.0001')
+            self.propeq(node, 'fee:limit', '0.001')
+            self.propeq(node, 'fee:asked', '0.0002')
             self.propeq(node, 'value', '30')
             self.propeq(node, 'time', 1635638400000000)
-            self.propeq(node, 'eth:gasused', 10)
-            self.propeq(node, 'eth:gaslimit', 20)
-            self.propeq(node, 'eth:gasprice', '0.001')
             self.propeq(node, 'contract:input', 'c7b0fb6229283d0f30a360f8b81d63e5')
             self.propeq(node, 'contract:output', '074ce17fabf0f083843f83246533deb3')
 
@@ -269,28 +274,41 @@ class CryptoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.eq({n.ndef[1] for n in nodes}, {payor, payee})
 
+            # Adding a node from a property dict routes the secondary prop subs
+            # through the bulk ProtoNode.getSubSetOps() op builder rather than the
+            # ProtoNode.set() path. A sub which itself carries declared sub props
+            # (block -> block:chain) must be resolved and set via that path.
+            nodes = await core.nodes('''
+                $chain = ({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"})
+                $block = ($chain, 778899)
+                $valu = ({"block": $block})
+                [ crypto:currency:transaction=$valu ]
+            ''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.propeq(node, 'block', (btciden, 778899))
+            self.propeq(node, 'block:chain', btciden)
+
             nodes = await core.nodes('''
                 [
-                    crypto:currency:block=(btc, 12345)
+                    crypto:currency:block=(({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 12345)
                         :hash=0x01020304
-                        :minedby = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :minedby = (({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :time=20211130
-                        :chain={[ crypto:currency:chain=* :name=btcmain ]}
                 ]''')
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'coin', 'btc')
+            self.propeq(node, 'chain', btciden)
             self.propeq(node, 'offset', 12345)
             self.propeq(node, 'hash', '01020304')
             self.propeq(node, 'time', 1638230400000000)
-            self.nn(node.get('chain'))
 
             nodes = await core.nodes('''
                 [
                     crypto:smart:contract=*
-                        :transaction=*
+                        :transaction=* as crypto:currency:transaction
                         :bytecode={[ file:bytes=({"sha256": $input}) ]}
-                        :address = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :address = (({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :token:name=Foo
                         :token:symbol=Bar
                         :token:totalsupply=300
@@ -299,43 +317,43 @@ class CryptoModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.nn(node.get('transaction'))
             self.propeq(node, 'bytecode', 'c7b0fb6229283d0f30a360f8b81d63e5')
-            self.propeq(node, 'address', ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.propeq(node, 'address', (btciden, '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.propeq(node, 'token:name', 'Foo')
-            self.propeq(node, 'token:symbol', 'Bar')
+            self.propeq(node, 'token:symbol', 'BAR')
             self.propeq(node, 'token:totalsupply', '300')
 
             nodes = await core.nodes('''
                 [
                     crypto:smart:effect:transfertoken=*
                         :token=(2bdea834252a220b61aadf592cc0de66, 30)
-                        :to=eth/bbbb
-                        :from=eth/aaaa
-                        :transaction=*
+                        :to=(({"symbol": "eth", "id": "eip155:1"}), bbbb)
+                        :from=(({"symbol": "eth", "id": "eip155:1"}), aaaa)
+                        :transaction=* as crypto:currency:transaction
                 ]''')
             self.len(1, nodes)
             node = nodes[0]
             self.nn(node.get('token'))
             self.nn(node.get('transaction'))
-            self.propeq(node, 'to', ('eth', 'bbbb'))
-            self.propeq(node, 'from', ('eth', 'aaaa'))
+            self.propeq(node, 'to', (ethiden, 'bbbb'))
+            self.propeq(node, 'from', (ethiden, 'aaaa'))
             self.len(1, await core.nodes('crypto:smart:effect:transfertoken -> crypto:smart:token'))
             self.len(1, await core.nodes('crypto:smart:effect:transfertoken -> crypto:currency:transaction'))
 
             nodes = await core.nodes('''
                 [
                     crypto:smart:effect:transfertokens=*
-                        :to=eth/bbbb
-                        :from=eth/aaaa
+                        :to=(({"symbol": "eth", "id": "eip155:1"}), bbbb)
+                        :from=(({"symbol": "eth", "id": "eip155:1"}), aaaa)
                         :amount=20
-                        :transaction=*
-                        :contract=*
+                        :transaction=* as crypto:currency:transaction
+                        :contract=* as crypto:smart:contract
                 ]''')
             self.len(1, nodes)
             node = nodes[0]
             self.nn(node.get('transaction'))
             self.nn(node.get('contract'))
-            self.propeq(node, 'to', ('eth', 'bbbb'))
-            self.propeq(node, 'from', ('eth', 'aaaa'))
+            self.propeq(node, 'to', (ethiden, 'bbbb'))
+            self.propeq(node, 'from', (ethiden, 'aaaa'))
             self.propeq(node, 'amount', '20')
             self.len(1, await core.nodes('crypto:smart:effect:transfertokens -> crypto:smart:contract'))
             self.len(1, await core.nodes('crypto:smart:effect:transfertokens -> crypto:currency:transaction'))
@@ -344,8 +362,8 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [
                     crypto:smart:effect:edittokensupply=*
                         :amount=20
-                        :contract=*
-                        :transaction=*
+                        :contract=* as crypto:smart:contract
+                        :transaction=* as crypto:currency:transaction
                         :totalsupply=1020
                 ]''')
             self.len(1, nodes)
@@ -362,7 +380,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                     crypto:smart:effect:minttoken=*
                         :index=0
                         :token=(2bdea834252a220b61aadf592cc0de66, 30)
-                        :transaction=*
+                        :transaction=* as crypto:currency:transaction
                 ]''')
             self.len(1, nodes)
             node = nodes[0]
@@ -377,7 +395,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                     crypto:smart:effect:burntoken=*
                         :index=0
                         :token=(2bdea834252a220b61aadf592cc0de66, 30)
-                        :transaction=*
+                        :transaction=* as crypto:currency:transaction
                 ]''')
             self.len(1, nodes)
             node = nodes[0]
@@ -392,9 +410,9 @@ class CryptoModelTest(s_t_utils.SynTest):
                     crypto:smart:effect:proxytoken=*
                         :index=0
                         :token=(2bdea834252a220b61aadf592cc0de66, 30)
-                        :transaction=*
-                        :owner=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                        :proxy=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :transaction=* as crypto:currency:transaction
+                        :owner=(({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :proxy=(({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                 ]''')
             self.len(1, nodes)
             node = nodes[0]
@@ -409,11 +427,11 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [
                     crypto:smart:effect:proxytokenall=*
                         :index=0
-                        :transaction=*
-                        :contract=*
-                        :owner=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                        :proxy=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                        :approval=$lib.true
+                        :transaction=* as crypto:currency:transaction
+                        :contract=* as crypto:smart:contract
+                        :owner=(({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :proxy=(({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :approval=true
                 ]''')
             self.len(1, nodes)
             node = nodes[0]
@@ -430,10 +448,10 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [
                     crypto:smart:effect:proxytokens=*
                         :index=0
-                        :transaction=*
-                        :contract=*
-                        :owner=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                        :proxy=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :transaction=* as crypto:currency:transaction
+                        :contract=* as crypto:smart:contract
+                        :owner=(({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :proxy=(({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :amount=0xff
                 ]''')
             self.len(1, nodes)
@@ -442,7 +460,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.nn(node.get('owner'))
             self.nn(node.get('proxy'))
             self.nn(node.get('contract'))
-            self.propeq(node, 'amount', 'ff')
+            self.propeq(node, 'amount', '255')
             self.len(2, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:address'))
             self.len(1, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:transaction'))
             self.len(1, await core.nodes('crypto:smart:effect:proxytokens -> crypto:smart:contract'))
@@ -450,7 +468,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [
                     crypto:smart:token=(2bdea834252a220b61aadf592cc0de66, 30)
-                        :owner=eth/aaaa
+                        :owner=(({"symbol": "eth", "id": "eip155:1"}), aaaa)
                         :nft:url = https://coin.vertex.link/nfts/30
                         :nft:meta = ({'name':'WootWoot'})
                         :nft:meta:name = WootWoot
@@ -462,10 +480,10 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(('2bdea834252a220b61aadf592cc0de66', '30'), node.ndef[1])
             self.propeq(node, 'contract', '2bdea834252a220b61aadf592cc0de66')
             self.propeq(node, 'tokenid', '30')
-            self.propeq(node, 'owner', ('eth', 'aaaa'))
+            self.propeq(node, 'owner', (ethiden, 'aaaa'))
             self.propeq(node, 'nft:url', 'https://coin.vertex.link/nfts/30')
             self.propeq(node, 'nft:meta', {'name': 'WootWoot'})
-            self.propeq(node, 'nft:meta:name', 'wootwoot')
+            self.propeq(node, 'nft:meta:name', 'WootWoot')
             self.propeq(node, 'nft:meta:description', 'LoLoL')
             self.propeq(node, 'nft:meta:image', 'https://vertex.link/favicon.ico')
 
@@ -604,15 +622,13 @@ class CryptoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ crypto:x509:cert=$icert
                     :subject="CN=issuer.link"
-                    :subject:cn="  Issuer.Link  "
-                    :issuer:cert=$icert
-                    :selfsigned=$lib.true
+                    :issuer:cert=$icert as crypto:x509:cert
+                    :selfsigned=true
                     :seen=(2022, 2023)
                 ]
             ''', opts={'vars': {'icert': icert}})
             self.eq(nodes[0].ndef, ('crypto:x509:cert', icert))
             self.propeq(nodes[0], 'subject', "CN=issuer.link")
-            self.propeq(nodes[0], 'subject:cn', "Issuer.Link")
             self.propeq(nodes[0], 'issuer:cert', icert)
             self.propeq(nodes[0], 'selfsigned', True)
             self.eq(('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'), nodes[0].repr('seen'))
@@ -621,8 +637,10 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [ crypto:x509:cert=$cert
 
                     :subject="CN=vertex.link"
+                    :subject:rdns=((CN, "vertex.link"), (O, "Vertex  Project"))
                     :issuer="DN FOO THING"
-                    :issuer:cert=$icert
+                    :issuer:rdns=((CN, "Some  CA"), (cn, "Some  CA"))
+                    :issuer:cert=$icert as crypto:x509:cert
 
                     :serial=0000000000000000000000000000000000003039
                     :version=v3
@@ -667,12 +685,47 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'ext:crls', (('dns', 'http://vertex.link/crls'),))
             self.propeq(nodes[0], 'crl:urls', ('http://vertex.link/crls',))
             self.propeq(nodes[0], 'ext:sans', (('dns', '*.vertex.link'), ('dns', 'vertex.link')))
+
+            # attr is case-folded (str:upper), value is case-preserving (title); the array is sorted and uniqued.
+            self.propeq(nodes[0], 'subject:rdns', (('CN', 'vertex.link'), ('O', 'Vertex Project')))
+            self.propeq(nodes[0], 'issuer:rdns', (('CN', 'Some CA'),))
+
+            self.len(1, await core.nodes('crypto:x509:cert:subject:rdns*[=(CN, vertex.link)]'))
+            self.len(1, await core.nodes('crypto:x509:cert:issuer:rdns*[=(cn, "Some CA")]'))
+
+            # the = separator allows the string form name=value (name is still case-folded).
+            self.len(1, await core.nodes('crypto:x509:cert:subject:rdns*[="cn=vertex.link"]'))
+            self.len(1, await core.nodes('crypto:x509:cert:issuer:rdns*[="CN=Some CA"]'))
+
+            # crypto:x509:rdn is a form: the array auto-creates the part nodes with name/value props.
+            rdns = await core.nodes('crypto:x509:rdn=(O, "Vertex Project")')
+            self.len(1, rdns)
+            self.eq(rdns[0].ndef, ('crypto:x509:rdn', ('O', 'Vertex Project')))
+            self.propeq(rdns[0], 'name', 'O')
+            self.propeq(rdns[0], 'value', 'Vertex Project')
+            self.len(1, await core.nodes('crypto:x509:rdn:name=cn +:value=vertex.link'))
             self.propeq(nodes[0], 'identities:urls', ('http://woot.com/1', 'http://woot.com/2'))
             self.propeq(nodes[0], 'identities:fqdns', ('vertex.link', 'woot.com'))
 
             ip3 = (6, 0xff0000000000000000000000000011)
             ip4 = (6, 0xff00000000000000000000000000aa)
             self.propeq(nodes[0], 'identities:ips', ((4, 0x01020304), (4, 0x05050505), ip3, ip4))
+
+            # :subject and :issuer are title types: case-preserving storage with
+            # onespace/strip normalization and case-insensitive lift.
+            tcert = s_common.guid()
+            nodes = await core.nodes('''
+                [ crypto:x509:cert=$cert
+                    :subject="  CN=Mixed   Case  "
+                    :issuer="O=Vertex  Project, CN=CA"
+                ]
+            ''', opts={'vars': {'cert': tcert}})
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'subject', 'CN=Mixed Case')
+            self.propeq(nodes[0], 'issuer', 'O=Vertex Project, CN=CA')
+
+            self.len(1, await core.nodes('crypto:x509:cert:subject="cn=mixed case"'))
+            self.len(1, await core.nodes('crypto:x509:cert:issuer="o=vertex project, cn=ca"'))
 
             nodes = await core.nodes('[ crypto:x509:cert=* :serial=(1234) ]')
             self.len(1, nodes)
@@ -686,7 +739,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [
                     crypto:x509:crl=$crl
                         :url=http://vertex.link/crls
-                        :file=*
+                        :file=* as file:bytes
                 ]
             ''', opts={'vars': {'crl': crl}})
 

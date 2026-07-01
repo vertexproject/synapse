@@ -6,13 +6,17 @@ class ProjModelTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            self.true(core.model.form('proj:project').implements('entity:participable'))
+            self.true(core.model.form('proj:project').implements('entity:creatable'))
+
             nodes = await core.nodes('''
                 [ proj:project=*
                     :name=woot
                     :desc=Woot
                     :type=dfir.case
                     :creator={[ syn:user=root ]}
-                    :created=20250716
+                    :assignee={[ syn:user=root ]}
+                    :period=(20250714, 20250719)
                     :platform={[ inet:service:platform=* ]}
                 ]
             ''')
@@ -20,7 +24,8 @@ class ProjModelTest(s_test.SynTest):
             self.propeq(nodes[0], 'desc', 'Woot')
             self.propeq(nodes[0], 'type', 'dfir.case.')
             self.propeq(nodes[0], 'creator', core.auth.rootuser.iden, type='syn:user')
-            self.propeq(nodes[0], 'created', 1752624000000000)
+            self.propeq(nodes[0], 'assignee', core.auth.rootuser.iden, type='syn:user')
+            self.propeq(nodes[0], 'period', (1752451200000000, 1752883200000000, 432000000000))
             self.nn(nodes[0].get('platform'))
 
             nodes = await core.nodes('''
@@ -56,7 +61,7 @@ class ProjModelTest(s_test.SynTest):
                     :assignee={[ syn:user=root ]}
 
                     :created=20250716
-                    :completed=20250716
+                    :period=(20250716, 20250717)
 
                     +(has)> {[ file:attachment=* ]}
                     <(about)+ {[ meta:note=* ]}
@@ -69,7 +74,7 @@ class ProjModelTest(s_test.SynTest):
             self.propeq(nodes[0], 'creator', core.auth.rootuser.iden, type='syn:user')
             self.propeq(nodes[0], 'assignee', core.auth.rootuser.iden, type='syn:user')
             self.propeq(nodes[0], 'created', 1752624000000000)
-            self.propeq(nodes[0], 'completed', 1752624000000000)
+            self.propeq(nodes[0], 'period', (1752624000000000, 1752710400000000, 86400000000))
 
             self.len(1, await core.nodes('proj:ticket <(has)- proj:sprint'))
             self.len(1, await core.nodes('proj:ticket :project -> proj:project'))

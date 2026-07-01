@@ -85,7 +85,7 @@ class SmtpTest(s_test.SynTest):
                 isok, info = await core.callStorm('''
                     $message = $lib.inet.smtp.message()
                     $message.text = "HELO WORLD"
-                    return($message.send('smtp.newp.com', port=465, usetls=$lib.true, starttls=$lib.true))
+                    return($message.send('smtp.newp.com', port=465, usetls=(true), starttls=(true)))
                 ''')
                 self.false(isok)
                 self.eq(info.get('err'), 'BadArg')

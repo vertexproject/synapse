@@ -834,7 +834,7 @@ import synapse.lib.stormsvc as s_stormsvc
 
 class SomeApi(s_stormsvc.StormSvc, s_cell.CellApi):
     _storm_svc_name = 'someservice'
-    _storm_svc_vers = '0.1.0',
+    _storm_svc_vers = '0.1.0'
     _storm_svc_pkgs = ()
 
 class SomeService(s_cell.Cell):

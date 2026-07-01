@@ -1,0 +1,13 @@
+function first() {
+    tee {
+        [ inet:fqdn=dupfunc.com ]
+    } {}
+}
+function second() {
+    tee {
+        [ inet:fqdn=dupfunc.com ]
+    } {}
+}
+yield $second()
+// coverage: 1,       6, 7, 8, 9, 11
+// lines:    1, 2, 3, 6, 7, 8,    11

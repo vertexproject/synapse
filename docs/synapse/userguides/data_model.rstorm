@@ -17,7 +17,7 @@ tags - and explains how they work together.
   
   There are various ways you can examine Synapse's data model in greater detail:
   
-  - Synapse Enterprise customers or users who have a Synapse Enterprise `demo instance`_ can use the Help Tool's
+  - Synapse Enterprise customers or users who have a Synapse Enterprise :ref:`demo instance <syn-demo>` can use the Help Tool's
     `Data Model Explorer`_ to view and navigate data model objects and relationships in an intuitive, hyperlinked format.
     
   - Data model components such as types, forms, and properties are generated as runtime nodes ("runt nodes")
@@ -143,7 +143,7 @@ Interfaces have two primary uses:
   of defining multiple ``<n1> -(targeted)> <n2>`` relationships for every possible ``n1`` and ``n2``, we can use two
   interfaces to account for all combinations. The ``entity:action`` interface is implemented by forms that represent
   activity carried out by an agent or actor (e.g., ``risk:attack``). The ``risk:targetable`` interface is implemented
-  by forms that can be the target of any activity (e.g., ``ou:industry``). Using interfaces, all possible combinations
+  by forms that can be the target of any activity (e.g., ``ind:industry``). Using interfaces, all possible combinations
   of actions and targets can be defined with a single edge relationship:
   
   ::
@@ -177,7 +177,7 @@ used to identify and group related activity.
 A mitigation (``risk:mitigation``) is a set of steps taken to address (reduce or eliminate) risk. Risks can be mitigated in
 various ways - using different **techniques**. A ``risk:mitigation`` is a more specialized ``meta:technique``, one that is
 specifically focused on defensive activity. ``risk:mitigation`` **inherits** all of the properties of ``meta:technique``,
-while its name reflects that it is a technique with a particular purpose.`
+while its name reflects that it is a technique with a particular purpose.
 
 **Example**: ``meta:rule`` can represent any generic detection logic, with a ``-(detects)>`` edge to indicate what the
 rule is meant to identify, and a ``-(matches)>`` edge to represent something the rule matched or fired on. The base
@@ -302,13 +302,13 @@ A form can include optional **secondary properties** that provide additional det
 properties are specific to a given form and further describe that form. A node may include secondary properties
 with their associated values (``<prop> = <pval>``).
 
-Some secondary properties are based on (derived from) a node's primary property value. For example, an email
-address (``inet:email``) has secondary properties for both the associated FQDN (``inet:email:fqdn``) and username
+Some secondary properties are computed from a node's primary property value. For example, an email address
+(``inet:email``) has secondary properties for both the associated FQDN (``inet:email:fqdn``) and username
 (``inet:email:user``). When you create the node ``inet:email = info@vertex.link``, Synapse automatically sets the
-associated secondary property values. Any secondary properties derived from a node's primary property are read-only
+associated secondary property values. Any secondary properties computed from a node's primary property are read-only
 (just like the primary property they are based on) and cannot be changed once set.
 
-Any secondary properties that are not derived from a node's primary property are **optional.** Their values can be
+Any secondary properties that are **not** computed from a node's primary property are **optional.** Their values can be
 set if the data is available and relevant to your use case; otherwise they can remain unset. For example, an IP node
 (``inet:ip``) has an optional secondary property for its associated Autonomous System (AS) number (``inet:ip:asn``).
 Optional secondary property values can be set, modified, or removed as needed.
@@ -634,7 +634,7 @@ secondary properties that are specific to the kind of event.
 
 An individual DNS request (``inet:dns:request``) is an example of an individual time-based event node:
 
-.. storm-pre:: [inet:dns:request="00000a17dbe261d10ce6ed514872bd37" :query:name=download.applemusic.itemdb.com :query:type=1 :client=tcp://199.68.196.162 :server=tcp://178.62.239.55 :time="2024/09/30 16:01:27.506" :response={[ inet:dns:response=* :code=0 ]}]
+.. storm-pre:: [inet:dns:request="00000a17dbe261d10ce6ed514872bd37" :client=tcp://199.68.196.162 :query:name=download.applemusic.itemdb.com :query:type=1 :server=tcp://178.62.239.55 :time="2024/09/30 16:01:27.506"]
 .. storm-cli:: inet:dns:request=00000a17dbe261d10ce6ed514872bd37
 
 A conference is an example of an event node with an associated time period:
@@ -675,10 +675,8 @@ nodes but high-resolution, point-in-time ``inet:dns:request`` and ``inet:dns:ans
 needed.
 
 
-.. _`demo instance`: https://synapse.docs.vertex.link/en/latest/synapse/quickstart.html#synapse-demo-instance
-.. _`Data Model Explorer`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/get_help.html#using-data-model-explorer
+.. _`Data Model Explorer`: {{SYN_DOCS_BASEURL}}/docs/optic/latest/user_interface/userguides/get_help.html#using-data-model-explorer
 .. _source code: https://github.com/vertexproject/synapse
 .. _Slack: https://v.vtx.lk/slack
-.. _Synapse-VirusTotal: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-virustotal/index.html
+.. _Synapse-VirusTotal: {{SYN_DOCS_BASEURL}}/docs/synapse-virustotal/latest/index.html
 .. _Moz: https://moz.com/top500
-.. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html

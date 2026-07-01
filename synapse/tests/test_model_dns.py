@@ -5,76 +5,15 @@ import synapse.tests.utils as s_t_utils
 
 class DnsModelTest(s_t_utils.SynTest):
 
-    async def test_model_dns_name_type(self):
+    async def test_model_dns_query_name_poly(self):
         async with self.getTestCore() as core:
-            typ = core.model.type('inet:dns:name')
-            # ipv4 - good and newp
-            iptype = core.model.type('inet:ip')
-            ipnorm, ipinfo = await iptype.norm('1.2.3.4')
-            ipsub = (iptype.typehash, (4, 0x01020304), ipinfo)
-
-            norm, info = await typ.norm('4.3.2.1.in-addr.ARPA')
-            self.eq(norm, '4.3.2.1.in-addr.arpa')
-            self.eq(info.get('subs'), {'ip': ipsub})
-            norm, info = await typ.norm('newp.in-addr.ARPA')
-            self.eq(norm, 'newp.in-addr.arpa')
-            self.eq(info.get('subs'), {})
-
-            # Ipv6 - good, newp, and ipv4 included
-            ipnorm, ipinfo = await iptype.norm('2001:db8::567:89ab')
-            ipsub = (iptype.typehash, (6, 0x20010db80000000000000000056789ab), ipinfo)
-
-            ipv6 = 'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.ARPA'
-            norm, info = await typ.norm(ipv6)
-            self.eq(norm, 'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa')
-            self.eq(info.get('subs'), {'ip': ipsub})
-
-            ipv6 = 'newp.2.ip6.arpa'
-            norm, info = await typ.norm(ipv6)
-            self.eq(norm, 'newp.2.ip6.arpa')
-            self.eq(info.get('subs'), {})
-
-            ipnorm, ipinfo = await iptype.norm('::ffff:1.2.3.4')
-            ipsub = (iptype.typehash, (6, 0xffff01020304), ipinfo)
-
-            ipv6 = '4.0.3.0.2.0.1.0.f.f.f.f.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa'
-            norm, info = await typ.norm(ipv6)
-            self.eq(norm, ipv6)
-            self.eq(info.get('subs'), {'ip': ipsub})
-
-            # fqdn and a invalid fqdn
-            fqdntype = core.model.type('inet:fqdn')
-            fqdnnorm, fqdninfo = await fqdntype.norm('test.vertex.link')
-            fqdnsub = (fqdntype.typehash, 'test.vertex.link', fqdninfo)
-
-            norm, info = await typ.norm('test.vertex.link')
-            self.eq(norm, 'test.vertex.link')
-            self.eq(info.get('subs'), {'fqdn': fqdnsub})
-
-            ipnorm, ipinfo = await iptype.norm('1.2.3.4')
-            ipsub = (iptype.typehash, (4, 0x01020304), ipinfo)
-
-            norm, info = await typ.norm('1.2.3.4')
-            self.eq(norm, '1.2.3.4')
-            self.eq(info.get('subs'), {'ip': ipsub})
-
-            norm, info = await typ.norm('134744072')  # 8.8.8.8 in integer form
-            self.eq(norm, '134744072')
-            self.eq(info.get('subs'), {})
-
-            ipnorm, ipinfo = await iptype.norm('::ffff:1.2.3.4')
-            ipsub = (iptype.typehash, (6, 0xffff01020304), ipinfo)
-
-            norm, info = await typ.norm('::FFFF:1.2.3.4')
-            self.eq(norm, '::ffff:1.2.3.4')
-            self.eq(info.get('subs'), {'ip': ipsub})
-
-            ipnorm, ipinfo = await iptype.norm('::1')
-            ipsub = (iptype.typehash, (6, 0x1), ipinfo)
-
-            norm, info = await typ.norm('::1')
-            self.eq(norm, '::1')
-            self.eq(info.get('subs'), {'ip': ipsub})
+            typ = core.model.type('inet:dns:query:name')
+            # a valid fqdn normalizes via the inet:fqdn branch (precedence)
+            norm, info = await typ.norm('VERTEX.link')
+            self.eq(norm, ('inet:fqdn', 'vertex.link'))
+            # a non-fqdn value falls back to the it:dev:str branch
+            norm, info = await typ.norm('_dmarc record!!')
+            self.eq(norm, ('it:dev:str', '_dmarc record!!'))
 
     async def test_model_dns_request(self):
 
@@ -87,14 +26,13 @@ class DnsModelTest(s_t_utils.SynTest):
                 'query:type': 255,
                 'client': 'tcp://1.2.3.4',
                 'server': 'udp://5.6.7.8:53',
-                'flow': flow0,
-                'sandbox:file': file0,
             }
             q = '''[(inet:dns:request=$valu :time=$p.time
                 :query:name=$p."query:name" :query:type=$p."query:type"
-                :client=$p.client :server=$p.server :flow=$p.flow
-                :sandbox:file=$p."sandbox:file")]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': '*', 'p': props}})
+                :client=$p.client :server=$p.server
+                :flow=$flow as inet:flow
+                :sandbox:file=$file as file:bytes)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': '*', 'p': props, 'flow': flow0, 'file': file0}})
             self.len(1, nodes)
             req = nodes[0]
             self.propeq(req, 'time', 1514764800000000)
@@ -103,13 +41,14 @@ class DnsModelTest(s_t_utils.SynTest):
             self.propeq(req, 'flow', flow0)
             self.propeq(req, 'query:name', 'vertex.link')
             self.propeq(req, 'query:type', 255)
+            self.eq(req.repr('query:type'), 'ANY')
             self.propeq(req, 'sandbox:file', file0)
             self.len(1, await core.nodes('inet:server="udp://5.6.7.8:53"'))
             self.len(1, await core.nodes('inet:flow=$valu', opts={'vars': {'valu': flow0}}))
             self.len(1, await core.nodes('file:bytes=$valu', opts={'vars': {'valu': file0}}))
 
-            # Ensure that lift via prefix for inet:dns:name type works
-            self.len(1, await core.nodes('inet:dns:request:query:name^=vertex'))
+            # the poly query:name is liftable by value
+            self.len(1, await core.nodes('inet:dns:request:query:name=vertex.link'))
 
             # inet:dns:query form still exists independently
             nodes = await core.nodes('[inet:dns:query=("tcp://1.2.3.4", vertex.link, 255)]')
@@ -118,6 +57,13 @@ class DnsModelTest(s_t_utils.SynTest):
             self.propeq(node, 'client', 'tcp://1.2.3.4')
             self.propeq(node, 'name', 'vertex.link')
             self.propeq(node, 'type', 255)
+            self.eq(node.repr('type'), 'ANY')
+
+            # the comp type field accepts the IANA mnemonic
+            nodes = await core.nodes('[inet:dns:query=("tcp://1.2.3.4", vertex.link, AAAA)]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'type', 28)
+            self.eq(nodes[0].repr('type'), 'AAAA')
 
             # inet:dns:response with code values
             nodes = await core.nodes('[inet:dns:response=* :code=NOERROR]')
@@ -147,9 +93,9 @@ class DnsModelTest(s_t_utils.SynTest):
                 :time=2018
                 :server=udp://5.6.7.8:53
                 :client=tcp://1.2.3.4
-                :flow=$f
+                :flow=$f as inet:flow
                 :code=NOERROR
-                :answers=($a0, $a1)
+                :answers={ inet:dns:answer=$a0 inet:dns:answer=$a1 }
             ]'''
             nodes = await core.nodes(q, opts={'vars': {'r': resp_iden, 'f': flow0, 'a0': ans0, 'a1': ans1}})
             self.len(1, nodes)
@@ -161,7 +107,7 @@ class DnsModelTest(s_t_utils.SynTest):
             self.propeq(resp, 'flow', flow0)
             self.propeq(resp, 'answers', (ans0, ans1))
 
-            q = 'inet:dns:request [ :response=$r ]'
+            q = 'inet:dns:request [ :response=$r as inet:dns:response ]'
             nodes = await core.nodes(q, opts={'vars': {'r': resp_iden}})
             self.propeq(nodes[0], 'response', resp_iden)
             self.len(1, await core.nodes('inet:dns:request :response -> inet:dns:response'))
@@ -176,7 +122,7 @@ class DnsModelTest(s_t_utils.SynTest):
                 'sandbox:file': "b" * 32,
             }
             q = '''[(inet:dns:request=$valu :time=$p.time :query:name=$p."query:name"
-                    :client:exe=$p.exe :sandbox:file=$p."sandbox:file")]'''
+                    :client:exe=$p.exe as file:bytes :sandbox:file=$p."sandbox:file" as file:bytes)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': '*', 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -201,6 +147,17 @@ class DnsModelTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q)
             self.stormHasNoWarnErr(msgs)
             self.len(0, [m for m in msgs if m[0] == 'node'])
+
+            # inet:dns:query:type accepts the IANA mnemonic and reprs it back
+            nodes = await core.nodes('[inet:dns:request=* :query:type=AAAA]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'query:type', 28)
+            self.eq(nodes[0].repr('query:type'), 'AAAA')
+
+            # arbitrary numeric wire values are still captured (enums:strict=False)
+            nodes = await core.nodes('[inet:dns:request=* :query:type=1138]')
+            self.propeq(nodes[0], 'query:type', 1138)
+            self.eq(nodes[0].repr('query:type'), '1138')
 
     async def test_forms_dns_simple(self):
 
@@ -295,7 +252,7 @@ class DnsModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef[1], ('clowns.vertex.link', 'we all float down here'))
             self.propeq(node, 'fqdn', 'clowns.vertex.link')
-            self.propeq(node, 'txt', 'we all float down here')
+            self.propeq(node, 'text', 'we all float down here')
 
             with self.raises(s_exc.BadTypeValu) as cm:
                 await core.nodes('[inet:dns:a=(foo.com, "::")]')
@@ -321,8 +278,11 @@ class DnsModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[inet:dns:answer=* :ttl=300 :record={[ inet:dns:a=$valu ]} ]', opts={'vars': {'valu': (fqdn0, ip0)}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'ttl', 300)
+            self.propeq(node, 'ttl', 300000000)
             self.propeq(node, 'record', (fqdn0, ip0), type='inet:dns:a')
+            # ttl is duration:seconds; sub-second resolution is floored away
+            nodes = await core.nodes('[inet:dns:answer=* :ttl="1.5" :record={[ inet:dns:a=$valu ]} ]', opts={'vars': {'valu': (fqdn0, ip0)}})
+            self.propeq(nodes[0], 'ttl', 1000000)
             # ns record
             nodes = await core.nodes('[inet:dns:answer=* :record={[ inet:dns:ns=$valu ]} ]', opts={'vars': {'valu': (fqdn0, fqdn1)}})
             self.len(1, nodes)
@@ -368,7 +328,7 @@ class DnsModelTest(s_t_utils.SynTest):
             ]''', opts={'vars': {'valu': (fqdn0, fqdn1)}})
             self.len(1, nodes)
             node = nodes[0]
-            self.propeq(node, 'ttl', 600)
+            self.propeq(node, 'ttl', 600000000)
             self.propeq(node, 'priority', 10)
             self.propeq(node, 'record', (fqdn0, fqdn1), type='inet:dns:mx')
 

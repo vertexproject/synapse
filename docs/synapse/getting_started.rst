@@ -165,7 +165,7 @@ Synapse Quickstart is **not** pre-loaded with any data.
 
 .. _Index:                     ../index.html
 .. _`Synapse Enterprise`:      https://vertex.link/synapse
-.. _`Optic`:                   https://synapse.docs.vertex.link/projects/optic/en/latest/  
+.. _`Optic`:                   {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-optic/latest/  
 .. _`Rapid Power-Ups`:         ./power_ups.html#rapid-power-ups
 .. _`Advanced Power-Ups`:      ./power_ups.html#advanced-power-ups
 .. _`Power-Ups`:               ./power_ups.html

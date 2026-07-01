@@ -423,6 +423,9 @@ class JsonStorCell(s_cell.Cell):
 
     cellapi = JsonStorApi
 
+    # JsonStor storage is forward compatible and is migrated in place.
+    reject2xStorage = False
+
     async def initServiceStorage(self):
         self.jsonstor = await JsonStor.anit(self.slab, 'jsonstor')
         self.multique = await s_lmdbslab.MultiQueue.anit(self.slab, 'multique')

@@ -67,16 +67,16 @@ stormcmds = (
                 auth.user.mod foo --name bar
 
                 // Make the user "visi" an admin
-                auth.user.mod visi --admin $lib.true
+                auth.user.mod visi --admin (true)
 
                 // Unlock the user "visi" and set their email to "visi@vertex.link"
-                auth.user.mod visi --locked $lib.false --email visi@vertex.link
+                auth.user.mod visi --locked (false) --email visi@vertex.link
 
                 // Grant admin access to user visi for the current view
-                auth.user.mod visi --admin $lib.true --gate $lib.view.get().iden
+                auth.user.mod visi --admin (true) --gate $lib.view.get().iden
 
                 // Revoke admin access to user visi for the current view
-                auth.user.mod visi --admin $lib.false --gate $lib.view.get().iden
+                auth.user.mod visi --admin (false) --gate $lib.view.get().iden
         ''',
         'cmdargs': (
             ('username', {'type': 'str', 'help': 'The name of the user.'}),
@@ -102,11 +102,11 @@ stormcmds = (
                     $user.setPasswd($cmdopts.passwd)
                     $lib.print(`User ({$cmdopts.username}) password updated.`)
                 }
-                if ($cmdopts.locked != $lib.null) {
+                if ($cmdopts.locked != null) {
                     $user.setLocked($cmdopts.locked)
                     $lib.print(`User ({$cmdopts.username}) locked status set to {$cmdopts.locked=1}.`)
                 }
-                if ($cmdopts.admin != $lib.null) {
+                if ($cmdopts.admin != null) {
                     $user.setAdmin($cmdopts.admin, gateiden=$cmdopts.gate)
                     if $cmdopts.gate {
                         $lib.print(`User ({$cmdopts.username}) admin status set to {$cmdopts.admin=1} for auth gate {$cmdopts.gate}.`)
@@ -114,7 +114,7 @@ stormcmds = (
                         $lib.print(`User ({$cmdopts.username}) admin status set to {$cmdopts.admin=1}.`)
                     }
                 }
-                if ($cmdopts.gate != $lib.null and $cmdopts.admin = $lib.null) {
+                if ($cmdopts.gate != null and $cmdopts.admin = null) {
                     $lib.exit('Granting/revoking admin status on an auth gate, requires the use of `--admin <true|false>` also.')
                 }
             } else {

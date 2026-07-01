@@ -114,9 +114,9 @@ _CronJobSchema = {
         'recur': {'type': 'boolean'},
         'enabled': {'type': 'boolean'},
         'isrunning': {'type': 'boolean'},
-        'nexttime': {'type': ['number', 'null']},
-        'laststarttime': {'type': ['number', 'null']},
-        'lastfinishtime': {'type': ['number', 'null']},
+        'nexttime': {'type': ['integer', 'null']},
+        'laststarttime': {'type': ['integer', 'null']},
+        'lastfinishtime': {'type': ['integer', 'null']},
         'lastresult': {'type': ['string', 'null']},
         'loglevel': s_msgpack.deepcopy(loglevelSchema),
         'incunit': {
@@ -408,41 +408,6 @@ _passwdPolicySchema = {
 }
 reqValidPasswdPolicy = s_config.getJsValidator(_passwdPolicySchema)
 
-# These types are order sensitive
-_changelogTypes = {'migration': 'Automatic Migrations',
-                   'model': 'Model Changes',
-                   'feat': 'Features and Enhancements',
-                   'bug': 'Bugfixes',
-                   'note': 'Notes',
-                   'doc': 'Improved documentation',
-                   'deprecation': 'Deprecations'}
-_changelogSchema = {
-    'type': 'object',
-    'properties': {
-        'type': {
-            'type': 'string',
-            'enum': list(_changelogTypes.keys()),
-        },
-        'desc': {
-            'type': 'string',
-            'minLength': 1,
-        },
-        'desc:literal': {
-            'type': 'boolean',
-            'default': False,
-        },
-        'prs': {
-            'type': 'array',
-            'items': {
-                'type': 'integer',
-            }
-        }
-    },
-    'additionalProperties': False,
-    'required': ['type', 'desc']
-}
-_reqChangelogSchema = s_config.getJsValidator(_changelogSchema)
-
 tabularConfSchema = {
     'type': 'object',
     'properties': {
@@ -559,6 +524,9 @@ stixIngestConfigSchema = {
                 'required': ['type'],
             },
         },
+        'reporter': {
+            'type': ['string', 'null'],
+        },
     },
     'required': ['bundle', 'objects'],
 }
@@ -670,6 +638,8 @@ datamodel_basetypes = [
     'float',
     'range',
     'str',
+    'text',
+    'title',
     'hex',
     'bool',
     'time',

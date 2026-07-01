@@ -17,15 +17,21 @@ Telepath
 
 There are three Storm APIs exposed via Telepath.
 
-``storm(text, opts=None)``
+``storm(text, *, opts=None)``
     The Storm API returns a message stream. It can be found here storm_.
 
-``callStorm(text, opts=None)``
+``callStorm(text, *, opts=None)``
     The callStorm API returns a message given by the Storm ``return( )`` syntax. It can be found here callStorm_.
 
-``count(text, opts=None)``
+``count(text, *, opts=None)``
     The count API returns a count of the number of nodes which would have been emitted by running a given query. It can
     be found here :ref:`http-api-cortex`.
+
+.. note::
+
+    As of Synapse 3.0.0 the ``opts`` argument to these Telepath APIs (and to ``reqValidStorm`` /
+    ``isValidStorm``) is keyword-only: it must be passed as ``opts=...`` and can no longer be
+    supplied positionally.
 
 HTTP API
 --------
@@ -46,7 +52,7 @@ The HTTP API versions of the Storm APIs can be found here `Cortex HTTP API`_.
 Message Types
 =============
 
-The Telepath ``storm()`` and HTTP ``api/v1/storm`` APIs yield messages from the Storm runtime to the caller. These are
+The Telepath ``storm()`` and HTTP ``api/v3/storm`` APIs yield messages from the Storm runtime to the caller. These are
 the messages that may be seen when consuming the message stream.
 
 Each message has the following basic structure::
@@ -94,36 +100,54 @@ This represents a packed node. Each serialized node will have the following stru
     [
         [<form>, <valu>],       # The [ typename, typevalue ] definition of the node.
         {
-            "iden": <hash>,     # A stable identifier for the node.
+            "nid": <int>,       # The node's integer Node ID (NID) within this Cortex.
+            "meta": {},         # Node metadata (e.g. created/updated time).
             "tags": {},         # The tags on the node.
-            "props": {},        # The node's secondary properties.
-            "path": {},         # Path related information in the node.
+            "props": {},        # The node's secondary properties (system mode values).
             "tagprops": {},     # The node's tag properties.
+            "path": {},         # Path-related information accumulated by the query.
+
+            # included by default (suppress via node:opts verbs=False)
+            "n1verbs": {}       # Counts of outbound light-edge verbs.
+            "n2verbs": {}       # Counts of inbound light-edge verbs.
 
             # optional
-            "repr": ...         # Presentation values for the type value.
-            "reprs": {}         # Presentation values for props which need it.
-            "tagpropreprs": {}  # Presentation values for tagprops which need it.
-
+            "nodedata": {}      # Node data carried along the path, when present.
+            "repr": ...         # (node:opts repr) Presentation value for the type value.
+            "reprs": {}         # (node:opts repr) Presentation values for props which need it.
+            "tagpropreprs": {}  # (node:opts repr) Presentation values for tagprops which need it.
+            "virts": {}         # (node:opts virts) Virtual property values.
+            "links": [...]      # (node:opts links) Pivot/edge link trail used to reach the node.
+            "storage": [...]    # (node:opts show:storage) Per-layer storage breakdown.
+            "embeds": {}        # (node:opts embeds) Embedded props from related nodes.
         }
     ]
 
+.. note::
+
+    In Synapse 3.0.0 the packed node is keyed by an integer ``nid`` (Node ID) rather than the
+    2.x hex ``iden``, gains a ``meta`` dictionary, and includes ``n1verbs`` / ``n2verbs``
+    light-edge verb counts by default. The ``repr``, ``links``, ``virts``, and ``storage`` keys
+    are produced by the ``node:opts`` option (see :ref:`dev_storm_opts`).
+
 Example:
 
-This example is very simple - it does not include repr information, or things related to path data::
+This example is simple - it does not include repr, virts, or link information::
 
     ('node',
      (('inet:fqdn', 'icon.torrentart.com'),
-      {'iden': 'ae6d871163980f82dc1d3b06e784a80e8085493f68fbf2813c9681cb3e2630a8',
-       'props': {'.created': 1526590932444,
-                 '.seen': (1491771661000, 1538477660797),
-                 'domain': 'torrentart.com',
+      {'nid': 1099511627992,
+       'meta': {'created': 1526590932444000},
+       'props': {'domain': 'torrentart.com',
                  'host': 'icon',
                  'issuffix': 0,
                  'iszone': 0,
                  'zone': 'torrentart.com'},
-       'tags': {'aka': (None, None),
-                'aka.beep': (None, None),}}))
+       'tags': {'aka': (None, None, None),
+                'aka.beep': (None, None, None)},
+       'path': {},
+       'n1verbs': {},
+       'n2verbs': {}}))
 
 For repr information, see the examples in the opts documentation :ref:`dev_storm_opts`.
 
@@ -437,20 +461,37 @@ Examples:
         # Disable node edits
         opts = {'editformat': 'none'}
 
-idens
+graph
 -----
 
-This is a list of node iden hashes to use as initial input to the Storm runtime. These nodes are lifted after any
-``ndefs`` options are lifted, but prior to regular lift operations which may start a Storm query.
+Apply a subgraph projection to the query results. The value may be ``True`` (use the default projection rules), the
+name of a stored graph projection, or a rules dictionary. When set, the runtime also emits the nodes reachable via the
+projection rules rather than only the lifted nodes.
 
 Example:
 
     .. code:: python3
 
+        opts = {'graph': True}
 
-        idens = ('ee6b92c9fd848a2cb00f3a3618148c512b58456b8b51fbed79251811597eeea3',
-                 'c5a67a095b71771d9663d691f0ab36b53ebdc14fbad18f23f95e923543156bd6',)
-        opts = {'idens': idens}
+nids
+----
+
+This is a list of integer Node IDs (NIDs) to use as initial input to the Storm runtime. Each value must be an integer
+NID (a ``BadTypeValu`` is raised otherwise); the corresponding nodes are used as input after any ``ndefs`` are lifted,
+but prior to regular lift operations which may start a Storm query.
+
+.. note::
+
+    This replaces the 2.x ``idens`` option, which took hex ``iden`` (BUID) hashes. The 3.x storage format keys nodes
+    by integer NID, so initial input is now seeded with ``nids``; the ``idens`` option is no longer supported.
+
+Example:
+
+    .. code:: python3
+
+        nids = (1099511627992, 1099511628010)
+        opts = {'nids': nids}
 
 keepalive
 ---------
@@ -480,32 +521,6 @@ Example:
     .. code:: python3
 
         opts = {'limit': 100}
-
-links
------
-
-If this is set to True, the packed nodes will each contain a ``links`` key, which contains an ordered list of node iden and path information tuples that were used in the
-pivot or edge walk operations to get to the node.
-
-Example:
-
-.. code:: python3
-
-   opts = {'links': True}
-
-   # A Storm node message with a node links property added to it, from the query media:news -> file:bytes -(refs)> *
-   ('node',
-    (('it:dev:str', 'foobar'),
-     {'iden': 'ee45b493c07663b3106d1423ad7f67317682779145fe2bebdeb05aa56f277346',
-      'links': [('b0fb12b120e1077f1ee47eced0460626a8fc597e044984d17fe16d55d9e5bdbb',
-                 {'prop': 'file', 'type': 'prop'}),
-                ('7c4aaec3db11fcea2114a930b76f15df8bdd9f34d9d37e6794d79b97613782f6',
-                 {'type': 'edge', 'verb': 'refs'})],
-      'nodedata': {},
-      'path': {},
-      'props': {'.created': 1753300994528, 'norm': 'foobar'},
-      'tagprops': {},
-      'tags': {}}))
 
 mode
 ----
@@ -592,31 +607,56 @@ Examples:
 
         opts = {'readonly': True}
 
-repr
-----
+node:opts
+---------
 
-If this is set to True, the packed node will have a ``repr`` and ``reprs`` key populated, to contain human friendly
-representations of system mode values.
+A nested dictionary that controls how each node is packed in the output message stream. In Synapse 3.0.0 this
+replaces the 2.x top-level ``repr``, ``links``, and ``show:storage`` node-output options; those top-level keys are
+ignored by the 3.x runtime. The recognized sub-keys are:
+
+``repr`` (bool, default ``False``)
+    Populate human-friendly representations of system mode values. When set, each packed node gains a ``repr`` key
+    (the form value repr), a ``reprs`` key (per-property reprs), and a ``tagpropreprs`` key (per-tagprop reprs).
+
+``links`` (bool, default ``False``)
+    Include a ``links`` key on each packed node: an ordered list of ``(nid, info)`` tuples describing the pivot or
+    edge-walk steps used to reach the node. Note the first element of each entry is now an integer NID (it was a
+    hex iden in 2.x).
+
+``embeds`` (dict, default ``None``)
+    A mapping of ``{form: (prop, ...)}`` requesting embedded property values from related nodes, added under an
+    ``embeds`` key on the packed node.
+
+``virts`` (bool, default ``False``)
+    Include a ``virts`` key containing virtual property values for the node.
+
+``verbs`` (bool, default ``True``)
+    Include the ``n1verbs`` / ``n2verbs`` light-edge verb count dictionaries on the packed node. Enabled by
+    default; set to ``False`` to omit them.
+
+``show:storage`` (bool, default ``False``)
+    Include a ``storage`` key containing a raw breakdown of the storage nodes for each yielded node, which can be
+    used to determine which parts of the node are stored in which layer within the view.
 
 Example:
 
 .. code:: python3
 
-    opts = {'repr': True}
+    # Request reprs and virtual properties, and omit edge-verb counts.
+    opts = {'node:opts': {'repr': True, 'virts': True, 'verbs': False}}
 
-    # A Storm node message with reprs added to it.
-
+    # A Storm node message with reprs added to it (note the integer nid).
     ('node',
      (('inet:ip', (4, 134744072)),
-      {'iden': 'ee6b92c9fd848a2cb00f3a3618148c512b58456b8b51fbed79251811597eeea3',
-       'nodedata': {},
-       'path': {},
-       'props': {'.created': 1662491423034, 'type': 'unicast'},
-       'repr': '8.8.8.8',
-       'reprs': {'.created': '2022-09-06T19:10:23.034Z'},
-       'tagpropreprs': {},
+      {'nid': 1099511627992,
+       'meta': {'created': 1662491423034000},
+       'props': {'type': 'unicast'},
+       'tags': {},
        'tagprops': {},
-       'tags': {}}))
+       'path': {},
+       'repr': '8.8.8.8',
+       'reprs': {},
+       'virts': {}}))
 
 
 show
@@ -634,19 +674,6 @@ Example:
 
         # Only include required messages.
         opts = {'show': []}
-
-show:storage
-------------
-
-A boolean option which, when set to ``true``, instructs the Storm runtime to add a ``storage`` key to each yielded node
-which contains a raw breakdown of storage nodes which can be used to determine which parts of the node are stored in
-which layer within the view.
-
-Example:
-
-    .. code:: python3
-
-        opts = {'show:storage': True}
 
 sudo
 ----
@@ -710,6 +737,11 @@ Example:
         )
         vars = {'records': records}
         opts = {'vars': vars}
+
+.. note::
+
+    Variable names must be strings, and the names ``lib``, ``node``, and ``path`` are reserved and
+    may not be used as ``vars`` keys (a ``BadArg`` is raised otherwise).
 
 view
 ----

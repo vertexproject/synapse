@@ -20,6 +20,7 @@ Welcome to the Synapse documentation!
    synapse/deploymentguide
    synapse/devopsguide
    synapse/devguide
+   synapse/300_changes/index
    synapse/glossary
    synapse/contributing
 
@@ -34,7 +35,6 @@ Welcome to the Synapse documentation!
 
    synapse/support
 
-   synapse/300_changes
    synapse/changelog
 
 Indices and tables

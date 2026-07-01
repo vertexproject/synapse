@@ -142,12 +142,8 @@ class Triggers:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
-    async def runEdgeAdd(self, n1, verb, n2ndef, useriden):
+    async def runEdgeAdd(self, n1, verb, n2nid, n2form, useriden):
         n1form = n1.form.name if n1 else None
-        n2form = n2ndef[0] if n2ndef else None
-        n2nid = self.view.core.getNidByNdef(n2ndef) if n2ndef else None
-        if n2nid is not None:
-            n2nid = s_common.int64un(n2nid)
 
         varz = {'auto': {'opts': {'verb': verb, 'n2nid': n2nid, 'user': useriden}}}
         with self._recursion_check():
@@ -172,7 +168,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n2ndef:
+                if n2form:
                     for trig in self.edgeadd.get((None, verb, n2form), ()):
                         cached.append(trig)
 
@@ -181,7 +177,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n1 and n2ndef:
+                if n1 and n2form:
                     for trig in self.edgeadd.get((n1form, verb, n2form), ()):
                         cached.append(trig)
 
@@ -195,12 +191,8 @@ class Triggers:
             for trig in cached:
                 await trig.execute(n1, vars=varz)
 
-    async def runEdgeDel(self, n1, verb, n2ndef, useriden):
+    async def runEdgeDel(self, n1, verb, n2nid, n2form, useriden):
         n1form = n1.form.name if n1 else None
-        n2form = n2ndef[0] if n2ndef else None
-        n2nid = self.view.core.getNidByNdef(n2ndef) if n2ndef else None
-        if n2nid is not None:
-            n2nid = s_common.int64un(n2nid)
 
         varz = {'auto': {'opts': {'verb': verb, 'n2nid': n2nid, 'user': useriden}}}
         with self._recursion_check():
@@ -225,7 +217,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n2ndef:
+                if n2form:
                     for trig in self.edgedel.get((None, verb, n2form), ()):
                         cached.append(trig)
 
@@ -234,7 +226,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n1 and n2ndef:
+                if n1 and n2form:
                     for trig in self.edgedel.get((n1form, verb, n2form), ()):
                         cached.append(trig)
 

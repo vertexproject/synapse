@@ -15,9 +15,9 @@ class NodeTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.addTagProp('score', ('int', {}), {})
-            await core.addTagProp('note', ('str', {'lower': True, 'strip': 'True'}), {})
-            q = '[test:str=cool :tick=(12345) +#foo:score=10 +#foo:note=" This is a really cool tag! "]'
+            await core.addTagProp('_score', ('int', {}), {})
+            await core.addTagProp('_note', ('str', {'lower': True, 'strip': 'True'}), {})
+            q = '[test:str=cool :tick=(12345) +#foo:_score=10 +#foo:_note=" This is a really cool tag! "]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             node = nodes[0]
@@ -25,7 +25,7 @@ class NodeTest(s_t_utils.SynTest):
             iden, info = node.pack()
             self.eq(iden, ('test:str', 'cool'))
             self.eq(info.get('tags'), {'foo': (None, None, None)})
-            self.eq(info.get('tagprops'), {'foo': {'score': 10, 'note': 'this is a really cool tag!'}})
+            self.eq(info.get('tagprops'), {'foo': {'_score': 10, '_note': 'this is a really cool tag!'}})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
             self.eq(props, {'tick': ('test:time', 12345)})
 
@@ -38,7 +38,7 @@ class NodeTest(s_t_utils.SynTest):
             reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
             self.eq(reprs, {'tick': '1970-01-01T00:00:00.012345Z'})
             tagpropreprs = info.get('tagpropreprs')
-            self.eq(tagpropreprs, {'foo': {'score': '10'}})
+            self.eq(tagpropreprs, {'foo': {'_score': '10'}})
 
             # Set a property on the node which is extra model and pack it.
             # This situation can be encountered in a multi-layer situation
@@ -53,13 +53,13 @@ class NodeTest(s_t_utils.SynTest):
             tagprops, tagpropreprs = info.get('tagprops'), info.get('tagpropreprs')
             self.eq(props.get('.newp'), 1)
             self.eq(props.get('newp'), (2, 3))
-            self.eq(tagprops, {'foo': {'score': 10, 'note': 'this is a really cool tag!', 'valu': 10}})
+            self.eq(tagprops, {'foo': {'_score': 10, '_note': 'this is a really cool tag!', 'valu': 10}})
 
             # without model knowledge it is impossible to repr a value so it should
             # *not* be in the repr dict
             self.none(reprs.get('newp'))
             self.none(reprs.get('.newp'))
-            self.eq(tagpropreprs, {'foo': {'score': '10'}})
+            self.eq(tagpropreprs, {'foo': {'_score': '10'}})
 
             await core.nodes('test:str=cool [ +(refs)> {[ test:str=n1edge ]} <(refs)+ {[ test:int=2 ]} ]')
             nodes = await core.nodes('test:str=cool')
@@ -241,7 +241,7 @@ class NodeTest(s_t_utils.SynTest):
             self.none(s_node.reprProp(strpode, 'newp'))
 
             self.eq(s_node.reprTagProps(strpode, 'test'),
-                    [('note', 'words'), ('score', '0')])
+                    [('_note', 'words'), ('_score', '0')])
             self.eq(s_node.reprTagProps(strpode, 'newp'), [])
             self.eq(s_node.reprTagProps(strpode, 'test.foo'), [])
 
@@ -250,10 +250,10 @@ class NodeTest(s_t_utils.SynTest):
             self.notin('newp', props)
 
         async with self.getTestCore() as core:
-            await core.addTagProp('score', ('int', {}), {})
-            await core.addTagProp('note', ('str', {'lower': True, 'strip': 'True'}), {})
+            await core.addTagProp('_score', ('int', {}), {})
+            await core.addTagProp('_note', ('str', {'lower': True, 'strip': 'True'}), {})
             q = '''[test:str=cool :tick=(12345) :hehe=hehe +#test.foo.bar.duck +#test.foo.baz
-            +#test.foo.time=(2016, 2019) +#test.foo=(2015, 2017) +#test:score=0 +#test:note=Words]'''
+            +#test.foo.time=(2016, 2019) +#test.foo=(2015, 2017) +#test:_score=0 +#test:_note=Words]'''
             nodes = await core.nodes(q)
             self.len(1, nodes)
             node = nodes[0]
@@ -281,17 +281,13 @@ class NodeTest(s_t_utils.SynTest):
             # Now get those packed nodes via HTTPAPI
             self.none(await core.callStorm('return($lib.auth.users.byname(root).setPasswd(root))'))
             _, port = await core.addHttpsPort(0, host='127.0.0.1')
+            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
             https_nodes = []
-            async with self.getHttpSess() as sess:
-                async with sess.post(f'https://localhost:{port}/api/v1/login',
-                                     json={'user': 'root', 'passwd': 'root'}) as resp:
-                    retn = await resp.json()
-                    self.eq('ok', retn.get('status'))
-                    self.eq('root', retn['result']['name'])
+            async with self.getHttpSess(headers={'X-API-KEY': rootkey}) as sess:
 
                 body = {'query': 'test:str=cool test:int=1234',
                         'opts': {'node:opts': {'repr': True}}}
-                async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
+                async with sess.get(f'https://localhost:{port}/api/v3/storm', json=body) as resp:
                     async for byts, x in resp.content.iter_chunks():
                         if not byts:
                             break
@@ -535,22 +531,22 @@ class NodeTest(s_t_utils.SynTest):
 
     async def test_node_tagprops(self):
         async with self.getTestCore() as core:
-            await core.addTagProp('score', ('int', {}), {})
-            await core.addTagProp('limit', ('int', {}), {})
+            await core.addTagProp('_score', ('int', {}), {})
+            await core.addTagProp('_limit', ('int', {}), {})
             nodes = await core.nodes('[ test:int=10 ]')
             node = nodes[0]
 
             self.eq(node._getTagPropsDict(), {})
-            await node.setTagProp('foo.test', 'score', 20)
-            await node.setTagProp('foo.test', 'limit', 1000)
-            self.eq(node._getTagPropsDict(), {'foo.test': {'score': 20, 'limit': 1000}})
+            await node.setTagProp('foo.test', '_score', 20)
+            await node.setTagProp('foo.test', '_limit', 1000)
+            self.eq(node._getTagPropsDict(), {'foo.test': {'_score': 20, '_limit': 1000}})
 
-            await node.delTagProp('foo.test', 'score')
-            self.eq(node._getTagPropsDict(), {'foo.test': {'limit': 1000}})
+            await node.delTagProp('foo.test', '_score')
+            self.eq(node._getTagPropsDict(), {'foo.test': {'_limit': 1000}})
 
-            await node.delTagProp('foo.test', 'score')
-            self.eq(node._getTagPropsDict(), {'foo.test': {'limit': 1000}})
-            await node.delTagProp('foo.test', 'limit')
+            await node.delTagProp('foo.test', '_score')
+            self.eq(node._getTagPropsDict(), {'foo.test': {'_limit': 1000}})
+            await node.delTagProp('foo.test', '_limit')
             self.eq(node._getTagPropsDict(), {})
 
     async def test_node_edges(self):

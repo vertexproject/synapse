@@ -215,9 +215,9 @@ Best Practices
 
 .. _`Best Practices for Views & Layers`: https://vertex.link/blogs/views-layers/
 .. _`Traffic Light Protocol`: https://www.cisa.gov/news-events/news/traffic-light-protocol-tlp-definitions-and-usage
-.. _`Optic UI`: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
-.. _`View Selector`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/quick_tour.html#view-selector
-.. _`View Task Bar`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/quick_tour.html#view-task-bar
-.. _`User Guide`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguide.html
-.. _`Storm Query Bar`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/quick_tour.html#storm-query-bar-query-mode-selector
-.. _`Admin Tool`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/quick_tour.html#admin-tool
+.. _`Optic UI`: {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-optic/latest/index.html
+.. _`View Selector`: {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.html#view-selector
+.. _`View Task Bar`: {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.html#view-task-bar
+.. _`User Guide`: {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-optic/latest/user_interface/userguide.html
+.. _`Storm Query Bar`: {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.html#storm-query-bar-query-mode-selector
+.. _`Admin Tool`: {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.html#admin-tool

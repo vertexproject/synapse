@@ -485,7 +485,7 @@ Poly values are exposed in Storm as `NodeRef` objects wrapping `(formname, formv
 - `.form` -- the form name string
 - `.value` -- the raw value
 - `.ndef` -- the `(form, value)` tuple
-- `.isform(name)` -- returns true if the value is of the given form (or list of forms); checks `form.formtypes` so inherited types match
+- `.is(name)` -- returns true if the value is of the given form or implements the given interface (or a list of either); checks `form.formtypes` so inherited types match and `form.implements()` for interfaces
 - Deref (`.propname`) -- resolves against virtual properties from the value's type, then falls back to primitive deref
 
 ### Polyprops Registration (`datamodel.py`)
@@ -500,15 +500,54 @@ When a poly-typed `Prop` is initialized, it registers itself in lookup dictionar
 
 ---
 
+## Inherited Property Types (`None` typedef)
+
+A form property may declare `None` as its type tuple to inherit its type from a
+parent form or an implemented interface that declares a property of the same
+name. This lets a form override the property's `info` (most commonly `doc`,
+which supports `{title}` template substitution) without restating the type, so
+the type stays defined in exactly one place.
+
+```python
+# doc:authorable declares ('url', ('inet:url', {}), {...}); plan:system
+# implements doc:authorable and overrides only the doc:
+('url', None, {
+    'doc': 'The URL where the {title} is documented.'}),
+```
+
+### Resolution (`Model._resolveInheritedTypedefs`, `datamodel.py`)
+
+Called from `addForm()` before the propdef loop. When any propdef has a `None`
+typedef, it builds a `{propname: typedef}` lookup from:
+
+1. The parent form's props (the form's base-type / `subof` chain).
+2. The form's implemented interfaces, recursing through sub-interfaces and
+   applying interface prefixes (`_collectIfaceTypedefs`).
+
+Each `None` typedef is replaced with the resolved one; if nothing matches, a
+`BadPropDef` is raised. Because form props are created before interfaces are
+processed and `_addFormIface` defers to existing form props, the form's `info`
+override wins while the prop is still registered as interface-sourced.
+
+### Constraints
+
+- Supported on **form props only**. A `None` typedef declared directly on an
+  interface prop is not resolvable; `processPropdefs()` raises `BadPropDef`
+  rather than failing obscurely.
+- The resolved type is used verbatim (including poly auto-insertion downstream),
+  so the inheriting prop indexes and normalizes identically to the source prop.
+
+---
+
 ## Key Files
 
 | File | What |
 |------|------|
 | `synapse/lib/types.py` | `Type` base class, all Type subclasses including `Poly`, `Array`, `Comp`, `Ndef` |
-| `synapse/datamodel.py` | `Model`, `Prop`, `Form` classes; `processPropdefs()` (poly auto-insertion); polyprop registration and reverse lookups |
+| `synapse/datamodel.py` | `Model`, `Prop`, `Form` classes; `processPropdefs()` (poly auto-insertion); `_resolveInheritedTypedefs()` / `_collectIfaceTypedefs()` (`None` typedef inheritance); polyprop registration and reverse lookups |
 | `synapse/lib/layer.py` | `STOR_TYPE_*` / `STOR_FLAG_*` constants; `StorType` subclasses (encoding/decoding); `IndxBy` classes (lift dispatch); `getStorIndx()` and `_editPropSet()` (storage); `stortypes[]` dispatch table |
 | `synapse/lib/lmdbslab.py` | `Slab` class wrapping LMDB; `scanByDups`, `scanByPref`, `scanByRange` |
 | `synapse/lib/stormtypes.py` | `NodeRef` class (Storm representation of poly values) |
-| `synapse/tests/test_datamodel.py` | `test_datamodel_polyprop` and related tests |
+| `synapse/tests/test_datamodel.py` | `test_datamodel_polyprop`, `test_datamodel_inherited_typedef`, and related tests |
 | `synapse/tests/test_types.py` | Type normalization and comparison tests |
 | `synapse/tests/utils.py` | Test model definitions with poly property examples |

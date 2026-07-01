@@ -60,7 +60,7 @@ class StormCliTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.addTagProp('foo', ('int', {}), {})
+            await core.addTagProp('_foo', ('int', {}), {})
 
             outp = self.getTestOutp()
             pars = s_t_storm.getArgParser(outp)
@@ -75,14 +75,14 @@ class StormCliTest(s_test.SynTest):
 
                 outp = s_output.OutPutStr()
                 async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
-                    await scli.runCmdLine('[inet:ip=1.2.3.4 +#foo=2012 +#bar +#baz:foo=10 :_test:score=7]')
+                    await scli.runCmdLine('[inet:ip=1.2.3.4 +#foo=2012 +#bar +#baz:_foo=10 :_test:score=7]')
                     text = str(outp)
                     self.isin('.....', text)
                     self.isin('inet:ip=1.2.3.4', text)
                     self.isin(':type = unicast', text)
                     self.isin(':_test:score = 7', text)
                     self.isin('#bar', text)
-                    self.isin('#baz:foo = 10', text)
+                    self.isin('#baz:_foo = 10', text)
                     self.isin('#foo = (2012-01-01T00:00:00Z, 2012-01-01T00:00:00.000001Z)', text)
                     self.isin('complete. 1 nodes in', text)
 

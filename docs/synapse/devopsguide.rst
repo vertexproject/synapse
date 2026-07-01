@@ -13,7 +13,7 @@ Docker Images
 -------------
 
 Each Synapse service is distributed as a ``docker`` image which contains all the dependencies required to run the
-service. For the open-source Synapse images, the tag ``:v2.x.x`` will always be present on the most recent supported
+service. For the open-source Synapse images, the tag ``:v3.x.x`` will always be present on the most recent supported
 release. Image names are specified in each service specific section below.
 
 Synapse services **require persistent storage**. Each ``docker`` container expects persistent storage to be available
@@ -53,7 +53,7 @@ Generating a Backup
 -------------------
 
 .. note::
-    If you are a Synapse Enterprise customer you should deploy the Synapse-Backup_ Advanced Power-Up.
+    If you are a Synapse Enterprise customer you should deploy the Synapse-Enterprise-Backup_ Advanced Power-Up.
 
 It is strongly recommended that users schedule regular backups of all services deployed within their Synapse
 ecosystem. Each service must be backed up using either the **live** backup tool ``synapse.tools.service.livebackup`` or
@@ -357,7 +357,8 @@ message, level, time, and metadata about where the log message came from. The st
   Metadata about the logger which created the log message.
 
 ``time``
-  Timestamp when the log message was emitted.
+  Timestamp when the log message was emitted. By default this is an ISO-8601 UTC timestamp with
+  microsecond precision and a ``Z`` suffix (for example ``2026-02-13T10:38:24.545123Z``).
 
 ``user`` and ``username``
   User information appears at the top level of each log entry when an authenticated user context is active.
@@ -385,7 +386,7 @@ The following is an example of a the log event for a user executing a Storm quer
         "thread": "MainThread"
       },
       "level": "INFO",
-      "time": "2026-02-13 10:38:24,545",
+      "time": "2026-02-13T10:38:24.545123Z",
       "user": "e3532bc88fa66afb592e6a1474a98675",
       "username": "someUsername",
       "params": {  # Param
@@ -413,7 +414,7 @@ by the this particular error handler. ::
         "thread": "MainThread"
       },
       "level": "ERROR",
-      "time": "2026-02-13 11:24:06,853",
+      "time": "2026-02-13T11:24:06.853214Z",
       "user": "e3532bc88fa66afb592e6a1474a98675",
       "username": "someUsername"
       "error": {
@@ -451,9 +452,10 @@ produces the following output::
 
 This will also be used to format the ``time`` key used for structured logging.
 
-.. warning::
-    Milliseconds are not available when using the date formatting option. This will result in a loss of precision for
-    the timestamps that appear in log output.
+Timestamps formatted via ``SYN_LOG_DATEFORMAT`` are rendered in UTC, consistent with the default timestamp format.
+Include a ``%z`` (for example ``+0000``) or ``%Z`` (for example ``UTC``) directive in the format string if an explicit
+timezone indicator is desired. Sub-second precision is available via the ``%f`` directive (microseconds), for example
+``SYN_LOG_DATEFORMAT="%Y-%m-%dT%H:%M:%S.%fZ"``.
 
 .. _devops-task-diskfree:
 
@@ -673,7 +675,7 @@ The following Compose file shows using the policy:
     services:
       00.cortex:
         user: "999"
-        image: vertexproject/synapse-cortex:v2.x.x
+        image: vertexproject/synapse-cortex:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
@@ -773,7 +775,7 @@ Create the ``/srv/syn/01.axon/docker-compose.yaml`` file with contents::
     services:
       01.axon:
         user: "999"
-        image: vertexproject/synapse-axon:v2.x.x
+        image: vertexproject/synapse-axon:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
@@ -826,7 +828,7 @@ Create the ``/srv/syn/01.axon/docker-compose.yaml`` file with contents::
     services:
       02.cortex:
         user: "999"
-        image: vertexproject/synapse-axon:v2.x.x
+        image: vertexproject/synapse-axon:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
@@ -886,9 +888,9 @@ When functionality in Synapse is deprecated, it is marked with a library functio
 deprecated. When the deprecated functionality is invoked, it will log a warning message that the deprecated function
 has been utilized.
 
-For example, if a HTTP caller uses the ``api/v1/storm/nodes`` API, it would log the following message::
+For example, if a HTTP caller uses the ``api/v3/storm/nodes`` API, it would log the following message::
 
-    2025-11-18 10:31:33,100 [WARNING] "HTTP API /api/v1/storm/nodes" is deprecated in 2.110.0 and will be removed in 3.0.0 [common.py:deprecated:MainThread:MainProcess]
+    2025-11-18 10:31:33,100 [WARNING] "HTTP API /api/v3/storm/nodes" is deprecated in 2.110.0 and will be removed in 3.0.0 [common.py:deprecated:MainThread:MainProcess]
 
 Instances of these messages would indicate that there is a process or user that is utilizing this deprecated
 functionality. This may require updating Synapse components ( such as Rapid Power-Ups ) or working with users to
@@ -926,7 +928,7 @@ directory into the container and setting environment variables for the script to
 
   services:
     00.cortex:
-      image: vertexproject/synapse-cortex:v2.x.x
+      image: vertexproject/synapse-cortex:v3.x.x
       network_mode: host
       restart: unless-stopped
       volumes:
@@ -961,16 +963,16 @@ default, the user, group and home directory need to be added to the image. This 
 modify a container. For example, the following Dockerfile would add the user ``altuser`` to the Container with a user
 id value of 8888::
 
-    FROM vertexproject/synapse-cortex:v2.x.x
+    FROM vertexproject/synapse-cortex:v3.x.x
     RUN set -ex \
     && groupadd -g 8888 altuser \
     && useradd -r --home-dir=/home/altuser -u 8888 -g altuser --shell /bin/bash altuser \
     && mkdir -p /home/altuser \
     && chown 8888:8888 /home/altuser
 
-Running this with a ``docker build`` command can be used to create the image ``customcortex:v2.x.x``::
+Running this with a ``docker build`` command can be used to create the image ``customcortex:v3.x.x``::
 
-    $ docker build -f Dockerfile --tag  customcortex:v2.x.x .
+    $ docker build -f Dockerfile --tag  customcortex:v3.x.x .
     Sending build context to Docker daemon  4.608kB
     Step 1/2 : FROM vertexproject/synapse-cortex:v2.113.0
     ---> 8a2dd3465700
@@ -983,14 +985,14 @@ Running this with a ``docker build`` command can be used to create the image ``c
     Removing intermediate container 9c7b30365c2d
      ---> fd7173d42923
     Successfully built fd7173d42923
-    Successfully tagged customcortex:v2.x.x
+    Successfully tagged customcortex:v3.x.x
 
 That custom user can then be used to run the Cortex::
 
     services:
       00.cortex:
         user: "8888"
-        image: customcortex:v2.x.x
+        image: customcortex:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
@@ -1039,7 +1041,7 @@ The following Compose file shows an example using this option with the Cortex.
     services:
       00.cortex:
         user: "999"
-        image: vertexproject/synapse-cortex:v2.x.x
+        image: vertexproject/synapse-cortex:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
@@ -1263,7 +1265,7 @@ services to the other Synapse services. For a step-by-step guide to deploying an
 :ref:`deploymentguide`. We will use ``<yournetwork>`` to specify locations where the value should be replaced with
 your chosen AHA network name.
 
-Docker Image: ``vertexproject/synapse-aha:v2.x.x``
+Docker Image: ``vertexproject/synapse-aha:v3.x.x``
 
 **Configuration**
 
@@ -1317,14 +1319,14 @@ Axon
 ----
 
 .. note::
-    If you are a Synapse Enterprise customer you should consider deploying the Synapse-S3_ Axon.
+    If you are a Synapse Enterprise customer you should consider deploying the Synapse-Enterprise-Axon_.
 
 The Axon service provides binary / blob storage inside of the Synapse ecosystem. Binary objects are indexed based
 on the SHA-256 hash so that storage of the same set of bytes is not duplicated. The Axon exposes a set of Telepath / HTTP
 APIs that can be used to upload, download, and check for the existence of a binary blob.  For a step-by-step guide to
 deploying an Axon, see the :ref:`deploymentguide`.
 
-Docker Image: ``vertexproject/synapse-axon:v2.x.x``
+Docker Image: ``vertexproject/synapse-axon:v3.x.x``
 
 .. note::
 
@@ -1365,7 +1367,7 @@ The JSONStor is a utility service that provides a mechanism for storing and retr
 a hierarchical naming system. It is commonly used to store user preferences, cache API query responses, and hold
 data that is not part of the :ref:`userguide_datamodel`. For an example of deploying a JSONStor, see the :ref:`deploymentguide`.
 
-Docker Image: ``vertexproject/synapse-jsonstor:v2.x.x``
+Docker Image: ``vertexproject/synapse-jsonstor:v3.x.x``
 
 .. note::
 
@@ -1387,7 +1389,7 @@ A Cortex is the hypergraph_ database and main component of the Synapse service a
 Storm query language runtimes and execute where all automation and enrichment occurs. For a step-by-step guide to deploying
 a Cortex, see the :ref:`deploymentguide`.
 
-Docker Image: ``vertexproject/synapse-cortex:v2.x.x``
+Docker Image: ``vertexproject/synapse-cortex:v3.x.x``
 
 **Configuration**
 
@@ -1754,7 +1756,7 @@ the endpoints that users configuring them must be aware of.
 
     By default, the endpoints require the requester to have an authenticated session. Information about API
     authentication can be found at :ref:`http-api-authentication`. This authentication requirement can be disabled by
-    setting the ``.authenticated`` property on the endpoint object to ``$lib.false``. That will allow the endpoint to
+    setting the ``.authenticated`` property on the endpoint object to ``(false)``. That will allow the endpoint to
     be resolved without presenting any sort of authentication information.
 
 **runas**
@@ -1763,7 +1765,7 @@ the endpoints that users configuring them must be aware of.
     to run as the authenticated user by setting the ``.runas`` property on the HTTP API object to ``user``.  In order
     to change the behavior to executing the queries as the owner, the value should be set to ``owner``.
 
-    When an endpoint is configured with ``runas`` set to ``user`` and ``authenticated`` to ``$lib.false`` any
+    When an endpoint is configured with ``runas`` set to ``user`` and ``authenticated`` to ``(false)`` any
     calls to that API will be executed as the ``owner``.
 
 This allows creating endpoints that run in one of three modes:
@@ -1788,7 +1790,7 @@ These three modes can be demonstrated by configuring endpoints that will echo ba
 
     // Create the third endpoint which does not require authentication.
     $api2 = $lib.cortex.httpapi.add('demo/noauth')
-    $api2.authenticated=$lib.false  // Disable authentication
+    $api2.authenticated=(false)  // Disable authentication
     $api2.methods.get=$echo
 
 Accessing those endpoints with different users gives various results::
@@ -1857,7 +1859,7 @@ be changed by setting the ``readonly`` attribute on the ``http:api`` object::
 
     // Enable the Storm queries to be readonly
     $api = $lib.cortex.httpapi.get($yourIden)
-    $api.readonly = $lib.true
+    $api.readonly = (true)
 
 Endpoint Variables
 ++++++++++++++++++
@@ -2619,9 +2621,8 @@ Cortex Configuration Options
 ----------------------------
 .. include:: autodocs/conf_cortex.rst
 
-.. _index:              ../index.html
-.. _Synapse-Backup: ../../../projects/backup/en/latest/
-.. _Synapse-S3: ../../../projects/s3/en/latest/
+.. _Synapse-Enterprise-Axon: {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-axon/latest/
+.. _Synapse-Enterprise-Backup: {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-backup/latest/
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
 .. _warnings: https://docs.python.org/3/library/warnings.html
 .. _strftime: https://docs.python.org/3/library/time.html#time.strftime

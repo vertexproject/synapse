@@ -54,6 +54,7 @@ _DefaultConfig = {
                         'modified': 'return($lib.stix.export.timestamp(.updated))',
                     },
                     'rels': (
+                        ('attributed-to', 'threat-actor', ':actor -> risk:threat'),
                         ('attributed-to', 'threat-actor', ':actor -> ou:org'),
                         ('originates-from', 'location', ':actor -> ou:org -> geo:place'),
                         ('targets', 'identity', '-> risk:attack:activity -(targeted)> ou:org'),
@@ -75,7 +76,7 @@ _DefaultConfig = {
                         'modified': 'return($lib.stix.export.timestamp(.updated))',
                         'sectors': '''
                             init { $list = () }
-                            -> ou:industry +:name $list.append(:name)
+                            -> ind:industry +:name $list.append(:name)
                             fini { if $list { return($list) } }
                         ''',
                     }
@@ -85,11 +86,11 @@ _DefaultConfig = {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.updated))',
-                        'first_seen': '+:period return($lib.stix.export.timestamp(:period.min))',
-                        'last_seen': '+:period return($lib.stix.export.timestamp(:period.max))',
+                        'first_seen': '+:period return($lib.stix.export.timestamp(:period.began))',
+                        'last_seen': '+:period return($lib.stix.export.timestamp(:period.ended))',
                         'goals': '''
                             init { $goals = () }
-                            -> entity:campaign:actor -(had)> entity:goal | uniq | +:name $goals.append(:name)
+                            -> entity:campaign:actor -(supported)> entity:goal | uniq | +:name $goals.append(:name)
                             fini { if $goals { return($goals) } }
                         ''',
                     },
@@ -100,6 +101,23 @@ _DefaultConfig = {
                         ('targets', 'vulnerability', '-> risk:attack:activity -(used)> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
+                },
+            },
+        },
+
+        'risk:threat': {
+            'default': 'threat-actor',
+            'stix': {
+                'threat-actor': {
+                    'props': {
+                        'name': '{+:name return(:name)} return($node.repr())',
+                        'description': '+:desc return(:desc)',
+                        'aliases': '+:names return(:names)',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.updated))',
+                        'first_seen': '+:period return($lib.stix.export.timestamp(:period.min))',
+                        'last_seen': '+:period return($lib.stix.export.timestamp(:period.max))',
+                    },
                 },
             },
         },
@@ -197,7 +215,7 @@ _DefaultConfig = {
             'stix': {
                 'autonomous-system': {
                     'props': {
-                        'name': '+:owner:name return(:owner:name)',
+                        'name': '+:registrant:name return(:registrant:name)',
                         'number': 'return($node.value)',
                     },
                 }
@@ -223,13 +241,13 @@ _DefaultConfig = {
                 'user-account': {
                     'props': {
                         'user_id': 'return(:id)',
-                        'account_login': 'return(:user)',
+                        'account_login': 'return(:username)',
                         'account_type': '''-> inet:service:platform
                             {+:name=twitter return(twitter)}
                             {+:name=facebook return(facebook)}
                         ''',
                         'credential': ':creds -> * { +auth:passwd return($node.repr()) } { +crypto:salthash +:value return(:value) }',
-                        'account_created': '+:period return($lib.stix.export.timestamp(:period.min))',
+                        'account_created': '+:period return($lib.stix.export.timestamp(:period.created))',
                         'account_last_login': '+:seen return($lib.stix.export.timestamp(:seen.max))',
                         'account_first_login': '+:seen return($lib.stix.export.timestamp(:seen.min))',
                     },
@@ -273,7 +291,7 @@ _DefaultConfig = {
                         'date': '+:date return($lib.stix.export.timestamp(:date))',
                         'subject': '+:subject return(:subject)',
                         'message_id': '-> inet:email:header +:name=message_id return(:value)',
-                        'is_multipart': 'return($lib.false)',
+                        'is_multipart': 'return((false))',
                         'from_ref': ':from -> inet:email return($bundle.add($node))',
                         'to_refs': '''
                             init { $refs = () }
@@ -302,7 +320,7 @@ _DefaultConfig = {
                 'malware': {
                     'props': {
                         'name': '{+:title return(:title)} return($node.repr())',
-                        'is_family': 'return($lib.true)',
+                        'is_family': 'return((true))',
                         'first_seen': '$tag=$node.repr() -> { #($tag).min } return($lib.stix.export.timestamp(#($tag).min))',
                         'last_seen': '$tag=$node.repr() -> { reverse(#($tag).max<"*") } return($lib.stix.export.timestamp(#($tag).max))',
                         'created': 'return($lib.stix.export.timestamp(.created))',
@@ -684,19 +702,91 @@ stixingest = {
         ''',
     },
     'objects': {
+        # Reporter-scoped SDOs (implementing meta:reported) are deconflicted per-bundle
+        # via $salt=$bundle.id in the gutor dict. This ensures that re-ingesting the same
+        # bundle is idempotent (same bundle ID + name -> same GUID each time). Observables
+        # (SCOs) and per-id forms (indicator, report, identity) are globally deconflicted
+        # since they represent shared facts or are already per-source by STIX ID.
         'intrusion-set': {
             'storm': '''
                 ($ok, $name) = $lib.trycast(entity:name, $object.name)
-                if $ok {
-
-                    entity:name=$name -> ou:org
-                    { for $alias in $object.aliases { [ :names?+=$alias ] } }
-                    return($node)
-
-                    [ ou:org=* :name=$name ]
-                    { for $alias in $object.aliases { [ :names?+=$alias ] } }
-                    return($node)
-                }
+                if (not $ok) { return() }
+                [ risk:threat = ({"name": $name, "$salt": $bundle.id, "$try": true,
+                    "$props": {"desc": $object.description, "reporter:name": $reporter}})
+                ]
+                [ :names ?++= $object.aliases ]
+                $node.data.set(stix:object, $object)
+                return($node)
+            ''',
+        },
+        'threat-actor': {
+            'storm': '''
+                ($ok, $name) = $lib.trycast(entity:name, $object.name)
+                if (not $ok) { return() }
+                [ risk:threat = ({"name": $name, "$salt": $bundle.id, "$try": true,
+                    "$props": {"desc": $object.description, "reporter:name": $reporter}})
+                ]
+                [ :names ?++= $object.aliases ]
+                $node.data.set(stix:object, $object)
+                return($node)
+            ''',
+        },
+        'tool': {
+            'storm': '''
+                ($ok, $name) = $lib.trycast(it:softwarename, $object.name)
+                if (not $ok) { return() }
+                [ it:software = ({"name": $name, "$salt": $bundle.id, "$try": true,
+                    "$props": {"reporter:name": $reporter}}) ]
+                $node.data.set(stix:object, $object)
+                return($node)
+            ''',
+        },
+        'malware': {
+            'storm': '''
+                ($ok, $name) = $lib.trycast(it:softwarename, $object.name)
+                if (not $ok) { return() }
+                [ it:software = ({"name": $name, "$salt": $bundle.id, "$try": true,
+                    "$props": {"reporter:name": $reporter}}) ]
+                $node.data.set(stix:object, $object)
+                return($node)
+            ''',
+        },
+        'attack-pattern': {
+            'storm': '''
+                ($ok, $name) = $lib.trycast(base:name, $object.name)
+                if (not $ok) { return() }
+                [ meta:technique = ({"name": $name, "$salt": $bundle.id, "$try": true,
+                    "$props": {"desc": $object.description, "reporter:name": $reporter}})
+                ]
+                { for $ref in $object.external_references {
+                    if ($ref.source_name = "mitre-attack") { [ :id ?= $ref.external_id ] }
+                } }
+                $node.data.set(stix:object, $object)
+                return($node)
+            ''',
+        },
+        'campaign': {
+            'storm': '''
+                ($ok, $name) = $lib.trycast(base:name, $object.name)
+                if (not $ok) { return() }
+                [ entity:campaign = ({"name": $name, "$salt": $bundle.id, "$try": true,
+                    "$props": {"desc": $object.description, "reporter:name": $reporter}})
+                    :period ?= $object.last_seen
+                    :period ?= $object.first_seen
+                ]
+                $node.data.set(stix:object, $object)
+                return($node)
+            ''',
+        },
+        'course-of-action': {
+            'storm': '''
+                ($ok, $name) = $lib.trycast(base:name, $object.name)
+                if (not $ok) { return() }
+                [ risk:mitigation = ({"name": $name, "$salt": $bundle.id, "$try": true,
+                    "$props": {"desc": $object.description, "reporter:name": $reporter}})
+                ]
+                $node.data.set(stix:object, $object)
+                return($node)
             ''',
         },
         'identity': {
@@ -707,55 +797,6 @@ stixingest = {
                     individual: {[ entity:contact=(stix, identity, $object.id) :name?=$object.name ]}
                     system: {[ it:host=(stix, identity, $object.id) :name?=$object.name ]}
                 }
-            ''',
-        },
-        'tool': {
-            'storm': '''
-                ($ok, $name) = $lib.trycast(it:softwarename, $object.name)
-                if (not $ok) { return() }
-                [ it:software=({"name": $object.name}) ]
-                return($node)
-            ''',
-        },
-        'threat-actor': {
-            'storm': '''
-                [ entity:contact=(stix, threat-actor, $object.id)
-                    :name?=$object.name
-                    :bio?=$object.description
-                    :names?=$object.aliases
-                ]
-                $node.data.set(stix:object, $object)
-                return($node)
-            ''',
-        },
-        'course-of-action': {
-            'storm': '''
-                [ risk:mitigation=(stix, course-of-action, $object.id)
-                    :name?=$object.name
-                    :desc?=$object.description
-                ]
-                $node.data.set(stix:object, $object)
-                return($node)
-            ''',
-        },
-        'campaign': {
-            'storm': '''
-                [ entity:campaign=(stix, campaign, $object.id)
-                    :name?=$object.name
-                    :desc?=$object.description
-                    :period?=$object.last_seen
-                    :period?=$object.first_seen
-                ]
-                $node.data.set(stix:object, $object)
-                return($node)
-            ''',
-        },
-        'malware': {
-            'storm': '''
-                ($ok, $name) = $lib.trycast(it:softwarename, $object.name)
-                if (not $ok) { return() }
-                [ it:software=({"name": $object.name}) ]
-                return($node)
             ''',
         },
         'indicator': {
@@ -882,19 +923,20 @@ stixingest = {
     },
     'relationships': (
 
+        # entity:campaign:actor accepts any entity:actor; risk:threat implements entity:actor
         {'type': ('campaign', 'attributed-to', 'intrusion-set'), 'storm': '''
-            $n1node.props.org = $n2node
+            $n1node.props.actor = $n2node
         '''},
 
-        # this relationship is backwards in the STIX model
+        # both sides are now risk:threat; link with a light edge
         {'type': ('intrusion-set', 'attributed-to', 'threat-actor'), 'storm': '''
-            $n2node.props.org = $n1node
+            yield $n1node [ +(attributed-to)> $n2node ]
         '''},
 
         {'type': (None, 'uses', None), 'storm': 'yield $n1node [ +(used)> { yield $n2node } ]'},
         {'type': (None, 'indicates', None), 'storm': 'yield $n1node [ +(detects)> { yield $n2node } ]'},
 
-        # nothing to do... they are the same for us...
+        # threat-actor -> identity: identity has no meta:reported, leave as no-op
         {'type': ('threat-actor', 'attributed-to', 'identity'), 'storm': ''}
     ),
 }
@@ -903,6 +945,23 @@ stixingest = {
 class LibStixImport(s_stormtypes.Lib):
     '''
     A Storm Library for importing Stix Version 2.1 data.
+
+    The default ingest config maps reporter-specific STIX Domain Objects (SDOs) to
+    reporter-scoped Synapse forms (risk:threat, it:software, entity:campaign,
+    risk:mitigation, meta:technique). Each SDO uses the bundle id as a gutor $salt so
+    that the same bundle can be ingested multiple times idempotently (same bundle ID +
+    name produces the same GUID on every ingest). Entities with the same name that
+    appear across different bundles will share a node via the gutor property-based
+    deconfliction fallback; an analyst can separate them using the :resolved property
+    when needed.
+
+    STIX Cyber Observables (SCOs: inet:ip, inet:fqdn, inet:url, file:bytes, geo:place)
+    are globally deconflicted without a salt, since they represent shared infrastructure
+    facts rather than reporter-specific assessments.
+
+    The optional config["reporter"] key provides a reporter name string that is applied
+    to each reporter-scoped node via :reporter:name when supplied. To recover the
+    pre-3.x globally-deconflicted behavior, pass a fully customized config dict.
     '''
     _storm_lib_path = ('stix', 'import')
 
@@ -910,6 +969,11 @@ class LibStixImport(s_stormtypes.Lib):
         {
             'name': 'config', 'desc': '''
             Return an editable copy of the default STIX ingest config.
+
+            The returned dict may be modified and passed back to ``ingest()`` to override
+            individual object handlers or add a ``reporter`` name. The ``reporter`` key,
+            when set to a non-null string, is threaded into every Storm snippet as
+            ``$reporter`` and applied to reporter-scoped nodes via ``:reporter:name ?=``.
             ''',
             'type': {
                 'type': 'function', '_funcname': 'config',
@@ -919,12 +983,20 @@ class LibStixImport(s_stormtypes.Lib):
         {
             'name': 'ingest', 'desc': '''
             Import nodes from a STIX bundle.
+
+            Each STIX Domain Object is mapped to a reporter-scoped Synapse form and
+            deconflicted per-bundle via a gutor $salt derived from the bundle id. The
+            optional ``config`` dict may override individual handler Storm snippets or
+            supply a ``reporter`` string to populate ``:reporter:name`` on created nodes.
             ''',
             'type': {
                 'type': 'function', '_funcname': 'ingest',
                 'args': (
                     {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to ingest.'},
-                    {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'An optional STIX ingest configuration.'},
+                    {'type': 'dict', 'name': 'config', 'default': None,
+                     'desc': 'An optional STIX ingest configuration. Supports an optional '
+                             '"reporter" key (string) whose value is applied as :reporter:name '
+                             'on all reporter-scoped nodes.'},
                 ),
                 'returns': {'name': 'yields', 'type': 'node', 'desc': 'Yields nodes.'}
             },
@@ -1006,6 +1078,8 @@ class LibStixImport(s_stormtypes.Lib):
         nodesbyid = {}
         relationships = []
 
+        reporter = config.get('reporter')
+
         for obj in bundle.get('objects', ()):
 
             objtype = obj.get('type')
@@ -1025,7 +1099,7 @@ class LibStixImport(s_stormtypes.Lib):
                 continue
 
             try:
-                node = await self._callStorm(objstorm, {'bundle': bundle, 'object': obj})
+                node = await self._callStorm(objstorm, {'bundle': bundle, 'object': obj, 'reporter': reporter})
                 if node is not None:
                     nodesbyid[obj.get('id')] = node
             except asyncio.CancelledError: # pragma: no cover
@@ -1069,7 +1143,7 @@ class LibStixImport(s_stormtypes.Lib):
                 foundone = True
 
                 try:
-                    node = await self._callStorm(relstorm, {'bundle': bundle, 'n1node': n1node, 'n2node': n2node})
+                    node = await self._callStorm(relstorm, {'bundle': bundle, 'n1node': n1node, 'n2node': n2node, 'reporter': reporter})
                     if node is not None:
                         nodesbyid[rel.get('id')] = node
                 except asyncio.CancelledError: # pragma: no cover
@@ -1164,13 +1238,14 @@ class LibStixExport(s_stormtypes.Lib):
                                     "props": {
                                         "name": "{+:name return(:name)} return($node.repr())",
                                         "description": "+:desc return(:desc)",
-                                        "objective": "-(had)> entity:goal +:name return(:name)",
+                                        "objective": "-(supported)> entity:goal +:name return(:name)",
                                         "created": "return($lib.stix.export.timestamp(.created))",
                                         "modified": "return($lib.stix.export.timestamp(.updated))",
                                     },
                                     "rels": (
-                                        ("attributed-to", "threat-actor", ":org -> ou:org"),
-                                        ("originates-from", "location", ":org -> ou:org -> geo:place"),
+                                        ("attributed-to", "threat-actor", ":actor -> risk:threat"),
+                                        ("attributed-to", "threat-actor", ":actor -> ou:org"),
+                                        ("originates-from", "location", ":actor -> ou:org -> geo:place"),
                                         ("targets", "identity", "-> risk:attack:activity -(targeted)> ou:org"),
                                         ("targets", "identity", "-> risk:attack:activity -(targeted)> ps:person"),
                                     ),

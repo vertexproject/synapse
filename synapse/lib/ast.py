@@ -266,7 +266,7 @@ class Lookup(Query):
             text = ' '.join(tokns)
 
             rawscrapes = []
-            async for form, valu, info in view.scrapeIface(text):
+            async for form, valu, _, info in view.scrapeIface(text):
                 rawscrapes.append((form, valu, info))
 
             # filter to non-overlapping matches, preferring longer (more specific) matches
@@ -1313,24 +1313,15 @@ class SetVarOper(Oper):
             count += 1
 
             valu = await vkid.compute(runt, path)
-            if valu is undef:
-                await runt.popVar(name)
-                # TODO detect which to update here
-                await path.popVar(name)
-
-            else:
-                await runt.setVar(name, valu)
-                # TODO detect which to update here
-                await path.setVar(name, valu)
+            await runt.setVar(name, valu)
+            # TODO detect which to update here
+            await path.setVar(name, valu)
 
             yield node, path
 
         if count == 0 and vkid.isRuntSafe(runt):
             valu = await vkid.compute(runt, None)
-            if valu is undef:
-                await runt.popVar(name)
-            else:
-                await runt.setVar(name, valu)
+            await runt.setVar(name, valu)
 
     def getRuntVars(self, runt):
 
@@ -3104,12 +3095,17 @@ class PropPivot(PivotOper):
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srctype.isarray and not prop.type.isarray:
                 if prop.isform:
+                    formname = prop.form.name
                     for aval in valu:
-                        if aval[0] != prop.form.name:
+                        if aval[0] != formname:
                             continue
 
-                        if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
-                            yield pivo, link
+                        if prop.isrunt:
+                            async for pivo in runt.view.nodesByPropValu(formname, '=', aval[1]):
+                                yield pivo, link
+                        else:
+                            if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
+                                yield pivo, link
                     return
 
                 cmpr = '='
@@ -3122,15 +3118,17 @@ class PropPivot(PivotOper):
 
                 return
 
-            if srctype.ispoly and prop.isform:
-                if valu[0] != prop.form.name:
+            if prop.isform:
+                if srctype.name != prop.form.name:
                     return
 
-                pivo = await runt.view.getNodeByNdef(valu)
-                if pivo is None:
-                    await runt.warn(f'Missing node corresponding to ndef {valu}', log=False, ndef=valu)
+                if prop.isrunt:
+                    async for pivo in runt.view.nodesByPropValu(prop.form.name, '=', valu):
+                        yield pivo, link
                     return
-                yield pivo, link
+
+                if (pivo := await runt.view.getNodeByNdef((prop.form.name, valu))) is not None:
+                    yield pivo, link
 
                 return
 
@@ -3191,8 +3189,9 @@ class Value(AstNode):
     The base class for all values and value expressions.
     '''
 
-    def __init__(self, astinfo, kids=()):
+    def __init__(self, astinfo, kids=(), cast=False):
         AstNode.__init__(self, astinfo, kids=kids)
+        self.cast = cast
 
     def __repr__(self):
         return self.repr()
@@ -4035,6 +4034,8 @@ class RelPropCond(Cond):
         valukid = self.kids[2]
 
         async def cond(node, path):
+            # keep the poly type unresolved so the comparison validates the value
+            # against the whole type set and tolerates per-value type mismatches.
             ptyp, valu, _ = await self.kids[0].getTypeValuProp(runt, path, resolvepoly=False)
 
             xval = await valukid.compute(runt, path)
@@ -4042,11 +4043,6 @@ class RelPropCond(Cond):
 
             if xval is None or valu is None:
                 return False
-
-            if ptyp.ispoly:
-                if valu == (None, None):
-                    return False
-                valu = valu[0]
 
             if (ctor := ptyp.getCmprCtor(cmpr)) is None:
                 raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
@@ -4157,18 +4153,35 @@ class ArgvQuery(Value):
         pass
 
     async def compute(self, runt, path):
-        return self.kids[0].text
+        varz = {}
+        varz.update(runt.getScopeVars())
+
+        if path is not None:
+            varz.update(path.vars)
+
+        return s_stormtypes.Query(self.kids[0].text, varz, runt, path=path,
+                                  origin=self.kids[0].astinfo)
 
 class PropValue(Value):
 
     def prepare(self):
         self.isconst = isinstance(self.kids[0], Const)
 
+        self.astype = None
+        self.consttype = None
+
+        propkids = self.kids
+        if self.cast:
+            self.astype = self.kids[-1]
+            if isinstance(self.astype, Const):
+                self.consttype = self.astype.value()
+            propkids = self.kids[:-1]
+
         self.virt = None
         self.constvirt = None
 
-        if len(self.kids) > 1:
-            self.virt = self.kids[1]
+        if len(propkids) > 1:
+            self.virt = propkids[1]
             if isinstance(self.virt.kids[0], Const):
                 self.constvirt = self.virt.kids[0].value()
 
@@ -4179,18 +4192,22 @@ class PropValue(Value):
         return False
 
     async def getTypeValuProp(self, runt, path, strict=True, resolvepoly=True):
+        ptyp, valu, _, fullname = await self._getTypeValuVirts(runt, path, strict=strict, resolvepoly=resolvepoly)
+        return ptyp, valu, fullname
+
+    async def _getTypeValuVirts(self, runt, path, strict=True, resolvepoly=True):
         if not path:
-            return None, None, None
+            return None, None, None, None
 
         node, realprop, fullname = await self.kids[0].resolvePivs(path.node, runt, path)
         if node is None:
-            return None, None, None
+            return None, None, None, None
 
         if (prop := node.form.props.get(realprop)) is None:
             propname = await self.kids[0].compute(runt, path)
             if (exc := await s_stormtypes.typeerr(propname, str)) is None:
                 if not strict:
-                    return None, None, None
+                    return None, None, None, None
 
                 mesg = f'No property named {propname}.'
                 exc = s_exc.NoSuchProp(mesg=mesg, name=propname, form=path.node.form.name)
@@ -4199,6 +4216,7 @@ class PropValue(Value):
 
         getr = None
         ptyp = prop.type
+        virts = None
 
         if self.virt is not None:
             if (virt := self.constvirt) is None:
@@ -4206,39 +4224,80 @@ class PropValue(Value):
 
             if ptyp.ispoly and ptyp.virts.get(virt) is None:
                 if (valu := node.get(realprop)) is None:
-                    return None, None, None
+                    return None, None, None, None
                 ptyp = runt.model.type(valu[0])
 
             (ptyp, getr) = ptyp.getVirtInfo(virt)
             fullname += f".{virt}"
 
             if (valu := node.get(realprop, getr=getr)) is None:
-                return None, None, None
+                return None, None, None, None
+
+        elif ptyp.ispoly:
+            if (valt := node.getWithVirts(realprop))[0] is None:
+                return None, None, None, None
+
+            valu, virts = valt
+
+            if resolvepoly:
+                ptyp = runt.model.type(valu[0])
+                valu = valu[1]
 
         else:
+            if (valu := node.get(realprop)) is None:
+                return None, None, None, None
+
+        if self.astype is not None:
+            if (astype := self.consttype) is None:
+                astype = await self.astype.compute(runt, path)
+
             if ptyp.ispoly and not resolvepoly:
-                if (valu := node.getWithVirts(realprop))[0] is None:
-                    return None, None, None
-            else:
-                if (valu := node.get(realprop)) is None:
-                    return None, None, None
+                valu = valu[1]
 
-                if ptyp.ispoly:
-                    ptyp = runt.model.type(valu[0])
-                    valu = valu[1]
+            ptyp = runt.model.reqType(astype)
+            try:
+                valu, info = await ptyp.norm(valu)
+            except s_exc.BadTypeValu:
+                return None, None, None, None
 
-        return ptyp, valu, fullname
+            virts = info.get('virts')
+
+        return ptyp, valu, virts, fullname
 
     async def compute(self, runt, path):
-        ptyp, valu, fullname = await self.getTypeValuProp(runt, path, resolvepoly=False)
+        ptyp, valu, virts, _ = await self._getTypeValuVirts(runt, path)
 
         if ptyp:
-            valu = await ptyp.tostorm(valu)
+            valu = await ptyp.tostorm(valu, virts=virts)
 
         return valu
 
 class RelPropValue(PropValue):
     pass
+
+class ValueAs(Value):
+
+    def prepare(self):
+        self.consttype = None
+        if isinstance(self.kids[-1], Const):
+            self.consttype = self.kids[-1].value()
+
+    async def compute(self, runt, path):
+        valu = await self.kids[0].compute(runt, path)
+
+        if (astype := self.consttype) is None:
+            astype = await self.kids[-1].compute(runt, path)
+
+        ptyp = runt.model.reqType(astype)
+        try:
+            norm, info = await ptyp.norm(valu)
+        except s_exc.BadTypeValu:
+            return undef
+
+        virts = info.get('virts')
+        if ptyp.ispoly:
+            return s_stormtypes.NodeRef((norm, virts))
+        return s_stormtypes.NodeRef(((ptyp.name, norm), virts))
 
 class VirtPropValue(PropValue):
 
@@ -4579,6 +4638,16 @@ class ExprNode(Value):
         parm1 = await self.kids[0].compute(runt, path)
         parm2 = await self.kids[2].compute(runt, path)
         try:
+            if isinstance(parm1, s_stormtypes.Valu):
+                res = await parm1._storm_oper(self.oper, parm2)
+                if res is not None:
+                    return res
+
+            if isinstance(parm2, s_stormtypes.Valu):
+                res = await parm2._storm_oper(self.oper, parm1, reverse=True)
+                if res is not None:
+                    return res
+
             return await self._operfunc(parm1, parm2)
         except ZeroDivisionError:
             exc = s_exc.StormRuntimeError(mesg='Cannot divide by zero')
@@ -4827,7 +4896,7 @@ class EmbedQuery(Const):
         if path is not None:
             varz.update(path.vars)
 
-        return s_stormtypes.Query(self.valu, varz, runt, path=path)
+        return s_stormtypes.Query(self.valu, varz, runt, path=path, origin=self.astinfo)
 
 class List(Value):
 
@@ -5245,6 +5314,7 @@ class EditVirtPropSet(Edit):
             try:
                 oldv, oldvirts = node.getWithVirts(name)
                 valu = await rval.compute(runt, path)
+                valu = await s_stormtypes.tostor(valu)
                 newv, norminfo = await prop.type.normVirt(virt, oldv, valu, oldvirts=oldvirts)
 
                 await node.set(name, newv, norminfo=norminfo)

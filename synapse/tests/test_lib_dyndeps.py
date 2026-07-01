@@ -37,11 +37,6 @@ class DynDepsTest(s_t_utils.SynTest):
         self.raises(s_exc.NoSuchDyn, s_dyndeps.reqDynLocal, 'sys.newpnewp')
         self.raises(s_exc.NoSuchDyn, s_dyndeps.reqDynFunc, 'sys.newpnewp', (), {})
 
-        # Deprecated
-        self.raises(s_exc.NoSuchDyn, s_dyndeps.tryDynMod, 'newpnewp')
-        self.raises(s_exc.NoSuchDyn, s_dyndeps.tryDynLocal, 'sys.newpnewp')
-        self.raises(s_exc.NoSuchDyn, s_dyndeps.tryDynFunc, 'sys.newpnewp', (), {})
-
     def test_dyndeps_meth(self):
         self.nn(s_dyndeps.getDynMeth('synapse.lib.base.Base.fini'))
         self.none(s_dyndeps.getDynMeth('synapse.lib.base.Base.newp'))

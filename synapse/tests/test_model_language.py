@@ -11,9 +11,9 @@ class LangModuleTest(s_t_utils.SynTest):
                     :input=Hola
                     :input:lang={[ lang:language=({"code": "es"}) ]}
                     :output=Hi
-                    :output:lang={[ lang:language=({"code": "en.us"}) :name=english :names=(merican,) ]}
+                    :output:lang={[ lang:language=({"code": "en-US"}) :name=english :names=(merican,) ]}
                     :desc=Greetings
-                    :engine=*
+                    :engine=* as it:software
                 lang:phrase=Hola
             ]''')
             self.len(2, nodes)
@@ -21,22 +21,79 @@ class LangModuleTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'input', 'Hola')
             self.propeq(nodes[0], 'output', 'Hi')
             self.propeq(nodes[0], 'input:lang', '83e8f5fe6992924a7e88916cf8b5ba36')
-            self.propeq(nodes[0], 'output:lang', '577f4caf89d89fcc9d605c33fd803af8')
+            self.propeq(nodes[0], 'output:lang', '474dde882125a6b245841f39d28e1b97')
             self.propeq(nodes[0], 'desc', 'Greetings')
 
             self.len(1, await core.nodes('lang:phrase -> lang:translation:input'))
 
-            self.len(1, await core.nodes('lang:translation :input -> lang:phrase'))
+            self.len(1, await core.nodes('lang:translation :input as lang:phrase -> lang:phrase'))
 
             self.len(1, await core.nodes('lang:translation -> it:software'))
             self.len(2, await core.nodes('lang:translation -> lang:language'))
 
-            nodes = await core.nodes('lang:language:code=en.us -> lang:name')
+            nodes = await core.nodes('lang:language:code=en-US -> lang:name')
             self.sorteq(['english', 'merican'], [n.repr() for n in nodes])
 
             nodes = await core.nodes('[ lang:phrase="For   The  People" ]')
             self.len(1, nodes)
             self.eq('For   The  People', nodes[0].repr())
+
+    async def test_model_lang_code(self):
+
+        async with self.getTestCore() as core:
+
+            # lang:code is now a BCP-47 form with canonical casing + subtag props
+            nodes = await core.nodes('[ lang:code="EN-us" ]')
+            self.len(1, nodes)
+            self.eq(('lang:code', 'en-US'), nodes[0].ndef)
+            self.propeq(nodes[0], 'language', 'en')
+            self.propeq(nodes[0], 'region', 'US')
+            self.none(nodes[0].get('script'))
+
+            nodes = await core.nodes('[ lang:code="zh-hant-hk" ]')
+            self.len(1, nodes)
+            self.eq(('lang:code', 'zh-Hant-HK'), nodes[0].ndef)
+            self.propeq(nodes[0], 'language', 'zh')
+            self.propeq(nodes[0], 'script', 'Hant')
+            self.propeq(nodes[0], 'region', 'HK')
+
+            # numeric (UN M.49) region
+            nodes = await core.nodes('[ lang:code="es-419" ]')
+            self.eq(('lang:code', 'es-419'), nodes[0].ndef)
+            self.propeq(nodes[0], 'region', '419')
+
+            # single subtag language has no region/script subs
+            nodes = await core.nodes('[ lang:code=PT ]')
+            self.eq(('lang:code', 'pt'), nodes[0].ndef)
+            self.propeq(nodes[0], 'language', 'pt')
+            self.none(nodes[0].get('region'))
+
+            # private use tag is preserved (lowercased) with no subs
+            nodes = await core.nodes('[ lang:code="x-Klingon" ]')
+            self.eq(('lang:code', 'x-klingon'), nodes[0].ndef)
+
+            # extension subtags after a singleton are lowercased
+            nodes = await core.nodes('[ lang:code="EN-A-BBB" ]')
+            self.eq(('lang:code', 'en-a-bbb'), nodes[0].ndef)
+            self.propeq(nodes[0], 'language', 'en')
+
+            # subtag props are queryable
+            self.len(1, await core.nodes('lang:code:region=HK'))
+            self.len(1, await core.nodes('lang:code:language=zh'))
+            self.len(1, await core.nodes('lang:code +:script=Hant'))
+
+            # canonical casing dedups equivalent tags
+            self.len(1, await core.nodes('[ lang:code="zh-HANT-hk" ]'))
+            self.len(1, await core.nodes('lang:code=zh-Hant-HK'))
+
+            # the subtag props are computed and may not be set directly
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('lang:code=pt [ :region=BR ]')
+
+            # malformed tags are rejected (the original unescaped-separator bug)
+            for bad in ('', 'pt.br', 'pt--br', 'e', 'pt-b', 'en_US', 'en-', '-en', 'toolongsubtag'):
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes('[ lang:code=$valu ]', opts={'vars': {'valu': bad}})
 
     async def test_hashtag(self):
 
@@ -51,6 +108,12 @@ class LangModuleTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ lang:hashtag="#foo·bar"]'))  # note the interpunct
             self.len(1, await core.nodes('[ lang:hashtag="#foo〜bar"]'))  # note the wave dash
             self.len(1, await core.nodes('[ lang:hashtag="#fo·o·······b·ar"]'))
+
+            # lang:hashtag is now a text type: case preserving but case insensitive
+            nodes = await core.nodes('[ lang:hashtag="#HaShTaG" ]')
+            self.eq(nodes[0].ndef, ('lang:hashtag', '#HaShTaG'))
+            self.len(1, await core.nodes('[ lang:hashtag="#hashtag" ]'))
+            self.len(1, await core.nodes('lang:hashtag="#HASHTAG"'))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ lang:hashtag="foo" ]')

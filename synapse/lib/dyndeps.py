@@ -103,10 +103,6 @@ def getDynMeth(name):
 
     return getattr(clas, fname, None)
 
-def tryDynMod(name):
-    s_common.deprecated('synapse.lib.dyndeps.tryDynMod')
-    return reqDynMod(name)
-
 def reqDynMod(name):
     '''
     Dynamically import a python module or exception.
@@ -115,10 +111,6 @@ def reqDynMod(name):
         return importlib.import_module(name)
     except ModuleNotFoundError:
         raise s_exc.NoSuchDyn(mesg=f'Failed to import module named {name}', name=name)
-
-def tryDynLocal(name):
-    s_common.deprecated('synapse.lib.dyndeps.tryDynLocal')
-    return reqDynLocal(name)
 
 def reqDynLocal(name):
     '''
@@ -133,10 +125,6 @@ def reqDynLocal(name):
     if item is s_common.novalu:
         raise s_exc.NoSuchDyn(mesg=f'Cannot find {objname} on {item}', name=name)
     return item
-
-def tryDynFunc(name, *args, **kwargs):
-    s_common.deprecated('synapse.lib.dyndeps.tryDynFunc')
-    return reqDynFunc(name, *args, **kwargs)
 
 def reqDynFunc(name, *args, **kwargs):
     '''

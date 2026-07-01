@@ -13,13 +13,18 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
-storvirts = {
-    s_layer.STOR_TYPE_IVAL: {
-        'min': lambda x: x[0],
-        'max': lambda x: x[1],
-        'duration': lambda x: x[2],
-    },
-}
+def getIvalStorVirts(ival, virts, defprec):
+    retn = {
+        'min': ival[0],
+        'max': ival[1],
+        'duration': ival[2]
+    }
+    if virts and (prec := virts.get('precision')):
+        retn['precision'] = prec[0]
+    else:
+        retn['precision'] = defprec
+
+    return retn
 
 class NodeBase:
 
@@ -51,9 +56,10 @@ class NodeBase:
         typeitem = prop.type
 
         if virt is None:
-            if (valu := self.get(name)) is None:
+            valu, virts = self.getWithVirts(name)
+            if valu is None:
                 return defv
-            return typeitem.repr(valu)
+            return typeitem.reprWithVirts(valu, virts)
 
         if typeitem.virts.get(virt) is None:
             if (valu := self.get(name)) is None:
@@ -71,7 +77,6 @@ class NodeBase:
         Return a dictionary of repr values for props whose repr is different than
         the system mode value.
         '''
-        reps = {}
         props = self.getProps()
         return self._getPropReprs(props)
 
@@ -91,7 +96,8 @@ class NodeBase:
             if prop is None:
                 continue
 
-            rval = prop.type.repr(valu)
+            _, virts = self.getWithVirts(name)
+            rval = prop.type.reprWithVirts(valu, virts)
 
             if prop.type.isarray:
                 if rval == [v[1] for v in valu]:
@@ -361,10 +367,6 @@ class Node(NodeBase):
                     if vprops is not None:
                         for vname, vval in vprops.items():
                             vvals[vname] = vval[0]
-
-                    if (svirts := storvirts.get(stortype)) is not None:
-                        for vname, getr in svirts.items():
-                            vvals[vname] = getr(valu)
                     break
 
         if dorepr:
@@ -418,6 +420,8 @@ class Node(NodeBase):
         '''
         retn = {}
         cache = {}
+        view = self.view
+
         async def walk(n, p):
 
             valu = n.get(p)
@@ -431,13 +435,18 @@ class Node(NodeBase):
             if not prop.type.hasforms:
                 return None
 
-            nid = node.view.core.getNidByNdef(valu)
+            form, nval = valu
+            if (ntyp := view.core.model.type(form)) is None:
+                return None
+
+            nval = view.wlyr.stortypes[ntyp.stortype].nidNorm(nval)
+            nid = view.core.getNidByNdef((form, nval))
             if nid is None:
                 return None
 
             step = cache.get(nid, s_common.novalu)
             if step is s_common.novalu:
-                step = cache[nid] = await node.view.getNodeByNid(nid)
+                step = cache[nid] = await view.getNodeByNid(nid)
 
             return step
 
@@ -468,7 +477,7 @@ class Node(NodeBase):
 
                 if relp[0] == '.':
                     metaname = relp[1:]
-                    if metaname in node.view.core.model.metatypes:
+                    if metaname in view.core.model.metatypes:
                         embdnode[relp] = node.getMeta(metaname)
                     continue
 
@@ -490,9 +499,10 @@ class Node(NodeBase):
                 else:
                     embdnode[f'{relp}.type'] = valu[0]
 
-                    if (svirts := storvirts.get(stortype)) is not None:
-                        for vname, getr in svirts.items():
-                            embdnode[f'{relp}.{vname}'] = getr(valu[1])
+                    if stortype == s_layer.STOR_TYPE_IVAL:
+                        proptype = self.form.modl.type(valu[0])
+                        for vname, vval in getIvalStorVirts(valu[1], virts, proptype.prec).items():
+                            embdnode[f'{relp}.{vname}'] = vval
 
         return retn
 
@@ -535,6 +545,14 @@ class Node(NodeBase):
 
         return retn
 
+    async def setValue(self, valu):
+        if self.view.wlyr.readonly:
+            mesg = 'Cannot set value in read-only mode.'
+            raise s_exc.IsReadOnly(mesg=mesg)
+
+        async with self.view.getNodeEditor(self) as editor:
+            return await editor.setValue(valu)
+
     async def set(self, name, valu, norminfo=None):
         '''
         Set a property on the node.
@@ -547,7 +565,7 @@ class Node(NodeBase):
         Returns:
             (bool): True if the property was changed.
         '''
-        if self.view.readonly:
+        if self.view.wlyr.readonly:
             mesg = 'Cannot set property in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
@@ -946,9 +964,10 @@ class Node(NodeBase):
 
                     retn[f'{name}.type'] = valu[0]
 
-                    if (svirts := storvirts.get(stortype)) is not None:
-                        for vname, getr in svirts.items():
-                            retn[f'{name}.{vname}'] = getr(valu[1])
+                    if stortype == s_layer.STOR_TYPE_IVAL:
+                        proptype = self.form.modl.type(valu[0])
+                        for vname, vval in getIvalStorVirts(valu[1], vprops, proptype.prec).items():
+                            retn[f'{name}.{vname}'] = vval
 
         return retn
 

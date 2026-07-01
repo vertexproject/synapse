@@ -40,9 +40,9 @@ Because the function **itself** is a Storm pipeline, all caveats about pipelines
 working set still apply to the Storm **within** the function.
 
 All of Storm's features and capabilities are available for use within a function. This includes Storm
-operations, commands, `variables`_, `methods`_, `control flow`_, `libraries`_, etc.
+operations, commands, :doc:`variables </synapse/userguides/storm_adv_vars>`, :doc:`methods </synapse/userguides/storm_adv_methods>`, :doc:`control flow </synapse/userguides/storm_adv_control>`, :doc:`libraries </synapse/stormtypes>`, etc.
 
-You can use an `init block`_ or a `fini block`_ within a function to execute a subset of Storm logic a single
+You can use an :ref:`init block <flow-init>` or a :ref:`fini block <flow-fini>` within a function to execute a subset of Storm logic a single
 time before operating on any nodes in the functions's pipeline or after any nodes have exited the function's
 pipeline, respectively.
 
@@ -85,7 +85,7 @@ All functions are **declared** in the same way, using the ``function`` keyword.
 
 - ``function myFunction() { <do stuff> }``
 - ``function myFunction(foo) { <do stuff> }``
-- ``function myFunction(bar, baz=$lib.null) { <do stuff> }``
+- ``function myFunction(bar, baz=(null)) { <do stuff> }``
 
 .. _storm-func-invoke:
 
@@ -222,7 +222,7 @@ the nodes' human-readable representation (``$node.repr()``) as an example; it do
 Runtsafe vs. Non-Runtsafe Functions
 ***********************************
 
-Just as variables may be runtime-safe (`runtsafe`_) or non-runtime-safe (`non-runtsafe`_), functions can be
+Just as variables may be runtime-safe (:ref:`runtsafe <gloss-runtsafe>`) or non-runtime-safe (:ref:`non-runtsafe <gloss-non-runtsafe>`), functions can be
 invoked in a runtsafe manner (or not) based on the parameters passed to the function.
 
 If a function is invoked with a runtsafe (typically static) value, the function is considered runtsafe. A
@@ -267,8 +267,8 @@ Or:
   - A runtsafe function (i.e., one whose parameters are **not** node-dependent) will still execute once
     each time it is invoked. If the invoking Storm executes multiple times, this can result in the runtsafe
     function running repeatedly while simply "doing the same thing" each time (based on its runtsafe
-    input parameters). If the function should only execute once, it can be placed in a `fini block`_ (or
-    an `init block`_ as appropriate).
+    input parameters). If the function should only execute once, it can be placed in a :ref:`fini block <flow-fini>` (or
+    an :ref:`init block <flow-init>` as appropriate).
 
 .. _storm-func-output:
 
@@ -343,7 +343,7 @@ Callable functions are **executed in their entirety** before returning. They ret
   Callable functions may contain multiple ``return()`` statements, based on the function's logic. The
   **first** ``return()`` encountered during the function's execution will cause the function to stop
   execution and return. If you are performing multiple actions within the function and want to ensure they
-  all complete before the function returns, place the ``return()`` in a `fini block`_ so it executes
+  all complete before the function returns, place the ``return()`` in a :ref:`fini block <flow-fini>` so it executes
   once at the end of the function's pipeline.
 
 Use Cases
@@ -401,8 +401,8 @@ A callable function can take input and attempt to create (or lift) a node.
 
 **Return a node using secondary property deconfliction**
 
-When ingesting or creating `guid-based`_ nodes, a common deconfliction strategy is to check for existing
-nodes using one or more secondary properties (known as `secondary property deconfliction`_). A callable
+When ingesting or creating :ref:`guid-based <type-guid>` nodes, a common deconfliction strategy is to check for existing
+nodes using one or more secondary properties (known as :ref:`secondary property deconfliction <guid-best-practices>`). A callable
 function that takes a secondary property value (or values) as input and returns (or creates) the node
 simplifies this process.
 
@@ -439,7 +439,7 @@ simplifies this process.
 
 .. TIP::
   
-  Synapse includes `gen.*`_ (generator) Storm commands that can generate many
+  Synapse includes :ref:`gen.* <storm-gen>` (generator) Storm commands that can generate many
   common guid-based forms using secondary property deconfliction.
 
 
@@ -463,7 +463,7 @@ on the ``meta:source`` node for the data source. A callable function can retriev
       $date = $node.data.get(mysource:report:date)
       
       //If there is no value for this key return the integer 0
-      if ($date = $lib.null) { return((0)) }
+      if ($date = null) { return((0)) }
       
       //Otherwise return the date
       return($date)
@@ -593,7 +593,7 @@ the results have been received.
           $data = $getJson("/reports", params=$params)
           
           //If no data is returned, stop and exit this function
-          if ($data = $lib.null) { stop }
+          if ($data = null) { stop }
           
           //If data is returned, loop over the JSON and emit each item / ojbect
           for $item in $data.data { emit $item }
@@ -689,7 +689,7 @@ development. Storm logic that requires access to sensitive information (such as 
 can be encapsulated in a function that is not accessible to unprivileged users. The function can return
 non-sensitive data that is "safe" for viewing or consumption.
 
-See the :ref:`dev_rapid_power_ups` Guide and in particular the section on `privileged modules`_ for more
+See the :ref:`dev_rapid_power_ups` Guide and in particular the section on :ref:`privileged modules <privileged-modules>` for more
 information.
 
 .. _storm-func-debug:
@@ -697,7 +697,7 @@ information.
 Function Debugging Tips
 -----------------------
 
-Functions execute Storm, so standard `Storm debugging tips`_ still apply to all code **within** the function
+Functions execute Storm, so standard :ref:`Storm debugging tips <storm-adv-debug>` still apply to all code **within** the function
 itself (and to the Storm code that invokes the function, of course). The following additional tips apply to
 functions in particular.
 
@@ -764,16 +764,3 @@ output is returned to the pipeline (e.g., assign the function's output to a vari
 keyword to yield any nodes into the pipeline; use a for loop to iterate over function results; etc.).
 
 
-.. _variables: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_vars.html
-.. _methods: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_methods.html
-.. _control flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html
-.. _libraries: https://synapse.docs.vertex.link/en/latest/synapse/stormtypes.html
-.. _init block: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#init-block
-.. _fini block: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#fini-block
-.. _runtsafe: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#runtsafe
-.. _non-runtsafe: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#non-runtsafe
-.. _guid-based: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#guid
-.. _secondary property deconfliction: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#guid-best-practices
-.. _gen.*: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html#gen
-.. _privileged modules: https://synapse.docs.vertex.link/en/latest/synapse/devguides/power-ups.html#privileged-modules
-.. _Storm debugging tips: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#storm-debugging-tips

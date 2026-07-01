@@ -403,4 +403,4 @@ may need to be addressed. Options include:
   discussion of Synapse's automation tools.)
 
 .. _Vertex Tag Tree Overview: https://vertex.link/blogs/vtx-tag-trees/
-.. _Tag Explorer: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/get_help.html#using-tag-explorer
+.. _Tag Explorer: {{SYN_DOCS_BASEURL}}/docs/optic/latest/user_interface/userguides/get_help.html#using-tag-explorer

@@ -294,7 +294,7 @@ class NexusTest(s_t_utils.SynTest):
                 getCellInfo = cell00.getCellInfo
                 async def getCrazyVersion():
                     info = await getCellInfo()
-                    info['cell']['version'] = (9999, 0, 0)
+                    info['cell']['version'] = '9999.0.0'
                     return info
 
                 await cell00.runBackup(name='cell01')
@@ -347,6 +347,65 @@ class NexusTest(s_t_utils.SynTest):
 
                     self.eq(0, (await cell00.nexsroot.nexslog.last())[0])
                     self.eq(0, (await cell01.nexsroot.nexslog.last())[0])
+
+    async def test_mirror_version_prerelease(self):
+
+        with self.getTestDir() as dirn:
+
+            s_common.yamlsave({'nexslog:en': True}, dirn, 'cell.yaml')
+            async with await s_cell.Cell.anit(dirn=dirn) as cell00:
+
+                getCellInfo = cell00.getCellInfo
+
+                # Simulate the leader reporting a higher pre-release version string.
+                # Using a next-minor pre-release which is strictly greater than the
+                # mirror's current release (PEP 440: 3.1.0a1 > 3.0.0).
+                async def getHigherPreRelVersion():
+                    info = await getCellInfo()
+                    info['cell']['version'] = '3.1.0a1'
+                    return info
+
+                await cell00.runBackup(name='cell01')
+
+                path = s_common.genpath(dirn, 'backups', 'cell01')
+
+                conf = s_common.yamlload(path, 'cell.yaml')
+                conf['mirror'] = f'cell://{dirn}'
+                s_common.yamlsave(conf, path, 'cell.yaml')
+
+                cell00.getCellInfo = getHigherPreRelVersion
+
+                evnt = asyncio.Event()
+                async with await s_cell.Cell.anit(dirn=path) as cell01:
+                    addWriteHold = cell01.nexsroot.addWriteHold
+                    def wrapAddWriteHold(reason):
+                        retn = addWriteHold(reason)
+                        evnt.set()
+                        return retn
+
+                    cell01.nexsroot.addWriteHold = wrapAddWriteHold
+                    await asyncio.wait_for(evnt.wait(), timeout=3)
+
+                    with self.raises(s_exc.IsReadOnly):
+                        await cell01.sync()
+                    self.isin(s_nexus.leaderversion, cell01.nexsroot.writeholds)
+
+                cell00.getCellInfo = getCellInfo
+
+                # Simulate the leader reporting the same version as the mirror.
+                # The write hold should be cleared and the mirror should be writable.
+                mirrorversion = cell00.VERSION
+
+                async def getSameVersion():
+                    info = await getCellInfo()
+                    info['cell']['version'] = mirrorversion
+                    return info
+
+                cell00.getCellInfo = getSameVersion
+
+                async with await s_cell.Cell.anit(dirn=path) as cell01:
+                    await cell01.sync()
+                    self.notin(s_nexus.leaderversion, cell01.nexsroot.writeholds)
 
     async def test_mirror_nexus_loop_failure(self):
         with self.getTestDir() as dirn:
@@ -591,8 +650,8 @@ class NexusTest(s_t_utils.SynTest):
                     async with self.getTestCore(dirn=path01, conf=conf01) as core01:
                         pass
 
-                with mock.patch('synapse.lib.nexus.FOLLOWER_CONNECT_WAIT_S', 0.05), \
-                     mock.patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 0.05):
+                with mock.patch('synapse.lib.nexus.FOLLOWER_CONNECT_WAIT_S', 0.01), \
+                     mock.patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 0.01):
 
                     async with self.getTestCore(dirn=path01, conf=conf01) as core01:
 

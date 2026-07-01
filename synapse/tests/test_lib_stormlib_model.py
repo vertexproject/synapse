@@ -40,16 +40,16 @@ class StormlibModelTest(s_test.SynTest):
             exp = {'subs': {'type': (styp, 'unicast', {}), 'version': (ityp, 4, {})}}
             self.eq(exp, await core.callStorm('return($lib.model.type(inet:ip).norm(1.2.3.4).index(1))'))
 
-            await core.addTagProp('score', ('int', {}), {})
-            self.eq('score', await core.callStorm('return($lib.model.tagprop(score).name)'))
-            self.eq('int', await core.callStorm('return($lib.model.tagprop(score).type.name)'))
+            await core.addTagProp('_score', ('int', {}), {})
+            self.eq('_score', await core.callStorm('return($lib.model.tagprop(_score).name)'))
+            self.eq('int', await core.callStorm('return($lib.model.tagprop(_score).type.name)'))
 
             self.eq('entity:action', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n1form)'))
             self.eq('used', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).verb)'))
-            self.eq('meta:observable', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n2form)'))
+            self.eq('meta:usable', await core.callStorm('return($lib.model.edge(risk:attack, used, risk:vuln).n2form)'))
             self.none(await core.callStorm('return($lib.model.edge(risk:attack, newp, risk:vuln))'))
 
-            self.true(await core.callStorm('return(($lib.model.prop(".created").form = $lib.null))'))
+            self.true(await core.callStorm('return(($lib.model.prop(".created").form = null))'))
 
             mesgs = await core.stormlist('$lib.print($lib.model.form(entity:name))')
             self.stormIsInPrint("model:form: {'name': 'entity:name'", mesgs)
@@ -69,23 +69,23 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist('$lib.pprint($lib.model.prop(entity:contact:name))')
             self.stormIsInPrint("{'default_types': ('entity:name',), 'types': ('entity:name',)}", mesgs)
 
-            mesgs = await core.stormlist('$lib.print($lib.model.tagprop(score))')
-            self.stormIsInPrint("model:tagprop: {'name': 'score'", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.tagprop(_score))')
+            self.stormIsInPrint("model:tagprop: {'name': '_score'", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.model.tagprop(score))')
-            self.stormIsInPrint("'name': 'score'", mesgs)
+            mesgs = await core.stormlist('$lib.pprint($lib.model.tagprop(_score))')
+            self.stormIsInPrint("'name': '_score'", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.type(int))')
             self.stormIsInPrint("model:type: ('int', ('base'", mesgs)
 
-            mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.pprint($item.type)")
+            mesgs = await core.stormlist("$item=$lib.model.tagprop('_score') $lib.pprint($item.type)")
             self.stormIsInPrint("('int',\n ('base',", mesgs)
 
-            mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.print($item.type)")
+            mesgs = await core.stormlist("$item=$lib.model.tagprop('_score') $lib.print($item.type)")
             self.stormIsInPrint("model:type: ('int', ('base'", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.edge(risk:attack, used, risk:vuln))')
-            self.stormIsInPrint("model:edge: (('entity:action', 'used', 'meta:observable'), {'doc':", mesgs)
+            self.stormIsInPrint("model:edge: (('entity:action', 'used', 'meta:usable'), {'doc':", mesgs)
 
             self.false(await core.callStorm('return($lib.model.type(int).mutable)'))
             self.false(await core.callStorm('return($lib.model.type(str).mutable)'))
@@ -142,7 +142,7 @@ class StormlibModelTest(s_test.SynTest):
 
                 with self.getLoggerStream('synapse.lib.view') as stream:
                     data = (
-                        (('test:deprform', 'depr'), {'props': {'deprprop2': '5678'}}),
+                        (('test:deprform', 'depr'), {'props': {'deprprop2': ('test:str', '5678')}}),
                     )
                     await core.addFeedData(data)
                     await stream.expect('Prop test:deprform:deprprop2 is locked due to deprecation', timeout=1)
@@ -227,7 +227,7 @@ class StormlibModelTest(s_test.SynTest):
             nodes = await core.nodes('''
                 test:str=src $n=$node -> {
                     test:str=dst
-                    $lib.model.migration.copyData($n, $node, overwrite=$lib.true)
+                    $lib.model.migration.copyData($n, $node, overwrite=(true))
                 }
             ''')
             self.len(1, nodes)
@@ -264,14 +264,14 @@ class StormlibModelTest(s_test.SynTest):
             await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyTags($node, newp)'))
             await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyTags(newp, $node)'))
 
-            await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
+            await core.nodes('$lib.model.ext.addTagProp(_test, (str, ({})), ({}))')
 
             nodes = await core.nodes('''
                 test:str=src
-                [ +#foo=(2010, 2012) +#foo.bar +#baz:test=src ]
+                [ +#foo=(2010, 2012) +#foo.bar +#baz:_test=src ]
                 $n=$node -> {
                     test:str=dst
-                    [ +#foo=(2010, 2011) +#baz:test=dst ]
+                    [ +#foo=(2010, 2011) +#baz:_test=dst ]
                     $lib.model.migration.copyTags($n, $node)
                 }
             ''')
@@ -283,16 +283,16 @@ class StormlibModelTest(s_test.SynTest):
             ], nodes[0].getTags())
             self.eq([], nodes[0].getTagProps('foo'))
             self.eq([], nodes[0].getTagProps('foo.bar'))
-            self.eq([('test', 'dst')], [(k, nodes[0].getTagProp('baz', k)) for k in nodes[0].getTagProps('baz')])
+            self.eq([('_test', 'dst')], [(k, nodes[0].getTagProp('baz', k)) for k in nodes[0].getTagProps('baz')])
 
             nodes = await core.nodes('''
                 test:str=src $n=$node -> {
                     test:str=dst
-                    $lib.model.migration.copyTags($n, $node, overwrite=$lib.true)
+                    $lib.model.migration.copyTags($n, $node, overwrite=(true))
                 }
             ''')
             self.len(1, nodes)
-            self.eq([('test', 'src')], [(k, nodes[0].getTagProp('baz', k)) for k in nodes[0].getTagProps('baz')])
+            self.eq([('_test', 'src')], [(k, nodes[0].getTagProp('baz', k)) for k in nodes[0].getTagProps('baz')])
 
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyTags($n, $node) }'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))

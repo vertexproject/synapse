@@ -1,4 +1,3 @@
-import os
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -21,7 +20,7 @@ class TrigTest(s_t_utils.SynTest):
                 msgs = await core.stormlist('trigger.list')
                 self.stormIsInPrint('Y    Y       node:add   inet:ip', msgs)
 
-                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=(true)))'))
                 nodes = await core.nodes('inet:ip=1.2.3.4')
                 self.nn(nodes[0].get('#foo'))
 
@@ -29,7 +28,7 @@ class TrigTest(s_t_utils.SynTest):
                 await core.stormlist('$lib.view.get().triggers.0.async = (false)')
                 nodes = await core.nodes('[ inet:ip=5.5.5.5 ]')
                 self.nn(nodes[0].get('#foo'))
-                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=(true)))'))
 
                 # reset the trigger to async...
                 await core.stormlist('$lib.view.get().triggers.0.async = (true)')
@@ -68,7 +67,7 @@ class TrigTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=(true)))'))
                 nodes = await core.nodes('inet:ip=9.9.9.9')
                 self.nn(nodes[0].get('#foo'))
                 self.none(core.view.trigqueue.last())
@@ -86,10 +85,11 @@ class TrigTest(s_t_utils.SynTest):
                 with self.raises(s_exc.CantMergeView):
                     await core.nodes('$lib.view.get().merge()', opts=opts)
 
-                await core.nodes('$lib.view.get().merge(force=$lib.true)', opts=opts)
-                await core.nodes('$lib.view.del($view)', opts={'vars': {'view': viewiden}})
+                await core.nodes('$lib.view.get().merge(force=(true))', opts=opts)
+                self.true(await view.waitfini(timeout=5))
 
-                self.false(os.path.isdir(view.dirn))
+                # merge ends with delView + delLayer removing the fork
+                self.none(core.getView(viewiden))
 
     async def test_trigger_async_mirror(self):
 
@@ -113,11 +113,11 @@ class TrigTest(s_t_utils.SynTest):
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
                     # ensure sync by forcing node construction
                     await core01.nodes('[ou:org=*]')
-                    self.nn(await core00.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                    self.nn(await core00.callStorm('return($lib.queue.gen(foo).pop(wait=(true)))'))
                     self.none(await core00.callStorm('return($lib.queue.gen(foo).pop())'))
 
                     await core01.nodes('[inet:ip=8.8.8.8]')
-                    self.nn(await core01.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                    self.nn(await core01.callStorm('return($lib.queue.gen(foo).pop(wait=(true)))'))
                     self.none(await core00.callStorm('return($lib.queue.gen(foo).pop())'))
                     self.none(await core01.callStorm('return($lib.queue.gen(foo).pop())'))
 
@@ -361,11 +361,11 @@ class TrigTest(s_t_utils.SynTest):
                     await fred.callStorm(q, opts=opts)
 
                 # Delete trigger auth failure
-                await self.asyncraises(s_exc.StormRuntimeError, fred.callStorm(f'$lib.trigger.del({iden})'))
+                await self.asyncraises(s_exc.BadArg, fred.callStorm(f'$lib.trigger.del({iden})'))
 
                 # Mod trigger auth failure
                 opts = {'vars': {'iden': iden}}
-                await self.asyncraises(s_exc.StormRuntimeError,
+                await self.asyncraises(s_exc.BadArg,
                                        fred.callStorm('$lib.trigger.mod($iden, "{#foo}")', opts=opts))
 
             # additional NoSuchIden failures
@@ -585,7 +585,7 @@ class TrigTest(s_t_utils.SynTest):
                     'cond':'edge:add',
                     'form':'test:int',
                     'storm':'[+#asdfasdf]',
-                    'verb':$lib.null
+                    'verb':null
                 })
                 $lib.trigger.add($tdef)
             '''))

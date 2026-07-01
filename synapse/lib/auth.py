@@ -500,12 +500,8 @@ class Auth(s_nexus.Pusher):
     async def _setUserInfo(self, iden, name, valu, gateiden=None, logged=True, mesg=None):
         user = await self.reqUser(iden)
 
-        if self.nexsroot and self.nexsroot.cell.nexsvers >= (2, 198):
-            # If the nexus version is less than 2.197 then the leader hasn't been upgraded yet and
-            # we don't want to get into a schism because we're bouncing edits and the leader is
-            # applying them.
-            if name == 'locked' and not valu and user.isArchived():
-                return
+        if name == 'locked' and not valu and user.isArchived():
+            return
 
         if name in ('locked', 'archived') and not valu:
             self.checkUserLimit()
@@ -533,6 +529,7 @@ class Auth(s_nexus.Pusher):
                 info = user.genGateInfo(gateiden)
                 info[name] = s_msgpack.deepcopy(valu)
                 gate.users.set(iden, info)
+                gate.gateusers[iden] = info
                 user.info['authgates'][gateiden] = info
 
             self.userdefs.set(iden, user.info)
@@ -594,6 +591,7 @@ class Auth(s_nexus.Pusher):
                 info = role.genGateInfo(gateiden)
                 info[name] = s_msgpack.deepcopy(valu)
                 gate.roles.set(iden, info)
+                gate.gateroles[iden] = info
                 role.info['authgates'][gateiden] = info
 
             self.roledefs.set(iden, role.info)

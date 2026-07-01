@@ -16,7 +16,7 @@ class BizModelTest(s_t_utils.SynTest):
                     :desc = ZipZop
                     :status = foo.bar
                     :url = "https://vertex.link"
-                    :file = *
+                    :file = * as file:bytes
                     :published = 20210731
                     :due:questions = 20210802
                     :due:proposal = 20210820
@@ -27,7 +27,7 @@ class BizModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'id', 'WOO123')
             self.propeq(nodes[0], 'title', 'HeHeHaHa')
             self.propeq(nodes[0], 'desc', 'ZipZop')
-            self.propeq(nodes[0], 'status', 'foo.bar.')
+            self.propeq(nodes[0], 'status', 'foo.bar')
             self.propeq(nodes[0], 'url', 'https://vertex.link')
             self.propeq(nodes[0], 'published', 1627689600000000)
             self.propeq(nodes[0], 'due:questions', 1627862400000000)
@@ -36,11 +36,8 @@ class BizModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('creator'))
 
-            self.len(2, await core.nodes('biz:deal:status:taxonomy'))
-
             self.len(1, await core.nodes('biz:rfp -> file:bytes'))
             self.len(1, await core.nodes('biz:rfp -> entity:contact'))
-            self.len(1, await core.nodes('biz:rfp -> biz:deal:status:taxonomy'))
 
             nodes = await core.nodes('''
                 [ biz:deal=*
@@ -59,9 +56,9 @@ class BizModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'id', '12345')
-            self.propeq(nodes[0], 'name', 'hehehaha')
+            self.propeq(nodes[0], 'name', 'HeHeHaHa')
             self.propeq(nodes[0], 'type', 'baz.faz.')
-            self.propeq(nodes[0], 'status', 'foo.bar.')
+            self.propeq(nodes[0], 'status', 'foo.bar')
             self.propeq(nodes[0], 'updated', 1627689600000000)
             self.propeq(nodes[0], 'contacted', 1627430400000000)
 
@@ -75,7 +72,6 @@ class BizModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('biz:deal :buyer -> entity:contact +:name=buyer'))
             self.len(1, await core.nodes('biz:deal :seller -> entity:contact +:name=seller'))
             self.len(1, await core.nodes('biz:deal :type -> biz:deal:type:taxonomy'))
-            self.len(1, await core.nodes('biz:deal :status -> biz:deal:status:taxonomy'))
 
             nodes = await core.nodes('''
                 [ biz:product=*
@@ -87,7 +83,7 @@ class BizModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
 
-            self.propeq(nodes[0], 'name', 'wootwoot')
+            self.propeq(nodes[0], 'name', 'WootWoot')
             self.propeq(nodes[0], 'type', 'woot.woot.')
             self.propeq(nodes[0], 'desc', 'WootWithWootSauce')
             self.propeq(nodes[0], 'price', '29.99')

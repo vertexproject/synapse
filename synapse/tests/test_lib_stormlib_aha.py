@@ -173,8 +173,8 @@ Member:     00.cell.synapse'''
 Name:       00.newp.synapse
 Online:     true
 Ready:      null
-Run iden:   $lib.null
-Cell iden:  $lib.null
+Run iden:   null
+Cell iden:  null
 Leader:     Service did not register itself with a leader name.
 Nexus:      Failed to connect to Telepath service: "aha://00.newp.synapse/" error: [Errno 111] Connect call failed ('0.0.0.0', 3030)
 Connection information:
@@ -356,13 +356,13 @@ Connection information:
                 async def mockCellInfo():
                     return {
                         'cell': {'ready': True, 'nexsindx': 10, 'active': True},
-                        'synapse': {'verstring': '2.190.0'},
+                        'synapse': {'version': '2.190.0'},
                     }
 
                 async def mockOutOfSyncCellInfo():
                     return {
                         'cell': {'ready': True, 'nexsindx': 5, 'active': False},
-                        'synapse': {'verstring': '2.190.0'},
+                        'synapse': {'version': '2.190.0'},
                     }
 
                 with mock.patch.object(cell00, 'getCellInfo', mockCellInfo):

@@ -256,13 +256,13 @@ class AhaToolsTest(s_t_utils.SynTest):
             async def mockCellInfo():
                 return {
                     'cell': {'ready': True, 'nexsindx': 10, 'active': True},
-                    'synapse': {'verstring': s_version.verstring},
+                    'synapse': {'version': s_version.version},
                 }
 
             async def mockOutOfSyncCellInfo():
                 return {
                     'cell': {'ready': True, 'nexsindx': 5, 'active': False},
-                    'synapse': {'verstring': s_version.verstring},
+                    'synapse': {'version': s_version.version},
                 }
 
             with mock.patch.object(cell00, 'getCellInfo', mockCellInfo):

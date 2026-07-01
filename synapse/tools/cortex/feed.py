@@ -18,7 +18,7 @@ import synapse.tools.storm._cli as s_t_storm
 
 logger = logging.getLogger(__name__)
 
-reqver = '>=3.0.0,<4.0.0'
+reqver = '>=3.0.0b1,<4.0.0'
 
 def getItems(*paths):
     items = []
@@ -128,10 +128,10 @@ async def main(argv, outp=s_output.stdout):
                 try:
                     s_version.reqVersion(core._getSynVers(), reqver)
                 except s_exc.BadVersion as e:
-                    valu = s_version.fmtVersion(*e.get('valu'))
+                    valu = e.get('valu')
                     outp.printf(f'Cortex version {valu} is outside of synapse.tools.cortex.feed supported range ({reqver}).')
                     outp.printf(f'Please use a version of Synapse which supports {valu}; '
-                          f'current version is {s_version.verstring}.')
+                          f'current version is {s_version.version}.')
                     return 1
                 await addFeedData(core, outp, opts.debug,
                                   chunksize=opts.chunksize,

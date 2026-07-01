@@ -113,14 +113,21 @@ class StatsCountByCmd(s_storm.Cmd):
             if size:
                 values = values[len(values) - size:]
 
+        totalcount = sum(counts.values())
+        pctstrs = {name: f'{(count / totalcount) * 100.0:.2f}%' for (name, count) in values}
+
         namewidth = 0
         countwidth = 0
+        pctwidth = 0
         for (name, count) in values:
             if (namelen := len(str(name))) > namewidth:
                 namewidth = namelen
 
             if (countlen := len(str(count))) > countwidth:
                 countwidth = countlen
+
+            if (pctlen := len(pctstrs[name])) > pctwidth:
+                pctwidth = pctlen
 
         if labelwidth is not None:
             namewidth = min(labelwidth, namewidth)
@@ -129,7 +136,7 @@ class StatsCountByCmd(s_storm.Cmd):
 
             barsize = int((count / maxv) * barwidth)
             bar = ''.ljust(barsize, char)
-            line = f'{name[0:namewidth].rjust(namewidth)} | {count:>{countwidth}} | {bar}'
+            line = f'{name[0:namewidth].rjust(namewidth)} | {count:>{countwidth}} | {pctstrs[name]:>{pctwidth}} | {bar}'
 
             await runt.printf(line)
 

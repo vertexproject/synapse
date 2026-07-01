@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.tests.utils as s_t_utils
 
 class EntityModelTest(s_t_utils.SynTest):
@@ -20,8 +21,8 @@ class EntityModelTest(s_t_utils.SynTest):
                     :emails=(visi@gmail.com, visi@yahoo.com)
                     :phone="+15555555555"
                     :phones=("+15555555556",)
-                    :user=invisig0th
-                    :users=(visi0th, invisig0th2)
+                    :username=invisig0th
+                    :usernames=(visi0th, invisig0th2)
                     :photo={[ file:bytes=* ]}
                     :banner={[ file:bytes=* ]}
                     :id=VTX-0001
@@ -53,8 +54,8 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(node, 'emails', ('visi@gmail.com', 'visi@yahoo.com'))
             self.propeq(node, 'phone', '15555555555')
             self.propeq(node, 'phones', ('15555555556',))
-            self.propeq(node, 'user', 'invisig0th')
-            self.propeq(node, 'users', ('invisig0th2', 'visi0th'))
+            self.propeq(node, 'username', 'invisig0th')
+            self.propeq(node, 'usernames', ('invisig0th2', 'visi0th'))
             self.nn(node.get('photo'))
             self.nn(node.get('banner'))
             self.propeq(node, 'creds', ('cool',))
@@ -73,8 +74,12 @@ class EntityModelTest(s_t_utils.SynTest):
             # entity:contactable :url is removed (use :websites)
             self.none(core.model.prop('entity:contact:url'))
 
-            # entity:contactable :lifespan
+            # entity:contactable :lifespan uses an entity:lifespan ( began / ended ) ival
             self.propeq(node, 'lifespan', (219628800000000, 9223372036854775807, 0xffffffffffffffff))
+            self.eq(219628800000000, node.get('lifespan.began'))
+            self.nn(node.get('lifespan.ended'))
+            with self.raises(s_exc.NoSuchVirt):
+                node.get('lifespan.min')
 
             # entity:singular interface props
             self.nn(node.get('org'))
@@ -88,7 +93,7 @@ class EntityModelTest(s_t_utils.SynTest):
             # geo:locatable interface props
             self.propeq(node, 'birth:place:country:code', 'us')
             self.propeq(node, 'death:place:country:code', 'zz')
-            self.propeq(node, 'place:address:city', 'new york city')
+            self.propeq(node, 'place:address:city', 'new York city')
 
             # pivots
             self.len(1, await core.nodes('entity:contact -> inet:service:account'))
@@ -98,6 +103,14 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('entity:contact :resolved -> ps:person'))
             self.len(1, await core.nodes('entity:contact -> entity:contact:type:taxonomy'))
 
+            # entity:contact implements the risk:targetable interface
+            self.isin('risk:targetable', core.model.form('entity:contact').ifaces)
+            self.len(1, await core.nodes('''
+                $victim = {[ entity:contact=({"name": "vertex"}) ]}
+                [ entity:contact=({"name": "apt1"}) ] { [ +(targeted)> $victim ] }
+            '''))
+            self.len(1, await core.nodes('entity:contact:name=vertex <(targeted)- entity:contact:name=apt1'))
+
             nodes = await core.nodes('''
                 $item = {[ transport:air:craft=* ]}
                 $actor = {[ entity:contact=({"name": "visi"}) ]}
@@ -105,15 +118,45 @@ class EntityModelTest(s_t_utils.SynTest):
                 [ entity:had=({"actor": $actor, "item": $item})
                     :type=owner
                     :period=(2016, ?)
+                    :actor:name=visi
+                ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'type', 'owner.')
+            self.propeq(nodes[0], 'period', (1451606400000000, 9223372036854775807, 0xffffffffffffffff))
+            self.len(1, await core.nodes('entity:had :actor -> * +:name=visi'))
+            self.len(1, await core.nodes('entity:had :item -> transport:air:craft'))
+
+            # entity:had implements the entity:activity interface which provides
+            # the actor, actor:name, and period props.
+            self.true(core.model.form('entity:had').implements('entity:activity'))
+            self.propeq(nodes[0], 'actor:name', 'visi')
+
+            # entity:owned extends entity:had and provides the :percent prop.
+            nodes = await core.nodes('''
+                $item = {[ transport:air:craft=* ]}
+                $actor = {[ entity:contact=({"name": "visi"}) ]}
+
+                [ entity:owned=({"actor": $actor, "item": $item})
+                    :type=owner
+                    :period=(2016, ?)
                     :percent=50
+                    :actor:name=visi
                 ]
             ''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'type', 'owner.')
             self.propeq(nodes[0], 'percent', '50')
             self.propeq(nodes[0], 'period', (1451606400000000, 9223372036854775807, 0xffffffffffffffff))
-            self.len(1, await core.nodes('entity:had :actor -> * +:name=visi'))
-            self.len(1, await core.nodes('entity:had :item -> transport:air:craft'))
+            self.propeq(nodes[0], 'actor:name', 'visi')
+            self.len(1, await core.nodes('entity:owned :actor -> * +:name=visi'))
+            self.len(1, await core.nodes('entity:owned :item -> transport:air:craft'))
+
+            # entity:owned extends entity:had and inherits the entity:activity interface.
+            self.eq(core.model.form('entity:owned').type.subof, 'entity:had')
+            self.true(core.model.form('entity:owned').implements('entity:activity'))
+            self.none(core.model.form('entity:had').prop('percent'))
+            self.nn(core.model.form('entity:owned').prop('percent'))
 
             nodes = await core.nodes('''[
                 entity:goal=*
@@ -124,8 +167,8 @@ class EntityModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'entity:goal')
-            self.propeq(nodes[0], 'name', 'mygoal')
-            self.propeq(nodes[0], 'names', ('bar goal', 'foo goal'))
+            self.propeq(nodes[0], 'name', 'MyGoal')
+            self.propeq(nodes[0], 'names', ('Bar Goal', 'Foo Goal'))
             self.propeq(nodes[0], 'type', 'foo.bar.')
             self.propeq(nodes[0], 'desc', 'MyDesc')
 
@@ -139,9 +182,13 @@ class EntityModelTest(s_t_utils.SynTest):
                     :period=(201202,201203)
                     :activity={[ ou:event=* ]}
                     :role=staff
+                    :inperson=1
             ]''')
             self.len(1, nodes)
+            self.true(core.model.form('entity:attended').implements('entity:activity'))
+            self.true(core.model.form('ou:event').implements('entity:attendable'))
             self.propeq(nodes[0], 'role', 'staff')
+            self.propeq(nodes[0], 'inperson', True)
             self.propeq(nodes[0], 'period', (1328054400000000, 1330560000000000, 2505600000000))
 
             self.len(1, await core.nodes('entity:attended -> ps:person'))
@@ -165,15 +212,15 @@ class EntityModelTest(s_t_utils.SynTest):
                     :reporter:name=vertex
                     :actor={[ entity:contact=* ]}
                     :seen=2022
-                    +(had)> {[ entity:goal=* ]}
+                    +(supported)> {[ entity:goal=* ]}
                 ]
             ''')
             self.len(1, nodes)
             self.propeq(nodes[0], 'id', 'Foo')
             self.propeq(nodes[0], 'ids', ('Bar',))
             self.propeq(nodes[0], 'tag', 'cno.camp.31337')
-            self.propeq(nodes[0], 'name', 'myname')
-            self.propeq(nodes[0], 'names', ('bar', 'foo'))
+            self.propeq(nodes[0], 'name', 'MyName')
+            self.propeq(nodes[0], 'names', ('Bar', 'Foo'))
             self.propeq(nodes[0], 'type', 'mytype.')
             self.propeq(nodes[0], 'desc', 'MyDesc')
             self.propeq(nodes[0], 'success', 1)
@@ -187,7 +234,7 @@ class EntityModelTest(s_t_utils.SynTest):
 
             # FIXME this seems like it should work...
             # self.len(1, await core.nodes('entity:campaign --> entity:goal'))
-            self.len(1, await core.nodes('entity:campaign -(had)> entity:goal'))
+            self.len(1, await core.nodes('entity:campaign -(supported)> entity:goal'))
             self.len(1, await core.nodes('entity:campaign:id=Foo :slogan -> lang:phrase'))
 
             nodes = await core.nodes('''
@@ -207,8 +254,8 @@ class EntityModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('reporter'))
-            self.propeq(nodes[0], 'name', 'woot')
-            self.propeq(nodes[0], 'names', ('bar', 'foo'))
+            self.propeq(nodes[0], 'name', 'Woot')
+            self.propeq(nodes[0], 'names', ('Bar', 'Foo'))
             self.propeq(nodes[0], 'desc', 'Hehe')
             self.propeq(nodes[0], 'type', 'lol.woot.')
             self.propeq(nodes[0], 'tag', 'woot.woot')
@@ -225,8 +272,10 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'name', 'metawoot')
 
+            # entity:contributed implements entity:event
+            self.true(core.model.form('entity:contributed').implements('entity:event'))
             nodes = await core.nodes('''
-                [ entity:contribution=*
+                [ entity:contributed=*
                     :actor={[ ou:org=* :name=vertex ]}
                     :time=20220718
                     :value=10
@@ -235,8 +284,9 @@ class EntityModelTest(s_t_utils.SynTest):
             ''')
             self.propeq(nodes[0], 'time', 1658102400000000)
             self.propeq(nodes[0], 'value', '10')
-            self.len(1, await core.nodes('entity:contribution -> entity:campaign'))
-            self.len(1, await core.nodes('entity:contribution -> ou:org +:name=vertex'))
+            self.nn(nodes[0].get('actor'))
+            self.len(1, await core.nodes('entity:contributed -> entity:campaign'))
+            self.len(1, await core.nodes('entity:contributed -> ou:org +:name=vertex'))
 
             nodes = await core.nodes('''
                 [ entity:conflict=*
@@ -244,7 +294,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     :period=2049*
                 ]
             ''')
-            self.propeq(nodes[0], 'name', 'world war iii')
+            self.propeq(nodes[0], 'name', 'World War III')
             self.propeq(nodes[0], 'period', (2493072000000000, 2493072000000001, 1))
 
             nodes = await core.nodes('[ entity:campaign=* :name="good guys" :names=("pacific campaign",) ]')
@@ -253,14 +303,27 @@ class EntityModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''[
                 entity:contactlist=*
                     :name="Foo  Bar"
+                    :desc="A list of foo bar contacts."
                     :source={[ it:host=* ]}
-                    +(has)> {[ entity:contact=* entity:contact=* ]}
             ]''')
             self.len(1, nodes)
-            self.propeq(nodes[0], 'name', 'foo bar')
+            self.propeq(nodes[0], 'name', 'Foo Bar')
+            self.propeq(nodes[0], 'desc', 'A list of foo bar contacts.')
             self.eq(nodes[0].get('source')[0], 'it:host')
             self.len(1, await core.nodes('entity:contactlist :source -> it:host'))
-            self.len(2, await core.nodes('entity:contactlist -(has)> entity:contact'))
+
+            nodes = await core.nodes('''[
+                entity:contactlist:entry=*
+                    :list={ entity:contactlist:name="foo bar" }
+                    :contact={[ entity:contact=* ]}
+                    :period=(2024, 2025)
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('list'))
+            self.nn(nodes[0].get('contact'))
+            self.propeq(nodes[0], 'period', (1704067200000000, 1735689600000000, 31622400000000))
+            self.len(1, await core.nodes('entity:contactlist:entry :list -> entity:contactlist +:name="foo bar"'))
+            self.len(1, await core.nodes('entity:contactlist:entry :contact -> entity:contact'))
 
             # entity:history inherits entity:contactable
             nodes = await core.nodes('''[
@@ -272,7 +335,7 @@ class EntityModelTest(s_t_utils.SynTest):
                     :langs={[ lang:language=* :name=german ]}
                     :email=old@vertex.link
                     :phone="+15551234567"
-                    :user=olduser
+                    :username=olduser
                     :websites+=https://old.vertex.link
             ]''')
             self.len(1, nodes)
@@ -283,26 +346,15 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, nodes[0].get('langs'))
             self.propeq(nodes[0], 'email', 'old@vertex.link')
             self.propeq(nodes[0], 'phone', '15551234567')
-            self.propeq(nodes[0], 'user', 'olduser')
+            self.propeq(nodes[0], 'username', 'olduser')
             self.propeq(nodes[0], 'websites', ('https://old.vertex.link',))
             self.len(1, await core.nodes('entity:history :current -> entity:contact'))
             self.len(1, await core.nodes('entity:history :lang -> lang:language +:name=french'))
             self.len(1, await core.nodes('entity:history :langs -> lang:language +:name=german'))
             self.none(core.model.prop('entity:history:url'))
 
-            # entity:discovery
-            nodes = await core.nodes('''[
-                entity:discovery=*
-                    :actor={[ entity:contact=({"name": "discoverer"}) ]}
-                    :time=20230601
-                    :item={[ risk:vuln=({"name": "log4shell"}) ]}
-            ]''')
-            self.len(1, nodes)
-            self.nn(nodes[0].get('actor'))
-            self.propeq(nodes[0], 'time', 1685577600000000)
-            self.nn(nodes[0].get('item'))
-            self.len(1, await core.nodes('entity:discovery :actor -> entity:contact'))
-            self.len(1, await core.nodes('entity:discovery :item -> risk:vuln'))
+            # entity:discovery was removed in favor of entity:discovered
+            self.none(core.model.form('entity:discovery'))
 
     async def test_entity_title(self):
 
@@ -322,6 +374,11 @@ class EntityModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('entity:title="software developer" <(targeted)- entity:contact'))
 
+            # entity:title is a text type: case preserving but case insensitive
+            nodes = await core.nodes('[ entity:title="Chief Widget Officer" ]')
+            self.eq(nodes[0].ndef, ('entity:title', 'Chief Widget Officer'))
+            self.len(1, await core.nodes('entity:title="chief widget officer"'))
+
     async def test_entity_relationship(self):
 
         async with self.getTestCore() as core:
@@ -339,8 +396,8 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'type', 'tasks.')
             self.propeq(nodes[0], 'period', (1640995200000000, 9223372036854775807, 0xffffffffffffffff))
-            self.propeq(nodes[0], 'source', '3d2634acf2cb0831fcd0a2dc85649960', type='ou:org')
-            self.propeq(nodes[0], 'target', '882093ebe67617552b332bcdf0cff5b7', type='risk:threat')
+            self.propeq(nodes[0], 'source', 'd47841da254e1750ce5971aba031ef55', type='ou:org')
+            self.propeq(nodes[0], 'target', '2a1a72be69ad522338639723d2cb718a', type='risk:threat')
 
             self.nn(nodes[0].get('reporter'))
             self.propeq(nodes[0], 'reporter:name', 'vertex')
@@ -375,6 +432,22 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('entity:signed :actor -> entity:contact +:name=signer'))
             self.len(1, await core.nodes('entity:signed :doc -> doc:contract'))
 
+            # entity:destroyable is a marker interface and entity:destroyed records a destruction event
+            self.eq((), core.model.ifaces.get('entity:destroyable').get('props', ()))
+            self.true(core.model.form('entity:destroyed').implements('entity:event'))
+            nodes = await core.nodes('''[
+                entity:destroyed=*
+                    :actor={[ entity:contact=* :name=wrecker ]}
+                    :time=20230301
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('actor'))
+            self.len(1, await core.nodes('entity:destroyed :actor -> entity:contact +:name=wrecker'))
+
+            # forms which do not implement entity:destroyable are rejected for :item
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ entity:destroyed=* :item={[ ou:org=* ]} ]')
+
             nodes = await core.nodes('''[
                 entity:asked=*
                     :actor={[ entity:contact=* :name=buyer ]}
@@ -404,6 +477,19 @@ class EntityModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'value', '75')
             self.len(1, await core.nodes('entity:offered :actor -> entity:contact +:name=seller'))
             self.len(1, await core.nodes('entity:offered :activity -> risk:extortion'))
+
+            nodes = await core.nodes('''[
+                entity:supported=*
+                    :role=sponsor
+                    :desc="Backed the campaign."
+                    :activity={[ entity:campaign=({"name": "good guys"}) ]}
+                    :value=1000
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'role', 'sponsor')
+            self.propeq(nodes[0], 'desc', 'Backed the campaign.')
+            self.propeq(nodes[0], 'value', '1000')
+            self.len(1, await core.nodes('entity:supported :activity -> entity:campaign'))
 
     async def test_entity_believed(self):
 

@@ -9,6 +9,7 @@ import synapse.common as s_common
 from unittest.mock import patch
 
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -236,6 +237,32 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(exp[1:], await s_t_utils.alist(slab.multiScanKeysByDups(pref, multilen, b'abar', db=dupsdb, nodup=True)))
 
                 self.eq((), await s_t_utils.alist(slab.multiScanKeysByDups(pref, multilen, b'afuz', db=dupsdb)))
+
+                # multifilt restricts a scan to the selected multikey sections.
+                # the filtered result must equal the unfiltered result restricted
+                # to those multikeys, and an empty filter must yield nothing.
+                s0 = s_common.int64en(0)
+                s2 = s_common.int64en(2)
+                sff = b'\xff' * 8
+
+                def bymk(items, mks):
+                    return tuple(it for it in items if (it[0] if isinstance(it, tuple) else it)[len(pref):len(pref) + multilen] in mks)
+
+                async def checkfilt(scan, *args, **kwargs):
+                    full = await s_t_utils.alist(scan(*args, **kwargs))
+                    for mks in ({s0}, {s2}, {s0, sff}, {s0, s2, sff}):
+                        self.eq(bymk(full, mks), await s_t_utils.alist(scan(*args, multifilt=mks, **kwargs)))
+                    self.eq((), await s_t_utils.alist(scan(*args, multifilt=set(), **kwargs)))
+
+                await checkfilt(slab.multiScanByPref, pref, multilen, b'a', db=testdb)
+                await checkfilt(slab.multiScanByPrefBack, pref, multilen, b'a', db=testdb)
+                await checkfilt(slab.multiScanByRange, pref, multilen, b'abar', db=testdb)
+                await checkfilt(slab.multiScanByRangeBack, pref, multilen, b'bfoo', db=testdb)
+                await checkfilt(slab.multiScanByDups, pref, multilen, b'abar', db=dupsdb)
+                await checkfilt(slab.multiScanByDupsBack, pref, multilen, b'abar', db=dupsdb)
+                await checkfilt(slab.multiScanKeysByPref, pref, multilen, b'a', db=dupsdb)
+                await checkfilt(slab.multiScanKeysByRange, pref, multilen, b'abar', lmax=b'afoo', db=dupsdb)
+                await checkfilt(slab.multiScanKeysByDups, pref, multilen, b'abar', db=dupsdb)
 
     async def test_lmdbslab_base(self):
 
@@ -823,6 +850,70 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.delete(b'1', val=b'2', db=dupndb)
                 self.eq((b'1', b'1'), next(it))
                 self.raises(StopIteration, next, it)
+
+    async def test_lmdbslab_scan_delete_noreyield(self):
+
+        # Deleting unrelated entries from a db while a scan iterates it must not
+        # disrupt the live cursor and re-emit rows. The slab bumps
+        # active scans on delete/pop so they resume cleanly on the next step.
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                dupsdb = slab.initdb('dups', dupsort=True)
+
+                async def scan_deleting(genr, decode, *unrelated):
+                    # add unrelated rows (sorting before/after the scanned range)
+                    # and delete one per yielded row to perturb the live cursor
+                    for lkey, lval in unrelated:
+                        await slab.put(lkey, lval, dupdata=True, db=dupsdb)
+
+                    todel = list(unrelated)
+                    seen = []
+                    async for lkey, lval in genr:
+                        seen.append(decode(lkey, lval))
+                        if todel:
+                            dkey, dval = todel.pop()
+                            slab.delete(dkey, dval, db=dupsdb)
+
+                    return seen
+
+                # scanByDups: four dups under one key
+                key = b'\x10key'
+                for i in range(4):
+                    await slab.put(key, s_common.int64en(i), dupdata=True, db=dupsdb)
+
+                seen = await scan_deleting(
+                    s_coro.agen(slab.scanByDups(key, db=dupsdb)),
+                    lambda lkey, lval: s_common.int64un(lval),
+                    (b'\x00aaa', s_common.int64en(0)), (b'\xffzzz', s_common.int64en(0)))
+                self.eq([0, 1, 2, 3], seen)
+
+                # scanByPref: four keys sharing a prefix
+                pref = b'\x20pref'
+                for i in range(4):
+                    await slab.put(pref + s_common.int64en(i), b'v', db=dupsdb)
+
+                seen = await scan_deleting(
+                    s_coro.agen(slab.scanByPref(pref, db=dupsdb)),
+                    lambda lkey, lval: s_common.int64un(lkey[len(pref):]),
+                    (b'\x00bbb', s_common.int64en(0)), (b'\xffyyy', s_common.int64en(0)))
+                self.eq([0, 1, 2, 3], seen)
+
+                # multiScanByDups: the poly-index lift path that exposed the bug
+                mpref = b'\x30mpref'
+                mval = b'val'
+                full = mpref + s_common.int64en(0) + mval
+                for i in range(4):
+                    await slab.put(full, s_common.int64en(i), dupdata=True, db=dupsdb)
+
+                seen = await scan_deleting(
+                    slab.multiScanByDups(mpref, 8, mval, db=dupsdb),
+                    lambda lkey, lval: s_common.int64un(lval),
+                    (b'\x00ccc', s_common.int64en(0)), (b'\xffxxx', s_common.int64en(0)))
+                self.eq([0, 1, 2, 3], seen)
 
     async def test_lmdbslab_scanback(self):
 
@@ -1931,6 +2022,35 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 await slab.put(b'tt.c', b'v1', db=dupsdb)
                 vals = await alist(slab.scanKeysByHierPref(b'tt.', depth=0, db=dupsdb, nodup=True))
                 self.eq(vals, [b'tt.a', b'tt.c'])
+
+                # A slab commit during the inner await would bump the scan and close scan.curs,
+                # ensure the next scan.set_range refreshes the cursor before calling set_range.
+                orig = asyncio.sleep
+
+                async def bumping_sleep(delay):
+                    for sc in list(slab.scans):
+                        sc.bump()
+                    await orig(delay)
+
+                with patch('synapse.lib.lmdbslab.asyncio.sleep', new=bumping_sleep):
+                    vals = await alist(slab.scanKeysByHierPref(b'pp.', depth=0, db=testdb))
+
+                self.eq(vals, [b'pp.e'])
+
+                # If the slab is fini'd while the inner seek loop is sleeping,
+                # the bumped scan must raise IsFini rather than touching the
+                # closed transaction.
+                async def bumping_fini_sleep(delay):
+                    for sc in list(slab.scans):
+                        sc.bump()
+                    slab.isfini = True
+                    await orig(delay)
+
+                with patch('synapse.lib.lmdbslab.asyncio.sleep', new=bumping_fini_sleep):
+                    with self.raises(s_exc.IsFini):
+                        await alist(slab.scanKeysByHierPref(b'pp.', depth=0, db=testdb))
+
+                slab.isfini = False
 
     async def test_math(self):
         self.eq(16, s_lmdbslab._florpo2(16))

@@ -559,9 +559,8 @@ class ItVersion(s_types.Str):
         try:
             semv, semvinfo = await self.semver.norm(norm)
             subs = info.setdefault('subs', {})
-            virts = info.setdefault('virts', {})
             subs['semver'] = (self.semver.typehash, semv, semvinfo)
-            virts['semver'] = (semv, self.semver.stortype)
+            self.setVirtInfo(info, 'semver', semv, self.semver, semvinfo)
         except s_exc.BadTypeValu:
             # It's ok for a version to not be semver compatible.
             pass
@@ -621,42 +620,171 @@ modeldefs = (
                 'doc': 'A version string.'}),
 
             ('it:sec:cpe', (None, {'ctor': 'synapse.models.infotech.Cpe23Str'}), {
+                'props': (
+                    ('v2_2', ('it:sec:cpe:v2_2', {}), {
+                        'doc': 'The CPE 2.2 string which is equivalent to the primary property.'}),
+
+                    ('part', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The "part" field from the CPE 2.3 string.'}),
+
+                    ('vendor', ('entity:name', {}), {
+                        'computed': True,
+                        'doc': 'The "vendor" field from the CPE 2.3 string.'}),
+
+                    ('product', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The "product" field from the CPE 2.3 string.'}),
+
+                    ('version', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The "version" field from the CPE 2.3 string.'}),
+
+                    ('update', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The "update" field from the CPE 2.3 string.'}),
+
+                    ('edition', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The "edition" field from the CPE 2.3 string.'}),
+
+                    ('language', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The "language" field from the CPE 2.3 string.'}),
+
+                    ('sw_edition', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The "sw_edition" field from the CPE 2.3 string.'}),
+
+                    ('target_sw', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The "target_sw" field from the CPE 2.3 string.'}),
+
+                    ('target_hw', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The "target_hw" field from the CPE 2.3 string.'}),
+
+                    ('other', ('str:lower', {}), {
+                        'computed': True,
+                        'doc': 'The "other" field from the CPE 2.3 string.'}),
+                ),
                 'doc': 'A NIST CPE 2.3 Formatted String.'}),
 
             ('it:sec:cpe:v2_2', (None, {'ctor': 'synapse.models.infotech.Cpe22Str'}), {
                 'doc': 'A NIST CPE 2.2 Formatted String.'}),
 
-            ('it:dns:resolver', ('inet:server', {'defport': 53, 'defproto': 'udp'}), {
-                'props': (),
-                'doc': 'A server configured to resolve DNS requests.'}),
-
-            ('it:hostname', ('str', {'lower': True}), {
+            ('it:hostname', ('base:name', {}), {
+                'template': {'title': 'hostname'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'hostname'}}),
+                    ('meta:observable', {}),
                 ),
+                'props': (),
                 'doc': 'The name of a host or system.'}),
 
             ('it:host', ('guid', {}), {
                 'template': {'title': 'host'},
                 'interfaces': (
-                    ('phys:object', {}),
-                    ('entity:creatable', {}),
-                    ('biz:manufactured', {}),
-                    ('risk:exploitable', {}),
-                    ('inet:service:object', {}),
+                    ('it:component', {}),
+                ),
+                'props': (
+                    ('name', ('it:hostname', {}), {
+                        'doc': 'The name of the host or system.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A free-form description of the host.'}),
+
+                    ('ip', ('inet:ip', {}), {
+                        'doc': 'The last known IP address for the host.',
+                        'prevnames': ('ipv4',)}),
+
+                    ('os', ('it:software', {}), {
+                        'doc': 'The operating system of the host.'}),
+
+                    ('os:name', ('it:softwarename', {}), {
+                        'doc': 'A software product name for the host operating system. Used for entity resolution.'}),
+
+                    ('operator', ('entity:contact', {}), {
+                        'doc': 'The operator of the host.'}),
+
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org that operates the given host.'}),
+
+                    ('id', ('base:id', {}), {
+                        'doc': 'An external identifier for the host.'}),
+
+                    ('keyboard:layout', ('base:name', {}), {
+                        'doc': 'The primary keyboard layout configured on the host.'}),
+
+                    ('keyboard:language', ('lang:language', {}), {
+                        'doc': 'The primary keyboard input language configured on the host.'}),
+
+                    ('image', ('it:software:image', {}), {
+                        'doc': 'The container image or OS image running on the host.'}),
                 ),
                 'doc': 'A GUID that represents a host or system.'}),
+
+            ('it:physical:host', ('it:host', {}), {
+                'template': {'title': 'host'},
+                'interfaces': (
+                    ('phys:object', {}),
+                    ('biz:manufactured', {}),
+                ),
+                'props': (),
+                'doc': 'A host which consists of dedicated physical hardware.'}),
+
+            ('it:virtual:host', ('it:host', {}), {
+                'template': {'title': 'virtual host'},
+                'props': (
+                    ('parent', ('it:host', {}), {
+                        'doc': 'The host which runs the virtual host.'}),
+                ),
+                'doc': 'A host which runs as a virtualized instance.'}),
+
+            ('it:cloud:host', ('it:virtual:host', {}), {
+                'template': {'title': 'cloud host'},
+                'interfaces': (
+                    ('inet:service:object', {}),
+                ),
+                'props': (),
+                'doc': 'A virtual host instance which runs within a cloud service platform.'}),
 
             ('it:log:event:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of log event types.'}),
 
             ('it:log:event', ('guid', {}), {
                 'template': {'title': 'log event'},
                 'interfaces': (
                     ('it:host:event', {}),
+                ),
+                'props': (
+                    ('mesg', ('text', {}), {
+                        'doc': 'The log message text.'}),
+
+                    ('type', ('it:log:event:type:taxonomy', {}), {
+                        'ex': 'windows.eventlog.securitylog',
+                        'doc': 'The type of log event.'}),
+
+                    ('severity', ('it:log:severity', {}), {
+                        'doc': 'A log level integer that increases with severity.'}),
+
+                    ('data', ('data', {}), {
+                        'doc': 'A raw JSON record of the log event.'}),
+
+                    ('id', ('base:id', {}), {
+                        'doc': 'An external id that uniquely identifies this log entry.'}),
+
+                    ('product', ('it:software', {}), {
+                        'doc': 'The software which produced the log entry.'}),
+
+                    ('service:platform', ('inet:service:platform', {}), {
+                        'doc': 'The service platform which generated the log event.'}),
+
+                    ('service:account', ('inet:service:account', {}), {
+                        'doc': 'The service account which generated the log event.'}),
                 ),
                 'doc': 'A GUID representing an individual log event.'}),
 
@@ -667,35 +795,134 @@ modeldefs = (
                 'interfaces': (
                     ('meta:havable', {}),
                 ),
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the network.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A brief description of the network.'}),
+
+                    ('type', ('it:network:type:taxonomy', {}), {
+                        'doc': 'The type of network.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period when the network existed.'}),
+
+                    ('net', ('inet:net', {}), {
+                        'doc': 'The optional contiguous IP address range of this network.',
+                        'prevnames': ('net4', 'net6')}),
+
+                    # TODO should this be in a DHCP config node?
+                    ('dns:resolvers', ('array', {'type': 'inet:server', 'sorted': False, 'uniq': False}), {
+                        'doc': 'An array of DNS servers configured to resolve requests for hosts on the network.'})
+                ),
                 'doc': 'A GUID that represents a logical network.'}),
 
             ('it:network:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of network types.'}),
 
             ('it:host:account', ('guid', {}), {
                 'prevnames': ('it:account',),
+                'props': (
+                    ('id', ('base:id', {}), {
+                        'doc': 'The unique OS specific identifier for the account.'}),
+
+                    ('username', ('entity:name', {}), {
+                        'doc': 'The username associated with the account.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period where the account existed.'}),
+
+                    ('profile', ('entity:contact', {}), {
+                        'doc': 'Current contact information for the account.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host where the account is registered.'}),
+
+                    ('service:account', ('inet:service:account', {}), {
+                        'doc': 'The optional service account which the local account maps to.'}),
+
+                    ('home', ('file:path', {}), {
+                        'doc': "The path to the account's home directory."}),
+                ),
                 'doc': 'A local account on a host.'}),
 
             ('it:host:posix:account', ('it:host:account', {}), {
+                'props': (
+                    ('id', ('it:os:posix:id', {}), {
+                        'ex': '1001',
+                        'doc': 'The POSIX user ID of the account.'}),
+
+                    ('gid', ('it:os:posix:id', {}), {
+                        'ex': '1001',
+                        'doc': 'The primary group ID of the account.'}),
+
+                    ('gecos', ('title', {}), {
+                        'doc': 'The GECOS field for the account.'}),
+
+                    ('shell', ('file:path', {}), {
+                        'ex': '/bin/bash',
+                        'doc': "The path to the account's default shell."}),
+                ),
                 'doc': 'A POSIX account on a host.'}),
 
             ('it:host:windows:account', ('it:host:account', {}), {
+                'props': (
+                    ('id', ('it:os:windows:sid', {}), {
+                        'doc': 'The Microsoft Windows Security Identifier of the account.'}),
+                ),
                 'doc': 'A Windows account on a host.'}),
 
             ('it:host:group', ('guid', {}), {
                 'prevnames': ('it:group',),
+                'props': (
+                    ('id', ('base:id', {}), {
+                        'doc': 'The unique OS specific identifier for the group.'}),
+
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the group.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A brief description of the group.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host where the group was created.'}),
+
+                    ('service:role', ('inet:service:role', {}), {
+                        'doc': 'The optional service role which the local group maps to.'}),
+                ),
                 'doc': 'A local group on a host.'}),
 
             ('it:host:posix:group', ('it:host:group', {}), {
+                'props': (
+                    ('id', ('it:os:posix:id', {}), {
+                        'ex': '1001',
+                        'doc': 'The POSIX ID of the group.'}),
+                ),
                 'doc': 'A POSIX group on a host.'}),
 
             ('it:host:windows:group', ('it:host:group', {}), {
+                'props': (
+                    ('id', ('it:os:windows:sid', {}), {
+                        'doc': 'The Microsoft Windows Security Identifier of the group.'}),
+                ),
                 'doc': 'A Windows group on a host.'}),
 
             ('it:host:group:membership', ('guid', {}), {
+                'props': (
+                    ('member', (('it:host:account', {}), ('it:host:group', {})), {
+                        'doc': 'The account or group that was a member of the group.'}),
+
+                    ('group', ('it:host:group', {}), {
+                        'doc': 'The group which had the member.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period where the membership was active.'}),
+                ),
                 'doc': 'A host account or group being a member of a host group during a period.'}),
 
             ('it:host:login', ('guid', {}), {
@@ -723,29 +950,110 @@ modeldefs = (
                 'doc': 'An authenticated session on a host.'}),
 
             ('it:host:hosted:url', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
+                'template': {'title': 'host at this URL'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'host at this URL'}}),
+                    ('meta:observable', {}),
+                ),
+                'props': (
+                    ('host', ('it:host', {}), {
+                        'computed': True,
+                        'doc': 'Host serving a url.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'computed': True,
+                        'doc': 'URL available on the host.'}),
                 ),
                 'doc': 'A URL hosted on or served by a specific host.'}),
-
-            ('it:host:installed', ('guid', {}), {
-                'doc': 'Software installed on a specific host.'}),
 
             ('it:exec:screenshot', ('guid', {}), {
                 'template': {'title': 'screenshot event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'props': (
+                    ('image', ('file:bytes', {}), {
+                        'doc': 'The image file.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A brief description of the screenshot.'})
+                ),
                 'doc': 'A screenshot of a host.'}),
+
+            ('it:host:telem', ('guid', {}), {
+                'template': {'title': 'telemetry sample'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                    ('geo:locatable', {}),
+                ),
+                'props': (
+
+                    ('request', ('inet:proto:request', {}), {
+                        'doc': 'The request that the telemetry was extracted from.'}),
+
+                    # interface data
+                    ('nic', ('it:nic', {}), {
+                        'doc': 'The NIC associated with the telemetry sample.'}),
+
+                    ('nic:link', ('inet:data:link', {}), {
+                        'doc': 'The data link associated with the telemetry sample.'}),
+
+                    ('nic:mac', ('inet:mac', {}), {
+                        'doc': 'The MAC address of the device associated with the telemetry sample.'}),
+
+                    ('nic:ip', ('inet:ip', {}), {
+                        'doc': 'The IP address of the device associated with the telemetry sample.'}),
+
+                    # User related data
+                    ('contact', ('entity:contact', {}), {
+                        'doc': 'The contact information associated with the telemetry sample.'}),
+
+                    ('contact:name', ('entity:name', {}), {
+                        'doc': 'The user name associated with the telemetry sample.'}),
+
+                    ('contact:email', ('inet:email', {}), {
+                        'doc': 'The email address associated with the telemetry sample.'}),
+
+                    ('contact:phone', ('tel:phone', {}), {
+                        'doc': 'The phone number of the device associated with the telemetry sample.'}),
+
+                    ('contact:identifiers', ('array', {'type': 'entity:identifier'}), {
+                        'doc': 'Identifiers associated with the telemetry sample.'}),
+
+                    ('account', (
+                            ('inet:service:account', {}),
+                            ('it:host:account', {}),
+                        ), {
+                        'doc': 'The service or host account associated with the telemetry sample.'}),
+
+                    # reporting related data
+                    ('app', ('it:software', {}), {
+                        'doc': 'The app used to report the telemetry sample.'}),
+                ),
+                'doc': 'A telemetry measurement taken from a host.'}),
 
            ('it:sec:cve', ('base:id', {'upper': True, 'replace': s_chop.unicode_dashes_replace,
                                    'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
                'ex': 'CVE-2012-0158',
+               'props': (),
                'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.'}),
 
 
-            ('it:sec:cwe', ('str', {'regex': r'^CWE-[0-9]{1,8}$'}), {
+            ('it:sec:cwe', ('base:id', {'regex': r'^CWE-[0-9]{1,8}$'}), {
                 'ex': 'CWE-120',
+                'props': (
+                    ('name', ('title', {}), {
+                        'doc': 'The CWE name.',
+                        'ex': 'Buffer Copy without Checking Size of Input (Classic Buffer Overflow)'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'The CWE description field.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL linking this CWE to a full description.'}),
+
+                    ('parents', ('array', {'type': 'it:sec:cwe', 'split': ','}), {
+                        'doc': 'An array of ChildOf CWE Relationships.'}),
+                ),
                 'doc': 'NIST NVD Common Weaknesses Enumeration Specification.'}),
 
             ('it:sec:tlp', ('int', {'enums': tlplevels}), {
@@ -753,41 +1061,146 @@ modeldefs = (
                 'ex': 'green'}),
 
             ('it:sec:metrics', ('guid', {}), {
+                'props': (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization whose security program is being measured.'}),
+
+                    ('org:name', ('entity:name', {}), {
+                        'doc': 'The organization name. Used for entity resolution.'}),
+
+                    ('org:fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The organization FQDN. Used for entity resolution.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period used to compute the metrics.'}),
+
+                    ('alerts:meantime:triage', ('duration', {}), {
+                        'doc': 'The mean time to triage alerts generated within the time period.'}),
+
+                    ('alerts:count', ('int', {}), {
+                        'doc': 'The total number of alerts generated within the time period.'}),
+
+                    ('alerts:falsepos', ('int', {}), {
+                        'doc': 'The number of alerts generated within the time period that were determined to be false positives.'}),
+
+                    ('assets:hosts', ('int', {}), {
+                        'doc': 'The total number of hosts within scope for the information security program.'}),
+
+                    ('assets:users', ('int', {}), {
+                        'doc': 'The total number of users within scope for the information security program.'}),
+
+                    ('assets:vulns:count', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities being tracked at the end of the time period.'}),
+
+                    ('assets:vulns:preexisting', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities being tracked at the beginning of the time period.'}),
+
+                    ('assets:vulns:discovered', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities discovered during the time period.'}),
+
+                    ('assets:vulns:mitigated', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities mitigated during the time period.'}),
+
+                    ('assets:vulns:meantime:mitigate', ('duration', {}), {
+                        'doc': 'The mean time to mitigate for vulnerable assets mitigated during the time period.'}),
+                ),
                 'doc': "A node used to track metrics of an organization's infosec program."}),
 
             ('it:sec:vuln:scan', ('guid', {}), {
+                'props': (
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the scan was started.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'Description of the scan and scope.'}),
+
+                    ('id', ('base:id', {}), {
+                        'doc': 'An externally generated ID for the scan.'}),
+
+                    ('ext:url', ('inet:url', {}), {
+                        'doc': 'An external URL which documents the scan.'}),
+
+                    ('software', ('it:software', {}), {
+                        'doc': 'The scanning software used.'}),
+
+                    ('software:name', ('it:softwarename', {}), {
+                        'doc': 'The name of the scanner software.'}),
+
+                    ('operator', ('entity:contact', {}), {
+                        'doc': 'Contact information for the scan operator.'}),
+                ),
                 'doc': "An instance of running a vulnerability scan."}),
 
             ('it:sec:vuln:scan:result', ('guid', {}), {
+                'props': (
+                    ('scan', ('it:sec:vuln:scan', {}), {
+                        'doc': 'The scan that discovered the vulnerability in the asset.'}),
+
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability detected in the asset.'}),
+
+                    ('asset', ('risk:exploitable', {}), {
+                        'doc': 'The node which is vulnerable.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the vulnerability and how it was detected in the asset.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the scan result was produced.'}),
+
+                    ('id', ('base:id', {}), {
+                        'doc': 'An externally generated ID for the scan result.'}),
+
+                    ('ext:url', ('inet:url', {}), {
+                        'doc': 'An external URL which documents the scan result.'}),
+
+                    ('mitigation', ('meta:technique', {}), {
+                        'doc': 'The mitigation used to address this asset vulnerability.'}),
+
+                    ('mitigated', ('time', {}), {
+                        'doc': 'The time that the vulnerability in the asset was mitigated.'}),
+
+                    ('priority', ('meta:score', {}), {
+                        'doc': 'The priority of mitigating the vulnerability.'}),
+
+                    ('severity', ('meta:score', {}), {
+                        'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
+                ),
                 'doc': "A vulnerability scan result for an asset."}),
 
             ('it:mitre:attack:group:id', ('base:id', {'regex': r'^G[0-9]{4}$'}), {
                 'interfaces': (('entity:identifier', {}),),
+                'props': (),
                 'doc': 'A MITRE ATT&CK Group ID.',
                 'ex': 'G0100',
             }),
 
             ('it:mitre:attack:tactic:id', ('base:id', {'regex': r'^TA[0-9]{4}$'}), {
+                'props': (),
                 'doc': 'A MITRE ATT&CK Tactic ID.',
                 'ex': 'TA0040',
             }),
 
-            ('it:mitre:attack:technique:id', ('base:id', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
+            ('it:mitre:attack:technique:id', ('base:id', {'regex': r'^T[0-9]{4}(\.[0-9]{3})?$'}), {
+                'props': (),
                 'doc': 'A MITRE ATT&CK Technique ID.',
                 'ex': 'T1548',
             }),
 
             ('it:mitre:attack:mitigation:id', ('base:id', {'regex': r'^M[0-9]{4}$'}), {
+                'props': (),
                 'doc': 'A MITRE ATT&CK Mitigation ID.',
                 'ex': 'M1036',
             }),
 
             ('it:mitre:attack:software:id', ('base:id', {'regex': r'^S[0-9]{4}$'}), {
+                'props': (),
                 'doc': 'A MITRE ATT&CK Software ID.',
                 'ex': 'S0154',
             }),
 
             ('it:mitre:attack:campaign:id', ('base:id', {'regex': r'^C[0-9]{4}$'}), {
+                'props': (),
                 'doc': 'A MITRE ATT&CK Campaign ID.',
                 'ex': 'C0028',
             }),
@@ -834,52 +1247,125 @@ modeldefs = (
                 'doc': 'An instance of a function in an executable.'}),
 
             ('it:dev:str', ('str', {'strip': False}), {
+                'template': {'title': 'string'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'string'}}),
+                    ('meta:usable', {}),
+                    ('meta:observable', {}),
                 ),
+                'props': (),
                 'doc': 'A developer selected string.'}),
 
             ('it:dev:int', ('int', {}), {
+                'props': (),
                 'doc': 'A developer selected integer constant.'}),
 
             ('it:os:windows:registry:key', ('str', {}), {
+                'template': {'title': 'registry key'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'registry key'}}),
+                    ('meta:observable', {}),
                 ),
                 'prevnames': ('it:dev:regkey',),
                 'ex': 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
+                'props': (
+                    ('parent', ('it:os:windows:registry:key', {}), {
+                        'doc': 'The parent key.'}),
+                ),
                 'doc': 'A Windows registry key.'}),
 
             ('it:os:windows:registry:entry', ('guid', {}), {
+                'template': {'title': 'registry entry'},
                 'interfaces': (
-                    ('meta:observable', {'template': {'title': 'registry entry'}}),
+                    ('meta:observable', {}),
                 ),
                 'prevnames': ('it:dev:regval',),
+                'props': (
+                    ('key', ('it:os:windows:registry:key', {}), {
+                        'doc': 'The Windows registry key.'}),
+
+                    ('name', ('it:dev:str', {}), {
+                        'doc': 'The name of the registry value within the key.'}),
+
+                    ('value', (
+                            ('file:bytes', {}),
+                            ('it:dev:int', {}),
+                            ('it:dev:str', {})
+                        ), {
+                        'prevnames': ('str', 'int', 'bytes'),
+                        'doc': 'The value assigned to the name within the key.'}),
+                ),
                 'doc': 'A Windows registry key, name, and value.'}),
 
             ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of repository types.'}),
 
-            ('it:dev:repo:label', ('guid', {}), {
-                'doc': 'A developer selected label.'}),
+            ('it:lifespan', ('ival', {'names': {'min': 'created', 'max': 'removed'}}), {
+                'doc': 'An interval representing the lifespan of an object, from creation to removal.'}),
 
             ('it:dev:repo', ('guid', {}), {
                 'interfaces': (
                     ('inet:service:object', {
                         'template': {'service:base': 'repository'}}),
                 ),
+                'props': (
+                    ('name', ('title', {}), {
+                        'doc': 'The name of the repository.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A free-form description of the repository.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the repository is hosted.'}),
+
+                    ('type', ('it:dev:repo:type:taxonomy', {}), {
+                        'doc': 'The type of the version control system used.',
+                        'ex': 'svn'}),
+
+                    ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
+                        'doc': "An array of other repos that this repo has as submodules, pinned at specific commits."}),
+                ),
                 'doc': 'A version control system instance.'}),
 
             ('it:dev:repo:remote', ('guid', {}), {
+                'props': (
+                    ('name', ('base:name', {}), {
+                        'ex': 'origin',
+                        'doc': 'The name the repo is using for the remote repo.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL the repo is using to access the remote repo.'}),
+
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repo that is tracking the remote repo.'}),
+
+                    ('remote', ('it:dev:repo', {}), {
+                        'doc': 'The instance of the remote repo.'}),
+                ),
                 'doc': 'A remote repo that is tracked for changes/branches/etc.'}),
 
             ('it:dev:repo:branch', ('guid', {}), {
                 'interfaces': (
                     ('inet:service:object', {
                         'template': {'service:base': 'repository branch'}}),
+                ),
+                'props': (
+                    ('parent', ('it:dev:repo:branch', {}), {
+                        'doc': 'The branch this branch was branched from.'}),
+
+                    ('start', ('it:dev:repo:commit', {}), {
+                        'doc': 'The commit in the parent branch this branch was created at.'}),
+
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the branch.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the branch is hosted.'}),
+
+                    ('merged', ('time', {}), {
+                        'doc': 'The time this branch was merged back into its parent.'}),
                 ),
                 'doc': 'A branch in a version control system instance.'}),
 
@@ -888,41 +1374,88 @@ modeldefs = (
                     ('inet:service:object', {
                         'template': {'service:base': 'repository commit'}}),
                 ),
+                'props': (
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repository the commit lives in.'}),
+
+                    ('parents', ('array', {'type': 'it:dev:repo:commit', 'sorted': False}), {
+                        'doc': 'The commit or commits this commit is immediately based on.'}),
+
+                    ('branch', ('it:dev:repo:branch', {}), {
+                        'doc': 'The name of the branch the commit was made to.'}),
+
+                    ('mesg', ('text', {}), {
+                        'doc': 'The commit message describing the changes in the commit.'}),
+
+                    ('id', ('base:id', {}), {
+                        'doc': 'The version control system specific commit identifier.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the commit is hosted.'}),
+                ),
                 'doc': 'A commit to a repository.'}),
 
             ('it:dev:repo:diff', ('guid', {}), {
+                'template': {'title': 'repo diff'},
+                'interfaces': (
+                    ('file:entry', {}),
+                    ('inet:service:commentable', {}),
+                ),
+                'props': (
+                    ('commit', ('it:dev:repo:commit', {}), {
+                        'doc': 'The commit that produced this diff.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the diff is hosted.'}),
+                ),
                 'doc': 'A diff of a file being applied in a single commit.'}),
 
             ('it:dev:repo:entry', ('guid', {}), {
+                'template': {'title': 'repo file entry'},
+                'interfaces': (
+                    ('file:entry', {}),
+                ),
+                'props': (
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repository which contains the file.'}),
+
+                    ('file', None, {
+                        'doc': 'The file included in the repository.'}),
+
+                    ('path', None, {
+                        'doc': 'The path of the file included in the repository.'}),
+                ),
                 'doc': 'A file included in a repository.'}),
 
-            ('it:dev:repo:issue:label', ('guid', {}), {
-                'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'repository issue label'}}),
-                ),
-                'doc': 'A label applied to a repository issue.'}),
-
             ('it:dev:repo:issue', ('guid', {}), {
+                'template': {'title': 'issue'},
                 'interfaces': (
                     ('inet:service:object', {
                         'template': {'service:base': 'repository issue'}}),
+                    ('meta:task', {}),
+                    ('inet:service:labelable', {}),
+                    ('inet:service:commentable', {}),
+                ),
+                'props': (
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repo where the issue was logged.'}),
+
+                    ('name', ('title', {}), {
+                        'doc': 'The name of the issue.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'The text describing the issue.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the issue was updated.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the issue is hosted.'}),
+
+                    ('id', ('base:id', {}), {
+                        'doc': 'The ID of the issue in the repository system.'}),
                 ),
                 'doc': 'An issue raised in a repository.'}),
-
-            ('it:dev:repo:issue:comment', ('guid', {}), {
-                'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'repository issue comment'}}),
-                ),
-                'doc': 'A comment on an issue in a repository.'}),
-
-            ('it:dev:repo:diff:comment', ('guid', {}), {
-                'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'repository diff comment'}}),
-                ),
-                'doc': 'A comment on a diff in a repository.'}),
 
             ('it:software', ('guid', {}), {
                 'prevnames': ('it:prod:soft', 'it:prod:softver', 'risk:tool:software'),
@@ -931,7 +1464,50 @@ modeldefs = (
                     ('meta:usable', {}),
                     ('meta:reported', {}),
                     ('doc:authorable', {}),
+                    ('meta:observable', {}),
                     ('risk:exploitable', {}),
+                ),
+                'props': (
+                    ('id', (
+                        ('it:mitre:attack:software:id', {}),
+                        ('base:id', {}),
+                    ), {
+                        'alts': ('ids',),
+                        'doc': 'A unique ID given to the software.'}),
+
+                    ('ids', ('array', {'type': (('it:mitre:attack:software:id', {}), ('base:id', {}))}), {
+                        'doc': 'An array of alternate IDs given to the software.'}),
+
+                    ('type', ('it:software:type:taxonomy', {}), {
+                        'doc': 'The type of software.'}),
+
+                    ('parent', ('it:software', {}), {
+                        'doc': 'The parent software version or family.'}),
+
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The tag used to annotate nodes that are associated with the software.'}),
+
+                    ('name', ('it:softwarename', {}), {
+                        'alts': ('names',),
+                        'doc': 'The name of the software.'}),
+
+                    ('names', ('array', {'type': 'it:softwarename'}), {
+                        'doc': 'Observed/variant names for this software version.'}),
+
+                    ('released', ('time', {}), {
+                        'doc': 'Timestamp for when the software was released.'}),
+
+                    ('cpe', ('it:sec:cpe', {}), {
+                        'doc': 'The NIST CPE 2.3 string specifying this software version.'}),
+
+                    ('availability', ('title', {}), {
+                        'doc': "The source's assessed availability of the software."}),
+
+                    ('sophistication', ('meta:score', {}), {
+                        'doc': "The source's assessed sophistication of the software."}),
+
+                    ('risk:score', ('meta:score', {}), {
+                        'doc': 'The risk posed by the software.'}),
                 ),
                 'doc': 'A software product, tool, or script.'}),
 
@@ -942,6 +1518,7 @@ modeldefs = (
                     ]
                 },
                 'prevnames': ('it:prod:softname',),
+                'props': (),
                 'doc': 'The name of a software product or tool.'}),
 
             ('it:software:type:taxonomy', ('taxonomy', {}), {
@@ -949,6 +1526,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of software types.'}),
 
             ('it:softid', ('guid', {}), {
@@ -956,31 +1534,163 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {}),
                 ),
+                'props': (
+                    ('id', ('base:id', {}), {
+                        'doc': 'The ID issued by the software to the host.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host which was issued the ID by the software.'}),
+
+                    ('software', ('it:software', {}), {
+                        'prevnames': ('soft',),
+                        'doc': 'The software which issued the ID to the host.'}),
+
+                    ('software:name', ('it:softwarename', {}), {
+                        'prevnames': ('soft:name',),
+                        'doc': 'The name of the software which issued the ID to the host.'}),
+                ),
                 'doc': 'An identifier issued to a given host by a specific software application.'}),
 
             ('it:hardware', ('guid', {}), {
                 'prevnames': ('it:prod:hardware',),
+                'template': {'title': 'hardware'},
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('meta:observable', {}),
+                    ('biz:manufactured', {}),
                     ('risk:exploitable', {}),
+                ),
+                'props': (
+                    ('type', ('it:hardware:type:taxonomy', {}), {
+                        'doc': 'The type of hardware.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A brief description of the hardware.'}),
+
+                    ('cpe', ('it:sec:cpe', {}), {
+                        'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
+
+                    ('manufacturer', ('entity:actor', {}), {
+                        'doc': 'The organization that manufactures this hardware.'}),
+
+                    ('manufacturer:name', ('entity:name', {}), {
+                        'doc': 'The name of the organization that manufactures this hardware.'}),
+
+                    ('version', ('it:version', {}), {
+                        'doc': 'Version string associated with this hardware specification.'}),
+
+                    ('released', ('time', {}), {
+                        'doc': 'The initial release date for this hardware.'}),
+
+                    ('parts', ('array', {'type': 'it:hardware'}), {
+                        'doc': 'An array of it:hardware parts included in this hardware specification.'}),
                 ),
                 'doc': 'A specification for a piece of IT hardware.'}),
 
             ('it:host:component', ('guid', {}), {
+                'props': (
+                    ('hardware', ('it:hardware', {}), {
+                        'doc': 'The hardware specification of this component.'}),
+
+                    ('serial', ('base:id', {}), {
+                        'doc': 'The serial number of this component.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The it:host which has this component installed.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period when the component was part of the host.'}),
+                ),
                 'doc': 'Hardware components which are part of a host.'}),
 
+            ('it:installed', ('guid', {}), {
+                'template': {'title': 'installation', 'verb': 'performed'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+
+                    ('on', ('it:component', {}), {
+                        'doc': 'The component which the item was installed on.'}),
+
+                    ('item', (
+                            ('it:component', {}),
+                            ('it:software', {}),
+                        ), {
+                        'doc': 'The component or software which was installed.'}),
+                ),
+                'doc': 'The installation of a component or software on a host component.'}),
+
+            ('it:nic', ('guid', {}), {
+                'template': {'title': 'NIC'},
+                'interfaces': (
+                    ('it:component', {}),
+                ),
+                'props': (
+
+                    ('name', ('title', {}), {
+                        'ex': 'eth0',
+                        'doc': 'The name of the {title}.'}),
+
+                    ('network', ('it:network', {}), {
+                        'doc': 'The network that the {title} is connected to.'}),
+
+                    ('mac', ('inet:mac', {}), {
+                        'doc': 'The ethernet (MAC) address of the {title}.'}),
+
+                    ('ip', ('inet:ip', {}), {
+                        'doc': 'The IP address of the {title}.'}),
+                ),
+                'doc': 'A Network Interface Card (NIC).'}),
+
+            ('it:wifi:nic', ('it:nic', {}), {
+                'template': {'title': 'Wi-Fi NIC'},
+                'props': (
+
+                    ('ssid', ('inet:wifi:ssid', {}), {
+                        'doc': 'The SSID associated with the {title}.'}),
+                ),
+                'doc': 'A wireless Network Interface Card (NIC).'}),
+
+            ('it:sim:slot', ('guid', {}), {
+                'template': {'title': 'SIM slot'},
+                'interfaces': (
+                    ('it:component', {}),
+                ),
+                'props': (
+
+                    ('imei', ('tel:mob:imei', {}), {
+                        'doc': 'The IMEI of the device associated with the {title}.'}),
+                ),
+                'doc': 'A SIM slot.'}),
+
+            ('it:sim:card', ('guid', {}), {
+                'template': {'title': 'SIM card'},
+                'interfaces': (
+                    ('it:component', {}),
+                ),
+                'props': (
+
+                    ('imsi', ('tel:mob:imsi', {}), {
+                        'doc': 'The IMSI of the subscriber associated with the {title}.'}),
+                ),
+                'doc': 'A SIM card.'}),
+
             ('it:hardware:type:taxonomy', ('taxonomy', {}), {
-                'prevnames': ('it:prod:hardwaretype',),
+                'prevnames': ('it:prod:hardwaretype', 'it:hardwaretype'),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of IT hardware types.'}),
 
             ('it:adid', ('base:id', {}), {
+                'template': {'title': 'advertising ID'},
                 'interfaces': (
+                    ('meta:observable', {}),
                     ('entity:identifier', {}),
-                    ('meta:observable', {'template': {'title': 'advertising ID'}}),
                 ),
+                'props': (),
                 'doc': 'An advertising identification string.'}),
 
             # https://learn.microsoft.com/en-us/windows-hardware/drivers/install/hklm-system-currentcontrolset-services-registry-tree
@@ -988,9 +1698,35 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:activity', {}),
                 ),
+                'props': (
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host that the service was configured on.'}),
+
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the service from the registry key within Services.'}),
+
+                    # TODO flags...
+                    ('type', ('int:min0', {}), {
+                        'doc': 'The type of service from the Type registry key.'}),
+
+                    ('start', ('int:min0', {}), {
+                        'doc': 'The start configuration of the service from the Start registry key.'}),
+
+                    ('errorcontrol', ('int:min0', {}), {
+                        'doc': 'The service error handling behavior from the ErrorControl registry key.'}),
+
+                    ('displayname', ('base:name', {}), {
+                        'doc': 'The friendly name of the service from the DisplayName registry key.'}),
+
+                    ('description', ('text', {}), {
+                        'doc': 'The description of the service from the Description registry key.'}),
+
+                    ('imagepath', ('file:path', {}), {
+                        'doc': 'The path to the service binary from the ImagePath registry key.'}),
+                ),
                 'doc': 'A Microsoft Windows service configuration on a host.'}),
 
-            ('it:os:windows:service:add', ('guid', {}), {
+            ('it:exec:windows:service:add', ('guid', {}), {
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
@@ -1000,7 +1736,7 @@ modeldefs = (
                 ),
                 'doc': 'An event where a Microsoft Windows service configuration was added to a host.'}),
 
-            ('it:os:windows:service:del', ('guid', {}), {
+            ('it:exec:windows:service:del', ('guid', {}), {
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
@@ -1014,7 +1750,7 @@ modeldefs = (
             # ('it:os:windows:task', ('guid', {}), {
             #     'doc': 'A Microsoft Windows scheduled task configuration.'}),
 
-            ('it:os:posix:id', ('int', {'min': 0}), {
+            ('it:os:posix:id', ('int:min0', {}), {
                 'ex': '1001',
                 'doc': 'A POSIX user or group ID.'}),
 
@@ -1024,31 +1760,102 @@ modeldefs = (
                 'doc': 'A Microsoft Windows Security Identifier.'}),
 
             ('it:os:android:perm', ('str', {}), {
+                'props': (),
                 'doc': 'An android permission string.'}),
 
             ('it:os:android:intent', ('str', {}), {
+                'props': (),
                 'doc': 'An android intent string.'}),
 
             ('it:os:android:reqperm', ('comp', {'fields': (
                                                     ('app', 'it:software'),
                                                     ('perm', 'it:os:android:perm'))}), {
+                'props': (
+                    ('app', ('it:software', {}), {'computed': True,
+                        'doc': 'The android app which requests the permission.'}),
+
+                    ('perm', ('it:os:android:perm', {}), {'computed': True,
+                        'doc': 'The android permission requested by the app.'}),
+                ),
                 'doc': 'The given software requests the android permission.'}),
 
             ('it:os:android:ilisten', ('comp', {'fields': (
                                                     ('app', 'it:software'),
                                                     ('intent', 'it:os:android:intent'))}), {
+                'props': (
+                    ('app', ('it:software', {}), {'computed': True,
+                        'doc': 'The app software which listens for the android intent.'}),
+
+                    ('intent', ('it:os:android:intent', {}), {'computed': True,
+                        'doc': 'The android intent which is listened for by the app.'}),
+                ),
                 'doc': 'The given software listens for an android intent.'}),
 
             ('it:os:android:ibroadcast', ('comp', {'fields': (
                                                     ('app', 'it:software'),
                                                     ('intent', 'it:os:android:intent')
                                           )}), {
+                'props': (
+                    ('app', ('it:software', {}), {'computed': True,
+                        'doc': 'The app software which broadcasts the android intent.'}),
+
+                    ('intent', ('it:os:android:intent', {}), {'computed': True,
+                        'doc': 'The android intent which is broadcast by the app.'}),
+                ),
                 'doc': 'The given software broadcasts the given Android intent.'}),
 
             ('it:av:signame', ('base:name', {}), {
+                'props': (),
                 'doc': 'An antivirus signature name.'}),
 
             ('it:av:scan:result', ('guid', {}), {
+                'props': (
+                    ('time', ('time', {}), {
+                        'doc': 'The time the scan was run.'}),
+
+                    ('verdict', ('it:av:verdict', {}), {
+                        'doc': 'The scanner provided verdict for the scan.'}),
+
+                    ('scanner', ('it:software', {}), {
+                        'doc': 'The scanner software used to produce the result.'}),
+
+                    ('scanner:name', ('it:softwarename', {}), {
+                        'doc': 'The name of the scanner software.'}),
+
+                    ('signame', ('it:av:signame', {}), {
+                        'doc': 'The name of the signature returned by the scanner.'}),
+
+                    ('categories', ('array', {'type': 'base:name'}), {
+                        'doc': 'A list of categories for the result returned by the scanner.'}),
+
+                    ('target', (
+                            ('file:bytes', {}),
+                            ('it:exec:proc', {}),
+                            ('it:host', {}),
+                            ('inet:fqdn', {}),
+                            ('inet:url', {}),
+                            ('inet:ip', {})
+                        ), {
+                        'doc': 'The target of the scan.'}),
+
+                    ('multi:scan', ('it:av:scan:result', {}), {
+                        'doc': 'Set if this result was part of running multiple scanners.'}),
+
+                    ('multi:count', ('int:min0', {}), {
+                        'doc': 'The total number of scanners which were run by a multi-scanner.'}),
+
+                    ('multi:count:benign', ('int:min0', {}), {
+                        'doc': 'The number of scanners which returned a benign verdict.'}),
+
+                    ('multi:count:unknown', ('int:min0', {}), {
+                        'doc': 'The number of scanners which returned an unknown/unsupported verdict.'}),
+
+                    ('multi:count:suspicious', ('int:min0', {}), {
+                        'doc': 'The number of scanners which returned a suspicious verdict.'}),
+
+                    ('multi:count:malicious', ('int:min0', {}), {
+                        'doc': 'The number of scanners which returned a malicious verdict.'}),
+                ),
                 'doc': 'The result of running an antivirus scanner.'}),
 
             ('it:av:verdict', ('int', {'enums': suslevels}), {
@@ -1061,6 +1868,34 @@ modeldefs = (
                 'template': {'title': 'process'},
                 'interfaces': (
                     ('it:host:activity', {}),
+                ),
+                'props': (
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host that executed the process.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The main executable file for the process.'}),
+
+                    ('cmd', ('it:cmd', {}), {
+                        'doc': 'The command string used to launch the process.'}),
+
+                    ('cmd:history', ('it:cmd:history', {}), {
+                        'doc': 'The command history entry which caused this process to be run.'}),
+
+                    ('pid', ('int', {}), {
+                        'doc': 'The process ID.'}),
+
+                    ('name', ('str', {}), {
+                        'doc': 'The display name specified by the process.'}),
+
+                    ('exitcode', ('int', {}), {
+                        'doc': 'The exit code for the process.'}),
+
+                    ('account', ('it:host:account', {}), {
+                        'doc': 'The account of the process owner.'}),
+
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path to the executable of the process.'}),
                 ),
                 'doc': 'A process executing on a host.'}),
 
@@ -1141,6 +1976,28 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process where the library was loaded.'}),
+
+                    ('va', ('int', {}), {
+                        'doc': 'The base memory address where the library was loaded in the process.'}),
+
+                    ('loaded', ('time', {}), {
+                        'doc': 'The time the library was loaded.'}),
+
+                    ('unloaded', ('time', {}), {
+                        'doc': 'The time the library was unloaded.'}),
+
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path that the library was loaded from.'}),
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The library file that was loaded.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+                ),
                 'doc': 'A library load event in a process.'}),
 
             ('it:exec:mmap:add', ('guid', {}), {
@@ -1148,25 +2005,121 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process where the memory was mapped.'}),
+
+                    ('va', ('int', {}), {
+                        'doc': 'The base memory address where the map was created in the process.'}),
+
+                    ('size', ('int', {}), {
+                        'doc': 'The size of the memory map in bytes.'}),
+
+                    ('perms:read', ('bool', {}), {
+                        'doc': 'True if the memory is mapped with read permissions.'}),
+
+                    ('perms:write', ('bool', {}), {
+                        'doc': 'True if the memory is mapped with write permissions.'}),
+
+                    ('perms:execute', ('bool', {}), {
+                        'doc': 'True if the memory is mapped with execute permissions.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time the memory map was created.'}),
+
+                    ('deleted', ('time', {}), {
+                        'doc': 'The time the memory map was deleted.'}),
+
+                    ('path', ('file:path', {}), {
+                        'doc': 'The file path if the memory is a mapped view of a file.'}),
+
+                    ('hash:sha256', ('crypto:hash:sha256', {}), {
+                        'doc': 'A SHA256 hash of the memory map.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+                ),
                 'doc': 'A memory mapped segment located in a process.'}),
 
             ('it:cmd', ('str', {}), {
+                'props': (),
                 'doc': 'A unique command-line string.',
                 'ex': 'foo.exe --dostuff bar'}),
 
             ('it:cmd:session', ('guid', {}), {
+                'template': {'title': 'command line session', 'verb': 'ran'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host where the command line session was executed.'}),
+
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process which was interpreting this command line session.'}),
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file containing the command history such as a .bash_history file.'}),
+
+                    ('actor', (
+                            ('it:host:account', {}),
+                            ('inet:service:account', {}),
+                            ('inet:service:agent', {}),
+                        ), {
+                        'doc': 'The account or agent which executed the commands in the session.'}),
+                ),
                 'doc': 'A command line session with multiple commands run over time.'}),
 
             ('it:cmd:history', ('guid', {}), {
+                'props': (
+                    ('cmd', ('it:cmd', {}), {
+                        'doc': 'The command that was executed.'}),
+
+                    ('session', ('it:cmd:session', {}), {
+                        'doc': 'The session that contains this history entry.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the command was executed.'}),
+
+                    ('index', ('int', {}), {
+                        'doc': 'Used to order the commands when times are not available.'}),
+                ),
                 'doc': 'A single command executed within a session.'}),
 
             ('it:query', ('str', {}), {
+                'props': (),
                 'doc': 'A unique query string.'}),
 
             ('it:exec:query', ('guid', {}), {
                 'template': {'title': 'query event'},
                 'interfaces': (
                     ('it:host:event', {}),
+                ),
+                'props': (
+                    ('text', ('it:query', {}), {
+                        'doc': 'The query string that was executed.'}),
+
+                    ('opts', ('data', {}), {
+                        'doc': 'An opaque JSON object containing query parameters and options.'}),
+
+                    ('api:url', ('inet:url', {}), {
+                        'doc': 'The URL of the API endpoint the query was sent to.'}),
+
+                    ('language', ('base:name', {}), {
+                        'doc': 'The name of the language that the query is expressed in.'}),
+
+                    ('offset', ('int', {}), {
+                        'doc': 'The offset of the last record consumed from the query.'}),
+
+                    ('account', (
+                            ('syn:user', {}),
+                            ('it:host:account', {}),
+                            ('inet:service:account', {})
+                        ), {
+                        'doc': 'The account which executed the query.'}),
+
+                    ('platform', ('inet:service:platform', {}), {
+                        'doc': 'The service platform which was queried.'}),
                 ),
                 'doc': 'An instance of an executed query.'}),
 
@@ -1176,6 +2129,25 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process that created the mutex.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that created the mutex.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that created the mutex.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the mutex was created.'}),
+
+                    ('name', ('it:dev:str', {}), {
+                        'doc': 'The mutex string.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+                ),
                 'doc': 'An event where a process created a mutex.'}),
 
             # TODO: pipe:del pipe:read pipe:write
@@ -1183,6 +2155,25 @@ modeldefs = (
                 'template': {'title': 'pipe creation event'},
                 'interfaces': (
                     ('it:host:event', {}),
+                ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that created the named pipe.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that created the named pipe.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that created the named pipe.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the named pipe was created.'}),
+
+                    ('name', ('it:dev:str', {}), {
+                        'doc': 'The named pipe string.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'A named pipe created by a process at runtime.'}),
 
@@ -1192,6 +2183,52 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that requested the URL.'}),
+
+                    ('browser', ('it:software', {}), {
+                        'doc': 'The software version of the browser.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that requested the URL.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that requested the URL.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the URL was requested.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL that was requested.'}),
+
+                    ('page:pdf', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as a PDF file.'}),
+
+                    ('page:html', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as an HTML file.'}),
+
+                    ('page:image', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as an image.'}),
+
+                    ('page:title', ('it:dev:str', {}), {
+                        'doc': 'The title of the rendered page.'}),
+
+                    ('page:favicon', ('file:bytes', {}), {
+                        'doc': 'The favicon of the rendered page.'}),
+
+                    ('page:components', ('array', {'type': 'it:softwarename', 'uniq': True, 'sorted': True}), {
+                        'doc': 'The software components included in the rendered page.'}),
+
+                    ('request', ('inet:proto:request', {}), {
+                        'doc': 'The request made to retrieve the initial URL contents.'}),
+
+                    ('client', ('inet:client', {}), {
+                        'doc': 'The address of the client during the URL retrieval.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+                ),
                 'doc': 'An instance of a host requesting a URL using any protocol scheme.'}),
 
             ('it:exec:bind', ('guid', {}), {
@@ -1199,33 +2236,120 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that bound the listening port.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that bound the listening port.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that bound the listening port.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the port was bound.'}),
+
+                    ('server', ('inet:server', {}), {
+                        'doc': 'The socket address of the server when binding the port.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+                ),
                 'doc': 'An instance of a host binding a listening port.'}),
 
             ('it:exec:file:add', ('guid', {}), {
                 'template': {'title': 'file add event'},
                 'interfaces': (
+                    ('file:entry', {}),
                     ('it:host:event', {}),
+                ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that created the new file.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that created the new file.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that created the new file.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the file was created.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'An instance of a host adding a file to a filesystem.'}),
 
             ('it:exec:file:del', ('guid', {}), {
                 'template': {'title': 'file delete event'},
                 'interfaces': (
+                    ('file:entry', {}),
                     ('it:host:event', {}),
+                ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that deleted the file.', }),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that deleted the file.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that deleted the file.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the file was deleted.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'An instance of a host deleting a file from a filesystem.'}),
 
             ('it:exec:file:read', ('guid', {}), {
                 'template': {'title': 'file read event'},
                 'interfaces': (
+                    ('file:entry', {}),
                     ('it:host:event', {}),
+                ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that read the file.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that read the file.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that read the file.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the file was read.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'An instance of a host reading a file from a filesystem.'}),
 
             ('it:exec:file:write', ('guid', {}), {
                 'template': {'title': 'file write event'},
                 'interfaces': (
+                    ('file:entry', {}),
                     ('it:host:event', {}),
+                ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that wrote to / modified the existing file.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that wrote to the file.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that wrote to the file.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the file was written to/modified.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'An instance of a host writing a file to a filesystem.'}),
 
@@ -1235,6 +2359,26 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that read the registry.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that read the registry.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that read the registry.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the registry was read.'}),
+
+                    ('entry', ('it:os:windows:registry:entry', {}), {
+                        'prevnames': ('reg',),
+                        'doc': 'The registry key or value that was read.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+                ),
                 'doc': 'An instance of a host getting a registry key.', }),
 
             ('it:exec:windows:registry:set', ('guid', {}), {
@@ -1242,6 +2386,26 @@ modeldefs = (
                 'template': {'title': 'registry set event'},
                 'interfaces': (
                     ('it:host:event', {}),
+                ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that wrote to the registry.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that wrote to the registry.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that wrote to the registry.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the registry was written to.'}),
+
+                    ('entry', ('it:os:windows:registry:entry', {}), {
+                        'prevnames': ('reg',),
+                        'doc': 'The registry key or value that was written to.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'An instance of a host creating or setting a registry key.', }),
 
@@ -1251,15 +2415,33 @@ modeldefs = (
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that deleted data from the registry.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that deleted data from the registry.'}),
+
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that deleted data from the registry.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the data from the registry was deleted.'}),
+
+                    ('entry', ('it:os:windows:registry:entry', {}), {
+                        'prevnames': ('reg',),
+                        'doc': 'The registry entry that was deleted.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+                ),
                 'doc': 'An instance of a host deleting a registry key.', }),
 
             ('it:app:yara:rule', ('meta:rule', {}), {
 
                 'template': {'title': 'YARA rule', 'syntax': 'yara'},
-                'interfaces': (
-                    ('doc:authorable', {}),
-                ),
-                'doc': 'A YARA rule unique identifier.'}),
+                'props': (),
+                'doc': 'A YARA rule.'}),
 
             ('it:app:yara:target', (
                     ('file:bytes', {}),
@@ -1268,45 +2450,147 @@ modeldefs = (
                     ('inet:fqdn', {}),
                     ('inet:url', {})
                 ), {
-                'doc': 'An type which is limited to forms which YARA rules can match.'}),
+                'doc': 'A type which is limited to forms which YARA rules can match.'}),
 
-            ('it:app:yara:match', ('guid', {}), {
+            ('it:app:yara:matched', ('guid', {}), {
                 'interfaces': (
-                    ('meta:matchish', {'template': {'rule': 'YARA rule',
+                    ('base:matched', {'template': {'rule': 'YARA rule',
                                                     'rule:type': 'it:app:yara:rule',
                                                     'target:type': 'it:app:yara:target'}}),
                 ),
-                'doc': 'A YARA rule which can match files, processes, or network traffic.'}),
+                'props': (),
+                'doc': 'An instance of a YARA rule matching a target.'}),
 
             ('it:sec:stix:bundle', ('guid', {}), {
+                'props': (
+                    ('id', ('base:id', {}), {
+                        'doc': 'The id field from the STIX bundle.'}),
+                ),
                 'doc': 'A STIX bundle.'}),
 
+            ('it:sec:stix:confidence', ('int', {'min': 0, 'max': 100}), {
+                'doc': 'A confidence score from STIX.'}),
+
             ('it:sec:stix:indicator', ('guid', {}), {
+                'props': (
+                    ('id', ('base:id', {}), {
+                        'doc': 'The STIX id field from the indicator pattern.'}),
+
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the STIX indicator pattern.'}),
+
+                    ('confidence', ('it:sec:stix:confidence', {}), {
+                        'doc': 'The confidence field from the STIX indicator.'}),
+
+                    ('revoked', ('bool', {}), {
+                        'doc': 'The revoked field from the STIX indicator.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'The description field from the STIX indicator.'}),
+
+                    ('pattern', ('str', {}), {
+                        'doc': 'The STIX indicator pattern text.'}),
+
+                    ('pattern_type', ('it:av:pattern:type', {}), {
+                        'doc': 'The STIX indicator pattern type.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the indicator pattern was first created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the indicator pattern was last modified.'}),
+
+                    ('labels', ('array', {'type': 'str'}), {
+                        'doc': 'The label strings embedded in the STIX indicator pattern.'}),
+
+                    ('valid_from', ('time', {}), {
+                        'doc': 'The valid_from field from the STIX indicator.'}),
+
+                    ('valid_until', ('time', {}), {
+                        'doc': 'The valid_until field from the STIX indicator.'}),
+                ),
                 'doc': 'A STIX indicator pattern.'}),
 
             ('it:app:snort:rule', ('meta:rule', {}), {
-                'template': {'title': 'snort rule', 'syntax': ''},
-                'interfaces': (
-                    ('doc:authorable', {}),
+                'template': {'title': 'Snort rule', 'syntax': 'snort'},
+                'props': (
+                    ('engine', ('int', {}), {
+                        'doc': 'The snort engine ID which can parse and evaluate the rule text.'}),
                 ),
                 'doc': 'A snort rule.'}),
 
-            ('it:app:snort:match', ('guid', {}), {
+            ('it:app:snort:matched', ('guid', {}), {
                 'prevnames': ('it:app:snort:hit',),
                 'interfaces': (
-                    ('meta:matchish', {'template': {'rule': 'Snort rule',
+                    ('base:matched', {'template': {'rule': 'Snort rule',
                                        'rule:type': 'it:app:snort:rule',
                                        'target:type': 'inet:flow'}}),
+                ),
+                'props': (
+                    ('sensor', ('it:host', {}), {
+                        'doc': 'The sensor host node that produced the match.'}),
+
+                    ('dropped', ('bool', {}), {
+                        'doc': 'Set to true if the network traffic was dropped due to the match.'}),
                 ),
                 'doc': 'An instance of a snort rule hit.'}),
 
             ('it:sec:c2:config', ('guid', {}), {
+                'props': (
+                    ('family', ('it:softwarename', {}), {
+                        'doc': 'The name of the software family which uses the config.'}),
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file that the C2 config was extracted from.'}),
+
+                    ('decoys', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
+                        'doc': 'An array of URLs used as decoy connections to obfuscate the C2 servers.'}),
+
+                    ('servers', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
+                        'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
+
+                    ('proxies', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
+                        'doc': 'An array of proxy URLs used to communicate with the C2 server.'}),
+
+                    ('listens', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
+                        'doc': 'An array of listen URLs that the software should bind.'}),
+
+                    ('dns:resolvers', ('array', {'type': 'inet:server', 'uniq': False, 'sorted': False}), {
+                        'doc': 'An array of inet:servers to use when resolving DNS names.'}),
+
+                    ('mutex', ('it:dev:str', {}), {
+                        'doc': 'The mutex that the software uses to prevent multiple-installations.'}),
+
+                    ('campaigncode', ('it:dev:str', {}), {
+                        'doc': 'The operator selected string used to identify the campaign or group of targets.'}),
+
+                    ('crypto:key', ('crypto:key', {}), {
+                        'doc': 'Static key material used to encrypt C2 communications.'}),
+
+                    ('connect:delay', ('duration', {}), {
+                        'doc': 'The time delay from first execution to connecting to the C2 server.'}),
+
+                    ('connect:interval', ('duration', {}), {
+                        'doc': 'The configured duration to sleep between connections to the C2 server.'}),
+
+                    ('raw', ('data', {}), {
+                        'doc': 'A JSON blob containing the raw config extracted from the binary.'}),
+
+                    ('http:headers', ('array', {'type': 'inet:http:header', 'uniq': False, 'sorted': False}), {
+                        'doc': 'An array of HTTP headers that the sample should transmit to the C2 server.'}),
+                ),
                 'doc': 'An extracted C2 config from an executable.'}),
 
             ('it:host:tenancy', ('guid', {}), {
-                'interfaces': (
-                    ('inet:service:object', {
-                        'template': {'service:base': 'host tenancy'}}),
+                'props': (
+                    ('parent', ('it:host', {}), {
+                        'doc': 'The host which provides runtime resources to the tenant host.'}),
+
+                    ('tenant', ('it:host', {}), {
+                        'doc': 'The host which is run within the resources provided by the parent.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period when the host tenancy was active.'}),
                 ),
                 'doc': 'A time window where a host was a tenant run by another host.'}),
 
@@ -1314,6 +2598,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of software image types.'}),
 
             ('it:software:image', ('guid', {}), {
@@ -1321,12 +2606,51 @@ modeldefs = (
                     ('inet:service:object', {
                         'template': {'service:base': 'software image'}}),
                 ),
+                'props': (
+                    ('name', ('it:softwarename', {}), {
+                        'doc': 'The name of the image.'}),
+
+                    ('type', ('it:software:image:type:taxonomy', {}), {
+                        'doc': 'The type of software image.'}),
+
+                    ('published', ('time', {}), {
+                        'doc': 'The time the image was published.'}),
+
+                    ('publisher', ('entity:contact', {}), {
+                        'doc': 'The contact information of the org or person who published the image.'}),
+
+                    ('parents', ('array', {'type': 'it:software:image', 'uniq': False, 'sorted': False}), {
+                        'doc': 'An array of parent images in precedence order.'}),
+                ),
                 'doc': 'The base image used to create a container or OS.'}),
 
             ('it:storage:mount', ('guid', {}), {
+                'props': (
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host that has mounted the volume.'}),
+
+                    ('volume', ('it:storage:volume', {}), {
+                        'doc': 'The volume that the host has mounted.'}),
+
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path where the volume is mounted in the host filesystem.'}),
+                ),
                 'doc': 'A storage volume that has been attached to an image.'}),
 
             ('it:storage:volume', ('guid', {}), {
+                'props': (
+                    ('id', ('base:id', {}), {
+                        'doc': 'The unique volume ID.'}),
+
+                    ('name', ('base:name', {}), {
+                        'doc': 'The name of the volume.'}),
+
+                    ('type', ('it:storage:volume:type:taxonomy', {}), {
+                        'doc': 'The type of storage volume.'}),
+
+                    ('size', ('int:min0', {}), {
+                        'doc': 'The size of the volume in bytes.'}),
+                ),
                 'doc': 'A physical or logical storage volume that can be attached to a physical/virtual machine or container.'}),
 
             ('it:storage:volume:type:taxonomy', ('taxonomy', {}), {
@@ -1334,9 +2658,35 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
+                'props': (),
                 'doc': 'A hierarchical taxonomy of storage volume types.'}),
         ),
         'interfaces': (
+
+            ('it:component', {
+                'template': {'title': 'component'},
+                'interfaces': (
+                    ('meta:havable', {}),
+                    ('geo:locatable', {}),
+                    ('meta:observable', {}),
+                    ('entity:creatable', {}),
+                    ('risk:exploitable', {}),
+                ),
+                'props': (
+
+                    ('hardware', ('it:hardware', {}), {
+                        'doc': 'The hardware specification of the {title}.'}),
+
+                    ('parent', ('it:component', {}), {
+                        'doc': 'The parent {title} which this {title} is part of.'}),
+
+                    ('serial', ('base:id', {}), {
+                        'doc': 'The serial number of the {title}.'}),
+
+                    ('period', ('phys:lifespan', {}), {
+                        'doc': 'The period when the {title} existed, from its creation until it was retired or destroyed.'}),
+                ),
+                'doc': 'Properties common to hardware components.'}),
 
             ('it:host:exec', {
                 'template': {'title': 'activity'},
@@ -1426,9 +2776,6 @@ modeldefs = (
             (('it:app:snort:rule', 'detects', 'it:software'), {
                 'doc': 'The snort rule detects use of the software.'}),
 
-            (('it:app:snort:rule', 'detects', 'risk:tool:software'), {
-                'doc': 'The snort rule detects use of the tool.'}),
-
             (('it:app:snort:rule', 'detects', 'meta:technique'), {
                 'doc': 'The snort rule detects use of the technique.'}),
 
@@ -1437,9 +2784,6 @@ modeldefs = (
 
             (('it:app:yara:rule', 'detects', 'it:software'), {
                 'doc': 'The YARA rule detects the software.'}),
-
-            (('it:app:yara:rule', 'detects', 'risk:tool:software'), {
-                'doc': 'The YARA rule detects the tool.'}),
 
             (('it:app:yara:rule', 'detects', 'meta:technique'), {
                 'doc': 'The YARA rule detects the technique.'}),
@@ -1470,1399 +2814,6 @@ modeldefs = (
 
             (('it:os:windows:service', 'ledto', 'it:exec:proc'), {
                 'doc': 'The service configuration caused the process to be created.'}),
-        ),
-        'forms': (
-            ('it:hostname', {}, ()),
-
-            ('it:host', {}, (
-
-                ('name', ('it:hostname', {}), {
-                    'doc': 'The name of the host or system.'}),
-
-                ('desc', ('str', {}), {
-                    'doc': 'A free-form description of the host.'}),
-
-                ('ip', ('inet:ip', {}), {
-                    'doc': 'The last known IP address for the host.',
-                    'prevnames': ('ipv4',)}),
-
-                ('os', ('it:software', {}), {
-                    'doc': 'The operating system of the host.'}),
-
-                ('os:name', ('it:softwarename', {}), {
-                    'doc': 'A software product name for the host operating system. Used for entity resolution.'}),
-
-                ('hardware', ('it:hardware', {}), {
-                    'doc': 'The hardware specification for this host.'}),
-
-                ('serial', ('base:id', {}), {
-                    'doc': 'The serial number of the host.'}),
-
-                ('operator', ('entity:contact', {}), {
-                    'doc': 'The operator of the host.'}),
-
-                ('org', ('ou:org', {}), {
-                    'doc': 'The org that operates the given host.'}),
-
-                ('id', ('str', {}), {
-                    'doc': 'An external identifier for the host.'}),
-
-                ('keyboard:layout', ('base:name', {}), {
-                    'doc': 'The primary keyboard layout configured on the host.'}),
-
-                ('keyboard:language', ('lang:language', {}), {
-                    'doc': 'The primary keyboard input language configured on the host.'}),
-
-                ('image', ('it:software:image', {}), {
-                    'doc': 'The container image or OS image running on the host.'}),
-            )),
-
-            ('it:host:tenancy', {}, (
-
-                ('lessor', ('it:host', {}), {
-                    'doc': 'The host which provides runtime resources to the tenant host.'}),
-
-                ('tenant', ('it:host', {}), {
-                    'doc': 'The host which is run within the resources provided by the lessor.'}),
-
-            )),
-
-            ('it:software:image:type:taxonomy', {}, ()),
-            ('it:software:image', {}, (
-
-                ('name', ('it:softwarename', {}), {
-                    'doc': 'The name of the image.'}),
-
-                ('type', ('it:software:image:type:taxonomy', {}), {
-                    'doc': 'The type of software image.'}),
-
-                ('published', ('time', {}), {
-                    'doc': 'The time the image was published.'}),
-
-                ('publisher', ('entity:contact', {}), {
-                    'doc': 'The contact information of the org or person who published the image.'}),
-
-                ('parents', ('array', {'type': 'it:software:image', 'uniq': False, 'sorted': False}), {
-                    'doc': 'An array of parent images in precedence order.'}),
-            )),
-
-            ('it:storage:volume:type:taxonomy', {}, ()),
-            ('it:storage:volume', {}, (
-
-                ('id', ('base:id', {}), {
-                    'doc': 'The unique volume ID.'}),
-
-                ('name', ('base:name', {}), {
-                    'doc': 'The name of the volume.'}),
-
-                ('type', ('it:storage:volume:type:taxonomy', {}), {
-                    'doc': 'The type of storage volume.'}),
-
-                ('size', ('int', {'min': 0}), {
-                    'doc': 'The size of the volume in bytes.'}),
-            )),
-
-            ('it:storage:mount', {}, (
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host that has mounted the volume.'}),
-
-                ('volume', ('it:storage:volume', {}), {
-                    'doc': 'The volume that the host has mounted.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path where the volume is mounted in the host filesystem.'}),
-            )),
-
-            ('it:log:event:type:taxonomy', {}, ()),
-            ('it:log:event', {}, (
-
-                ('mesg', ('str', {}), {
-                    'doc': 'The log message text.'}),
-
-                ('type', ('it:log:event:type:taxonomy', {}), {
-                    'ex': 'windows.eventlog.securitylog',
-                    'doc': 'The type of log event.'}),
-
-                ('severity', ('it:log:severity', {}), {
-                    'doc': 'A log level integer that increases with severity.'}),
-
-                ('data', ('data', {}), {
-                    'doc': 'A raw JSON record of the log event.'}),
-
-                ('id', ('str', {}), {
-                    'doc': 'An external id that uniquely identifies this log entry.'}),
-
-                ('product', ('it:software', {}), {
-                    'doc': 'The software which produced the log entry.'}),
-
-                ('service:platform', ('inet:service:platform', {}), {
-                    'doc': 'The service platform which generated the log event.'}),
-
-                ('service:account', ('inet:service:account', {}), {
-                    'doc': 'The service account which generated the log event.'}),
-
-            )),
-
-            ('it:network:type:taxonomy', {}, ()),
-            ('it:network', {}, (
-
-                ('name', ('base:name', {}), {
-                    'doc': 'The name of the network.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A brief description of the network.'}),
-
-                ('type', ('it:network:type:taxonomy', {}), {
-                    'doc': 'The type of network.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period when the network existed.'}),
-
-                ('net', ('inet:net', {}), {
-                    'doc': 'The optional contiguous IP address range of this network.',
-                    'prevnames': ('net4', 'net6')}),
-
-                # TODO should this be in a DHCP config node?
-                ('dns:resolvers', ('array', {'type': 'it:dns:resolver', 'sorted': False, 'uniq': False}), {
-                    'doc': 'An array of DNS servers configured to resolve requests for hosts on the network.'})
-
-            )),
-
-            ('it:host:account', {}, (
-
-                ('id', ('base:id', {}), {
-                    'doc': 'The unique OS specific identifier for the account.'}),
-
-                ('user', ('inet:user', {}), {
-                    'doc': 'The username associated with the account.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period where the account existed.'}),
-
-                ('contact', ('entity:contact', {}), {
-                    'doc': 'Additional contact information associated with this account.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host where the account is registered.'}),
-
-                ('service:account', ('inet:service:account', {}), {
-                    'doc': 'The optional service account which the local account maps to.'}),
-
-                ('home', ('file:path', {}), {
-                    'doc': "The path to the account's home directory."}),
-            )),
-
-            ('it:host:posix:account', {}, (
-
-                ('id', ('it:os:posix:id', {}), {
-                    'ex': '1001',
-                    'doc': 'The POSIX user ID of the account.'}),
-
-                ('gid', ('it:os:posix:id', {}), {
-                    'ex': '1001',
-                    'doc': 'The primary group ID of the account.'}),
-
-                ('gecos', ('int', {}), {
-                    'doc': 'The GECOS field for the account.'}),
-
-                ('shell', ('file:path', {}), {
-                    'ex': '/bin/bash',
-                    'doc': "The path to the account's default shell."}),
-            )),
-
-            ('it:host:windows:account', {}, (
-
-                ('id', ('it:os:windows:sid', {}), {
-                    'doc': 'The Microsoft Windows Security Identifier of the account.'}),
-            )),
-
-            ('it:host:group', {}, (
-
-                ('id', ('base:id', {}), {
-                    'doc': 'The unique OS specific identifier for the group.'}),
-
-                ('name', ('base:name', {}), {
-                    'doc': 'The name of the group.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A brief description of the group.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host where the group was created.'}),
-
-                ('service:role', ('inet:service:role', {}), {
-                    'doc': 'The optional service role which the local group maps to.'}),
-            )),
-
-            ('it:host:posix:group', {}, (
-
-                ('id', ('it:os:posix:id', {}), {
-                    'ex': '1001',
-                    'doc': 'The POSIX ID of the group.'}),
-            )),
-
-            ('it:host:windows:group', {}, (
-
-                ('id', ('it:os:windows:sid', {}), {
-                    'doc': 'The Microsoft Windows Security Identifier of the group.'}),
-            )),
-
-            ('it:host:group:membership', {}, (
-
-                ('member', (('it:host:account', {}), ('it:host:group', {})), {
-                    'doc': 'The account or group that was a member of the group.'}),
-
-                ('group', ('it:host:group', {}), {
-                    'doc': 'The group which had the member.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period where the membership was active.'}),
-            )),
-            ('it:host:hosted:url', {}, (
-
-                ('host', ('it:host', {}), {
-                    'computed': True,
-                    'doc': 'Host serving a url.'}),
-
-                ('url', ('inet:url', {}), {
-                    'computed': True,
-                    'doc': 'URL available on the host.'}),
-            )),
-            ('it:exec:screenshot', {}, (
-
-                ('image', ('file:bytes', {}), {
-                    'doc': 'The image file.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A brief description of the screenshot.'})
-            )),
-            ('it:dev:str', {'on': {'add': {'q': '[ :norm=$node.value ]'}}}, (
-
-                ('norm', ('str:lower', {}), {
-                    'doc': 'Lower case normalized version of the it:dev:str.'}),
-
-            )),
-            ('it:sec:cve', {}, ()),
-            ('it:sec:cpe', {}, (
-
-                ('v2_2', ('it:sec:cpe:v2_2', {}), {
-                    'doc': 'The CPE 2.2 string which is equivalent to the primary property.'}),
-
-                ('part', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The "part" field from the CPE 2.3 string.'}),
-
-                ('vendor', ('entity:name', {}), {
-                    'computed': True,
-                    'doc': 'The "vendor" field from the CPE 2.3 string.'}),
-
-                ('product', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The "product" field from the CPE 2.3 string.'}),
-
-                ('version', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The "version" field from the CPE 2.3 string.'}),
-
-                ('update', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The "update" field from the CPE 2.3 string.'}),
-
-                ('edition', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The "edition" field from the CPE 2.3 string.'}),
-
-                ('language', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The "language" field from the CPE 2.3 string.'}),
-
-                ('sw_edition', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The "sw_edition" field from the CPE 2.3 string.'}),
-
-                ('target_sw', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The "target_sw" field from the CPE 2.3 string.'}),
-
-                ('target_hw', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The "target_hw" field from the CPE 2.3 string.'}),
-
-                ('other', ('str:lower', {}), {
-                    'computed': True,
-                    'doc': 'The "other" field from the CPE 2.3 string.'}),
-            )),
-            ('it:sec:cwe', {}, (
-
-                ('name', ('str', {}), {
-                    'doc': 'The CWE description field.',
-                    'ex': 'Buffer Copy without Checking Size of Input (Classic Buffer Overflow)'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'The CWE description field.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'A URL linking this CWE to a full description.'}),
-
-                ('parents', ('array', {'type': 'it:sec:cwe', 'split': ','}), {
-                    'doc': 'An array of ChildOf CWE Relationships.'}),
-            )),
-
-            ('it:sec:metrics', {}, (
-
-                ('org', ('ou:org', {}), {
-                    'doc': 'The organization whose security program is being measured.'}),
-
-                ('org:name', ('entity:name', {}), {
-                    'doc': 'The organization name. Used for entity resolution.'}),
-
-                ('org:fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The organization FQDN. Used for entity resolution.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time period used to compute the metrics.'}),
-
-                ('alerts:meantime:triage', ('duration', {}), {
-                    'doc': 'The mean time to triage alerts generated within the time period.'}),
-
-                ('alerts:count', ('int', {}), {
-                    'doc': 'The total number of alerts generated within the time period.'}),
-
-                ('alerts:falsepos', ('int', {}), {
-                    'doc': 'The number of alerts generated within the time period that were determined to be false positives.'}),
-
-                ('assets:hosts', ('int', {}), {
-                    'doc': 'The total number of hosts within scope for the information security program.'}),
-
-                ('assets:users', ('int', {}), {
-                    'doc': 'The total number of users within scope for the information security program.'}),
-
-                ('assets:vulns:count', ('int', {}), {
-                    'doc': 'The number of asset vulnerabilities being tracked at the end of the time period.'}),
-
-                ('assets:vulns:preexisting', ('int', {}), {
-                    'doc': 'The number of asset vulnerabilities being tracked at the beginning of the time period.'}),
-
-                ('assets:vulns:discovered', ('int', {}), {
-                    'doc': 'The number of asset vulnerabilities discovered during the time period.'}),
-
-                ('assets:vulns:mitigated', ('int', {}), {
-                    'doc': 'The number of asset vulnerabilities mitigated during the time period.'}),
-
-                ('assets:vulns:meantime:mitigate', ('duration', {}), {
-                    'doc': 'The mean time to mitigate for vulnerable assets mitigated during the time period.'}),
-
-            )),
-
-            ('it:sec:vuln:scan', {}, (
-
-                ('time', ('time', {}), {
-                    'doc': 'The time that the scan was started.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'Description of the scan and scope.'}),
-
-                ('id', ('str', {}), {
-                    'doc': 'An externally generated ID for the scan.'}),
-
-                ('ext:url', ('inet:url', {}), {
-                    'doc': 'An external URL which documents the scan.'}),
-
-                ('software', ('it:software', {}), {
-                    'doc': 'The scanning software used.'}),
-
-                ('software:name', ('it:softwarename', {}), {
-                    'doc': 'The name of the scanner software.'}),
-
-                ('operator', ('entity:contact', {}), {
-                    'doc': 'Contact information for the scan operator.'}),
-
-            )),
-
-            ('it:sec:vuln:scan:result', {}, (
-
-                ('scan', ('it:sec:vuln:scan', {}), {
-                    'doc': 'The scan that discovered the vulnerability in the asset.'}),
-
-                ('vuln', ('risk:vuln', {}), {
-                    'doc': 'The vulnerability detected in the asset.'}),
-
-                ('asset', ('risk:exploitable', {}), {
-                    'doc': 'The node which is vulnerable.'}),
-
-                ('desc', ('str', {}), {
-                    'doc': 'A description of the vulnerability and how it was detected in the asset.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time that the scan result was produced.'}),
-
-                ('id', ('str', {}), {
-                    'doc': 'An externally generated ID for the scan result.'}),
-
-                ('ext:url', ('inet:url', {}), {
-                    'doc': 'An external URL which documents the scan result.'}),
-
-                ('mitigation', ('meta:technique', {}), {
-                    'doc': 'The mitigation used to address this asset vulnerability.'}),
-
-                ('mitigated', ('time', {}), {
-                    'doc': 'The time that the vulnerability in the asset was mitigated.'}),
-
-                ('priority', ('meta:score', {}), {
-                    'doc': 'The priority of mitigating the vulnerability.'}),
-
-                ('severity', ('meta:score', {}), {
-                    'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
-            )),
-
-            ('it:mitre:attack:group:id', {}, ()),
-            ('it:mitre:attack:tactic:id', {}, ()),
-            ('it:mitre:attack:technique:id', {}, ()),
-            ('it:mitre:attack:mitigation:id', {}, ()),
-            ('it:mitre:attack:software:id', {}, ()),
-            ('it:mitre:attack:campaign:id', {}, ()),
-
-            ('it:dev:int', {}, ()),
-            ('it:os:windows:registry:key', {}, (
-                ('parent', ('it:os:windows:registry:key', {}), {
-                    'doc': 'The parent key.'}),
-            )),
-            ('it:os:windows:registry:entry', {}, (
-
-                ('key', ('it:os:windows:registry:key', {}), {
-                    'doc': 'The Windows registry key.'}),
-
-                ('name', ('it:dev:str', {}), {
-                    'doc': 'The name of the registry value within the key.'}),
-
-                ('value', (
-                        ('file:bytes', {}),
-                        ('it:dev:int', {}),
-                        ('it:dev:str', {})
-                    ), {
-                    'prevnames': ('str', 'int', 'bytes'),
-                    'doc': 'The value assigned to the name within the key.'}),
-            )),
-
-            ('it:dev:repo:type:taxonomy', {}, ()),
-            ('it:dev:repo', {}, (
-
-                ('name', ('str:lower', {}), {
-                    'doc': 'The name of the repository.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A free-form description of the repository.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL where the repository is hosted.'}),
-
-                ('type', ('it:dev:repo:type:taxonomy', {}), {
-                    'doc': 'The type of the version control system used.',
-                    'ex': 'svn'}),
-
-                ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
-                    'doc': "An array of other repos that this repo has as submodules, pinned at specific commits."}),
-            )),
-
-            ('it:dev:repo:remote', {}, (
-
-                ('name', ('base:name', {}), {
-                    'ex': 'origin',
-                    'doc': 'The name the repo is using for the remote repo.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL the repo is using to access the remote repo.'}),
-
-                ('repo', ('it:dev:repo', {}), {
-                    'doc': 'The repo that is tracking the remote repo.'}),
-
-                ('remote', ('it:dev:repo', {}), {
-                    'doc': 'The instance of the remote repo.'}),
-            )),
-
-            ('it:dev:repo:branch', {}, (
-
-                ('parent', ('it:dev:repo:branch', {}), {
-                    'doc': 'The branch this branch was branched from.'}),
-
-                ('start', ('it:dev:repo:commit', {}), {
-                    'doc': 'The commit in the parent branch this branch was created at.'}),
-
-                ('name', ('str', {}), {
-                    'doc': 'The name of the branch.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL where the branch is hosted.'}),
-
-                ('merged', ('time', {}), {
-                    'doc': 'The time this branch was merged back into its parent.'}),
-            )),
-
-            ('it:dev:repo:commit', {}, (
-
-                ('repo', ('it:dev:repo', {}), {
-                    'doc': 'The repository the commit lives in.'}),
-
-                ('parents', ('array', {'type': 'it:dev:repo:commit', 'sorted': False}), {
-                    'doc': 'The commit or commits this commit is immediately based on.'}),
-
-                ('branch', ('it:dev:repo:branch', {}), {
-                    'doc': 'The name of the branch the commit was made to.'}),
-
-                ('mesg', ('text', {}), {
-                    'doc': 'The commit message describing the changes in the commit.'}),
-
-                ('id', ('base:id', {}), {
-                    'doc': 'The version control system specific commit identifier.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL where the commit is hosted.'}),
-            )),
-
-            ('it:dev:repo:diff', {}, (
-
-                ('commit', ('it:dev:repo:commit', {}), {
-                    'doc': 'The commit that produced this diff.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file after the commit has been applied.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path to the file in the repo that the diff is being applied to.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL where the diff is hosted.'}),
-            )),
-
-            ('it:dev:repo:entry', {}, (
-
-                ('repo', ('it:dev:repo', {}), {
-                    'doc': 'The repository which contains the file.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file which the repository contains.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path to the file in the repository.'}),
-            )),
-
-            ('it:dev:repo:issue', {}, (
-
-                ('repo', ('it:dev:repo', {}), {
-                    'doc': 'The repo where the issue was logged.'}),
-
-                ('title', ('str:lower', {}), {
-                    'doc': 'The title of the issue.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'The text describing the issue.'}),
-
-                ('updated', ('time', {}), {
-                    'doc': 'The time the issue was updated.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL where the issue is hosted.'}),
-
-                ('id', ('base:id', {}), {
-                    'doc': 'The ID of the issue in the repository system.'}),
-            )),
-
-            ('it:dev:repo:label', {}, (
-
-                ('id', ('base:id', {}), {
-                    'doc': 'The ID of the label.'}),
-
-                ('title', ('str:lower', {}), {
-                    'doc': 'The human friendly name of the label.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'The description of the label.'}),
-
-            )),
-
-            ('it:dev:repo:issue:label', {}, (
-
-                ('issue', ('it:dev:repo:issue', {}), {
-                    'doc': 'The issue the label was applied to.'}),
-
-                ('label', ('it:dev:repo:label', {}), {
-                    'doc': 'The label that was applied to the issue.'}),
-            )),
-
-            ('it:dev:repo:issue:comment', {}, (
-                ('issue', ('it:dev:repo:issue', {}), {
-                    'doc': 'The issue thread that the comment was made in.',
-                }),
-                ('text', ('text', {}), {
-                    'doc': 'The body of the comment.',
-                }),
-                ('replyto', ('it:dev:repo:issue:comment', {}), {
-                    'doc': 'The comment that this comment is replying to.',
-                }),
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL where the comment is hosted.',
-                }),
-                ('updated', ('time', {}), {
-                    'doc': 'The time the comment was updated.',
-                }),
-            )),
-
-            ('it:dev:repo:diff:comment', {}, (
-
-                ('diff', ('it:dev:repo:diff', {}), {
-                    'doc': 'The diff the comment is being added to.'}),
-
-                ('text', ('text', {}), {
-                    'doc': 'The body of the comment.'}),
-
-                ('replyto', ('it:dev:repo:diff:comment', {}), {
-                    'doc': 'The comment that this comment is replying to.'}),
-
-                ('line', ('int', {}), {
-                    'doc': 'The line in the file that is being commented on.'}),
-
-                ('offset', ('int', {}), {
-                    'doc': 'The offset in the line in the file that is being commented on.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL where the comment is hosted.'}),
-
-                ('updated', ('time', {}), {
-                    'doc': 'The time the comment was updated.'}),
-
-            )),
-
-            ('it:hardware:type:taxonomy', {
-                'prevnames': ('it:hardwaretype',)}, ()),
-
-            ('it:hardware', {}, (
-
-                ('name', ('base:name', {}), {
-                    'doc': 'The name of this hardware specification.'}),
-
-                ('type', ('it:hardware:type:taxonomy', {}), {
-                    'doc': 'The type of hardware.'}),
-
-                ('desc', ('text', {}), {
-                    'doc': 'A brief description of the hardware.'}),
-
-                ('cpe', ('it:sec:cpe', {}), {
-                    'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
-
-                ('manufacturer', ('entity:actor', {}), {
-                    'doc': 'The organization that manufactures this hardware.'}),
-
-                ('manufacturer:name', ('entity:name', {}), {
-                    'doc': 'The name of the organization that manufactures this hardware.'}),
-
-                ('model', ('biz:model', {}), {
-                    'doc': 'The model name or number for this hardware specification.'}),
-
-                ('version', ('it:version', {}), {
-                    'doc': 'Version string associated with this hardware specification.'}),
-
-                ('released', ('time', {}), {
-                    'doc': 'The initial release date for this hardware.'}),
-
-                ('parts', ('array', {'type': 'it:hardware'}), {
-                    'doc': 'An array of it:hardware parts included in this hardware specification.'}),
-            )),
-            ('it:host:component', {}, (
-
-                ('hardware', ('it:hardware', {}), {
-                    'doc': 'The hardware specification of this component.'}),
-
-                ('serial', ('base:id', {}), {
-                    'doc': 'The serial number of this component.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The it:host which has this component installed.'}),
-            )),
-
-            ('it:softid', {}, (
-
-                ('id', ('base:id', {}), {
-                    'doc': 'The ID issued by the software to the host.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host which was issued the ID by the software.'}),
-
-                ('software', ('it:software', {}), {
-                    'prevnames': ('soft',),
-                    'doc': 'The software which issued the ID to the host.'}),
-
-                ('software:name', ('it:softwarename', {}), {
-                    'prevnames': ('soft:name',),
-                    'doc': 'The name of the software which issued the ID to the host.'}),
-            )),
-
-            ('it:adid', {}, ()),
-            ('it:os:android:perm', {}, ()),
-            ('it:os:android:intent', {}, ()),
-
-            ('it:os:android:reqperm', {}, (
-
-                ('app', ('it:software', {}), {'computed': True,
-                    'doc': 'The android app which requests the permission.'}),
-
-                ('perm', ('it:os:android:perm', {}), {'computed': True,
-                    'doc': 'The android permission requested by the app.'}),
-            )),
-
-            ('it:os:android:ilisten', {}, (
-
-                ('app', ('it:software', {}), {'computed': True,
-                    'doc': 'The app software which listens for the android intent.'}),
-
-                ('intent', ('it:os:android:intent', {}), {'computed': True,
-                    'doc': 'The android intent which is listened for by the app.'}),
-            )),
-
-            ('it:os:android:ibroadcast', {}, (
-
-                ('app', ('it:software', {}), {'computed': True,
-                    'doc': 'The app software which broadcasts the android intent.'}),
-
-                ('intent', ('it:os:android:intent', {}), {'computed': True,
-                    'doc': 'The android intent which is broadcast by the app.'}),
-
-            )),
-
-            ('it:softwarename', {}, ()),
-            ('it:software:type:taxonomy', {}, ()),
-            ('it:software', {}, (
-
-                ('type', ('it:software:type:taxonomy', {}), {
-                    'doc': 'The type of software.'}),
-
-                ('parent', ('it:software', {}), {
-                    'doc': 'The parent software version or family.'}),
-
-                ('tag', ('syn:tag', {}), {
-                    'doc': 'The tag used to annotate nodes that are associated with the software.'}),
-
-                ('name', ('it:softwarename', {}), {
-                    'alts': ('names',),
-                    'doc': 'The name of the software.'}),
-
-                ('names', ('array', {'type': 'it:softwarename'}), {
-                    'doc': 'Observed/variant names for this software version.'}),
-
-                ('released', ('time', {}), {
-                    'doc': 'Timestamp for when the software was released.'}),
-
-                ('cpe', ('it:sec:cpe', {}), {
-                    'doc': 'The NIST CPE 2.3 string specifying this software version.'}),
-
-                ('risk:score', ('meta:score', {}), {
-                    'doc': 'The risk posed by the software.'}),
-
-            )),
-
-            ('it:host:installed', {}, (
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host which the software was installed on.'}),
-
-                ('software', ('it:software', {}), {
-                    'doc': 'The software installed on the host.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period when the software was installed on the host.'}),
-            )),
-
-            ('it:av:signame', {}, ()),
-
-            ('it:av:scan:result', {}, (
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the scan was run.'}),
-
-                ('verdict', ('it:av:verdict', {}), {
-                    'doc': 'The scanner provided verdict for the scan.'}),
-
-                ('scanner', ('it:software', {}), {
-                    'doc': 'The scanner software used to produce the result.'}),
-
-                ('scanner:name', ('it:softwarename', {}), {
-                    'doc': 'The name of the scanner software.'}),
-
-                ('signame', ('it:av:signame', {}), {
-                    'doc': 'The name of the signature returned by the scanner.'}),
-
-                ('categories', ('array', {'type': 'base:name'}), {
-                    'doc': 'A list of categories for the result returned by the scanner.'}),
-
-                ('target', (
-                        ('file:bytes', {}),
-                        ('it:exec:proc', {}),
-                        ('it:host', {}),
-                        ('inet:fqdn', {}),
-                        ('inet:url', {}),
-                        ('inet:ip', {})
-                    ), {
-                    'doc': 'The target of the scan.'}),
-
-                ('multi:scan', ('it:av:scan:result', {}), {
-                    'doc': 'Set if this result was part of running multiple scanners.'}),
-
-                ('multi:count', ('int', {'min': 0}), {
-                    'doc': 'The total number of scanners which were run by a multi-scanner.'}),
-
-                ('multi:count:benign', ('int', {'min': 0}), {
-                    'doc': 'The number of scanners which returned a benign verdict.'}),
-
-                ('multi:count:unknown', ('int', {'min': 0}), {
-                    'doc': 'The number of scanners which returned a unknown/unsupported verdict.'}),
-
-                ('multi:count:suspicious', ('int', {'min': 0}), {
-                    'doc': 'The number of scanners which returned a suspicious verdict.'}),
-
-                ('multi:count:malicious', ('int', {'min': 0}), {
-                    'doc': 'The number of scanners which returned a malicious verdict.'}),
-            )),
-
-            ('it:cmd', {}, ()),
-            ('it:cmd:session', {}, (
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host where the command line session was executed.'}),
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The process which was interpreting this command line session.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The period over which the command line session was running.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file containing the command history such as a .bash_history file.'}),
-
-                ('account', (
-                        ('it:host:account', {}),
-                        ('inet:service:account', {})
-                    ), {
-                    'doc': 'The account which executed the commands in the session.'}),
-            )),
-            ('it:cmd:history', {}, (
-
-                ('cmd', ('it:cmd', {}), {
-                    'doc': 'The command that was executed.'}),
-
-                ('session', ('it:cmd:session', {}), {
-                    'doc': 'The session that contains this history entry.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time that the command was executed.'}),
-
-                ('index', ('int', {}), {
-                    'doc': 'Used to order the commands when times are not available.'}),
-            )),
-            ('it:exec:proc', {}, (
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host that executed the process.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The main executable file for the process.'}),
-
-                ('cmd', ('it:cmd', {}), {
-                    'doc': 'The command string used to launch the process.'}),
-
-                ('cmd:history', ('it:cmd:history', {}), {
-                    'doc': 'The command history entry which caused this process to be run.'}),
-
-                ('pid', ('int', {}), {
-                    'doc': 'The process ID.'}),
-
-                ('name', ('str', {}), {
-                    'doc': 'The display name specified by the process.'}),
-
-                ('exitcode', ('int', {}), {
-                    'doc': 'The exit code for the process.'}),
-
-                ('account', ('it:host:account', {}), {
-                    'doc': 'The account of the process owner.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path to the executable of the process.'}),
-            )),
-
-            ('it:os:windows:service', {}, (
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host that the service was configured on.'}),
-
-                ('name', ('base:name', {}), {
-                    'doc': 'The name of the service from the registry key within Services.'}),
-
-                # TODO flags...
-                ('type', ('int', {'min': 0}), {
-                    'doc': 'The type of service from the Type registry key.'}),
-
-                ('start', ('int', {'min': 0}), {
-                    'doc': 'The start configuration of the service from the Start registry key.'}),
-
-                ('errorcontrol', ('int', {'min': 0}), {
-                    'doc': 'The service error handling behavior from the ErrorControl registry key.'}),
-
-                ('displayname', ('base:name', {}), {
-                    'doc': 'The friendly name of the service from the DisplayName registry key.'}),
-
-                ('description', ('text', {}), {
-                    'doc': 'The description of the service from the Description registry key.'}),
-
-                ('imagepath', ('file:path', {}), {
-                    'doc': 'The path to the service binary from the ImagePath registry key.'}),
-            )),
-
-            ('it:query', {}, ()),
-            ('it:exec:query', {}, (
-
-                ('text', ('it:query', {}), {
-                    'doc': 'The query string that was executed.'}),
-
-                ('opts', ('data', {}), {
-                    'doc': 'An opaque JSON object containing query parameters and options.'}),
-
-                ('api:url', ('inet:url', {}), {
-                    'doc': 'The URL of the API endpoint the query was sent to.'}),
-
-                ('language', ('base:name', {}), {
-                    'doc': 'The name of the language that the query is expressed in.'}),
-
-                ('offset', ('int', {}), {
-                    'doc': 'The offset of the last record consumed from the query.'}),
-
-                ('account', (
-                        ('syn:user', {}),
-                        ('it:host:account', {}),
-                        ('inet:service:account', {})
-                    ), {
-                    'doc': 'The account which executed the query.'}),
-
-                ('platform', ('inet:service:platform', {}), {
-                    'doc': 'The service platform which was queried.'}),
-            )),
-
-            ('it:exec:lib:load', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The process where the library was loaded.'}),
-
-                ('va', ('int', {}), {
-                    'doc': 'The base memory address where the library was loaded in the process.'}),
-
-                ('loaded', ('time', {}), {
-                    'doc': 'The time the library was loaded.'}),
-
-                ('unloaded', ('time', {}), {
-                    'doc': 'The time the library was unloaded.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path that the library was loaded from.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The library file that was loaded.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:mmap:add', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The process where the memory was mapped.'}),
-
-                ('va', ('int', {}), {
-                    'doc': 'The base memory address where the map was created in the process.'}),
-
-                ('size', ('int', {}), {
-                    'doc': 'The size of the memory map in bytes.'}),
-
-                ('perms:read', ('bool', {}), {
-                    'doc': 'True if the memory is mapped with read permissions.'}),
-
-                ('perms:write', ('bool', {}), {
-                    'doc': 'True if the memory is mapped with write permissions.'}),
-
-                ('perms:execute', ('bool', {}), {
-                    'doc': 'True if the memory is mapped with execute permissions.'}),
-
-                ('created', ('time', {}), {
-                    'doc': 'The time the memory map was created.'}),
-
-                ('deleted', ('time', {}), {
-                    'doc': 'The time the memory map was deleted.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The file path if the memory is a mapped view of a file.'}),
-
-                ('hash:sha256', ('crypto:hash:sha256', {}), {
-                    'doc': 'A SHA256 hash of the memory map.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:mutex:add', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The process that created the mutex.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that created the mutex.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that created the mutex.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the mutex was created.'}),
-
-                ('name', ('it:dev:str', {}), {
-                    'doc': 'The mutex string.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:pipe:add', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that created the named pipe.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that created the named pipe.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that created the named pipe.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the named pipe was created.'}),
-
-                ('name', ('it:dev:str', {}), {
-                    'doc': 'The named pipe string.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:fetch', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that requested the URL.'}),
-
-                ('browser', ('it:software', {}), {
-                    'doc': 'The software version of the browser.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that requested the URL.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that requested the URL.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the URL was requested.'}),
-
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL that was requested.'}),
-
-                ('page:pdf', ('file:bytes', {}), {
-                    'doc': 'The rendered DOM saved as a PDF file.'}),
-
-                ('page:html', ('file:bytes', {}), {
-                    'doc': 'The rendered DOM saved as an HTML file.'}),
-
-                ('page:image', ('file:bytes', {}), {
-                    'doc': 'The rendered DOM saved as an image.'}),
-
-                ('http:request', ('inet:http:request', {}), {
-                    'doc': 'The HTTP request made to retrieve the initial URL contents.'}),
-
-                ('client', ('inet:client', {}), {
-                    'doc': 'The address of the client during the URL retrieval.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:bind', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that bound the listening port.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that bound the listening port.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that bound the listening port.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the port was bound.'}),
-
-                ('server', ('inet:server', {}), {
-                    'doc': 'The socket address of the server when binding the port.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-
-            ('it:exec:file:add', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that created the new file.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that created the new file.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that created the new file.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the file was created.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path where the file was created.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file that was created.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:file:del', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that deleted the file.', }),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that deleted the file.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that deleted the file.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the file was deleted.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path where the file was deleted.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file that was deleted.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:file:read', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that read the file.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that read the file.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that read the file.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the file was read.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path where the file was read.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file that was read.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:file:write', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that wrote to / modified the existing file.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that wrote to the file.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that wrote to the file.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the file was written to/modified.'}),
-
-                ('path', ('file:path', {}), {
-                    'doc': 'The path where the file was written to/modified.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file that was modified.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:windows:registry:get', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that read the registry.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that read the registry.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that read the registry.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the registry was read.'}),
-
-                ('entry', ('it:os:windows:registry:entry', {}), {
-                    'prevnames': ('reg',),
-                    'doc': 'The registry key or value that was read.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:windows:registry:set', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that wrote to the registry.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that wrote to the registry.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that wrote to the registry.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the registry was written to.'}),
-
-                ('entry', ('it:os:windows:registry:entry', {}), {
-                    'prevnames': ('reg',),
-                    'doc': 'The registry key or value that was written to.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-            ('it:exec:windows:registry:del', {}, (
-
-                ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that deleted data from the registry.'}),
-
-                ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that deleted data from the registry.'}),
-
-                ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that deleted data from the registry.'}),
-
-                ('time', ('time', {}), {
-                    'doc': 'The time the data from the registry was deleted.'}),
-
-                ('entry', ('it:os:windows:registry:entry', {}), {
-                    'prevnames': ('reg',),
-                    'doc': 'The registry entry that was deleted.'}),
-
-                ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
-            )),
-
-            ('it:app:snort:rule', {}, (
-                ('engine', ('int', {}), {
-                    'doc': 'The snort engine ID which can parse and evaluate the rule text.'}),
-            )),
-
-            ('it:app:snort:match', {}, (
-
-                ('sensor', ('it:host', {}), {
-                    'doc': 'The sensor host node that produced the match.'}),
-
-                ('dropped', ('bool', {}), {
-                    'doc': 'Set to true if the network traffic was dropped due to the match.'}),
-            )),
-
-            ('it:sec:stix:bundle', {}, (
-                ('id', ('base:id', {}), {
-                    'doc': 'The id field from the STIX bundle.'}),
-            )),
-
-            ('it:sec:stix:indicator', {}, (
-
-                ('id', ('base:id', {}), {
-                    'doc': 'The STIX id field from the indicator pattern.'}),
-
-                ('name', ('str', {}), {
-                    'doc': 'The name of the STIX indicator pattern.'}),
-
-                ('confidence', ('int', {'min': 0, 'max': 100}), {
-                    'doc': 'The confidence field from the STIX indicator.'}),
-
-                ('revoked', ('bool', {}), {
-                    'doc': 'The revoked field from the STIX indicator.'}),
-
-                ('desc', ('str', {}), {
-                    'doc': 'The description field from the STIX indicator.'}),
-
-                ('pattern', ('str', {}), {
-                    'doc': 'The STIX indicator pattern text.'}),
-
-                ('pattern_type', ('it:av:pattern:type', {}), {
-                    'doc': 'The STIX indicator pattern type.'}),
-
-                ('created', ('time', {}), {
-                    'doc': 'The time that the indicator pattern was first created.'}),
-
-                ('updated', ('time', {}), {
-                    'doc': 'The time that the indicator pattern was last modified.'}),
-
-                ('labels', ('array', {'type': 'str'}), {
-                    'doc': 'The label strings embedded in the STIX indicator pattern.'}),
-
-                ('valid_from', ('time', {}), {
-                    'doc': 'The valid_from field from the STIX indicator.'}),
-
-                ('valid_until', ('time', {}), {
-                    'doc': 'The valid_until field from the STIX indicator.'}),
-            )),
-
-            ('it:app:yara:rule', {}, ()),
-            ('it:app:yara:match', {}, ()),
-
-            ('it:sec:c2:config', {}, (
-
-                ('family', ('it:softwarename', {}), {
-                    'doc': 'The name of the software family which uses the config.'}),
-
-                ('file', ('file:bytes', {}), {
-                    'doc': 'The file that the C2 config was extracted from.'}),
-
-                ('decoys', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
-                    'doc': 'An array of URLs used as decoy connections to obfuscate the C2 servers.'}),
-
-                ('servers', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
-                    'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
-
-                ('proxies', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
-                    'doc': 'An array of proxy URLs used to communicate with the C2 server.'}),
-
-                ('listens', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
-                    'doc': 'An array of listen URLs that the software should bind.'}),
-
-                ('dns:resolvers', ('array', {'type': 'inet:server', 'uniq': False, 'sorted': False}), {
-                    'doc': 'An array of inet:servers to use when resolving DNS names.'}),
-
-                ('mutex', ('it:dev:str', {}), {
-                    'doc': 'The mutex that the software uses to prevent multiple-installations.'}),
-
-                ('campaigncode', ('it:dev:str', {}), {
-                    'doc': 'The operator selected string used to identify the campaign or group of targets.'}),
-
-                ('crypto:key', ('crypto:key', {}), {
-                    'doc': 'Static key material used to encrypt C2 communications.'}),
-
-                ('connect:delay', ('duration', {}), {
-                    'doc': 'The time delay from first execution to connecting to the C2 server.'}),
-
-                ('connect:interval', ('duration', {}), {
-                    'doc': 'The configured duration to sleep between connections to the C2 server.'}),
-
-                ('raw', ('data', {}), {
-                    'doc': 'A JSON blob containing the raw config extracted from the binary.'}),
-
-                ('http:headers', ('array', {'type': 'inet:http:header', 'uniq': False, 'sorted': False}), {
-                    'doc': 'An array of HTTP headers that the sample should transmit to the C2 server.'}),
-            )),
         ),
     },
 )

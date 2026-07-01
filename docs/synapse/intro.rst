@@ -118,7 +118,7 @@ What's Next?
 +----------------------+-----------------------------------------------+
 | **Users**            | - :ref:`userguide`                            |
 |                      | - :ref:`userguide_storm_ref`                  |
-|                      | - Changelog_                                  |
+|                      | - :doc:`Changelog </synapse/changelog>`       |
 |                      | - Ask a question in Slack_                    |
 +----------------------+-----------------------------------------------+
 | **DevOps**           | - :ref:`devopsguide`                          |
@@ -152,12 +152,11 @@ What's Next?
 
 .. _`Guided Tour`: https://v.vtx.lk/synapse-tour
 
-.. _Changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
 .. _Slack: https://v.vtx.lk/join-slack
 
 .. _`sizing guide`: https://vertex.link/files/docs/synapse/Synapse-Sizing-Guidance.pdf
 
-.. _`Synapse UI`: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
+.. _`Synapse UI`: {{SYN_DOCS_BASEURL}}/docs/synapse-enterprise-optic/latest/index.html
 
 .. _Library: https://v.vtx.lk/youtube
 .. _Website: https://vertex.link/
