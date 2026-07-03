@@ -4393,6 +4393,46 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:arrayprop +test:arrayprop:ints.size*newp=5')
 
+    async def test_ast_tagvalu(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[inet:fqdn=evil.com +#foo=(2019-09-08, 2021-09-08)]')
+            await core.nodes('[inet:dns:a=(woot.com, 1.2.3.4) :seen=(2019-09-08, 2021-09-08)]')
+
+            # a tag timestamp is repr'd the same way as an equivalent ival prop (SYN-10985)
+            tagrepr = "('2019-09-08T00:00:00Z', '2021-09-08T00:00:00Z')"
+
+            msgs = await core.stormlist('inet:fqdn=evil.com $time=#foo $lib.print($time)')
+            self.stormIsInPrint(tagrepr, msgs)
+
+            msgs = await core.stormlist('inet:dns:a $time=:seen $lib.print($time)')
+            self.stormIsInPrint(tagrepr, msgs)
+
+            # the tag value carries its type and normalized value like a prop value
+            self.eq('ival', await core.callStorm('inet:fqdn=evil.com $time=#foo return($time.type)'))
+            self.eq((1567900800000000, 1631059200000000, 63158400000000),
+                    await core.callStorm('inet:fqdn=evil.com $time=#foo return($time.value)'))
+
+            # the min/max/duration virts are reachable off the tag value
+            self.eq(1567900800000000, await core.callStorm('inet:fqdn=evil.com $time=#foo return($time.min)'))
+            self.eq(1631059200000000, await core.callStorm('inet:fqdn=evil.com $time=#foo return($time.max)'))
+
+            # the wrapped tag value round-trips into an @= comparison against a
+            # tag, tagprop and prop ival - the ival type resolves the operand.
+            await core.addTagProp('_score', ('ival', {}), {})
+            await core.nodes('inet:fqdn=evil.com [ +#foo:_score=(2019-09-08, 2021-09-08) ]')
+            self.len(1, await core.nodes('inet:fqdn=evil.com $time=#foo +#foo@=$time'))
+            self.len(1, await core.nodes('inet:fqdn=evil.com $time=#foo +#foo:_score@=$time'))
+            self.len(1, await core.nodes('inet:dns:a $time=:seen +:seen@=$time'))
+
+            # a tag with no time interval yields the all-None sentinel, not an error
+            await core.nodes('[inet:fqdn=bare.com +#foo]')
+            self.eq((None, None, None), await core.callStorm('inet:fqdn=bare.com $time=#foo return($time)'))
+
+            # a missing tag yields None
+            self.none(await core.callStorm('inet:fqdn=bare.com $time=#newp return($time)'))
+
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:
             await core.nodes('''[

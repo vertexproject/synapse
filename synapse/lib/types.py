@@ -2673,6 +2673,11 @@ class Ival(Type):
 
     async def _ctorCmprAt(self, valu):
 
+        # unwrap a typed Storm value (e.g. a tag timestamp or ival prop value)
+        # so the comparison works when the @= operand is passed in directly.
+        if isinstance(valu, s_stormtypes.Valu):
+            valu = valu.value()
+
         if valu is None or valu == (None, None, None):
             async def cmpr(item):
                 return False

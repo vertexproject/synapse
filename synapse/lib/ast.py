@@ -4339,7 +4339,14 @@ class TagValue(Value):
 
     async def compute(self, runt, path):
         name = await self.kids[0].compute(runt, path)
-        return path.node.getTag(name)
+        if (valu := path.node.getTag(name)) is None:
+            return None
+
+        # a tag with no time interval is stored as the all-None sentinel
+        if valu == (None, None, None):
+            return valu
+
+        return await runt.model.type('ival').tostorm(valu)
 
 class TagVirtValue(Value):
 

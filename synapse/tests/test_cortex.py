@@ -5291,7 +5291,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(s_node.tagged(pode, '#timetag'))
 
             mesgs = await core.stormlist('test:str=foo $var=$node.value [+#$var=2019] $lib.print(#$var)')
-            self.stormIsInPrint('(1546300800000000, 1546300800000001, 1)', mesgs)
+            self.stormIsInPrint("('2019-01-01T00:00:00Z', '2019-01-01T00:00:00.000001Z')", mesgs)
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
             pode = podes[0]
@@ -5331,7 +5331,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('tag3'))
 
             mesgs = await core.stormlist('test:str=foo $var=$node.value [+?#$var=2019] $lib.print(#$var)')
-            self.stormIsInPrint('(1546300800000000, 1546300800000001, 1)', mesgs)
+            self.stormIsInPrint("('2019-01-01T00:00:00Z', '2019-01-01T00:00:00.000001Z')", mesgs)
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
             pode = podes[0]

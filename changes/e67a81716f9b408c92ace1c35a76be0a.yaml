@@ -1,0 +1,6 @@
+---
+desc: Fixed a bug where ``ival`` tag timestamps were displayed as raw storage values instead of in the human-friendly repr format used for ``ival`` properties.
+desc:literal: false
+prs: []
+type: bug
+...
