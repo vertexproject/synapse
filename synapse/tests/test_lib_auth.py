@@ -477,6 +477,52 @@ class AuthTest(s_test.SynTest):
                 self.none(await core.auth.getUserByName('fred'))
                 self.none(await core.auth.getRoleByName('friends'))
 
+    async def test_authgate_pack_after_restart(self):
+        # Regression: after a restart, gate.gateusers / gate.gateroles (read by
+        # AuthGate.pack(), i.e. $lib.auth.gates.get() and the beholder feed) are
+        # loaded from a separate slab than user.authgates / role.authgates. A
+        # subsequent gated rule/admin edit must keep the in-memory gate cache in
+        # sync, or pack() returns stale rules while user.allowed() (which reads
+        # the user/role copy) reports the change. That divergence only resets on
+        # a backend restart, not a client reload.
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+                user = await core.auth.addUser('bob')
+                role = await core.auth.addRole('staff')
+                gateiden = core.getLayer().iden
+                await user.addRule((True, ('layer', 'read')), gateiden=gateiden)
+                await role.addRule((True, ('layer', 'read')), gateiden=gateiden)
+                useriden = user.iden
+                roleiden = role.iden
+
+            # restart: gateusers/gateroles now load as objects distinct from the
+            # user/role authgate copies.
+            async with self.getTestCore(dirn=dirn) as core:
+                user = core.auth.user(useriden)
+                role = core.auth.role(roleiden)
+                gate = core.auth.getAuthGate(gateiden)
+
+                await user.addRule((True, ('node',)), gateiden=gateiden)
+                await role.addRule((True, ('node',)), gateiden=gateiden)
+
+                packed = gate.pack()
+                packuser = [u for u in packed['users'] if u['iden'] == useriden][0]
+                packrole = [r for r in packed['roles'] if r['iden'] == roleiden][0]
+
+                # pack() (gates.get / beholder) must reflect the just-added rule.
+                self.isin((True, ('node',)), packuser['rules'])
+                self.isin((True, ('node',)), packrole['rules'])
+
+                # admin toggling must likewise reflect in pack().
+                await user.setAdmin(True, gateiden=gateiden)
+                self.true([u for u in gate.pack()['users'] if u['iden'] == useriden][0]['admin'])
+
+                # removing the rule must also reflect (no stale leftover).
+                await user.delRule((True, ('node',)), gateiden=gateiden)
+                packuser = [u for u in gate.pack()['users'] if u['iden'] == useriden][0]
+                self.notin((True, ('node',)), packuser['rules'])
+
     async def test_auth_invalid(self):
 
         async with self.getTestCore() as core:

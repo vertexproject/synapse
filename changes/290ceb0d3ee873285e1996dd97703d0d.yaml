@@ -1,0 +1,7 @@
+---
+desc: Add the ``inet:whois:rec:registrant:name`` and ``inet:whois:iprec:registrant:name``
+  properties.
+desc:literal: false
+prs: []
+type: model
+...

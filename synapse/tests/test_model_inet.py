@@ -2655,8 +2655,10 @@ class InetModelTest(s_t_utils.SynTest):
                 'text': 'YELLING AT pennywise@vertex.link LOUDLY',
                 'registrar': ' cool REGISTRAR ',
                 'registrant': ' cool REGISTRANT ',
+                'registrant:name': ' Cool Registrant Org ',
             }
-            q = '[(inet:whois:rec=$valu :text=$p.text :registrar=$p.registrar :registrant=$p.registrant)]'
+            q = '''[(inet:whois:rec=$valu :text=$p.text :registrar=$p.registrar :registrant=$p.registrant
+                :registrant:name=$p."registrant:name")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2666,6 +2668,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('text'), 'yelling at pennywise@vertex.link loudly')
             self.eq(node.get('registrar'), ' cool registrar ')
             self.eq(node.get('registrant'), ' cool registrant ')
+            self.eq(node.get('registrant:name'), 'cool registrant org')
 
             nodes = await core.nodes('inet:whois:email')
             self.len(1, nodes)
@@ -2695,6 +2698,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'name': 'vtx',
                 'parentid': 'NET-10-0-0-0-0',
                 'registrant': contact,
+                'registrant:name': ' Vertex Project ',
                 'contacts': (addlcontact, ),
                 'country': 'US',
                 'status': 'validated',
@@ -2703,8 +2707,8 @@ class InetModelTest(s_t_utils.SynTest):
             }
             q = '''[(inet:whois:iprec=$valu :net4=$p.net4 :asof=$p.asof :created=$p.created :updated=$p.updated
                 :text=$p.text :desc=$p.desc :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
-                :registrant=$p.registrant :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
-                :links=$p.links)]'''
+                :registrant=$p.registrant :registrant:name=$p."registrant:name" :contacts=$p.contacts
+                :country=$p.country :status=$p.status :type=$p.type :links=$p.links)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv4, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2722,6 +2726,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('name'), 'vtx')
             self.eq(node.get('parentid'), 'NET-10-0-0-0-0')
             self.eq(node.get('registrant'), contact)
+            self.eq(node.get('registrant:name'), 'vertex project')
             self.eq(node.get('contacts'), (addlcontact,))
             self.eq(node.get('country'), 'us')
             self.eq(node.get('status'), 'validated')

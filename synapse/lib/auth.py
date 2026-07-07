@@ -539,6 +539,7 @@ class Auth(s_nexus.Pusher):
                 info = user.genGateInfo(gateiden)
                 info[name] = s_msgpack.deepcopy(valu)
                 gate.users.set(iden, info)
+                gate.gateusers[iden] = info
                 user.info['authgates'][gateiden] = info
 
             self.userdefs.set(iden, user.info)
@@ -600,6 +601,7 @@ class Auth(s_nexus.Pusher):
                 info = role.genGateInfo(gateiden)
                 info[name] = s_msgpack.deepcopy(valu)
                 gate.roles.set(iden, info)
+                gate.gateroles[iden] = info
                 role.info['authgates'][gateiden] = info
 
             self.roledefs.set(iden, role.info)
