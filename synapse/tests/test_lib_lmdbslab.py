@@ -1079,6 +1079,39 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.initdb('foo')
                 self.true(True)
 
+    async def test_slab_readonly_reads(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                testdb = slab.initdb('test')
+                dupsdb = slab.initdb('dups', dupsort=True)
+                await slab.put(b'foo', b'bar', db=testdb)
+                await slab.put(b'hehe', b'haha', db=dupsdb)
+                await slab.put(b'hehe', b'lolz', db=dupsdb)
+
+            async with await s_lmdbslab.Slab.anit(path, readonly=True) as slab:
+                testdb = slab.initdb('test')
+                dupsdb = slab.initdb('dups', dupsort=True)
+
+                self.true(slab.has(b'foo', db=testdb))
+                self.false(slab.has(b'nope', db=testdb))
+
+                self.true(slab.hasdup(b'hehe', b'haha', db=dupsdb))
+                self.false(slab.hasdup(b'hehe', b'nope', db=dupsdb))
+
+                self.eq(2, slab.count(b'hehe', db=dupsdb))
+                self.eq(1, slab.count(b'foo', db=testdb))
+                self.eq(0, slab.count(b'nope', db=testdb))
+
+                self.true(slab.prefexists(b'fo', db=testdb))
+                self.false(slab.prefexists(b'zz', db=testdb))
+
+                self.true(slab.rangeexists(b'a', b'z', db=testdb))
+                self.false(slab.rangeexists(b'x', b'z', db=testdb))
+
     async def test_lmdb_multiqueue(self):
 
         with self.getTestDir() as dirn:
