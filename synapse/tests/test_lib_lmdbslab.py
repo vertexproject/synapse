@@ -1088,9 +1088,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 testdb = slab.initdb('test')
                 dupsdb = slab.initdb('dups', dupsort=True)
-                await slab.put(b'foo', b'bar', db=testdb)
-                await slab.put(b'hehe', b'haha', db=dupsdb)
-                await slab.put(b'hehe', b'lolz', db=dupsdb)
+                slab.put(b'foo', b'bar', db=testdb)
+                slab.put(b'hehe', b'haha', db=dupsdb)
+                slab.put(b'hehe', b'lolz', db=dupsdb)
 
             async with await s_lmdbslab.Slab.anit(path, readonly=True) as slab:
                 testdb = slab.initdb('test')
