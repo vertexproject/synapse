@@ -1,0 +1,7 @@
+---
+desc: Fixed a bug where a lift matching multiple nodes could return some of them more
+  than once if the query changed a property on those nodes.
+desc:literal: false
+prs: []
+type: bug
+...
