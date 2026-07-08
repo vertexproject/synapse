@@ -1,0 +1,6 @@
+---
+desc: Updated the pinned version of the ``msgpack`` library to ``>=1.2.1,<1.3.0``.
+desc:literal: false
+prs: []
+type: note
+...
