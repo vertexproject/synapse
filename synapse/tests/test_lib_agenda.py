@@ -1744,7 +1744,7 @@ class AgendaTest(s_t_utils.SynTest):
                 ('cron.add --period hourly { $lib.print(err) }', 'Hourly period requires explicit minute'),
                 ('cron.add --period hourly/2 { $lib.print(err) }', 'Hourly period requires explicit minute'),
                 ('cron.add --period hourly@10:00 { $lib.print(err) }', 'Cannot specify hour for hourly period'),
-                ('cron.add --period hourly/newp@:00 { $lib.print(err) }', 'Invalid increment value for hourly period'),
+                ('cron.add --period hourly/newp@:00 { $lib.print(err) }', 'Invalid increment value for hourly period: newp'),
                 ('cron.add --period hourly@:24,newp { $lib.print(err) }', 'Invalid minute value'),
                 ('cron.add --period daily/newp { $lib.print(err) }', 'Invalid increment value for daily period: newp'),
                 ('cron.add --period daily --hour 10 { $lib.print(err) }', 'Cannot mix --period with legacy time arguments'),
@@ -1762,6 +1762,7 @@ class AgendaTest(s_t_utils.SynTest):
                 ('cron.add --period yearly/01-32 { $lib.print(err) }', 'Failed to parse period'),
                 ('cron.add --period yearly@blorp { $lib.print(err) }', 'Failed to parse period'),
                 ('cron.add --period minutely@:30 { $lib.print(err) }', 'Minutely period does not support a time of day'),
+                ('cron.add --period minutely@blorp { $lib.print(err) }', 'Minutely period does not support a time of day'),
                 ('cron.add --period minutely/newp { $lib.print(err) }', 'Invalid increment value for minutely period: newp'),
                 ('cron.add --period minutely/0 { $lib.print(err) }', 'Out of bounds incval'),
             ]

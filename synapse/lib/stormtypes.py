@@ -9861,6 +9861,10 @@ class LibCron(Lib):
 
         timepart = parts[1] if len(parts) > 1 else None
 
+        if period == 'minutely' and timepart is not None:
+            mesg = 'Minutely period does not support a time of day'
+            raise s_exc.BadConfValu(mesg=mesg)
+
         if timepart:
             reqs.update(self._parseTimePart(timepart))
 
@@ -9873,7 +9877,7 @@ class LibCron(Lib):
             if vals:
                 incvals = self._parseIncval(vals)
                 if incvals is None:
-                    mesg = 'Invalid increment value for hourly period: {vals}'
+                    mesg = f'Invalid increment value for hourly period: {vals}'
                     raise s_exc.BadTime(mesg=mesg)
             else:
                 incvals = 1
@@ -9928,10 +9932,6 @@ class LibCron(Lib):
 
         elif period == 'minutely':
             incunit = 'minute'
-            if timepart is not None:
-                mesg = 'Minutely period does not support a time of day'
-                raise s_exc.BadConfValu(mesg=mesg)
-
             if vals:
                 incvals = self._parseIncval(vals)
                 if incvals is None:
