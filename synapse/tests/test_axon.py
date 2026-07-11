@@ -15,6 +15,7 @@ import aiohttp.client_exceptions as a_exc
 
 import synapse.exc as s_exc
 import synapse.axon as s_axon
+import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -23,6 +24,7 @@ import synapse.lib.json as s_json
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
@@ -1063,52 +1065,60 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
                 self.eq(200, resp['code'])
 
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
-        async with self.getTestAxon(conf=conf) as axon:
+        async with self.getTestAha() as aha:
 
-            axon.addHttpApi('/api/v3/pushfile', HttpPushFile, {'cell': axon})
+            # the proxy-configured axon is provisioned into aha so the
+            # cortex below resolves it by cell type
+            async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, conf=conf) as axon:
 
-            async with await axon.upload() as fd:
-                await fd.write(b'asdfasdf')
-                size, sha256 = await fd.save()
+                axon.addHttpApi('/api/v3/pushfile', HttpPushFile, {'cell': axon})
 
-            host, port = await axon.addHttpsPort(0, host='127.0.0.1')
+                async with await axon.upload() as fd:
+                    await fd.write(b'asdfasdf')
+                    size, sha256 = await fd.save()
 
-            async with axon.getLocalProxy() as proxy:
-                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v3/pushfile', ssl={'verify': False})
+                host, port = await axon.addHttpsPort(0, host='127.0.0.1')
+
+                async with axon.getLocalProxy() as proxy:
+                    resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v3/pushfile', ssl={'verify': False})
+                    self.false(resp.get('ok'))
+                    self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
+
+                    with self.raises(s_exc.BadArg):
+                        resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v3/pushfile', ssl={'verify': False}, proxy=None)
+
+                resp = await proxy.wput(sha256, 'vertex.link')
                 self.false(resp.get('ok'))
-                self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
+                self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
 
-                with self.raises(s_exc.BadArg):
-                    resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v3/pushfile', ssl={'verify': False}, proxy=None)
-
-            resp = await proxy.wput(sha256, 'vertex.link')
-            self.false(resp.get('ok'))
-            self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
-
-            resp = await proxy.postfiles(fields, 'vertex.link')
-            self.false(resp.get('ok'))
-            self.isin('InvalidUrlClientError: vertex.link', resp.get('reason'))
-
-            # Bypass the Axon proxy configuration from Storm
-            url = axon.getLocalUrl()
-            async with self.getTestCore(conf={'axon': url}) as core:
-                q = '''
-                $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v3/pushfile`,
-                                            fields=$fields, ssl=({"verify": false}))
-                return($resp)
-                '''
-                resp = await core.callStorm(q, opts={'vars': {'fields': fields, 'port': port}})
+                resp = await proxy.postfiles(fields, 'vertex.link')
                 self.false(resp.get('ok'))
-                self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
+                self.isin('InvalidUrlClientError: vertex.link', resp.get('reason'))
 
-                q = '''
-                $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v3/pushfile`,
-                                            fields=$fields, ssl=({"verify": false}), proxy=(false))
-                return($resp)
-                '''
-                resp = await core.callStorm(q, opts={'vars': {'fields': fields, 'port': port}})
-                self.true(resp.get('ok'))
-                self.eq(resp.get('code'), 200)
+                # Bypass the Axon proxy configuration from Storm
+                async with self.addSvcToAha(aha, '00.jsonstor', s_jsonstor.JsonStorCell), \
+                        self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex) as core:
+
+                    # wait for the cortex to resolve its axon by cell type via aha
+                    self.true(await asyncio.wait_for(core.axready.wait(), timeout=10))
+
+                    q = '''
+                    $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v3/pushfile`,
+                                                fields=$fields, ssl=({"verify": false}))
+                    return($resp)
+                    '''
+                    resp = await core.callStorm(q, opts={'vars': {'fields': fields, 'port': port}})
+                    self.false(resp.get('ok'))
+                    self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
+
+                    q = '''
+                    $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v3/pushfile`,
+                                                fields=$fields, ssl=({"verify": false}), proxy=(false))
+                    return($resp)
+                    '''
+                    resp = await core.callStorm(q, opts={'vars': {'fields': fields, 'port': port}})
+                    self.true(resp.get('ok'))
+                    self.eq(resp.get('code'), 200)
 
     async def test_axon_tlscapath(self):
 
@@ -1173,16 +1183,18 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             axon00dirn = s_common.gendir(aha.dirn, 'tmp', 'axon00')
             axon01dirn = s_common.gendir(aha.dirn, 'tmp', 'axon01')
 
-            waiter = aha.waiter(2, 'aha:svc:add')
+            # only axon00 registers before the wait, firing a single aha:svc:add
+            # ( no separate leader-alias registration )
+            waiter = aha.waiter(1, 'aha:svc:add')
 
             axon00url = await aha.addAhaSvcProv('00.axon', {'https:port': None})
-            axon01url = await aha.addAhaSvcProv('01.axon', {'https:port': None, 'mirror': '00.axon'})
+            axon01url = await aha.addAhaSvcProv('01.axon', {'https:port': None})
 
             axon00 = await aha.enter_context(await s_axon.Axon.anit(axon00dirn, conf={'aha:provision': axon00url}))
             (size, sha256) = await axon00.put(b'visi')
             self.false(await axon00._axonFileAdd(sha256, size, {}))
 
-            self.len(2, await waiter.wait(timeout=6))
+            self.len(1, await waiter.wait(timeout=6))
 
             axon01 = await aha.enter_context(await s_axon.Axon.anit(axon01dirn, conf={'aha:provision': axon01url}))
             self.eq(4, await axon01.size(sha256))
@@ -1217,28 +1229,29 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
     async def test_axon_history_migration(self):
 
         # Regression test: axon history migration
-        async with self.getRegrAxon('axon-axon_v2') as axon:
+        with mock.patch('synapse.axon.Axon.reject2xStorage', False):
+            async with self.getRegrAxon('axon-axon_v2') as axon:
 
-            oldpath = s_common.genpath(axon.dirn, 'axon.lmdb')
-            newpath = s_common.genpath(axon.dirn, 'axon_v2.lmdb')
+                oldpath = s_common.genpath(axon.dirn, 'axon.lmdb')
+                newpath = s_common.genpath(axon.dirn, 'axon_v2.lmdb')
 
-            hist = list(axon.axonhist.carve(0))
-            self.true(all(tick >= 1e15 for tick, _ in hist))
-            self.len(8, hist)
+                hist = list(axon.axonhist.carve(0))
+                self.true(all(tick >= 1e15 for tick, _ in hist))
+                self.len(8, hist)
 
-            sizes = [await axon.size(hashlib.sha256(b'foo%d' % i).digest()) for i in range(5)]
-            self.eq(sum(sizes), 20)
+                sizes = [await axon.size(hashlib.sha256(b'foo%d' % i).digest()) for i in range(5)]
+                self.eq(sum(sizes), 20)
 
-            items = [x async for x in axon.hashes(0)]
-            self.eq(8, len(items))
+                items = [x async for x in axon.hashes(0)]
+                self.eq(8, len(items))
 
-            file_count = axon.axonslab.get(b'file:count', db='metrics')
-            size_bytes = axon.axonslab.get(b'size:bytes', db='metrics')
-            self.eq(int.from_bytes(file_count, 'big'), 8)
-            self.eq(int.from_bytes(size_bytes, 'big'), 3023)
+                file_count = axon.axonslab.get(b'file:count', db='metrics')
+                size_bytes = axon.axonslab.get(b'size:bytes', db='metrics')
+                self.eq(int.from_bytes(file_count, 'big'), 8)
+                self.eq(int.from_bytes(size_bytes, 'big'), 3023)
 
-            self.true(os.path.isdir(newpath))
-            self.false(os.path.isdir(oldpath))
+                self.true(os.path.isdir(newpath))
+                self.false(os.path.isdir(oldpath))
 
     async def test_axon_history_migration_fail(self):
 
@@ -1269,20 +1282,3 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
                             pass
                     self.isin('Failed to trash slab', str(cm.exception))
             self.true(os.path.isdir(oldpath))
-
-    async def test_axon_oldvers(self):
-
-        async with self.getTestAxon() as axon:
-            orig = axon.getCellInfo
-
-            async def oldCellInfo():
-                realinfo = await orig()
-                realinfo['synapse']['version'] = '2.0.0'
-                return realinfo
-
-            with mock.patch.object(axon, 'getCellInfo', oldCellInfo):
-                url = axon.getLocalUrl()
-
-                with self.getLoggerStream('synapse.cortex') as stream:
-                    async with self.getTestCore(conf={'axon': url}) as core:
-                        await stream.expect('running Synapse 2.0.0', timeout=12)

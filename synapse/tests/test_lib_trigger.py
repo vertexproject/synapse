@@ -109,7 +109,7 @@ class TrigTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=path00) as core00:
 
                 url = core00.getLocalUrl()
-                core01conf = {'mirror': url}
+                core01conf = {'parent': url}
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
                     # ensure sync by forcing node construction
                     await core01.nodes('[ou:org=*]')
@@ -310,7 +310,7 @@ class TrigTest(s_t_utils.SynTest):
             self.eq(trigger.get('view'), view.iden)
             with self.raises(s_exc.BadArg) as exc:
                 await view.setTriggerInfo(trigiden, {'view': viewiden})
-            self.eq(exc.exception.get('mesg'), 'Invalid key name provided: view')
+            self.eq(exc.exception.get('mesg'), 'Trigger property is not editable: view')
             await view.delTrigger(trigiden)
 
             # Trigger list
@@ -338,6 +338,38 @@ class TrigTest(s_t_utils.SynTest):
             await view.setTriggerInfo(iden, {'storm': '[ test:int=42 ]'})
             await core.nodes('[ test:str=foo4 +#bartag ]')
             self.len(1, await core.nodes('test:int=42'))
+
+            # a trigger's condition (form/tag/prop) is baked into the view's dispatch
+            # tables at add time and is not a "dynamic" field -- attempting to edit it
+            # must fail cleanly, not with an internal-sounding key-name error.
+            with self.raises(s_exc.BadArg) as exc:
+                await view.setTriggerInfo(iden, {'form': 'test:int'})
+            self.eq(exc.exception.get('mesg'), 'Trigger property is not editable: form')
+
+            with self.raises(s_exc.BadArg) as exc:
+                await view.setTriggerInfo(iden, {'tag': 'newtag'})
+            self.eq(exc.exception.get('mesg'), 'Trigger property is not editable: tag')
+
+            with self.raises(s_exc.BadArg) as exc:
+                await view.setTriggerInfo(iden, {'prop': 'test:str:tick'})
+            self.eq(exc.exception.get('mesg'), 'Trigger property is not editable: prop')
+
+            opts = {'vars': {'iden': iden}}
+            await self.asyncraises(s_exc.BadArg,
+                                    core.callStorm('$lib.trigger.mod($iden, ({"form": "test:int"}))', opts=opts))
+
+            # trigger.mod no longer advertises --form/--tag/--prop (they never worked); they
+            # are now rejected as unrecognized options before the backend is ever reached.
+            msgs = await core.stormlist(f'trigger.mod --form test:int {iden}')
+            self.stormIsInErr('Expected', msgs)
+
+            # the remaining documented flags still apply cleanly
+            msgs = await core.stormlist(f'trigger.mod --name renamed --enabled (false) {iden}')
+            self.stormHasNoWarnErr(msgs)
+            trig = await view.getTrigger(iden)
+            self.eq(trig.get('name'), 'renamed')
+            self.false(trig.get('enabled'))
+            await view.setTriggerInfo(iden, {'enabled': True})
 
             # Delete a tag:add
             iden2 = [iden for iden, r in triglist if r.tdef['cond'] == 'tag:add' and r.tdef.get('form') is None][0]

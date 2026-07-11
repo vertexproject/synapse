@@ -33,6 +33,8 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
+endpoint_unconfigured_base = '(user-configured base URL)'
+
 MINMAX_SIZE_MAX = 100
 
 addtriggerdescr = '''
@@ -687,9 +689,6 @@ stormcmds = (
             ('--async', {'help': 'Make the trigger run in the background.'}),
             ('--enabled', {'help': 'Enable the trigger.'}),
             ('--name', {'help': 'Human friendly name of the trigger.'}),
-            ('--form', {'help': 'Form to fire on.'}),
-            ('--tag', {'help': 'Tag to fire on.'}),
-            ('--prop', {'help': 'Property to fire on.'}),
         ),
         'storm': '''
             $iden = $cmdopts.iden
@@ -2275,12 +2274,12 @@ class Parser:
 
         posargs = ' '.join(posnames)
 
-        def printItemDesc(item, desc=None):
+        def printItemDesc(item, desc=None, indent=2):
             base_w = 32
             wrap_w = 120 - base_w
-            base = f'  {item}'
+            base = f'{"":<{indent}}{item}'
             if desc:
-                wrap_desc = self._wrap_text(desc, wrap_w) if desc else ['']
+                wrap_desc = self._wrap_text(desc, wrap_w)
                 self._printf(f'{base:<{base_w - 2}}: {wrap_desc[0]}')
                 for ln in wrap_desc[1:]:
                     self._printf(f'{"":<{base_w}}{ln}')
@@ -2299,11 +2298,17 @@ class Parser:
         if (endpoints := self.cdef.get('endpoints')):
             self._printf('')
             self._printf('Endpoints:')
-            self._printf('')
+
+            groups = {}
             for endpoint in endpoints:
-                path = endpoint['path']
-                desc = endpoint.get('desc')
-                printItemDesc(path, desc)
+                base = endpoint.get('url') or endpoint_unconfigured_base
+                groups.setdefault(base, []).append(endpoint)
+
+            for base in sorted(groups, key=lambda b: (b != endpoint_unconfigured_base, b)):
+                self._printf('')
+                self._printf(f'  {base}')
+                for endpoint in groups[base]:
+                    printItemDesc(endpoint['path'], endpoint.get('desc'), indent=4)
 
         self._printf('')
         self._printf(f'Usage: {self.prog} [options] {posargs}')

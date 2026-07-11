@@ -146,17 +146,23 @@ What changed
     In 2.x ``trigger.add`` required the query via ``--query`` (with ``condition`` the only positional). In 3.x
     ``trigger.add`` takes two positionals -- ``condition`` and ``storm`` (the query) -- and ``--query`` is gone.
     ``trigger.mod`` changed from ``trigger.mod <iden> <query>`` (only the query could change) to ``trigger.mod
-    <iden>`` with the flags ``--view``, ``--storm``, ``--user``, ``--async``, ``--enabled``, ``--name``,
-    ``--form``, ``--tag``, and ``--prop``, backed by ``$lib.trigger.mod(prefix, edits)`` taking an edits dict.
+    <iden>`` with the flags ``--view``, ``--storm``, ``--user``, ``--async``, ``--enabled``, and ``--name``,
+    backed by ``$lib.trigger.mod(prefix, edits)`` taking an edits dict.
 
     The standalone ``trigger.enable`` and ``trigger.disable`` commands and the ``$lib.trigger.enable``/
     ``$lib.trigger.disable`` methods are removed; enabling and disabling is now done through ``--enabled true|false``
     (or the ``enabled`` edit key). The 3.x trigger command set is add/del/mod/list and ``$lib.trigger`` exposes
     add/del/list/get/mod.
 
+    A trigger's condition (``form``/``tag``/``prop``/``verb``/``n2form``/``cond``) is set at creation time and is
+    not one of the editable keys; passing any of these to ``trigger.mod`` or ``$lib.trigger.mod`` raises
+    ``BadArg``. To change what a trigger fires on, delete it and add a new one with the desired condition.
+
 Why
     Making the query a required positional matches ``cron.add``, and a single ``trigger.mod`` edit path lets any
-    trigger property change in one command, replacing the removed enable/disable commands.
+    editable trigger property (view/storm/user/async/enabled/name) change in one command, replacing the removed
+    enable/disable commands. A trigger's condition isn't included because changing it isn't really "editing" the
+    trigger -- it would fire on different data entirely -- so that case is handled by replacing the trigger.
 
 What you need to do
     Drop ``--query`` from ``trigger.add`` and pass the query positionally. Use ``trigger.mod --storm`` to change

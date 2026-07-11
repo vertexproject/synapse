@@ -1,5 +1,6 @@
 import copy
 import logging
+import textwrap
 import collections
 
 from typing import List, Tuple, Dict, Union
@@ -69,7 +70,11 @@ class DocHelp:
         for form, props in props.items():
             for prop in props:
                 tn = prop[1][0]
-                doc = prop[2].get('doc', self.forms.get(tn, self.types.get(tn, self.ifaces.get(tn, self.ctors.get(tn)))))
+                # A poly typedef has a tuple of constituents in the type slot (no single doc source).
+                if isinstance(tn, str):
+                    doc = prop[2].get('doc', self.forms.get(tn, self.types.get(tn, self.ifaces.get(tn, self.ctors.get(tn)))))
+                else:
+                    doc = prop[2].get('doc', '')
                 self.props[(form, prop[0])] = doc
 
         ctord = {c[0]: c for c in ctors}
@@ -357,13 +362,12 @@ def processInterfaces(rst, ifaces, knownnames=None):
                     rst.addLines(f' * ``:{pname}`` ({tref}) - {pdoc}')
 
 def has_popts_data(props):
-    # Props contain "doc" which we pop out
-    # Check if a list of props has any keys
-    # which are not 'doc'
+    # Props contain "doc" which we pop out, and "array" (rendered in the type column).
+    # Check if a list of props has any keys which are not 'doc' or 'array'.
     for _, _, popts in props:
         keys = set(popts.keys())
-        if 'doc' in keys:
-            keys.remove('doc')
+        keys.discard('doc')
+        keys.discard('array')
         if keys:
             return True
 
@@ -423,29 +427,34 @@ def processFormsProps(rst, dochelp, forms, alledges):
                 header = header + ('        - opts',)
             rst.addLines(*header)
 
-            for pname, (ptname, ptopts), popts in props:
+            for pname, typedef, popts in props:
 
                 popts.pop('doc', None)
+                # An array prop declares its element type in the typedef slot and its
+                # container opts under the 'array' info key; render it in the type column.
+                arrayinfo = popts.pop('array', None)
+
                 doc = dochelp.props.get((name, pname))
                 if not doc.endswith('.'):
                     logger.warning(f'Docstring for prop ({name}, {pname}) does not end with a period.]')
                     doc = doc + '.'
 
+                # A poly prop (or a poly array element) is declared as a tuple of constituents.
+                if isinstance(typedef[0], (tuple, list)):
+                    ptname, ptopts = 'poly', {}
+                else:
+                    ptname, ptopts = typedef
+
                 hptlink = f'dm-type-{ptname.replace(":", "-")}'
 
                 rst.addLines(f'      * - ``:{pname}``',)
-                if ptopts:
-                    ptopts.pop('default_types', None)
-
-                    rst.addLines(f'        - | :ref:`{hptlink}`', )
+                if arrayinfo is not None or ptopts:
+                    typeref = f'array of :ref:`{hptlink}`' if arrayinfo is not None else f':ref:`{hptlink}`'
+                    rst.addLines(f'        - | {typeref}', )
+                    for k, v in (arrayinfo or {}).items():
+                        rst.addLines(f'          | {k}: ``{v}``', )
                     for k, v in ptopts.items():
-                        if ptname == 'array' and k == 'type':
-                            if isinstance(v, tuple):
-                                v = 'poly'
-                            tlink = f'dm-type-{v.replace(":", "-")}'
-                            rst.addLines(f'          | {k}: :ref:`{tlink}`', )
-                        else:
-                            rst.addLines(f'          | {k}: ``{v}``', )
+                        rst.addLines(f'          | {k}: ``{v}``', )
 
                 else:
                     rst.addLines(f'        - :ref:`{hptlink}`',)
@@ -658,6 +667,101 @@ async def processStormModules(rst, pkgname, modules):
 
     if not hasapi:
         rst.addLines('This package does not export any Storm APIs.\n')
+
+_unconfigured_base = '(user-configured base URL)'
+
+_endpoint_desc_w = 60
+
+def _renderEndpointTable(rows):
+    '''
+    Render (path, desc) tuples as an RST grid table with Path and
+    Description columns.
+
+    Grid tables survive the rst -> markdown (pandoc) conversion used to
+    build package docs: pandoc reads the multi-line cells and re-emits
+    them as a single markdown pipe table row, whereas a literal (``::``)
+    block would come through as an opaque code block.
+
+    Args:
+        rows (list): A list of (path, desc) tuples.
+
+    Returns:
+        list: The rendered table lines.
+    '''
+    path_hdr, desc_hdr = 'Path', 'Description'
+
+    # The path column is not wrapped, so it must be sized to the longest
+    # path in this table -- a grid table's cell content cannot exceed its
+    # declared column width without corrupting the whole table. The desc
+    # column is wrapped to a fixed width, so it can stay constant.
+    path_w = max(len(path_hdr), max(len(path) for path, desc in rows))
+    desc_w = _endpoint_desc_w
+
+    sep = f'+{"-" * (path_w + 2)}+{"-" * (desc_w + 2)}+'
+    hsep = f'+{"=" * (path_w + 2)}+{"=" * (desc_w + 2)}+'
+
+    lines = [sep, f'| {path_hdr:<{path_w}} | {desc_hdr:<{desc_w}} |', hsep]
+
+    for path, desc in rows:
+
+        path = path.replace('|', '\\|')
+        desc_lines = textwrap.wrap(desc.replace('|', '\\|'), desc_w) if desc else []
+
+        first = desc_lines[0] if desc_lines else ''
+        lines.append(f'| {path:<{path_w}} | {first:<{desc_w}} |')
+        for ln in desc_lines[1:]:
+            lines.append(f'| {"":<{path_w}} | {ln:<{desc_w}} |')
+
+        lines.append(sep)
+
+    return lines
+
+async def processModEndpoints(rst, pkgname, modules):
+    '''
+    Render the API endpoints declared in each module's modconf.endpoints,
+    grouped by resolved base URL, at the bottom of the package documentation.
+
+    Args:
+        rst (RstHelp):
+        pkgname (str):
+        modules (list):
+
+    Returns:
+        None
+    '''
+    groups = collections.OrderedDict()
+
+    for mdef in sorted(modules, key=lambda x: x.get('name')):
+
+        modconf = mdef.get('modconf') or {}
+        endpoints = modconf.get('endpoints')
+        if not endpoints:
+            continue
+
+        for ename in sorted(endpoints.keys()):
+
+            edef = endpoints[ename]
+            path = edef.get('path')
+
+            desc = edef.get('desc')
+            base = edef.get('url') or _unconfigured_base
+
+            groups.setdefault(base, []).append((path, desc))
+
+    if not groups:
+        return
+
+    rst.addHead('Endpoints', lvl=2)
+    rst.addLines('This package communicates with the following API endpoints.\n')
+
+    for base in sorted(groups.keys(), key=lambda b: (b != _unconfigured_base, b)):
+
+        rst.addHead(base, lvl=3)
+
+        lines = _renderEndpointTable(groups[base])
+        lines.append('')
+
+        rst.addLines(*lines)
 
 def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
     ret = collections.defaultdict(list)
@@ -942,6 +1046,7 @@ async def docStormpkg(pkgpath):
 
     if modules := pkgdef.get('modules'):
         await processStormModules(rst, pkgname, modules)
+        await processModEndpoints(rst, pkgname, modules)
 
     return rst, pkgname
 

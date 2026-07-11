@@ -646,7 +646,7 @@ class StormTypesTest(s_test.SynTest):
             'name': 'foo',
             'desc': 'test',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0b1,<4.0.0',
+            'synapse_version': '>=3.0.0b2,<4.0.0',
             'modules': [
                 {
                     'name': 'test',
@@ -7797,8 +7797,7 @@ words\tword\twrd'''
 
             await core.addTagProp('_huge', ('hugenum', {}), {})
 
-            tdef = ('array', {'type': 'hugenum', 'uniq': False, 'sorted': False})
-            await core.addFormProp('test:str', '_hugearray', tdef, {})
+            await core.addFormProp('test:str', '_hugearray', ('hugenum', {}), {'array': {'uniq': False, 'sorted': False}})
 
             nodes = await core.nodes(f'[econ:balance=* :amount=({valu})]')
             self.propeq(nodes[0], 'amount', valu)
@@ -8282,10 +8281,12 @@ words\tword\twrd'''
 
             # test that a mirror starts without firing the merge and then fires it on promotion
             dirn = s_common.genpath(core.dirn, 'backups', 'mirror00')
-            async with self.getTestCore(conf={'mirror': core.getLocalUrl()}, dirn=dirn) as mirror:
+            async with self.getTestCore(conf={'parent': core.getLocalUrl()}, dirn=dirn) as mirror:
                 await mirror.sync()
                 view = mirror.getView(fork.iden)
                 layr = view.layers[0]
+                # clear the explicit parent pin before promoting.
+                mirror.conf.pop('parent', None)
                 await mirror.promote(graceful=False)
                 self.true(await view.waitfini(6))
                 self.true(await layr.waitfini(6))

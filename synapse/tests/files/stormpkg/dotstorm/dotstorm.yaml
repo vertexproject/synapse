@@ -1,3 +1,14 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:432459a80c3729ec6c46f0afd3b973c5586a969cbc3217d879332dcbf265b6c4
-size 160
+name: dotstorm
+version: 0.0.1
+
+genopts:
+  dotstorm: true
+
+modules:
+    - name: dotstorm.foo
+
+commands:
+    - name: dotstorm.bar
+
+onload: |
+  $lib.time.sleep(0)

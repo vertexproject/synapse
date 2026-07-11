@@ -160,8 +160,8 @@ class StormTest(s_t_utils.SynTest):
 
                 $lib.print(`ip={$node.repr()} asn={:asn} foo={#foo} {:asn=5}`)
             ''')
-            self.stormIsInPrint('ip=0.0.0.0 asn=5 foo=(None, None, None) true', msgs)
-            self.stormIsInPrint('ip=1.1.1.1 asn=6 foo=(3, 4, 1) false', msgs)
+            self.stormIsInPrint('ip=0.0.0.0 asn=5 foo=null true', msgs)
+            self.stormIsInPrint("ip=1.1.1.1 asn=6 foo=1970-01-01T00:00:00.000003Z - 1970-01-01T00:00:00.000004Z false", msgs)
 
             retn = await core.callStorm('''
                 $foo = mystr
@@ -1000,14 +1000,14 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('inet:ip=11.22.33.44 | merge', opts=opts)
             self.stormIsInPrint(f'{ipnid} inet:ip:asn = 99', msgs)
-            self.stormIsInPrint(f"{ipnid} inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
+            self.stormIsInPrint(f"{ipnid} inet:ip#foo = 2020-01-01T00:00:00Z - 2020-01-01T00:00:00.000001Z", msgs)
             self.stormIsInPrint(f'{ipnid} inet:ip#foo:_score = 100', msgs)
             self.stormIsInPrint(f"{ipnid} inet:ip DATA foo = 'bar'", msgs)
             self.stormIsInPrint(f'{ipnid} inet:ip +(refs)>', msgs)
 
             msgs = await core.stormlist('ps:person | merge --diff', opts=opts)
             self.stormIsInPrint(f'{ipnid} inet:ip:asn = 99', msgs)
-            self.stormIsInPrint(f"{ipnid} inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
+            self.stormIsInPrint(f"{ipnid} inet:ip#foo = 2020-01-01T00:00:00Z - 2020-01-01T00:00:00.000001Z", msgs)
             self.stormIsInPrint(f'{ipnid} inet:ip#foo:_score = 100', msgs)
             self.stormIsInPrint(f"{ipnid} inet:ip DATA foo = 'bar'", msgs)
             self.stormIsInPrint(f'{ipnid} inet:ip +(refs)>', msgs)
@@ -2557,11 +2557,11 @@ class StormTest(s_t_utils.SynTest):
             s_tools_backup.backup(dirn00, dirn02)
 
             async with self.getTestCore(dirn=dirn00) as core00:
-                conf01 = {'mirror': core00.getLocalUrl()}
+                conf01 = {'parent': core00.getLocalUrl()}
 
                 async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
 
-                    conf02 = {'mirror': core01.getLocalUrl()}
+                    conf02 = {'parent': core01.getLocalUrl()}
 
                     async with self.getTestCore(dirn=dirn02, conf=conf02) as core02:
 
@@ -2832,7 +2832,7 @@ class StormTest(s_t_utils.SynTest):
 
                 self.eq((1, 2), await core00.callStorm('return($lib.queue.gen(onload:test).get((1), cull=(false)))'))
 
-                conf01 = {'mirror': core00.getLocalUrl()}
+                conf01 = {'parent': core00.getLocalUrl()}
 
                 async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
 
@@ -2840,6 +2840,8 @@ class StormTest(s_t_utils.SynTest):
 
                     waiter = core01.waiter(2, 'core:pkg:onload:start', 'core:pkg:onload:complete')
 
+                    # clear the explicit parent pin before promoting.
+                    core01.conf.pop('parent', None)
                     await core01.promote()
 
                     events = await waiter.wait(timeout=10)
@@ -3128,6 +3130,68 @@ class StormTest(s_t_utils.SynTest):
 
                     self.eq(12, await core.getStormPkgState('testload', 'storage:version'))
                     self.eq('heythere', await core.getStormVar('init12'))
+
+    async def test_storm_pkg_endpoint_schema(self):
+
+        async with self.getTestCore() as core:
+
+            base = {
+                'name': 'endptest',
+                'version': '0.0.1',
+                'synapse_version': '>=3.0.0b2,<4.0.0',
+            }
+
+            # a modconf endpoint with an unknown key is rejected
+            pdef = dict(base)
+            pdef['modules'] = (
+                {'name': 'endptest.mod', 'storm': '', 'modconf': {
+                    'endpoints': {'bad': {'path': '/v1/x', 'newp': 1}}}},
+            )
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pdef)
+
+            # a modconf endpoint missing the required path is rejected
+            pdef = dict(base)
+            pdef['modules'] = (
+                {'name': 'endptest.mod', 'storm': '', 'modconf': {
+                    'endpoints': {'bad': {'desc': 'no path'}}}},
+            )
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pdef)
+
+            # a well-formed modconf endpoint validates
+            pdef = dict(base)
+            pdef['modules'] = (
+                {'name': 'endptest.mod', 'storm': '', 'modconf': {
+                    'endpoints': {'ok': {'url': 'https://x', 'path': '/v1/x', 'desc': 'ok'}}}},
+            )
+            await core.addStormPkg(pdef)
+
+            # a command.endpoints entry with an unknown key is rejected
+            pdef = dict(base)
+            pdef['commands'] = (
+                {'name': 'endptest.cmd', 'storm': '',
+                    'endpoints': [{'path': '/v1/x', 'newp': 1}]},
+            )
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pdef)
+
+            # a command.endpoints entry missing the required path is rejected
+            pdef = dict(base)
+            pdef['commands'] = (
+                {'name': 'endptest.cmd', 'storm': '',
+                    'endpoints': [{'desc': 'no path'}]},
+            )
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pdef)
+
+            # a well-formed command.endpoints entry validates
+            pdef = dict(base)
+            pdef['commands'] = (
+                {'name': 'endptest.cmd', 'storm': '',
+                    'endpoints': [{'url': 'https://x', 'path': '/v1/x', 'desc': 'ok'}]},
+            )
+            await core.addStormPkg(pdef)
 
     async def test_storm_tree(self):
 
@@ -4551,7 +4615,7 @@ class StormTest(s_t_utils.SynTest):
                             },
                             {
                                 'path': '/v1/test/two',
-                                'host': 'vertex.link',
+                                'url': 'https://vertex.link',
                                 'desc': 'Single line endpoint description.'
                             },
                         ),
@@ -4571,9 +4635,12 @@ class StormTest(s_t_utils.SynTest):
             exp = textwrap.dedent('''\
                 Endpoints:
 
-                  /v1/test/one                : My multi-line endpoint description which spans multiple lines and has a second line.
+                  (user-configured base URL)
+                    /v1/test/one              : My multi-line endpoint description which spans multiple lines and has a second line.
                                                 This is the second line of the description.
-                  /v1/test/two                : Single line endpoint description.
+
+                  https://vertex.link
+                    /v1/test/two              : Single line endpoint description.
             ''').rstrip()
             self.isin(exp, helptext)
 
@@ -4616,7 +4683,7 @@ class StormTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_version': '>=3.0.0b1,<4.0.0',
+                'synapse_version': '>=3.0.0b2,<4.0.0',
                 'commands': ({
                                  'name': 'testcmd',
                                  'descr': 'test command',

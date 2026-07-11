@@ -248,6 +248,7 @@ modeldefs = (
             ('file:base', (None, {'ctor': 'synapse.models.files.FileBase'}), {
                 'template': {'title': 'file name'},
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                 ),
                 'ex': 'woot.exe',
@@ -282,6 +283,7 @@ modeldefs = (
             ('file:bytes', ('guid', {}), {
                 'template': {'title': 'file'},
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                 ),
                 'props': (
@@ -301,7 +303,8 @@ modeldefs = (
                     ('sha512', ('crypto:hash:sha512', {}), {
                         'doc': 'The SHA512 hash of the file.'}),
 
-                    ('ssdeeps', ('array', {'type': 'crypto:hash:ssdeep'}), {
+                    ('ssdeeps', ('crypto:hash:ssdeep', {}), {
+                        'array': {},
                         'doc': 'The ssdeep fuzzy hashes of the file.'}),
 
                     ('name', ('file:base', {}), {
@@ -310,7 +313,8 @@ modeldefs = (
                     ('mime', ('file:mime', {}), {
                         'doc': 'The "best" mime type name for the file.'}),
 
-                    ('mimes', ('array', {'type': 'file:mime'}), {
+                    ('mimes', ('file:mime', {}), {
+                        'array': {},
                         'doc': 'An array of alternate mime types for the file.'}),
                 ),
                 'doc': 'A file.'}),
@@ -372,7 +376,7 @@ modeldefs = (
                     ('parent', ('file:bytes', {}), {
                         'doc': 'The parent file which contains the {title}.'}),
 
-                    ('offset', ('int:min0', {}), {
+                    ('offset', ('size', {}), {
                         'doc': 'The offset to the beginning of the file within the parent file.'}),
                 ),
                 'doc': 'A file entry contained by a parent file.'}),
@@ -380,7 +384,7 @@ modeldefs = (
             ('file:archive:entry', ('file:subfile:entry', {}), {
                 'template': {'title': 'archive file entry'},
                 'props': (
-                    ('archived:size', ('int:min0', {}), {
+                    ('archived:size', ('size', {}), {
                         'doc': 'The storage size of the file within the archive.'}),
                 ),
                 'doc': 'A file entry contained by an archive file.'}),
@@ -412,6 +416,7 @@ modeldefs = (
                 'template': {'title': 'file attachment'},
                 'interfaces': (
                     ('file:entry', {}),
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                 ),
                 'display': {
@@ -466,7 +471,8 @@ modeldefs = (
                     ('subject', ('text', {}), {
                         'doc': 'The "Subject" field extracted from PDF metadata.'}),
 
-                    ('keywords', ('array', {'type': 'meta:topic'}), {
+                    ('keywords', ('meta:topic', {}), {
+                        'array': {},
                         'doc': 'The "Keywords" field extracted from PDF metadata.'}),
                 ),
                 'doc': 'Metadata extracted from a Portable Document Format (PDF) file.'}),
@@ -520,7 +526,8 @@ modeldefs = (
                     ('exports:libname', ('file:path', {}), {
                         'doc': 'The export library name according to the PE.'}),
 
-                    ('versioninfo', ('array', {'type': 'file:mime:pe:vsvers:keyval'}), {
+                    ('versioninfo', ('file:mime:pe:vsvers:keyval', {}), {
+                        'array': {},
                         'doc': 'The VS_VERSIONINFO key/value data from the PE file.'}),
                 ),
                 'doc': 'Metadata about a Microsoft Portable Executable (PE) file.',

@@ -1,3 +1,6 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:d1710ae81241daa0b6dc88fb88c2f820a600374ba6e22a38c30681f711f3a5d6
-size 120
+name: badcmdname
+version: [0, 0, 1]
+
+commands:
+    - name: invalidCMD
+      descr: No capital letters in command names!

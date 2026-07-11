@@ -1,5 +1,6 @@
 import os
 import time
+import shutil
 import logging
 import unittest
 
@@ -319,3 +320,42 @@ class TestUtils(s_t_utils.SynTest):
 
             with self.raises(AssertionError):
                 self.propeq(nodes[0], 'gprop', 'newp')
+
+    def test_tinfoil_dirn_copy(self):
+        tinfoil = s_t_utils._getSyntestTinfoil()
+        with self.getTestDir() as dirn:
+            dirnsrc = s_common.gendir(dirn, 'src')
+            dirndst = s_common.gendir(dirn, 'dst')
+            s_common.gendir(dirnsrc, 'subdir0/subdir1')
+
+            ifile0 = s_common.genpath(dirnsrc, 'file0.bin.tinfoil')
+            ifile1 = s_common.genpath(dirnsrc, 'subdir1/subdir2/file1.txt.tinfoil')
+
+            guid = s_common.uhex(s_common.guid())
+            with s_common.genfile(ifile0) as fd:
+                fd.write(tinfoil.enc(guid))
+            with s_common.genfile(ifile1) as fd:
+                fd.write(tinfoil.enc('beeptxt'.encode()))
+            with s_common.genfile(dirnsrc, 'file2.txt') as fd:
+                fd.write('beep2'.encode())
+
+            # Ensure copy function works.
+            shutil.copytree(dirnsrc, dirndst, dirs_exist_ok=True, copy_function=self._tinFoilCopy)
+
+            with s_common.genfile(dirndst, 'file0.bin') as fd:
+                self.eq(fd.read(), guid)
+            with s_common.genfile(dirndst, 'subdir1/subdir2/file1.txt') as fd:
+                self.eq(fd.read(), b'beeptxt')
+            with s_common.genfile(dirndst, 'file2.txt') as fd:
+                self.eq(fd.read(), b'beep2')
+
+            # Now decode dirnsrc
+            self.none(self.decTinFoilDir(dirnsrc))
+            self.nn(os.path.exists(ifile0))
+            self.nn(os.path.exists(ifile1))
+            with s_common.genfile(dirnsrc, 'file0.bin') as fd:
+                self.eq(fd.read(), guid)
+            with s_common.genfile(dirnsrc, 'subdir1/subdir2/file1.txt') as fd:
+                self.eq(fd.read(), b'beeptxt')
+            with s_common.genfile(dirnsrc, 'file2.txt') as fd:
+                self.eq(fd.read(), b'beep2')

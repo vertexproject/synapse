@@ -1404,3 +1404,39 @@ class TeleTest(s_t_utils.SynTest):
                 vdef = await prox.getViewDef(viewiden2)
                 self.nn(vdef)
                 self.eq(vdef.get('iden'), viewiden2)
+
+    async def test_telepath_aha_client_cache(self):
+
+        # exercise the AhaClient topology cache directly. the client does not
+        # connect ( no onlink ) so we inject the topology cache.
+        async with await s_telepath.AhaClient.anit('ssl://127.0.0.1:0/') as client:
+
+            # a svc:lead message re-flags the cached services of that type only
+            client.svcs = {
+                'aa.svc': {'name': 'aa.svc', 'leader': True, 'info': {'type': 'svc'}},
+                'bb.svc': {'name': 'bb.svc', 'leader': False, 'info': {'type': 'svc'}},
+                'cc.other': {'name': 'cc.other', 'leader': True, 'info': {'type': 'other'}},
+            }
+            await client._onTopoLeadTerm(('svc:lead', {'type': 'svc', 'term': {'name': 'bb.svc'}}))
+            self.false(client.svcs['aa.svc']['leader'])
+            self.true(client.svcs['bb.svc']['leader'])
+            self.true(client.svcs['cc.other']['leader'])  # a different type is unaffected
+
+            # a term naming a service not in the cache demotes the cached ones
+            await client._onTopoLeadTerm(('svc:lead', {'type': 'svc', 'term': {'name': 'zz.svc'}}))
+            self.false(client.svcs['aa.svc']['leader'])
+            self.false(client.svcs['bb.svc']['leader'])
+
+            # an aha:servers message refreshes the client boot urls
+            await client._onTopoAhaServers(('aha:servers',
+                {'urls': ['ssl://ahaclone.loop.vertex.link:12345/']}))
+            self.len(1, client.booturls)
+            self.eq('ahaclone.loop.vertex.link', client.booturls[0].get('host'))
+
+            # an empty url list is ignored ( boot urls unchanged )
+            await client._onTopoAhaServers(('aha:servers', {'urls': ()}))
+            self.len(1, client.booturls)
+            self.eq('ahaclone.loop.vertex.link', client.booturls[0].get('host'))
+
+            # message types with no handler are safely ignored
+            self.none(client.topohands.get('bogus:type'))

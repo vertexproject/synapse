@@ -414,6 +414,49 @@ def repr(tick, pack=False):
         mstr = f'.{micros:06d}'.rstrip('0')
     return f'{dt.year:04d}-{dt.month:02d}-{dt.day:02d}T{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}{mstr}Z'
 
+def reprmax(tick):
+    '''
+    Return a date string for a max-fill epoch-micros timestamp, collapsing the
+    trailing time fields which were filled up to their maximum into a ``*``.
+
+    A max-fill timestamp is produced when a partial time expression is normed
+    up to the maximum of its precision window (e.g. ``2025-12-31`` -> the last
+    microsecond of that day). Rather than displaying the filled maximum (e.g.
+    ``2025-12-31T23:59:59.999999Z``), this collapses the filled tail into a
+    ``*`` (e.g. ``2025-12-31*``). The fill boundary is determined dynamically
+    from the value itself.
+    '''
+    if tick == 0x7fffffffffffffff:
+        return '?'
+
+    if tick == 0x7ffffffffffffffe:
+        return '*'
+
+    dt = EPOCH + datetime.timedelta(microseconds=tick)
+
+    datestr = f'{dt.year:04d}-{dt.month:02d}-{dt.day:02d}'
+
+    micro = dt.microsecond
+
+    if micro == 999999:
+
+        if dt.second != 59:
+            return f'{datestr}T{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}.*'
+
+        if dt.minute != 59:
+            return f'{datestr}T{dt.hour:02d}:{dt.minute:02d}:*'
+
+        if dt.hour != 23:
+            return f'{datestr}T{dt.hour:02d}:*'
+
+        return f'{datestr}*'
+
+    if micro % 1000 == 999:
+        return f'{datestr}T{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}.{micro // 1000:03d}*'
+
+    # not a detectable max-fill boundary; render the full timestamp
+    return repr(tick)
+
 def day(tick):
     return (EPOCH + datetime.timedelta(microseconds=tick)).day
 

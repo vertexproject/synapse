@@ -102,10 +102,10 @@ modeldefs = (
                     ('price', ('econ:price', {}), {
                         'doc': 'The asking price of the product or service.'}),
 
-                    ('count:total', ('int:min0', {}), {
+                    ('count:total', ('size', {}), {
                         'doc': 'The number of instances for sale.'}),
 
-                    ('count:remaining', ('int:min0', {}), {
+                    ('count:remaining', ('size', {}), {
                         'doc': 'The current remaining number of instances for sale.'}),
                 ),
                 'doc': 'A product or service being listed for sale.'}),

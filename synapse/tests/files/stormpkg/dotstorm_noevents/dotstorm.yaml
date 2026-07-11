@@ -1,3 +1,11 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:df4b772940c9a275d54188240362fea901aa6e0627ede2bd20c71b75b70ebfa2
-size 137
+name: dotstorm_noevents
+version: 0.0.1
+
+genopts:
+  dotstorm: true
+
+modules:
+    - name: dotstorm.foo
+
+commands:
+    - name: dotstorm.bar

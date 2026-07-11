@@ -18,6 +18,34 @@ class TypesTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            # size is a non-negative integer
+            size = core.model.type('size')
+            self.eq(0, (await size.norm(0))[0])
+            self.eq(42, (await size.norm('42'))[0])
+            with self.raises(s_exc.BadTypeValu):
+                await size.norm(-1)
+
+            # fixed-width signed integer types
+            for name, bits in (('int8', 8), ('int16', 16), ('int32', 32), ('int64', 64)):
+                intt = core.model.type(name)
+                self.eq(0, (await intt.norm(0))[0])
+                self.eq(2 ** (bits - 1) - 1, (await intt.norm(2 ** (bits - 1) - 1))[0])
+                self.eq(-2 ** (bits - 1), (await intt.norm(-2 ** (bits - 1)))[0])
+                with self.raises(s_exc.BadTypeValu):
+                    await intt.norm(2 ** (bits - 1))
+                with self.raises(s_exc.BadTypeValu):
+                    await intt.norm(-2 ** (bits - 1) - 1)
+
+            # fixed-width unsigned integer types
+            for name, bits in (('uint8', 8), ('uint16', 16), ('uint32', 32), ('uint64', 64)):
+                uint = core.model.type(name)
+                self.eq(0, (await uint.norm(0))[0])
+                self.eq(2 ** bits - 1, (await uint.norm(2 ** bits - 1))[0])
+                with self.raises(s_exc.BadTypeValu):
+                    await uint.norm(-1)
+                with self.raises(s_exc.BadTypeValu):
+                    await uint.norm(2 ** bits)
+
             # a non-form value already normed as this type is reused as-is
             # (same typehash), here re-casting a str typed value to str
             self.eq('Foo', await core.callStorm('$x=$lib.cast(str, Foo) return($lib.cast(str, $x))'))
@@ -1754,8 +1782,28 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.getBaseModel()
         ival = model.types.get('ival')
 
-        self.eq(('2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z'), ival.repr((await ival.norm(('2016', '2017')))[0]))
+        self.eq('2016-01-01T00:00:00Z - 2017-01-01T00:00:00Z', ival.repr((await ival.norm(('2016', '2017')))[0]))
         self.eq((0, 5356800000000, 5356800000000), (await ival.norm((0, '1970-03-04')))[0])
+
+        # a repr string round-trips back to the same value via norm
+        for src in (('2016', '2017'), ('?', '2025-07-12T07:13?'), ('20210102T07?', '20240401T07?'),
+                    ('2012?', '20210607?'), ('?', '2025?'), ('2016-01-01', '2016-01-01'), ('2020', '*')):
+            valu = (await ival.norm(src))[0]
+            self.eq(valu, (await ival.norm(ival.repr(valu)))[0])
+
+        # a bare ' - ' separated string norms as a range
+        self.eq((1451606400000000, 1483228800000000, 31622400000000),
+                (await ival.norm('2016 - 2017'))[0])
+        # a ' - ' range whose bounds are equal becomes a 1us interval
+        self.eq((1577836800000000, 1577836800000001, 1), (await ival.norm('2020 - 2020'))[0])
+        # ' - ' that is not a valid range falls back to relative-time handling
+        self.eq((1575244800000000, 1575244800000001, 1), (await ival.norm('2020 - 30 days'))[0])
+        # a range may not begin with the ongoing (*) marker
+        with self.raises(s_exc.BadTypeValu):
+            await ival.norm('* - 2020')
+        # a ' - ' range with min after max is rejected
+        with self.raises(s_exc.BadTypeValu):
+            await ival.norm('2020-01-01T00:00:00Z - 2019-01-01T00:00:00Z')
         self.eq((1451606400000000, 1451606400000001, 1), (await ival.norm('2016'))[0])
         self.eq((1451606400000000, 1451606400000001, 1), (await ival.norm(1451606400000000))[0])
         self.eq((1451606400000000, 1451606400000001, 1), (await ival.norm(decimal.Decimal(1451606400000000)))[0])
@@ -1982,27 +2030,27 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({}, valu[1])
 
             valu = await ival.norm(('?', '2025-07-12T07:13?'))
-            self.eq(('?', '2025-07-12T07:13:59.999999Z'), ival.repr(valu[0]))
+            self.eq('? - 2025-07-12T07:13:*', ival.repr(valu[0]))
             self.eq({'virts': {'precision': (s_time.PREC_MINUTE, styp)}}, valu[1])
 
             valu = await ival.norm(('20210102T07?', '20240401T07?'))
-            self.eq(('2021-01-02T07:00:00Z', '2024-04-01T07:59:59.999999Z'), ival.repr(valu[0]))
+            self.eq('2021-01-02T07:00:00Z - 2024-04-01T07:*', ival.repr(valu[0]))
             self.eq({'virts': {'precision': (s_time.PREC_HOUR, styp)}}, valu[1])
 
             valu = await ival.norm(('2012?', '20210607?'))
-            self.eq(('2012-01-01T00:00:00Z', '2021-06-07T23:59:59.999999Z'), ival.repr(valu[0]))
+            self.eq('2012-01-01T00:00:00Z - 2021-06-07*', ival.repr(valu[0]))
             self.eq({'virts': {'precision': (s_time.PREC_DAY, styp)}}, valu[1])
 
             valu = await ival.norm(('202101?', '2025?'))
-            self.eq(('2021-01-01T00:00:00Z', '2025-01-31T23:59:59.999999Z'), ival.repr(valu[0]))
+            self.eq('2021-01-01T00:00:00Z - 2025-01-31*', ival.repr(valu[0]))
             self.eq({'virts': {'precision': (s_time.PREC_MONTH, styp)}}, valu[1])
 
             valu = await ival.norm(('2021?', '202501?'))
-            self.eq(('2021-01-01T00:00:00Z', '2025-01-31T23:59:59.999999Z'), ival.repr(valu[0]))
+            self.eq('2021-01-01T00:00:00Z - 2025-01-31*', ival.repr(valu[0]))
             self.eq({'virts': {'precision': (s_time.PREC_MONTH, styp)}}, valu[1])
 
             valu = await ival.norm(('?', '2025?'))
-            self.eq(('?', '2025-12-31T23:59:59.999999Z'), ival.repr(valu[0]))
+            self.eq('? - 2025-12-31*', ival.repr(valu[0]))
             self.eq({'virts': {'precision': (s_time.PREC_YEAR, styp)}}, valu[1])
 
             valu = (await ityp.norm('2025-04-05 12:34:56.123456'))[0]
@@ -2485,6 +2533,54 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await pctype.normVirt('currency', None, 'usd')
 
+    async def test_pricechange_names(self):
+
+        async with self.getTestCore() as core:
+
+            pctype = core.model.type('econ:pricechange')
+            rntype = pctype.clone({'names': {'start': 'allocated', 'end': 'spent', 'delta': 'variance'}})
+
+            # the renamed part virts are exposed under the new names
+            self.eq(['allocated', 'currency', 'rate', 'spent', 'variance'], sorted(rntype.virts.keys()))
+            self.eq(('allocated', 'spent', 'variance', 'rate'), rntype.parts)
+
+            # norm is positional and unchanged; variance == spent - allocated
+            norm = (await rntype.norm((5000, 1000)))[0]
+            self.eq(('5000', '1000', '-4000', '-80'), norm)
+
+            # getters resolve via the renamed names
+            self.eq('5000', rntype.getVirtGetr('allocated')((norm, None, None)))
+            self.eq('1000', rntype.getVirtGetr('spent')((norm, None, None)))
+            self.eq('-4000', rntype.getVirtGetr('variance')((norm, None, None)))
+            self.eq('-80', rntype.getVirtGetr('rate')((norm, None, None)))
+
+            # setters resolve via the renamed names
+            newv, _ = await rntype.normVirt('allocated', None, 5000)
+            self.eq(('5000', '?', '?', '?'), newv)
+            newv, _ = await rntype.normVirt('spent', newv, 1000)
+            self.eq(('5000', '1000', '-4000', '-80'), newv)
+
+            newv, _ = await rntype.normVirt('allocated', None, 100)
+            newv, _ = await rntype.normVirt('variance', newv, -40)
+            self.eq(('100', '60', '-40', '-40'), newv)
+
+            # comparators on the renamed parts translate back to the canonical
+            # names before reaching the storage layer
+            self.eq((('start<', '6000', rntype.stortype),), await rntype.getStorCmprs('<', 6000, virt='allocated'))
+            self.eq((('end>', '10', rntype.stortype),), await rntype.getStorCmprs('>', 10, virt='spent'))
+            self.eq((('delta>', '0', rntype.stortype),), await rntype.getStorCmprs('>', 0, virt='variance'))
+
+            # unrenamed parts still lift under their own name
+            cmprs = await rntype.getStorCmprs('<', 5, virt='rate')
+            self.eq('rate<', cmprs[0][0])
+
+            # renaming a non-part virt or an unknown name is rejected
+            with self.raises(s_exc.BadTypeDef):
+                pctype.clone({'names': {'currency': 'money'}})
+
+            with self.raises(s_exc.BadTypeDef):
+                pctype.clone({'names': {'nosuch': 'nope'}})
+
     async def test_loc(self):
         model = s_datamodel.getBaseModel()
         loctype = model.types.get('loc')
@@ -2831,6 +2927,26 @@ class TypesTest(s_t_utils.SynTest):
 
             tmax = t.clone({'maxfill': True})
             self.eq((await tmax.norm('9999-12-31T23:59:59.999999Z'))[0], maxtime)
+
+            # a maxfill time collapses the filled tail of the time into a *
+            self.eq(tmax.repr((await tmax.norm('2021-06-07?'))[0]), '2021-06-07*')
+            self.eq(tmax.repr((await tmax.norm('2021-06-07T02?'))[0]), '2021-06-07T02:*')
+            self.eq(tmax.repr((await tmax.norm('2021-06-07T02:03?'))[0]), '2021-06-07T02:03:*')
+            self.eq(tmax.repr((await tmax.norm('2021-06-07T02:03:04?'))[0]), '2021-06-07T02:03:04.*')
+            self.eq(tmax.repr((await tmax.norm('2021-06-07T02:03:04.123?'))[0]), '2021-06-07T02:03:04.123*')
+            # coarser precisions keep the (real) last-of-window date
+            self.eq(tmax.repr((await tmax.norm('2021-06?'))[0]), '2021-06-30*')
+            self.eq(tmax.repr((await tmax.norm('2021?'))[0]), '2021-12-31*')
+            # a fully-precise value has no filled tail to collapse
+            self.eq(tmax.repr((await tmax.norm('2021-06-07T02:03:04.123456'))[0]), '2021-06-07T02:03:04.123456Z')
+            # on a maxfill time a trailing * norms like the reprmax form it emits
+            self.eq((await tmax.norm('2021-06-07*'))[0], (await tmax.norm('2021-06-07?'))[0])
+            self.eq((await tmax.norm('2021-06-07T02:*'))[0], (await tmax.norm('2021-06-07T02?'))[0])
+            # a non-maxfill time leaves a trailing * inert (no maxfill)
+            self.eq((await t.norm('2021-06-07*'))[0], (await t.norm('2021-06-07'))[0])
+            # the future/unknown markers are unaffected
+            self.eq(tmax.repr((await tmax.norm('*'))[0]), '*')
+            self.eq(tmax.repr((await tmax.norm('?'))[0]), '?')
 
             tick = (await t.norm('2014'))[0]
             self.eq(t.repr(tick), '2014-01-01T00:00:00Z')
@@ -3206,11 +3322,10 @@ class TypesTest(s_t_utils.SynTest):
 
         mdef = {
             'types': (
-                ('test:array', ('array', {'type': 'inet:ip'}), {}),
                 ('test:witharray', ('guid', {}), {
                     'props': (
-                        ('ips', ('test:array', {}), {}),
-                        ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True, 'split': ','}), {}),
+                        ('ips', ('inet:ip', {}), {'array': {}}),
+                        ('fqdns', ('inet:fqdn', {}), {'array': {'uniq': True, 'sorted': True, 'split': ','}}),
                     ),
                 }),
             ),
@@ -3220,10 +3335,10 @@ class TypesTest(s_t_utils.SynTest):
             core.model.addModelDefs([mdef])
 
             with self.raises(s_exc.BadTypeDef):
-                await core.addFormProp('test:int', '_hehe', ('array', {'type': 'array'}), {})
+                await core.addFormProp('test:int', '_hehe', ('array', {}), {'array': {}})
 
             with self.raises(s_exc.BadTypeDef):
-                await core.addFormProp('test:int', '_hehe', ('array', {'type': 'newp'}), {})
+                await core.addFormProp('test:int', '_hehe', ('newp', {}), {'array': {}})
 
             nodes = await core.nodes('[ test:witharray=* :ips=(1.2.3.4, 5.6.7.8) ]')
             self.len(1, nodes)
@@ -3274,7 +3389,7 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:witharray:fqdns*[~=ehe]')
             self.len(1, nodes)
 
-            await core.addFormProp('test:int', '_hehe', ('array', {'type': 'str'}), {})
+            await core.addFormProp('test:int', '_hehe', ('str', {}), {'array': {}})
 
             baz = 'baz' * 100
 
@@ -3293,7 +3408,7 @@ class TypesTest(s_t_utils.SynTest):
             core.getLayer()._testAddPropArrayIndx(nid, 'test:int', '_hehe', (('str', 'newp' * 100),))
             self.len(0, await core.nodes('test:int:_hehe*[~=newp]'))
 
-            await core.addFormProp('test:int', '_vers', ('array', {'type': 'it:version'}), {})
+            await core.addFormProp('test:int', '_vers', ('it:version', {}), {'array': {}})
 
             await core.nodes('[ test:int=3 :_vers=(v1.2.3, foo1.2.3, 4.5.6) ]')
             self.len(2, await core.nodes('test:int:_vers*[.semver=1.2.3]'))

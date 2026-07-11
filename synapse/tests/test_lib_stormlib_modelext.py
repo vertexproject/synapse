@@ -28,8 +28,12 @@ class StormtypesModelextTest(s_test.SynTest):
                 $forminfo = ({"doc": "A test type form doc."})
                 $lib.model.ext.addType(_test:type, str, $typeopts, $typeinfo)
                 $lib.model.ext.addForm(_test:typeform, _test:type, ({}), $forminfo)
-                $lib.model.ext.addType(_test:typearry, array, ({"type": "_test:type"}), $forminfo)
             ''')
+
+            # The array type may only be used inline on a prop, never as a named type.
+            with self.raises(s_exc.BadTypeDef):
+                await core.callStorm(
+                    '$lib.model.ext.addType(_test:typearry, array, ({"type": "_test:type"}), ({}))')
 
             q = '[ _visi:int=10 :_tick=20210101 +#lol:_score=99 <(_copies)+ {[ it:dev:str=visi ]} ]'
             nodes = await core.nodes(q)
@@ -103,16 +107,10 @@ class StormtypesModelextTest(s_test.SynTest):
 
             await core.callStorm('$lib.model.ext.delForm(_test:typeform)')
 
-            with self.raises(s_exc.CantDelType) as cm:
-                await core.callStorm('$lib.model.ext.delType(_test:type)')
-            self.isin('still in use by array types', cm.exception.get('mesg'))
-
-            await core.callStorm('$lib.model.ext.delType(_test:typearry)')
             await core.callStorm('$lib.model.ext.delType(_test:type)')
 
             self.none(core.model.type('_test:type'))
             self.none(core.model.form('_test:typeform'))
-            self.none(core.model.type('_test:typearry'))
             self.none(core.model.form('_visi:int'))
             self.none(core.model.prop('_visi:int:_tick'))
             self.none(core.model.prop('test:int:_tick'))
@@ -384,8 +382,8 @@ class StormtypesModelextTest(s_test.SynTest):
                     await core.callStorm('''
                         $lib.model.ext.addForm(_behold:score, int, ({}), ({"doc": "first string"}))
                         $lib.model.ext.addFormProp(_behold:score, _rank, (int, ({})), ({"doc": "second string"}))
-                        $lib.model.ext.addFormProp(_behold:score, _codes, (array, ({"type": "int"})), ({"doc": "third string"}))
-                        $lib.model.ext.addFormProp(_behold:score, _pair, ((str, ({"regex": "^[a-z]+"})), (int, ({"min": 0}))), ({"doc": "poly two-opts"}))
+                        $lib.model.ext.addFormProp(_behold:score, _codes, (int, ({})), ({"array": ({}), "doc": "third string"}))
+                        $lib.model.ext.addFormProp(_behold:score, _pair, ((str, ({})), (int, ({}))), ({"doc": "poly two named types"}))
                         $lib.model.ext.addTagProp(_thingy, (int, ({})), ({"doc": "fourth string"}))
                         $lib.model.ext.addEdge(*, _goes, geo:place, ({"doc": "fifth string"}))
                     ''')
@@ -404,37 +402,20 @@ class StormtypesModelextTest(s_test.SynTest):
                     self.eq(propmesg['data']['info']['prop']['name'], '_rank')
                     self.eq(propmesg['data']['info']['prop']['stortype'], 29)
 
-                    # _codes is an inline array typedef. Its auto-registered named array type
-                    # is delivered first (model:type:add), then the prop add carries the auto
-                    # type name -- mirroring getModelDict so clients can resolve prop values.
-                    typemesg = await sock.receive_json()
-                    self.eq(typemesg['data']['event'], 'model:type:add')
-                    codestype_name = typemesg['data']['info']['name']
-                    self.true(codestype_name.startswith('_behold:score:_codes:'))
-                    self.true(typemesg['data']['info']['type']['info']['auto'])
-                    self.eq('array', typemesg['data']['info']['type']['info']['bases'][-1])
-
+                    # _codes is an array ext prop: no separate model:type:add, and the prop add
+                    # carries the element typedef plus the 'array' container info key.
                     codesmesg = await sock.receive_json()
                     self.eq(codesmesg['data']['event'], 'model:prop:add')
                     self.eq(codesmesg['data']['info']['form'], '_behold:score')
                     self.eq(codesmesg['data']['info']['prop']['full'], '_behold:score:_codes')
-                    self.eq(codestype_name, codesmesg['data']['info']['prop']['type'][0])
+                    self.eq(('int', {}), codesmesg['data']['info']['prop']['type'])
+                    self.eq({}, codesmesg['data']['info']['prop']['array'])
 
-                    # _pair is a poly with two opts-bearing constituents -> two auto types,
-                    # both delivered (order-independent) before the prop add.
-                    pairtypes = set()
-                    for _ in range(2):
-                        ptmesg = await sock.receive_json()
-                        self.eq(ptmesg['data']['event'], 'model:type:add')
-                        self.true(ptmesg['data']['info']['name'].startswith('_behold:score:_pair:'))
-                        self.true(ptmesg['data']['info']['type']['info']['auto'])
-                        pairtypes.add(ptmesg['data']['info']['name'])
-                    self.len(2, pairtypes)
-
+                    # _pair is a poly of two named types, delivered inline in the prop typedef.
                     pairmesg = await sock.receive_json()
                     self.eq(pairmesg['data']['event'], 'model:prop:add')
                     self.eq(pairmesg['data']['info']['prop']['full'], '_behold:score:_pair')
-                    self.sorteq(pairtypes, pairmesg['data']['info']['prop']['type'][1]['types'])
+                    self.sorteq(('int', 'str'), pairmesg['data']['info']['prop']['type'][1]['types'])
 
                     tagpmesg = await sock.receive_json()
                     self.eq(tagpmesg['data']['event'], 'model:tagprop:add')
@@ -463,27 +444,15 @@ class StormtypesModelextTest(s_test.SynTest):
                     self.eq(delprop['data']['info']['form'], '_behold:score')
                     self.eq(delprop['data']['info']['prop'], '_rank')
 
-                    # deleting the array prop drops its prop then its auto-registered type
-                    # (delivered together on add), keeping clients in sync with getModelDict.
+                    # deleting the array prop drops just the prop.
                     delcodes = await sock.receive_json()
                     self.eq(delcodes['data']['event'], 'model:prop:del')
                     self.eq(delcodes['data']['info']['prop'], '_codes')
 
-                    delcodestype = await sock.receive_json()
-                    self.eq(delcodestype['data']['event'], 'model:type:del')
-                    self.eq(delcodestype['data']['info']['type'], codestype_name)
-
-                    # the poly prop drops its prop then both of its auto-registered types
+                    # the poly prop drops just the prop; its members are shared named types.
                     delpair = await sock.receive_json()
                     self.eq(delpair['data']['event'], 'model:prop:del')
                     self.eq(delpair['data']['info']['prop'], '_pair')
-
-                    delpairtypes = set()
-                    for _ in range(2):
-                        dptmesg = await sock.receive_json()
-                        self.eq(dptmesg['data']['event'], 'model:type:del')
-                        delpairtypes.add(dptmesg['data']['info']['type'])
-                    self.eq(pairtypes, delpairtypes)
 
                     delform = await sock.receive_json()
                     self.eq(delform['data']['event'], 'model:form:del')
@@ -644,51 +613,37 @@ class StormtypesModelextTest(s_test.SynTest):
 
     async def test_lib_stormlib_modelext_array_prop(self):
         '''
-        Verify that extended form props with inline array typedefs round-trip
-        correctly through getExtModel/addExtModel and survive a Cortex restart.
+        Verify that extended array form props round-trip correctly through
+        getExtModel/addExtModel and survive a Cortex restart.
         '''
-        # Part 1: inline array ext prop - add, inspect, and dump extmodel
+        # Part 1: array ext prop - add, inspect, and dump extmodel
         async with self.getTestCore() as core:
             await core.callStorm('''
-                $propinfo = ({"doc": "A list of tags."})
-                $lib.model.ext.addFormProp(test:int, _tags, (array, ({"type": "str"})), $propinfo)
+                $propinfo = ({"array": ({}), "doc": "A list of tags."})
+                $lib.model.ext.addFormProp(test:int, _tags, (str, ({})), $propinfo)
             ''')
 
-            # Named array type must be auto-registered under form:prop:<typehash>
+            # An array ext prop stores its element typedef plus the 'array' info key;
+            # no separate named type is registered.
             prop = core.model.prop('test:int:_tags')
             self.nn(prop)
             self.true(prop.type.isarray)
-            self.true(prop.type.name.startswith('test:int:_tags:'))
-            tags_typename = prop.type.name
+            self.eq('array', prop.type.name)
+            self.eq(prop.typedef, ('str', {}))
+            self.eq(prop.info['array'], {})
 
-            arrtype = core.model.type(tags_typename)
-            self.nn(arrtype)
-            self.true(arrtype.isarray)
-            self.eq(arrtype.opts.get('type'), 'str')
-
-            # Prop typedef must be rewritten to the named reference form
-            self.eq(prop.typedef, (tags_typename, {}))
-
-            # The client model dict keeps the auto-registered array type (flagged 'auto',
-            # base type recoverable from bases) and the prop references it directly so the
-            # client resolves node poly prop values and shows the base type/opts.
+            # The client model dict carries the element typedef and the 'array' info key.
             mdict = await core.getModelDict()
-            autopack = mdict['types'].get(tags_typename)
-            self.nn(autopack)
-            self.true(autopack['info'].get('auto'))
-            self.eq('array', autopack['info']['bases'][-1])
-            self.eq('str', autopack['opts'].get('type'))
-            exttype = mdict['forms']['test:int']['props']['_tags']['type']
-            self.eq(tags_typename, exttype[0])
+            propdef = mdict['forms']['test:int']['props']['_tags']
+            self.eq(('str', {}), propdef['type'])
+            self.eq({}, propdef['array'])
 
-            # getExtModel() must store the original inline form (not the rewritten name),
-            # so that reload on a fresh cortex can re-derive the type.
+            # getExtModel() stores the element typedef and info so a fresh cortex can re-clone it.
             extmodel = await core.getExtModel()
             prop_entries = [e for e in extmodel.get('props', ()) if e[0] == 'test:int' and e[1] == '_tags']
             self.len(1, prop_entries)
-            stored_tdef = prop_entries[0][2]
-            self.eq(stored_tdef[0], 'array')
-            self.eq(stored_tdef[1].get('type'), 'str')
+            self.eq(('str', {}), prop_entries[0][2])
+            self.eq({}, prop_entries[0][3].get('array'))
 
         # Part 2: addExtModel on a fresh core must not raise NoSuchType
         async with self.getTestCore() as core:
@@ -697,87 +652,60 @@ class StormtypesModelextTest(s_test.SynTest):
             prop = core.model.prop('test:int:_tags')
             self.nn(prop)
             self.true(prop.type.isarray)
-            self.true(prop.type.name.startswith('test:int:_tags:'))
-            arrtype = core.model.type(prop.type.name)
-            self.nn(arrtype)
+            self.eq(prop.typedef, ('str', {}))
+            self.eq(prop.info['array'], {})
 
-            self.eq(prop.typedef, (prop.type.name, {}))
-
-            # Re-loading the same extmodel must be idempotent (no DupTypeName)
+            # Re-loading the same extmodel must be idempotent.
             await core.addExtModel(extmodel)
 
-        # Part 3: restart (same dirn) - _applyExtModel must re-derive the named array type
+        # Part 3: restart (same dirn) - _applyExtModel must re-clone the array typedef
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
                 await core.callStorm('''
-                    $propinfo = ({"doc": "A list of tags."})
-                    $lib.model.ext.addFormProp(test:int, _tags, (array, ({"type": "str"})), $propinfo)
+                    $propinfo = ({"array": ({}), "doc": "A list of tags."})
+                    $lib.model.ext.addFormProp(test:int, _tags, (str, ({})), $propinfo)
                 ''')
-                prop = core.model.prop('test:int:_tags')
-                self.nn(prop)
-                self.nn(core.model.type(prop.type.name))
-                restart_typename = prop.type.name
+                self.nn(core.model.prop('test:int:_tags'))
 
             async with self.getTestCore(dirn=dirn) as core:
-                # After restart, _applyExtModel must have re-derived the named array type
                 prop = core.model.prop('test:int:_tags')
                 self.nn(prop)
                 self.true(prop.type.isarray)
-                self.true(prop.type.name.startswith('test:int:_tags:'))
-                self.eq(prop.type.name, restart_typename)
+                self.eq(prop.typedef, ('str', {}))
+                self.eq(prop.info['array'], {})
 
-                arrtype = core.model.type(prop.type.name)
-                self.nn(arrtype)
-                self.eq(prop.typedef, (prop.type.name, {}))
-
-                # delFormProp must also remove the auto-registered array type
-                deleted_typename = prop.type.name
                 await core.callStorm('$lib.model.ext.delFormProp(test:int, _tags)')
                 self.none(core.model.prop('test:int:_tags'))
-                self.none(core.model.type(deleted_typename))
 
     async def test_lib_stormlib_modelext_poly_tuple_prop(self):
         '''
-        Verify extended form props with poly-tuple inline typedefs (constituents carrying
-        real type opts) auto-register named types and clean them up on delete.
+        Verify extended form props with poly-tuple inline typedefs whose constituents carry
+        real type opts are rejected -- constituents must reference named types.
         '''
         async with self.getTestCore() as core:
-            # poly-tuple tdef: first constituent has real opts (regex), second is plain.
-            # isinstance(tdef[0], tuple) is True so lines 3418-3421 in cortex.py run for
-            # the first constituent; the second uses the else branch (no registration).
-            await core.callStorm('''
-                $propinfo = ({"doc": "A poly prop."})
-                $tdef = ((str, ({"regex": "^[a-z]+"})), (int, ({})))
-                $lib.model.ext.addFormProp(test:int, _altid, $tdef, $propinfo)
-            ''')
+            with self.raises(s_exc.BadPropDef):
+                await core.callStorm('''
+                    $tdef = ((str, ({"regex": "^[a-z]+"})), (int, ({})))
+                    $lib.model.ext.addFormProp(test:int, _altid, $tdef, ({"doc": "poly"}))
+                ''')
+            self.none(core.model.prop('test:int:_altid'))
 
+            # A poly-tuple of named types (no inline opts) is accepted.
+            await core.callStorm('''
+                $tdef = ((str, ({})), (int, ({})))
+                $lib.model.ext.addFormProp(test:int, _altid, $tdef, ({"doc": "poly"}))
+            ''')
             prop = core.model.prop('test:int:_altid')
             self.nn(prop)
             self.true(prop.type.ispoly)
-
-            # The opts-bearing str constituent becomes a hash-named type
-            propfull_prefix = 'test:int:_altid:'
-            auto_typenames = [t for t in prop.type.typeset if t.startswith(propfull_prefix)]
-            self.len(1, auto_typenames)
-            auto_typename = auto_typenames[0]
-
-            auto_type = core.model.type(auto_typename)
-            self.nn(auto_type)
-
-            # delFormProp must remove both the prop and the auto-registered constituent type
-            # (exercises the ispoly branch in _delFormProp)
             await core.callStorm('$lib.model.ext.delFormProp(test:int, _altid)')
             self.none(core.model.prop('test:int:_altid'))
-            self.none(core.model.type(auto_typename))
 
     async def test_lib_stormlib_modelext_poly_format_prop(self):
         '''
-        Verify extended form props with ('poly', opts) format tdefs pass through the
-        else branch in addFormProp without auto-registering any type.
+        Verify extended form props with ('poly', opts) format tdefs load correctly.
         '''
         async with self.getTestCore() as core:
-            # ('poly', {'types': [...]}) format — tdef[0] == 'poly' hits the else branch
-            # (not the "str and not poly" branch, and not the tuple branch).
             await core.callStorm('''
                 $propinfo = ({"doc": "A plain poly prop."})
                 $tdef = (poly, ({"types": ["str", "int"]}))
@@ -787,8 +715,4 @@ class StormtypesModelextTest(s_test.SynTest):
             prop = core.model.prop('test:int:_polyid')
             self.nn(prop)
             self.true(prop.type.ispoly)
-
-            # no auto-registered type — no name starting with test:int:_polyid:
-            propfull_prefix = 'test:int:_polyid:'
-            auto_typenames = [t for t in prop.type.typeset if t.startswith(propfull_prefix)]
-            self.len(0, auto_typenames)
+            self.sorteq(('int', 'str'), prop.type.typeset)

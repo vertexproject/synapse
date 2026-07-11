@@ -30,9 +30,11 @@ def _getPropDoc(propinfo, types):
     typedef = propinfo.get('type', ())
     if typedef:
         typename = typedef[0] if isinstance(typedef, (list, tuple)) else typedef
-        tinfo = types.get(typename)
-        if tinfo is not None:
-            return tinfo.get('info', {}).get('doc', '')
+        # A poly typedef has a tuple of constituents in the type slot (no single doc source).
+        if isinstance(typename, str):
+            tinfo = types.get(typename)
+            if tinfo is not None:
+                return tinfo.get('info', {}).get('doc', '')
 
     return ''
 
@@ -47,27 +49,7 @@ def _typeNames(types):
     '''Extract type name strings from a list that may contain (name, opts) tuples.'''
     return [t[0] if isinstance(t, tuple) and len(t) == 2 and isinstance(t[1], dict) else t for t in types]
 
-def _isNamedArrayType(typename, types):
-    '''Return True if typename is a named type whose bases include array.'''
-    if types is None:
-        return False
-    tinfo = types.get(typename)
-    if tinfo is None:
-        return False
-    return 'array' in tinfo.get('info', {}).get('bases', ())
-
-def _resolveArrayOpts(typename, typedef, types):
-    '''Return array opts for either an inline array typedef or a named array type.'''
-    if typedef[0] == 'array':
-        return typedef[1]
-
-    tinfo = types.get(typename) if types is not None else None
-    if tinfo is not None and (typeopts := tinfo.get('opts')) is not None:
-        return typeopts
-
-    return {}
-
-def _resolveTypeNames(typedef, types=None):
+def _resolveTypeNames(typedef):
     '''Resolve a typedef to a list of type name strings, expanding poly types.'''
     if not typedef:
         return ['']
@@ -87,32 +69,36 @@ def _resolveTypeNames(typedef, types=None):
             if forms:
                 names.update(forms)
 
-            polytypes = opts.get('types')
-            if polytypes:
-                names.update(polytypes)
+            types = opts.get('types')
+            if types:
+                names.update(types)
 
             if names:
-                # dedup on the display name: distinct auto constituents can share a base type
-                return sorted({_displayTypeName(n, types) for n in names})
+                return sorted(names)
 
             return ['poly']
-
-        if typedef[0] == 'array' and len(typedef) >= 2:
-            opts = typedef[1] if isinstance(typedef[1], dict) else {}
-            elems = sorted(_arrayElemNames(opts, types))
-            return [f'array of {", ".join(elems)}'] if elems else ['array']
 
         typename = typedef[0]
         if isinstance(typename, tuple) and len(typename) == 2 and isinstance(typename[1], dict):
             return sorted(_typeNames(typedef))
 
-        if _isNamedArrayType(typename, types):
-            elems = sorted(_arrayElemNames(_resolveArrayOpts(typename, typedef, types), types))
-            return [f'array of {", ".join(elems)}'] if elems else ['array']
-
-        return [_displayTypeName(typename, types)]
+        return [typename]
 
     return ['']
+
+def _resolvePropTypeNames(typedef, propinfo):
+    '''Resolve a prop's type name(s) for display, rendering array props as "array of ...".
+
+    ``typedef`` is the element typedef (for a form prop this is ``propinfo['type']``; for an
+    interface prop it is the separate typedef element of the propdef tuple). An array prop
+    carries the 'array' container opts key in its info.
+    '''
+    typenames = _resolveTypeNames(typedef)
+
+    if 'array' in propinfo:
+        return [f'array of {", ".join(typenames)}']
+
+    return typenames
 
 def _resolveIfaces(ifacenames, interfaces):
     '''Recursively resolve all interfaces including inherited ones.'''
@@ -146,60 +132,26 @@ def _getBaseTypeName(typename, types):
 
     return None
 
-def _displayTypeName(typename, types):
-    '''
-    User-facing name for a type reference: an auto-registered prop type (flagged 'auto') is
-    shown as its base type, so the docs show e.g. ``ival`` not ``form:prop:<typehash>``.
-    '''
-    if types is None or not isinstance(typename, str):
-        return typename
-
-    tinfo = types.get(typename)
-    if tinfo is not None and (info := tinfo.get('info')) is not None and info.get('auto'):
-        if (bases := info.get('bases')):
-            return bases[-1]
-
-    return typename
-
-def _arrayElemNames(opts, types):
-    '''The resolved element-type display names for an array's opts (empty if untyped).'''
-    atype = opts.get('type')
-    if isinstance(atype, str):
-        return [_displayTypeName(atype, types)]
-
-    if isinstance(atype, (list, tuple)):
-        return [_displayTypeName(n, types) for n in _typeNames(atype)]
-
-    return []
-
-def _getNestedTypeNames(typedef, types=None):
+def _getNestedTypeNames(typedef):
     '''Return a list of nested type names from a typedef.'''
     if not typedef:
         return ()
 
     tname = typedef[0]
 
-    if tname == 'array' and len(typedef) >= 2:
-        opts = typedef[1] if isinstance(typedef[1], dict) else {}
-        return tuple(_arrayElemNames(opts, types))
-
     if tname == 'poly' and len(typedef) >= 2:
         opts = typedef[1] if isinstance(typedef[1], dict) else {}
         names = []
         for key in ('forms', 'types'):
             for n in (opts.get(key) or ()):
-                disp = _displayTypeName(n, types)
-                if disp not in names:
-                    names.append(disp)
+                if n not in names:
+                    names.append(n)
         return tuple(names)
 
     if isinstance(tname, tuple) and len(tname) == 2 and isinstance(tname[1], dict):
         return tuple(_typeNames(typedef))
 
-    if _isNamedArrayType(tname, types):
-        return tuple(_arrayElemNames(_resolveArrayOpts(tname, typedef, types), types))
-
-    return (_displayTypeName(tname, types),)
+    return (tname,)
 
 
 def _genReferencedTypesSection(nestedtypes, types, interfaces, seen=None):
@@ -232,12 +184,12 @@ def _genIfacePropTable(ifprops, types):
         typedef = propdef[1]
         propinfo = propdef[2] if len(propdef) > 2 else {}
 
-        typenames = _resolveTypeNames(typedef, types)
+        typenames = _resolvePropTypeNames(typedef, propinfo)
         typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
         propdoc = _getPropDoc(propinfo, types)
         lines.append(f'| `:{propname}` | {typecell} | {_escpipe(propdoc)} |')
 
-        nestedtypes.update(_getNestedTypeNames(typedef, types))
+        nestedtypes.update(_getNestedTypeNames(typedef))
 
     return lines, nestedtypes
 
@@ -249,8 +201,7 @@ def _genPropTable(props, types, prefix=':'):
 
     for propname in sorted(props.keys()):
         propinfo = props[propname]
-        typedef = propinfo.get('type', ())
-        typenames = _resolveTypeNames(typedef, types)
+        typenames = _resolvePropTypeNames(propinfo.get('type', ()), propinfo)
         typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
         propdoc = _getPropDoc(propinfo, types)
         lines.append(f'| `{prefix}{propname}` | {typecell} | {_escpipe(propdoc)} |')
@@ -414,7 +365,7 @@ async def genFormMarkdown(core, formname):
         lines.append('')
 
         for propinfo in formprops.values():
-            nestedtypes.update(_getNestedTypeNames(propinfo.get('type', ()), types))
+            nestedtypes.update(_getNestedTypeNames(propinfo.get('type', ())))
 
     # Referenced Types
     if nestedtypes:
@@ -612,14 +563,14 @@ async def genPropMarkdown(core, propname):
         lines.append('')
 
         typedef = propinfo.get('type', ())
-        typenames = _resolveTypeNames(typedef, types)
+        typenames = _resolvePropTypeNames(typedef, propinfo)
         typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
         lines.append('| Property | Type | Doc |')
         lines.append('|----------|------|-----|')
         lines.append(f'| `:{shortname}` | {typecell} | {_escpipe(propdoc)} |')
         lines.append('')
 
-        nestedtypes = set(_getNestedTypeNames(typedef, types))
+        nestedtypes = set(_getNestedTypeNames(typedef))
         if nestedtypes:
             lines.extend(_genReferencedTypesSection(nestedtypes, types, interfaces))
 
@@ -641,14 +592,14 @@ async def genPropMarkdown(core, propname):
         lines.append(f'**Interface:** `{ifacename}`')
         lines.append('')
 
-        typenames = _resolveTypeNames(typedef, types)
+        typenames = _resolvePropTypeNames(typedef, propinfo)
         typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
         lines.append('| Property | Type | Doc |')
         lines.append('|----------|------|-----|')
         lines.append(f'| `:{shortname}` | {typecell} | {_escpipe(propdoc)} |')
         lines.append('')
 
-        nestedtypes = set(_getNestedTypeNames(typedef, types))
+        nestedtypes = set(_getNestedTypeNames(typedef))
         if nestedtypes:
             lines.extend(_genReferencedTypesSection(nestedtypes, types, interfaces))
 
@@ -667,7 +618,7 @@ async def genPropMarkdown(core, propname):
         lines.append('')
 
         typedef = propinfo.get('type', ())
-        typenames = _resolveTypeNames(typedef, types)
+        typenames = _resolveTypeNames(typedef)
         typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
         lines.append('| Property | Type | Doc |')
         lines.append('|----------|------|-----|')
@@ -784,7 +735,7 @@ async def genModelMarkdown(core):
             propinfo = tagprops[propname]
 
             typedef = propinfo.get('type', ())
-            typenames = _resolveTypeNames(typedef, types)
+            typenames = _resolveTypeNames(typedef)
             typecell = ', '.join(f'`{_escpipe(n)}`' for n in typenames)
             propdoc = propinfo.get('doc') or propinfo.get('info', {}).get('doc', '')
             lines.append(f'| `{propname}` | {typecell} | {_escpipe(propdoc)} |')

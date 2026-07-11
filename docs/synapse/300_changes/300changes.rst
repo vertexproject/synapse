@@ -103,8 +103,10 @@ Deployment and Performance
 - **Deconflicted Nexus edits.** Node edits are deconflicted before being written to the Nexus log,
   reducing storage and letting downstream consumers read the Nexus log directly instead of
   aggregating per-layer edit logs. See :ref:`vtx_300_devops-nexus-deconfliction`.
+- **Structured logging by default.** Synapse containers now emit JSON structured logs by default
+  (set ``SYN_LOG_STRUCT=false`` to keep unstructured text). See :ref:`vtx_300_devops-logging`.
 - **ISO-8601 UTC microsecond logging.** Structured and text log output now uses UTC ISO-8601
-  timestamps with microsecond precision. See :ref:`vtx_300_devops-logging-iso8601`.
+  timestamps with microsecond precision. See :ref:`vtx_300_devops-logging`.
 
 APIs and Integration
 --------------------

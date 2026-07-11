@@ -1299,10 +1299,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'account': '*',
                 'path': raw_path,
                 'sandbox:file': sandfile,
+                'parent': src_proc,
             }
             q = '''[(it:exec:proc=$valu :exe=$p.exe as file:bytes :pid=$p.pid :cmd=$p.cmd :host=$p.host as it:host
                 :account=$p.account as it:host:account :path=$p.path
-                :sandbox:file=$p."sandbox:file" as file:bytes)]'''
+                :sandbox:file=$p."sandbox:file" as file:bytes
+                :parent=$p.parent as it:exec:proc)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': proc, 'p': pprops}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1313,12 +1315,15 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'host', host)
             self.propeq(node, 'path', norm_path)
             self.propeq(node, 'sandbox:file', sandfile)
+            self.propeq(node, 'parent', src_proc)
             self.nn(node.get('account'))
             self.len(1, await core.nodes('it:exec:proc -> it:host:account'))
+            self.len(1, await core.nodes('it:exec:proc=$valu :parent -> it:exec:proc', opts={'vars': {'valu': proc}}))
 
             nodes = await core.nodes('it:cmd')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:cmd', 'rar a -r yourfiles.rar *.txt'))
+            self.true(core.model.form('it:cmd').implements('meta:usable'))
 
             q = '''
             [ it:host=(VTX001, 192.168.0.10) :name=VTX001 :ip=192.168.0.10 ]

@@ -782,11 +782,14 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
 class Axon(s_cell.Cell):
 
+    celltype = 'axon'
+
     cellapi = AxonApi
     byterange = False
 
     # The Axon migrates 2.x storage in place on startup (see _migrateAxonHistory).
-    reject2xStorage = False
+    # TODO - Allow this before leaving beta and we allow the migration for existing services.
+    # reject2xStorage = False
 
     confdefs = {
         'max:bytes': {
@@ -854,6 +857,8 @@ class Axon(s_cell.Cell):
 
         self._initAxonHttpApi()
         self.addHealthFunc(self._axonHealth)
+
+        return await super().initServiceRuntime()
 
     @contextlib.asynccontextmanager
     async def holdHashLock(self, hashbyts):

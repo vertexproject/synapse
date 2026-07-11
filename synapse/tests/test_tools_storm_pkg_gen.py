@@ -133,7 +133,7 @@ class GenPkgTest(s_test.SynTest):
 
             self.eq(pdef['commands'][0]['endpoints'], [
                 {'path': '/v1/test/one'},
-                {'path': '/v1/test/two', 'host': 'vertex.link'},
+                {'path': '/v1/test/two', 'url': 'https://vertex.link'},
                 {'path': '/v1/test/three', 'desc': 'endpoint three'},
             ])
 

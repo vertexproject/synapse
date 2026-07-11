@@ -5,14 +5,14 @@ import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version
 
-reqver = '>=3.0.0b1,<4.0.0'
+reqver = '>=3.0.0b2,<4.0.0'
 
 descr = 'List AHA services.'
 
 async def main(argv, outp=s_output.stdout):
 
     pars = s_cmd.Parser(prog='synapse.tools.aha.list', outp=outp, description=descr)
-    pars.add_argument('url', help='The telepath URL to connect to the AHA service.')
+    pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')
     opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():
@@ -31,31 +31,19 @@ async def main(argv, outp=s_output.stdout):
             mesg = f"{'Service':<40s} {'Leader':<6} {'Online':<6} {'Host':<20} {'Port':<5}"
             outp.printf(mesg)
 
-            svcs = []
-            ldrs = set()
             async for svc in prox.getAhaSvcs():
-                svcinfo = svc.get('svcinfo')
-                if svcinfo and svc.get('svcname') == svcinfo.get('leader'):
-                    ldrs.add(svcinfo.get('run'))
-                svcs.append(svc)
-
-            for svc in svcs:
                 name = svc.get('name')
 
-                svcinfo = svc.get('svcinfo')
+                svcinfo = svc.get('info')
                 urlinfo = svcinfo.get('urlinfo')
 
-                online = str(bool(svcinfo.get('online', False))).lower()
+                online = str(bool(svc.get('online', False))).lower()
 
                 host = urlinfo.get('host')
                 port = str(urlinfo.get('port'))
 
-                leader = 'None'
-                if svcinfo.get('leader') is not None:
-                    if svcinfo.get('run') in ldrs:
-                        leader = 'True'
-                    else:
-                        leader = 'False'
+                # the leader flag is managed by the AHA leadership terms.
+                leader = str(bool(svc.get('leader')))
 
                 mesg = f'{name:<40s} {leader:<6} {online:<6} {host:<20} {port:<5}'
 

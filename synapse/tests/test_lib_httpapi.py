@@ -1062,7 +1062,7 @@ class HttpApiTest(s_tests.SynTest):
                 spkg = {
                     'name': 'testy',
                     'version': (0, 0, 1),
-                    'synapse_version': '>=3.0.0b1,<4.0.0',
+                    'synapse_version': '>=3.0.0b2,<4.0.0',
                     'modules': (
                         {'name': 'testy.ingest', 'storm': 'function punch(x, y) { return (($x + $y)) }'},
                     ),
@@ -1905,7 +1905,7 @@ class HttpApiTest(s_tests.SynTest):
 
             async with self.getTestCore(dirn=core00dirn, conf={'nexslog:en': True}) as core00:
 
-                conf = {'mirror': core00.getLocalUrl()}
+                conf = {'parent': core00.getLocalUrl()}
                 async with self.getTestCore(dirn=core01dirn, conf=conf) as core01:
 
                     iden = s_common.guid()
@@ -2077,28 +2077,21 @@ class HttpApiTest(s_tests.SynTest):
     async def test_core_remote_axon_http(self):
         timeout = aiohttp.ClientTimeout(total=1)
 
-        async with self.getTestAxon() as axon:
-            conf = {
-                'axon': axon.getLocalUrl(),
-            }
+        # the cortex locates its axon by cell type via AHA
+        async with self.getTestCoreProv() as (core, axon, jsonstor):
+            self.true(await s_coro.event_wait(core.axready, timeout=1))
 
-            async with self.getTestCore(conf=conf) as core:
-                self.true(await s_coro.event_wait(core.axready, timeout=1))
+            # additional test for axon down
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
-                # await s_t_axon.AxonTest.runAxonTestHttp(self, core, realaxon=core.axon)
+            async with self.getHttpSess() as sess:
+                await axon.fini()
 
-                # additional test for axon down
-
-                host, port = await core.addHttpsPort(0, host='127.0.0.1')
-
-                async with self.getHttpSess() as sess:
-                    await axon.fini()
-
-                    with self.raises(TimeoutError):
-                        sha256 = s_common.ehex(s_t_axon.asdfhash)
-                        url = f'https://localhost:{port}/api/v3/axon/files/has/sha256/{sha256}'
-                        async with sess.get(url, timeout=timeout) as resp:
-                            pass
+                with self.raises(TimeoutError):
+                    sha256 = s_common.ehex(s_t_axon.asdfhash)
+                    url = f'https://localhost:{port}/api/v3/axon/files/has/sha256/{sha256}'
+                    async with sess.get(url, timeout=timeout) as resp:
+                        pass  # pragma: no cover
 
     async def test_http_login_broken(self):
         async with self.getTestCore() as core:

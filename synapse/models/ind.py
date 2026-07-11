@@ -33,14 +33,16 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the industry.'}),
 
-                    ('ids', ('array', {'type': 'ind:industry:id'}), {
+                    ('ids', ('ind:industry:id', {}), {
+                        'array': {},
                         'doc': 'An array of alternate IDs given to the industry.'}),
 
                     ('name', ('ind:name', {}), {
                         'alts': ('names',),
                         'doc': 'The name of the industry.'}),
 
-                    ('names', ('array', {'type': 'ind:name'}), {
+                    ('names', ('ind:name', {}), {
+                        'array': {},
                         'doc': 'An array of alternative names for the industry.'}),
 
                     ('type', ('ind:industry:type:taxonomy', {}), {

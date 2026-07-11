@@ -47,15 +47,13 @@ def computeTypeHash(ctor, opts):
     Compute a stable typehash from a type constructor path and opts dict.
 
     This is the same formula used by Type.__init__ and Type._initType to set
-    self.typehash.  Factored out so that datamodel code can compute the hash
-    *before* instantiating a Type (e.g. to derive a deterministic name for an
-    auto-registered prop type without instantiating it twice).
+    self.typehash.  Factored out so both share a single implementation.
 
     Args:
         ctor (str): Fully-qualified Python class path, e.g.
             ``'synapse.lib.types.Array'``.
-        opts (dict): The fully-merged type opts dict (base opts updated with
-            inline prop opts, exactly as Type.extend produces them).
+        opts (dict): The fully-merged type opts dict (the type's ``self.opts``,
+            as produced by Type.extend).
 
     Returns:
         str: An interned 32-char lowercase hex GUID.
@@ -1748,6 +1746,10 @@ class PriceRangeBase(Type):
 
         self.partlifts = {}
 
+        # maps a renamed part comparator back to its canonical name; populated
+        # by _renameVirts on subtypes which support the ``names`` typeopt.
+        self._virtcanon = {}
+
         self._initSubType()
 
         for part in self.parts:
@@ -1771,8 +1773,17 @@ class PriceRangeBase(Type):
     async def _storLiftPart(self, cmpr, valu):
         norm, _ = await self.pricetype.norm(valu)
         return (
-            (cmpr, norm, self.stortype),
+            (self._toCanonCmpr(cmpr), norm, self.stortype),
         )
+
+    def _toCanonCmpr(self, cmpr):
+        # translate a renamed part comparator (e.g. 'allocated<=') back to the
+        # canonical comparator the storage layer understands (e.g. 'start<=').
+        for custom, canon in self._virtcanon.items():
+            if cmpr.startswith(custom):
+                return f'{canon}{cmpr[len(custom):]}'
+
+        return cmpr
 
     def _getCurrency(self, valu):
         if valu is None or (virts := valu[2]) is None:
@@ -1987,6 +1998,60 @@ class PriceChange(PriceRangeBase):
     A directional change of a price over an interval with a derived signed
     delta (end - start) and a settable rate (percent of the starting price).
     '''
+    _opt_defs = (
+        # ``names`` renames the start/end/delta/rate part virts (e.g. for an
+        # econ:budget that exposes :allocated / :spent / :variance). The renamed
+        # parts behave identically; the comparators are translated back to the
+        # canonical names before reaching the storage layer.
+        ('names', None),
+    )
+
+    def postTypeInit(self):
+        PriceRangeBase.postTypeInit(self)
+        if (names := self.opts.get('names')):
+            self._renameVirts(names)
+
+    def _renameVirts(self, names):
+        # ``names`` maps a canonical part name to its replacement, e.g.
+        # {'start': 'allocated', 'end': 'spent', 'delta': 'variance'}. The renamed
+        # parts reuse the same getters, storage funcs and indexes; only the
+        # model-facing name changes.
+        for canon in names:
+            if canon not in self.parts:
+                mesg = f'{self.name} may only rename the {self.parts} parts, not {canon}.'
+                raise s_exc.BadTypeDef(mesg=mesg)
+
+        self._virtcanon = {custom: canon for canon, custom in names.items()}
+
+        def rekey(item):
+            return {names.get(key, key): valu for key, valu in item.items()}
+
+        self.virts = rekey(self.virts)
+        self.virtstor = rekey(self.virtstor)
+        self.virtindx = rekey(self.virtindx)
+        self.partlifts = rekey(self.partlifts)
+        self.parts = tuple(names.get(part, part) for part in self.parts)
+
+        storlifts = {}
+        for key, func in self.storlifts.items():
+            for canon, custom in names.items():
+                if key.startswith(canon):
+                    key = f'{custom}{key[len(canon):]}'
+                    break
+
+            storlifts[key] = func
+
+        self.storlifts = storlifts
+
+        # rename the declarative virt metadata so doc-only overrides and the
+        # generated model docs use the renamed names ( copy first to avoid
+        # mutating virt metadata shared with the base econ:pricechange type ).
+        if (infovirts := self.info.get('virts')) is not None:
+            self.info = dict(self.info)
+            self.info['virts'] = tuple(
+                (names.get(name, name), tdef, vinfo) for (name, tdef, vinfo) in infovirts
+            )
+
     def _initSubType(self):
 
         self.parts = ('start', 'end', 'delta', 'rate')
@@ -2017,7 +2082,7 @@ class PriceChange(PriceRangeBase):
     async def _storLiftRate(self, cmpr, valu):
         norm, _ = await self.ratetype.norm(valu)
         return (
-            (cmpr, norm, self.stortype),
+            (self._toCanonCmpr(cmpr), norm, self.stortype),
         )
 
     def _getStart(self, valt):
@@ -2673,6 +2738,11 @@ class Ival(Type):
 
     async def _ctorCmprAt(self, valu):
 
+        # unwrap a typed Storm value (e.g. a tag timestamp or ival prop value)
+        # so the comparison works when the @= operand is passed in directly.
+        if isinstance(valu, s_stormtypes.Valu):
+            valu = valu.value()
+
         if valu is None or valu == (None, None, None):
             async def cmpr(item):
                 return False
@@ -2901,6 +2971,12 @@ class Ival(Type):
         if ',' in valu:
             return await self._normPyIter(valu.split(',', 2))
 
+        if ' - ' in valu:
+            minstr, maxstr = valu.split(' - ', 1)
+            norm = await self._normReprRange(minstr, maxstr)
+            if norm is not None:
+                return norm
+
         minv, _ = await self.ticktype.norm(valu)
         if minv == self.unksize:
             return (minv, minv, self.duratype.unkdura), {}
@@ -2910,6 +2986,39 @@ class Ival(Type):
 
         maxv, _ = await self.tocktype._normPyInt(minv + 1)
         return (minv, maxv, 1), {}
+
+    async def _normReprRange(self, minstr, maxstr):
+        # Round-trip the repr form "<min> - <max>": the min is normed via the
+        # (min-fill) ticktype and the max via the (max-fill) tocktype, which
+        # understands a trailing * as a max-fill precision marker. Returns None
+        # when an endpoint is not a valid time so the caller can fall back to
+        # relative-time handling (e.g. "now - 30 days").
+        try:
+            minv, mininfo = await self.ticktype.norm(minstr)
+            maxv, maxinfo = await self.tocktype.norm(maxstr)
+        except s_exc.BadTypeValu:
+            return None
+
+        if minv == self.futsize:
+            raise s_exc.BadTypeValu(name=self.name, valu=f'{minstr} - {maxstr}', mesg='Ival min may not be *')
+
+        info = maxinfo if maxinfo else mininfo
+
+        if minv != self.unksize:
+            if minv == maxv:
+                maxv = maxv + 1
+
+            if minv > maxv:
+                mesg = 'Ival range must in (min, max) format'
+                raise s_exc.BadTypeValu(name=self.name, valu=f'{minstr} - {maxstr}', mesg=mesg)
+
+        if maxv == self.futsize:
+            return (minv, maxv, self.duratype.futdura), info
+
+        if minv == self.unksize or maxv == self.unksize:
+            return (minv, maxv, self.duratype.unkdura), info
+
+        return (minv, maxv, maxv - minv), info
 
     async def _normPyIter(self, valu, prec=None, view=None):
         (minv, maxv), info = await self._normByTickTock(valu, prec=prec)
@@ -2966,7 +3075,7 @@ class Ival(Type):
     def repr(self, norm):
         mint = self.ticktype.repr(norm[0])
         maxt = self.tocktype.repr(norm[1])
-        return (mint, maxt)
+        return f'{mint} - {maxt}'
 
 class Loc(Type):
 
@@ -3046,7 +3155,6 @@ class Poly(Type):
     ispoly = True
 
     _opt_defs = (
-        ('default_types', None),    # type: ignore
         ('docs', None),             # type: ignore
         ('interfaces', None),       # type: ignore
         ('types', None),            # type: ignore
@@ -3075,17 +3183,10 @@ class Poly(Type):
 
         self.hasforms = bool(self.ifaces or self.formtypes)
 
-        self.defaulttypes = self.opts.get('default_types')
-        if self.defaulttypes is not None:
-            for tname in self.defaulttypes:
-                if not self.typeset or tname not in self.typeset:
-                    mesg = f'Default types must be all be allowed on {self.name}.'
-                    raise s_exc.BadTypeDef(self.opts, name=self.name, mesg=mesg)
-
-            # guid types are left out of the default norming list so a value cannot
-            # be inadvertently normed into the wrong guid type.
-            self.defaulttypes = tuple(tname for tname in self.defaulttypes
-                                      if self.modl.type(tname).stortype != s_layer.STOR_TYPE_GUID)
+        # The default norming types are computed from the allowed concrete types. guid types
+        # are left out so a value cannot be inadvertently normed into the wrong guid type.
+        self.defaulttypes = tuple(tname for tname in (self.opts.get('types') or ())
+                                  if self.modl.type(tname).stortype != s_layer.STOR_TYPE_GUID)
 
     def typefilter(self, tobj):
         if not self.typeset:
@@ -3340,7 +3441,7 @@ class Poly(Type):
         if vtyp is dict and (asname := valu.get('$as', s_common.novalu)) is not s_common.novalu:
             return await self._normDictAs(asname, valu, view=view)
 
-        if self.defaulttypes is not None:
+        if self.defaulttypes:
             for typename in self.defaulttypes:
                 tobj = self.modl.type(typename)
                 form = self.modl.form(typename)
@@ -3480,8 +3581,15 @@ class Poly(Type):
 
         norm, typeinfo = await tobj.norm(pval, view=view)
 
+        return await self.packTypedNorm(typename, norm, typeinfo, view=view)
+
+    async def packTypedNorm(self, typename, norm, typeinfo, view=None):
+        '''
+        Build the poly (valu, norminfo) from an already-normed typed value.
+        '''
         info = {}
-        if form is not None:
+
+        if self.modl.form(typename) is not None:
             if view is not None and await view.getNodeByNdef((typename, norm)) is not None:
                 info['skipadd'] = True
             else:
@@ -4374,6 +4482,12 @@ class Time(IntBase):
         if valu == '*':
             return self.futsize, {}
 
+        # on a maxfill time a trailing * is a precision marker that fills the
+        # value up to the maximum of its window ( what reprmax() emits ). it is
+        # only meaningful on maxfill types and stays inert elsewhere.
+        if self.maxfill and valu.endswith('*'):
+            valu = f'{valu[:-1]}?'
+
         # parse timezone
         valu, base = s_time.parsetz(valu)
 
@@ -4465,6 +4579,9 @@ class Time(IntBase):
             return '*'
         elif valu == self.unksize:
             return '?'
+
+        if self.maxfill:
+            return s_time.reprmax(valu)
 
         return s_time.repr(valu)
 

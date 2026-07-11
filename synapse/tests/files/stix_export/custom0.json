@@ -1,3 +1,222 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:9c9ff8b1595422a7bda7a86ce5f08ac95c7d884e2110f96a8000fcf3a5f141fa
-size 6772
+{
+  "id": "bundle--c6b1a6ce-4b95-48b9-be83-44d4bbb1c43b",
+  "objects": [
+    {
+      "created": "2021-04-29T13:40:00.000Z",
+      "description": "Synapse specific STIX 2.1 extensions.",
+      "extension_types": [
+        "property-extension"
+      ],
+      "id": "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0",
+      "modified": "2021-04-29T13:40:00.000Z",
+      "name": "Vertex Project Synapse",
+      "schema": "The Synapse Extensions for Stix 2.1",
+      "spec_version": "2.1",
+      "type": "extension-definition",
+      "version": "1.0"
+    },
+    {
+      "created": "2021-04-29T17:34:49.374Z",
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "syn:tag",
+            "cno.mal.redtree"
+          ]
+        }
+      },
+      "id": "malware--af4ebd59-9d48-46df-a560-cf2e3ccbf714",
+      "is_family": true,
+      "modified": "2021-04-29T17:34:49.374Z",
+      "name": "redtree",
+      "sample_refs": [
+        "file--8b298c9f-20a1-575f-88ec-b966471e836f",
+        "file--be944512-fb83-5d5c-8920-b362a3f65ef5"
+      ],
+      "spec_version": "2.1",
+      "type": "malware"
+    },
+    {
+      "contains_refs": [
+        "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3"
+      ],
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "file:bytes",
+            "d4b262f31d50777dfec5e46c74d36248"
+          ]
+        }
+      },
+      "hashes": {
+        "SHA-256": "00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e"
+      },
+      "id": "file--8b298c9f-20a1-575f-88ec-b966471e836f",
+      "mime_type": "application/json",
+      "name": "woot.json",
+      "size": 333,
+      "spec_version": "2.1",
+      "type": "file"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:fqdn",
+            "vertex.link"
+          ]
+        }
+      },
+      "id": "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3",
+      "resolves_to_refs": [
+        "ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7",
+        "ipv6-addr--01c8fbfb-ab3f-5581-a1b3-685c187de9a4",
+        "domain-name--360b9a49-a93e-5c1d-a8c7-6c4ba238a82c"
+      ],
+      "spec_version": "2.1",
+      "type": "domain-name",
+      "value": "vertex.link"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:ip",
+            [4, 16909060]
+          ]
+        }
+      },
+      "id": "ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7",
+      "spec_version": "2.1",
+      "type": "ipv4-addr",
+      "value": "1.2.3.4"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:asn",
+            30
+          ]
+        }
+      },
+      "id": "autonomous-system--d65f6900-de09-5c01-b825-474ce3f6d86a",
+      "name": "woot30",
+      "number": 30,
+      "spec_version": "2.1",
+      "type": "autonomous-system"
+    },
+    {
+      "created": "2021-04-29T17:34:52.077Z",
+      "id": "relationship--46e559e8-d15c-4068-8333-c68fbc457556",
+      "modified": "2021-04-29T17:34:52.077Z",
+      "relationship_type": "belongs-to",
+      "source_ref": "ipv6-addr--01c8fbfb-ab3f-5581-a1b3-685c187de9a4",
+      "spec_version": "2.1",
+      "target_ref": "autonomous-system--1c9278ba-58da-5b55-b7cc-d22d95d46409",
+      "type": "relationship"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:ip",
+            [6, 255]
+          ]
+        }
+      },
+      "id": "ipv6-addr--01c8fbfb-ab3f-5581-a1b3-685c187de9a4",
+      "spec_version": "2.1",
+      "type": "ipv6-addr",
+      "value": "::ff"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:asn",
+            40
+          ]
+        }
+      },
+      "id": "autonomous-system--1c9278ba-58da-5b55-b7cc-d22d95d46409",
+      "name": "woot40",
+      "number": 40,
+      "spec_version": "2.1",
+      "type": "autonomous-system"
+    },
+    {
+      "created": "2021-04-29T17:34:52.079Z",
+      "id": "relationship--5e7bcf59-694d-43f7-94a6-2298def37101",
+      "modified": "2021-04-29T17:34:52.079Z",
+      "relationship_type": "belongs-to",
+      "source_ref": "ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7",
+      "spec_version": "2.1",
+      "target_ref": "autonomous-system--d65f6900-de09-5c01-b825-474ce3f6d86a",
+      "type": "relationship"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:fqdn",
+            "vtx.lk"
+          ]
+        }
+      },
+      "id": "domain-name--360b9a49-a93e-5c1d-a8c7-6c4ba238a82c",
+      "spec_version": "2.1",
+      "type": "domain-name",
+      "value": "vtx.lk"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "file:bytes",
+            "64610b9fdc23964d27f5d84f395a76df"
+          ]
+        }
+      },
+      "id": "file--be944512-fb83-5d5c-8920-b362a3f65ef5",
+      "name": "64610b9fdc23964d27f5d84f395a76df",
+      "spec_version": "2.1",
+      "type": "file"
+    },
+    {
+      "extensions": {
+        "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
+          "extension_type": "property-extension",
+          "synapse_ndef": [
+            "inet:url",
+            "http://vertex.link/"
+          ]
+        }
+      },
+      "id": "url--6c65574b-79c2-5b5e-9759-19626b2b522a",
+      "spec_version": "2.1",
+      "type": "url",
+      "value": "http://vertex.link/"
+    },
+    {
+      "created": "2021-04-29T17:34:52.102Z",
+      "id": "relationship--b109f3bd-8c9e-43f6-851e-75377cf360ec",
+      "modified": "2021-04-29T17:34:52.102Z",
+      "relationship_type": "communicates-with",
+      "source_ref": "malware--af4ebd59-9d48-46df-a560-cf2e3ccbf714",
+      "spec_version": "2.1",
+      "target_ref": "url--6c65574b-79c2-5b5e-9759-19626b2b522a",
+      "type": "relationship"
+    }
+  ],
+  "type": "bundle"
+}

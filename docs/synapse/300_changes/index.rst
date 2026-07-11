@@ -108,8 +108,10 @@ and CLI tooling.
     devops-feed-single-format
     devops-layer-sync-pushpull
     devops-python-version
-    devops-logging-iso8601
+    devops-logging
     devops-cli-tools
+    devops-aha-service-discovery
+    devops-service-provisioning
 
 Miscellaneous / API
 -------------------

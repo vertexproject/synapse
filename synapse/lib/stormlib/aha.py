@@ -33,11 +33,11 @@ class AhaLib(s_stormtypes.Lib):
         Examples:
             Getting service information with a relative name::
 
-                $lib.aha.get(00.cortex...)
+                $lib.aha.get(000.cortex...)
 
             Getting service information with its full name::
 
-                $lib.aha.get(00.cortex.loop.vertex.link)
+                $lib.aha.get(000.cortex.loop.vertex.link)
         ''',
          'type': {'type': 'function', '_funcname': '_methAhaGet',
                   'args': (
@@ -185,7 +185,7 @@ class AhaLib(s_stormtypes.Lib):
         if svc is None:
             raise s_exc.NoSuchName(mesg=f'No AHA service found for {svcname}')
 
-        svcinfo = svc.get('svcinfo')
+        svcinfo = svc.get('info')
         svciden = svcinfo.get('iden')
         if svciden is None:
             raise s_exc.NoSuchName(mesg=f'Service {svcname} has no iden')
@@ -214,7 +214,7 @@ class AhaLib(s_stormtypes.Lib):
         if svc is None:
             raise s_exc.NoSuchName(mesg=f'No AHA service found for {svcname}')
 
-        svcinfo = svc.get('svcinfo')
+        svcinfo = svc.get('info')
         svciden = svcinfo.get('iden')
         if svciden is None:
             raise s_exc.NoSuchName(mesg=f'Service {svcname} has no iden')
@@ -319,7 +319,7 @@ class AhaPool(s_stormtypes.Prim):
             Add a service to a pool with its relative name::
 
                 $pool = $lib.aha.pool.get(pool00.cortex...)
-                $pool.add(00.cortex...)
+                $pool.add(000.cortex...)
         ''',
          'type': {'type': 'function', '_funcname': '_methPoolSvcAdd',
                   'args': (
@@ -333,7 +333,7 @@ class AhaPool(s_stormtypes.Prim):
             Remove a service from a pool with its relative name::
 
                 $pool = $lib.aha.pool.get(pool00.cortex...)
-                $pool.del(00.cortex...)
+                $pool.del(000.cortex...)
         ''',
          'type': {'type': 'function', '_funcname': '_methPoolSvcDel',
                   'args': (
@@ -440,8 +440,8 @@ stormcmds = (
 
             Examples:
 
-                // add 00.cortex... to the existing pool named pool.cortex
-                aha.pool.svc.add pool.cortex... 00.cortex...
+                // add 000.cortex... to the existing pool named pool.cortex
+                aha.pool.svc.add pool.cortex... 000.cortex...
         ''',
         'cmdargs': (
             ('poolname', {'help': 'The name of the AHA pool.'}),
@@ -466,9 +466,9 @@ stormcmds = (
             $pool = $lib.aha.pool.get($cmdopts.poolname)
             if (not $pool) { $lib.exit(`No AHA service pool named: {$cmdopts.poolname}`) }
 
-            $svc = $pool.del($cmdopts.svcname)
-            if $svc {
-                $lib.print(`AHA service ({$svc}) removed from service pool ({$pool.name})`)
+            $svcname = $pool.del($cmdopts.svcname)
+            if $svcname {
+                $lib.print(`AHA service ({$svcname}) removed from service pool ({$pool.name})`)
             } else {
                 $lib.print(`Did not remove ({$cmdopts.svcname}) from the service pool.`)
             }
@@ -503,35 +503,39 @@ The ready value indicates that a service has entered into the realtime change wi
             }
         }
 
-        $svc = $lib.aha.get($cmdopts.svc)
-        if ($svc = null) {
+        $svcentry = $lib.aha.get($cmdopts.svc)
+        if ($svcentry = null) {
             $lib.print(`No service found for: "{$cmdopts.svc}"`)
         } else {
-            $services = $svc.services
+            $services = $svcentry.services
             if $services {
                 $lib.print(`Resolved {$cmdopts.svc} to an AHA Pool.\n`)
                 $lib.print(`The pool currently has {$lib.len($services)} members.`)
 
-                $lib.print(`AHA Pool:   {$svc.name}`)
+                $lib.print(`AHA Pool:   {$svcentry.name}`)
                 for ($_svcname, $_svcinfo) in $services {
                     $lib.print(`Member:     {$_svcname}`)
                 }
             } else {
                 $lib.print(`Resolved {$cmdopts.svc} to an AHA Service.\n`)
-                $svcinfo = $svc.svcinfo
-                $leader = $svcinfo.leader
-                if ($leader = null) {
-                    $leader = 'Service did not register itself with a leader name.'
+                $svcinfo = $svcentry.info
+                // the leader is the current term-elected instance of this service type
+                $leader = 'No leadership term for this service type.'
+                if $svcinfo.type {
+                    $leadersvc = $lib.aha.get(`{$svcinfo.type}...`)
+                    if ($leadersvc != null) {
+                        $leader = $leadersvc.name
+                    }
                 }
                 $online = false
-                if $svcinfo.online {
+                if $svcentry.online {
                     $online = true
                 }
                 $ready = 'null'
                 if $lib.dict.has($svcinfo, ready) {
                     $ready = `{$svcinfo.ready}`
                 }
-                $lib.print(`Name:       {$svc.name}`)
+                $lib.print(`Name:       {$svcentry.name}`)
                 $lib.print(`Online:     {$online}`)
                 $lib.print(`Ready:      {$ready}`)
                 $lib.print(`Run iden:   {$svcinfo.run}`)
@@ -539,8 +543,8 @@ The ready value indicates that a service has entered into the realtime change wi
                 $lib.print(`Leader:     {$leader}`)
 
                 if $cmdopts.nexus {
-                    if $svcinfo.online {
-                        $nexusOffset = $_getNexus($svc.name)
+                    if $svcentry.online {
+                        $nexusOffset = $_getNexus($svcentry.name)
                     } else {
                         $nexusOffset = 'Service is not online. Will not attempt to retrieve its nexus offset.'
                     }
@@ -588,8 +592,8 @@ The ready column indicates that a service has entered into the realtime change w
         }
 
         $svcs = ()
-        for $svc in $lib.aha.list() {
-            $svcs.append($svc)
+        for $svcentry in $lib.aha.list() {
+            $svcs.append($svcentry)
         }
 
         if ($lib.len($svcs) = 0) {
@@ -602,22 +606,22 @@ The ready column indicates that a service has entered into the realtime change w
             }
 
             $leaders = $lib.set()
-            for $info in $svcs {
-                $svcinfo = $info.svcinfo
-                if $info.svcinfo.isleader {
+            for $svcentry in $svcs {
+                $svcinfo = $svcentry.info
+                if $svcentry.leader {
                     $leaders.add($svcinfo.run)
                 }
             }
 
             $lib.print($columns)
 
-            for $info in $svcs {
-                $name = $info.name
+            for $svcentry in $svcs {
+                $name = $svcentry.name
                 $nexusOffset = (null)
-                $svcinfo = $info.svcinfo
+                $svcinfo = $svcentry.info
 
                 if $cmdopts.nexus {
-                    if $svcinfo.online {
+                    if $svcentry.online {
                         $nexusOffset = $_getNexus($name)
                     } else {
                         $nexusOffset = '<offline>'
@@ -626,7 +630,7 @@ The ready column indicates that a service has entered into the realtime change w
                 $name=$name.ljust(45)
 
                 $online = false
-                if $svcinfo.online {
+                if $svcentry.online {
                     $online = true
                 }
                 $online = $online.ljust(6)
@@ -645,17 +649,18 @@ The ready column indicates that a service has entered into the realtime change w
                 }
                 $ready = $ready.ljust(5)
 
+                // the leader flag is managed by the leadership term for the type;
+                // offline stubs without run info cannot be resolved and show null
                 $leader = null
-                if ( $svcinfo.leader != null ) {
+                if ( $svcinfo.run != null ) {
+                    $leader = false
                     if $leaders.has($svcinfo.run) {
                         $leader = true
-                    } else {
-                        $leader = false
                     }
                 }
                 $leader = $leader.ljust(6)
 
-                if $info {
+                if $svcentry {
                     $s = `{$name} {$leader} {$online} {$ready} {$host} {$port}`
                     if ($nexusOffset != null) {
                         $s = `{$s} {$nexusOffset}`
@@ -721,13 +726,13 @@ The ready column indicates that a service has entered into the realtime change w
 
         function build_status_list(members, cell_infos) {
             $group_status = ()
-            for $svc in $members {
-                $svcinfo = $svc.svcinfo
-                $svcname = $svc.name
+            for $svcentry in $members {
+                $svcinfo = $svcentry.info
+                $svcname = $svcentry.name
                 $status = ({
                     'name': $svcname,
                     'role': '<unknown>',
-                    'online': $lib.dict.has($svcinfo, 'online'),
+                    'online': $svcentry.online,
                     'ready': $svcinfo.ready,
                     'host': $svcinfo.urlinfo.host,
                     'port': $svcinfo.urlinfo.port,
@@ -789,57 +794,50 @@ The ready column indicates that a service has entered into the realtime change w
             return()
         }
 
-        $virtual_services = ({})
-        $member_servers = ({})
-
-        for $svc in $lib.aha.list() {
-            $name = $svc.name
-            $svcinfo = $svc.svcinfo
-            $urlinfo = $svcinfo.urlinfo
-            $hostname = $urlinfo.hostname
-
-            if ($name != $hostname) {
-                $virtual_services.$name = $svc
-            } else {
-                $member_servers.$name = $svc
+        // group services by their shared cell iden ( a leader and its clones ).
+        $svc_groups = ({})
+        for $svcentry in $lib.aha.list() {
+            $iden = $svcentry.info.iden
+            if (not $iden) {
+                continue
             }
+            $grp = $svc_groups.$iden
+            if (not $grp) {
+                $grp = ()
+            }
+            $grp.append($svcentry)
+            $svc_groups.$iden = $grp
         }
 
+        // a group is a leader plus at least one mirror; name it by the current
+        // ( term-elected ) leader.
         $mirror_groups = ({})
-        for ($vname, $vsvc) in $virtual_services {
-            $vsvc_info = $vsvc.svcinfo
-            $vsvc_iden = $vsvc_info.iden
-            $vsvc_leader = $vsvc_info.leader
-            $vsvc_hostname = $vsvc_info.urlinfo.hostname
-
-            if (not $vsvc_iden or not $vsvc_hostname or not $vsvc_leader) {
+        for ($iden, $svcs) in $svc_groups {
+            if ($lib.len($svcs) <= 1) {
                 continue
             }
-
-            $primary_member = $member_servers.$vsvc_hostname
-            if (not $primary_member) {
-                continue
-            }
-
-            $members = ([$primary_member])
-            for ($mname, $msvc) in $member_servers {
-                if ($mname != $vsvc_hostname) {
-                    $msvc_info = $msvc.svcinfo
-                    if ($msvc_info.iden = $vsvc_iden and $msvc_info.leader = $vsvc_leader) {
-                        $members.append($msvc)
-                    }
+            $leadername = (null)
+            $firstname = (null)
+            for $svcentry in $svcs {
+                if (not $firstname) {
+                    $firstname = $svcentry.name
+                }
+                if $svcentry.leader {
+                    $leadername = $svcentry.name
                 }
             }
-
-            if ($lib.len($members) > 1) {
-                $mirror_groups.$vname = $members
+            if (not $leadername) {
+                $leadername = $firstname
             }
+            $mirror_groups.$leadername = $svcs
         }
 
+        if ($lib.len($mirror_groups)) {
+            $lib.print('Service Mirror Groups:')
+        }
         for ($vname, $members) in $mirror_groups {
             $cell_infos = $get_cell_infos($vname, $timeout)
             $group_status = $build_status_list($members, $cell_infos)
-            $lib.print('Service Mirror Groups:')
             $output_status($vname, $group_status, $printer)
 
             if $check_sync_status($group_status) {

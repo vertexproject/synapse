@@ -14,7 +14,7 @@ class TestService(s_stormsvc.StormSvc):
         {
             'name': 'foo',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0b1,<4.0.0',
+            'synapse_version': '>=3.0.0b2,<4.0.0',
             'commands': (
                 {
                     'name': 'foobar',
@@ -536,9 +536,6 @@ class SynModelTest(s_t_utils.SynTest):
                 self.len(numforms + 1, core.model.forms)
 
                 numtypes = len(core.model.types)
-                # the syn:type runt lift excludes auto-registered prop types
-                numvisibletypes = len([t for t in core.model.types.values()
-                                       if not t.info.get('auto')])
                 q = '''
                 init {
                     $types = ()
@@ -563,7 +560,7 @@ class SynModelTest(s_t_utils.SynTest):
                 '''
 
                 types = await core.callStorm(q)
-                self.len(numvisibletypes, types)
+                self.len(numtypes, types)
                 self.len(numtypes + 1, core.model.types)
 
                 q = '''
@@ -689,7 +686,7 @@ class SynModelTest(s_t_utils.SynTest):
                 stormpkg = {
                     'name': 'stormpkg',
                     'version': '1.2.3',
-                    'synapse_version': '>=3.0.0b1,<4.0.0',
+                    'synapse_version': '>=3.0.0b2,<4.0.0',
                     'commands': (
                         {
                          'name': 'pkgcmd.old',

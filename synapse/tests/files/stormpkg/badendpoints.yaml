@@ -1,3 +1,7 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:17479dc2d72adc87287b4dfedde6fb76ecca35948f494587eb0c10de4b6b1ba4
-size 115
+name: test
+version: 0.0.1
+commands:
+  - name: 'foo.bar'
+    storm: (null)
+    endpoints:
+      - url: https://vertex.link

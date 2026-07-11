@@ -72,8 +72,12 @@ The per-layer ``mirror`` and ``upstream`` configuration options have been remove
 along with the follower code that consumed them (:ref:`vtx_300_devops-layer-sync-pushpull`).
 The supported replacements are:
 
-- Cortex-level service mirroring via the Cell ``mirror`` configuration, for full
-  service replication.
+- Cortex-level service mirroring, for full service replication. The Cell ``mirror``
+  configuration option has also been removed: mirrors now follow the current AHA determined
+  leader dynamically, so deploying an additional instance under the same AHA provisioning
+  secret is all that is required (see :ref:`deployment-guide-mirror`). The new ``parent``
+  option is *not* a rename of ``mirror`` -- it is an explicit override that pins a service
+  to a fixed upstream telepath URL and is rarely needed.
 - Layer push/pull (``layer.push.add`` / ``layer.pull.add`` and the corresponding
   Cortex APIs) for layer-to-layer synchronization.
 
@@ -83,10 +87,9 @@ re-architect them. Note that the layer definition validator uses
 validation -- it is silently ignored with no follower behavior. ``setLayerInfo`` now
 only accepts ``name``, ``desc``, ``cache:size``, and ``readonly``.
 
-.. code-block:: yaml
-
-    # 3.x: run the whole Cortex as a mirror (cell.yaml on the follower)
-    mirror: aha://cortex.example.org/...
+In 3.x, running the whole Cortex as a mirror requires no follower ``cell.yaml`` config:
+deploy the additional instance under the same AHA provisioning secret and it follows the
+AHA determined leader automatically (see :ref:`deployment-guide-mirror`).
 
 ::
 
@@ -144,10 +147,16 @@ gone -- manage auth through the standard subsystem (for example ``moduser`` /
 Logging
 -------
 
+Synapse containers now emit JSON structured logs by default; the
+``synapse`` Dockerfile sets ``SYN_LOG_STRUCT="true"``, whereas 2.x containers defaulted
+to unstructured text and structured output was opt-in. Set the ``SYN_LOG_STRUCT=false``
+environment variable on the container to restore unstructured text output
+(:ref:`vtx_300_devops-logging`).
+
 Log timestamps are now rendered in UTC as ISO-8601 with microsecond precision and a
 trailing ``Z`` (for example ``2026-06-25T13:42:07.123456Z``), affecting both the
 structured JSON ``time`` field and the unstructured text logs
-(:ref:`vtx_300_devops-logging-iso8601`). In 2.x the default was local-time with
+(:ref:`vtx_300_devops-logging`). In 2.x the default was local-time with
 comma-separated milliseconds.
 
 Update any log-ingestion or parsing pipelines (SIEM, fluentd/vector grok patterns,
@@ -187,6 +196,22 @@ are fed without a meta header.
 
     # 3.x CLI -- format inferred from the .nodes/.mpk extension
     python -m synapse.tools.cortex.feed -c cell://./core data.nodes
+
+Automatic Storm service discovery
+---------------------------------
+
+An active Cortex now discovers Storm services through AHA and adds them
+automatically. A service that exposes a Storm service API advertises the
+``stormservice`` feature when it registers with AHA. The Cortex watches the AHA
+service topology -- using the initial service listing and live ``svc:add``
+updates -- and, for each such service, adds it using an ``aha://<type>...`` URL
+that resolves to the current leader of that service type.
+
+This replaces the manual ``service.add <name> aha://<name>...`` step from Storm
+service deployment. Deploy the service under the same AHA provisioning secret as
+the Cortex and it is added with no operator action. Services are keyed by type,
+so re-registration, reconnects, and Cortex reboots do not create duplicates, and
+a service already added under a name matching its type is left untouched.
 
 Service tooling
 ---------------

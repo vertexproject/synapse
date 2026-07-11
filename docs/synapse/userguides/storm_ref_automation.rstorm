@@ -955,7 +955,7 @@ Storm and simply tag the relevant FQDNs as sinkholed vs. requiring analyst revie
   This macro can be executed on demand with the ``macro.exec`` command, or could be configured to run
   automatically as a cron job.
     
-  The ``alienvault.otx.pdns`` command is installed by the Synapse-Enterprise-AlienVault Rapid Power-Up. The ``nettools.*``
+  The ``alienvault.otx.pdns`` command is installed by the Synapse-AlienVault Rapid Power-Up. The ``nettools.*``
   commands are installed by the Synapse-Nettools Advanced Power-Up.
 
 

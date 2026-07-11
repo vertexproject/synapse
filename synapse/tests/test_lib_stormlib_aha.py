@@ -2,7 +2,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
-import synapse.lib.cell as s_cell
 
 import synapse.tests.utils as s_test
 
@@ -22,20 +21,21 @@ class AhaLibTest(s_test.SynTest):
                 dirn03 = s_common.genpath(dirn, 'cell03')
 
                 replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
-                nevents = 10 if replay else 5
+                # one aha:svc:add per service; registration is idempotent so a
+                # nexus replay does not double the events.
+                nevents = 4
 
                 waiter = aha.waiter(nevents, 'aha:svc:add')
 
-                cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
-                cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
-                                                                  provinfo={'mirror': 'cell'}))
-                cell02 = await aha.enter_context(self.addSvcToAha(aha, 'mysvc', s_cell.Cell, dirn=dirn02))
+                cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_test.TestCell00, dirn=dirn00))
+                cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_test.TestCell00, dirn=dirn01))
+                cell02 = await aha.enter_context(self.addSvcToAha(aha, 'mysvc', s_test.TestCell01, dirn=dirn02))
                 core00 = await aha.enter_context(self.addSvcToAha(aha, 'core', s_cortex.Cortex, dirn=dirn03))
 
                 self.len(nevents, await waiter.wait(timeout=12))
 
                 svcs = await core00.callStorm('$l=() for $i in $lib.aha.list() { $l.append($i) } fini { return ($l) }')
-                self.len(5, svcs)
+                self.len(4, svcs)
 
                 svc = await core00.callStorm('return( $lib.aha.get(core...) )')
                 self.eq('core.synapse', svc.get('name'))
@@ -43,9 +43,10 @@ class AhaLibTest(s_test.SynTest):
                 self.eq('core.synapse', svc.get('name'))
                 svc = await core00.callStorm('return( $lib.aha.get(00.cell...))')
                 self.eq('00.cell.synapse', svc.get('name'))
-                svc = await core00.callStorm('return( $lib.aha.get(cell...))')
-                self.eq('cell.synapse', svc.get('name'))
-                svc = await core00.callStorm('$f=({"mirror": (true)}) return( $lib.aha.get(cell..., filters=$f))')
+                # the type resolves to the current ( term-elected ) leader
+                svc = await core00.callStorm('return( $lib.aha.get(testcell00...))')
+                self.eq('00.cell.synapse', svc.get('name'))
+                svc = await core00.callStorm('$f=({"mirror": (true)}) return( $lib.aha.get(testcell00..., filters=$f))')
                 self.eq('01.cell.synapse', svc.get('name'))
 
                 # List the aha services available
@@ -53,24 +54,23 @@ class AhaLibTest(s_test.SynTest):
                 self.stormIsInPrint('Nexus', msgs)
                 self.stormIsInPrint('00.cell.synapse                      true   true   true', msgs, whitespace=False)
                 self.stormIsInPrint('01.cell.synapse                      false  true   true', msgs, whitespace=False)
-                self.stormIsInPrint('cell.synapse                         true   true   true', msgs, whitespace=False)
-                self.stormIsInPrint('core.synapse                         null   true   true', msgs, whitespace=False)
-                self.stormIsInPrint('mysvc.synapse                        null   true   true', msgs, whitespace=False)
+                self.stormIsInPrint('core.synapse                         true   true   true', msgs, whitespace=False)
+                self.stormIsInPrint('mysvc.synapse                        true   true   true', msgs, whitespace=False)
 
                 msgs = await core00.stormlist('aha.svc.list')
                 self.stormNotInPrint('Nexus', msgs)
-                msgs = await core00.stormlist('aha.svc.stat cell...')
+                msgs = await core00.stormlist('aha.svc.stat testcell00...')
 
                 # The connections information includes runtime information such as port/host info.
                 # Omit checking part of that.
-                emsg = '''Resolved cell... to an AHA Service.
+                emsg = '''Resolved testcell00... to an AHA Service.
 
-Name:       cell.synapse
+Name:       00.cell.synapse
 Online:     true
 Ready:      true
 Run iden:   ********************************
 Cell iden:  ********************************
-Leader:     cell
+Leader:     00.cell.synapse
 Connection information:
     ca:         synapse
 '''
@@ -79,15 +79,15 @@ Connection information:
                 self.stormIsInPrint('    scheme:     ssl', msgs)
                 self.stormIsInPrint('    user:       root', msgs)
 
-                msgs = await core00.stormlist('aha.svc.stat --nexus cell...')
-                emsg = '''Resolved cell... to an AHA Service.
+                msgs = await core00.stormlist('aha.svc.stat --nexus testcell00...')
+                emsg = '''Resolved testcell00... to an AHA Service.
 
-Name:       cell.synapse
+Name:       00.cell.synapse
 Online:     true
 Ready:      true
 Run iden:   ********************************
 Cell iden:  ********************************
-Leader:     cell
+Leader:     00.cell.synapse
 Nexus:      1
 Connection information:
     ca:         synapse
@@ -102,7 +102,7 @@ Online:     true
 Ready:      true
 Run iden:   ********************************
 Cell iden:  ********************************
-Leader:     cell
+Leader:     00.cell.synapse
 Nexus:      1
 Connection information:
     ca:         synapse
@@ -159,7 +159,7 @@ Member:     00.cell.synapse'''
                 await aha.addAhaSvc('00.newp...', info={'urlinfo': {'scheme': 'tcp',
                                                                  'host': '0.0.0.0',
                                                                  'port': '3030'},
-                                                     'online': guid,
+                                                     'session': guid,
                                                      })
 
                 msgs = await core00.stormlist('aha.svc.list --nexus')
@@ -175,7 +175,7 @@ Online:     true
 Ready:      null
 Run iden:   null
 Cell iden:  null
-Leader:     Service did not register itself with a leader name.
+Leader:     No leadership term for this service type.
 Nexus:      Failed to connect to Telepath service: "aha://00.newp.synapse/" error: [Errno 111] Connect call failed ('0.0.0.0', 3030)
 Connection information:
     host:       0.0.0.0
@@ -207,9 +207,8 @@ Connection information:
 
                 async with aha.waiter(3, 'aha:svc:add', timeout=10):
 
-                    cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
-                    cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
-                                                                      provinfo={'mirror': 'cell'}))
+                    cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_test.TestCell00, dirn=dirn00))
+                    cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_test.TestCell00, dirn=dirn01))
                     core00 = await aha.enter_context(self.addSvcToAha(aha, 'core', s_cortex.Cortex, dirn=dirn02))
                     await cell01.sync()
 
@@ -217,7 +216,7 @@ Connection information:
                 resp = await core00.callStorm('''
                     $resps = ()
                     $todo = $lib.utils.todo('getTasks')
-                    for ($name, $info) in $lib.aha.callPeerGenr(cell..., $todo) {
+                    for ($name, $info) in $lib.aha.callPeerGenr(testcell00..., $todo) {
                         $resps.append(($name, $info))
                     }
                     return($resps)
@@ -227,7 +226,7 @@ Connection information:
                 resp = await core00.callStorm('''
                     $resps = ()
                     $todo = $lib.utils.todo('getNexusChanges', (0), wait=(false))
-                    for ($name, $info) in $lib.aha.callPeerGenr(cell..., $todo) {
+                    for ($name, $info) in $lib.aha.callPeerGenr(testcell00..., $todo) {
                         $resps.append(($name, $info))
                     }
                     return($resps)
@@ -238,7 +237,7 @@ Connection information:
                 resp = await core00.callStorm('''
                     $resps = ()
                     $todo = $lib.utils.todo('getNexusChanges', (0), wait=(false))
-                    for $info in $lib.aha.callPeerGenr(cell..., $todo, skiprun=$skiprun) {
+                    for $info in $lib.aha.callPeerGenr(testcell00..., $todo, skiprun=$skiprun) {
                         $resps.append($info)
                     }
                     return($resps)
@@ -254,7 +253,7 @@ Connection information:
                 resp = await core00.callStorm('''
                     $resps = ()
                     $todo = $lib.utils.todo('getCellInfo')
-                    for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo) {
+                    for ($name, $info) in $lib.aha.callPeerApi(testcell00..., $todo) {
                         $resps.append(($name, $info))
                     }
                     return($resps)
@@ -267,7 +266,7 @@ Connection information:
                 resp = await core00.callStorm('''
                     $resps = ()
                     $todo = $lib.utils.todo(getCellInfo)
-                    for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo) {
+                    for ($name, $info) in $lib.aha.callPeerApi(testcell00..., $todo) {
                         $resps.append(($name, $info))
                     }
                     return($resps)
@@ -277,7 +276,7 @@ Connection information:
                 resp = await core00.callStorm('''
                     $resps = ()
                     $todo = $lib.utils.todo(getCellInfo)
-                    for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo, skiprun=$skiprun) {
+                    for ($name, $info) in $lib.aha.callPeerApi(testcell00..., $todo, skiprun=$skiprun) {
                         $resps.append(($name, $info))
                     }
                     return($resps)
@@ -287,7 +286,7 @@ Connection information:
                 resp = await core00.callStorm('''
                     $resps = ()
                     $todo = $lib.utils.todo('getCellInfo')
-                    for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo, timeout=(10)) {
+                    for ($name, $info) in $lib.aha.callPeerApi(testcell00..., $todo, timeout=(10)) {
                         $resps.append(($name, $info))
                     }
                     return($resps)
@@ -306,7 +305,7 @@ Connection information:
 
                 await self.asyncraises(s_exc.NoSuchMeth, core00.callStorm('''
                     $todo = $lib.utils.todo('bogusMethod')
-                    for $info in $lib.aha.callPeerApi(cell..., $todo) {
+                    for $info in $lib.aha.callPeerApi(testcell00..., $todo) {
                         ($ok, $info) = $info.1
                         if (not $ok) {
                             $lib.raise($info.err, $info.errmsg)
@@ -333,18 +332,17 @@ Connection information:
                 with self.raises(s_exc.AuthDeny):
                     await core00.callStorm('''
                         $todo = $lib.utils.todo('getCellInfo')
-                        for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo) {}
+                        for ($name, $info) in $lib.aha.callPeerApi(testcell00..., $todo) {}
                     ''', opts=lowopts)
 
                 with self.raises(s_exc.AuthDeny):
                     await core00.callStorm('''
                         $todo = $lib.utils.todo('getNexusChanges', (0), wait=(false))
-                        for ($name, $info) in $lib.aha.callPeerGenr(cell..., $todo) {}
+                        for ($name, $info) in $lib.aha.callPeerGenr(testcell00..., $todo) {}
                     ''', opts=lowopts)
 
                 msgs = await core00.stormlist('aha.svc.mirror')
                 self.stormIsInPrint('Service Mirror Groups:', msgs)
-                self.stormIsInPrint('cell.synapse', msgs)
                 self.stormIsInPrint('00.cell.synapse', msgs)
                 self.stormIsInPrint('01.cell.synapse', msgs)
                 self.stormIsInPrint('Group Status: In Sync', msgs)

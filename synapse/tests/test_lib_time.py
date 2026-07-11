@@ -74,6 +74,22 @@ class TimeTest(s_t_utils.SynTest):
             s_time.parse('Wut, 17 Dec 2050 03:04:32')
         self.isin('Error parsing time "Wut, 17 Dec 2050 03:04:32"', cm.exception.get('mesg'))
 
+    def test_time_reprmax(self):
+
+        # the unknown/future markers pass through
+        self.eq(s_time.reprmax(0x7fffffffffffffff), '?')
+        self.eq(s_time.reprmax(0x7ffffffffffffffe), '*')
+
+        # trailing max-filled time fields collapse into a single *
+        self.eq(s_time.reprmax(s_time.parse('2021-06-07T23:59:59.999999')), '2021-06-07*')
+        self.eq(s_time.reprmax(s_time.parse('2021-06-07T02:59:59.999999')), '2021-06-07T02:*')
+        self.eq(s_time.reprmax(s_time.parse('2021-06-07T02:03:59.999999')), '2021-06-07T02:03:*')
+        self.eq(s_time.reprmax(s_time.parse('2021-06-07T02:03:04.999999')), '2021-06-07T02:03:04.*')
+        self.eq(s_time.reprmax(s_time.parse('2021-06-07T02:03:04.123999')), '2021-06-07T02:03:04.123*')
+
+        # a value with no filled tail renders in full
+        self.eq(s_time.reprmax(s_time.parse('2021-06-07T02:03:04.123456')), '2021-06-07T02:03:04.123456Z')
+
     def test_time_parse_tz(self):
 
         # explicit iso8601

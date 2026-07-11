@@ -1645,13 +1645,13 @@ class StormLibAuthTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(q, opts=lowuser_opts)
 
+            # A non-admin user reading their own API key metadata does not
+            # require the manage perm, even when it is explicitly denied.
             q = 'return($lib.auth.users.byname(lowuser).getApiKey($iden))'
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm(q, opts=lowuser_opts)
+            self.eq(ltdf0, await core.callStorm(q, opts=lowuser_opts))
 
             q = 'return($lib.auth.users.byname(lowuser).listApiKeys())'
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm(q, opts=lowuser_opts)
+            self.eq((ltdf0,), await core.callStorm(q, opts=lowuser_opts))
 
             q = 'return($lib.auth.users.byname(lowuser).modApiKey($iden, name, wow))'
             with self.raises(s_exc.AuthDeny):
@@ -1661,7 +1661,8 @@ class StormLibAuthTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(q, opts=lowuser_opts)
 
-            # Not allowed to manage others API keys by default
+            # A non-admin user cannot create (or otherwise manage) another
+            # user's API keys without ('auth', 'user', 'set', 'apikey').
             q = 'return($lib.auth.users.byname(root).genApiKey(newp))'
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(q, opts=lowuser_opts)
@@ -1704,6 +1705,34 @@ class StormLibAuthTest(s_test.SynTest):
             lowkeys = await core.callStorm(q, opts=lowuser_opts)
             self.len(1, lowkeys)
             self.eq(lowkeys, (ltdf0,))
+
+            # A non-admin user cannot reach another user's API key by iden:
+            # get/mod/del authorize against the key's owner, so a non-admin
+            # touching root's key (without ('auth', 'user', 'set', 'apikey'))
+            # is denied rather than leaked or mutated. bkdf0 is one of root's
+            # keys.
+            fopts = {'user': lowuser, 'vars': {'iden': bkdf0.get('iden')}}
+            q = 'return($lib.auth.users.byname(lowuser).getApiKey($iden))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=fopts)
+
+            q = 'return($lib.auth.users.byname(lowuser).modApiKey($iden, name, wow))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=fopts)
+
+            q = 'return($lib.auth.users.byname(lowuser).delApiKey($iden))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=fopts)
+
+            # A nonexistent key iden is reported as missing, not an unhandled error.
+            q = 'return($lib.auth.users.byname(lowuser).getApiKey($iden))'
+            with self.raises(s_exc.NoSuchIden):
+                await core.callStorm(q, opts={'user': lowuser, 'vars': {'iden': 'a' * 32}})
+
+            # root's key was neither disclosed, modified, nor deleted above.
+            check = await core.getUserApiKey(bkdf0.get('iden'))
+            self.nn(check)
+            self.eq(check.get('name'), bkdf0.get('name'))
 
             # Perm allows lowuser to manage others API keys
             await core.addUserRule(lowuser, (True, ('auth', 'user', 'set', 'apikey')))

@@ -813,7 +813,8 @@ modeldefs = (
                         'prevnames': ('net4', 'net6')}),
 
                     # TODO should this be in a DHCP config node?
-                    ('dns:resolvers', ('array', {'type': 'inet:server', 'sorted': False, 'uniq': False}), {
+                    ('dns:resolvers', ('inet:server', {}), {
+                        'array': {'sorted': False, 'uniq': False},
                         'doc': 'An array of DNS servers configured to resolve requests for hosts on the network.'})
                 ),
                 'doc': 'A GUID that represents a logical network.'}),
@@ -1016,7 +1017,8 @@ modeldefs = (
                     ('contact:phone', ('tel:phone', {}), {
                         'doc': 'The phone number of the device associated with the telemetry sample.'}),
 
-                    ('contact:identifiers', ('array', {'type': 'entity:identifier'}), {
+                    ('contact:identifiers', ('entity:identifier', {}), {
+                        'array': {},
                         'doc': 'Identifiers associated with the telemetry sample.'}),
 
                     ('account', (
@@ -1051,7 +1053,8 @@ modeldefs = (
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL linking this CWE to a full description.'}),
 
-                    ('parents', ('array', {'type': 'it:sec:cwe', 'split': ','}), {
+                    ('parents', ('it:sec:cwe', {}), {
+                        'array': {'split': ','},
                         'doc': 'An array of ChildOf CWE Relationships.'}),
                 ),
                 'doc': 'NIST NVD Common Weaknesses Enumeration Specification.'}),
@@ -1216,10 +1219,12 @@ modeldefs = (
                     ('desc', ('text', {}), {
                         'doc': 'A description of the function.'}),
 
-                    ('impcalls', ('array', {'type': 'str:lower'}), {
+                    ('impcalls', ('str:lower', {}), {
+                        'array': {},
                         'doc': 'Calls to imported library functions within the scope of the function.'}),
 
-                    ('strings', ('array', {'type': 'it:dev:str'}), {
+                    ('strings', ('it:dev:str', {}), {
+                        'array': {},
                         'doc': 'An array of strings referenced within the function.'}),
                 ),
                 'doc': 'A function defined by code.'}),
@@ -1241,7 +1246,8 @@ modeldefs = (
                     ('complexity', ('meta:score', {}), {
                         'doc': 'The complexity of the function.'}),
 
-                    ('calls', ('array', {'type': 'it:dev:function:sample'}), {
+                    ('calls', ('it:dev:function:sample', {}), {
+                        'array': {},
                         'doc': 'Other function calls within the scope of the function.'}),
                 ),
                 'doc': 'An instance of a function in an executable.'}),
@@ -1324,7 +1330,8 @@ modeldefs = (
                         'doc': 'The type of the version control system used.',
                         'ex': 'svn'}),
 
-                    ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
+                    ('submodules', ('it:dev:repo:commit', {}), {
+                        'array': {},
                         'doc': "An array of other repos that this repo has as submodules, pinned at specific commits."}),
                 ),
                 'doc': 'A version control system instance.'}),
@@ -1378,7 +1385,8 @@ modeldefs = (
                     ('repo', ('it:dev:repo', {}), {
                         'doc': 'The repository the commit lives in.'}),
 
-                    ('parents', ('array', {'type': 'it:dev:repo:commit', 'sorted': False}), {
+                    ('parents', ('it:dev:repo:commit', {}), {
+                        'array': {'sorted': False},
                         'doc': 'The commit or commits this commit is immediately based on.'}),
 
                     ('branch', ('it:dev:repo:branch', {}), {
@@ -1475,7 +1483,8 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the software.'}),
 
-                    ('ids', ('array', {'type': (('it:mitre:attack:software:id', {}), ('base:id', {}))}), {
+                    ('ids', (('it:mitre:attack:software:id', {}), ('base:id', {})), {
+                        'array': {},
                         'doc': 'An array of alternate IDs given to the software.'}),
 
                     ('type', ('it:software:type:taxonomy', {}), {
@@ -1491,7 +1500,8 @@ modeldefs = (
                         'alts': ('names',),
                         'doc': 'The name of the software.'}),
 
-                    ('names', ('array', {'type': 'it:softwarename'}), {
+                    ('names', ('it:softwarename', {}), {
+                        'array': {},
                         'doc': 'Observed/variant names for this software version.'}),
 
                     ('released', ('time', {}), {
@@ -1582,7 +1592,8 @@ modeldefs = (
                     ('released', ('time', {}), {
                         'doc': 'The initial release date for this hardware.'}),
 
-                    ('parts', ('array', {'type': 'it:hardware'}), {
+                    ('parts', ('it:hardware', {}), {
+                        'array': {},
                         'doc': 'An array of it:hardware parts included in this hardware specification.'}),
                 ),
                 'doc': 'A specification for a piece of IT hardware.'}),
@@ -1706,13 +1717,13 @@ modeldefs = (
                         'doc': 'The name of the service from the registry key within Services.'}),
 
                     # TODO flags...
-                    ('type', ('int:min0', {}), {
+                    ('type', ('uint32', {}), {
                         'doc': 'The type of service from the Type registry key.'}),
 
-                    ('start', ('int:min0', {}), {
+                    ('start', ('uint32', {}), {
                         'doc': 'The start configuration of the service from the Start registry key.'}),
 
-                    ('errorcontrol', ('int:min0', {}), {
+                    ('errorcontrol', ('uint32', {}), {
                         'doc': 'The service error handling behavior from the ErrorControl registry key.'}),
 
                     ('displayname', ('base:name', {}), {
@@ -1750,7 +1761,7 @@ modeldefs = (
             # ('it:os:windows:task', ('guid', {}), {
             #     'doc': 'A Microsoft Windows scheduled task configuration.'}),
 
-            ('it:os:posix:id', ('int:min0', {}), {
+            ('it:os:posix:id', ('uint32', {}), {
                 'ex': '1001',
                 'doc': 'A POSIX user or group ID.'}),
 
@@ -1825,7 +1836,8 @@ modeldefs = (
                     ('signame', ('it:av:signame', {}), {
                         'doc': 'The name of the signature returned by the scanner.'}),
 
-                    ('categories', ('array', {'type': 'base:name'}), {
+                    ('categories', ('base:name', {}), {
+                        'array': {},
                         'doc': 'A list of categories for the result returned by the scanner.'}),
 
                     ('target', (
@@ -1841,19 +1853,19 @@ modeldefs = (
                     ('multi:scan', ('it:av:scan:result', {}), {
                         'doc': 'Set if this result was part of running multiple scanners.'}),
 
-                    ('multi:count', ('int:min0', {}), {
+                    ('multi:count', ('size', {}), {
                         'doc': 'The total number of scanners which were run by a multi-scanner.'}),
 
-                    ('multi:count:benign', ('int:min0', {}), {
+                    ('multi:count:benign', ('size', {}), {
                         'doc': 'The number of scanners which returned a benign verdict.'}),
 
-                    ('multi:count:unknown', ('int:min0', {}), {
+                    ('multi:count:unknown', ('size', {}), {
                         'doc': 'The number of scanners which returned an unknown/unsupported verdict.'}),
 
-                    ('multi:count:suspicious', ('int:min0', {}), {
+                    ('multi:count:suspicious', ('size', {}), {
                         'doc': 'The number of scanners which returned a suspicious verdict.'}),
 
-                    ('multi:count:malicious', ('int:min0', {}), {
+                    ('multi:count:malicious', ('size', {}), {
                         'doc': 'The number of scanners which returned a malicious verdict.'}),
                 ),
                 'doc': 'The result of running an antivirus scanner.'}),
@@ -1896,6 +1908,9 @@ modeldefs = (
 
                     ('path', ('file:path', {}), {
                         'doc': 'The path to the executable of the process.'}),
+
+                    ('parent', ('it:exec:proc', {}), {
+                        'doc': 'The parent process which created this process.'}),
                 ),
                 'doc': 'A process executing on a host.'}),
 
@@ -2042,6 +2057,9 @@ modeldefs = (
                 'doc': 'A memory mapped segment located in a process.'}),
 
             ('it:cmd', ('str', {}), {
+                'interfaces': (
+                    ('meta:usable', {}),
+                ),
                 'props': (),
                 'doc': 'A unique command-line string.',
                 'ex': 'foo.exe --dostuff bar'}),
@@ -2217,7 +2235,8 @@ modeldefs = (
                     ('page:favicon', ('file:bytes', {}), {
                         'doc': 'The favicon of the rendered page.'}),
 
-                    ('page:components', ('array', {'type': 'it:softwarename', 'uniq': True, 'sorted': True}), {
+                    ('page:components', ('it:softwarename', {}), {
+                        'array': {'uniq': True, 'sorted': True},
                         'doc': 'The software components included in the rendered page.'}),
 
                     ('request', ('inet:proto:request', {}), {
@@ -2500,7 +2519,8 @@ modeldefs = (
                     ('updated', ('time', {}), {
                         'doc': 'The time that the indicator pattern was last modified.'}),
 
-                    ('labels', ('array', {'type': 'str'}), {
+                    ('labels', ('str', {}), {
+                        'array': {},
                         'doc': 'The label strings embedded in the STIX indicator pattern.'}),
 
                     ('valid_from', ('time', {}), {
@@ -2543,19 +2563,24 @@ modeldefs = (
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that the C2 config was extracted from.'}),
 
-                    ('decoys', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
+                    ('decoys', ('inet:url', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of URLs used as decoy connections to obfuscate the C2 servers.'}),
 
-                    ('servers', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
+                    ('servers', ('inet:url', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
 
-                    ('proxies', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
+                    ('proxies', ('inet:url', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of proxy URLs used to communicate with the C2 server.'}),
 
-                    ('listens', ('array', {'type': 'inet:url', 'uniq': False, 'sorted': False}), {
+                    ('listens', ('inet:url', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of listen URLs that the software should bind.'}),
 
-                    ('dns:resolvers', ('array', {'type': 'inet:server', 'uniq': False, 'sorted': False}), {
+                    ('dns:resolvers', ('inet:server', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of inet:servers to use when resolving DNS names.'}),
 
                     ('mutex', ('it:dev:str', {}), {
@@ -2576,7 +2601,8 @@ modeldefs = (
                     ('raw', ('data', {}), {
                         'doc': 'A JSON blob containing the raw config extracted from the binary.'}),
 
-                    ('http:headers', ('array', {'type': 'inet:http:header', 'uniq': False, 'sorted': False}), {
+                    ('http:headers', ('inet:http:header', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of HTTP headers that the sample should transmit to the C2 server.'}),
                 ),
                 'doc': 'An extracted C2 config from an executable.'}),
@@ -2619,7 +2645,8 @@ modeldefs = (
                     ('publisher', ('entity:contact', {}), {
                         'doc': 'The contact information of the org or person who published the image.'}),
 
-                    ('parents', ('array', {'type': 'it:software:image', 'uniq': False, 'sorted': False}), {
+                    ('parents', ('it:software:image', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of parent images in precedence order.'}),
                 ),
                 'doc': 'The base image used to create a container or OS.'}),
@@ -2648,7 +2675,7 @@ modeldefs = (
                     ('type', ('it:storage:volume:type:taxonomy', {}), {
                         'doc': 'The type of storage volume.'}),
 
-                    ('size', ('int:min0', {}), {
+                    ('size', ('size', {}), {
                         'doc': 'The size of the volume in bytes.'}),
                 ),
                 'doc': 'A physical or logical storage volume that can be attached to a physical/virtual machine or container.'}),

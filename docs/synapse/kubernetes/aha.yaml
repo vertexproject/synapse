@@ -72,6 +72,11 @@ spec:
             value: dev.synapse
           - name: SYN_AHA_HTTPS_PORT
             value: null
+          - name: SYN_PROVISION_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: synapse-provision
+                key: secret
         volumeMounts:
           - mountPath: /vertex/storage
             name: data
@@ -114,3 +119,6 @@ spec:
     - port: 27272
       protocol: TCP
       name: provisioning
+    - port: 27272
+      protocol: UDP
+      name: discovery

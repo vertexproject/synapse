@@ -1,11 +1,11 @@
 import os
 import shutil
+import importlib
 
 from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.cell as s_cell
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
@@ -27,23 +27,76 @@ class AhaToolsTest(s_t_utils.SynTest):
 
             ahaurl = aha.getLocalUrl()
 
-            async with self.getTestCell(s_cell.Cell, conf=conf0) as cell0:
+            async with self.getTestCell(s_t_utils.TestCell00, conf=conf0) as cell0:
 
                 await aha._waitAhaSvcOnline('cell0...')
 
-                argv = [ahaurl]
+                # register a synthetic leader / follower pair to exercise the
+                # Leader column, which is managed by the AHA leadership terms.
+                await aha.addAhaSvc('00.mir.synapse', {
+                    'iden': 'mirror-iden',
+                    'run': 'run00',
+                    'type': 'mir',
+                    'urlinfo': {'scheme': 'tcp', 'host': '127.0.0.1', 'port': 4400},
+                })
+                await aha.addAhaSvc('01.mir.synapse', {
+                    'iden': 'mirror-iden',
+                    'run': 'run01',
+                    'type': 'mir',
+                    'urlinfo': {'scheme': 'tcp', 'host': '127.0.0.1', 'port': 4401},
+                })
+                await aha.setLeadTerm('mir', '00.mir.synapse', 1)
+
+                argv = ['--url', ahaurl]
                 retn, outp = await self.execToolMain(s_a_list.main, argv)
                 self.eq(retn, 0)
 
                 outp.expect('Service Leader', whitespace=False)
                 outp.expect('cell00.synapse true', whitespace=False)
 
+                outs = ' '.join(str(outp).split())
+                self.isin('00.mir.synapse True', outs)
+                self.isin('01.mir.synapse False', outs)
+
         async with self.getTestCore() as core:
             curl = core.getLocalUrl()
-            argv = [curl]
+            argv = ['--url', curl]
             retn, outp = await self.execToolMain(s_a_list.main, argv)
             self.eq(1, retn)
             outp.expect(f'Service at {curl} is not an Aha server')
+
+    async def test_aha_del(self):
+
+        # 'del' is a keyword, so the module cannot be imported by name
+        s_a_del = importlib.import_module('synapse.tools.aha.del')
+
+        async with self.getTestAha() as aha:
+
+            ahaurl = aha.getLocalUrl()
+
+            # register a synthetic service entry to remove
+            await aha.addAhaSvc('000.del.synapse', {
+                'iden': 'del-iden',
+                'run': 'run00',
+                'type': 'del',
+                'urlinfo': {'scheme': 'tcp', 'host': '127.0.0.1', 'port': 4400},
+            })
+            self.nn(await aha.getAhaSvc('000.del.synapse'))
+
+            argv = ['--url', ahaurl, '000.del.synapse']
+            retn, outp = await self.execToolMain(s_a_del.main, argv)
+            self.eq(retn, 0)
+            outp.expect('Removed AHA service entry: 000.del.synapse')
+
+            # the entry is gone
+            self.none(await aha.getAhaSvc('000.del.synapse'))
+
+        # a non-AHA service reports an error rather than deleting anything
+        async with self.getTestCore() as core:
+            curl = core.getLocalUrl()
+            retn, outp = await self.execToolMain(s_a_del.main, ['--url', curl, '000.del.synapse'])
+            self.eq(1, retn)
+            outp.expect('ERROR:')
 
     async def test_aha_easycert(self):
 
@@ -161,7 +214,7 @@ class AhaToolsTest(s_t_utils.SynTest):
 
             base_svcinfo = {
                 'iden': 'test_iden',
-                'leader': 'leader',
+                'parent': 'leader',
                 'urlinfo': {
                     'scheme': 'tcp',
                     'host': '127.0.0.1',
@@ -171,7 +224,10 @@ class AhaToolsTest(s_t_utils.SynTest):
             }
 
             conf_no_iden = {'aha:provision': await aha.addAhaSvcProv('no.iden')}
-            async with self.getTestCell(s_cell.Cell, conf=conf_no_iden) as cell_no_iden:
+            async with self.getTestCell(s_t_utils.TestCell00, conf=conf_no_iden) as cell_no_iden:
+                # getTestCell does not wait for AHA registration; ensure the real
+                # service is registered so its later removal pops the lead term.
+                await aha._waitAhaSvcOnline('no.iden...', timeout=10)
                 svcinfo = {k: v for k, v in base_svcinfo.items() if k != 'iden'}
                 await aha.addAhaSvc('no.iden', svcinfo)
 
@@ -181,9 +237,17 @@ class AhaToolsTest(s_t_utils.SynTest):
                 outp.expect('Service Mirror Groups:')
                 self.notin('no.iden', str(outp))
 
+            # remove the record so its ( now offline ) service type does not
+            # block the next generic service of the same type from registering.
+            await aha._waitAhaSvcDown('no.iden...', timeout=10)
+            await aha.delAhaSvc('no.iden...')
+
             conf_no_host = {'aha:provision': await aha.addAhaSvcProv('no.host')}
-            async with self.getTestCell(s_cell.Cell, conf=conf_no_host) as cell_no_host:
+            async with self.getTestCell(s_t_utils.TestCell00, conf=conf_no_host) as cell_no_host:
+                await aha._waitAhaSvcOnline('no.host...', timeout=10)
                 svcinfo = dict(base_svcinfo)
+                # a unique iden keeps this a singleton ( non-grouped ) mock entry
+                svcinfo['iden'] = 'iden_no_host'
                 svcinfo['urlinfo'] = {k: v for k, v in base_svcinfo['urlinfo'].items() if k != 'hostname'}
                 await aha.addAhaSvc('no.host', svcinfo)
 
@@ -193,32 +257,58 @@ class AhaToolsTest(s_t_utils.SynTest):
                 outp.expect('Service Mirror Groups:')
                 self.notin('no.host', str(outp))
 
-            conf_no_leader = {'aha:provision': await aha.addAhaSvcProv('no.leader')}
-            async with self.getTestCell(s_cell.Cell, conf=conf_no_leader) as cell_no_leader:
-                svcinfo = {k: v for k, v in base_svcinfo.items() if k != 'leader'}
-                await aha.addAhaSvc('no.leader', svcinfo)
+            await aha._waitAhaSvcDown('no.host...', timeout=10)
+            await aha.delAhaSvc('no.host...')
+
+            conf_no_parent = {'aha:provision': await aha.addAhaSvcProv('no.parent')}
+            async with self.getTestCell(s_t_utils.TestCell00, conf=conf_no_parent) as cell_no_parent:
+                await aha._waitAhaSvcOnline('no.parent...', timeout=10)
+                svcinfo = {k: v for k, v in base_svcinfo.items() if k != 'parent'}
+                # a unique iden keeps this a singleton ( non-grouped ) mock entry
+                svcinfo['iden'] = 'iden_no_parent'
+                await aha.addAhaSvc('no.parent', svcinfo)
 
                 argv = ['--url', aha.getLocalUrl()]
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                 self.eq(retn, 0)
                 outp.expect('Service Mirror Groups:')
-                self.notin('no.leader', str(outp))
+                self.notin('no.parent', str(outp))
+
+            await aha._waitAhaSvcDown('no.parent...', timeout=10)
+            await aha.delAhaSvc('no.parent...')
 
             conf_no_primary = {'aha:provision': await aha.addAhaSvcProv('no.primary')}
-            async with self.getTestCell(s_cell.Cell, conf=conf_no_primary) as cell_no_primary:
+            async with self.getTestCell(s_t_utils.TestCell00, conf=conf_no_primary) as cell_no_primary:
+                await aha._waitAhaSvcOnline('no.primary...', timeout=10)
                 svcinfo = dict(base_svcinfo)
                 svcinfo['urlinfo']['hostname'] = 'nonexistent.host'
                 await aha.addAhaSvc('no.primary', svcinfo)
 
-            async with aha.waiter(3, 'aha:svc:add', timeout=10):
+            await aha._waitAhaSvcDown('no.primary...', timeout=10)
+            await aha.delAhaSvc('no.primary...')
 
-                conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
-                cell00 = await aha.enter_context(self.getTestCell(conf=conf))
+            # the churn above registered and removed several testcell00 services;
+            # wait for the leadership term to be popped so 00.cell boots as a
+            # clean leader rather than following a stale ( removed ) term.
+            for _ in range(100):
+                if aha._getLeadTerm('testcell00') is None:
+                    break
 
-                conf = {'aha:provision': await aha.addAhaSvcProv('01.cell', {'mirror': 'cell'})}
-                cell01 = await aha.enter_context(self.getTestCell(conf=conf))
+                await aha.waitfini(timeout=0.1)  # pragma: no cover
 
-                await cell01.sync()
+            self.none(aha._getLeadTerm('testcell00'))
+
+            conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
+            cell00 = await aha.enter_context(self.getTestCell(s_t_utils.TestCell00, conf=conf))
+
+            # ensure the type resolves to an online leader before booting the
+            # mirror, which follows the leader via aha://testcell00...
+            await aha._waitAhaSvcLeader(cell00.getCellType(), timeout=10)
+
+            conf = {'aha:provision': await aha.addAhaSvcProv('01.cell')}
+            cell01 = await aha.enter_context(self.getTestCell(s_t_utils.TestCell00, conf=conf))
+
+            await cell01.sync()
 
             ahaurl = aha.getLocalUrl()
 
@@ -307,8 +397,8 @@ class AhaToolsTest(s_t_utils.SynTest):
 
             async with aha.waiter(1, 'aha:svc:add', timeout=10):
 
-                conf = {'aha:provision': await aha.addAhaSvcProv('02.cell', {'mirror': 'cell'})}
-                cell02 = await aha.enter_context(self.getTestCell(conf=conf))
+                conf = {'aha:provision': await aha.addAhaSvcProv('02.cell')}
+                cell02 = await aha.enter_context(self.getTestCell(s_t_utils.TestCell00, conf=conf))
                 await cell02.sync()
 
             async def mock_failed_api(*args, **kwargs):

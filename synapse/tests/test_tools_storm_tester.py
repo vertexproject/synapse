@@ -23,7 +23,7 @@ class TestStormTester(s_t_utils.SynTest):
             self.eq(await s_tester.main([fpath], outp=outp), 0)
             outp.expect('inet:fqdn=example.com')
             outp.expect('#test.tag')
-            outp.expect('#foo = (2020-01-01')
+            outp.expect('#foo = 2020-01-01')
             outp.expect('complete.')
 
             # Print and warn messages

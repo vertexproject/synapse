@@ -225,7 +225,7 @@ class NodeTest(s_t_utils.SynTest):
             self.len(5, s_node.tagsnice(strpode))
             self.len(6, s_node.tags(strpode))
             self.eq(s_node.reprTag(strpode, '#test.foo.bar'), '')
-            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016-01-01T00:00:00Z, 2019-01-01T00:00:00Z)')
+            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '2016-01-01T00:00:00Z - 2019-01-01T00:00:00Z')
             self.none(s_node.reprTag(strpode, 'test.foo.newp'))
 
             self.eq(s_node.prop(strpode, 'hehe'), ('str', 'hehe'))

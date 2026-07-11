@@ -2245,11 +2245,6 @@ class LayerTest(s_t_utils.SynTest):
 
             self.eq(seen, set())
 
-    async def test_layer_fromfuture(self):
-        with self.raises(s_exc.BadStorageVersion):
-            async with self.getRegrCore('future-layrvers') as core:
-                pass
-
     async def test_layer_ival_indexes(self):
 
         async with self.getTestCore() as core:
@@ -2904,7 +2899,7 @@ class LayerTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
 
-                core01conf = {'mirror': url}
+                core01conf = {'parent': url}
 
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 

@@ -104,7 +104,7 @@ class Prop:
         self.locked = False
         self.deprecated = self.info.get('deprecated', False)
 
-        self.type = self.modl.getTypeClone(typedef)
+        self.type = self.modl.getPropTypeClone(typedef, self.info)
         self.typehash = self.type.typehash
 
         form.setProp(name, self)
@@ -349,10 +349,10 @@ class Form:
         for name, valu in props.items():
             ptyp = self.props[name].type
             if ptyp.isarray:
-                deftype = ptyp.arraytype.opts['default_types'][0]
+                deftype = ptyp.arraytype.opts['types'][0]
                 wrapped[name] = tuple((deftype, v) for v in valu)
             else:
-                deftype = ptyp.opts['default_types'][0]
+                deftype = ptyp.opts['types'][0]
                 wrapped[name] = (deftype, valu)
 
         return wrapped
@@ -902,16 +902,36 @@ class Model:
 
         return base.clone(typedef[1])
 
+    def getPropTypeClone(self, typedef, info):
+        '''
+        Clone the type for a prop def.
+
+        An array prop declares its element type in the typedef slot and its container opts
+        (uniq/sorted/split) under the 'array' prop info key; reconstruct the internal array
+        type from those two surfaces. Any other prop clones its typedef directly.
+        '''
+        arrayinfo = info.get('array')
+        if arrayinfo is None:
+            return self.getTypeClone(typedef)
+
+        # A poly element sits in the typedef slot as a tuple of constituents; a named
+        # element is a (name, {}) tuple. The Array type consumes either shape via its
+        # 'type' opt (a constituent tuple or a type name).
+        if isinstance(typedef[0], tuple):
+            elemtype = typedef
+        else:
+            elemtype = typedef[0]
+
+        return self.getTypeClone(('array', {'type': elemtype, **arrayinfo}))
+
     def getModelDef(self):
         '''
         Returns:
             A model definition dictionary representing the current data model.
         '''
         mdef = self._modeldef.copy()
-        # dynamically generate form defs due to extended props.  Auto-registered prop types
-        # are kept out of the def (see addType); inline their opts back onto the prop so the
-        # def remains self-describing and round-trips (rebuild re-derives the hidden types).
-        mdef['forms'] = [self._externFormDef(f.getFormDef()) for f in self.forms.values()]
+        # dynamically generate form defs due to extended props.
+        mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
         mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
         mdef['interfaces'] = list(self.ifaces.items())
         mdef['edges'] = [e.pack() for e in self.edges.values()]
@@ -925,54 +945,6 @@ class Model:
             template['$self'] = name
             resolved[name] = self._convertTemplate(info, name, template)
         return resolved
-
-    def _externFormDef(self, formdef):
-        '''Externalize a (name, info, propdefs) form def, inlining hidden prop types.'''
-        formname, forminfo, propdefs = formdef
-        newprops = []
-        for (pname, typedef, pinfo) in propdefs:
-            if typedef is not None:
-                typedef = self._externTypedef(typedef)
-            newprops.append((pname, typedef, pinfo))
-
-        return (formname, forminfo, newprops)
-
-    def _externTypeName(self, typename):
-        '''Map an auto-registered type name back to its base type name.'''
-        tobj = self.types.get(typename)
-        if tobj is not None and tobj.info.get('auto'):
-            return tobj.info['bases'][-1]
-
-        return typename
-
-    def _externTypedef(self, typedef):
-        '''
-        Re-express a prop typedef for the surfaces that omit auto-registered prop types: the
-        serialized model def (``getModelDef``) and the ext-prop beholder feed. An auto type
-        reference becomes its base ``(basename, opts)`` typedef, and each auto poly
-        constituent becomes its base name, so the prop stays self-describing without them.
-        getModelDict keeps the auto types, so it does not use this.
-        '''
-        typename = typedef[0]
-
-        if typename == 'poly':
-            typeopts = dict(typedef[1])
-
-            for key in ('types', 'default_types'):
-                if (vals := typeopts.get(key)) is not None:
-                    typeopts[key] = tuple(self._externTypeName(v) for v in vals)
-
-            if (docs := typeopts.get('docs')) is not None:
-                typeopts['docs'] = {self._externTypeName(k): v for (k, v) in docs.items()}
-
-            return ('poly', typeopts)
-
-        tobj = self.types.get(typename)
-        if tobj is not None and tobj.info.get('auto'):
-            basename, opts = tobj.getTypeDef()[1]
-            return (basename, dict(opts))
-
-        return typedef
 
     def getModelDict(self):
         retn = {
@@ -1010,14 +982,11 @@ class Model:
 
         types = []
         ifaces = []
-        defaults = []
         docs = {}
-
-        _valid_typeinfo_keys = frozenset(('defnorm', 'doc'))
 
         for typename, typeinfo in propdef:
             if typeinfo:
-                invalid = typeinfo.keys() - _valid_typeinfo_keys
+                invalid = typeinfo.keys() - self._polyMemberKeys
                 if invalid:
                     mesg = 'Typeopts not valid on poly props'
                     raise s_exc.BadPropDef(mesg=mesg, valu=propdef)
@@ -1026,9 +995,6 @@ class Model:
                 ifaces.append(typename)
             else:
                 types.append(typename)
-
-                if typeinfo.get('defnorm', True):
-                    defaults.append(typename)
 
             if (doc := typeinfo.get('doc')):
                 docs[typename] = doc
@@ -1039,9 +1005,6 @@ class Model:
 
         if types:
             polyinfo['types'] = tuple(types)
-
-        if defaults:
-            polyinfo['default_types'] = tuple(defaults)
 
         if docs:
             polyinfo['docs'] = docs
@@ -1063,76 +1026,70 @@ class Model:
 
         return ('poly', self.convertPolyinfo(typedef))
 
-    def _genPropTypeName(self, formname, propname, basename, typeopts):
+    # Keys permitted in a poly constituent's typeinfo -- member metadata, not type opts.
+    _polyMemberKeys = frozenset(('doc',))
+
+    # Container opts permitted in the 'array' prop info key.
+    _arrayOptKeys = frozenset(('uniq', 'sorted', 'split'))
+
+    def _reqValidPropTypedef(self, propname, typedef, info, formname=None):
         '''
-        Compute the auto-registered type name for a prop declared with inline type opts.
+        Enforce where inline type opts may be declared on a prop.
 
-        The name is ``formname:propname:<typehash>`` where the typehash is derived from the
-        base type's runtime class and the fully-merged opts (base opts updated with inline
-        opts), matching exactly what the instantiated Type's ``.typehash`` will be.
+        A prop type is declared ``(typename, opts)`` and must reference a named type with empty
+        opts (or, for a poly prop, a tuple of named constituents). A prop that needs custom
+        normalization opts (``regex``, ``enums``, ``names``, ``precision``, ...) must be declared
+        once as a named type and referenced by name.
 
-        Args:
-            formname (str): The form name (e.g. ``inet:http:request``).
-            propname (str): The prop name (e.g. ``headers``).
-            basename (str): The base type name (e.g. ``array`` or ``str``).
-            typeopts (dict): The inline type opts from the prop definition.
-
-        Returns:
-            str: The full auto-registered type name.
+        An array prop declares its element type in the typedef slot and its container opts
+        (``uniq``/``sorted``/``split``) under the ``array`` prop info key. The legacy
+        ``('array', {...})`` container typedef is no longer supported.
         '''
-        base = self.types.get(basename)
-        if base is None:
-            raise s_exc.NoSuchType(name=basename)
+        prefix = f'{formname}:{propname}' if formname is not None else propname
 
-        # Mirror Type.extend's opt-merge: start from base opts, apply inline opts on top.
-        effopts = dict(base.opts)
-        effopts.update(typeopts)
+        typename = typedef[0]
 
-        ctor = '.'.join([base.__class__.__module__, base.__class__.__qualname__])
-        typehash = s_types.computeTypeHash(ctor, effopts)
+        # The legacy ('array', {...}) container typedef is no longer supported. An element type
+        # of 'array' (array of arrays) is left to the Array type to reject as a BadTypeDef.
+        if typename == 'array' and 'array' not in info:
+            mesg = f'The ("array", {{...}}) typedef is no longer supported for prop {prefix}; ' \
+                   f'declare the element type as the prop type and the container opts under ' \
+                   f'the "array" prop info key.'
+            raise s_exc.BadPropDef(mesg=mesg, name=propname)
 
-        return f'{formname}:{propname}:{typehash}'
+        if (arrayinfo := info.get('array')) is not None:
+            self._reqValidArrayInfo(prefix, propname, arrayinfo)
 
-    def regPropType(self, formname, propname, basename, typeopts):
-        '''
-        Auto-register a named type for a prop declared with inline type opts.
+        # Poly prop declared as a tuple of (name, memberinfo) constituents.
+        if isinstance(typename, tuple):
+            for cname, cinfo in typedef:
+                if cinfo.keys() - self._polyMemberKeys:
+                    mesg = f'Inline type opts are not allowed on prop {prefix}; declare a ' \
+                           f'named type for {cname} and reference it by name.'
+                    raise s_exc.BadPropDef(mesg=mesg, name=propname)
+            return
 
-        The type is named ``formname:propname:<typehash>`` where the typehash encodes the
-        base type class and merged opts, making names unique per distinct ``(ctor, opts)``
-        combination and stable across restarts.  Poly props may call this once per
-        opts-bearing constituent, producing distinct names when opts differ.
+        # 'poly' is the already-converted structural poly type; nothing to validate here.
+        if typename == 'poly':
+            return
 
-        Args:
-            formname (str): The form name (e.g. ``inet:http:request``).
-            propname (str): The prop name (e.g. ``headers``).
-            basename (str): The base type name (e.g. ``array`` or ``str``).
-            typeopts (dict): The inline type opts from the prop definition.
+        # Any other single type: only poly member metadata (doc) may accompany it.
+        if typedef[1].keys() - self._polyMemberKeys:
+            mesg = f'Inline type opts are not allowed on prop {prefix}; ' \
+                   f'declare a named type instead.'
+            raise s_exc.BadPropDef(mesg=mesg, name=propname)
 
-        Returns:
-            str: The registered type name.
-        '''
-        fullname = self._genPropTypeName(formname, propname, basename, typeopts)
+    def _reqValidArrayInfo(self, prefix, propname, arrayinfo):
+        '''Validate the container opts declared under the 'array' prop info key.'''
+        if not isinstance(arrayinfo, dict):
+            mesg = f'The "array" prop info on {prefix} must be a dict of container opts.'
+            raise s_exc.BadPropDef(mesg=mesg, name=propname)
 
-        existing = self.types.get(fullname)
-        if existing is not None:
-            # The name embeds the typehash, so an existing entry is by construction the same
-            # (ctor, opts) type.  This covers form-overrides-interface double-registration and
-            # idempotent ext-model reload.  Defensively guard against a hand-crafted model type
-            # that somehow squats the generated name with different opts.
-            if existing.typehash == s_types.computeTypeHash(
-                    '.'.join([existing.__class__.__module__, existing.__class__.__qualname__]),
-                    existing.opts):
-                return fullname
-            mesg = f'Prop type name {fullname!r} conflicts with an existing type with different opts.'
-            raise s_exc.BadTypeDef(mesg=mesg)
-
-        self.addType(fullname, basename, typeopts, {'auto': True})
-        return fullname
-
-    # Keys allowed in a poly constituent's typeinfo that are member metadata,
-    # not type opts.  All other keys are treated as type opts and trigger
-    # auto-registration of a named type for that constituent.
-    _POLY_MEMBER_KEYS = frozenset(('defnorm', 'doc'))
+        invalid = arrayinfo.keys() - self._arrayOptKeys
+        if invalid:
+            mesg = f'Invalid array container opts {sorted(invalid)} on prop {prefix}; ' \
+                   f'allow only {sorted(self._arrayOptKeys)}.'
+            raise s_exc.BadPropDef(mesg=mesg, name=propname)
 
     def processPropdefs(self, propdefs, formname=None):
 
@@ -1140,47 +1097,19 @@ class Model:
 
         for pname, typedef, propinfo in propdefs:
 
-            if formname is not None and typedef is not None:
-
-                # Single type with inline opts — any base type, not just array.
-                # Only keys outside _POLY_MEMBER_KEYS are real type opts; 'defnorm'/'doc'
-                # are poly member metadata and must not trigger type registration.
-                # Exclude 'poly' — that is the already-converted poly structural type and
-                # must pass through convertTypedef unchanged.
-                if isinstance(typedef[0], str) and typedef[0] != 'poly':
-                    real_opts = {k: v for k, v in typedef[1].items()
-                                 if k not in self._POLY_MEMBER_KEYS}
-                    if real_opts:
-                        typename = self.regPropType(formname, pname, typedef[0], real_opts)
-                        # Preserve any member metadata (doc/defnorm) for convertPolyinfo.
-                        member_meta = {k: v for k, v in typedef[1].items()
-                                       if k in self._POLY_MEMBER_KEYS}
-                        typedef = (typename, member_meta)
-
-                # Poly typedef — tuple of constituent (name, info) pairs.
-                # Register a named type for each constituent that carries real type opts
-                # (opts beyond the allowed poly member metadata keys defnorm/doc).
-                elif isinstance(typedef[0], tuple):
-                    newconstits = []
-                    for cname, cinfo in typedef:
-                        real_opts = {k: v for k, v in cinfo.items()
-                                     if k not in self._POLY_MEMBER_KEYS}
-                        if real_opts:
-                            typename = self.regPropType(formname, pname, cname, real_opts)
-                            # Strip the consumed type opts; keep only member metadata.
-                            member_meta = {k: v for k, v in cinfo.items()
-                                           if k in self._POLY_MEMBER_KEYS}
-                            newconstits.append((typename, member_meta))
-                        else:
-                            newconstits.append((cname, cinfo))
-                    typedef = tuple(newconstits)
-
             if typedef is None:
                 mesg = f'Prop {pname} declares a None type which may only be used on a ' \
                        f'form prop to inherit a type from a parent form or interface.'
                 raise s_exc.BadPropDef(mesg=mesg, name=pname)
 
-            realdefs.append((pname, self.convertTypedef(typedef), propinfo))
+            self._reqValidPropTypedef(pname, typedef, propinfo, formname=formname)
+
+            # An array prop keeps its element typedef raw so the Array type can be
+            # reconstructed from it and the 'array' prop info key.
+            if 'array' in propinfo:
+                realdefs.append((pname, typedef, propinfo))
+            else:
+                realdefs.append((pname, self.convertTypedef(typedef), propinfo))
 
         return tuple(realdefs)
 
@@ -1192,6 +1121,8 @@ class Model:
 
             {
                 "types":(
+                    # A named type may carry type opts. The 'array' type is prop-only
+                    # (see the prop note below) and may not be used as a basetype here.
                     ('name', ('basetype', {typeopts}), {info}),
 
                     # Types with custom Python classes use None as the base
@@ -1203,7 +1134,14 @@ class Model:
                     # definitions (it may be empty for a form with no props):
                     ('name', ('basetype', {typeopts}), {
                         'props': (
-                            (propname, (typename, typeopts), {info}),
+                            # A prop typedef must have EMPTY type opts. A prop that
+                            # needs custom type opts (regex, enums, ival names/precision,
+                            # ...) must reference a named type declared in "types" above.
+                            # An array prop declares its element type in the typedef slot
+                            # and its container opts (uniq/sorted/split) under the 'array'
+                            # prop info key; the element type must itself be named:
+                            (propname, (typename, {}), {info}),
+                            (propname, (typename, {}), {'array': {...}, ...info}),
 
                             # A form prop may declare a None type to inherit
                             # its type from a parent form or implemented
@@ -1295,10 +1233,6 @@ class Model:
         for name, tobj in self.types.items():
             tobj._initType()
             if name in self.ifacepolys:
-                continue
-            # Auto-registered prop types are internal and re-derived from inline prop opts;
-            # keep them out of the serialized model def (mirrors the addType guard below).
-            if tobj.info.get('auto'):
                 continue
             if (ctor := ctors.get(name)) is not None:
                 opts = dict(tobj.opts)
@@ -1434,6 +1368,13 @@ class Model:
         if base is None:
             raise s_exc.NoSuchType(name=basename)
 
+        # The array type is a prop-only structural container declared inline on a property
+        # (an anonymous clone); it may not be the base for a named type.
+        if base.isarray:
+            mesg = f'The array type may only be used inline on a property, not as the base ' \
+                   f'for a named type ({typename}).'
+            raise s_exc.BadTypeDef(mesg=mesg, name=typename)
+
         newtype = base.extend(typename, typeopts, typeinfo, skipinit=skipinit)
 
         if newtype.deprecated:
@@ -1443,9 +1384,7 @@ class Model:
 
         self.types[typename] = newtype
 
-        # Auto-registered prop types are re-derived from inline prop opts on reload, so they
-        # stay out of the serialized model def (getModelDict keeps them for the client).
-        if not skipinit and not newtype.info.get('auto'):
+        if not skipinit:
             self._modeldef['types'].append(newtype.getTypeDef())
 
     def reqVirtTypes(self, virts):
@@ -1696,10 +1635,6 @@ class Model:
                 mesg = f'Cannot delete type {typename} as it is still in use by other types.'
                 raise s_exc.CantDelType(mesg=mesg, name=typename)
 
-            if _type.isarray and typename in _type.arraytype.typeset:
-                mesg = f'Cannot delete type {typename} as it is still in use by array types.'
-                raise s_exc.CantDelType(mesg=mesg, name=typename)
-
     def delType(self, typename):
 
         _type = self.types.get(typename)
@@ -1718,37 +1653,17 @@ class Model:
         if form is None:
             raise s_exc.NoSuchForm.init(formname)
 
-        # On the _applyExtModel reload path, tdef arrives as the stored original form.
-        # Register any auto-generated named type(s) first so they exist before
-        # convertTypedef resolves them.  Mirrors the single/poly logic in processPropdefs.
-        if isinstance(tdef[0], str) and tdef[0] != 'poly':
-            real_opts = {k: v for k, v in tdef[1].items() if k not in self._POLY_MEMBER_KEYS}
-            if real_opts:
-                typename = self.regPropType(formname, propname, tdef[0], real_opts)
-                member_meta = {k: v for k, v in tdef[1].items()
-                               if k in self._POLY_MEMBER_KEYS}
-                tdef = (typename, member_meta)
+        self._reqValidPropTypedef(propname, tdef, info, formname=formname)
 
-        elif isinstance(tdef[0], tuple):
-            newconstits = []
-            for cname, cinfo in tdef:
-                real_opts = {k: v for k, v in cinfo.items()
-                             if k not in self._POLY_MEMBER_KEYS}
-                if real_opts:
-                    typename = self.regPropType(formname, propname, cname, real_opts)
-                    member_meta = {k: v for k, v in cinfo.items()
-                                   if k in self._POLY_MEMBER_KEYS}
-                    newconstits.append((typename, member_meta))
-                else:
-                    newconstits.append((cname, cinfo))
-            tdef = tuple(newconstits)
-
-        try:
-            tdef = self.convertTypedef(tdef)
-        except s_exc.NoSuchType:
-            typename = tdef[0] if isinstance(tdef[0], str) else str(tdef[0])
-            mesg = f'No type named {typename} while declaring prop {formname}:{propname}.'
-            raise s_exc.NoSuchType(mesg=mesg, name=typename) from None
+        # An array prop keeps its element typedef raw so the Array type can be
+        # reconstructed from it and the 'array' prop info key.
+        if 'array' not in info:
+            try:
+                tdef = self.convertTypedef(tdef)
+            except s_exc.NoSuchType:
+                typename = tdef[0] if isinstance(tdef[0], str) else str(tdef[0])
+                mesg = f'No type named {typename} while declaring prop {formname}:{propname}.'
+                raise s_exc.NoSuchType(mesg=mesg, name=typename) from None
 
         return self._addFormProp(form, propname, tdef, info)
 
@@ -1767,7 +1682,7 @@ class Model:
 
         if (pform := self.form(form.type.subof)) is not None:
             for prop in pform.props.values():
-                inherited.setdefault(prop.name, prop.typedef)
+                inherited.setdefault(prop.name, (prop.typedef, prop.info.get('array')))
 
         for ifname, ifinfo in form.type.info.get('interfaces', ()):
             self._collectIfaceTypedefs(form, ifname, ifinfo, inherited)
@@ -1776,11 +1691,19 @@ class Model:
         for (name, typedef, info) in propdefs:
 
             if typedef is None:
-                typedef = inherited.get(name)
-                if typedef is None:
+                inh = inherited.get(name)
+                if inh is None:
                     mesg = f'Prop {form.name}:{name} declares a None type to inherit ' \
                            f'its type but no parent form or interface declares {name}.'
                     raise s_exc.BadPropDef(mesg=mesg, name=name, form=form.name)
+
+                typedef, arrayinfo = inh
+
+                # Inherit the parent/interface 'array' container opts unless the child
+                # restated them, so a None-typedef override of an array prop stays an array.
+                if arrayinfo is not None and 'array' not in info:
+                    info = dict(info)
+                    info['array'] = arrayinfo
 
             realdefs.append((name, typedef, info))
 
@@ -1792,28 +1715,33 @@ class Model:
 
         for propname, typedef, propinfo in iface.get('props', ()):
             if typedef is not None:
-                inherited.setdefault(propname, typedef)
+                inherited.setdefault(propname, (typedef, propinfo.get('array')))
 
         for subname, subinfo in iface.get('interfaces', ()):
             self._collectIfaceTypedefs(form, subname, subinfo, inherited)
 
     def _addFormProp(self, form, name, tdef, info):
 
-        (basename, typeinfo) = tdef
-
-        if self.types.get(basename) is None:
-            mesg = f'No type named {basename} while declaring prop {form.name}:{name}.'
-            raise s_exc.NoSuchType(mesg=mesg, name=basename)
-
         virts = []
-        for typename in typeinfo.get('types', ()):
-            _type = self.types.get(typename)
-            if _type is None:
-                mesg = f'No type named {typename} while declaring prop {form.name}:{name}.'
-                raise s_exc.NoSuchType(mesg=mesg, name=name)
 
-            if (typevirts := _type.info.get('virts')) is not None:
-                virts = self.mergeVirts(virts, typevirts)
+        # An array prop declares its element type in the typedef slot and its container
+        # opts under the 'array' info key; the Array type validates the element itself.
+        if 'array' not in info:
+
+            (basename, typeinfo) = tdef
+
+            if self.types.get(basename) is None:
+                mesg = f'No type named {basename} while declaring prop {form.name}:{name}.'
+                raise s_exc.NoSuchType(mesg=mesg, name=basename)
+
+            for typename in typeinfo.get('types', ()):
+                _type = self.types.get(typename)
+                if _type is None:
+                    mesg = f'No type named {typename} while declaring prop {form.name}:{name}.'
+                    raise s_exc.NoSuchType(mesg=mesg, name=name)
+
+                if (typevirts := _type.info.get('virts')) is not None:
+                    virts = self.mergeVirts(virts, typevirts)
 
         if (propvirts := info.get('virts')) is not None:
             virts = self.mergeVirts(virts, propvirts)
@@ -2043,22 +1971,6 @@ class Model:
         if (kids := self.childforms.get(formname)) is not None:
             for kid in kids:
                 self.delFormProp(kid, propname)
-
-        # Clean up any auto-registered named types for this prop.
-        # Auto-registered names follow the pattern prop.full + ':<typehash>'.
-        # For a single-type prop, there is one such type.  For a poly prop,
-        # iterate the constituent type names.  Child forms' props have already
-        # been deleted above, so at this point only the parent-form prop references
-        # these types.
-        propfull_prefix = prop.full + ':'
-        if prop.type.ispoly:
-            for tname in prop.type.typeset:
-                if tname.startswith(propfull_prefix):
-                    self.types.pop(tname, None)
-        else:
-            for tname in list(self.types.keys()):
-                if tname.startswith(propfull_prefix):
-                    self.types.pop(tname, None)
 
         self.childpropcache.clear()
         self._lookup_hints = None

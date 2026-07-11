@@ -1,3 +1,16 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:00bdf6a17ee8a226e890276a4f4483471f0a9cb1b74264dbb368876f32ed34bb
-size 275
+name: badvaultsschema
+version: 0.0.1
+
+vaults:
+  badvaultsschema:
+    schemas:
+      configs:
+        type: newpobject
+        properties:
+          foo:
+            type: string
+      secrets:
+        type: object
+        properties:
+          quux:
+            type: string

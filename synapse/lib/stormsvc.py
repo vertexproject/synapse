@@ -205,7 +205,7 @@ class StormSvcClient(s_base.Base):
         if 'CellApi' in names:
             cellinfo = await proxy.getCellInfo()
             cellvers = cellinfo['synapse']['version']
-            if not s_version.matches(cellvers, '>=3.0.0b1'):
+            if not s_version.matches(cellvers, '>=3.0.0b2'):
                 mesg = f'Service {self.name} ({self.iden}) is running Synapse {cellvers} and must be updated to >= 3.0.0'
                 logger.error(mesg)
                 raise s_exc.BadVersion(mesg=mesg)

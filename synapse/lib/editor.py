@@ -881,9 +881,9 @@ class ProtoNode(s_node.NodeBase):
         The sub was normed as its own type (subhash). If the consuming prop's type
         matches, reuse the normed value and info directly. If the consuming prop is a
         poly that allows the sub's type (e.g. a comp field whose form-typed value
-        feeds a poly secondary prop), norm it as an explicit typed value so the sub is
-        not re-normed through the poly default norming, otherwise fall back to re-norming
-        the raw value.
+        feeds a poly secondary prop), pack the already-normed sub as an explicit typed
+        value so it is not re-normed through the poly default norming, otherwise fall
+        back to re-norming the raw value.
         '''
         if subp.type.typehash is subhash:
             return subvalu, subinfo
@@ -892,7 +892,7 @@ class ProtoNode(s_node.NodeBase):
             for tname in subp.type.typeset:
                 mtyp = self.model.type(tname)
                 if mtyp is not None and mtyp.typehash is subhash:
-                    return await subp.type.normFromTypedValu((tname, subvalu), view=self.editor.view)
+                    return await subp.type.packTypedNorm(tname, subvalu, subinfo, view=self.editor.view)
 
         return subvalu, None
 

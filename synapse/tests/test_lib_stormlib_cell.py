@@ -106,8 +106,7 @@ class StormCellTest(s_test.SynTest):
 
                 self.eq([], await core00.callStorm('return($lib.cell.getMirrorUrls())'))
 
-                provinfo = {'mirror': '00.cortex'}
-                provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
+                provurl = await aha.addAhaSvcProv('01.cortex')
                 ahawait = aha.waiter(1, 'aha:svc:add')
 
                 coreconf = {'aha:provision': provurl}
@@ -139,8 +138,7 @@ class StormCellTest(s_test.SynTest):
 
                     self.eq([], await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))'))
 
-                    provinfo = {'mirror': '00.testsvc'}
-                    provurl = await aha.addAhaSvcProv('01.testsvc', provinfo=provinfo)
+                    provurl = await aha.addAhaSvcProv('01.testsvc')
                     ahawait = aha.waiter(1, 'aha:svc:add')
 
                     svcconf = {'aha:provision': provurl}

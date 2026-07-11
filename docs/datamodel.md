@@ -42,7 +42,7 @@ A belief system such as an ideology, philosophy, or religion.
 | `:activity` | `base:activity` | A parent activity which includes this belief system. |
 | `:desc` | `text` | A description of the belief system. |
 | `:name` | `base:name` | The name of the belief system. |
-| `:period` | `ival` | The period over which the belief system was active. |
+| `:period` | `activity` | The period over which the belief system was active. |
 | `:type` | `belief:system:type:taxonomy` | A taxonometric type for the belief system. |
 
 ### `belief:system:type:taxonomy`
@@ -78,7 +78,7 @@ A concrete tenet potentially shared by multiple belief systems.
 | `:activity` | `base:activity` | A parent activity which includes this tenet. |
 | `:desc` | `text` | A description of the tenet. |
 | `:name` | `base:name` | The name of the tenet. |
-| `:period` | `ival` | The period over which the tenet was active. |
+| `:period` | `activity` | The period over which the tenet was active. |
 
 ### `biz:deal`
 
@@ -98,7 +98,7 @@ A sales or procurement effort in pursuit of a purchase.
 | `:contacted` | `time` | The last time the contacts communicated about the deal. |
 | `:id` | `base:id` | An identifier for the deal. |
 | `:name` | `base:name` | The name of the deal. |
-| `:period` | `ival` | The period over which the activity occurred. |
+| `:period` | `activity` | The period over which the activity occurred. |
 | `:seller` | `entity:actor` | The seller. |
 | `:seller:name` | `entity:name` | The name of the seller. |
 | `:status` | `title` | The status of the deal. |
@@ -138,10 +138,10 @@ A product or service being listed for sale.
 | `:activity` | `base:activity` | A parent activity which includes this listing. |
 | `:actor` | `entity:actor` | The actor who posted the listing. |
 | `:actor:name` | `entity:name` | The name of the actor who posted the listing. |
-| `:count:remaining` | `int:min0` | The current remaining number of instances for sale. |
-| `:count:total` | `int:min0` | The number of instances for sale. |
+| `:count:remaining` | `size` | The current remaining number of instances for sale. |
+| `:count:total` | `size` | The number of instances for sale. |
 | `:name` | `base:name` | The name or title of the listing. |
-| `:period` | `ival` | The period over which the listing occurred. |
+| `:period` | `activity` | The period over which the listing occurred. |
 | `:price` | `econ:price` | The asking price of the product or service. |
 
 ### `biz:model`
@@ -257,7 +257,7 @@ A service offered by an actor.
 | `:actor:name` | `entity:name` | The name of the actor who provided the service offering. |
 | `:desc` | `text` | A description of the service. |
 | `:name` | `base:name` | The name of the service being performed. |
-| `:period` | `ival` | The period of time when the actor made the service available. |
+| `:period` | `activity` | The period of time when the actor made the service available. |
 | `:type` | `biz:service:type:taxonomy` | The type of service. |
 
 ### `biz:service:type:taxonomy`
@@ -445,7 +445,7 @@ A generic cryptographic key.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `meta:algorithm` | The algorithm which uses the key material. |
-| `:bits` | `int:min1` | The number of bits of key material. |
+| `:bits` | `size` | The number of bits of key material. |
 | `:private:hashes` | `array of crypto:hash` | An array of hashes for the private key. |
 | `:public:hashes` | `array of crypto:hash` | An array of hashes for the public key. |
 | `:seen` | `ival` | The key was observed during the time interval. |
@@ -462,7 +462,7 @@ A DSA public/private key pair.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `meta:algorithm` | The algorithm which uses the key material. |
-| `:bits` | `int:min1` | The number of bits of key material. |
+| `:bits` | `size` | The number of bits of key material. |
 | `:private` | `hex` | The HEX encoded private portion of the DSA key. |
 | `:private:hashes` | `array of crypto:hash` | An array of hashes for the private key. |
 | `:public` | `hex` | The HEX encoded public portion of the DSA key. |
@@ -484,7 +484,7 @@ An ECDSA public/private key pair.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `meta:algorithm` | The algorithm which uses the key material. |
-| `:bits` | `int:min1` | The number of bits of key material. |
+| `:bits` | `size` | The number of bits of key material. |
 | `:curve` | `base:name` | The curve standard in use. |
 | `:private` | `hex` | The HEX encoded private portion of the ECDSA key. |
 | `:private:hashes` | `array of crypto:hash` | An array of hashes for the private key. |
@@ -513,7 +513,7 @@ An RSA public/private key pair.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `meta:algorithm` | The algorithm which uses the key material. |
-| `:bits` | `int:min1` | The number of bits of key material. |
+| `:bits` | `size` | The number of bits of key material. |
 | `:private:coefficient` | `hex` | The private coefficient of the RSA key. |
 | `:private:exponent` | `hex` | The private exponent of the RSA key. |
 | `:private:hashes` | `array of crypto:hash` | An array of hashes for the private key. |
@@ -544,7 +544,7 @@ A secret key with an optional initialiation vector.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `meta:algorithm` | The algorithm which uses the key material. |
-| `:bits` | `int:min1` | The number of bits of key material. |
+| `:bits` | `size` | The number of bits of key material. |
 | `:iv` | `hex` | The hex encoded initialization vector. |
 | `:mode` | `base:name` | The algorithm specific mode in use. |
 | `:seed:algorithm` | `meta:algorithm` | The algorithm used to generate the key from the seed password. |
@@ -847,7 +847,7 @@ A contract between multiple entities.
 | `:file:name` | `file:base` | The name of the file containing the contract contents. |
 | `:id` | `base:id` | The contract ID. |
 | `:ids` | `array of base:id` | An array of alternate IDs for the contract. |
-| `:period` | `ival` | The period over which the contract occurred. |
+| `:period` | `activity` | The period over which the contract occurred. |
 | `:signed` | `time` | The date that the contract signing was complete. |
 | `:supersedes` | `array of doc:contract` | An array of contract versions which are superseded by this contract. |
 | `:title` | `title` | The title of the contract. |
@@ -1260,6 +1260,28 @@ A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business I
 | `:bank:name` | `entity:name` | The name of the bank or branch. |
 | `:office` | `entity:contact` | The branch or office which is specified in the last 3 digits of the SWIFT BIC. |
 
+### `econ:budget`
+
+A budget of funds allocated and spent over a period.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `entity:action` |
+| `entity:activity` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this budget. |
+| `:actor` | `entity:actor` | The actor who managed the budget. |
+| `:actor:name` | `entity:name` | The name of the actor who managed the budget. |
+| `:funds` | `econ:allocation` | The funds allocated and spent over the period. |
+| `:id` | `base:id` | The ID of the budget. |
+| `:name` | `title` | The name of the budget. |
+| `:period` | `activity` | The period over which the budget was in effect. |
+| `:previous` | `econ:budget` | The budget for the previous period. |
+
 ### `econ:currency`
 
 A currency. This should ideally be an ISO 4217 currency code when one is available.
@@ -1298,7 +1320,7 @@ A line item included as part of a purchase.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:count` | `int:min1` | The number of items included in this line item. |
+| `:count` | `size` | The number of items included in this line item. |
 | `:item` | `biz:service`, `meta:havable` | The product or service. |
 | `:price` | `econ:price` | The total cost of this receipt line item. |
 
@@ -1530,7 +1552,7 @@ An instance of an edu:course taught at a given time.
 | `:desc` | `text` | A description of the class. |
 | `:instructor` | `entity:individual` | The primary instructor for the class. |
 | `:name` | `base:name` | The name of the class. |
-| `:period` | `ival` | The period over which the class was run. |
+| `:period` | `activity:day` | The period over which the class was run. |
 | `:place` | `geo:place` | The place where the class was located. |
 | `:place:address` | `geo:address` | The postal address where the class was located. |
 | `:place:address:city` | `base:name` | The city where the class was located. |
@@ -1650,7 +1672,7 @@ A period where an actor attended an event or activity.
 | `:actor` | `entity:actor` | The actor who carried out the action. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
 | `:inperson` | `bool` | Set if the actor attended the activity in person. |
-| `:period` | `ival` | The period over which the activity occurred. |
+| `:period` | `activity` | The period over which the activity occurred. |
 | `:role` | `entity:title` | The role the actor played in attending the activity. |
 
 ### `entity:believed`
@@ -1670,7 +1692,7 @@ A period where an actor held a belief.
 | `:actor` | `entity:actor` | The actor who held the belief. |
 | `:actor:name` | `entity:name` | The name of the actor who held the belief. |
 | `:belief` | `meta:believable` | The belief held by the actor. |
-| `:period` | `ival` | The period over which the belief was held. |
+| `:period` | `activity` | The period over which the belief was held. |
 
 ### `entity:campaign`
 
@@ -1679,6 +1701,7 @@ Activity in pursuit of a goal.
 | Interface |
 |-----------|
 | `base:activity` |
+| `econ:budgetable` |
 | `entity:action` |
 | `entity:activity` |
 | `entity:participable` |
@@ -1692,17 +1715,18 @@ Activity in pursuit of a goal.
 | `:activity` | `base:activity` | A parent activity which includes this campaign. |
 | `:actor` | `entity:actor` | The actor who carried out the campaign. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the campaign. |
+| `:budget` | `econ:budget` | The budget for the campaign. |
 | `:cost` | `econ:price` | The actual cost of the campaign. |
 | `:desc` | `text` | A description of the campaign. |
 | `:id` | `base:id`, `it:mitre:attack:campaign:id` | A unique ID given to the campaign. |
 | `:ids` | `array of base:id, it:mitre:attack:campaign:id` | An array of alternate IDs given to the campaign. |
 | `:name` | `entity:name` | The primary name of the campaign. |
 | `:names` | `array of entity:name` | A list of alternate names for the campaign. |
-| `:period` | `ival` | The period over which the campaign occurred. |
+| `:period` | `activity` | The period over which the campaign occurred. |
 | `:reporter` | `entity:actor` | The entity which reported on the campaign. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the campaign. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the campaign. |
-| `:reporter:period` | `ival` | The period when the campaign existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the campaign existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the campaign. |
 | `:reporter:supersedes` | `array of entity:campaign` | An array of campaign nodes which are superseded by this campaign. |
 | `:reporter:updated` | `time` | The time when the campaign was last updated. |
@@ -1746,7 +1770,7 @@ Represents a conflict where two or more campaigns have mutually exclusive goals.
 | `:activity` | `base:activity` | A parent activity which includes this conflict. |
 | `:adversaries` | `array of entity:actor` | The primary adversaries in conflict with one another. |
 | `:name` | `event:name` | The name of the conflict. |
-| `:period` | `ival` | The period over which the conflict occurred. |
+| `:period` | `activity` | The period over which the conflict occurred. |
 
 ### `entity:contact`
 
@@ -1901,7 +1925,7 @@ An activity where an actor helped to create an item.
 | `:actor` | `entity:actor` | The actor who carried out the action. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
 | `:item` | `entity:creatable` | The item which the actor helped to create. |
-| `:period` | `ival` | The period over which the activity occurred. |
+| `:period` | `activity` | The period over which the activity occurred. |
 | `:role` | `entity:title` | The role which the actor played in creating the item. |
 
 ### `entity:destroyed`
@@ -1961,7 +1985,7 @@ A stated or assessed goal.
 | `:reporter` | `entity:actor` | The entity which reported on the goal. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the goal. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the goal. |
-| `:reporter:period` | `ival` | The period when the goal existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the goal existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the goal. |
 | `:reporter:supersedes` | `array of entity:goal` | An array of goal nodes which are superseded by this goal. |
 | `:reporter:updated` | `time` | The time when the goal was last updated. |
@@ -2003,7 +2027,7 @@ An item which was possessed by an actor.
 | `:actor` | `entity:actor` | The entity which had the item. |
 | `:actor:name` | `entity:name` | The name of the entity which had the item. |
 | `:item` | `meta:havable` | The item possessed by the entity. |
-| `:period` | `ival` | The time period when the entity had the item. |
+| `:period` | `activity` | The time period when the entity had the item. |
 | `:type` | `entity:had:type:taxonomy` | A taxonomy for different types of possession. |
 
 ### `entity:had:type:taxonomy`
@@ -2085,7 +2109,7 @@ A goal held by an actor for a period of time.
 | `:actor` | `entity:actor` | The actor who carried out the action. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
 | `:goal` | `entity:goal` | The goal which motivated the actor. |
-| `:period` | `ival` | The period over which the activity occurred. |
+| `:period` | `activity` | The period over which the activity occurred. |
 
 ### `entity:name`
 
@@ -2130,7 +2154,7 @@ An item which was owned by an actor.
 | `:actor:name` | `entity:name` | The name of the entity which owned the item. |
 | `:item` | `meta:havable` | The item possessed by the entity. |
 | `:percent` | `percent` | The percentage of the item owned by the owner. |
-| `:period` | `ival` | The period over which the ownership occurred. |
+| `:period` | `activity` | The period over which the ownership occurred. |
 | `:type` | `entity:had:type:taxonomy` | A taxonomy for different types of possession. |
 
 ### `entity:participated`
@@ -2149,7 +2173,7 @@ A period where an actor participated in an activity.
 | `:activity` | `entity:participable` | The activity which the actor participated in. |
 | `:actor` | `entity:actor` | The actor who participated in the activity. |
 | `:actor:name` | `entity:name` | The name of the actor who participated in the activity. |
-| `:period` | `ival` | The period over which the participation occurred. |
+| `:period` | `activity` | The period over which the participation occurred. |
 | `:role` | `entity:title` | The role which the actor played in the activity. |
 
 ### `entity:proficiency`
@@ -2169,7 +2193,7 @@ A period of time where an actor had proficiency with a skill.
 | `:actor` | `entity:actor` | The actor who carried out the action. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
 | `:level` | `meta:score` | The level of proficiency. |
-| `:period` | `ival` | The period over which the activity occurred. |
+| `:period` | `activity` | The period over which the activity occurred. |
 | `:skill` | `edu:learnable` | The topic or skill in which the contact is proficient. |
 
 ### `entity:registered`
@@ -2211,7 +2235,7 @@ A directional relationship between two actor entities.
 | `:reporter` | `entity:actor` | The entity which reported on the relationship. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the relationship. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the relationship. |
-| `:reporter:period` | `ival` | The period when the relationship existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the relationship existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the relationship. |
 | `:reporter:supersedes` | `array of entity:relationship` | An array of relationship nodes which are superseded by this relationship. |
 | `:reporter:updated` | `time` | The time when the relationship was last updated. |
@@ -2255,7 +2279,7 @@ A statement made by an actor.
 | `:activity` | `base:activity` | A parent activity which includes this statement. |
 | `:actor` | `entity:actor` | The actor who made the statement. |
 | `:actor:name` | `entity:name` | The name of the actor who made the statement. |
-| `:period` | `ival` | The period over which the statement occurred. |
+| `:period` | `activity` | The period over which the statement occurred. |
 | `:recording:file` | `file:bytes` | A file containing a recording of the statement. |
 | `:recording:offset` | `duration` | The time offset of the activity within the recording. |
 | `:recording:url` | `inet:url` | The URL hosting a recording of the statement. |
@@ -2297,7 +2321,7 @@ A period when an actor studied or was educated.
 | `:actor` | `entity:actor` | The actor who undertook the study. |
 | `:actor:name` | `entity:name` | The name of the actor who undertook the study. |
 | `:institution` | `ou:org` | The organization providing educational services. |
-| `:period` | `ival` | The period over which the study occurred. |
+| `:period` | `activity` | The period over which the study occurred. |
 
 ### `entity:supported`
 
@@ -2316,7 +2340,7 @@ A period where an actor supported, sponsored, or materially contributed to an ac
 | `:actor` | `entity:actor` | The actor who carried out the action. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
 | `:desc` | `text` | A description of the actors support of the activity. |
-| `:period` | `ival` | The period over which the activity occurred. |
+| `:period` | `activity` | The period over which the activity occurred. |
 | `:role` | `entity:title` | The role the actor played in supporting the activity. |
 | `:value` | `econ:price` | The financial value of the support given by the actor. |
 
@@ -2341,11 +2365,11 @@ A file entry contained by an archive file.
 |----------|------|-----|
 | `:accessed` | `time` | The last known accessed time of the file. |
 | `:added` | `time` | The time that the file entry was added. |
-| `:archived:size` | `int:min0` | The storage size of the file within the archive. |
+| `:archived:size` | `size` | The storage size of the file within the archive. |
 | `:created` | `time` | The created time of the file. |
 | `:file` | `file:bytes` | The file associated with the archive file entry. |
 | `:modified` | `time` | The last known modified time of the file. |
-| `:offset` | `int:min0` | The offset to the beginning of the file within the parent file. |
+| `:offset` | `size` | The offset to the beginning of the file within the parent file. |
 | `:parent` | `file:bytes` | The parent file which contains the archive file entry. |
 | `:path` | `file:path` | The path of the file associated with the archive file entry. |
 | `:seen` | `ival` | The archive file entry was observed during the time interval. |
@@ -2358,6 +2382,7 @@ A file attachment.
 |-----------|
 | `file:entry` |
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -2373,6 +2398,7 @@ A file name with no path.
 | Interface |
 |-----------|
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -2386,6 +2412,7 @@ A file.
 | Interface |
 |-----------|
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -2857,12 +2884,12 @@ A file entry contained by a RAR archive file.
 |----------|------|-----|
 | `:accessed` | `time` | The last known accessed time of the file. |
 | `:added` | `time` | The time that the file entry was added. |
-| `:archived:size` | `int:min0` | The storage size of the file within the archive. |
+| `:archived:size` | `size` | The storage size of the file within the archive. |
 | `:created` | `time` | The created time of the file. |
 | `:extra:posix:perms` | `int` | The POSIX permissions mask of the archived file. |
 | `:file` | `file:bytes` | The file associated with the RAR archive file entry. |
 | `:modified` | `time` | The last known modified time of the file. |
-| `:offset` | `int:min0` | The offset to the beginning of the file within the parent file. |
+| `:offset` | `size` | The offset to the beginning of the file within the parent file. |
 | `:parent` | `file:bytes` | The parent file which contains the RAR archive file entry. |
 | `:path` | `file:path` | The path of the file associated with the RAR archive file entry. |
 | `:seen` | `ival` | The RAR archive file entry was observed during the time interval. |
@@ -2921,14 +2948,14 @@ A file entry contained by a ZIP archive file.
 |----------|------|-----|
 | `:accessed` | `time` | The last known accessed time of the file. |
 | `:added` | `time` | The time that the file entry was added. |
-| `:archived:size` | `int:min0` | The storage size of the file within the archive. |
+| `:archived:size` | `size` | The storage size of the file within the archive. |
 | `:comment` | `text` | The comment field from the CDFH in the ZIP archive. |
 | `:created` | `time` | The created time of the file. |
 | `:extra:posix:gid` | `int` | A POSIX GID extracted from a ZIP Extra Field. |
 | `:extra:posix:uid` | `int` | A POSIX UID extracted from a ZIP Extra Field. |
 | `:file` | `file:bytes` | The file associated with the ZIP archive file entry. |
 | `:modified` | `time` | The last known modified time of the file. |
-| `:offset` | `int:min0` | The offset to the beginning of the file within the parent file. |
+| `:offset` | `size` | The offset to the beginning of the file within the parent file. |
 | `:parent` | `file:bytes` | The parent file which contains the ZIP archive file entry. |
 | `:path` | `file:path` | The path of the file associated with the ZIP archive file entry. |
 | `:seen` | `ival` | The ZIP archive file entry was observed during the time interval. |
@@ -2980,7 +3007,7 @@ A file entry contained by a parent file.
 | `:created` | `time` | The created time of the file. |
 | `:file` | `file:bytes` | The file associated with the subfile entry. |
 | `:modified` | `time` | The last known modified time of the file. |
-| `:offset` | `int:min0` | The offset to the beginning of the file within the parent file. |
+| `:offset` | `size` | The offset to the beginning of the file within the parent file. |
 | `:parent` | `file:bytes` | The parent file which contains the subfile entry. |
 | `:path` | `file:path` | The path of the file associated with the subfile entry. |
 | `:seen` | `ival` | The subfile entry was observed during the time interval. |
@@ -3144,7 +3171,7 @@ An industry.
 | `:reporter` | `entity:actor` | The entity which reported on the industry. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the industry. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the industry. |
-| `:reporter:period` | `ival` | The period when the industry existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the industry existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the industry. |
 | `:reporter:supersedes` | `array of ind:industry` | An array of industry nodes which are superseded by this industry. |
 | `:reporter:updated` | `time` | The time when the industry was last updated. |
@@ -3258,7 +3285,7 @@ A data link between two network interface cards.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this link. |
-| `:period` | `ival` | The period over which the link occurred. |
+| `:period` | `activity` | The period over which the link occurred. |
 | `:source` | `it:nic` | The source NIC of the link. |
 | `:source:ip` | `inet:ip` | The IP address assigned to the source NIC. |
 | `:source:mac` | `inet:mac` | The MAC address assigned to the source NIC. |
@@ -3550,6 +3577,7 @@ An email address.
 | Interface |
 |-----------|
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -3576,6 +3604,10 @@ A unique email message header.
 ### `inet:email:message`
 
 An individual email message delivered to an inbox.
+
+| Interface |
+|-----------|
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -3619,9 +3651,9 @@ A network connection between a client and server.
 | `:client:txbytes` | `int` | The number of bytes sent by the client. |
 | `:client:txcount` | `int` | The number of packets sent by the client. |
 | `:client:txfiles` | `array of file:attachment` | An array of files sent by the client. |
-| `:ip:proto` | `byte:flags` | The IP protocol number of the flow. |
-| `:ip:tcp:flags` | `byte:flags` | An aggregation of observed TCP flags commonly provided by flow APIs. |
-| `:period` | `ival` | The period over which the network flow occurred. |
+| `:ip:proto` | `uint8` | The IP protocol number of the flow. |
+| `:ip:tcp:flags` | `uint8` | An aggregation of observed TCP flags commonly provided by flow APIs. |
+| `:period` | `activity` | The period over which the network flow occurred. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:server` | `inet:server` | The socket address of the server. |
 | `:server:exe` | `file:bytes` | The server executable which received the network flow. |
@@ -3643,6 +3675,7 @@ A Fully Qualified Domain Name (FQDN).
 | Interface |
 |-----------|
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -3783,7 +3816,7 @@ An HTTP session.
 | `:client:host` | `it:host` | The host which initiated the protocol session. |
 | `:contact` | `entity:contact` | The entity contact which owns the session. |
 | `:cookies` | `array of inet:http:cookie` | An array of cookies used to identify this specific session. |
-| `:period` | `ival` | The period over which the activity occurred. |
+| `:period` | `activity` | The period over which the activity occurred. |
 | `:server` | `inet:server` | The socket address of the server which received the protocol session. |
 | `:server:host` | `it:host` | The host which received the protocol session. |
 
@@ -3804,6 +3837,7 @@ An IPv4 or IPv6 address.
 |-----------|
 | `geo:locatable` |
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -4457,6 +4491,7 @@ A network platform which provides services.
 | Interface |
 |-----------|
 | `meta:observable` |
+| `meta:usable` |
 | `risk:exploitable` |
 | `risk:targetable` |
 
@@ -4653,7 +4688,7 @@ An authenticated session.
 | `:creator` | `inet:service:account`, `inet:service:agent` | The account or agent which authenticated to create the session. |
 | `:http:session` | `inet:http:session` | The HTTP session associated with the service session. |
 | `:id` | `base:id` | A platform specific ID which identifies the session. |
-| `:period` | `ival` | The period where the session was valid. |
+| `:period` | `activity` | The period where the session was valid. |
 | `:platform` | `inet:service:platform` | The platform which defines the session. |
 | `:remover` | `inet:service:account`, `inet:service:agent` | The service account or agent which removed or decommissioned the session. |
 | `:seen` | `ival` | The session was observed during the time interval. |
@@ -4947,7 +4982,7 @@ A specific sequence of hosts forwarding connections such as a VPN or proxy.
 | `:anon` | `bool` | Set to true if the tunnel provides anonymization. |
 | `:egress` | `inet:server` | The server where client traffic leaves the tunnel. |
 | `:ingress` | `inet:server` | The server where client traffic enters the tunnel. |
-| `:period` | `ival` | The period over which the tunnel occurred. |
+| `:period` | `activity` | The period over which the tunnel occurred. |
 | `:seen` | `ival` | The tunnel was observed during the time interval. |
 | `:type` | `inet:tunnel:type:taxonomy` | The type of tunnel such as vpn or proxy. |
 
@@ -4975,6 +5010,7 @@ A Universal Resource Locator (URL).
 | Interface |
 |-----------|
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -5023,6 +5059,7 @@ A file hosted at a specific Universal Resource Locator (URL).
 | Interface |
 |-----------|
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -5138,7 +5175,7 @@ A wireless link between two Wi-Fi network interface cards.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this Wi-Fi link. |
-| `:period` | `ival` | The period over which the Wi-Fi link occurred. |
+| `:period` | `activity` | The period over which the Wi-Fi link occurred. |
 | `:source` | `it:wifi:nic` | The source Wi-Fi NIC of the Wi-Fi link. |
 | `:source:ip` | `inet:ip` | The IP address assigned to the source NIC. |
 | `:source:mac` | `inet:mac` | The MAC address assigned to the source NIC. |
@@ -5197,7 +5234,7 @@ A Wi-Fi association session between a client and an access point.
 | `:client` | `inet:client` | The socket address of the client which initiated the Wi-Fi session. |
 | `:client:host` | `it:host` | The host which initiated the Wi-Fi session. |
 | `:client:mac` | `inet:mac` | The MAC address of the client for the Wi-Fi session. |
-| `:period` | `ival` | The period over which the Wi-Fi session occurred. |
+| `:period` | `activity` | The period over which the Wi-Fi session occurred. |
 | `:server` | `inet:server` | The socket address of the server which received the Wi-Fi session. |
 | `:server:ap` | `inet:wifi:ap` | The Wi-Fi access point that hosted the Wi-Fi session. |
 | `:server:host` | `it:host` | The host which received the Wi-Fi session. |
@@ -5354,11 +5391,11 @@ The result of running an antivirus scanner.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:categories` | `array of base:name` | A list of categories for the result returned by the scanner. |
-| `:multi:count` | `int:min0` | The total number of scanners which were run by a multi-scanner. |
-| `:multi:count:benign` | `int:min0` | The number of scanners which returned a benign verdict. |
-| `:multi:count:malicious` | `int:min0` | The number of scanners which returned a malicious verdict. |
-| `:multi:count:suspicious` | `int:min0` | The number of scanners which returned a suspicious verdict. |
-| `:multi:count:unknown` | `int:min0` | The number of scanners which returned an unknown/unsupported verdict. |
+| `:multi:count` | `size` | The total number of scanners which were run by a multi-scanner. |
+| `:multi:count:benign` | `size` | The number of scanners which returned a benign verdict. |
+| `:multi:count:malicious` | `size` | The number of scanners which returned a malicious verdict. |
+| `:multi:count:suspicious` | `size` | The number of scanners which returned a suspicious verdict. |
+| `:multi:count:unknown` | `size` | The number of scanners which returned an unknown/unsupported verdict. |
 | `:multi:scan` | `it:av:scan:result` | Set if this result was part of running multiple scanners. |
 | `:scanner` | `it:software` | The scanner software used to produce the result. |
 | `:scanner:name` | `it:softwarename` | The name of the scanner software. |
@@ -5426,6 +5463,10 @@ A virtual host instance which runs within a cloud service platform.
 
 A unique command-line string.
 
+| Interface |
+|-----------|
+| `meta:usable` |
+
 ### `it:cmd:history`
 
 A single command executed within a session.
@@ -5455,7 +5496,7 @@ A command line session with multiple commands run over time.
 | `:actor:name` | `entity:name` | The name of the actor who ran the command line session. |
 | `:file` | `file:bytes` | The file containing the command history such as a .bash_history file. |
 | `:host` | `it:host` | The host where the command line session was executed. |
-| `:period` | `ival` | The period over which the command line session occurred. |
+| `:period` | `activity` | The period over which the command line session occurred. |
 | `:proc` | `it:exec:proc` | The process which was interpreting this command line session. |
 
 ### `it:dev:function`
@@ -5947,8 +5988,9 @@ A process executing on a host.
 | `:exitcode` | `int` | The exit code for the process. |
 | `:host` | `it:host` | The host that executed the process. |
 | `:name` | `str` | The display name specified by the process. |
+| `:parent` | `it:exec:proc` | The parent process which created this process. |
 | `:path` | `file:path` | The path to the executable of the process. |
-| `:period` | `ival` | The period over which the process occurred. |
+| `:period` | `activity` | The period over which the process occurred. |
 | `:pid` | `int` | The process ID. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 
@@ -6087,7 +6129,7 @@ A thread executing in a process.
 | `:exe` | `file:bytes` | The executable file which caused the thread. |
 | `:exitcode` | `int` | The exit code or return value for the thread. |
 | `:host` | `it:host` | The host on which the thread occurred. |
-| `:period` | `ival` | The period over which the thread occurred. |
+| `:period` | `activity` | The period over which the thread occurred. |
 | `:proc` | `it:exec:proc` | The process which contains the thread. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 
@@ -6469,7 +6511,7 @@ An authenticated session on a host.
 | `:activity` | `base:activity` | A parent activity which includes this host login session. |
 | `:client` | `inet:client` | The socket address of the client which initiated the host login session. |
 | `:client:host` | `it:host` | The host which initiated the host login session. |
-| `:period` | `ival` | The period over which the host login session occurred. |
+| `:period` | `activity` | The period over which the host login session occurred. |
 | `:server` | `inet:server` | The socket address of the server which received the host login session. |
 | `:server:host` | `it:host` | The host which received the host login session. |
 
@@ -6584,7 +6626,7 @@ The installation of a component or software on a host component.
 | `:actor:name` | `entity:name` | The name of the actor who performed the installation. |
 | `:item` | `it:component`, `it:software` | The component or software which was installed. |
 | `:on` | `it:component` | The component which the item was installed on. |
-| `:period` | `ival` | The period over which the installation occurred. |
+| `:period` | `activity` | The period over which the installation occurred. |
 
 ### `it:log:event`
 
@@ -6811,15 +6853,15 @@ A Microsoft Windows service configuration on a host.
 | `:activity` | `base:activity` | A parent activity which includes this activity. |
 | `:description` | `text` | The description of the service from the Description registry key. |
 | `:displayname` | `base:name` | The friendly name of the service from the DisplayName registry key. |
-| `:errorcontrol` | `int:min0` | The service error handling behavior from the ErrorControl registry key. |
+| `:errorcontrol` | `uint32` | The service error handling behavior from the ErrorControl registry key. |
 | `:exe` | `file:bytes` | The executable file which caused the activity. |
 | `:host` | `it:host` | The host that the service was configured on. |
 | `:imagepath` | `file:path` | The path to the service binary from the ImagePath registry key. |
 | `:name` | `base:name` | The name of the service from the registry key within Services. |
-| `:period` | `ival` | The period over which the activity occurred. |
+| `:period` | `activity` | The period over which the activity occurred. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
-| `:start` | `int:min0` | The start configuration of the service from the Start registry key. |
-| `:type` | `int:min0` | The type of service from the Type registry key. |
+| `:start` | `uint32` | The start configuration of the service from the Start registry key. |
+| `:type` | `uint32` | The type of service from the Type registry key. |
 
 ### `it:physical:host`
 
@@ -7131,7 +7173,7 @@ A software product, tool, or script.
 | `:reporter` | `entity:actor` | The entity which reported on the software. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the software. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the software. |
-| `:reporter:period` | `ival` | The period when the software existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the software existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the software. |
 | `:reporter:supersedes` | `array of it:software` | An array of software nodes which are superseded by this software. |
 | `:reporter:updated` | `time` | The time when the software was last updated. |
@@ -7229,7 +7271,7 @@ A physical or logical storage volume that can be attached to a physical/virtual 
 |----------|------|-----|
 | `:id` | `base:id` | The unique volume ID. |
 | `:name` | `base:name` | The name of the volume. |
-| `:size` | `int:min0` | The size of the volume in bytes. |
+| `:size` | `size` | The size of the volume in bytes. |
 | `:type` | `it:storage:volume:type:taxonomy` | The type of storage volume. |
 
 ### `it:storage:volume:type:taxonomy`
@@ -7477,7 +7519,7 @@ Analytically relevant activity.
 | `:activity` | `base:activity` | A parent activity which includes this activity. |
 | `:desc` | `text` | A description of the activity. |
 | `:name` | `base:name` | The name of the activity. |
-| `:period` | `ival` | The period over which the activity occurred. |
+| `:period` | `activity` | The period over which the activity occurred. |
 | `:type` | `meta:event:type:taxonomy` | The type of activity. |
 
 ### `meta:aggregate`
@@ -7577,7 +7619,7 @@ A cluster of analytically relevant nodes generated by a specific source.
 | `:reporter` | `entity:actor` | The entity which reported on the cluster. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the cluster. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the cluster. |
-| `:reporter:period` | `ival` | The period when the cluster existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the cluster existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the cluster. |
 | `:reporter:supersedes` | `array of meta:cluster` | An array of cluster nodes which are superseded by this cluster. |
 | `:reporter:updated` | `time` | The time when the cluster was last updated. |
@@ -7808,6 +7850,53 @@ A hierarchical taxonomy of source types.
 | `:parent` | `meta:source:type:taxonomy` | The taxonomy parent. |
 | `:sort` | `int` | A display sort order for siblings. |
 
+### `meta:story`
+
+A story document authored in markdown.
+
+| Interface |
+|-----------|
+| `doc:authorable` |
+| `doc:document` |
+| `entity:creatable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:body` | `text` | The text of the story. |
+| `:created` | `time` | The time that the story was created. |
+| `:creator` | `entity:actor` | The primary actor which created the story. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the story. |
+| `:desc` | `text` | A description of the story. |
+| `:file` | `file:bytes` | The file containing the story contents. |
+| `:file:captured` | `time` | The time when the file content was captured. |
+| `:file:name` | `file:base` | The name of the file containing the story contents. |
+| `:id` | `base:id` | The story ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the story. |
+| `:status` | `title` | The status of the story. |
+| `:supersedes` | `array of meta:story` | An array of story versions which are superseded by this story. |
+| `:title` | `title` | The title of the story. |
+| `:type` | `meta:story:type:taxonomy` | The type of story. |
+| `:updated` | `time` | The time that the story was last updated. |
+| `:url` | `inet:url` | The URL where the story is available. |
+| `:version` | `it:version` | The version of the story. |
+
+### `meta:story:type:taxonomy`
+
+A hierarchical taxonomy of story types.
+
+| Interface |
+|-----------|
+| `meta:taxonomy` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:base` | `taxon` | The base taxon. |
+| `:depth` | `int` | The depth indexed from 0. |
+| `:desc` | `text` | A definition of the taxonomy entry. |
+| `:name` | `title` | A brief name for the definition. |
+| `:parent` | `meta:story:type:taxonomy` | The taxonomy parent. |
+| `:sort` | `int` | A display sort order for siblings. |
+
 ### `meta:technique`
 
 A specific technique used to achieve a goal.
@@ -7830,7 +7919,7 @@ A specific technique used to achieve a goal.
 | `:reporter` | `entity:actor` | The entity which reported on the technique. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the technique. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the technique. |
-| `:reporter:period` | `ival` | The period when the technique existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the technique existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the technique. |
 | `:reporter:supersedes` | `array of meta:technique` | An array of technique nodes which are superseded by this technique. |
 | `:reporter:updated` | `time` | The time when the technique was last updated. |
@@ -7991,6 +8080,7 @@ A conference.
 | Interface |
 |-----------|
 | `base:activity` |
+| `econ:budgetable` |
 | `entity:attendable` |
 | `entity:participable` |
 | `entity:supportable` |
@@ -8002,10 +8092,11 @@ A conference.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this conference. |
+| `:budget` | `econ:budget` | The budget for the conference. |
 | `:family` | `event:name` | The family name of the conference used to group recurring events. |
 | `:name` | `event:name` | The name of the conference. |
 | `:names` | `array of event:name` | An array of alternate names for the conference. |
-| `:period` | `ival` | The period over which the conference occurred. |
+| `:period` | `activity` | The period over which the conference occurred. |
 | `:place` | `geo:place` | The place where the conference was located. |
 | `:place:address` | `geo:address` | The postal address where the conference was located. |
 | `:place:address:city` | `base:name` | The city where the conference was located. |
@@ -8030,6 +8121,7 @@ A competitive event resulting in a ranked set of participants.
 | Interface |
 |-----------|
 | `base:activity` |
+| `econ:budgetable` |
 | `entity:attendable` |
 | `entity:participable` |
 | `entity:supportable` |
@@ -8041,9 +8133,10 @@ A competitive event resulting in a ranked set of participants.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this contest. |
+| `:budget` | `econ:budget` | The budget for the contest. |
 | `:name` | `event:name` | The name of the contest. |
 | `:names` | `array of event:name` | An array of alternate names for the contest. |
-| `:period` | `ival` | The period over which the contest occurred. |
+| `:period` | `activity` | The period over which the contest occurred. |
 | `:place` | `geo:place` | The place where the contest was located. |
 | `:place:address` | `geo:address` | The postal address where the contest was located. |
 | `:place:address:city` | `base:name` | The city where the contest was located. |
@@ -8145,6 +8238,7 @@ A generic organized event.
 | Interface |
 |-----------|
 | `base:activity` |
+| `econ:budgetable` |
 | `entity:attendable` |
 | `entity:participable` |
 | `entity:supportable` |
@@ -8156,9 +8250,10 @@ A generic organized event.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this event. |
+| `:budget` | `econ:budget` | The budget for the event. |
 | `:name` | `event:name` | The name of the event. |
 | `:names` | `array of event:name` | An array of alternate names for the event. |
-| `:period` | `ival` | The period over which the event occurred. |
+| `:period` | `activity` | The period over which the event occurred. |
 | `:place` | `geo:place` | The place where the event was located. |
 | `:place:address` | `geo:address` | The postal address where the event was located. |
 | `:place:address:city` | `base:name` | The city where the event was located. |
@@ -8281,7 +8376,7 @@ A meeting.
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this meeting. |
 | `:name` | `event:name` | The name of the meeting. |
-| `:period` | `ival` | The period over which the meeting occurred. |
+| `:period` | `activity` | The period over which the meeting occurred. |
 | `:place` | `geo:place` | The place where the meeting was located. |
 | `:place:address` | `geo:address` | The postal address where the meeting was located. |
 | `:place:address:city` | `base:name` | The city where the meeting was located. |
@@ -8327,6 +8422,7 @@ An organization, such as a company or military unit.
 
 | Interface |
 |-----------|
+| `econ:budgetable` |
 | `entity:actor` |
 | `entity:contactable` |
 | `entity:multiple` |
@@ -8338,6 +8434,7 @@ An organization, such as a company or military unit.
 |----------|------|-----|
 | `:banner` | `file:bytes` | A banner or hero image used on the profile page. |
 | `:bio` | `text` | A tagline or bio provided for the organization. |
+| `:budget` | `econ:budget` | The budget for the organization. |
 | `:creds` | `array of auth:credential` | An array of non-ephemeral credentials. |
 | `:crypto:currency:addresses` | `array of crypto:currency:address` | Crypto currency addresses listed for the organization. |
 | `:desc` | `text` | A description of the organization. |
@@ -8440,7 +8537,7 @@ A webinar, conference talk, or other type of presentation.
 | `:deck:url` | `inet:url` | The URL hosting a copy of the presentation materials. |
 | `:name` | `event:name` | The name of the presentation. |
 | `:names` | `array of event:name` | An array of alternate names for the presentation. |
-| `:period` | `ival` | The period over which the presentation occurred. |
+| `:period` | `activity` | The period over which the presentation occurred. |
 | `:place` | `geo:place` | The place where the presentation was located. |
 | `:place:address` | `geo:address` | The postal address where the presentation was located. |
 | `:place:address:city` | `base:name` | The city where the presentation was located. |
@@ -8672,7 +8769,7 @@ A candidate for office in a specific race.
 | `:id` | `base:id` | A unique ID for the candidate issued by an election authority. |
 | `:incumbent` | `bool` | Set to true if the candidate is an incumbent in this race. |
 | `:party` | `ou:org` | The declared political party of the candidate. |
-| `:period` | `ival` | The period over which the candidacy occurred. |
+| `:period` | `activity` | The period over which the candidacy occurred. |
 | `:race` | `pol:race` | The race the candidate is participating in. |
 | `:votes` | `int` | The total number of votes received by the candidate. |
 | `:winner` | `bool` | Records the outcome of the race. |
@@ -8714,7 +8811,7 @@ An election involving one or more races for office.
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this election. |
 | `:name` | `event:name` | The name of the election. |
-| `:period` | `ival` | The period over which the election occurred. |
+| `:period` | `activity` | The period over which the election occurred. |
 | `:time` | `time` | The date of the election. |
 
 ### `pol:immigration:status`
@@ -8781,7 +8878,7 @@ An individual race for office.
 | `:activity` | `base:activity` | A parent activity which includes this political race. |
 | `:election` | `pol:election` | The election that includes the race. |
 | `:office` | `pol:office` | The political office that the candidates in the race are running for. |
-| `:period` | `ival` | The period over which the political race occurred. |
+| `:period` | `activity` | The period over which the political race occurred. |
 | `:turnout` | `int` | The number of individuals who voted in this race. |
 | `:voters` | `int` | The number of eligible voters for this race. |
 
@@ -8803,7 +8900,7 @@ A term in office held by a specific individual.
 | `:actor:name` | `entity:name` | The name of the actor who served the term. |
 | `:office` | `pol:office` | The office held for the term. |
 | `:party` | `ou:org` | The political party of the person who held office during the term. |
-| `:period` | `ival` | The period over which the term occurred. |
+| `:period` | `activity` | The period over which the term occurred. |
 | `:race` | `pol:race` | The race that determined who held office during the term. |
 
 ### `pol:vitals`
@@ -8826,6 +8923,7 @@ A project in a tasking system.
 | Interface |
 |-----------|
 | `base:activity` |
+| `econ:budgetable` |
 | `entity:creatable` |
 | `entity:participable` |
 | `meta:causal` |
@@ -8834,11 +8932,12 @@ A project in a tasking system.
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this project. |
 | `:assignee` | `entity:actor` | The actor who is assigned to manage the project. |
+| `:budget` | `econ:budget` | The budget for the project. |
 | `:creator` | `entity:actor` | The primary actor which created the project. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the project. |
 | `:desc` | `text` | The project description. |
 | `:name` | `base:name` | The project name. |
-| `:period` | `ival` | The period over which the project occurred. |
+| `:period` | `activity` | The period over which the project occurred. |
 | `:platform` | `inet:service:platform` | The platform where the project is hosted. |
 | `:type` | `proj:project:type:taxonomy` | The project type. |
 
@@ -8875,7 +8974,7 @@ A timeboxed period to complete a set amount of work.
 | `:creator` | `entity:actor` | The actor who created the sprint. |
 | `:desc` | `text` | A description of the sprint. |
 | `:name` | `base:name` | The name of the sprint. |
-| `:period` | `ival` | The interval for the sprint. |
+| `:period` | `activity` | The interval for the sprint. |
 | `:project` | `proj:project` | The project containing the sprint. |
 | `:status` | `title` | The sprint status. |
 
@@ -9179,12 +9278,12 @@ An instance of an actor attacking a target.
 | `:ids` | `array of base:id` | An array of alternate IDs given to the attack. |
 | `:name` | `base:name` | The primary name of the attack. |
 | `:names` | `array of base:name` | A list of alternate names for the attack. |
-| `:period` | `ival` | The period over which the attack occurred. |
+| `:period` | `activity` | The period over which the attack occurred. |
 | `:previous` | `risk:attack` | The previous/parent attack in a list or hierarchy. |
 | `:reporter` | `entity:actor` | The entity which reported on the attack. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the attack. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the attack. |
-| `:reporter:period` | `ival` | The period when the attack existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the attack existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the attack. |
 | `:reporter:supersedes` | `array of risk:attack` | An array of attack nodes which are superseded by this attack. |
 | `:reporter:updated` | `time` | The time when the attack was last updated. |
@@ -9241,11 +9340,11 @@ A compromise and its aggregate impact. The compromise is the result of a success
 | `:ids` | `array of base:id` | An array of alternate IDs given to the compromise. |
 | `:name` | `base:name` | The primary name of the compromise. |
 | `:names` | `array of base:name` | A list of alternate names for the compromise. |
-| `:period` | `ival` | The period over which the compromise occurred. |
+| `:period` | `activity` | The period over which the compromise occurred. |
 | `:reporter` | `entity:actor` | The entity which reported on the compromise. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the compromise. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the compromise. |
-| `:reporter:period` | `ival` | The period when the compromise existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the compromise existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the compromise. |
 | `:reporter:supersedes` | `array of risk:compromise` | An array of compromise nodes which are superseded by this compromise. |
 | `:reporter:updated` | `time` | The time when the compromise was last updated. |
@@ -9302,13 +9401,13 @@ Activity where an attacker attempted to extort a victim.
 | `:name` | `base:name` | The primary name of the extortion. |
 | `:names` | `array of base:name` | A list of alternate names for the extortion. |
 | `:paid:price` | `econ:price` | The total price paid by the target of the extortion. |
-| `:period` | `ival` | The period over which the extortion occurred. |
+| `:period` | `activity` | The period over which the extortion occurred. |
 | `:public` | `bool` | Set to true if the attacker publicly announced the extortion. |
 | `:public:url` | `inet:url` | The URL where the attacker publicly announced the extortion. |
 | `:reporter` | `entity:actor` | The entity which reported on the extortion. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the extortion. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the extortion. |
-| `:reporter:period` | `ival` | The period when the extortion existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the extortion existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the extortion. |
 | `:reporter:supersedes` | `array of risk:extortion` | An array of extortion nodes which are superseded by this extortion. |
 | `:reporter:updated` | `time` | The time when the extortion was last updated. |
@@ -9364,14 +9463,14 @@ An event where information was disclosed without permission.
 | `:reporter` | `entity:actor` | The entity which reported on the leak. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the leak. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the leak. |
-| `:reporter:period` | `ival` | The period when the leak existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the leak existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the leak. |
 | `:reporter:supersedes` | `array of risk:leak` | An array of leak nodes which are superseded by this leak. |
 | `:reporter:updated` | `time` | The time when the leak was last updated. |
 | `:reporter:url` | `inet:url` | The URL for the leak provided by the reporter. |
 | `:resolved` | `risk:leak` | The authoritative leak which this reporting is about. |
-| `:size:bytes` | `int:min0` | The total size of the leaked data in bytes. |
-| `:size:count` | `int:min0` | The number of files included in the leaked data. |
+| `:size:bytes` | `size` | The total size of the leaked data in bytes. |
+| `:size:count` | `size` | The number of files included in the leaked data. |
 | `:size:percent` | `percent` | The total percent of the data leaked. |
 | `:time` | `time` | The time that the leak occurred. |
 | `:type` | `risk:leak:type:taxonomy` | A type taxonomy for the leak. |
@@ -9396,6 +9495,54 @@ A hierarchical taxonomy of leak event types.
 | `:parent` | `risk:leak:type:taxonomy` | The taxonomy parent. |
 | `:sort` | `int` | A display sort order for siblings. |
 
+### `risk:loss:data`
+
+An aggregate loss of data which is no longer available. This is not used to record data theft.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `meta:causal` |
+| `risk:loss` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this data loss. |
+| `:period` | `activity` | The period over which the data loss occurred. |
+| `:size` | `size` | The total size of the data which was lost. |
+
+### `risk:loss:funds`
+
+An aggregate loss of funds.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `meta:causal` |
+| `risk:loss` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this loss of funds. |
+| `:period` | `activity` | The period over which the loss of funds occurred. |
+| `:value` | `econ:price` | The total value of the funds which were lost. |
+
+### `risk:loss:life`
+
+An aggregate loss of life.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `meta:causal` |
+| `risk:loss` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this loss of life. |
+| `:count` | `size` | The number of lives lost. |
+| `:period` | `activity` | The period over which the loss of life occurred. |
+
 ### `risk:mitigation`
 
 A mitigation for a specific vulnerability or technique.
@@ -9418,7 +9565,7 @@ A mitigation for a specific vulnerability or technique.
 | `:reporter` | `entity:actor` | The entity which reported on the mitigation. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the mitigation. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the mitigation. |
-| `:reporter:period` | `ival` | The period when the mitigation existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the mitigation existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the mitigation. |
 | `:reporter:supersedes` | `array of risk:mitigation` | An array of mitigation nodes which are superseded by this mitigation. |
 | `:reporter:updated` | `time` | The time when the mitigation was last updated. |
@@ -9449,13 +9596,13 @@ An outage event which affected resource availability.
 | `:ids` | `array of base:id` | An array of alternate IDs given to the outage. |
 | `:name` | `base:name` | The primary name of the outage. |
 | `:names` | `array of base:name` | A list of alternate names for the outage. |
-| `:period` | `ival` | The time period where the outage impacted availability. |
+| `:period` | `activity` | The time period where the outage impacted availability. |
 | `:provider` | `ou:org` | The organization which experienced the outage event. |
 | `:provider:name` | `entity:name` | The name of the organization which experienced the outage event. |
 | `:reporter` | `entity:actor` | The entity which reported on the outage. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the outage. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the outage. |
-| `:reporter:period` | `ival` | The period when the outage existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the outage existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the outage. |
 | `:reporter:supersedes` | `array of risk:outage` | An array of outage nodes which are superseded by this outage. |
 | `:reporter:updated` | `time` | The time when the outage was last updated. |
@@ -9523,7 +9670,7 @@ An event where an actor stole from a victim.
 | `:reporter` | `entity:actor` | The entity which reported on the theft. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the theft. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the theft. |
-| `:reporter:period` | `ival` | The period when the theft existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the theft existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the theft. |
 | `:reporter:supersedes` | `array of risk:theft` | An array of theft nodes which are superseded by this theft. |
 | `:reporter:updated` | `time` | The time when the theft was last updated. |
@@ -9584,7 +9731,7 @@ A threat cluster or subgraph of threat activity, as defined by a specific source
 | `:reporter` | `entity:actor` | The entity which reported on the threat. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the threat. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the threat. |
-| `:reporter:period` | `ival` | The period when the threat existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the threat existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the threat. |
 | `:reporter:supersedes` | `array of risk:threat` | An array of threat nodes which are superseded by this threat. |
 | `:reporter:updated` | `time` | The time when the threat was last updated. |
@@ -9650,7 +9797,7 @@ A unique vulnerability.
 | `:reporter` | `entity:actor` | The entity which reported on the vulnerability. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the vulnerability. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the vulnerability. |
-| `:reporter:period` | `ival` | The period when the vulnerability existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the vulnerability existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the vulnerability. |
 | `:reporter:supersedes` | `array of risk:vuln` | An array of vulnerability nodes which are superseded by this vulnerability. |
 | `:reporter:updated` | `time` | The time when the vulnerability was last updated. |
@@ -9740,7 +9887,7 @@ An instance of running an experiment.
 | `:actor:name` | `entity:name` | The name of the actor who carried out the action. |
 | `:desc` | `text` | A description of the experiment. |
 | `:name` | `base:name` | The name of the experiment. |
-| `:period` | `ival` | The time period when the experiment was run. |
+| `:period` | `activity` | The time period when the experiment was run. |
 | `:type` | `sci:experiment:type:taxonomy` | The type of experiment as a user defined taxonomy. |
 
 ### `sci:experiment:type:taxonomy`
@@ -9933,7 +10080,7 @@ A telephone call.
 | `:caller:phone` | `tel:phone` | The phone number the caller placed the call from. |
 | `:connected` | `bool` | Specifies whether the call was successfully connected. |
 | `:lang` | `lang:language` | The language of the transcript. |
-| `:period` | `ival` | The time period when the call took place. |
+| `:period` | `activity` | The time period when the call took place. |
 | `:recipient` | `entity:actor` | The entity which received the call. |
 | `:recipient:phone` | `tel:phone` | The phone number at which the recipient received the call. |
 | `:text` | `text` | The text of the transcript. |
@@ -10132,7 +10279,7 @@ An individual aircraft.
 | `:creator:name` | `entity:name` | The name of the primary actor which created the aircraft. |
 | `:max:cargo:mass` | `phys:mass` | The maximum mass the aircraft can carry as cargo. |
 | `:max:cargo:volume` | `phys:volume` | The maximum volume the aircraft can carry as cargo. |
-| `:max:occupants` | `int:min0` | The maximum number of occupants the aircraft can hold. |
+| `:max:occupants` | `size` | The maximum number of occupants the aircraft can hold. |
 | `:model` | `biz:model` | The model of the aircraft. |
 | `:name` | `base:name` | The name of the aircraft. |
 | `:operator` | `entity:actor` | The contact information of the operator of the aircraft. |
@@ -10197,9 +10344,9 @@ An individual instance of a flight.
 | `:departed:place` | `geo:place` | The actual departure airport. |
 | `:departed:point` | `transport:point` | The actual departure gate. |
 | `:num` | `transport:air:flightnum` | The flight number of this flight. |
-| `:occupants` | `int:min0` | The number of occupants of the aircraft on this flight. |
+| `:occupants` | `size` | The number of occupants of the aircraft on this flight. |
 | `:operator` | `entity:actor` | The contact information of the operator of the flight. |
-| `:period` | `ival` | The period over which the flight occurred. |
+| `:period` | `activity` | The period over which the flight occurred. |
 | `:scheduled:arrival:place` | `geo:place` | The scheduled arrival airport. |
 | `:scheduled:arrival:point` | `transport:point` | The scheduled arrival gate. |
 | `:scheduled:departure:place` | `geo:place` | The scheduled departure airport. |
@@ -10321,9 +10468,9 @@ A drive taken by a land vehicle.
 | `:cargo:volume` | `phys:volume` | The cargo volume carried by the vehicle on this drive. |
 | `:departed:place` | `geo:place` | The actual departure place. |
 | `:departed:point` | `transport:point` | The actual departure point. |
-| `:occupants` | `int:min0` | The number of occupants of the vehicle on this drive. |
+| `:occupants` | `size` | The number of occupants of the vehicle on this drive. |
 | `:operator` | `entity:actor` | The contact information of the operator of the drive. |
-| `:period` | `ival` | The period over which the drive occurred. |
+| `:period` | `activity` | The period over which the drive occurred. |
 | `:scheduled:arrival:place` | `geo:place` | The scheduled arrival place. |
 | `:scheduled:arrival:point` | `transport:point` | The scheduled arrival point. |
 | `:scheduled:departure:place` | `geo:place` | The scheduled departure place. |
@@ -10383,7 +10530,7 @@ An individual land based vehicle.
 | `:desc` | `text` | A description of the vehicle. |
 | `:max:cargo:mass` | `phys:mass` | The maximum mass the vehicle can carry as cargo. |
 | `:max:cargo:volume` | `phys:volume` | The maximum volume the vehicle can carry as cargo. |
-| `:max:occupants` | `int:min0` | The maximum number of occupants the vehicle can hold. |
+| `:max:occupants` | `size` | The maximum number of occupants the vehicle can hold. |
 | `:model` | `biz:model` | The model of the vehicle. |
 | `:name` | `base:name` | The name of the vehicle. |
 | `:operator` | `entity:actor` | The contact information of the operator of the vehicle. |
@@ -10446,7 +10593,7 @@ An occupant of a vehicle on a trip.
 | `:contact` | `entity:individual` | Contact information of the occupant. |
 | `:disembarked:place` | `geo:place` | The place where the occupant disembarked the vehicle. |
 | `:disembarked:point` | `transport:point` | The disembarkation point such as an airport gate or train platform. |
-| `:period` | `ival` | The period when the occupant was aboard the vehicle. |
+| `:period` | `activity` | The period when the occupant was aboard the vehicle. |
 | `:role` | `transport:occupant:role:taxonomy` | The role of the occupant such as captain, crew, passenger. |
 | `:seat` | `base:id` | The seat which the occupant sat in. Likely in a vehicle specific format. |
 | `:trip` | `transport:trip` | The trip, such as a flight or train ride, being taken by the occupant. |
@@ -10490,7 +10637,7 @@ An individual train car.
 | `:creator:name` | `entity:name` | The name of the primary actor which created the train car. |
 | `:max:cargo:mass` | `phys:mass` | The maximum mass the train car can carry as cargo. |
 | `:max:cargo:volume` | `phys:volume` | The maximum volume the train car can carry as cargo. |
-| `:max:occupants` | `int:min0` | The maximum number of occupants the train car can hold. |
+| `:max:occupants` | `size` | The maximum number of occupants the train car can hold. |
 | `:model` | `biz:model` | The model of the train car. |
 | `:name` | `base:name` | The name of the train car. |
 | `:period` | `phys:lifespan` | The period when the train car existed, from its creation until it was retired or destroyed. |
@@ -10553,7 +10700,7 @@ A group of rail cars and locomotives connected together.
 | `:creator:name` | `entity:name` | The name of the primary actor which created the train. |
 | `:max:cargo:mass` | `phys:mass` | The maximum mass the train can carry as cargo. |
 | `:max:cargo:volume` | `phys:volume` | The maximum volume the train can carry as cargo. |
-| `:max:occupants` | `int:min0` | The maximum number of occupants the train can hold. |
+| `:max:occupants` | `size` | The maximum number of occupants the train can hold. |
 | `:model` | `biz:model` | The model of the train. |
 | `:name` | `base:name` | The name of the train. |
 | `:operator` | `entity:actor` | The contact information of the operator of the train. |
@@ -10599,9 +10746,9 @@ An individual instance of a consist of train cars running a route.
 | `:departed:place` | `geo:place` | The actual departure station. |
 | `:departed:point` | `transport:point` | The actual departure gate. |
 | `:id` | `base:id` | The ID assigned to the train. |
-| `:occupants` | `int:min0` | The number of occupants of the train on this train trip. |
+| `:occupants` | `size` | The number of occupants of the train on this train trip. |
 | `:operator` | `entity:actor` | The contact information of the operator of the train trip. |
-| `:period` | `ival` | The period over which the train trip occurred. |
+| `:period` | `activity` | The period over which the train trip occurred. |
 | `:scheduled:arrival:place` | `geo:place` | The scheduled arrival station. |
 | `:scheduled:arrival:point` | `transport:point` | The scheduled arrival gate. |
 | `:scheduled:departure:place` | `geo:place` | The scheduled departure station. |
@@ -10666,7 +10813,7 @@ An individual sea vessel.
 | `:imo` | `transport:sea:imo` | The International Maritime Organization number for the vessel. |
 | `:max:cargo:mass` | `phys:mass` | The maximum mass the vessel can carry as cargo. |
 | `:max:cargo:volume` | `phys:volume` | The maximum volume the vessel can carry as cargo. |
-| `:max:occupants` | `int:min0` | The maximum number of occupants the vessel can hold. |
+| `:max:occupants` | `size` | The maximum number of occupants the vessel can hold. |
 | `:mmsi` | `transport:sea:mmsi` | The Maritime Mobile Service Identifier assigned to the vessel. |
 | `:model` | `biz:model` | The model of the vessel. |
 | `:name` | `base:name` | The name of the vessel. |
@@ -10729,7 +10876,7 @@ An individual shipping container.
 | `:creator:name` | `entity:name` | The name of the primary actor which created the shipping container. |
 | `:max:cargo:mass` | `phys:mass` | The maximum mass the shipping container can carry as cargo. |
 | `:max:cargo:volume` | `phys:volume` | The maximum volume the shipping container can carry as cargo. |
-| `:max:occupants` | `int:min0` | The maximum number of occupants the shipping container can hold. |
+| `:max:occupants` | `size` | The maximum number of occupants the shipping container can hold. |
 | `:model` | `biz:model` | The model of the shipping container. |
 | `:name` | `base:name` | The name of the shipping container. |
 | `:period` | `phys:lifespan` | The period when the shipping container existed, from its creation until it was retired or destroyed. |
@@ -10769,7 +10916,7 @@ A stop made by a vehicle on a trip.
 | `:arrived:point` | `transport:point` | The actual arrival point. |
 | `:departed:place` | `geo:place` | The actual departure place. |
 | `:departed:point` | `transport:point` | The actual departure point. |
-| `:period` | `ival` | The period over which the stop occurred. |
+| `:period` | `activity` | The period over which the stop occurred. |
 | `:scheduled:arrival:place` | `geo:place` | The scheduled arrival place. |
 | `:scheduled:arrival:point` | `transport:point` | The scheduled arrival point. |
 | `:scheduled:departure:place` | `geo:place` | The scheduled departure place. |
@@ -10794,6 +10941,7 @@ A stop made by a vehicle on a trip.
 | `biz:rfp` | `ledto` | `biz:deal` | The RFP led to the deal being proposed. |
 | `crypto:key:secret` | `decrypts` | `file:bytes` | The key is used to decrypt the file. |
 | `doc:contract` | `has` | `doc:requirement` | The contract contains the requirement. |
+| `econ:budget` | `had` | `econ:purchase` | The purchase was included as spent during the budget period. |
 | `econ:purchase` | `had` | `econ:lineitem` | The purchase included the line item. |
 | `econ:purchase` | `ledto` | `econ:payment` | The purchase led to the payment. |
 | `econ:purchase` | `purchased` | `meta:havable` | The purchase was used to acquire the target node. |
@@ -10878,6 +11026,9 @@ A stop made by a vehicle on a trip.
 | `risk:extortion` | `ledto` | `econ:payment` | The extortion led to the payment. |
 | `risk:extortion` | `leveraged` | `meta:observable` | The extortion event was based on attacker access to the target node. |
 | `risk:leak` | `leaked` | `meta:observable` | The leak included the disclosure of the target node. |
+| `risk:loss:data` | `had` | `file:attachment` | The loss of data included the file. |
+| `risk:loss:funds` | `had` | `econ:payment` | The loss of funds included the payment. |
+| `risk:loss:life` | `had` | `entity:singular` | The loss of life included the entity. |
 | `risk:outage` | `impacted` | `*` | The outage event impacted the availability of the target node. |
 | `risk:theft` | `stole` | `meta:observable` | The target node was stolen during the theft. |
 | `risk:theft` | `stole` | `phys:object` | The target node was stolen during the theft. |
@@ -10909,7 +11060,7 @@ Properties common to activity which occurs over a period.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this activity. |
-| `:period` | `ival` | The period over which the activity occurred. |
+| `:period` | `activity` | The period over which the activity occurred. |
 
 | Form |
 |------|
@@ -10994,7 +11145,7 @@ An interface implemented by all cryptographic keys.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:algorithm` | `meta:algorithm` | The algorithm which uses the key material. |
-| `:bits` | `int:min1` | The number of bits of key material. |
+| `:bits` | `size` | The number of bits of key material. |
 
 | Form |
 |------|
@@ -11072,6 +11223,7 @@ A common interface for documents.
 | `doc:report` |
 | `doc:resume` |
 | `doc:standard` |
+| `meta:story` |
 | `plan:procedure` |
 
 ### `doc:published`
@@ -11118,6 +11270,23 @@ An interface for forms which identify a bank or branch for routing purposes.
 | `econ:bank:routing:id` |
 | `econ:bank:swift:bic` |
 
+### `econ:budgetable`
+
+An interface for forms which may have an associated budget.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:budget` | `econ:budget` | The budget for the item. |
+
+| Form |
+|------|
+| `entity:campaign` |
+| `ou:conference` |
+| `ou:contest` |
+| `ou:event` |
+| `ou:org` |
+| `proj:project` |
+
 ### `econ:pay:instrument`
 
 An interface for forms which may act as a payment instrument.
@@ -11162,6 +11331,7 @@ Properties common to activity carried out by an actor.
 | `biz:listing` |
 | `biz:service` |
 | `doc:contract` |
+| `econ:budget` |
 | `entity:attended` |
 | `entity:believed` |
 | `entity:campaign` |
@@ -12069,7 +12239,7 @@ Properties common to forms which are created on a per-source basis.
 | `:reporter` | `entity:actor` | The entity which reported on the item. |
 | `:reporter:deprecated` | `time` | The time when the reporter retired the item. |
 | `:reporter:name` | `entity:name` | The name of the entity which reported on the item. |
-| `:reporter:period` | `ival` | The period when the item existed, according to the reporter. |
+| `:reporter:period` | `reported` | The period when the item existed, according to the reporter. |
 | `:reporter:published` | `time` | The time when the reporter published the item. |
 | `:reporter:supersedes` | `array of meta:reported` | An array of item nodes which are superseded by this item. |
 | `:reporter:updated` | `time` | The time when the item was last updated. |
@@ -12189,6 +12359,7 @@ Properties common to taxonomies.
 | `meta:note:type:taxonomy` |
 | `meta:rule:type:taxonomy` |
 | `meta:source:type:taxonomy` |
+| `meta:story:type:taxonomy` |
 | `meta:technique:type:taxonomy` |
 | `meta:timeline:type:taxonomy` |
 | `ou:asset:type:taxonomy` |
@@ -12232,8 +12403,19 @@ An interface implemented by forms which can be used by an actor.
 
 | Form |
 |------|
+| `file:attachment` |
+| `file:base` |
+| `file:bytes` |
+| `inet:email` |
+| `inet:email:message` |
+| `inet:fqdn` |
+| `inet:ip` |
+| `inet:service:platform` |
+| `inet:url` |
+| `inet:urlfile` |
 | `it:app:snort:rule` |
 | `it:app:yara:rule` |
+| `it:cmd` |
 | `it:dev:str` |
 | `it:hardware` |
 | `it:software` |
@@ -12304,6 +12486,16 @@ An interface implemented by forms which may be exploited by an actor.
 | `it:software` |
 | `ou:asset` |
 
+### `risk:loss`
+
+An interface for aggregate losses which occur over a period.
+
+| Form |
+|------|
+| `risk:loss:data` |
+| `risk:loss:funds` |
+| `risk:loss:life` |
+
 ### `risk:mitigatable`
 
 A common interface for risks which may be mitigated.
@@ -12357,7 +12549,7 @@ Properties common to a container used to transport cargo or people.
 |----------|------|-----|
 | `:max:cargo:mass` | `phys:mass` | The maximum mass the item can carry as cargo. |
 | `:max:cargo:volume` | `phys:volume` | The maximum volume the item can carry as cargo. |
-| `:max:occupants` | `int:min0` | The maximum number of occupants the item can hold. |
+| `:max:occupants` | `size` | The maximum number of occupants the item can hold. |
 | `:model` | `biz:model` | The model of the item. |
 | `:serial` | `base:id` | The manufacturer assigned serial number of the item. |
 
@@ -12393,7 +12585,7 @@ Properties common to a specific trip taken by a vehicle.
 |----------|------|-----|
 | `:cargo:mass` | `phys:mass` | The cargo mass carried by the vehicle on this trip. |
 | `:cargo:volume` | `phys:volume` | The cargo volume carried by the vehicle on this trip. |
-| `:occupants` | `int:min0` | The number of occupants of the vehicle on this trip. |
+| `:occupants` | `size` | The number of occupants of the vehicle on this trip. |
 | `:operator` | `entity:actor` | The contact information of the operator of the trip. |
 | `:status` | `title` | The status of the trip. |
 | `:vehicle` | `transport:vehicle` | The vehicle which traveled the trip. |

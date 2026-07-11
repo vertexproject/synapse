@@ -1,3 +1,5 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:86b922cc197f2596445b80bff6b655ca75cfd4ae685ecd75ff298e971d118b83
-size 63
+name: testpkg
+version: 0.0.1
+
+docs:
+    - path: docs/foobar.md

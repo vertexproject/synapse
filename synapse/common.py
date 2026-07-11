@@ -10,7 +10,6 @@ import types
 import base64
 import shutil
 import struct
-import typing
 import asyncio
 import decimal
 import fnmatch
@@ -368,7 +367,7 @@ def reqbytes(*paths):
     with reqfile(*paths) as fd:
         return fd.read()
 
-def genfile(*paths) -> typing.BinaryIO:
+def genfile(*paths):
     '''
     Create or open (for read/write) a file path join.
 
@@ -503,7 +502,7 @@ def yamlload(*paths):
     with io.open(path, 'rb') as fd:
         return yamlloads(fd)
 
-def yamldump(obj, stream: typing.Optional[typing.BinaryIO] =None) -> bytes:
+def yamldump(obj, stream=None) -> bytes:
     '''
     Dump a object to yaml.
 

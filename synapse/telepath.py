@@ -186,15 +186,14 @@ async def _getAhaSvc(urlinfo, timeout=None):
                     'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false'))),
                 }
 
-            ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
-            if ahasvc is None:
+            svcentry = await asyncio.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
+            if svcentry is None:
                 continue
 
-            svcinfo = ahasvc.get('svcinfo', {})
-            if not svcinfo.get('online'):
+            if not svcentry.get('online'):
                 continue
 
-            return client, ahasvc
+            return client, svcentry
 
         except Exception as e:
             if isinstance(ahaurl, str):
@@ -214,9 +213,11 @@ async def getAhaProxy(urlinfo):
     '''
     Return a telepath proxy by looking up a host from an AHA registry.
     '''
-    ahaclient, ahasvc = await _getAhaSvc(urlinfo, timeout=5)
+    ahaclient, svcentry = await _getAhaSvc(urlinfo, timeout=5)
 
-    svcinfo = ahasvc.get('svcinfo', {})
+    if (svcinfo := svcentry.get('info')) is None: # pragma: no cover
+        svcinfo = {}
+
     svcurlinfo = mergeAhaInfo(urlinfo, svcinfo.get('urlinfo', {}))
 
     return await openinfo(svcurlinfo)
@@ -286,7 +287,7 @@ async def loadTeleCell(dirn):
     if os.path.isfile(confpath):
         conf = s_common.yamlload(confpath)
         if conf is not None:
-            ahaurl = conf.get('aha:registry')
+            ahaurl = conf.get('aha:servers')
 
     if usecerts:
         s_certdir.addCertPath(certpath)
@@ -907,15 +908,15 @@ class ClientV2(s_base.Base):
 
                 if urlinfo.get('scheme') == 'aha':
 
-                    self.aha, svcinfo = await _getAhaSvc(urlinfo)
+                    self.aha, svcentry = await _getAhaSvc(urlinfo)
 
                     # if the service is a pool, enter pool mode and fire
                     # the topography sync task to manage pool members.
-                    services = svcinfo.get('services')
+                    services = svcentry.get('services')
                     if services is not None:
                         # we are an AHA pool!
                         if self.poolname is None:
-                            self.poolname = svcinfo.get('name')
+                            self.poolname = svcentry.get('name')
                             self.schedCoro(self._toposync())
                         return
 
@@ -1048,6 +1049,103 @@ class ClientV2(s_base.Base):
 
         # use an inner function so we can wait overall...
         return await asyncio.wait_for(getNextProxy(), timeout)
+
+class AhaClient(ClientV2):
+    '''
+    A ClientV2 which connects to an AHA service and maintains a local
+    cache of the AHA service topology which is kept in near-real-time
+    sync using the getAhaTopo() API.
+
+    NOTE: This is the unified client used by a Cell to connect to AHA so
+          that every service has a live view of topology updates.
+    '''
+    async def __anit__(self, urlinfo, onlink=None):
+
+        # ClientV2 fires onlink as onlink(proxy, urlinfo). preserve the
+        # single-arg onlink(proxy) contract that callers ( e.g. Cell ) use.
+        wrapped = None
+        if onlink is not None:
+            async def wrapped(proxy, urlinfo):
+                await onlink(proxy)
+
+        await ClientV2.__anit__(self, urlinfo, onlink=wrapped)
+
+        self.svcs = {}
+        self.topoready = asyncio.Event()
+
+        self.topohands = {
+            'svc:add': self._onTopoSvcSet,
+            'svc:mod': self._onTopoSvcSet,
+            'svc:del': self._onTopoSvcDel,
+            'svc:sync': self._onTopoSync,
+            'svc:lead': self._onTopoLeadTerm,
+            'aha:servers': self._onTopoAhaServers,
+        }
+
+        async def fini():
+            self.topoready.set()
+
+        self.onfini(fini)
+
+        self.schedCoro(self._runAhaTopoSync())
+
+    async def _onTopoSvcSet(self, mesg):
+        # svc:add ( newly added ) and svc:mod ( existing service checking in
+        # with updated info ) both upsert the local service entry.
+        svcentry = mesg[1].get('entry')
+        self.svcs[svcentry.get('name')] = svcentry
+
+    async def _onTopoSvcDel(self, mesg):
+        self.svcs.pop(mesg[1].get('name'), None)
+
+    async def _onTopoSync(self, mesg):
+        self.topoready.set()
+
+    async def _onTopoAhaServers(self, mesg):
+        # the AHA server list changed: refresh the boot urls so reconnects and
+        # failover use the current set of AHA servers.
+        urls = mesg[1].get('urls')
+        if urls:
+            self.setBootUrls(urls)
+
+    async def _onTopoLeadTerm(self, mesg):
+        # a leadership term changed: re-flag the cached services of the type so
+        # the local topology tracks the new leader ( the term names it ).
+        svctype = mesg[1].get('type')
+        leadname = mesg[1].get('term', {}).get('name')
+
+        for svcentry in list(self.svcs.values()):
+            if svcentry.get('info', {}).get('type') == svctype:
+                svcentry['leader'] = svcentry.get('name') == leadname
+
+    async def _runAhaTopoSync(self):
+
+        while not self.isfini:
+
+            try:
+                proxy = await self.proxy()
+
+                self.svcs.clear()
+                self.topoready.clear()
+
+                async for mesg in proxy.getAhaTopo():
+                    # safely ignore any message type we do not recognize
+                    # ( forward compatibility with newer AHA servers ).
+                    hand = self.topohands.get(mesg[0])
+                    if hand is not None:
+                        await hand(mesg)
+                        # re-fire the message so callers can subscribe to the
+                        # topology updates via the client event bus.
+                        await self.fire(mesg[0], **mesg[1])
+
+            except Exception as e:
+                logger.warning(f'AHA topology sync task restarting: {e}')
+                await self.waitfini(timeout=1)
+
+    async def waitTopoReady(self, timeout=None):
+        await asyncio.wait_for(self.topoready.wait(), timeout=timeout)
+        if self.isfini:  # pragma: no cover
+            raise s_exc.IsFini()
 
 class Client(s_base.Base):
     '''

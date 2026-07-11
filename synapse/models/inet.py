@@ -1047,8 +1047,7 @@ class Url(s_types.Str):
         self.iptype = self.modl.type('inet:ip')
         self.fqdntype = self.modl.type('inet:fqdn')
         self.hostpoly = self.modl.type('poly').clone({
-            'types': ('inet:fqdn', 'inet:ip'),
-            'default_types': ('inet:fqdn', 'inet:ip')})
+            'types': ('inet:fqdn', 'inet:ip')})
         self.porttype = self.modl.type('inet:port')
         self.passtype = self.modl.type('auth:passwd')
         self.usertype = self.modl.type('entity:name')
@@ -1282,6 +1281,7 @@ modeldefs = (
             ('inet:ip', (None, {'ctor': 'synapse.models.inet.IPAddr'}), {
                 'template': {'title': 'IP address'},
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                     ('geo:locatable', {}),
                 ),
@@ -1348,6 +1348,7 @@ modeldefs = (
             ('inet:email', (None, {'ctor': 'synapse.models.inet.Email'}), {
                 'template': {'title': 'email address'},
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                 ),
                 'props': (
@@ -1372,6 +1373,7 @@ modeldefs = (
             ('inet:fqdn', (None, {'ctor': 'synapse.models.inet.Fqdn'}), {
                 'template': {'title': 'FQDN'},
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                 ),
                 'props': (
@@ -1416,6 +1418,7 @@ modeldefs = (
             ('inet:url', (None, {'ctor': 'synapse.models.inet.Url'}), {
                 'template': {'title': 'URL'},
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                 ),
                 'ex': 'http://www.woot.com/files/index.html',
@@ -1566,7 +1569,8 @@ modeldefs = (
                     ('inet:proto:link', {}),
                 ),
                 'props': (
-                    ('server:txfiles', ('array', {'type': 'file:attachment'}), {
+                    ('server:txfiles', ('file:attachment', {}), {
+                        'array': {},
                         'doc': 'An array of files sent by the server.'}),
 
                     ('server:txcount', ('int', {}), {
@@ -1578,7 +1582,8 @@ modeldefs = (
                     ('server:handshake', ('text', {}), {
                         'doc': 'A text representation of the initial handshake sent by the server.'}),
 
-                    ('client:txfiles', ('array', {'type': 'file:attachment'}), {
+                    ('client:txfiles', ('file:attachment', {}), {
+                        'array': {},
                         'doc': 'An array of files sent by the client.'}),
 
                     ('client:txcount', ('int', {}), {
@@ -1596,22 +1601,26 @@ modeldefs = (
                     ('tot:txbytes', ('int', {}), {
                         'doc': 'The number of bytes sent in both directions.'}),
 
-                    ('server:software:cpes', ('array', {'type': 'it:sec:cpe'}), {
+                    ('server:software:cpes', ('it:sec:cpe', {}), {
+                        'array': {},
                         'doc': 'An array of NIST CPEs identified on the server.'}),
 
-                    ('server:software:names', ('array', {'type': 'it:softwarename'}), {
+                    ('server:software:names', ('it:softwarename', {}), {
+                        'array': {},
                         'doc': 'An array of software names identified on the server.'}),
 
-                    ('client:software:cpes', ('array', {'type': 'it:sec:cpe'}), {
+                    ('client:software:cpes', ('it:sec:cpe', {}), {
+                        'array': {},
                         'doc': 'An array of NIST CPEs identified on the client.'}),
 
-                    ('client:software:names', ('array', {'type': 'it:softwarename'}), {
+                    ('client:software:names', ('it:softwarename', {}), {
+                        'array': {},
                         'doc': 'An array of software names identified on the client.'}),
 
-                    ('ip:proto', ('byte:flags', {}), {
+                    ('ip:proto', ('uint8', {}), {
                         'doc': 'The IP protocol number of the flow.'}),
 
-                    ('ip:tcp:flags', ('byte:flags', {}), {
+                    ('ip:tcp:flags', ('uint8', {}), {
                         'doc': 'An aggregation of observed TCP flags commonly provided by flow APIs.'}),
 
                     ('capture:host', ('it:host', {}), {
@@ -1767,7 +1776,8 @@ modeldefs = (
                     ('contact', ('entity:contact', {}), {
                         'doc': 'The entity contact which owns the session.'}),
 
-                    ('cookies', ('array', {'type': 'inet:http:cookie'}), {
+                    ('cookies', ('inet:http:cookie', {}), {
+                        'array': {},
                         'doc': 'An array of cookies used to identify this specific session.'}),
                 ),
                 'doc': 'An HTTP session.'}),
@@ -1790,7 +1800,8 @@ modeldefs = (
                     ('query', ('str', {}), {
                         'doc': 'The HTTP query string which optionally follows the path.'}),
 
-                    ('headers', ('array', {'type': 'inet:http:request:header', 'uniq': False, 'sorted': False}), {
+                    ('headers', ('inet:http:request:header', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of HTTP headers from the request.'}),
 
                     ('header:host', ('inet:fqdn', {}), {
@@ -1802,7 +1813,8 @@ modeldefs = (
                     ('body', ('file:bytes', {}), {
                         'doc': 'The body of the HTTP request.'}),
 
-                    ('cookies', ('array', {'type': 'inet:http:cookie'}), {
+                    ('cookies', ('inet:http:cookie', {}), {
+                        'array': {},
                         'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
 
                     ('session', ('inet:http:session', {}), {
@@ -1826,7 +1838,8 @@ modeldefs = (
                     ('reason', ('str', {}), {
                         'doc': 'The HTTP response reason phrase received.'}),
 
-                    ('headers', ('array', {'type': 'inet:http:response:header', 'uniq': False, 'sorted': False}), {
+                    ('headers', ('inet:http:response:header', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of HTTP headers from the response.'}),
 
                     ('body', ('file:bytes', {}), {
@@ -1917,6 +1930,7 @@ modeldefs = (
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
                 'template': {'title': 'hosted file and URL'},
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                 ),
                 'props': (
@@ -2040,10 +2054,12 @@ modeldefs = (
                     ('registrant:name', ('entity:name', {}), {
                         'doc': 'The name of the actor who registered the FQDN.'}),
 
-                    ('contacts', ('array', {'type': 'entity:contact'}), {
+                    ('contacts', ('entity:contact', {}), {
+                        'array': {},
                         'doc': 'The whois registration contacts.'}),
 
-                    ('nameservers', ('array', {'type': 'inet:fqdn', 'uniq': False, 'sorted': False}), {
+                    ('nameservers', ('inet:fqdn', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'The DNS nameserver FQDNs for the registered FQDN.'}),
                 ),
                 'doc': 'An FQDN whois registration record.'}),
@@ -2126,10 +2142,12 @@ modeldefs = (
                     ('type', ('title', {}), {
                         'doc': 'The classification of the registered network (e.g. direct allocation).'}),
 
-                    ('links', ('array', {'type': 'inet:url'}), {
+                    ('links', ('inet:url', {}), {
+                        'array': {},
                         'doc': 'URLs provided with the record.'}),
 
-                    ('contacts', ('array', {'type': 'entity:contact'}), {
+                    ('contacts', ('entity:contact', {}), {
+                        'array': {},
                         'doc': 'The whois registration contacts.'}),
                 ),
                 'doc': 'An IPv4/IPv6 block registration record.'}),
@@ -2203,6 +2221,9 @@ modeldefs = (
                 'doc': 'An authentication event for a Wi-Fi network.'}),
 
             ('inet:email:message', ('guid', {}), {
+                'interfaces': (
+                    ('meta:usable', {}),
+                ),
                 'props': (
                     ('id', ('base:id', {}), {
                         'doc': 'The ID parsed from the "message-id" header.'}),
@@ -2216,7 +2237,8 @@ modeldefs = (
                     ('replyto', ('inet:email', {}), {
                         'doc': 'The email address parsed from the "reply-to" header.'}),
 
-                    ('cc', ('array', {'type': 'inet:email'}), {
+                    ('cc', ('inet:email', {}), {
+                        'array': {},
                         'doc': 'Email addresses parsed from the "cc" header.'}),
 
                     ('subject', ('title', {}), {
@@ -2231,7 +2253,8 @@ modeldefs = (
                     ('bytes', ('file:bytes', {}), {
                         'doc': 'The file bytes which contain the email message.'}),
 
-                    ('headers', ('array', {'type': 'inet:email:header', 'uniq': False, 'sorted': False}), {
+                    ('headers', ('inet:email:header', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of email headers from the message.'}),
 
                     ('received:from:ip', ('inet:ip', {}), {
@@ -2244,10 +2267,12 @@ modeldefs = (
                     ('flow', ('inet:flow', {}), {
                         'doc': 'The inet:flow which delivered the message.'}),
 
-                    ('links', ('array', {'type': 'inet:hyperlink'}), {
+                    ('links', ('inet:hyperlink', {}), {
+                        'array': {},
                         'doc': 'An array of links embedded in the email message.'}),
 
-                    ('attachments', ('array', {'type': 'file:attachment'}), {
+                    ('attachments', ('file:attachment', {}), {
+                        'array': {},
                         'doc': 'An array of files attached to the email message.'}),
                 ),
                 'doc': 'An individual email message delivered to an inbox.'}),
@@ -2312,6 +2337,7 @@ modeldefs = (
             ('inet:service:platform', ('guid', {}), {
                 'template': {'title': 'platform'},
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                     ('risk:targetable', {}),
                     ('risk:exploitable', {}),
@@ -2325,14 +2351,16 @@ modeldefs = (
                         'alts': ('urls',),
                         'doc': 'The primary URL of the platform.'}),
 
-                    ('urls', ('array', {'type': 'inet:url'}), {
+                    ('urls', ('inet:url', {}), {
+                        'array': {},
                         'doc': 'An array of alternate URLs for the platform.'}),
 
                     ('zone', ('inet:fqdn', {}), {
                         'alts': ('zones',),
                         'doc': 'The primary zone for the platform.'}),
 
-                    ('zones', ('array', {'type': 'inet:fqdn'}), {
+                    ('zones', ('inet:fqdn', {}), {
+                        'array': {},
                         'doc': 'An array of alternate zones for the platform.'}),
 
                     ('name', ('base:name', {}), {
@@ -2340,7 +2368,8 @@ modeldefs = (
                         'alts': ('names',),
                         'doc': 'A friendly name for the platform.'}),
 
-                    ('names', ('array', {'type': 'base:name'}), {
+                    ('names', ('base:name', {}), {
+                        'array': {},
                         'doc': 'An array of alternate names for the platform.'}),
 
                     ('desc', ('text', {}), {
@@ -2394,7 +2423,8 @@ modeldefs = (
                         'alts': ('names',),
                         'doc': 'The name of the service agent instance.'}),
 
-                    ('names', ('array', {'type': 'base:name'}), {
+                    ('names', ('base:name', {}), {
+                        'array': {},
                         'doc': 'An array of alternate names for the service agent instance.'}),
 
                     ('desc', ('text', {}), {
@@ -2422,7 +2452,8 @@ modeldefs = (
                     ('parent', ('inet:service:account', {}), {
                         'doc': 'A parent account which owns this account.'}),
 
-                    ('rules', ('array', {'type': 'inet:service:rule', 'uniq': False, 'sorted': False}), {
+                    ('rules', ('inet:service:rule', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of rules associated with this account.'}),
                 ),
                 'doc': 'An account within a service platform. Accounts may be instance specific.'}),
@@ -2564,7 +2595,8 @@ modeldefs = (
                     ('profile', ('entity:contact', {}), {
                         'doc': 'Current detailed contact information for this role.'}),
 
-                    ('rules', ('array', {'type': 'inet:service:rule', 'uniq': False, 'sorted': False}), {
+                    ('rules', ('inet:service:rule', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An array of rules associated with this role.'}),
                 ),
                 'doc': 'A role which contains member accounts.'}),
@@ -2640,13 +2672,16 @@ modeldefs = (
                     ('repost', ('inet:service:message', {}), {
                         'doc': 'The original message reposted by this message.'}),
 
-                    ('links', ('array', {'type': 'inet:hyperlink'}), {
+                    ('links', ('inet:hyperlink', {}), {
+                        'array': {},
                         'doc': 'An array of links contained within the message.'}),
 
-                    ('attachments', ('array', {'type': 'file:attachment'}), {
+                    ('attachments', ('file:attachment', {}), {
+                        'array': {},
                         'doc': 'An array of files attached to the message.'}),
 
-                    ('hashtags', ('array', {'type': 'lang:hashtag', 'split': ','}), {
+                    ('hashtags', ('lang:hashtag', {}), {
+                        'array': {'split': ','},
                         'doc': 'An array of hashtags mentioned within the message.'}),
 
                     ('place', ('geo:place', {}), {
@@ -2667,10 +2702,11 @@ modeldefs = (
                     ('type', ('inet:service:message:type:taxonomy', {}), {
                         'doc': 'The type of message.'}),
 
-                    ('mentions', ('array', {'type': (
+                    ('mentions', (
                             ('inet:service:account', {}),
                             ('inet:service:role', {})
-                        )}), {
+                        ), {
+                        'array': {},
                         'doc': 'Contactable entities mentioned within the message.'}),
                 ),
                 'doc': 'A message or post created by an account.'}),
@@ -2704,13 +2740,16 @@ modeldefs = (
                     ('replyto', ('inet:service:comment', {}), {
                         'doc': 'The comment that this comment was made in reply to. Used for comment threading.'}),
 
-                    ('links', ('array', {'type': 'inet:hyperlink'}), {
+                    ('links', ('inet:hyperlink', {}), {
+                        'array': {},
                         'doc': 'An array of links contained within the comment.'}),
 
-                    ('attachments', ('array', {'type': 'file:attachment'}), {
+                    ('attachments', ('file:attachment', {}), {
+                        'array': {},
                         'doc': 'An array of files attached to the comment.'}),
 
-                    ('hashtags', ('array', {'type': 'lang:hashtag', 'split': ','}), {
+                    ('hashtags', ('lang:hashtag', {}), {
+                        'array': {'split': ','},
                         'doc': 'An array of hashtags mentioned within the comment.'}),
 
                     ('client:software', ('it:software', {}), {
@@ -2719,10 +2758,11 @@ modeldefs = (
                     ('client:software:name', ('it:softwarename', {}), {
                         'doc': 'The name of the client software used to send the comment.'}),
 
-                    ('mentions', ('array', {'type': (
+                    ('mentions', (
                             ('inet:service:account', {}),
                             ('inet:service:role', {})
-                        )}), {
+                        ), {
+                        'array': {},
                         'doc': 'Contactable entities mentioned within the comment.'}),
                 ),
                 'doc': 'A comment about a node created by an account.'}),
@@ -3240,7 +3280,8 @@ modeldefs = (
                         'doc': 'The email address of the {title}.'}),
                     ('username', ('entity:name', {}), {
                         'doc': 'The primary user name for the {title}.'}),
-                    ('creds', ('array', {'type': 'auth:credential'}), {
+                    ('creds', ('auth:credential', {}), {
+                        'array': {},
                         'doc': 'An array of non-ephemeral credentials.'}),
                     ('profile', ('entity:contact', {}), {
                         'doc': 'Current detailed contact information for the {title}.'}),

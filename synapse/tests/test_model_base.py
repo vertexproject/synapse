@@ -83,6 +83,54 @@ class BaseTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('meta:note:text=nonodes -(about)> *'))
             self.len(1, await core.nodes('meta:note:text=nonodes -> meta:note'))
 
+    async def test_model_base_story(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ meta:story=*
+                    :title="Q3 Threat Report"
+                    :body="# Summary of threats"
+                    :desc="A short summary of the story."
+                    :status=draft
+                    :type=report.threat
+                    :created=20200202 :updated=20220401
+                    :id=STORY-7
+                    :url=https://vertex.link/stories/STORY-7
+                    :creator={[ entity:contact=* :name=visi ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            story = nodes[0]
+
+            self.propeq(story, 'title', 'Q3 Threat Report')
+            self.propeq(story, 'body', '# Summary of threats')
+            self.propeq(story, 'desc', 'A short summary of the story.')
+            self.propeq(story, 'status', 'draft')
+            self.propeq(story, 'type', 'report.threat.')
+            self.propeq(story, 'created', 1580601600000000)
+            self.propeq(story, 'updated', 1648771200000000)
+            self.propeq(story, 'id', 'STORY-7')
+            self.propeq(story, 'url', 'https://vertex.link/stories/STORY-7')
+            self.nn(story.get('creator'))
+
+            # :type resolves to the story taxonomy
+            self.len(1, await core.nodes('meta:story -> meta:story:type:taxonomy'))
+
+            # :creator is an entity:actor which entity:contact implements
+            self.len(1, await core.nodes('entity:contact:name=visi -> meta:story'))
+
+            # meta:story implements the doc:document interface and its parents
+            self.true(core.model.form('meta:story').implements('doc:document'))
+            self.true(core.model.form('meta:story').implements('doc:authorable'))
+            self.true(core.model.form('meta:story').implements('entity:creatable'))
+
+            # :supersedes holds prior versions of the story
+            nodes = await core.nodes('meta:story:id=STORY-7 [ :supersedes={[ meta:story=* :title="old story" ]} ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('supersedes'))
+            self.len(1, await core.nodes('meta:story:title="old story"'))
+
     async def test_model_base_source(self):
 
         async with self.getTestCore() as core:

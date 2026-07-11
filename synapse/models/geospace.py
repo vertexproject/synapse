@@ -491,7 +491,8 @@ modeldefs = (
                         'alts': ('names',),
                         'doc': 'The name of the place.'}),
 
-                    ('names', ('array', {'type': 'geo:name'}), {
+                    ('names', ('geo:name', {}), {
+                        'array': {},
                         'doc': 'An array of alternative place names.'}),
 
                     ('desc', ('text', {}), {
@@ -500,7 +501,8 @@ modeldefs = (
                     ('photo', ('file:bytes', {}), {
                         'doc': 'The image file to use as the primary image of the place.'}),
 
-                    ('addresses', ('array', {'type': 'geo:address'}), {
+                    ('addresses', ('geo:address', {}), {
+                        'array': {},
                         'doc': 'An array of postal addresses for the place.'}),
 
                     ('bbox', ('geo:bbox', {}), {

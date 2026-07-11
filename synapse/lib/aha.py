@@ -21,8 +21,7 @@ import synapse.lib.config as s_config
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
-import synapse.lib.jsonstor as s_jsonstor
-import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.provision as s_provision
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +47,6 @@ _provSvcSchema = {
                     'type': 'integer',
                     'minimum': 0,
                     'maximum': 65535,
-                },
-                'mirror': {
-                    'type': 'string',
-                    'minLength': 1,
                 },
             }
         }
@@ -131,30 +126,64 @@ class AhaApi(s_cell.CellApi):
         '''
         Return an AHA service description dictionary for a service name.
         '''
-        svcinfo = await self.cell.getAhaSvc(name, filters=filters)
-        if svcinfo is None:
+        svcentry = await self.cell.getAhaSvc(name, filters=filters)
+        if svcentry is None:
             return None
 
-        svcinfo = s_msgpack.deepcopy(svcinfo)
+        svcentry = s_msgpack.deepcopy(svcentry)
 
         # suggest that the user of the remote service is the same
         username = self.user.name.split('@')[0]
 
-        if svcinfo.get('svcinfo'):
-            svcinfo['svcinfo']['urlinfo']['user'] = username
+        if svcentry.get('info'):
+            svcentry['info']['urlinfo']['user'] = username
 
-        return svcinfo
+        return svcentry
 
     async def getAhaSvcs(self):
         '''
-        Yield AHA svcinfo dictionaries.
+        Yield AHA service entry dictionaries.
         '''
-        async for info in self.cell.getAhaSvcs():
-            yield info
+        async for svcentry in self.cell.getAhaSvcs():
+            yield svcentry
 
     async def getAhaSvcsByIden(self, iden, *, online=True, skiprun=None):
-        async for svcdef in self.cell.getAhaSvcsByIden(iden, online=online, skiprun=skiprun):
-            yield svcdef
+        async for svcentry in self.cell.getAhaSvcsByIden(iden, online=online, skiprun=skiprun):
+            yield svcentry
+
+    @s_cell.adminapi()
+    async def getAhaTopo(self):
+        '''
+        Yield AHA topology messages ( svc:add / svc:del / svc:sync ) beginning
+        with a snapshot of all current services followed by live updates.
+        '''
+        async for mesg in self.cell.getAhaTopo():
+            yield mesg
+
+    async def getAhaSvcsByType(self, celltype, *, online=True):
+        '''
+        Yield AHA service entry dictionaries for a given cell type.
+        '''
+        async for svcentry in self.cell.getAhaSvcsByType(celltype, online=online):
+            yield svcentry
+
+    async def getAhaSvcByType(self, celltype, *, filters=None):
+        '''
+        Return the AHA service description for the single instance of a cell type.
+        '''
+        svcentry = await self.cell.getAhaSvcByType(celltype, filters=filters)
+        if svcentry is None:
+            return None
+
+        svcentry = s_msgpack.deepcopy(svcentry)
+
+        # suggest that the user of the remote service is the same
+        username = self.user.name.split('@')[0]
+
+        if svcentry.get('info'):
+            svcentry['info']['urlinfo']['user'] = username
+
+        return svcentry
 
     async def addAhaSvc(self, name, info):
         '''
@@ -170,7 +199,7 @@ class AhaApi(s_cell.CellApi):
 
         # dont disclose the real session...
         sess = s_common.guid(self.sess.iden)
-        info['online'] = sess
+        info['session'] = sess
         info.setdefault('ready', True)
 
         if self.link.sock is not None:
@@ -190,9 +219,12 @@ class AhaApi(s_cell.CellApi):
             coro = self.cell.setAhaSvcDown(name, sess)
             self.cell.schedCoro(coro)  # this will eventually execute or get cancelled.
 
+        retn = await self.cell.addAhaSvc(name, info)
+
+        # only mark the service down on link teardown once it registered
         self.onfini(fini)
 
-        return await self.cell.addAhaSvc(name, info)
+        return retn
 
     async def modAhaSvcInfo(self, name, svcinfo):
 
@@ -211,13 +243,13 @@ class AhaApi(s_cell.CellApi):
 
     async def getAhaSvcMirrors(self, name):
         '''
-        Return list of AHA svcinfo dictionaries for mirrors of a service.
+        Return list of AHA service entry dictionaries for mirrors of a service.
         '''
-        svcinfo = await self.cell.getAhaSvc(name)
-        if svcinfo is None:
+        svcentry = await self.cell.getAhaSvc(name)
+        if svcentry is None:
             return None
 
-        svciden = svcinfo['svcinfo']['iden']
+        svciden = svcentry['info']['iden']
         return await self.cell.getAhaSvcMirrors(svciden)
 
     async def delAhaSvc(self, name):
@@ -262,7 +294,7 @@ class AhaApi(s_cell.CellApi):
 
             # default to using the same username as we do for aha
             if item[0] == 'svc:add':
-                item[1]['svcinfo']['urlinfo']['user'] = username
+                item[1]['info']['urlinfo']['user'] = username
 
             yield item
 
@@ -300,6 +332,33 @@ class AhaApi(s_cell.CellApi):
         Remove a previously added provisioning entry by iden.
         '''
         return await self.cell.delAhaSvcProv(iden)
+
+    @s_cell.adminapi()
+    async def setAhaSvcTypeIndex(self, name, valu):
+        '''
+        Set the auto-provisioning index for a service type.
+        '''
+        return await self.cell.setAhaSvcTypeIndex(name, valu)
+
+    async def getLeadTerm(self, svctype):
+        '''
+        Return the current leadership term for a service type.
+        '''
+        return await self.cell.getLeadTerm(svctype)
+
+    async def regLeadTerm(self, svctype, svcname, nexsoffs, term=None):
+        '''
+        Register a service with the leadership term for its service type.
+        '''
+        await self._reqUserAllowed(('aha', 'service', 'add'))
+        return await self.cell.regLeadTerm(svctype, svcname, nexsoffs, term=term)
+
+    async def setLeadTerm(self, svctype, svcname, nexsoffs):
+        '''
+        Create a new leadership term for a service type to record an API driven promotion.
+        '''
+        await self._reqUserAllowed(('aha', 'service', 'add'))
+        return await self.cell.setLeadTerm(svctype, svcname, nexsoffs)
 
     @s_cell.adminapi()
     async def addAhaUserEnroll(self, name, *, userinfo=None, again=False):
@@ -456,10 +515,9 @@ class ProvApi:
 
     async def signUserCsr(self, byts):
 
-        ahauser = self.provinfo['conf'].get('aha:user')
         network = self.provinfo['conf'].get('aha:network')
 
-        username = f'{ahauser}@{network}'
+        username = f'root@{network}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
         name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
@@ -474,10 +532,13 @@ class ProvApi:
 
 class AhaCell(s_cell.Cell):
 
+    celltype = 'aha'
+
     cellapi = AhaApi
     confbase = copy.deepcopy(s_cell.Cell.confbase)
-    confbase['mirror']['hidedocs'] = False  # type: ignore
-    confbase['mirror']['hidecmdl'] = False  # type: ignore
+    confbase['parent']['hidedocs'] = False  # type: ignore
+    confbase['parent']['hidecmdl'] = False  # type: ignore
+    confbase['aha:network']['default'] = 'syn'  # type: ignore
     confdefs = {
         'clone': {
             'hidecmdl': True,
@@ -514,6 +575,8 @@ class AhaCell(s_cell.Cell):
 
     async def _initCellBoot(self):
 
+        await self._bootCloneMcast()
+
         curl = self.conf.get('clone')
         if curl is None:
             return
@@ -541,23 +604,57 @@ class AhaCell(s_cell.Cell):
 
         self.conf.update(conf)
 
+    async def _bootCloneMcast(self):
+        # On an inaugural boot with SYN_PROVISION_SECRET and SYN_PROVISION_FOLLOWER
+        # set and no explicit clone URL, discover the leader AHA via encrypted
+        # multicast and enroll as a clone. The minted clone URL is adopted as our
+        # 'clone' config so the normal clone bootstrap below proceeds unchanged.
+
+        if self.conf.get('clone') is not None:
+            return
+
+        if os.environ.get('SYN_PROVISION_SECRET') is None:
+            return
+
+        if os.environ.get('SYN_PROVISION_FOLLOWER') is None:
+            return
+
+        if os.path.isfile(s_common.genpath(self.dirn, 'cell.guid')):
+            return
+
+        host = self.conf.get('dns:name')
+        if host is None:
+            mesg = 'SYN_PROVISION_FOLLOWER requires dns:name to be set to enroll as an AHA clone.'
+            raise s_exc.FatalErr(mesg=mesg)
+
+        logger.info('Attempting AHA clone provisioning discovery.')
+
+        mesg = {'type': 'aha', 'data': {'host': host}}
+
+        warnmesg = 'SYN_PROVISION_FOLLOWER is set but AHA clone provisioning discovery received ' \
+                   'no response; waiting for the leader AHA to appear.'
+
+        # assume a leader AHA exists: retry discovery indefinitely, logging a
+        # warning roughly every PROV_FOLLOWER_WARN_TIMEOUT seconds until it responds.
+        lastwarn = s_common.now()
+
+        # NOTE: this runs during _initCellBoot, before Base.__anit__ sets
+        # self.isfini, so this loop cannot use 'while not self.isfini'.
+        while True:
+
+            data = await self._runProvMcastDiscover(mesg)
+            if data is not None:
+                break
+
+            lastwarn = self._logFollowerWait(lastwarn, warnmesg)
+
+        self.conf['clone'] = data.get('url')
+        logger.info('AHA clone provisioning discovery succeeded.')
+
     async def initServiceStorage(self):
 
         self.features['callpeers'] = 1
         self.features['getAhaSvcsByIden'] = 1
-
-        dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
-
-        slab = await s_lmdbslab.Slab.anit(dirn)
-        slab.addResizeCallback(self.checkFreeSpace)
-
-        self.jsonstor = await s_jsonstor.JsonStor.anit(slab, 'aha')  # type: s_jsonstor.JsonStor
-
-        async def fini():
-            await self.jsonstor.fini()
-            await slab.fini()
-
-        self.onfini(fini)
 
         self.slab.initdb('aha:provs')
         self.slab.initdb('aha:enrolls')
@@ -567,7 +664,30 @@ class AhaCell(s_cell.Cell):
 
         self.slab.initdb('aha:pools')
 
+        self.slab.initdb('svc:type:index')
+
+        # the service registry: the aha:svcs db is keyed by the full service
+        # name and stores the svc entry. the byiden/bytype dbs are dupsort
+        # indexes keyed by the ( immutable ) service iden / type with the
+        # service names stored as duplicate values.
+        self.slab.initdb('aha:svcs')
+        self.slab.initdb('aha:svcs:byiden', dupsort=True)
+        self.slab.initdb('aha:svcs:bytype', dupsort=True)
+
+        # tracks the session iden which currently holds a service online,
+        # keyed by service name. the service entry itself carries only a
+        # boolean online flag.
+        self.slab.initdb('svc:sess')
+
+        # leadership terms tracked per service type. aha:lead:term is keyed by
+        # the service type and stores the current term. aha:lead:terms stores
+        # the historical terms keyed by <type>\x00<nexsoffs><created> so they
+        # sort chronologically within a type for range scans.
+        self.slab.initdb('aha:lead:term')
+        self.slab.initdb('aha:lead:terms')
+
         self.poolwindows = collections.defaultdict(list)
+        self.topowindows = []
 
     async def getAhaServer(self, host, port):
         lkey = s_msgpack.en((host, port))
@@ -603,6 +723,8 @@ class AhaCell(s_cell.Cell):
 
         await self.slab.put(lkey, s_msgpack.en(server), db='aha:servers')
 
+        await self._fireTopoAhaServers()
+
         return True
 
     @s_nexus.Pusher.onPushAuto('aha:server:del')
@@ -613,6 +735,8 @@ class AhaCell(s_cell.Cell):
         byts = self.slab.pop(lkey, db='aha:servers')
         if byts is None:
             return None
+
+        await self._fireTopoAhaServers()
 
         return s_msgpack.un(byts)
 
@@ -633,12 +757,12 @@ class AhaCell(s_cell.Cell):
             # pre-load the current state
             for svcname in poolinfo.get('services'):
 
-                svcitem = await self.jsonstor.getPathObj(('aha', 'services', svcname))
-                if not svcitem:
+                svcentry = self._getSvcEntry(svcname)
+                if not svcentry:
                     logger.warning(f'Pool ({name}) includes service ({svcname}) which does not exist.')
                     continue
 
-                await wind.put(('svc:add', svcitem))
+                await wind.put(('svc:add', svcentry))
 
             # subscribe to changes
             self.poolwindows[name].append(wind)
@@ -651,6 +775,52 @@ class AhaCell(s_cell.Cell):
             async for mesg in wind:
                 yield mesg
 
+    async def getAhaTopo(self):
+
+        async with await s_queue.Window.anit(maxsize=10000) as wind:
+
+            # register the window under the nexus lock so that no topology
+            # mutation may run between registration and the snapshot without
+            # also being delivered through the window. the lock is held only
+            # for the ( cheap ) registration, not the service scan below, so
+            # that concurrent registrations are not blocked.
+            async with self.nexslock:
+
+                self.topowindows.append(wind)
+                async def onfini():
+                    self.topowindows.remove(wind)
+
+                wind.onfini(onfini)
+
+            # stream the current snapshot ( read without holding the lock )
+            # followed by the sync sentinel. any change that races the snapshot
+            # is also queued in the window and applied idempotently after it,
+            # so the client converges on the correct topology state.
+            yield ('aha:servers', {'urls': await self.getAhaUrls()})
+
+            async for svcentry in self.getAhaSvcs():
+                yield ('svc:add', {'entry': svcentry})
+
+            yield ('svc:sync', {})
+
+            async for mesg in wind:
+                yield mesg
+
+    async def _fireTopoMod(self, svcentry):
+        for wind in tuple(self.topowindows):
+            await wind.put(('svc:mod', {'entry': svcentry}))
+
+    async def _fireTopoDel(self, name):
+        for wind in tuple(self.topowindows):
+            await wind.put(('svc:del', {'name': name}))
+
+    async def _fireTopoAhaServers(self):
+        # the set of AHA servers changed ( e.g. a new clone called in ): push
+        # the current urls so clients update their stored AHA server list.
+        urls = await self.getAhaUrls()
+        for wind in tuple(self.topowindows):
+            await wind.put(('aha:servers', {'urls': urls}))
+
     def _initCellHttpApis(self):
         s_cell.Cell._initCellHttpApis(self)
         self.addHttpApi('/api/v3/aha/services', AhaServicesV3, {'cell': self})
@@ -658,21 +828,21 @@ class AhaCell(s_cell.Cell):
 
     async def callAhaSvcApi(self, name, todo, timeout=None):
         name = self._getAhaName(name)
-        svcdef = await self._getAhaSvc(name)
-        return self._callAhaSvcApi(svcdef, todo, timeout=timeout)
+        svcentry = await self._getAhaSvc(name)
+        return self._callAhaSvcApi(svcentry, todo, timeout=timeout)
 
-    async def _callAhaSvcApi(self, svcdef, todo, timeout=None):
+    async def _callAhaSvcApi(self, svcentry, todo, timeout=None):
         try:
-            proxy = await self.getAhaSvcProxy(svcdef, timeout=timeout)
+            proxy = await self.getAhaSvcProxy(svcentry, timeout=timeout)
             meth = getattr(proxy, todo[0])
             return await s_common.waitretn(meth(*todo[1], **todo[2]), timeout=timeout)
         except Exception as e:
             # in case proxy construction fails
             return (False, s_common.excinfo(e))
 
-    async def _callAhaSvcGenr(self, svcdef, todo, timeout=None):
+    async def _callAhaSvcGenr(self, svcentry, todo, timeout=None):
         try:
-            proxy = await self.getAhaSvcProxy(svcdef, timeout=timeout)
+            proxy = await self.getAhaSvcProxy(svcentry, timeout=timeout)
             meth = getattr(proxy, todo[0])
             async for item in s_common.waitgenr(meth(*todo[1], **todo[2]), timeout=timeout):
                 yield item
@@ -683,17 +853,17 @@ class AhaCell(s_cell.Cell):
     async def getAhaSvcsByIden(self, iden, online=True, skiprun=None):
 
         runs = set()
-        async for svcdef in self.getAhaSvcs():
+        for svcname in self._getSvcNamesByIden(iden):
             await asyncio.sleep(0)
 
-            # TODO services by iden indexes (SYN-8467)
-            if svcdef['svcinfo'].get('iden') != iden:
+            svcentry = self._getSvcEntry(svcname)
+            if svcentry is None: # pragma: no cover
                 continue
 
-            if online and svcdef['svcinfo'].get('online') is None:
+            if online and not svcentry.get('online'):
                 continue
 
-            svcrun = svcdef['svcinfo'].get('run')
+            svcrun = svcentry['info'].get('run')
             if svcrun in runs:
                 continue
 
@@ -701,13 +871,13 @@ class AhaCell(s_cell.Cell):
                 continue
 
             runs.add(svcrun)
-            yield svcdef
+            yield svcentry
 
-    def getAhaSvcUrl(self, svcdef, user='root'):
-        name = svcdef.get('name')
+    def getAhaSvcUrl(self, svcentry, user='root'):
+        name = svcentry.get('name')
         network = self.conf.get('aha:network')
-        host = svcdef['svcinfo']['urlinfo']['host']
-        port = svcdef['svcinfo']['urlinfo']['port']
+        host = svcentry['info']['urlinfo']['host']
+        port = svcentry['info']['urlinfo']['port']
         return f'ssl://{host}:{port}?hostname={name}&certname={user}@{network}'
 
     async def callAhaPeerApi(self, iden, todo, timeout=None, skiprun=None):
@@ -720,14 +890,14 @@ class AhaCell(s_cell.Cell):
         queue = asyncio.Queue()
         async with await s_base.Base.anit() as base:
 
-            async def call(svcdef):
-                name = svcdef.get('name')
-                await queue.put((name, await self._callAhaSvcApi(svcdef, todo, timeout=timeout)))
+            async def call(svcentry):
+                name = svcentry.get('name')
+                await queue.put((name, await self._callAhaSvcApi(svcentry, todo, timeout=timeout)))
 
             count = 0
-            async for svcdef in self.getAhaSvcsByIden(iden, skiprun=skiprun):
+            async for svcentry in self.getAhaSvcsByIden(iden, skiprun=skiprun):
                 count += 1
-                base.schedCoro(call(svcdef))
+                base.schedCoro(call(svcentry))
 
             for i in range(count):
                 yield await queue.get()
@@ -742,18 +912,18 @@ class AhaCell(s_cell.Cell):
         queue = asyncio.Queue()
         async with await s_base.Base.anit() as base:
 
-            async def call(svcdef):
-                name = svcdef.get('name')
+            async def call(svcentry):
+                name = svcentry.get('name')
                 try:
-                    async for item in self._callAhaSvcGenr(svcdef, todo, timeout=timeout):
+                    async for item in self._callAhaSvcGenr(svcentry, todo, timeout=timeout):
                         await queue.put((name, item))
                 finally:
                     await queue.put(None)
 
             count = 0
-            async for svcdef in self.getAhaSvcsByIden(iden, skiprun=skiprun):
+            async for svcentry in self.getAhaSvcsByIden(iden, skiprun=skiprun):
                 count += 1
-                base.schedCoro(call(svcdef))
+                base.schedCoro(call(svcentry))
 
             while count > 0:
 
@@ -798,6 +968,8 @@ class AhaCell(s_cell.Cell):
             user = self.conf.get('aha:admin')
             if user is not None:
                 await self._genUserCert(user, signas=netw)
+
+        return await super().initServiceRuntime()
 
     def _getDnsName(self):
         # emulate the old aha name.network behavior if the
@@ -863,6 +1035,7 @@ class AhaCell(s_cell.Cell):
             await self.addAhaServer(server)
 
         self.provdmon = None
+        self.provmcast = None
 
         provurl = self._getProvListen()
         if provurl is not None:
@@ -871,17 +1044,84 @@ class AhaCell(s_cell.Cell):
             logger.info(f'provision listening: {provurl}')
             self.provaddr = await self.provdmon.listen(provurl)
 
+            secret = os.environ.get('SYN_PROVISION_SECRET')
+            if secret is not None:
+                await self._initProvMcast(secret)
+
+    async def _initProvMcast(self, secret):
+
+        key = s_provision.deriveKey(secret)
+
+        self.provmcast = await s_provision.ProvCast.anit(key, s_provision.DEFAULT_MCAST_PORT,
+                                                         group=s_provision.DEFAULT_MCAST_GROUP, join=True)
+        self.onfini(self.provmcast)
+
+        logger.info(f'provision discovery listening: {s_provision.DEFAULT_MCAST_GROUP}:{s_provision.DEFAULT_MCAST_PORT}')
+
+        self.schedCoro(self._runProvMcast())
+
+    async def _runProvMcast(self):
+
+        while not self.isfini:
+
+            item = await self.provmcast.recv()
+            if item is None: # pragma: no cover
+                continue
+
+            mesg, addr = item
+            await self._onProvMcastReq(mesg, addr)
+
+    async def _onProvMcastReq(self, mesg, addr):
+
+        # only the current leader services provisioning requests.
+        if not self.isactive:
+            return
+
+        try:
+            s_schemas.reqValidProvRequest(mesg)
+        except s_exc.SchemaViolation:
+            logger.warning('Ignoring invalid provision discovery request.')
+            return
+
+        mtype = mesg.get('type')
+        data = mesg.get('data')
+
+        try:
+            if mtype == 'aha':
+                # enroll the sender as a clone of this ( leader ) AHA service.
+                url = await self.addAhaClone(data.get('host'), port=data.get('port', 27492))
+
+            else:
+                celltype = data.get('type')
+                name = await self._getProvMcastName(celltype)
+                url = await self.addAhaSvcProv(name)
+
+            resp = {'type': 'retn', 'data': (True, {'url': url})}
+
+        except Exception as e:
+            logger.exception(f'Error auto-provisioning discovery request of type {mtype}')
+            resp = {'type': 'retn', 'data': s_common.retnexc(e)}
+
+        self.provmcast.send(resp, addr)
+
+    async def _getProvMcastName(self, celltype):
+
+        # each instance of a service type provisions as NNN.<type>. the first to
+        # register a leadership term becomes the leader; the rest follow it.
+        indx = await self.getSvcTypeIndex(celltype)
+        return f'{indx:03d}.{celltype}'
+
     async def _clearInactiveSessions(self):
 
-        async for svc in self.getAhaSvcs():
+        async for svcentry in self.getAhaSvcs():
 
-            if svc.get('svcinfo', {}).get('online') is None:
+            name = svcentry.get('name')
+
+            linkiden = self._getSvcSess(name)
+            if linkiden is None:
                 continue
 
             current_sessions = {s_common.guid(iden) for iden in self.dmon.sessions.keys()}
-
-            name = svc.get('name')
-            linkiden = svc.get('svcinfo').get('online')
 
             if linkiden not in current_sessions:
                 logger.info(f'AhaCell activecoro setting service offline [{name}]', extra=self.getLogExtra(name=name))
@@ -899,7 +1139,7 @@ class AhaCell(s_cell.Cell):
             async with self.nexslock:
 
                 retn = await self.getAhaSvc(name)
-                if retn and retn['svcinfo'].get('online') is not None:
+                if retn and retn.get('online'):
                     return retn
 
                 waiter = self.waiter(1, 'aha:svc:add')
@@ -916,8 +1156,7 @@ class AhaCell(s_cell.Cell):
             async with self.nexslock:
 
                 retn = await self.getAhaSvc(name)
-                online = retn['svcinfo'].get('online')
-                if online is None:
+                if not retn.get('online'):
                     return retn
 
                 waiter = self.waiter(1, 'aha:svc:down')
@@ -925,10 +1164,109 @@ class AhaCell(s_cell.Cell):
             if await waiter.wait(timeout=timeout) is None:
                 raise s_exc.TimeOut(mesg='Timeout waiting for aha:svc:down')
 
+    async def _waitAhaSvcLeader(self, celltype, timeout=None):
+
+        # poll for the cell type to resolve to an online leader. leadership is
+        # driven by the current leadership term ( which may flag an already
+        # registered service ) rather than a fresh aha:svc:add, so we re-check
+        # rather than only waiting on registration events.
+        async def poll():
+            while not self.isfini:
+                svcentry = await self.getAhaSvcByType(celltype)
+                if svcentry is not None:
+                    return svcentry
+
+                if await self.waitfini(timeout=0.1):  # pragma: no cover
+                    return None
+
+        try:
+            return await asyncio.wait_for(poll(), timeout=timeout)
+        except asyncio.TimeoutError:  # pragma: no cover
+            mesg = f'Timeout waiting for an online leader of type {celltype}'
+            raise s_exc.TimeOut(mesg=mesg) from None
+
+    def _getSvcEntry(self, name):
+        byts = self.slab.get(name.encode(), db='aha:svcs')
+        if byts is None:
+            return None
+
+        return s_msgpack.un(byts)
+
+    def _getSvcSess(self, name):
+        # return the session iden which currently holds the service online.
+        byts = self.slab.get(name.encode(), db='svc:sess')
+        if byts is None:
+            return None
+
+        return byts.decode()
+
+    async def _setSvcEntry(self, svcentry):
+
+        name = svcentry.get('name')
+        info = svcentry.get('info')
+
+        # the leader flag is managed exclusively by the leadership terms: an
+        # entry is the leader when its name matches the current term for its type.
+        svctype = info.get('type')
+        term = self._getLeadTerm(svctype) if svctype is not None else None
+        svcentry['leader'] = term is not None and term.get('name') == name
+
+        lkey = name.encode()
+
+        # drop stale index rows if a re-registration changed the iden/type.
+        oldb = self.slab.get(lkey, db='aha:svcs')
+        if oldb is not None:
+
+            oldinfo = s_msgpack.un(oldb).get('info')
+
+            oldiden = oldinfo.get('iden')
+            if oldiden is not None and oldiden != info.get('iden'):
+                self.slab.delete(oldiden.encode(), lkey, db='aha:svcs:byiden')
+
+            oldtype = oldinfo.get('type')
+            if oldtype is not None and oldtype != info.get('type'):
+                self.slab.delete(oldtype.encode(), lkey, db='aha:svcs:bytype')
+
+        await self.slab.put(lkey, s_msgpack.en(svcentry), db='aha:svcs')
+
+        iden = info.get('iden')
+        if iden is not None:
+            await self.slab.put(iden.encode(), lkey, dupdata=True, db='aha:svcs:byiden')
+
+        celltype = info.get('type')
+        if celltype is not None:
+            await self.slab.put(celltype.encode(), lkey, dupdata=True, db='aha:svcs:bytype')
+
+    async def _popSvcEntry(self, name):
+
+        lkey = name.encode()
+
+        byts = self.slab.pop(lkey, db='aha:svcs')
+        if byts is None:
+            return None
+
+        svcentry = s_msgpack.un(byts)
+        info = svcentry.get('info')
+
+        iden = info.get('iden')
+        if iden is not None:
+            self.slab.delete(iden.encode(), lkey, db='aha:svcs:byiden')
+
+        celltype = info.get('type')
+        if celltype is not None:
+            self.slab.delete(celltype.encode(), lkey, db='aha:svcs:bytype')
+
+        return svcentry
+
+    def _getSvcNamesByType(self, celltype):
+        return [byts.decode() for _, byts in self.slab.scanByDups(celltype.encode(), db='aha:svcs:bytype')]
+
+    def _getSvcNamesByIden(self, iden):
+        return [byts.decode() for _, byts in self.slab.scanByDups(iden.encode(), db='aha:svcs:byiden')]
+
     async def getAhaSvcs(self):
-        path = ('aha', 'services')
-        async for path, item in self.jsonstor.getPathObjs(path):
-            yield item
+        for _, byts in self.slab.scanByFull(db='aha:svcs'):
+            yield s_msgpack.un(byts)
 
     @s_nexus.Pusher.onPushAuto('aha:svc:mod')
     async def modAhaSvcInfo(self, name, svcinfo):
@@ -938,50 +1276,126 @@ class AhaCell(s_cell.Cell):
             return False
 
         name = svcentry.get('name')
-        path = ('aha', 'services', name)
+
+        # re-fetch the raw stored entry ( getAhaSvc may resolve pools/types )
+        svcentry = self._getSvcEntry(name)
+        if svcentry is None: # pragma: no cover
+            return False
 
         for prop, valu in svcinfo.items():
-            await self.jsonstor.setPathObjProp(path, ('svcinfo', prop), valu)
+            svcentry['info'][prop] = valu
+
+        await self._setSvcEntry(svcentry)
+
+        await self._fireTopoMod(svcentry)
+
         return True
 
-    @s_nexus.Pusher.onPushAuto('aha:svc:add')
     async def addAhaSvc(self, name, info):
 
         name = self._getAhaName(name)
 
-        path = ('aha', 'services', name)
+        self._reqSvcType(info)
+        await self._reqSvcTypeUnique(info)
+
+        return await self._push('aha:svc:add', name, info)
+
+    def _reqSvcType(self, info):
+        # implementers must override the service type. the base ``cell`` type
+        # is not a deployable service and may not register with AHA.
+        if info.get('type') == 'cell':
+            mesg = 'AHA service type cell may not register; implementers must override the service type.'
+            raise s_exc.BadArg(mesg=mesg, celltype='cell')
+
+    async def _reqSvcTypeUnique(self, info):
+        # enforce that only one instance ( iden ) of a given cell type may
+        # register with this AHA deployment. leader + mirrors share an iden
+        # so they are allowed to re-register. online=False so that an offline
+        # instance still holds the type until it is explicitly removed.
+        celltype = info.get('type')
+        if celltype is None:
+            return
+
+        iden = info.get('iden')
+
+        async for svcentry in self.getAhaSvcsByType(celltype, online=False):
+
+            if svcentry['info'].get('iden') == iden:
+                continue
+
+            mesg = f'AHA service type {celltype} is already registered by a different service instance.'
+            raise s_exc.BadArg(mesg=mesg, celltype=celltype)
+
+    @s_nexus.Pusher.onPush('aha:svc:add')
+    async def _addAhaSvc(self, name, info):
 
         unfo = info.get('urlinfo')
         logger.info(f'Adding service [{name}] from [{unfo.get("scheme")}://{unfo.get("host")}:{unfo.get("port")}]',
                      extra=self.getLogExtra(name=name))
 
-        svcinfo = {
+        # the online session iden is tracked in the svc:sess db rather than
+        # within the service info. the entry itself carries a boolean flag and
+        # the stored info omits the session key ( without mutating the caller ).
+        session = info.get('session')
+
+        svcinfo = {k: v for (k, v) in info.items() if k != 'session'}
+
+        svcentry = {
             'name': name,
-            'svcinfo': info,
+            'info': svcinfo,
+            'online': session is not None,
         }
 
-        await self.jsonstor.setPathObj(path, svcinfo)
+        # compute the derived leader flag the same way _setSvcEntry does so an
+        # unchanged re-registration ( e.g. a nexus replay or a redundant
+        # check-in ) can be detected and fire no events.
+        svctype = svcinfo.get('type')
+        term = self._getLeadTerm(svctype) if svctype is not None else None
+        svcentry['leader'] = term is not None and term.get('name') == name
+
+        # distinguish a newly added service from an existing service which is
+        # checking back in ( e.g. a reconnect ). if nothing changed, do not
+        # fire any events.
+        oldentry = self._getSvcEntry(name)
+        if oldentry is not None:
+
+            if (s_common.flatten(svcentry) == s_common.flatten(oldentry) and
+                    self._getSvcSess(name) == session):
+                return
+
+            evnt = 'svc:mod'
+
+        else:
+            evnt = 'svc:add'
+
+        await self._setSvcEntry(svcentry)
+
+        if session is not None:
+            await self.slab.put(name.encode(), session.encode(), db='svc:sess')
+
+        for wind in tuple(self.topowindows):
+            await wind.put((evnt, {'entry': svcentry}))
 
         # mostly for testing...
-        await self.fire('aha:svc:add', svcinfo=svcinfo)
+        await self.fire('aha:svc:add', svcentry=svcentry)
 
-    async def getAhaSvcProxy(self, svcdef, timeout=None):
+    async def getAhaSvcProxy(self, svcentry, timeout=None):
 
-        client = await self.getAhaSvcClient(svcdef)
+        client = await self.getAhaSvcClient(svcentry)
         if client is None:
             return None
 
         return await client.proxy(timeout=timeout)
 
-    async def getAhaSvcClient(self, svcdef):
+    async def getAhaSvcClient(self, svcentry):
 
-        svcfull = svcdef.get('name')
+        svcfull = svcentry.get('name')
 
         client = self.clients.get(svcfull)
         if client is not None:
             return client
 
-        svcurl = self.getAhaSvcUrl(svcdef)
+        svcurl = self.getAhaSvcUrl(svcentry)
 
         client = self.clients[svcfull] = await s_telepath.ClientV2.anit(svcurl)
         async def fini():
@@ -1057,7 +1471,7 @@ class AhaCell(s_cell.Cell):
         svcname = self._getAhaName(svcname)
         poolname = self._getAhaName(poolname)
 
-        svcitem = await self._reqAhaSvc(svcname)
+        svcentry = await self._reqAhaSvc(svcname)
 
         poolinfo = self._loadPoolInfo(poolname)
         poolinfo['services'][svcname] = info
@@ -1065,7 +1479,7 @@ class AhaCell(s_cell.Cell):
         self._savePoolInfo(poolinfo)
 
         for wind in self.poolwindows.get(poolname, ()):
-            await wind.put(('svc:add', svcitem))
+            await wind.put(('svc:add', svcentry))
 
         return poolinfo
 
@@ -1098,15 +1512,13 @@ class AhaCell(s_cell.Cell):
 
     async def _getAhaSvc(self, name):
         # no fancy auto-resolve, just get actual service
-        svcpath = ('aha', 'services', name)
-        return await self.jsonstor.getPathObj(svcpath)
+        return self._getSvcEntry(name)
 
     async def _reqAhaSvc(self, svcname):
-        svcpath = ('aha', 'services', svcname)
-        svcitem = await self.jsonstor.getPathObj(svcpath)
-        if svcitem is None:
+        svcentry = self._getSvcEntry(svcname)
+        if svcentry is None:
             raise s_exc.NoSuchName(mesg=f'No AHA service is currently named "{svcname}".', name=svcname)
-        return svcitem
+        return svcentry
 
     @s_nexus.Pusher.onPushAuto('aha:svc:del')
     async def delAhaSvc(self, name):
@@ -1115,8 +1527,21 @@ class AhaCell(s_cell.Cell):
 
         logger.info(f'Deleting service [{name}].', extra=self.getLogExtra(name=name))
 
-        path = ('aha', 'services', name)
-        await self.jsonstor.delPathObj(path)
+        svcentry = self._getSvcEntry(name)
+
+        await self._popSvcEntry(name)
+
+        # drop the online tracking for the removed service.
+        self.slab.delete(name.encode(), db='svc:sess')
+
+        await self._fireTopoDel(name)
+
+        # if this was the last service of its type, pop the current leadership
+        # term so a future service of that type may start clean as the leader.
+        if svcentry is not None:
+            svctype = svcentry['info'].get('type')
+            if svctype is not None and not self._getSvcNamesByType(svctype):
+                self.slab.pop(svctype.encode(), db='aha:lead:term')
 
         # mostly for testing...
         await self.fire('aha:svc:del', name=name)
@@ -1125,9 +1550,11 @@ class AhaCell(s_cell.Cell):
 
         name = self._getAhaName(name)
 
-        path = ('aha', 'services', name)
-        svcinfo = await self.jsonstor.getPathObjProp(path, 'svcinfo')
-        if svcinfo.get('online') is None:
+        svcentry = self._getSvcEntry(name)
+        if svcentry is None:
+            return
+
+        if not svcentry.get('online'):
             return
 
         await self._push('aha:svc:down', name, linkiden)
@@ -1137,10 +1564,16 @@ class AhaCell(s_cell.Cell):
 
         name = self._getAhaName(name)
 
-        path = ('aha', 'services', name)
+        # compare-and-set: only clear online if it still matches linkiden.
+        svcentry = self._getSvcEntry(name)
+        if svcentry is not None:
 
-        if await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden):
-            await self.jsonstor.setPathObjProp(path, 'svcinfo/ready', False)
+            if self._getSvcSess(name) == linkiden:
+                self.slab.delete(name.encode(), db='svc:sess')
+                svcentry['online'] = False
+                svcentry['info']['ready'] = False
+                await self._setSvcEntry(svcentry)
+                await self._fireTopoMod(svcentry)
 
         # Check if we have any links which may need to be removed
         current_sessions = {s_common.guid(iden): sess for iden, sess in self.dmon.sessions.items()}
@@ -1161,15 +1594,14 @@ class AhaCell(s_cell.Cell):
 
         name = self._getAhaName(name)
 
-        path = ('aha', 'services', name)
-        svcentry = await self.jsonstor.getPathObj(path)
+        svcentry = self._getSvcEntry(name)
 
         if svcentry is not None:
 
             # if they requested a mirror, try to locate one
             if filters is not None and filters.get('mirror'):
 
-                svcinfo = svcentry.get('svcinfo')
+                svcinfo = svcentry.get('info')
                 if svcinfo is None: # pragma: no cover
                     return svcentry
 
@@ -1192,9 +1624,81 @@ class AhaCell(s_cell.Cell):
                 mesg = f'No services configured for pool: {name}'
                 raise s_exc.BadArg(mesg=mesg)
 
-            svcentry = await self.jsonstor.getPathObj(('aha', 'services', random.choice(svcnames)))
-            svcentry = s_msgpack.deepcopy(svcentry)
+            # _getSvcEntry returns a fresh copy, so it is safe to mutate
+            svcentry = self._getSvcEntry(random.choice(svcnames))
             svcentry.update(pooldef)
+
+            return svcentry
+
+        # fall back to resolving a bare label as a cell type. this allows
+        # aha://<type>... URLs to locate the single instance of a cell type.
+        celltype = self._getSvcTypeFromName(name)
+        if celltype is not None:
+            return await self.getAhaSvcByType(celltype, filters=filters)
+
+        return None
+
+    def _getSvcTypeFromName(self, name):
+        # a fully qualified name whose sole label ( minus the network suffix )
+        # contains no dots may be resolved as a cell type.
+        netw = self.conf.get('aha:network')
+        if netw is None: # pragma: no cover
+            return None
+
+        suffix = f'.{netw}'
+        if not name.endswith(suffix):
+            return None
+
+        label = name[:-len(suffix)]
+        if not label or '.' in label:
+            return None
+
+        return label
+
+    async def getAhaSvcsByType(self, celltype, online=True):
+        # yield a single svcentry per instance ( iden ) of a cell type.
+        idens = set()
+
+        for svcname in self._getSvcNamesByType(celltype):
+            await asyncio.sleep(0)
+
+            svcentry = self._getSvcEntry(svcname)
+            if svcentry is None: # pragma: no cover
+                continue
+
+            svcinfo = svcentry.get('info')
+
+            if online and not svcentry.get('online'):
+                continue
+
+            iden = svcinfo.get('iden')
+            if iden in idens:
+                continue
+
+            idens.add(iden)
+            yield svcentry
+
+    async def getAhaSvcByType(self, celltype, filters=None):
+        # return a single connectable svcentry for a cell type. prefer the
+        # online leader so that failover follows the active instance.
+        for svcname in self._getSvcNamesByType(celltype):
+
+            svcentry = self._getSvcEntry(svcname)
+            if svcentry is None: # pragma: no cover
+                continue
+
+            svcinfo = svcentry.get('info')
+
+            if not svcentry.get('online'):
+                continue
+
+            if not svcentry.get('leader'):
+                continue
+
+            if filters is not None and filters.get('mirror'):
+                mirrors = await self.getAhaSvcMirrors(svcinfo.get('iden'))
+                if mirrors:
+                    return random.choice(mirrors)
 
             return svcentry
 
@@ -1204,27 +1708,228 @@ class AhaCell(s_cell.Cell):
 
         retn = {}
 
-        async for svcentry in self.getAhaSvcs():
+        for svcname in self._getSvcNamesByIden(iden):
 
-            svcinfo = svcentry.get('svcinfo')
-            if svcinfo is None: # pragma: no cover
+            svcentry = self._getSvcEntry(svcname)
+            if svcentry is None: # pragma: no cover
                 continue
 
-            if svcinfo.get('iden') != iden: # pragma: no cover
-                continue
+            svcinfo = svcentry.get('info')
 
-            if svcinfo.get('online') is None: # pragma: no cover
+            if not svcentry.get('online'):
                 continue
 
             if not svcinfo.get('ready'):
                 continue
 
-            if svcinfo.get('isleader'):
+            if svcentry.get('leader'):
                 continue
 
             retn[svcinfo.get('run')] = svcentry
 
         return list(retn.values())
+
+    def _getSvcTypeIndex(self, name):
+        byts = self.slab.get(name.encode(), db='svc:type:index')
+        if byts is None:
+            return 0
+        return s_msgpack.un(byts)
+
+    @s_nexus.Pusher.onPush('aha:svc:type:index:set')
+    async def _setAhaSvcTypeIndex(self, name, curv, valu):
+        # interlocked check-and-set: only update the index if the stored value
+        # still matches curv. returns True if the value was updated.
+        if self._getSvcTypeIndex(name) != curv:
+            return False
+
+        await self.slab.put(name.encode(), s_msgpack.en(valu), db='svc:type:index')
+        return True
+
+    async def setAhaSvcTypeIndex(self, name, valu):
+        # explicitly set the service type index to valu.
+        while not self.isfini:
+            curv = self._getSvcTypeIndex(name)
+            if await self._push('aha:svc:type:index:set', name, curv, valu):
+                return valu
+
+    async def getSvcTypeIndex(self, name):
+        # local only: atomically return the next index for a service type and
+        # advance the stored value.
+        while not self.isfini:
+            curv = self._getSvcTypeIndex(name)
+            if await self._push('aha:svc:type:index:set', name, curv, curv + 1):
+                return curv
+
+    def _getLeadTerm(self, svctype):
+        byts = self.slab.get(svctype.encode(), db='aha:lead:term')
+        if byts is None:
+            return None
+
+        return s_msgpack.un(byts)
+
+    def _getLeadTerms(self, svctype):
+        # return the historical terms for a service type in chronological order.
+        prefix = svctype.encode() + b'\x00'
+        return [s_msgpack.un(byts) for _, byts in self.slab.scanByPref(prefix, db='aha:lead:terms')]
+
+    def _getNextLeadTerm(self, svctype, term, svcname):
+        # Return the term, created after the caller's own ( term ), which forked
+        # at the lowest service nexus offset, or None. A schism can only occur
+        # when the caller *led* its own last acknowledged term ( otherwise it was
+        # only ever a follower and never wrote divergent changes ). The history is
+        # keyed by AHA's monotonic nexus offset ( stored as the term ``id`` ), so
+        # the caller's own id bounds a scan of only the terms created after it. We
+        # consider every such later term rather than only the immediately
+        # following one, because a lagging peer force-promoted at a low service
+        # offset can create a superseding term *after* one at a higher offset. A
+        # caller with no known term ( or one lacking an id ) has nothing to anchor
+        # against.
+        if term is None:
+            return None
+
+        termoffs = term.get('id')
+        if termoffs is None:  # pragma: no cover
+            return None
+
+        # if we did not lead our last term we were only ever a follower and
+        # cannot have entered a schism, so we simply follow.
+        if term.get('name') != svcname:
+            return None
+
+        prefix = svctype.encode() + b'\x00'
+        lmin = prefix + s_common.int64en(termoffs + 1)
+        lmax = prefix + b'\xff' * 8
+
+        nextterm = None
+        for _, byts in self.slab.scanByRange(lmin, lmax, db='aha:lead:terms'):
+
+            later = s_msgpack.un(byts)
+            if nextterm is None or later.get('nexsoffs') < nextterm.get('nexsoffs'):
+                nextterm = later
+
+        return nextterm
+
+    async def _makeLeadTerm(self, svctype, name, nexsoffs, created, ahaoffs):
+
+        iden = s_common.guid((svctype, name, nexsoffs, created))
+        term = {'iden': iden, 'name': name, 'nexsoffs': nexsoffs, 'created': created, 'id': ahaoffs}
+
+        s_schemas.reqValidLeadTerm(term)
+
+        await self.slab.put(svctype.encode(), s_msgpack.en(term), db='aha:lead:term')
+
+        # key the history by our own ( monotonic ) AHA nexus transaction offset,
+        # also stored as the term ``id``, so scans walk the terms in the order
+        # they were created and a caller can anchor a bounded scan at its own
+        # term. the service nexus offset stored in the term ( nexsoffs ) is a
+        # different value which is not monotonic across leadership changes.
+        lkey = svctype.encode() + b'\x00' + s_common.int64en(ahaoffs)
+        await self.slab.put(lkey, s_msgpack.en(term), db='aha:lead:terms')
+
+        # re-flag the registered services of this type so the leader follows the
+        # new term ( _setSvcEntry recomputes the leader flag from the term ).
+        for svcname in self._getSvcNamesByType(svctype):
+            svcentry = self._getSvcEntry(svcname)
+            if svcentry is not None:
+                await self._setSvcEntry(svcentry)
+
+        # notify topology subscribers of the leadership term change. the term
+        # is enveloped ( with its service type ) so the message may carry
+        # additional fields in future and clients need not cache the leader.
+        for wind in tuple(self.topowindows):
+            await wind.put(('svc:lead', {'type': svctype, 'term': term}))
+
+        return term
+
+    async def getLeadTerm(self, svctype):
+        # return the current leadership term for a service type ( or None ).
+        return self._getLeadTerm(svctype)
+
+    async def promote(self, graceful=False):
+        # AHA cells cannot resolve their own leader via aha:// ( they are the
+        # registry ), so they follow via an explicit parent. Manage that config
+        # directly on promotion rather than relying on dynamic resolution.
+        if graceful:
+            upstream = self.getParentUrl()
+            if upstream is not None:
+                myurl = self.getMyUrl()
+                logger.warning('PROMOTION: Requesting leadership handoff from the current leader.')
+                async with await s_telepath.openurl(upstream) as lead:
+                    await lead.handoff(myurl)
+                return
+
+        # a promoted AHA cell becomes the leader and follows no upstream; drop the
+        # explicit parent so it does not re-follow on restart ( and so the base
+        # promotion guard permits the promotion ).
+        if self.conf.get('parent') is not None:
+            self.modCellConf({'parent': None})
+
+        await s_cell.Cell.promote(self, graceful=graceful)
+
+    async def handoff(self, turl, timeout=30):
+        await s_cell.Cell.handoff(self, turl, timeout=timeout)
+
+        # a demoted AHA leader follows the new leader via an explicit ( persisted )
+        # parent, since it cannot resolve the leader dynamically via aha://.
+        self.modCellConf({'parent': turl})
+        await self.nexsroot.startup()
+
+    async def regLeadTerm(self, svctype, svcname, nexsoffs, term=None):
+        '''
+        Register a service with the leadership term for its service type and
+        return the current term. The caller passes its own last acknowledged
+        term ( or None ) so the schism check can anchor on it. If the returned
+        term name matches svcname, the caller should take leadership. If the
+        caller has diverged from the term history, a LeaderSchism error is raised
+        and the caller must be restored from a backup.
+        '''
+        created = s_common.now()
+
+        curterm = await self._push('aha:lead:term:reg', svctype, svcname, nexsoffs, term, created)
+        if curterm is None:
+            mesg = f'Service {svcname} at nexus offset {nexsoffs} is in schism! Restore from backup!'
+            raise s_exc.LeaderSchism(mesg=mesg, svctype=svctype, name=svcname, nexsoffs=nexsoffs)
+
+        return curterm
+
+    @s_nexus.Pusher.onPush('aha:lead:term:reg', passitem=True)
+    async def _regLeadTerm(self, svctype, svcname, nexsoffs, term, created, nexsitem):
+
+        curterm = self._getLeadTerm(svctype)
+
+        # if there is no current term or we are the current leader, we ( re )take
+        # leadership by creating a new term at our current nexus offset.
+        if curterm is None or curterm.get('name') == svcname:
+            return await self._makeLeadTerm(svctype, svcname, nexsoffs, created, nexsitem[0])
+
+        # if we have already acknowledged the current term there is no later term
+        # to have diverged from, so we simply follow the current leader. this is
+        # the common re-registration path and avoids scanning the term history.
+        if term is not None and term.get('iden') == curterm.get('iden'):
+            return curterm
+
+        # a different service is the current leader and we last acknowledged an
+        # older term. if the term which superseded ours began at a nexus offset
+        # below ours, we wrote changes a newer leader never saw and have entered
+        # a schism ( signalled by None ).
+        nextterm = self._getNextLeadTerm(svctype, term, svcname)
+        if nextterm is not None and nextterm.get('nexsoffs') < nexsoffs:
+            return None
+
+        # otherwise we are safely behind the current leader and join as a mirror.
+        return curterm
+
+    async def setLeadTerm(self, svctype, svcname, nexsoffs):
+        '''
+        Create a new leadership term for a service type. Used to record an API
+        driven promotion, whether graceful or forced.
+        '''
+        created = s_common.now()
+        return await self._push('aha:lead:term:set', svctype, svcname, nexsoffs, created)
+
+    @s_nexus.Pusher.onPush('aha:lead:term:set', passitem=True)
+    async def _setLeadTerm(self, svctype, svcname, nexsoffs, created, nexsitem):
+        return await self._makeLeadTerm(svctype, svcname, nexsoffs, created, nexsitem[0])
 
     async def getCaCert(self):
 
@@ -1361,7 +2066,7 @@ class AhaCell(s_cell.Cell):
 
         network = self.conf.req('aha:network')
 
-        conf['mirror'] = self.getMyUrl()
+        conf['parent'] = self.getMyUrl()
 
         conf['dns:name'] = host
         conf['aha:network'] = network
@@ -1409,8 +2114,7 @@ class AhaCell(s_cell.Cell):
         if ahaadmin is not None: # pragma: no cover
             conf.setdefault('aha:admin', ahaadmin)
 
-        ahauser = conf.setdefault('aha:user', 'root')
-        ahaurls = await self.getAhaUrls(user=ahauser)
+        ahaurls = await self.getAhaUrls()
 
         conf['aha:network'] = netw
 
@@ -1429,26 +2133,9 @@ class AhaCell(s_cell.Cell):
         if https_port is not s_common.novalu:
             conf.setdefault('https:port', https_port)
 
-        # if the relative name contains a dot, we are a mirror peer.
-        peer = name.find('.') != -1
-        leader = name.rsplit('.', 1)[-1]
+        conf.setdefault('aha:servers', ahaurls)
 
-        if peer:
-            conf.setdefault('aha:leader', leader)
-
-        conf.setdefault('aha:registry', ahaurls)
-
-        mirname = provinfo.get('mirror')
-        if mirname is not None:
-            conf['mirror'] = f'aha://{ahauser}@{mirname}...'
-
-        user = await self.auth.getUserByName(ahauser)
-        if user is None:
-            user = await self.auth.addUser(ahauser)
-
-        perm = ('aha', 'service', 'add')
-        if not user.allowed(perm):
-            await user.allow(perm)
+        # services connect as the root user, which is already an admin on AHA.
 
         iden = await self._push('aha:svc:prov:add', provinfo)
 

@@ -225,6 +225,10 @@ class Unpk:
             bytes from some sort of a stream, as it will unpack and return
             objects as they are available.
 
+            If this method raises an exception the Unpk object is left in an
+            undefined state and must not be reused; discard it and create a
+            new Unpk instead.
+
         Returns:
             list: List of tuples containing the item size and the unpacked item.
         '''

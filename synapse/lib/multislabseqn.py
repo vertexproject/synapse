@@ -15,7 +15,6 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.lmdbslab as s_lmdbslab
 
 from typing import List, Tuple, Dict, Optional, Any, AsyncIterator
@@ -57,15 +56,15 @@ class MultiSlabSeqn(s_base.Base):
 
         # The last/current slab
         self.tailslab: Optional[s_lmdbslab.Slab] = None
-        self.tailseqn: Optional[s_slabseqn.SlabSeqn] = None
+        self.tailseqn = None
 
         # The most recently accessed slab/seqn that isn't the tail
         self._cacheslab: Optional[s_lmdbslab.Slab] = None
-        self._cacheseqn: Optional[s_slabseqn.SlabSeqn] = None
+        self._cacheseqn = None
         self._cacheridx: Optional[int] = None
 
         # A startidx -> (Slab, Seqn) dict for all open Slabs, so we don't accidentally open the same Slab twice
-        self._openslabs: Dict[int, Tuple[s_lmdbslab.Slab, s_slabseqn.SlabSeqn]] = {}
+        self._openslabs = {}
 
         # Lock to avoid an open race
         self._openlock = asyncio.Lock()
@@ -271,7 +270,7 @@ class MultiSlabSeqn(s_base.Base):
 
         return True
 
-    async def _makeSlab(self, startidx: int) -> Tuple[s_lmdbslab.Slab, s_slabseqn.SlabSeqn]:
+    async def _makeSlab(self, startidx: int):
 
         async with self._openlock:  # Avoid race in two tasks making the same slab
 
@@ -298,7 +297,7 @@ class MultiSlabSeqn(s_base.Base):
             return slab, seqn
 
     @contextlib.asynccontextmanager
-    async def _getSeqn(self, ridx: int) -> AsyncIterator[s_slabseqn.SlabSeqn]:
+    async def _getSeqn(self, ridx: int):
         '''
         Get the sequence corresponding to an index into self._ranges
         '''

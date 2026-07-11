@@ -19,13 +19,16 @@ FROM ${BASE_PYTHON_IMAGE} AS default
 
 # Synapse defaults
 ENV SYN_LOG_LEVEL="INFO"
+ENV SYN_LOG_STRUCT="true"
 
-# Ensure our usage and downstream usage of pip works and will not cache files.
+# Ensure our usage and downstream usage of pip will not cache files
+# or prompt about root user actions.
 ENV PIP_NO_CACHE_DIR="1"
 ENV PIP_ROOT_USER_ACTION="ignore"
 
 COPY --from=builder /build/dist /build/dist/
 COPY docker/images/synapse/bootstrap.sh /build/bootstrap.sh
+COPY docker/images/synapse/dropprivs.sh /vertex/synapse/dropprivs.sh
 
 RUN /build/bootstrap.sh
 

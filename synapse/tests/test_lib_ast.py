@@ -20,7 +20,7 @@ foo_stormpkg = {
     'name': 'foo',
     'desc': 'The Foo Module',
     'version': (0, 0, 1),
-    'synapse_version': '>=3.0.0b1,<4.0.0',
+    'synapse_version': '>=3.0.0b2,<4.0.0',
     'modules': [
         {
             'name': 'hehe.haha',
@@ -683,37 +683,37 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[test:int=1 +#`foo`]')
             self.true(nodes[0].hasTag('foo'))
             self.len(1, await core.nodes('test:int=1 +#`foo`'))
-            self.nn(await core.callStorm('test:int=1 return((#`foo`))'))
+            self.none(await core.callStorm('test:int=1 return((#`foo`))'))
 
             nodes = await core.nodes('[test:int=2 +#`foo`.bar]')
             self.true(nodes[0].hasTag('foo.bar'))
             self.len(1, await core.nodes('test:int=2 +#`foo`.bar'))
-            self.nn(await core.callStorm('test:int=2 return((#`foo`.bar))'))
+            self.none(await core.callStorm('test:int=2 return((#`foo`.bar))'))
 
             nodes = await core.nodes('[test:int=3 +#foo.`bar`]')
             self.true(nodes[0].hasTag('foo.bar'))
             self.len(1, await core.nodes('test:int=3 +#foo.`bar`'))
-            self.nn(await core.callStorm('test:int=3 return((#foo.`bar`))'))
+            self.none(await core.callStorm('test:int=3 return((#foo.`bar`))'))
 
             nodes = await core.nodes('$bar=baz [test:int=4 +#`foo.{$bar}`]')
             self.true(nodes[0].hasTag('foo.baz'))
             self.len(1, await core.nodes('$bar=baz test:int=4 +#`foo.{$bar}`'))
-            self.nn(await core.callStorm('$bar=baz test:int=4 return((#`foo.{$bar}`))'))
+            self.none(await core.callStorm('$bar=baz test:int=4 return((#`foo.{$bar}`))'))
 
             nodes = await core.nodes('$bar=baz.faz [test:int=5 +#`foo.{$bar}`]')
             self.true(nodes[0].hasTag('foo.baz.faz'))
             self.len(1, await core.nodes('$bar=baz.faz test:int=5 +#`foo.{$bar}`'))
-            self.nn(await core.callStorm('$bar=baz.faz test:int=5 return((#`foo.{$bar}`))'))
+            self.none(await core.callStorm('$bar=baz.faz test:int=5 return((#`foo.{$bar}`))'))
 
             nodes = await core.nodes('$bar=baz.faz [test:int=6 +#`foo.{$bar}`.nice]')
             self.true(nodes[0].hasTag('foo.baz.faz.nice'))
             self.len(1, await core.nodes('$bar=baz.faz test:int=6 +#`foo.{$bar}`.nice'))
-            self.nn(await core.callStorm('$bar=baz.faz test:int=6 return((#`foo.{$bar}`.nice))'))
+            self.none(await core.callStorm('$bar=baz.faz test:int=6 return((#`foo.{$bar}`.nice))'))
 
             nodes = await core.nodes('$bar=baz.faz [test:int=7 +#cool.`foo.{$bar}`]')
             self.true(nodes[0].hasTag('cool.foo.baz.faz'))
             self.len(1, await core.nodes('$bar=baz.faz test:int=7 +#cool.`foo.{$bar}`'))
-            self.nn(await core.callStorm('$bar=baz.faz test:int=7 return((#cool.`foo.{$bar}`))'))
+            self.none(await core.callStorm('$bar=baz.faz test:int=7 return((#cool.`foo.{$bar}`))'))
 
             nodes = await core.nodes('$bar=baz.faz [test:int=8 +#cool.`foo.{$bar}`=2025]')
             self.true(nodes[0].hasTag('cool.foo.baz.faz'))
@@ -1326,12 +1326,12 @@ class AstTest(s_test.SynTest):
                 await core.nodes('test:arrayprop:ints*[^=asdf]')
 
             with self.raises(s_exc.BadTypeDef):
-                await core.addFormProp('test:int', '_hehe', ('array', {'type': None}), {})
+                await core.addFormProp('test:int', '_hehe', ('newp', {}), {'array': {}})
 
             with self.raises(s_exc.BadPropDef):
                 await core.addTagProp('_array', ('array', {'type': 'int'}), {})
 
-            await core.addFormProp('test:int', '_hehe', ('array', {'type': 'int'}), {})
+            await core.addFormProp('test:int', '_hehe', ('int', {}), {'array': {}})
             nodes = await core.nodes('[ test:int=9999 :_hehe=(1, 2, 3) ]')
             self.len(1, nodes)
             nodes = await core.nodes('test:int=9999 :_hehe -> *')
@@ -1641,13 +1641,13 @@ class AstTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': '0.0.1',
-            'synapse_version': '>=3.0.0b1,<4.0.0',
+            'synapse_version': '>=3.0.0b2,<4.0.0',
         }
 
         stormpkg = {
             'name': 'stormpkg',
             'version': '1.2.3',
-            'synapse_version': '>=3.0.0b1,<4.0.0',
+            'synapse_version': '>=3.0.0b2,<4.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.old',
@@ -1659,7 +1659,7 @@ class AstTest(s_test.SynTest):
         stormpkgnew = {
             'name': 'stormpkg',
             'version': '1.2.4',
-            'synapse_version': '>=3.0.0b1,<4.0.0',
+            'synapse_version': '>=3.0.0b2,<4.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.new',
@@ -1671,7 +1671,7 @@ class AstTest(s_test.SynTest):
         jsonpkg = {
             'name': 'jsonpkg',
             'version': '1.2.3',
-            'synapse_version': '>=3.0.0b1,<4.0.0',
+            'synapse_version': '>=3.0.0b2,<4.0.0',
             'docs': (
                 {
                  'title': 'User Guide',
@@ -4392,6 +4392,46 @@ class AstTest(s_test.SynTest):
             # Invalid cmpr on non-poly (Array) prop filter with virt
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:arrayprop +test:arrayprop:ints.size*newp=5')
+
+    async def test_ast_tagvalu(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[inet:fqdn=evil.com +#foo=(2019-09-08, 2021-09-08)]')
+            await core.nodes('[inet:dns:a=(woot.com, 1.2.3.4) :seen=(2019-09-08, 2021-09-08)]')
+
+            # a tag timestamp is repr'd the same way as an equivalent ival prop (SYN-10985)
+            tagrepr = '2019-09-08T00:00:00Z - 2021-09-08T00:00:00Z'
+
+            msgs = await core.stormlist('inet:fqdn=evil.com $time=#foo $lib.print($time)')
+            self.stormIsInPrint(tagrepr, msgs)
+
+            msgs = await core.stormlist('inet:dns:a $time=:seen $lib.print($time)')
+            self.stormIsInPrint(tagrepr, msgs)
+
+            # the tag value carries its type and normalized value like a prop value
+            self.eq('ival', await core.callStorm('inet:fqdn=evil.com $time=#foo return($time.type)'))
+            self.eq((1567900800000000, 1631059200000000, 63158400000000),
+                    await core.callStorm('inet:fqdn=evil.com $time=#foo return($time.value)'))
+
+            # the min/max/duration virts are reachable off the tag value
+            self.eq(1567900800000000, await core.callStorm('inet:fqdn=evil.com $time=#foo return($time.min)'))
+            self.eq(1631059200000000, await core.callStorm('inet:fqdn=evil.com $time=#foo return($time.max)'))
+
+            # the wrapped tag value round-trips into an @= comparison against a
+            # tag, tagprop and prop ival - the ival type resolves the operand.
+            await core.addTagProp('_score', ('ival', {}), {})
+            await core.nodes('inet:fqdn=evil.com [ +#foo:_score=(2019-09-08, 2021-09-08) ]')
+            self.len(1, await core.nodes('inet:fqdn=evil.com $time=#foo +#foo@=$time'))
+            self.len(1, await core.nodes('inet:fqdn=evil.com $time=#foo +#foo:_score@=$time'))
+            self.len(1, await core.nodes('inet:dns:a $time=:seen +:seen@=$time'))
+
+            # a tag with no time interval yields None, not the all-None sentinel
+            await core.nodes('[inet:fqdn=bare.com +#foo]')
+            self.none(await core.callStorm('inet:fqdn=bare.com $time=#foo return($time)'))
+
+            # a missing tag yields None
+            self.none(await core.callStorm('inet:fqdn=bare.com $time=#newp return($time)'))
 
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:

@@ -1,7 +1,6 @@
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.cell as s_cell
 
 import synapse.tools.service.promote as s_tools_promote
 
@@ -17,9 +16,8 @@ class PromoteToolTest(s_t_utils.SynTest):
                     dirn00 = s_common.genpath(dirn, '00.cell')
                     dirn01 = s_common.genpath(dirn, '01.cell')
 
-                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
-                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
-                                                                       provinfo={'mirror': 'cell'}))
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_t_utils.TestCell00, dirn=dirn00))
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_t_utils.TestCell00, dirn=dirn01))
                     self.true(cell00.isactive)
                     self.false(cell01.isactive)
                     await cell01.sync()
@@ -29,7 +27,7 @@ class PromoteToolTest(s_t_utils.SynTest):
                     ret = await s_tools_promote.main(argv, outp=outp)
                     self.eq(1, ret)
                     outp.expect('Failed to promote service')
-                    outp.expect('promote() called on non-mirror')
+                    outp.expect('promote() called on a service which is not a follower')
 
                     outp.clear()
                     argv = ['--url', cell01.getLocalUrl()]
@@ -40,7 +38,8 @@ class PromoteToolTest(s_t_utils.SynTest):
                     await cell00.sync()
 
     async def test_tool_promote_schism(self):
-        # Create a mirror of mirrors and try promoting the end mirror.
+        # under dynamic leadership every follower syncs from the current leader,
+        # so promoting any follower gracefully hands off from the current leader.
         async with self.getTestAha() as aha:
             async with await s_base.Base.anit() as base:
                 with self.getTestDir() as dirn:
@@ -48,11 +47,9 @@ class PromoteToolTest(s_t_utils.SynTest):
                     dirn01 = s_common.genpath(dirn, '01.cell')
                     dirn02 = s_common.genpath(dirn, '02.cell')
 
-                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
-                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
-                                                                       provinfo={'mirror': '00.cell'}))
-                    cell02 = await base.enter_context(self.addSvcToAha(aha, '02.cell', s_cell.Cell, dirn=dirn02,
-                                                                       provinfo={'mirror': '01.cell'}))
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_t_utils.TestCell00, dirn=dirn00))
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_t_utils.TestCell00, dirn=dirn01))
+                    cell02 = await base.enter_context(self.addSvcToAha(aha, '02.cell', s_t_utils.TestCell00, dirn=dirn02))
                     self.true(cell00.isactive)
                     self.false(cell01.isactive)
                     self.false(cell02.isactive)
@@ -61,7 +58,6 @@ class PromoteToolTest(s_t_utils.SynTest):
                     outp = self.getTestOutp()
                     argv = ['--url', cell02.getLocalUrl()]
                     ret = await s_tools_promote.main(argv, outp=outp)
-                    self.eq(1, ret)
-                    outp.expect('Failed to promote service')
-                    # Note: The following message may change when SYN-7659 is addressed
-                    outp.expect('ahaname=01.cell is not the current leader and cannot handoff leadership to aha://02.cell.synapse')
+                    self.eq(0, ret)
+                    self.false(cell00.isactive)
+                    self.true(cell02.isactive)

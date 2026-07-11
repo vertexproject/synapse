@@ -158,8 +158,14 @@ modeldefs = (
             ('date', ('time', {'precision': 'day'}), {
                 'doc': 'A date precision time value.'}),
 
-            ('daterange', ('ival', {'precision': 'day'}), {
-                'doc': 'A date precision time range.'}),
+            ('activity', ('ival', {'names': {'min': 'began', 'max': 'ended'}}), {
+                'doc': 'A time interval with began and ended bounds.'}),
+
+            ('activity:day', ('ival', {'names': {'min': 'began', 'max': 'ended'}, 'precision': 'day'}), {
+                'doc': 'A day precision time interval with began and ended bounds.'}),
+
+            ('reported', ('ival', {'names': {'min': 'created', 'max': 'removed'}}), {
+                'doc': 'A time interval with created and removed bounds.'}),
 
             ('base:id', ('str', {}), {
                 'doc': 'A base type for ID strings.'}),
@@ -289,6 +295,24 @@ modeldefs = (
                 ),
                 'props': (),
                 'doc': 'A hierarchical taxonomy of note types.'}),
+
+            ('meta:story:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'props': (),
+                'doc': 'A hierarchical taxonomy of story types.'}),
+
+            ('meta:story', ('guid', {}), {
+                'template': {'title': 'story', 'syntax': 'markdown'},
+                'interfaces': (
+                    ('doc:document', {}),
+                ),
+                'props': (
+                    ('status', ('title', {}), {
+                        'doc': 'The status of the story.'}),
+                ),
+                'doc': 'A story document authored in markdown.'}),
 
             ('meta:source:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
@@ -502,14 +526,32 @@ modeldefs = (
             ('str:upper', ('str', {'upper': True}), {
                 'doc': 'A case insensitive string normalized to upper case.'}),
 
-            ('int:min0', ('int', {'min': 0}), {
-                'doc': 'A non-negative integer.'}),
+            ('size', ('int', {'min': 0}), {
+                'doc': 'A non-negative size or count.'}),
 
-            ('int:min1', ('int', {'min': 1}), {
-                'doc': 'A positive integer.'}),
+            ('int8', ('int', {'size': 1}), {
+                'doc': 'A signed 8-bit integer.'}),
 
-            ('byte:flags', ('int', {'min': 0, 'max': 0xff}), {
-                'doc': 'A set of flags contained in a single byte.'}),
+            ('int16', ('int', {'size': 2}), {
+                'doc': 'A signed 16-bit integer.'}),
+
+            ('int32', ('int', {'size': 4}), {
+                'doc': 'A signed 32-bit integer.'}),
+
+            ('int64', ('int', {'size': 8}), {
+                'doc': 'A signed 64-bit integer.'}),
+
+            ('uint8', ('int', {'size': 1, 'signed': False}), {
+                'doc': 'An unsigned 8-bit integer.'}),
+
+            ('uint16', ('int', {'size': 2, 'signed': False}), {
+                'doc': 'An unsigned 16-bit integer.'}),
+
+            ('uint32', ('int', {'size': 4, 'signed': False}), {
+                'doc': 'An unsigned 32-bit integer.'}),
+
+            ('uint64', ('int', {'size': 8, 'signed': False}), {
+                'doc': 'An unsigned 64-bit integer.'}),
 
             ('meta:technique', ('guid', {}), {
                 'template': {'title': 'technique'},
@@ -535,7 +577,8 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the technique.'}),
 
-                    ('ids', ('array', {'type': (('it:mitre:attack:technique:id', {}), ('base:id', {}))}), {
+                    ('ids', (('it:mitre:attack:technique:id', {}), ('base:id', {})), {
+                        'array': {},
                         'doc': 'An array of alternate IDs given to the technique.'}),
 
                     ('type', ('meta:technique:type:taxonomy', {}), {
@@ -580,7 +623,8 @@ modeldefs = (
                         'doc': 'The name of the award.',
                         'ex': 'Nobel Peace Prize'}),
 
-                    ('names', ('array', {'type': 'base:name'}), {
+                    ('names', ('base:name', {}), {
+                        'array': {},
                         'doc': 'An array of alternate names for the award.'}),
 
                     ('desc', ('text', {}), {
@@ -639,14 +683,16 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the {title}.'}),
 
-                    ('ids', ('array', {'type': 'base:id'}), {
+                    ('ids', ('base:id', {}), {
+                        'array': {},
                         'doc': 'An array of alternate IDs given to the {title}.'}),
 
                     ('name', ('base:name', {}), {
                         'alts': ('names',),
                         'doc': 'The primary name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'base:name'}), {
+                    ('names', ('base:name', {}), {
+                        'array': {},
                         'doc': 'A list of alternate names for the {title}.'}),
 
                     ('desc', ('text', {}), {
@@ -664,13 +710,14 @@ modeldefs = (
                     ('reporter:url', ('inet:url', {}), {
                         'doc': 'The URL for the {title} provided by the reporter.'}),
 
-                    ('reporter:period', ('ival', {'names': {'min': 'created', 'max': 'removed'}}), {
+                    ('reporter:period', ('reported', {}), {
                         'doc': 'The period when the {title} existed, according to the reporter.'}),
 
                     ('reporter:deprecated', ('time', {}), {
                         'doc': 'The time when the reporter retired the {title}.'}),
 
-                    ('reporter:supersedes', ('array', {'type': '{$self}'}), {
+                    ('reporter:supersedes', ('{$self}', {}), {
+                        'array': {},
                         'doc': 'An array of {title} nodes which are superseded by this {title}.'}),
 
                     ('reporter:updated', ('time', {}), {
@@ -742,7 +789,7 @@ modeldefs = (
                     ('meta:causal', {}),
                 ),
                 'props': (
-                    ('period', ('ival', {'names': {'min': 'began', 'max': 'ended'}}), {
+                    ('period', ('activity', {}), {
                         'doc': 'The period over which the {title} {activity}.'}),
 
                     ('activity', ('base:activity', {}), {

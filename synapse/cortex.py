@@ -111,8 +111,6 @@ stormlogger = logging.getLogger('synapse.storm')
 A Cortex implements the synapse hypergraph object.
 '''
 
-reqver = '>=3.0.0b1,<4.0.0'
-
 MAX_NEXUS_DELTA = 3_600
 
 reqValidTagModel = s_config.getJsValidator({
@@ -643,11 +641,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     A Cortex implements the Synapse hypergraph.
     '''
 
+    celltype = 'cortex'
+
     # For the cortex, nexslog:en defaults to True
     confbase = copy.deepcopy(s_cell.Cell.confbase)
     confbase['nexslog:en']['default'] = True  # type: ignore
-    confbase['mirror']['hidedocs'] = False  # type: ignore
-    confbase['mirror']['hidecmdl'] = False  # type: ignore
+    confbase['parent']['hidedocs'] = False  # type: ignore
+    confbase['parent']['hidecmdl'] = False  # type: ignore
 
     confbase['safemode']['hidecmdl'] = False
     confbase['safemode']['description'] = (
@@ -656,14 +656,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     )
 
     confdefs = {
-        'axon': {
-            'description': 'A telepath URL for a remote axon.',
-            'type': 'string'
-        },
-        'jsonstor': {
-            'description': 'A telepath URL for a remote jsonstor.',
-            'type': 'string'
-        },
         'layers:cache:size': {
             'default': None,
             'description': 'Default nid cache size for new layers.',
@@ -712,17 +704,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
 
-    def _reqStorageVersion(self):
-        # cellinfo is not loaded yet during initServiceEarly, so read cortex:version
-        # directly from the cell:info keyval before the base Cell updates it.
-        corevers = self.slab.getSafeKeyVal('cell:info').get('cortex:version')
-
-        # TODO: revisit mesg once the migration UX (offline/online) is finalized before GA.
-        if corevers is not None and s_version.matches(corevers, '<3.0.0b1'):
-            raise s_exc.BadStorageVersion(
-                mesg='The Cortex storage directory is from Synapse 2.x and must be migrated.',
-                valu=corevers)
-
     # phase 2 - service storage
     async def initServiceStorage(self):
 
@@ -731,15 +712,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.httpextapidb = self.slab.initdb('http:ext:apis')
 
         if self.inaugural:
-            self.cellinfo.set('cortex:version', s_version.version)
             self.cellvers.set('cortex:storage', 4)
             self.cellvers.set('cortex:defaults', 2)
             self.cellvers.set('cortex:extmodel', 1)
-
-        corevers = self.cellinfo.get('cortex:version')
-
-        s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
-                             mesg='cortex version in storage is incompatible with running software')
 
         self.viewmeta = self.slab.initdb('view:meta')
 
@@ -787,6 +762,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.axon = None  # type: s_axon.AxonApi
         self.jsonstor = None  # type: s_jsonstor.JsonStorApi
+        self.jsonremote = False
         self.axready = asyncio.Event()
         self.axoninfo = {}
 
@@ -1264,9 +1240,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initStormSvcs()
 
+        # while active, discover storm services registered with AHA and add
+        # any previously unknown ones to ourselves automatically.
+        self.addActiveCoro(self._runAhaStormSvcSync)
+
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
         self.dmon.share('cortex', self)
+
+        return await super().initServiceRuntime()
 
     async def initServiceActive(self):
 
@@ -1289,6 +1271,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if __debug__:
                 self._migration_evnt.set()
             return
+
+        # clear stale agenda running status synchronously as part of becoming
+        # the leader so a promotion does not complete ( and peers do not sync )
+        # until the running status has been cleared.
+        await self.agenda.clearRunningStatus()
 
         for view in self.views.values():
             await view.initTrigTask()
@@ -2799,6 +2786,65 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getStormSvcs(self):
         return list(self.svcsbyiden.values())
 
+    async def _runAhaStormSvcSync(self):
+        '''
+        While active, discover storm services registered with AHA and add
+        previously unknown ones to the cortex automatically. Uses the initial
+        AHA service listing and tracks ``svc:add`` topology updates.
+        '''
+        async with await s_base.Base.anit() as base:
+
+            if self.ahaclient is not None:
+
+                # subscribe before scanning the snapshot so a service which
+                # registers between the scan and the subscription is not missed.
+                self.ahaclient.on('svc:add', self._onAhaStormSvc, base=base)
+
+                await self.ahaclient.waitTopoReady()
+
+                for svcentry in list(self.ahaclient.svcs.values()):
+                    await self._addAhaStormSvc(svcentry)
+
+            # block until we are no longer active ( this coro is cancelled )
+            # or the cortex is torn down, unsubscribing on the way out.
+            await self.waitfini()
+
+    async def _onAhaStormSvc(self, mesg):
+        svcentry = mesg[1].get('entry')
+        if svcentry is not None:
+            await self._addAhaStormSvc(svcentry)
+
+    async def _addAhaStormSvc(self, svcentry):
+
+        svcinfo = svcentry.get('info') or {}
+
+        features = svcinfo.get('features') or {}
+        if not features.get('stormservice'):
+            return
+
+        svctype = svcinfo.get('type')
+        if svctype is None:  # pragma: no cover
+            return
+
+        # use a stable iden derived from the service type so re-discovery
+        # ( reconnect, reboot ) is idempotent and never re-adds the service.
+        iden = s_common.guid(('aha', 'stormsvc', svctype))
+        if self.svcsbyiden.get(iden) is not None:
+            return
+
+        # do not clobber a manually added service using the type as its name.
+        if self.svcsbyname.get(svctype) is not None:
+            return
+
+        sdef = {
+            'iden': iden,
+            'name': svctype,
+            'url': f'aha://{svctype}...',
+        }
+
+        logger.info(f'Automatically adding AHA storm service: {svctype}')
+        await self.addStormSvc(sdef)
+
     # Global stormvars APIs
 
     async def getStormVar(self, name, default=None):
@@ -3351,6 +3397,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Specified base type {basetype} does not exist.'
             raise s_exc.NoSuchType(mesg=mesg, name=basetype)
 
+        if base.isarray:
+            mesg = f'The array type may only be used inline on a property, not as the base ' \
+                   f'for a named type ({typename}).'
+            raise s_exc.BadTypeDef(mesg=mesg, name=typename)
+
         base.clone(typeopts)
 
         return await self._push('model:type:add', typename, basetype, typeopts, typeinfo)
@@ -3366,7 +3417,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', name=typename, act='add', type='type')
 
         if (_type := self.model.type(typename)) is not None:
-            await self.feedBeholder('model:type:add', {'name': typename, 'type': _type.pack()})
+            await self.feedBeholder('model:type:add', {'type': _type.pack()})
 
     async def delType(self, typename):
         if not typename.startswith('_'):
@@ -3388,21 +3439,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.exttypes.pop(typename, None)
         await self.fire('core:extmodel:change', name=typename, act='del', type='type')
         await self.feedBeholder('model:type:del', {'type': typename})
-
-    def _propAutoTypes(self, prop):
-        # The auto-registered types a prop references -- the array type itself, or its poly
-        # constituents -- as Type objects. A poly declared with multiple opts-bearing members
-        # yields more than one. Auto types back props declared with inline type opts.
-        if prop.type.info.get('auto'):
-            return [prop.type]
-
-        autos = []
-        for tname in prop.type.opts.get('types', ()):
-            tobj = self.model.type(tname)
-            if tobj is not None and tobj.info.get('auto'):
-                autos.append(tobj)
-
-        return autos
 
     @s_cell.from_leader
     async def addFormProp(self, form, prop, tdef, info):
@@ -3426,39 +3462,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                          form=cform, prop=prop)
 
-        # For inline opts typedefs (single or poly), auto-register named type(s) now for
-        # validation, but push the original inline tdef to the nexus so _applyExtModel can
-        # re-derive them on reload (auto-registered types are not persisted in exttypes).
-        storedtdef = tdef
-        if isinstance(tdef[0], str) and tdef[0] != 'poly':
-            real_opts = {k: v for k, v in tdef[1].items()
-                         if k not in self.model._POLY_MEMBER_KEYS}
-            if real_opts:
-                typename = self.model.regPropType(form, prop, tdef[0], real_opts)
-                member_meta = {k: v for k, v in tdef[1].items()
-                               if k in self.model._POLY_MEMBER_KEYS}
-                tdef = self.model.convertTypedef((typename, member_meta))
-
-        elif isinstance(tdef[0], tuple):
-            newconstits = []
-            for cname, cinfo in tdef:
-                real_opts = {k: v for k, v in cinfo.items()
-                             if k not in self.model._POLY_MEMBER_KEYS}
-                if real_opts:
-                    typename = self.model.regPropType(form, prop, cname, real_opts)
-                    member_meta = {k: v for k, v in cinfo.items()
-                                   if k in self.model._POLY_MEMBER_KEYS}
-                    newconstits.append((typename, member_meta))
-                else:
-                    newconstits.append((cname, cinfo))
-            tdef = self.model.convertTypedef(tuple(newconstits))
-
+        # Validate the typedef on the leader so a bad ext prop is rejected before the nexus
+        # push. Inline type opts are only permitted on an array container; other types must
+        # reference a named type. The original tdef is pushed so _applyExtModel re-derives it.
+        self.model._reqValidPropTypedef(prop, tdef, info, formname=form)
+        if 'array' in info:
+            self.model.getPropTypeClone(tdef, info)
         else:
-            tdef = self.model.convertTypedef(tdef)
+            self.model.getTypeClone(self.model.convertTypedef(tdef))
 
-        self.model.getTypeClone(tdef)
-
-        await self._push('model:prop:add', form, prop, storedtdef, info)
+        await self._push('model:prop:add', form, prop, tdef, info)
 
     @s_nexus.Pusher.onPush('model:prop:add')
     async def _addFormProp(self, form, prop, tdef, info):
@@ -3476,16 +3489,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change', form=form, prop=prop, act='add', type='formprop')
         prop = self.model.prop(full)
         if prop:
-            proppack = prop.pack()
-
-            # An ext prop declared with inline opts references its auto-registered type by
-            # name. Deliver that type to beholder clients first (model:type:add) and keep the
-            # name in the prop pack, so a node's poly prop value resolves -- exactly as a fresh
-            # getModelDict would carry it.
-            for autotype in self._propAutoTypes(prop):
-                await self.feedBeholder('model:type:add', {'name': autotype.name, 'type': autotype.pack()})
-
-            await self.feedBeholder('model:prop:add', {'form': form, 'prop': proppack})
+            await self.feedBeholder('model:prop:add', {'form': form, 'prop': prop.pack()})
 
     async def delFormProp(self, form, prop):
         self.reqExtProp(form, prop)
@@ -3585,12 +3589,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     mesg = f'Nodes still exist with prop: {formname}:{prop} in layer {layr.iden}'
                     raise s_exc.CantDelProp(mesg=mesg)
 
-        # Capture the prop's auto-registered types before delFormProp drops them, so we can
-        # drop them on beholder clients too (model:type:add delivered them on add).
-        autotypes = []
-        if (propobj := self.model.prop(full)) is not None:
-            autotypes = self._propAutoTypes(propobj)
-
         self.model.delFormProp(form, prop)
         self.extprops.pop(full, None)
         self.modellocks.pop(f'prop/{full}', None)
@@ -3598,10 +3596,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         form=form, prop=prop, act='del', type='formprop')
 
         await self.feedBeholder('model:prop:del', {'form': form, 'prop': prop})
-
-        for autotype in autotypes:
-            if self.model.type(autotype.name) is None:
-                await self.feedBeholder('model:type:del', {'type': autotype.name})
 
     @s_cell.from_leader
     async def addTagProp(self, name, tdef, info):
@@ -3776,13 +3770,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initJsonStor(self):
 
-        self.jsonurl = self.conf.get('jsonstor')
-        if self.jsonurl is not None:
+        # when this cortex is part of an AHA deployment we locate the jsonstor
+        # service by cell type. otherwise we boot an embedded jsonstor child.
+        self.jsonremote = self.ahaclient is not None
+        if self.jsonremote:
 
             async def onlink(proxy: s_telepath.Proxy):
-                logger.debug(f'Connected to remote jsonstor {s_urlhelp.sanitizeUrl(self.jsonurl)}')
+                logger.debug('Connected to remote jsonstor')
 
-            self.jsonstor = await s_telepath.Client.anit(self.jsonurl, onlink=onlink)
+            self.jsonstor = await s_telepath.Client.anit('aha://jsonstor...', onlink=onlink)
+            self.onfini(self.jsonstor)
         else:
             path = os.path.join(self.dirn, 'jsonstor')
             jsoniden = s_common.guid((self.iden, 'jsonstor'))
@@ -3804,76 +3801,78 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
 
     async def getJsonObj(self, path):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         return await self.jsonstor.getPathObj(path)
 
     async def hasJsonObj(self, path):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         return await self.jsonstor.hasPathObj(path)
 
     async def getJsonObjs(self, path):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         async for item in self.jsonstor.getPathObjs(path):
             yield item
 
     async def getJsonObjProp(self, path, prop):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         return await self.jsonstor.getPathObjProp(path, prop)
 
     async def delJsonObj(self, path):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         return await self.jsonstor.delPathObj(path)
 
     async def delJsonObjProp(self, path, prop):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         return await self.jsonstor.delPathObjProp(path, prop)
 
     async def setJsonObj(self, path, item):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         return await self.jsonstor.setPathObj(path, item)
 
     async def setJsonObjProp(self, path, prop, item):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         return await self.jsonstor.setPathObjProp(path, prop, item)
 
     async def getUserNotif(self, indx):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         return await self.jsonstor.getUserNotif(indx)
 
     async def delUserNotif(self, indx):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         return await self.jsonstor.delUserNotif(indx)
 
     async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         return await self.jsonstor.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
 
     async def iterUserNotifs(self, useriden, size=None):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         async for item in self.jsonstor.iterUserNotifs(useriden, size=size):
             yield item
 
     async def watchAllUserNotifs(self, offs=None):
-        if self.jsonurl is not None:
+        if self.jsonremote:
             await self.jsonstor.waitready()
         async for item in self.jsonstor.watchAllUserNotifs(offs=offs):
             yield item
 
     async def _initCoreAxon(self):
-        turl = self.conf.get('axon')
-        if turl is None:
+
+        # when this cortex is part of an AHA deployment we locate the axon
+        # service by cell type. otherwise we boot an embedded axon child.
+        if self.ahaclient is None:
             path = os.path.join(self.dirn, 'axon')
             # Disable sysctl checks for embedded axon server
             conf = {'health:sysctl:checks': False}
@@ -3894,24 +3893,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         async def onlink(proxy: s_telepath.Proxy):
-            logger.debug(f'Connected to remote axon {s_urlhelp.sanitizeUrl(turl)}')
+            logger.debug('Connected to remote axon')
 
             async def fini():
                 self.axready.clear()
 
-            axoninfo = await proxy.getCellInfo()
-            axonvers = axoninfo['synapse']['version']
-            if not s_version.matches(axonvers, '>=3.0.0b1'):
-                mesg = f'Axon at {s_urlhelp.sanitizeUrl(turl)} is running Synapse {axonvers} and must be updated to >= 3.0.0'
-                logger.error(mesg)
-                raise s_exc.BadVersion(mesg=mesg)
-
-            self.axoninfo = axoninfo
+            self.axoninfo = await proxy.getCellInfo()
 
             proxy.onfini(fini)
             self.axready.set()
 
-        self.axon = await s_telepath.Client.anit(turl, onlink=onlink)
+        self.axon = await s_telepath.Client.anit('aha://axon...', onlink=onlink)
         self.dynitems['axon'] = self.axon
         self.onfini(self.axon)
 
@@ -5612,7 +5604,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
 
-    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0b1,<4.0.0'):
+    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0b2,<4.0.0'):
         '''
         Validate an export storm meta dict for schema, version, and synapse version compatibility.
 

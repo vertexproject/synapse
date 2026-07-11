@@ -558,6 +558,43 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:theft -(stole)> file:bytes'))
             self.len(1, await core.nodes('risk:theft :reporter -> ou:org +:name=vertex'))
 
+    async def test_model_risk_loss(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                risk:loss:funds=*
+                    :period=(2023, 2024)
+                    :value=9999.99
+                    +(had)> {[ econ:payment=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'value', '9999.99')
+            self.propeq(nodes[0], 'period', (1672531200000000, 1704067200000000, 31536000000000))
+            self.len(1, await core.nodes('risk:loss:funds -(had)> econ:payment'))
+
+            nodes = await core.nodes('''[
+                risk:loss:data=*
+                    :size=1024
+                    :activity={ risk:loss:funds }
+                    +(had)> {[ file:attachment=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'size', 1024)
+            self.nn(nodes[0].get('activity'))
+            self.len(1, await core.nodes('risk:loss:data -(had)> file:attachment'))
+            self.len(1, await core.nodes('risk:loss:data :activity -> risk:loss:funds'))
+
+            nodes = await core.nodes('''[
+                risk:loss:life=*
+                    :count=3
+                    +(had)> {[ entity:contact=* ]}
+            ]''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'count', 3)
+            self.len(1, await core.nodes('risk:loss:life -(had)> entity:contact'))
+
+            # the risk:loss interface allows lift across all variations
+            self.len(3, await core.nodes('risk:loss'))
+
     async def test_model_risk_vuln_technique(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''

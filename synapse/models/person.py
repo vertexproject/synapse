@@ -23,7 +23,8 @@ modeldefs = (
                     ('institution', ('ou:org', {}), {
                         'doc': 'The org or department which teaches the course.'}),
 
-                    ('prereqs', ('array', {'type': 'edu:course'}), {
+                    ('prereqs', ('edu:course', {}), {
+                        'array': {},
                         'doc': 'The pre-requisite courses for taking this course.'}),
 
                 ),
@@ -54,10 +55,11 @@ modeldefs = (
                     ('instructor', ('entity:individual', {}), {
                         'doc': 'The primary instructor for the class.'}),
 
-                    ('assistants', ('array', {'type': 'entity:individual'}), {
+                    ('assistants', ('entity:individual', {}), {
+                        'array': {},
                         'doc': 'An array of assistant/co-instructor contacts.'}),
 
-                    ('period', ('ival', {'precision': 'day', 'names': {'min': 'began', 'max': 'ended'}}), {
+                    ('period', ('activity:day', {}), {
                         'prevnames': ('date:first', 'date:last'),
                         'doc': 'The period over which the class was run.'}),
 

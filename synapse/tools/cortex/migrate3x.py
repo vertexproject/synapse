@@ -452,7 +452,7 @@ def getNewStorType(model, ptyp, valu, srcstortype):
     if srcstortype in (s_layer.STOR_TYPE_NDEF, s_layer.STOR_TYPE_POLY):
         inner_name, inner_valu = valu
     else:
-        defaulttypes = ptyp.opts.get('default_types') or ptyp.opts.get('types')
+        defaulttypes = ptyp.defaulttypes or ptyp.opts.get('types')
         inner_name = defaulttypes[0] if defaulttypes else ptyp.name
         inner_valu = valu
 
@@ -1058,8 +1058,10 @@ class Migrator(s_base.Base):
         Migrate top-level cell information including the YAML file if it exists to
         remove deprecated confdefs.
         '''
-        # Set cortex:version to latest
-        self.cellinfo.set('cortex:version', s_version.version)
+        # Stamp the migrated storage with the running synapse version so the cortex
+        # and its embedded services boot past the base Cell _reqStorageVersion check.
+        self.cellinfo.set('synapse:version', s_version.version)
+        await self._migrEmbeddedVersions()
 
         # confdefs
         validconfs = s_cortex.Cortex.confdefs
@@ -1156,6 +1158,20 @@ class Migrator(s_base.Base):
 
         logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
         await self._migrlogAdd('cell', 'prog', 'none', s_common.now())
+
+    async def _migrEmbeddedVersions(self):
+        '''
+        Stamp the running synapse version onto the embedded axon and jsonstor cell
+        slabs so they boot past the base Cell _reqStorageVersion check.
+        '''
+        for name in ('axon', 'jsonstor'):
+            path = os.path.join(self.dirn, name, 'slabs', 'cell.lmdb')
+            if not os.path.exists(path):  # pragma: no cover
+                continue
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                cellinfo = slab.getSafeKeyVal('cell:info')
+                cellinfo.set('synapse:version', s_version.version)
 
     def _migrStormPkgVers(self):
         '''
@@ -1366,7 +1382,14 @@ class Migrator(s_base.Base):
                 if decnormfunc is None and oldtname == 'array':
                     decnormfunc = TYPE_DECNORM.get(oldtopts.get('type'))
 
-                newtname, newtopts = prop.typedef
+                if prop.type.isarray:
+                    # The 3.x array typedef holds the element type in the typedef slot; compare
+                    # against the 2.x source (which used the ('array', {...}) form) as an array
+                    # so array props renormalize through prop.type when their shape drifts.
+                    newtname, newtopts = 'array', prop.typedef
+                else:
+                    newtname, newtopts = prop.typedef
+
                 oldtopts = s_common.flatten(oldtopts)
                 newtopts = s_common.flatten(newtopts)
 

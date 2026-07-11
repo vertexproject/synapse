@@ -18,7 +18,7 @@ import synapse.tools.storm._cli as s_t_storm
 
 logger = logging.getLogger(__name__)
 
-reqver = '>=3.0.0b1,<4.0.0'
+reqver = '>=3.0.0b2,<4.0.0'
 
 def getItems(*paths):
     items = []

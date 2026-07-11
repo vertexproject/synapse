@@ -76,6 +76,7 @@ modeldefs = (
             ('proj:project', ('guid', {}), {
                 'template': {'title': 'project'},
                 'interfaces': (
+                    ('econ:budgetable', {}),
                     ('entity:creatable', {}),
                     ('entity:participable', {}),
                 ),

@@ -1,7 +1,5 @@
 import synapse.common as s_common
 
-import synapse.lib.cell as s_cell
-
 
 import synapse.tests.utils as s_test
 import synapse.tools.service.shutdown as s_t_shutdown
@@ -47,9 +45,8 @@ class ShutdownToolTest(s_test.SynTest):
                 dirn00 = s_common.genpath(dirn, '00.cell')
                 dirn01 = s_common.genpath(dirn, '01.cell')
 
-                cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
-                cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
-                                                                   provinfo={'mirror': 'cell'}))
+                cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_test.TestCell00, dirn=dirn00))
+                cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_test.TestCell00, dirn=dirn01))
                 self.true(cell00.isactive)
                 self.false(cell01.isactive)
 
@@ -89,9 +86,8 @@ class ShutdownToolTest(s_test.SynTest):
                 dirn00 = s_common.genpath(dirn, '00.cell')
                 dirn01 = s_common.genpath(dirn, '01.cell')
 
-                cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
-                cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
-                                                                   provinfo={'mirror': 'cell'}))
+                cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_test.TestCell00, dirn=dirn00))
+                cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_test.TestCell00, dirn=dirn01))
                 self.true(cell00.isactive)
                 self.false(cell01.isactive)
 

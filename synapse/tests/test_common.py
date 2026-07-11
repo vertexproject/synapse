@@ -400,6 +400,7 @@ class CommonTest(s_t_utils.SynTest):
 
     async def test_sslctx(self):
         with self.getTestDir(mirror='certdir') as dirn:
+            self.decTinFoilDir(dirn)
             cadir = s_common.genpath(dirn, 'cas')
             os.makedirs(s_common.genpath(cadir, 'newp'))
             with self.getLoggerStream('synapse.common') as stream:

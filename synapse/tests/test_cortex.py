@@ -11,6 +11,7 @@ import regex
 from unittest import mock
 
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.models as s_models
@@ -27,6 +28,7 @@ import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.service.backup as s_tools_backup
@@ -99,11 +101,10 @@ class CortexTest(s_t_utils.SynTest):
                         await core00.handoff(core00.getLocalUrl())
 
                     self.false((await core00.getCellInfo())['cell']['nexus']['uplink:ready'])
-                    self.none((await core00.getCellInfo())['cell']['mirror'])
+                    self.none((await core00.getCellInfo())['cell']['parent'])
 
-                    # provision with the new hostname and mirror config
-                    provinfo = {'mirror': '00.cortex'}
-                    conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)}
+                    # provision with the new hostname
+                    conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex')}
                     async with self.getTestCore(conf=conf) as core01:
 
                         # test out connecting to the leader but having aha chose a mirror
@@ -122,8 +123,8 @@ class CortexTest(s_t_utils.SynTest):
                         self.true(await s_coro.event_wait(core01.nexsroot.miruplink, timeout=2))
                         self.false((await core00.getCellInfo())['cell']['nexus']['uplink:ready'])
                         self.true((await core01.getCellInfo())['cell']['nexus']['uplink:ready'])
-                        self.none((await core00.getCellInfo())['cell']['mirror'])
-                        self.eq((await core01.getCellInfo())['cell']['mirror'], 'aha://root@00.cortex...')
+                        self.none((await core00.getCellInfo())['cell']['parent'])
+                        self.eq((await core01.getCellInfo())['cell']['parent'], 'aha://cortex...')
 
                         outp = s_output.OutPutStr()
                         argv = ('--url', core01.getLocalUrl())
@@ -138,27 +139,25 @@ class CortexTest(s_t_utils.SynTest):
                         self.false((await core01.getCellInfo())['cell']['nexus']['uplink:ready'])
                         # Note: The following mirror may change when SYN-7659 is addressed and greater
                         # control over the topology update is available during the promotion process.
-                        self.eq((await core00.getCellInfo())['cell']['mirror'], 'aha://root@cortex...')
-                        self.none((await core01.getCellInfo())['cell']['mirror'])
+                        self.eq((await core00.getCellInfo())['cell']['parent'], 'aha://cortex...')
+                        self.none((await core01.getCellInfo())['cell']['parent'])
 
+                        # parent is dynamic ( derived from the leadership term ) and is
+                        # never written to cell.mods.yaml at runtime by promote/handoff.
                         mods00 = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
                         mods01 = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
-                        self.eq(mods00, {'mirror': 'aha://root@cortex...'})
-                        self.eq(mods01, {'mirror': None})
+                        self.none(mods00)
+                        self.none(mods01)
 
                         await core00.nodes('[inet:ip=5.5.5.5]')
                         self.len(1, await core01.nodes('inet:ip=5.5.5.5'))
 
                         # After doing the promotion, provision another mirror cortex.
-                        # This pops the mirror config out of the mods file we copied
-                        # from the backup.
-                        provinfo = {'mirror': '01.cortex'}
-                        conf = {'aha:provision': await aha.addAhaSvcProv('02.cortex', provinfo=provinfo)}
+                        conf = {'aha:provision': await aha.addAhaSvcProv('02.cortex')}
                         async with self.getTestCore(conf=conf) as core02:
                             self.false(core02.isactive)
-                            self.eq(core02.conf.get('mirror'), 'aha://root@01.cortex...')
                             mods02 = s_common.yamlload(core02.dirn, 'cell.mods.yaml')
-                            self.eq(mods02, {})
+                            self.none(mods02)
                             # The mirror writeback and change distribution works
                             self.len(0, await core01.nodes('inet:ip=6.6.6.6'))
                             self.len(0, await core00.nodes('inet:ip=6.6.6.6'))
@@ -216,11 +215,9 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await testUserNotifs(core)
 
-        # test with a remote jsonstor
-        async with self.getTestJsonStor() as jsonstor:
-            conf = {'jsonstor': jsonstor.getLocalUrl()}
-            async with self.getTestCore(conf=conf) as core:
-                await testUserNotifs(core)
+        # test with a remote jsonstor located by cell type via AHA
+        async with self.getTestCoreProv() as (core, axon, jsonstor):
+            await testUserNotifs(core)
 
     async def test_cortex_jsonstor(self):
 
@@ -245,11 +242,9 @@ class CortexTest(s_t_utils.SynTest):
             items = [x async for x in core.getJsonObjs(('foo'))]
             self.eq(items, ((('bar',), 'zoinks'),))
 
-        # test with a remote jsonstor
-        async with self.getTestJsonStor() as jsonstor:
-            conf = {'jsonstor': jsonstor.getLocalUrl()}
-            async with self.getTestCore(conf=conf) as core:
-                await testCoreJson(core)
+        # test with a remote jsonstor located by cell type via AHA
+        async with self.getTestCoreProv() as (core, axon, jsonstor):
+            await testCoreJson(core)
 
         # test a local jsonstor
         async with self.getTestCore() as core:
@@ -265,7 +260,7 @@ class CortexTest(s_t_utils.SynTest):
 
             s_tools_backup.backup(path00, path01)
             async with self.getTestCore(dirn=path00, conf=conf00) as core00:
-                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                conf01 = {'nexslog:en': True, 'parent': core00.getLocalUrl()}
                 async with self.getTestCore(dirn=path01, conf=conf01) as core01:
                     await testCoreJson(core01)
                     self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
@@ -281,7 +276,7 @@ class CortexTest(s_t_utils.SynTest):
 
             s_tools_backup.backup(path00, path01)
             async with self.getTestCore(dirn=path00, conf=conf00) as core00:
-                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                conf01 = {'nexslog:en': True, 'parent': core00.getLocalUrl()}
                 async with self.getTestCore(dirn=path01, conf=conf01) as core01:
                     await testCoreJson(core00)
                     await core01.sync()
@@ -305,14 +300,14 @@ class CortexTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
-                core.cellinfo.set('cortex:version', (2, 180, 1))
+                core.cellinfo.set('synapse:version', (2, 180, 1))
 
             with self.raises(s_exc.BadStorageVersion) as cexc:
                 async with self.getTestCore(dirn=dirn) as core:
                     pass
 
-            self.isin('Synapse 2.x', cexc.exception.get('mesg'))
-            self.isin('must be migrated', cexc.exception.get('mesg'))
+            self.isin('The cortex storage directory is from a Synapse', cexc.exception.get('mesg'))
+            self.isin(f'is not compatible with the allowed versions: {s_cortex.Cortex._reqSynStorVers}', cexc.exception.get('mesg'))
 
     async def test_cortex_stormiface(self):
         pkgdef = {
@@ -446,22 +441,20 @@ class CortexTest(s_t_utils.SynTest):
                     bytelist.append(byts)
                 self.eq(b'asdfasdf', b''.join(bytelist))
 
-        # remote axon...
-        async with self.getTestAxon() as axon:
-            conf = {'axon': axon.getLocalUrl()}
-            async with self.getTestCore(conf=conf) as core:
+        # remote axon located by cell type via AHA
+        async with self.getTestCoreProv() as (core, axon, jsonstor):
 
-                async with core.getLocalProxy() as proxy:
+            async with core.getLocalProxy() as proxy:
 
-                    async with await proxy.getAxonUpload() as upload:
-                        await upload.write(b'asdfasdf')
-                        size, sha256 = await upload.save()
-                        self.eq(8, size)
+                async with await proxy.getAxonUpload() as upload:
+                    await upload.write(b'asdfasdf')
+                    size, sha256 = await upload.save()
+                    self.eq(8, size)
 
-                    bytelist = []
-                    async for byts in proxy.getAxonBytes(s_common.ehex(sha256)):
-                        bytelist.append(byts)
-                    self.eq(b'asdfasdf', b''.join(bytelist))
+                bytelist = []
+                async for byts in proxy.getAxonBytes(s_common.ehex(sha256)):
+                    bytelist.append(byts)
+                self.eq(b'asdfasdf', b''.join(bytelist))
 
     async def test_cortex_divert(self):
 
@@ -3427,14 +3420,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cell(self):
 
-        data = ('foo', 'bar', 'baz')
-
         async with self.getTestCoreAndProxy() as (core, proxy):
 
-            corever = core.cellinfo.get('cortex:version')
             cellver = core.cellinfo.get('synapse:version')
-            self.eq(corever, s_version.version)
-            self.eq(corever, cellver)
+            self.eq(cellver, s_version.version)
 
             # test the remote storm result counting API
             self.eq(0, await proxy.count('test:pivtarg'))
@@ -3443,7 +3432,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_version': '>=3.0.0b1,<4.0.0',
+                'synapse_version': '>=3.0.0b2,<4.0.0',
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -5291,7 +5280,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(s_node.tagged(pode, '#timetag'))
 
             mesgs = await core.stormlist('test:str=foo $var=$node.value [+#$var=2019] $lib.print(#$var)')
-            self.stormIsInPrint('(1546300800000000, 1546300800000001, 1)', mesgs)
+            self.stormIsInPrint('2019-01-01T00:00:00Z - 2019-01-01T00:00:00.000001Z', mesgs)
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
             pode = podes[0]
@@ -5331,7 +5320,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('tag3'))
 
             mesgs = await core.stormlist('test:str=foo $var=$node.value [+?#$var=2019] $lib.print(#$var)')
-            self.stormIsInPrint('(1546300800000000, 1546300800000001, 1)', mesgs)
+            self.stormIsInPrint('2019-01-01T00:00:00Z - 2019-01-01T00:00:00.000001Z', mesgs)
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
             pode = podes[0]
@@ -5790,7 +5779,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=path00) as core00:
 
-                self.false(core00.conf.get('mirror'))
+                self.false(core00.conf.get('parent'))
 
                 await core00.nodes('[ inet:ip=1.2.3.4 ]')
 
@@ -5805,7 +5794,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
 
-                core01conf = {'mirror': url}
+                core01conf = {'parent': url}
 
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
@@ -5896,13 +5885,15 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # remove the mirrorness from the Cortex and ensure that we can
                 # write to the Cortex. This will move the core01 ahead of
                 # core00 & core01 can become the leader. By default this is
-                # not a graceful promotion.
+                # not a graceful promotion. An explicit parent pins the service
+                # as a follower, so clear it before promoting.
+                core01.conf.pop('parent', None)
                 await core01.promote()
                 self.false(core01.nexsroot._mirready.is_set())
 
                 self.len(1, await core01.nodes('[inet:ip=9.9.9.8]'))
                 new_url = core01.getLocalUrl()
-                new_conf = {'mirror': new_url}
+                new_conf = {'parent': new_url}
                 async with self.getTestCore(dirn=path00, conf=new_conf) as core00:
                     await core00.sync()
                     self.len(1, await core00.nodes('inet:ip=9.9.9.8'))
@@ -5930,11 +5921,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 opts = {'user': lowuser.iden}
                 await self.asyncraises(s_exc.AuthDeny, core00.callStorm('$lib.cell.trimNexsLog()', opts=opts))
 
-                async with self.getTestCore(dirn=path01, conf={'mirror': url00}) as core01:
+                async with self.getTestCore(dirn=path01, conf={'parent': url00}) as core01:
 
                     url01 = core01.getLocalUrl()
 
-                    async with self.getTestCore(dirn=path02, conf={'mirror': url01}) as core02:
+                    async with self.getTestCore(dirn=path02, conf={'parent': url01}) as core02:
 
                         url02 = core02.getLocalUrl()
                         consumers = [url01, url02]
@@ -5983,18 +5974,18 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(log00, log01)
 
                     with self.getLoggerStream('synapse.lib.nexus') as stream:
-                        async with self.getTestCore(dirn=path02, conf={'mirror': url01}) as core02:
+                        async with self.getTestCore(dirn=path02, conf={'parent': url01}) as core02:
                             await stream.expect('offset is out of sync', timeout=6)
                             self.true(core02.nexsroot.isfini)
 
                 # restore mirror
                 s_tools_backup.backup(path01, path02b)
 
-                async with self.getTestCore(dirn=path01, conf={'mirror': url00}) as core01:
+                async with self.getTestCore(dirn=path01, conf={'parent': url00}) as core01:
 
                     url01 = core01.getLocalUrl()
 
-                    async with self.getTestCore(dirn=path02b, conf={'mirror': url01}) as core02:
+                    async with self.getTestCore(dirn=path02b, conf={'parent': url01}) as core02:
 
                         url02 = core02.getLocalUrl()
                         opts = {'vars': {'url01': url01, 'url02': url02}}
@@ -6053,7 +6044,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=path00) as core00:
 
-                self.false(core00.conf.get('mirror'))
+                self.false(core00.conf.get('parent'))
 
                 await core00.nodes('[ inet:ip=1.2.3.4 ]')
                 await core00.nodes('$lib.queue.add(hehe)')
@@ -6062,11 +6053,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
 
-                core01conf = {'mirror': url}
+                core01conf = {'parent': url}
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
                     url2 = core01.getLocalUrl()
 
-                    core02conf = {'mirror': url2}
+                    core02conf = {'parent': url2}
                     async with self.getTestCore(dirn=path02, conf=core02conf) as core02:
 
                         await core00.nodes('[ inet:fqdn=vertex.link ]')
@@ -6730,7 +6721,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             conf = {'aha:provision': await aha.addAhaSvcProv('00.cortex')}
             core00 = await aha.enter_context(self.getTestCore(conf=conf))
 
-            conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex', {'mirror': 'cortex'})}
+            conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex')}
             core01 = await aha.enter_context(self.getTestCore(conf=conf))
 
             # Add a type directly to the mirror's model to simulate different model version
@@ -6781,37 +6772,42 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            async with self.getTestAxon(dirn=dirn) as axon:
-                aurl = axon.getLocalUrl()
+            async with self.getTestAha() as aha:
 
-            conf = {'axon': aurl}
-            async with self.getTestCore(conf=conf) as core:
-                async with self.getTestAxon(dirn=dirn) as axon:
-                    self.true(await asyncio.wait_for(core.axready.wait(), 10))
+                # provision the axon dir ( establishes its aha config ) then close it,
+                # so the cortex boots before the axon is online to exercise reconnect.
+                async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, dirn=dirn):
+                    pass
 
-                    # Use dyncalls, not direct object access.
-                    asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
-                    size, sha2 = await core.callStorm('return( $lib.axon.put($buf) )',
-                                                      {'vars': {'buf': b'asdfasdf'}})
-                    self.eq(size, 8)
-                    self.eq(sha2, asdfhash_h)
-                    self.true(await core.callStorm('return( $lib.axon.has($hash) )',
-                                                   {'vars': {'hash': asdfhash_h}}))
+                async with self.addSvcToAha(aha, '00.jsonstor', s_jsonstor.JsonStorCell), \
+                        self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex) as core:
 
-                unset = False
-                for _ in range(20):
-                    aset = core.axready.is_set()
-                    if aset is False:
-                        unset = True
-                        break
-                    await asyncio.sleep(0.1)
-                self.true(unset)
+                    async with await s_axon.Axon.anit(dirn) as axon:
+                        self.true(await asyncio.wait_for(core.axready.wait(), 10))
 
-                async with self.getTestAxon(dirn=dirn) as axon:
-                    self.true(await asyncio.wait_for(core.axready.wait(), 10))
-                    # ensure we can use the proxy
-                    self.eq(await axon.metrics(),
-                            await core.axon.metrics())
+                        # Use dyncalls, not direct object access.
+                        asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
+                        size, sha2 = await core.callStorm('return( $lib.axon.put($buf) )',
+                                                          {'vars': {'buf': b'asdfasdf'}})
+                        self.eq(size, 8)
+                        self.eq(sha2, asdfhash_h)
+                        self.true(await core.callStorm('return( $lib.axon.has($hash) )',
+                                                       {'vars': {'hash': asdfhash_h}}))
+
+                    unset = False
+                    for _ in range(20):
+                        aset = core.axready.is_set()
+                        if aset is False:
+                            unset = True
+                            break
+                        await asyncio.sleep(0.1)  # pragma: no cover
+                    self.true(unset)
+
+                    async with await s_axon.Axon.anit(dirn) as axon:
+                        self.true(await asyncio.wait_for(core.axready.wait(), 10))
+                        # ensure we can use the proxy
+                        self.eq(await axon.metrics(),
+                                await core.axon.metrics())
 
     async def test_cortex_delLayerView(self):
 
@@ -7090,7 +7086,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0b1,<4.0.0',
+            'synapse_version': '>=3.0.0b2,<4.0.0',
             'modules': [
                 {
                     'name': 'boom.mod',
@@ -7363,23 +7359,21 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_feed_remote_axon(self):
 
-        async with self.getTestAxon() as axon:
-            aurl = axon.getLocalUrl()
-            async with self.getTestCore(conf={'axon': aurl}) as core:
-                await core.auth.rootuser.setPasswd('root')
-                host, port = await core.dmon.listen('tcp://127.0.0.1:0')
-                curl = f'tcp://root:root@127.0.0.1:{port}/*'
+        async with self.getTestCoreProv() as (core, axon, jsonstor):
+            await core.auth.rootuser.setPasswd('root')
+            host, port = await core.dmon.listen('tcp://127.0.0.1:0')
+            curl = f'tcp://root:root@127.0.0.1:{port}/*'
 
-                test_data = b'foobar'
-                size, sha256b = await axon.put(test_data)
-                sha256 = s_common.ehex(sha256b)
-                opts = {'vars': {'sha256': sha256}}
+            test_data = b'foobar'
+            size, sha256b = await axon.put(test_data)
+            sha256 = s_common.ehex(sha256b)
+            opts = {'vars': {'sha256': sha256}}
 
-                async with await s_telepath.Client.anit(curl) as client_obj:
-                    await client_obj.waitready()
-                    with self.raises(s_exc.BadDataValu) as cm:
-                        await client_obj.callStorm('$lib.feed.fromAxon($sha256)', opts=opts)
-                    self.isin('Invalid syn.nodes data.', cm.exception.get('mesg'))
+            async with await s_telepath.Client.anit(curl) as client_obj:
+                await client_obj.waitready()
+                with self.raises(s_exc.BadDataValu) as cm:
+                    await client_obj.callStorm('$lib.feed.fromAxon($sha256)', opts=opts)
+                self.isin('Invalid syn.nodes data.', cm.exception.get('mesg'))
 
     async def test_cortex_export_toaxon(self):
         async with self.getTestCore() as core:
@@ -7663,9 +7657,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.waitForActiveMigration(core00)
 
             with mock.patch('synapse.lib.modelrev.ModelRev.revCoreLayers', dummy):
-                conf01 = {'mirror': 'tcp://root:root@127.0.0.1:0'}
+                conf01 = {'parent': 'tcp://root:root@127.0.0.1:0'}
                 async with self.getTestCore(dirn=dirn, conf=conf01) as core01:
 
+                    # clear the explicit parent pin before promoting.
+                    core01.conf.pop('parent', None)
                     await core01.promote(graceful=False)
                     await asyncio.sleep(0)
 
@@ -7728,9 +7724,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.waitForActiveMigration(core00)
 
             with mock.patch('synapse.lib.modelrev.ModelRev.revCoreLayers', dummy):
-                conf01 = {'mirror': 'tcp://root:root@127.0.0.1:0'}
+                conf01 = {'parent': 'tcp://root:root@127.0.0.1:0'}
                 async with self.getTestCore(dirn=dirn, conf=conf01) as core01:
 
+                    # clear the explicit parent pin before promoting.
+                    core01.conf.pop('parent', None)
                     await core01.promote(graceful=False)
                     await asyncio.sleep(0)
 
@@ -8345,8 +8343,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     dirn01 = s_common.genpath(dirn, 'cell01')
 
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
-                    provinfo = {'mirror': 'core'}
-                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01, provinfo=provinfo))
+                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01))
 
                     self.len(1, await core00.nodes('[inet:asn=0]'))
                     await core01.sync()
@@ -8939,9 +8936,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00,
                                                                        conf=safemode))
-                    provinfo = {'mirror': 'core'}
-                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01,
-                                                                       provinfo=provinfo))
+                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01))
 
                     msgs = await core01.stormlist('aha.pool.add pool00...')
                     self.stormHasNoWarnErr(msgs)
@@ -9125,7 +9120,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 url = core00.getLocalUrl()
 
                 # Mirror boots from stale backup and receives the corrective model:set
-                async with self.getTestCore(dirn=path01, conf={'mirror': url}) as core01:
+                async with self.getTestCore(dirn=path01, conf={'parent': url}) as core01:
                     await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=12)
                     await core01.sync()
 
@@ -9153,7 +9148,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=path00) as core00:
                 url00 = core00.getLocalUrl()
 
-                async with self.getTestCore(dirn=path01, conf={'mirror': url00}) as core01:
+                async with self.getTestCore(dirn=path01, conf={'parent': url00}) as core01:
                     await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=12)
                     await core01.sync()
 
@@ -9168,7 +9163,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     nexus_index_before = await core01.nexsroot.index()
 
                     # Promote: setCellActive(True) triggers _execCellUpdates which
-                    # detects the hash mismatch and fires model:set.
+                    # detects the hash mismatch and fires model:set. Clear the
+                    # explicit parent pin so the handoff can promote the mirror.
+                    core01.conf.pop('parent', None)
                     url01 = core01.getLocalUrl()
                     await core00.handoff(url01)
                     self.true(core01.isactive)

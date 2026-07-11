@@ -123,14 +123,11 @@ async def _liftRuntSynType(view, prop, cmprvalu=None):
 
     if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
         item = prop.modl.type(cmprvalu[1])
-        # Auto-registered prop types (flagged 'auto') are an internal storage detail.
-        if item is not None and not item.info.get('auto'):
+        if item is not None:
             yield item.getRuntPode()
         return
 
     for item in list(prop.modl.types.values()):
-        if item.info.get('auto'):
-            continue
         yield item.getRuntPode()
 
 async def _liftRuntSynTagProp(view, prop, cmprvalu=None):
@@ -208,7 +205,8 @@ modeldefs = (
                         'doc': 'Form which this form extends.', 'computed': True}),
                     ('runt', ('bool', {}), {
                         'doc': 'Specifies if the form is runtime only.', 'computed': True}),
-                    ('interfaces', ('array', {'type': 'syn:interface'}), {
+                    ('interfaces', ('syn:interface', {}), {
+                        'array': {},
                         'doc': 'The fully resolved set of interfaces which this form implements.', 'computed': True})
                 ),
                 'doc': 'A Synapse form used for representing nodes in the graph.',
@@ -219,7 +217,8 @@ modeldefs = (
                 'props': (
                     ('doc', ('str', {}), {
                         'doc': 'The docstring for the interface.', 'computed': True}),
-                    ('interfaces', ('array', {'type': 'syn:interface'}), {
+                    ('interfaces', ('syn:interface', {}), {
+                        'array': {},
                         'doc': 'The interfaces which this interface inherits from.', 'computed': True}),
                 ),
                 'doc': 'A Synapse interface which forms may implement to share common properties.',
@@ -232,7 +231,8 @@ modeldefs = (
                         'doc': 'Description of the property definition.'}),
                     ('form', ('syn:form', {}), {
                         'doc': 'The form of the property.', 'computed': True}),
-                    ('type', ('array', {'type': 'syn:type'}), {
+                    ('type', ('syn:type', {}), {
+                        'array': {},
                         'doc': 'The synapse types allowed for this property.', 'computed': True}),
                     ('array', ('bool', {}), {
                         'doc': 'If the property is an array of values.', 'computed': True}),

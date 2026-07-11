@@ -23,7 +23,7 @@ What changed
     ``synapse.tools.axon.*`` holds ``copy``, ``dump``, ``get``, ``load``, and
     ``put``; ``synapse.tools.utils.*`` holds ``autodoc``, ``easycert``,
     ``guid``, ``json2mpk``, and ``rstorm``; and ``synapse.tools.aha.*`` holds
-    ``clone``, ``easycert``, ``enroll``, ``list``, ``mirror``, and a
+    ``clone``, ``del``, ``easycert``, ``enroll``, ``list``, ``mirror``, and a
     ``provision`` subpackage.
 
 Why

@@ -83,7 +83,7 @@ class StormCliTest(s_test.SynTest):
                     self.isin(':_test:score = 7', text)
                     self.isin('#bar', text)
                     self.isin('#baz:_foo = 10', text)
-                    self.isin('#foo = (2012-01-01T00:00:00Z, 2012-01-01T00:00:00.000001Z)', text)
+                    self.isin('#foo = 2012-01-01T00:00:00Z - 2012-01-01T00:00:00.000001Z', text)
                     self.isin('complete. 1 nodes in', text)
 
                 outp = s_output.OutPutStr()

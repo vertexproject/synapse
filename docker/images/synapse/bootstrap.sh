@@ -4,7 +4,7 @@ apt-get clean
 apt-get update
 apt-get -y upgrade
 apt-get install -y libffi-dev
-apt-get install -y locales tini nano build-essential
+apt-get install -y locales tini nano gosu build-essential
 
 python -m pip install --upgrade pip
 
@@ -20,6 +20,12 @@ useradd -r --home-dir=/home/synuser -u 999 -g synuser --shell /bin/bash synuser
 mkdir -p /home/synuser
 chown synuser:synuser /home/synuser
 
+# Pre-create the storage volume owned by synuser. This is captured into the
+# image before the VOLUME line so fresh named/anonymous volumes inherit it.
+# Bind mounts are corrected at runtime by the entrypoint (see dropprivs.sh).
+mkdir -p /vertex/storage
+chown synuser:synuser /vertex/storage
+
 if [ -d /build/dist ]; then
     python -m pip install /build/dist/*.whl
 fi
@@ -32,7 +38,5 @@ apt-get clean
 apt-get purge
 
 rm -rf /build
-rm -r /usr/local/lib/python3.14/site-packages/synapse/tests/files/certdir/
-rm -r /usr/local/lib/python3.14/site-packages/synapse/tests/files/aha/certs/
 rm -r /var/lib/apt/lists/*
 rm /usr/local/lib/python3.14/site-packages/tornado/test/test.key

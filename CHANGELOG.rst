@@ -6,6 +6,110 @@
 Synapse Changelog
 *****************
 
+v3.0.0b2 - 2026-07-11
+=====================
+
+Model Changes
+-------------
+- Updated the ``ival`` type repr to return a ``<min> - <max>`` string rather
+  than a tuple of the min and max time reprs. Max-fill time bounds now collapse
+  their filled tail into a ``*`` (e.g. ``2025-12-31*``). The ``ival`` type also
+  norms these repr forms back to the same value.
+- Added the ``meta:story`` form to record a story document authored in
+  markdown.
+- Updated the ``file:base``, ``file:bytes``, ``file:attachment``,
+  ``inet:fqdn``, ``inet:ip``, ``inet:url``, ``inet:email``,
+  ``inet:email:message``, ``inet:urlfile``, ``inet:service:platform``, and
+  ``it:cmd`` forms to implement the ``meta:usable`` interface.
+- Added the ``risk:loss`` interface and ``risk:loss:life``, ``risk:loss:data``,
+  and ``risk:loss:funds`` forms to record aggregate losses.
+- Added the ``it:exec:proc:parent`` property to record the parent process which
+  created a process.
+- Array properties are now declared with the element type in the property
+  typedef and the array container opts (``uniq``/``sorted``/``split``) under an
+  ``array`` key in the property info dictionary. The ``array`` type is a prop-
+  only structural container and may no longer be used as the base for a named
+  type.
+- Removed the ``int:min0``, ``int:min1``, and ``byte:flags`` types. Affected
+  properties now use the ``size``, ``uint8``, or ``uint32`` types.
+- Added the ``size`` type for non-negative sizes and counts, and the fixed-
+  width integer types ``int8``, ``int16``, ``int32``, ``int64``, ``uint8``,
+  ``uint16``, ``uint32``, and ``uint64``.
+- Removed the unused ``daterange`` type.
+- Added the ``activity``, ``activity:day``, and ``reported`` ival types.
+- Inline type opts are no longer permitted on properties; a property must
+  reference a named type. A property that needs custom normalization opts
+  (``regex``, ``enums``, ``names``, ``precision``, ...) must be declared once
+  as a named type and referenced by name.
+
+Features and Enhancements
+-------------------------
+- All Synapse services booting from 3.0.0b2 must use fresh storage. Booting
+  from v3.0.0b1 versions of service storage is not supported, and services will
+  fail to boot.
+- Grouped Storm command ``endpoints`` help output by base URL.
+- The ``synapse.tools.aha.list`` tool now takes an optional ``--url`` (
+  defaulting to the local AHA cell) instead of a required positional URL
+  argument.
+- Add the ``synapse.tools.aha.del`` tool to remove a service entry from the AHA
+  registry.
+- Renamed the Storm command ``endpoints`` ``host`` key to ``url`` to match the
+  ``modconf.endpoints`` shape.
+- Added an ``Endpoints`` section to generated Storm package documentation,
+  listing each module's ``modconf.endpoints`` grouped by resolved base URL.
+- The AHA service ``aha:network`` configuration option now defaults to ``syn``.
+- Synapse service docker containers now drop privileges to the ``synuser`` user
+  (UID ``999``) via ``gosu`` at startup when started as ``root``, adjusting
+  ownership of ``/vertex/storage`` before launching the service.
+- Add the ``SYN_PROVISION_FOLLOWER`` environment variable to force an inaugural
+  service to deploy as a follower of an existing leader of its type, including
+  auto-enrolling an AHA server as a clone via multicast discovery.
+- An active Cortex now discovers Storm services registered with AHA and
+  automatically adds previously unknown ones using ``aha://<type>...`` URLs.
+- Added a ``telepath:port`` configuration option to specify the telepath
+  listening port while inheriting the provisioned hostname and CA.
+- Added AHA managed leadership terms per service type to dynamically determine
+  the leader on boot and enforce forced promotion retirement. Mirrors now
+  follow the current AHA determined leader dynamically. Removed the cell
+  ``mirror`` configuration option and added a ``parent`` option which
+  explicitly overrides the AHA determined leader with a fixed upstream telepath
+  URL.
+- Added a unified ``AhaClient`` that tracks AHA service topology in near real-
+  time via the new ``getAhaTopo()`` API and is now used by every service that
+  connects to AHA.
+- The Cortex ``axon`` and ``jsonstor`` configuration options have been removed.
+  When deployed on an AHA network the Axon and JsonStor are located by service
+  type via AHA; a standalone Cortex continues to use its embedded services.
+- Added support for automatic AHA service provisioning via the
+  ``SYN_PROVISION_SECRET`` environment variable, with the optional
+  ``SYN_PROVISION_HOST`` environment variable to send discovery directly to a
+  specific AHA host.
+- AHA now enforces service type uniqueness: only one instance of a service type
+  may register with an AHA deployment. Added ``getAhaSvcByType`` and
+  ``getAhaSvcsByType`` APIs and ``aha://<svctype>...`` URL resolution.
+- Added the ``celltype`` class variable used to set the service type reported
+  in cell info, and normalized the AHA and JSONStor service types to ``aha``
+  and ``jsonstor``.
+
+Bugfixes
+--------
+- Reading your own API key metadata (``getApiKey``/``listApiKeys``) no longer
+  requires the ``auth.self.set.apikey`` permission.
+- Getting, modifying, or deleting a user's API key by iden now checks the
+  permission against the key's owner, requiring ``auth.user.set.apikey`` for
+  another user's keys. Only API key metadata (such as the name) was accessible
+  this way; no secret key material was ever disclosed.
+- Fixed ``trigger.mod`` incorrectly advertising ``--form``/``--tag``/``--prop``, which are not
+  editable trigger properties.
+- Fixed a bug where ``ival`` tag timestamps were displayed as raw storage
+  values instead of in the human-friendly repr format used for ``ival``
+  properties.
+
+Notes
+-----
+- Services run from Docker containers now use structured logging by default.
+- Updated the pinned version of the ``msgpack`` library to ``>=1.2.1,<1.3.0``.
+
 v3.0.0b1 - 2026-06-30
 =====================
 

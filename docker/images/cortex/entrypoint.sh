@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source /vertex/synapse/dropprivs.sh
+
 PREBOOT_SCRIPT=/vertex/boothooks/preboot.sh
 CONCURRENT_SCRIPT=/vertex/boothooks/concurrent.sh
 
@@ -21,4 +23,4 @@ then
 fi
 
 
-exec python -O -m synapse.servers.cortex /vertex/storage
+runcell python -O -m synapse.servers.cortex /vertex/storage

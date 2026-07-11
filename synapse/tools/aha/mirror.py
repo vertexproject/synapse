@@ -28,11 +28,13 @@ def build_status_list(members, cell_infos):
     group_status = []
     for svc in members:
         svcname = svc.get('name')
-        svcinfo = svc.get('svcinfo', {})
+        if (svcinfo := svc.get('info')) is None: # pragma: no cover
+            svcinfo = {}
+
         status = {
             'name': svcname,
             'role': '<unknown>',
-            'online': str('online' in svcinfo),
+            'online': str(svc.get('online', False)),
             'ready': 'True',
             'host': svcinfo.get('urlinfo', {}).get('host', ''),
             'port': str(svcinfo.get('urlinfo', {}).get('port', '')),
@@ -104,45 +106,31 @@ async def main(argv, outp=s_output.stdout):
                     outp.printf(f'Service at {opts.url} is not an Aha server')
                     return 1
 
-                virtual_services, member_servers = {}, {}
+                # a leader and its mirrors share an immutable service iden.
+                svc_groups = {}
                 async for svc in prox.getAhaSvcs():
-                    name = svc.get('name', '')
-                    svcinfo = svc.get('svcinfo', {})
-                    urlinfo = svcinfo.get('urlinfo', {})
-                    hostname = urlinfo.get('hostname', '')
+                    iden = svc.get('info', {}).get('iden')
+                    if iden is None:
+                        continue
 
-                    if name != hostname:
-                        virtual_services[name] = svc
-                    else:
-                        member_servers[name] = svc
+                    svc_groups.setdefault(iden, []).append(svc)
 
                 mirror_groups = {}
-                for vname, vsvc in virtual_services.items():
-                    vsvc_info = vsvc.get('svcinfo', {})
-                    vsvc_iden = vsvc_info.get('iden')
-                    vsvc_leader = vsvc_info.get('leader')
-                    vsvc_hostname = vsvc_info.get('urlinfo', {}).get('hostname', '')
+                for iden, svcs in svc_groups.items():
 
-                    if not vsvc_iden or not vsvc_hostname or not vsvc_leader:
+                    if len(svcs) <= 1:
                         continue
 
-                    primary_member = member_servers.get(vsvc_hostname)
-                    if not primary_member:
-                        continue
+                    # name the group by its current ( term-holding ) leader and
+                    # list the leader first.
+                    leader = next((svc for svc in svcs if svc.get('leader')), svcs[0])
+                    members = [leader] + [svc for svc in svcs if svc is not leader]
 
-                    members = [primary_member] + [
-                        msvc for mname, msvc in member_servers.items()
-                        if mname != vsvc_hostname and
-                        msvc.get('svcinfo', {}).get('iden') == vsvc_iden and
-                        msvc.get('svcinfo', {}).get('leader') == vsvc_leader
-                    ]
-
-                    if len(members) > 1:
-                        mirror_groups[vname] = members
+                    mirror_groups[leader.get('name')] = members
 
                 outp.printf('Service Mirror Groups:')
                 for vname, members in mirror_groups.items():
-                    iden = members[0].get('svcinfo', {}).get('iden')
+                    iden = members[0].get('info', {}).get('iden')
 
                     cell_infos = await get_cell_infos(prox, iden, members, opts.timeout)
                     group_status = build_status_list(members, cell_infos)

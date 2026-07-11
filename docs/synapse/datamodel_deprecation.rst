@@ -20,7 +20,7 @@ Using Deprecated Model Elements
 
 When Deprecated model elements are used in a Cortex, the following log events will be made:
 
-- One startup, if a extended property definition uses a deprecated type to define it,
+- On startup, if a extended property definition uses a deprecated type to define it,
   a warning message will be logged.
 - If a extended property is added which uses a deprecated type to define it, a warning
   message will be logged.

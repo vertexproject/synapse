@@ -1,3 +1,2 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:ce837c1f1aced5036e998649cb9ab41493664778017b8548ff9e3aae499cdf64
-size 31
+name: foo
+desc: a foo workflow

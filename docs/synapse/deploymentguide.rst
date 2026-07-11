@@ -40,10 +40,10 @@ Prepare your Hosts
 
 Ensure that you have an updated install of docker_ and docker-compose_.
 
-In order to help you run the Synapse service containers as a non-root user, Synapse service docker containers
-have been preconfigured with a user named ``synuser`` with UID ``999``. You may replace ``999`` in the configs
-below, but keep in mind that doing so will result in the container not having a name for the user. We recommend
-that you do **not** use the Linux user ``nobody`` for this purpose.
+Synapse service docker containers run their service process as an unprivileged user named ``synuser`` with
+UID ``999``. The containers start as ``root`` and their entrypoint prepares the mapped ``/vertex/storage``
+volume, adjusts its ownership to ``synuser``, and drops privileges to ``synuser`` before starting the
+service. You do not need to pre-create the storage volume or change its ownership.
 
 Default kernel parameters on most Linux distributions are not optimized for database performance. We recommend
 adding the following lines to ``/etc/sysctl.conf`` on all systems being used to host Synapse services::
@@ -85,8 +85,8 @@ using AHA, the only host that needs DNS or other external name resolution is the
     Synapse service network via any network address translation (NAT) method such as an inbound TCP proxy
     or docker/kubernetes port mapping, you will need to use ``ssl://`` based URIs and specify ``hostname``,
     ``certname``, and ``ca`` parameters which match the service's AHA registration info. You will also need
-    to specify a specific ``--dmon-port`` option when using the  ``synapse.tools.aha.provision.service``
-    command to provision the services with static ports that you can provide mappings to.
+    to set the ``telepath:port`` config option (for example via ``SYN_<SVC>_TELEPATH_PORT``) to bind the
+    service to a static port that you can provide mappings to.
 
 Choose an AHA Network Name
 --------------------------
@@ -98,33 +98,37 @@ deployment is which. Changing this name later is difficult, so choose carefully!
 will be using ``prod.synapse`` as the AHA network name which is also used as the common-name (CN) for the CA
 certificate.
 
+Choose a Provisioning Secret
+----------------------------
+
+Synapse services provision themselves automatically by sharing a secret with the AHA server. Choose a
+strong, random value to use as the provisioning secret and set it as ``SYN_PROVISION_SECRET`` on the AHA
+server and on every service you deploy. Services use it to discover AHA and provision themselves on their
+first boot. See :ref:`deploy_provisioning` for details. Treat this value as sensitive and store it in your
+secrets manager. Throughout the examples, ``<shared-secret>`` refers to this value.
+
 Configure an AHA DNS Name
 -------------------------
 
 When choosing the DNS name for your AHA server, it is important to keep in mind that you may eventually want to
-deploy AHA mirrors for a high-availability deployment. Choosing a name like ``00.aha.<dns-network>``,
+deploy AHA mirrors for a high-availability deployment. Choosing a name like ``000.aha.<dns-network>``,
 where ``<dns-network>`` is a DNS zone you control, will allow you to deploy mirrors with a consistent naming
 convention in the future. Once you have selected the DNS name for your AHA server, you will need to ensure that
 all deployed Synapse services will be able to resolve that name.
 
 .. note::
 
-    It is important to ensure that ``00.aha.<dns-network>`` is resolvable via DNS or docker container service
+    It is important to ensure that ``000.aha.<dns-network>`` is resolvable via DNS or docker container service
     name resolution from within the container environment!
 
 
 Deploy the AHA Container
 ------------------------
 
-Create the container directory::
-
-    mkdir -p /srv/syn/00.aha/storage
-
-Create the ``/srv/syn/00.aha/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/000.aha/docker-compose.yaml`` file with contents::
 
     services:
-      00.aha:
-        user: "999"
+      000.aha:
         image: vertexproject/synapse-aha:v3.x.x
         network_mode: host
         restart: unless-stopped
@@ -134,20 +138,18 @@ Create the ``/srv/syn/00.aha/docker-compose.yaml`` file with contents::
             # disable HTTPS API for now to prevent port collisions
             - SYN_AHA_HTTPS_PORT=null
             - SYN_AHA_AHA_NETWORK=prod.synapse
-            - SYN_AHA_DNS_NAME=00.aha.<dns-network>
+            - SYN_AHA_DNS_NAME=000.aha.<dns-network>
+            # shared secret which enables automatic service provisioning
+            - SYN_PROVISION_SECRET=<shared-secret>
 
 .. note::
 
     Don't forget to replace ``<dns-network>`` with your configured DNS suffix.
 
-Change ownership of the storage directory to the user you will use to run the container::
-
-    chown -R 999 /srv/syn/00.aha/storage
-
 Start the container using ``docker compose``::
 
-    docker compose --file /srv/syn/00.aha/docker-compose.yaml pull
-    docker compose --file /srv/syn/00.aha/docker-compose.yaml up -d
+    docker compose --file /srv/syn/000.aha/docker-compose.yaml pull
+    docker compose --file /srv/syn/000.aha/docker-compose.yaml up -d
 
 To view the container logs at any time you may run the following command on the *host* from the
 ``/srv/syn/aha`` directory::
@@ -157,21 +159,25 @@ To view the container logs at any time you may run the following command on the 
 You may also execute a shell inside the container using ``docker compose`` from the ``/srv/syn/aha``
 directory on the *host*. This will be necessary for some of the additional provisioning steps::
 
-    docker compose exec 00.aha /bin/bash
+    docker compose exec 000.aha /bin/bash
 
 .. _deploy_axon:
+
+.. _deploy_aha_mirror:
 
 Deploy AHA Mirrors (optional)
 =============================
 
-For high-availability deployments, you will want to deploy an AHA mirror or two. Typical Synapse service
-mirroring is configured using AHA based provisioning. Bootstrapping AHA mirrors is simple, but requires
-a slightly different procedure because you cannot bootstrap AHA via AHA :)
+For high-availability deployments, you will want to deploy an AHA mirror or two. An AHA cannot resolve
+its own leader via ``aha://`` (it *is* the registry), so it enrolls as a clone of the current leader by
+setting ``SYN_PROVISION_FOLLOWER``. On its first boot, the new AHA discovers the current leader over the
+network using the shared ``SYN_PROVISION_SECRET`` and clones from it automatically.
 
 .. note::
 
-     You can deploy AHA mirrors at any time in the future. Once the mirrors are deployed, each AHA enabled
-     Synapse service will retrieve the updated list of AHA servers the next time it is restarted.
+     You can deploy AHA mirrors at any time in the future. Once a mirror is deployed, the updated list of
+     AHA servers is distributed to every AHA enabled Synapse service in real time, so running services
+     begin using the new server without a restart.
 
 For this example, we will assume you chose a DNS name for your primary AHA server similar to the steps
 listed above. If so, you can simply replace ``00`` with sequential numbers and repeat this step to deploy
@@ -181,28 +187,10 @@ By default, AHA uses port ``27492`` to listen for RPC connections from other Syn
 for the provisioning listener. The following example steps assume you will be running each AHA server on separate
 hosts or in a containerized deployment to avoid port collisions.
 
-**Inside the AHA container**
-
-Generate a one-time use provisioning URL::
-
-    python -m synapse.tools.aha.clone 01.aha.<dns-network>
-
-You should see output that looks similar to this::
-
-    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
-
-**On the Host**
-
-Create the container directory::
-
-    mkdir -p /srv/syn/01.aha/storage
-    chown -R 999 /srv/syn/01.aha/storage
-
-Create the ``/srv/syn/01.aha/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/001.aha/docker-compose.yaml`` file with contents::
 
     services:
-      01.aha:
-        user: "999"
+      001.aha:
         image: vertexproject/synapse-aha:v3.x.x
         network_mode: host
         restart: unless-stopped
@@ -211,12 +199,64 @@ Create the ``/srv/syn/01.aha/docker-compose.yaml`` file with contents::
         environment:
             # disable HTTPS API for now to prevent port collisions
             - SYN_AHA_HTTPS_PORT=null
-            - SYN_AHA_CLONE=ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
+            # the DNS name this AHA clone will be reachable at
+            - SYN_AHA_DNS_NAME=001.aha.<dns-network>
+            # shared secret which enables automatic provisioning discovery
+            - SYN_PROVISION_SECRET=<shared-secret>
+            # discover the current leader AHA and enroll as a clone of it
+            - SYN_PROVISION_FOLLOWER=1
 
 Start the container::
 
-    docker compose --file /srv/syn/01.aha/docker-compose.yaml pull
-    docker compose --file /srv/syn/01.aha/docker-compose.yaml up -d
+    docker compose --file /srv/syn/001.aha/docker-compose.yaml pull
+    docker compose --file /srv/syn/001.aha/docker-compose.yaml up -d
+
+.. note::
+
+    An AHA clone assumes a leader already exists: it waits indefinitely for the leader to become
+    reachable rather than ever starting empty, logging a warning roughly once a minute while the leader
+    remains unresolved. Ensure the leader AHA is deployed so the clone can complete its bootstrap.
+
+.. _deploy_provisioning:
+
+Service Provisioning
+====================
+
+Synapse services provision themselves automatically using the shared ``SYN_PROVISION_SECRET`` you
+configured on the AHA server. When a service boots for the first time with ``SYN_PROVISION_SECRET`` set, it
+discovers the AHA server, provisions itself, retrieves its configuration, and generates its SSL
+certificates.
+
+AHA names each service automatically from its service type. The first instance of a type becomes the leader
+and is named ``000.<type>`` (for example ``000.cortex``); additional instances of the same type are named
+``NNN.<type>`` (for example ``001.cortex``) and provisioned as mirrors of the leader. The AHA name
+``<type>.<aha-network>`` always resolves to the current leader.
+
+Set ``SYN_PROVISION_SECRET`` to the same value on every service you deploy::
+
+    environment:
+        - SYN_PROVISION_SECRET=<shared-secret>
+
+.. note::
+
+    Discovery requests are encrypted and authenticated with a key derived from ``SYN_PROVISION_SECRET``;
+    requests which fail to decrypt are silently ignored. Discovery uses multicast with a TTL of ``1``, so
+    services must share a subnet with the AHA server.
+
+.. note::
+
+    If a service does not share a broadcast domain (subnet) with the AHA server, set the optional
+    environment variable ``SYN_PROVISION_HOST`` on the service to the AHA host name or address. The
+    discovery request is then sent directly to that host rather than to the multicast group.
+
+.. note::
+
+    By default a fresh service of a type which has no registered leader boots as the first leader. Set
+    the optional environment variable ``SYN_PROVISION_FOLLOWER`` on a service to instead assume a leader
+    of its type already exists and deploy (clone) from it. Rather than ever booting fresh, the service
+    waits indefinitely for a leader to register (logging a warning roughly once a minute until one does).
+    This removes the ambiguity of the first-boot leadership race when a follower may start before the
+    leader has registered.
 
 Deploy Axon Service
 ===================
@@ -226,41 +266,10 @@ blobs and exposes APIs for streaming files in and out regardless of their size. 
 size, an Axon can be used to efficiently store and retrieve very large files as well as a high number
 (easily billions) of files.
 
-**Inside the AHA container**
-
-Generate a one-time use provisioning URL::
-
-    python -m synapse.tools.aha.provision.service 00.axon
-
-These one-time use URLs are used to connect to the Aha service, retrieve configuration data, and provision SSL
-certificates for the service. When this is done, the service records that the URL has been used in its persistent
-storage, and will not attempt to perform the provisioning process again unless the URL changes. If the provisioning URL
-is reused, services will encounter **NoSuchName** errors and fail to start up - this indicates a service has attempted
-to re-use the one-time use URL!
-
-.. note::
-
-    We strongly encourage you to use a numbered hierarchical naming convention for services where the
-    first part of the name is a 0 padded number and the second part is the service type. The above example
-    ``00.axon`` will allow you to deploy mirror instances in the future, such as ``01.axon``, where the AHA
-    name ``axon.prod.synapse`` will automatically resolve to which ever one is the current leader.
-
-You should see output that looks similar to this::
-
-    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
-
-**On the Host**
-
-Create the container directory::
-
-    mkdir -p /srv/syn/00.axon/storage
-    chown -R 999 /srv/syn/00.axon/storage
-
-Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/000.axon/docker-compose.yaml`` file with contents::
 
     services:
-      00.axon:
-        user: "999"
+      000.axon:
         image: vertexproject/synapse-axon:v3.x.x
         network_mode: host
         restart: unless-stopped
@@ -269,42 +278,22 @@ Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
         environment:
             # disable HTTPS API for now to prevent port collisions
             - SYN_AXON_HTTPS_PORT=null
-            - SYN_AXON_AHA_PROVISION=ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
+            - SYN_PROVISION_SECRET=<shared-secret>
 
-.. note::
-
-    Don't forget to replace your one-time use provisioning URL!
+On its first boot the Axon discovers AHA and provisions itself, registering as ``000.axon.prod.synapse``.
 
 Start the container::
 
-    docker compose --file /srv/syn/00.axon/docker-compose.yaml pull
-    docker compose --file /srv/syn/00.axon/docker-compose.yaml up -d
+    docker compose --file /srv/syn/000.axon/docker-compose.yaml pull
+    docker compose --file /srv/syn/000.axon/docker-compose.yaml up -d
 
 Deploy JSONStor Service
 =======================
 
-**Inside the AHA container**
-
-Generate a one-time use provisioning URL::
-
-    python -m synapse.tools.aha.provision.service 00.jsonstor
-
-You should see output that looks similar to this::
-
-    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
-
-**On the Host**
-
-Create the container directory::
-
-    mkdir -p /srv/syn/00.jsonstor/storage
-    chown -R 999 /srv/syn/00.jsonstor/storage
-
-Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/000.jsonstor/docker-compose.yaml`` file with contents::
 
     services:
-      00.jsonstor:
-        user: "999"
+      000.jsonstor:
         image: vertexproject/synapse-jsonstor:v3.x.x
         network_mode: host
         restart: unless-stopped
@@ -313,118 +302,88 @@ Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
         environment:
             # disable HTTPS API for now to prevent port collisions
             - SYN_JSONSTOR_HTTPS_PORT=null
-            - SYN_JSONSTOR_AHA_PROVISION=ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
+            - SYN_PROVISION_SECRET=<shared-secret>
 
-.. note::
-
-    Don't forget to replace your one-time use provisioning URL!
+On its first boot the JSONStor discovers AHA and provisions itself, registering as
+``000.jsonstor.prod.synapse``.
 
 Start the container::
 
-    docker compose --file /srv/syn/00.jsonstor/docker-compose.yaml pull
-    docker compose --file /srv/syn/00.jsonstor/docker-compose.yaml up -d
+    docker compose --file /srv/syn/000.jsonstor/docker-compose.yaml pull
+    docker compose --file /srv/syn/000.jsonstor/docker-compose.yaml up -d
 
 Deploy Cortex Service
 =====================
 
-**Inside the AHA container**
-
-Generate a one-time use provisioning URL::
-
-    python -m synapse.tools.aha.provision.service 00.cortex
-
-You should see output that looks similar to this::
-
-    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
-
-**On the Host**
-
-Create the container directory::
-
-    mkdir -p /srv/syn/00.cortex/storage
-    chown -R 999 /srv/syn/00.cortex/storage
-
-Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/000.cortex/docker-compose.yaml`` file with contents::
 
     services:
-      00.cortex:
-        user: "999"
+      000.cortex:
         image: vertexproject/synapse-cortex:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
             - ./storage:/vertex/storage
         environment:
-            - SYN_CORTEX_AXON=aha://axon...
-            - SYN_CORTEX_JSONSTOR=aha://jsonstor...
-            - SYN_CORTEX_AHA_PROVISION=ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
+            - SYN_PROVISION_SECRET=<shared-secret>
+
+On its first boot the Cortex discovers AHA and provisions itself, registering as
+``000.cortex.prod.synapse``.
 
 .. note::
 
-    Don't forget to replace your one-time use provisioning URL!
-
-.. note::
-
-    The values ``aha://axon...`` and ``aha://jsonstor...`` can be used as-is without changing
-    them because the AHA network (provided by the provisioning server) is automatically subtituted
-    in any ``aha://`` scheme URL ending with ``...``
+    Once the Cortex has joined the AHA network it automatically locates the Axon and JsonStor
+    services by their service type. There is no need to configure telepath URLs to reach them.
 
 Start the container::
 
-    docker compose --file /srv/syn/00.cortex/docker-compose.yaml pull
-    docker compose --file /srv/syn/00.cortex/docker-compose.yaml up -d
+    docker compose --file /srv/syn/000.cortex/docker-compose.yaml pull
+    docker compose --file /srv/syn/000.cortex/docker-compose.yaml up -d
 
 Remember, you can view the container logs in real-time using::
 
-    docker compose --file /srv/syn/00.cortex/docker-compose.yaml logs -f
+    docker compose --file /srv/syn/000.cortex/docker-compose.yaml logs -f
 
 .. _deployment-guide-mirror:
 
 Deploy Cortex Mirror (optional)
 ===============================
 
-**Inside the AHA container**
+To deploy a Cortex mirror for high availability, deploy another Cortex service with the same
+``SYN_PROVISION_SECRET`` and set ``SYN_PROVISION_FOLLOWER`` so it deploys as a mirror of the current
+leader. The new service assumes a Cortex leader already exists, waits for it to register, and clones
+from it rather than racing to become the first leader. AHA names the mirror ``001.cortex`` (and
+``002.cortex``, and so on for additional mirrors).
 
-Generate a one-time use URL for provisioning from *inside the AHA container*::
+.. note::
 
-    python -m synapse.tools.aha.provision.service 01.cortex --mirror cortex
+    AHA determines a single leader per service type by tracking a *leadership term*. Mirrors
+    automatically follow the current leader without any static upstream configuration, and follow the
+    new leader after a promotion. A service which has been superseded by a forced promotion
+    detects the divergence on startup and must be restored from a backup. The ``parent`` cell
+    configuration option may be set to a telepath URL to explicitly override the leader determined by
+    AHA, but this is rarely needed.
 
-You should see output that looks similar to this::
-
-    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
-
-**On the Host**
-
-Create the container storage directory::
-
-    mkdir -p /srv/syn/01.cortex/storage
-    chown -R 999 /srv/syn/01.cortex/storage
-
-Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/001.cortex/docker-compose.yaml`` file with contents::
 
     services:
-      01.cortex:
-        user: "999"
+      001.cortex:
         image: vertexproject/synapse-cortex:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
             - ./storage:/vertex/storage
         environment:
-            - SYN_CORTEX_AXON=aha://axon...
-            - SYN_CORTEX_JSONSTOR=aha://jsonstor...
             # disable HTTPS API for now to prevent port collisions
             - SYN_CORTEX_HTTPS_PORT=null
-            - SYN_CORTEX_AHA_PROVISION=ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
-
-.. note::
-
-    Don't forget to replace your one-time use provisioning URL!
+            - SYN_PROVISION_SECRET=<shared-secret>
+            # deploy as a mirror of the current Cortex leader
+            - SYN_PROVISION_FOLLOWER=1
 
 Start the container::
 
-    docker compose --file /srv/syn/01.cortex/docker-compose.yaml pull
-    docker compose --file /srv/syn/01.cortex/docker-compose.yaml up -d
+    docker compose --file /srv/syn/001.cortex/docker-compose.yaml pull
+    docker compose --file /srv/syn/001.cortex/docker-compose.yaml up -d
 
 .. note::
 
@@ -455,11 +414,11 @@ following command from **inside the AHA container** to generate a one-time use U
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://000.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 Then the **user** may run::
 
-    python -m synapse.tools.aha.enroll ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
+    python -m synapse.tools.aha.enroll ssl://000.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 Once they are enrolled, they will have a user certificate located in ``~/.syn/certs/users`` and their telepath
 configuration located in ``~/.syn/telepath.yaml`` will be updated to reflect the use of the AHA server. From there
@@ -474,7 +433,7 @@ Configure a Storm Query Pool (optional)
 
 A Cortex may be configured to use a pool of mirrors in order to offload Storm query execution and distribute
 query load among a configurable group of mirrors. We will assume you have configured two additional mirrors named
-``01.cortex...`` and ``02.cortex...`` using the process described in the previous :ref:`deployment-guide-mirror`
+``001.cortex...`` and ``002.cortex...`` using the process described in the previous :ref:`deployment-guide-mirror`
 step. In our example, we will also assume that the mirrors will be used for both query parallelism and for graceful
 promotions to minimize downtime during upgrades and optimization.
 
@@ -485,9 +444,9 @@ the Storm CLI to run the ``aha.pool.add`` command to create a new AHA pool::
 
 Then add the Cortex leader as well as the two mirrors to the pool::
 
-    aha.pool.svc.add pool00.cortex... 00.cortex...
-    aha.pool.svc.add pool00.cortex... 01.cortex...
-    aha.pool.svc.add pool00.cortex... 02.cortex...
+    aha.pool.svc.add pool00.cortex... 000.cortex...
+    aha.pool.svc.add pool00.cortex... 001.cortex...
+    aha.pool.svc.add pool00.cortex... 002.cortex...
 
 Then configure the Cortex to use the newly created AHA service pool::
 

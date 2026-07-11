@@ -402,6 +402,16 @@ When a query filters or lifts by property value:
 
 ---
 
+## Inline Type Opts Rule
+
+A prop type is declared `(typename, opts)`. **`opts` must not carry type normalization options** (`regex`, `enums`, `names`, `precision`, ...); any type that needs those must be declared once as a **named type** (in the model's `types` section) and referenced by name. The one key `opts` may carry is `doc` -- per-member metadata documenting how that type applies to this property (e.g. describing each constituent of a poly). `Model._reqValidPropTypedef()` enforces this (allowed keys come from `_polyMemberKeys`) and raises `BadPropDef` for any other inline opt.
+
+An **array** property declares its element type in the typedef slot (referencing a named type, or a tuple of named constituents for a poly element) and its container opts (`uniq`/`sorted`/`split`) under an `array` key in the **prop info dict**. Internally the `Array` type is reconstructed as an anonymous clone from those two surfaces (`Model.getPropTypeClone()`); `Prop.typedef` stores the element and `Prop.pack()`/`getPropDef()` emit the element typedef plus the `array` info key. The legacy `('array', {'type': ...})` container typedef is no longer accepted (`BadPropDef`). Inline element `typeopts`, and inline opts on poly-element constituents, are rejected. (Poly member metadata `doc` is not a type opt and remains allowed on poly constituents.)
+
+The `array` type is prop-only: it may not be the base for a named type. `Model.addType` (and the ext-model `Cortex.addType`) raise `BadTypeDef` if the base type `isarray`, so there are never any named array types -- an array exists only as the anonymous inline clone on a property.
+
+There is no auto-registration of hidden per-prop types; a scalar prop that needs opts references a named type, and its single-member poly carries that name.
+
 ## Poly Types
 
 Poly (polymorphic) types allow a single secondary property to hold a value from one of several different forms or interfaces. The `Poly` class is defined in `synapse/lib/types.py` and the automatic insertion logic lives in `synapse/datamodel.py`.
@@ -433,12 +443,10 @@ The same auto-detection logic exists in `Array.postTypeInit()` for array element
 }), {}),
 ```
 
-**Poly arrays:**
+**Poly arrays:** the element (a tuple of named constituents) sits in the typedef slot; the
+`array` container opts (if any) go under the `array` prop info key:
 ```python
-('polyarry', ('array', {
-    'type': ('test:str', 'test:int', 'inet:server'),
-    'typeopts': {'default_forms': ('test:int', 'test:str')},
-}), {}),
+('polyarry', (('test:str', {}), ('test:int', {}), ('inet:server', {})), {'array': {}}),
 ```
 
 ### Poly Type Options

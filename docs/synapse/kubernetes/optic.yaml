@@ -69,15 +69,15 @@ spec:
             value: DEBUG
           - name: SYN_LOG_STRUCT
             value: "false"
-          - name: SYN_OPTIC_AHA_PROVISION
-            # This value is the Aha provisioning URL from the Aha service output, see below for more details
-            value: "ssl://aha00.default.svc.cluster.local:27272/..."
+          - name: SYN_PROVISION_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: synapse-provision
+                key: secret
+          - name: SYN_PROVISION_HOST
+            value: "aha00.default.svc.cluster.local"
           - name: SYN_OPTIC_HTTPS_PORT
             value: "4443"
-          - name: SYN_OPTIC_AXON
-            value: "aha://axon..."
-          - name: SYN_OPTIC_CORTEX
-            value: "aha://cortex..."
         volumeMounts:
           - mountPath: /vertex/storage
             name: data

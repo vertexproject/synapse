@@ -112,9 +112,11 @@ See :ref:`vtx_300_devops-storage-config-changes`.
        max:nodes: 0
 
 3. Convert per-layer ``mirror`` / ``upstream`` sync. The per-layer follower options are gone.
-   For full-service replication, run the whole Cortex as a mirror via the Cell ``mirror``
-   config; for layer-to-layer sync, use layer push/pull (``layer.push.add`` /
-   ``layer.pull.add``). Note that, unlike Cortex/Cell config keys, a stale ``mirror`` or
+   For full-service replication, run the whole Cortex as a mirror by deploying an
+   additional instance under the same AHA provisioning secret (the Cell ``mirror`` config
+   has been removed; mirrors follow the AHA determined leader dynamically); for layer-to-layer
+   sync, use layer push/pull (``layer.push.add`` / ``layer.pull.add``). Note that, unlike
+   Cortex/Cell config keys, a stale ``mirror`` or
    ``upstream`` key left on a *layer definition* is silently ignored rather than rejected at
    boot -- but you should still remove ``mirror``, ``upstream``, ``lockmemory``, and
    ``logedits`` from layer definitions. See :ref:`vtx_300_devops-layer-sync-pushpull`.
@@ -123,6 +125,11 @@ See :ref:`vtx_300_devops-storage-config-changes`.
 
        // 3.x: configure a layer pull via Storm
        layer.pull.add $dstlayriden `tcp://root:secret@cortex.example.org/*/layer/{$srclayriden}`
+
+4. Review container logging. Synapse containers now emit JSON structured logs by default.
+   If you previously set ``SYN_LOG_STRUCT=true`` you can remove it, since it is now the
+   default. To keep unstructured text output, set ``SYN_LOG_STRUCT=false`` on the
+   container. See :ref:`vtx_300_devops-logging`.
 
 Port your Storm
 ---------------

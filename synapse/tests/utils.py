@@ -69,6 +69,8 @@ import synapse.lib.modelrev as s_modelrev
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.crypto.tinfoil as s_tinfoil
+
 import synapse.tools.storm.pkg.gen as s_genpkg
 
 logger = logging.getLogger(__name__)
@@ -87,6 +89,8 @@ if (s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE') 
 # allow background tasks to tear down cleanly.
 _SYNDEV_TASK_BG_ITER = int(os.getenv('SYNDEV_BG_TASK_ITER', 12))
 assert _SYNDEV_TASK_BG_ITER >= 0, f'SYNDEV_BG_TASK_ITER must be >=0, got {_SYNDEV_TASK_BG_ITER}'
+
+_TINFOIL_EXT = '.tinfoil'
 
 async def alist(coro):
     return [x async for x in coro]
@@ -116,6 +120,10 @@ async def waitForBehold(core, events):
 
         if len(events) == 0:
             break
+
+def _getSyntestTinfoil():
+    # Key is s_common.guid('synapse-test').encode()
+    return s_tinfoil.TinFoilHat(b'1cd773da866cb7f22a8c15cd38140c8f')
 
 @contextlib.asynccontextmanager
 async def matchContexts(testself):
@@ -265,7 +273,7 @@ testmodel = (
                 'props': (
                     ('size', ('int', {}), {}),
                     ('seen', ('ival', {}), {}),
-                    ('names', ('array', {'type': 'str'}), {}),
+                    ('names', ('str', {}), {'array': {}}),
                 ),
                 'interfaces': (
                     ('inet:proto:request', {}),
@@ -275,7 +283,7 @@ testmodel = (
                 'doc': 'test interface',
                 'props': (
                     ('server', ('inet:server', {}), {'alts': ('servers',)}),
-                    ('servers', ('array', {'type': 'inet:server'}), {}),
+                    ('servers', ('inet:server', {}), {'array': {}}),
                 )
             }),
             ('test:unused:iface', {'doc': 'an interface applied to no forms'}),
@@ -325,7 +333,7 @@ testmodel = (
                     ('int2', ('int', {}), {}),
                     ('seen', ('ival', {}), {}),
                     ('type', ('test:str', {}), {'alts': ('types',)}),
-                    ('types', ('array', {'type': 'test:str'}), {}),
+                    ('types', ('test:str', {}), {'array': {}}),
                 ),
             }),
             ('test:float', ('float', {}), {
@@ -359,7 +367,7 @@ testmodel = (
                     ('pivvirt', ('test:virtiface', {}), {}),
                     ('gprop', ('test:guid', {}), {}),
                     ('inhstr', ('test:inhstr', {}), {}),
-                    ('inhstrarry', ('array', {'type': 'test:inhstr'}), {}),
+                    ('inhstrarry', ('test:inhstr', {}), {'array': {}}),
                     ('poly', (
                         ('test:int', {}),
                         ('test:str', {}),
@@ -368,7 +376,7 @@ testmodel = (
                         ('inet:server', {}),
                         ('inet:fqdn', {})
                     ), {}),
-                    ('polyarry', ('array', {'type': (
+                    ('polyarry', (
                         ('test:int', {}),
                         ('test:str', {}),
                         ('test:lowstr', {}),
@@ -379,21 +387,21 @@ testmodel = (
                         ('test:ro', {}),
                         ('it:dev:int', {}),
                         ('it:dev:str', {})
-                    )}), {}),
-                    ('polyarry2', ('array', {'type': (
+                    ), {'array': {}}),
+                    ('polyarry2', (
                         ('test:int', {}),
                         ('test:guid', {}),
                         ('test:auto', {}),
                         ('test:ro', {})
-                    )}), {}),
-                    ('polynonuniq', ('array', {'uniq': False, 'sorted': False, 'type': (
+                    ), {'array': {}}),
+                    ('polynonuniq', (
                         ('test:int', {}),
                         ('test:str', {}),
                         ('test:lowstr', {}),
                         ('test:interface', {}),
                         ('inet:server', {}),
                         ('inet:fqdn', {})
-                    )}), {}),
+                    ), {'array': {'uniq': False, 'sorted': False}}),
                     ('polyint', ('test:interface', {}), {}),
                     ('polyempty', ('test:unused:iface', {}), {}),
                     ('text', ('text', {}), {}),
@@ -456,17 +464,17 @@ testmodel = (
 
             ('test:arrayprop', ('guid', {}), {
                 'props': (
-                    ('ints', ('array', {'type': 'test:int', 'uniq': False, 'sorted': False}), {}),
-                    ('strs', ('array', {'type': 'test:str', 'split': ',', 'uniq': False, 'sorted': False}), {}),
-                    ('strsnosplit', ('array', {'type': 'test:str', 'uniq': False, 'sorted': False}), {}),
-                    ('strregexs', ('array', {'type': 'test:strregex'}), {}),
-                    ('children', ('array', {'type': 'test:arrayprop'}), {}),
-                    ('plainstr', ('array', {'type': 'str', 'uniq': False}), {}),
-                    ('multivirt', ('array', {'type': (
+                    ('ints', ('test:int', {}), {'array': {'uniq': False, 'sorted': False}}),
+                    ('strs', ('test:str', {}), {'array': {'split': ',', 'uniq': False, 'sorted': False}}),
+                    ('strsnosplit', ('test:str', {}), {'array': {'uniq': False, 'sorted': False}}),
+                    ('strregexs', ('test:strregex', {}), {'array': {}}),
+                    ('children', ('test:arrayprop', {}), {'array': {}}),
+                    ('plainstr', ('str', {}), {'array': {'uniq': False}}),
+                    ('multivirt', (
                         ('file:path', {}),
                         ('inet:server', {})
-                    ), 'uniq': False}), {}),
-                    ('vers', ('array', {'type': 'it:version', 'uniq': False}), {}),
+                    ), {'array': {'uniq': False}}),
+                    ('vers', ('it:version', {}), {'array': {'uniq': False}}),
                 ),
             }),
 
@@ -592,17 +600,15 @@ deprmodel = (
                 'deprecated': True,
                 'props': (
                     ('guid', ('test:guid', {}), {'deprecated': True}),
-                    ('array', ('test:dep:array', {}), {}),
+                    ('array', ('test:dep:easy', {}), {'array': {}}),
                     ('comp', ('test:dep:comp', {}), {}),
                 ),
             }),
             ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
-            ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {}),
             ('test:deprprop', ('test:str', {}), {'deprecated': True, 'props': ()}),
-            ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
             ('test:deprform', ('test:str', {}), {
                 'props': (
-                    ('deprprop', ('test:deprarray', {}), {}),
+                    ('deprprop', ('test:deprprop', {}), {'array': {}}),
                     ('okayprop', ('str', {}), {}),
                     ('deprprop2', ('test:str', {}), {'deprecated': True}),
                 ),
@@ -961,6 +967,22 @@ test_schema = {
         'type': 'object',
     }
 
+class TestCell00(s_cell.Cell):
+    '''
+    A minimal Cell subclass with an explicit service type for use as a generic
+    service in tests. The base Cell type ( cell ) may not register with an AHA
+    deployment, so tests that provision a generic service must use this.
+    '''
+    celltype = 'testcell00'
+
+class TestCell01(s_cell.Cell):
+    '''
+    A second generic test service with a distinct type. Since each service type
+    is unique within an AHA deployment, tests that register two independent
+    ( non-mirror ) generic services under one AHA use this for the second one.
+    '''
+    celltype = 'testcell01'
+
 class ReloadCell(s_cell.Cell):
     async def postAnit(self):
         self._reloaded = False
@@ -1107,12 +1129,12 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
                     with mock.patch.object(s_modelrev, 'ModelRev', ModelRev):
                         async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                            if not core.conf.get('mirror'):
+                            if not core.conf.get('parent'):  # pragma: no cover
                                 await self.waitForActiveMigration(core)
                             yield core
                 else:
                     async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                        if not core.conf.get('mirror'):
+                        if not core.conf.get('parent'):  # pragma: no cover
                             await self.waitForActiveMigration(core)
                         yield core
 
@@ -1457,8 +1479,8 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
     @contextlib.asynccontextmanager
     async def getTestDmon(self):
-        self.skipIfNoPath(path='certdir', mesg='Missing files for test dmon!')
         with self.getTestDir(mirror='certdir') as certpath:
+            self.decTinFoilDir(certpath)
             certdir = s_certdir.CertDir(path=certpath)
             s_certdir.addCertPath(certpath)
             async with await s_daemon.Daemon.anit(certdir=certdir) as dmon:
@@ -1515,6 +1537,41 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         with self.getTestDir() as dirn:
             yield dirn
 
+    def _tinFoilCopyFile(self, src, dst):
+        '''The actual tinfoil decode + copy logic'''
+        with open(src, 'rb') as fd:
+            buf = _getSyntestTinfoil().dec(fd.read())
+        self.nn(buf, f'Failed to decode {src=}')
+        with s_common.genfile(dst) as fd:
+            fd.write(buf)
+        shutil.copystat(src, dst)
+
+    def _tinFoilCopy(self, src, dst):
+        '''
+        shututil copy_function which replaces *.tinfoil src files with their decoded
+        files w/o the .tinfoil extension.
+        '''
+        if src.endswith(_TINFOIL_EXT):
+            _dst = dst[:-len(_TINFOIL_EXT)]
+            self._tinFoilCopyFile(src, _dst)
+        else:
+            shutil.copy2(src, dst)
+
+    def decTinFoilDir(self, dirn):
+        '''
+        Recursively walk a directory for .tinfoil files and replace them with their decoded versions.
+
+        Args:
+            dirn (str): The directory to walk.
+        '''
+        for path, _, fns in os.walk(dirn):
+            for fn in fns:
+                if fn.endswith(_TINFOIL_EXT):
+                    src = os.path.join(path, fn)
+                    dst = src[:-len(_TINFOIL_EXT)]
+                    self._tinFoilCopyFile(src, dst)
+                    os.unlink(src)
+
     @contextlib.asynccontextmanager
     async def getTestAha(self, conf=None, dirn=None, ctor=None):
 
@@ -1546,7 +1603,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
                     dstpath = os.path.join(dirn, 'certs')
                     if not os.path.isdir(dstpath):
                         srcpath = self.getTestFilePath('aha/certs')
-                        shutil.copytree(srcpath, os.path.join(dirn, 'certs'))
+                        shutil.copytree(srcpath, os.path.join(dirn, 'certs'), copy_function=self._tinFoilCopy)
 
                 async with await ctor(dirn, conf=conf) as aha:
 
@@ -1602,6 +1659,26 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
                 await aha._waitAhaSvcOnline(f'{svcname}...', timeout=10)
                 yield svc
 
+    async def waitCoreStormSvc(self, core, name, timeout=15):
+        '''
+        Wait ( up to timeout ) for a Cortex to automatically discover an AHA
+        registered storm service of the given cell type and become ready to use
+        it. Returns the StormSvcClient, or None on timeout.
+        '''
+        async def _wait():
+            while True:
+                ssvc = core.getStormSvc(name)
+                if ssvc is not None:
+                    await ssvc.ready.wait()
+                    return ssvc
+
+                await asyncio.sleep(0.1)
+
+        try:
+            return await asyncio.wait_for(_wait(), timeout=timeout)
+        except asyncio.TimeoutError:  # pragma: no cover
+            return None
+
     async def addSvcToCore(self, svc, core, svcname='svc'):
         '''
         Add a service to a Cortex using telepath over tcp.
@@ -1615,6 +1692,47 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         surl = f'tcp://root:root@127.0.0.1:{port}/svc'
         await self.runCoreNodes(core, f'service.add {svcname} {surl}')
         await self.runCoreNodes(core, f'$lib.service.wait({svcname})')
+
+    @contextlib.asynccontextmanager
+    async def getTestCoreProv(self, coreconf=None, axon=True, jsonstor=True, aha=None, ctor=None, model=True, dirn=None):
+        '''
+        Boot an AHA network with a Cortex which discovers its axon and jsonstor
+        peers by cell type. Yields (core, axon, jsonstor); axon and jsonstor are
+        None when not requested. Pass an existing ``aha`` to provision additional
+        services ( eg a power-up ) into the same network. Set ``model=False`` to
+        skip loading the synapse test model into the Cortex.
+        '''
+        if ctor is None:
+            ctor = s_cortex.Cortex
+
+        async with contextlib.AsyncExitStack() as stack:
+
+            if aha is None:
+                aha = await stack.enter_async_context(self.getTestAha())
+
+            # stash the aha so callers can provision a power-up into the same
+            # network ( eg self.addSvcToAha(self.prov_aha, '00.search', ...) )
+            # without an extra getTestAha() context level.
+            prevaha = getattr(self, 'prov_aha', None)
+            self.prov_aha = aha
+            stack.callback(setattr, self, 'prov_aha', prevaha)
+
+            axoncell = None
+            if axon:
+                axoncell = await stack.enter_async_context(self.addSvcToAha(aha, '00.axon', s_axon.Axon))
+
+            jsoncell = None
+            if jsonstor:
+                jsoncell = await stack.enter_async_context(self.addSvcToAha(aha, '00.jsonstor', s_jsonstor.JsonStorCell))
+
+            core = await stack.enter_async_context(self.addSvcToAha(aha, '00.cortex', ctor, conf=coreconf, dirn=dirn))
+
+            # load the test model into the Cortex after boot ( robust against
+            # test ordering, unlike patching Cortex._loadModels ).
+            if model:
+                await core._addModelDefs(testmodel)
+
+            yield core, axoncell, jsoncell
 
     def getTestUrl(self, dmon, name, **opts):
 

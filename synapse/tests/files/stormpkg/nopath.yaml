@@ -1,3 +1,5 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:1d5632dd072130f746111e5fbaec23523a06275f5e36e0f984788c2a2c01e0be
-size 56
+name: testpkg
+version: 0.0.1
+
+logo:
+    mime: image/svg

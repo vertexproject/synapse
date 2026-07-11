@@ -462,6 +462,49 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:invoice :issuer -> entity:contact'))
             self.len(1, await core.nodes('econ:invoice :recipient -> entity:contact'))
 
+            nodes = await core.nodes('''[
+                econ:budget=*
+                    :id=FY24-MKTG
+                    :name="FY24 Marketing"
+                    :period=(2024, 2025)
+                    :actor={ gen.org "budget owner" }
+                    :funds=(5000, 1000)
+                    :previous={[ econ:budget=* :name="FY23 Marketing" ]}
+            ]''')
+            self.len(1, nodes)
+            budget = nodes[0]
+            self.propeq(budget, 'id', 'FY24-MKTG')
+            self.propeq(budget, 'name', 'FY24 Marketing')
+            self.propeq(budget, 'period', (1704067200000000, 1735689600000000, 31622400000000))
+            self.eq('5000', budget.get('funds.allocated'))
+            self.eq('1000', budget.get('funds.spent'))
+            self.eq('-4000', budget.get('funds.variance'))
+            self.eq('-80', budget.get('funds.rate'))
+            self.nn(budget.get('actor'))
+            self.nn(budget.get('previous'))
+            self.len(1, await core.nodes('econ:budget:name="FY24 Marketing" :actor -> ou:org'))
+            self.len(1, await core.nodes('econ:budget:name="FY24 Marketing" :previous -> econ:budget +:name="FY23 Marketing"'))
+
+            # econ:allocation renamed virts (allocated/spent/variance) are liftable
+            self.len(1, await core.nodes('econ:budget:funds.allocated=5000'))
+            self.len(1, await core.nodes('econ:budget:funds.spent=1000'))
+            self.len(1, await core.nodes('econ:budget:name="FY24 Marketing" +:funds.variance<0'))
+            self.len(0, await core.nodes('econ:budget:name="FY24 Marketing" +:funds.variance>0'))
+
+            # econ:budget -(had)> econ:purchase edge
+            await core.nodes('''
+                econ:budget:name="FY24 Marketing"
+                [ +(had)> {[ econ:purchase=(fy24, spend) ]} ]
+            ''')
+            self.len(1, await core.nodes('econ:budget:name="FY24 Marketing" -(had)> econ:purchase'))
+
+            # econ:budgetable interface: :budget on implementing forms
+            for form in ('entity:campaign', 'ou:org', 'proj:project', 'ou:event', 'ou:conference', 'ou:contest'):
+                nodes = await core.nodes(f'[ {form}=* :budget={{ econ:budget:name="FY24 Marketing" }} ]')
+                self.len(1, nodes)
+                self.nn(nodes[0].get('budget'))
+                self.len(1, await core.nodes(f'{form} :budget -> econ:budget +:name="FY24 Marketing"'))
+
     async def test_model_econ_price_virts(self):
 
         async with self.getTestCore() as core:

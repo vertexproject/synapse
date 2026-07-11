@@ -23,6 +23,7 @@ import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
+import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
@@ -32,8 +33,11 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.certdir as s_certdir
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.version as s_version
+import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.provision as s_provision
 import synapse.lib.platforms.linux as s_linux
 
 import synapse.tools.service.backup as s_tools_backup
@@ -145,7 +149,284 @@ class EchoAuth(s_cell.Cell):
         if doraise:
             raise s_exc.BadTime(mesg='call again later')
 
+class CellWithoutType(s_cell.Cell):
+    # Don't do this in a real cell.
+    def getCellType(self):
+        return None
+
 class CellTest(s_t_utils.SynTest):
+
+    async def test_cell_prov_mcast_gates(self):
+
+        secret = {'SYN_PROVISION_SECRET': 'test-provision-secret'}
+
+        # a cell whose getCellType() returns None skips discovery
+        with mock.patch.dict(os.environ, secret):
+            with self.getTestDir() as dirn:
+                async with await CellWithoutType.anit(dirn, conf=self.getCellConf()) as cell:
+                    self.none(cell.conf.get('aha:provision'))
+
+        with self.getTestDir() as dirn:
+
+            # celltype set but the secret is unset, so discovery is skipped
+            async with await s_t_utils.TestCell00.anit(dirn, conf=self.getCellConf()) as cell:
+
+                self.none(cell.conf.get('aha:provision'))
+
+                # an explicitly configured aha:provision short circuits discovery
+                cell.conf['aha:provision'] = 'ssl://haha/deadb33f'
+                with mock.patch.dict(os.environ, secret):
+                    await cell._bootCellProvMcast()
+
+                self.eq('ssl://haha/deadb33f', cell.conf.get('aha:provision'))
+
+                # a non-inaugural boot ( cell.guid present ) skips discovery
+                cell.conf.pop('aha:provision', None)
+                with mock.patch.dict(os.environ, secret):
+                    await cell._bootCellProvMcast()
+
+                self.none(cell.conf.get('aha:provision'))
+
+    async def test_cell_prov_mcast_failures(self):
+
+        port = self._freeUdpPort()
+        group = '239.192.11.1'
+        secret = 'test-provision-secret'
+        key = s_provision.deriveKey(secret)
+
+        # the secret env wraps only the manual discovery calls so it does not
+        # trigger ( and raise from ) discovery during the cell's inaugural anit.
+        secretenv = {'SYN_PROVISION_SECRET': secret}
+        hostenv = {'SYN_PROVISION_SECRET': secret, 'SYN_PROVISION_HOST': '127.0.0.1'}
+
+        with mock.patch.object(s_provision, 'DEFAULT_MCAST_PORT', port), \
+             mock.patch.object(s_provision, 'DEFAULT_MCAST_GROUP', group), \
+             mock.patch.object(s_provision, 'MCAST_ATTEMPTS', 1):
+
+            # an error response from AHA is raised as the named exception
+            async with await s_provision.ProvCast.anit(key, port, group=group, join=True) as srv:
+
+                async def serve():
+                    while not srv.isfini:
+                        mesg, addr = await srv.recv()
+                        srv.send({'type': 'retn', 'data': (False, ('BadArg', {'mesg': 'nope'}))}, addr)
+
+                srv.schedCoro(serve())
+
+                with self.getTestDir() as dirn:
+                    async with await s_t_utils.TestCell00.anit(dirn, conf=self.getCellConf()) as cell:
+                        os.unlink(s_common.genpath(dirn, 'cell.guid'))
+                        with mock.patch.dict(os.environ, secretenv):
+                            with self.raises(s_exc.BadArg):
+                                await cell._bootCellProvMcast()
+                        self.none(cell.conf.get('aha:provision'))
+
+            # with no AHA responding, a single discovery pass returns None ( the
+            # inaugural boot loop in _bootCellProvMcast retries such passes until
+            # AHA replies rather than booting un-provisioned )
+            with self.getTestDir() as dirn:
+                async with await s_t_utils.TestCell00.anit(dirn, conf=self.getCellConf()) as cell:
+                    mesg = {'type': 'service', 'data': {'type': cell.celltype}}
+                    with mock.patch.dict(os.environ, secretenv):
+                        self.none(await cell._runProvMcastDiscover(mesg))
+
+            # SYN_PROVISION_HOST unicasts the request directly to a specific AHA host;
+            # an unknown error name falls back to a generic SynErr
+            async with await s_provision.ProvCast.anit(key, port, group=group, join=True) as srv:
+
+                requests = []
+
+                async def replyerr():
+                    while not srv.isfini:
+                        mesg, addr = await srv.recv()
+                        requests.append(mesg)
+                        srv.send({'type': 'retn', 'data': (False, ('NopeErr', {'mesg': 'nope'}))}, addr)
+
+                srv.schedCoro(replyerr())
+
+                with self.getTestDir() as dirn:
+                    async with await s_t_utils.TestCell00.anit(dirn, conf=self.getCellConf()) as cell:
+                        os.unlink(s_common.genpath(dirn, 'cell.guid'))
+                        with mock.patch.dict(os.environ, hostenv):
+                            with self.raises(s_exc.SynErr):
+                                await cell._bootCellProvMcast()
+
+                        # the unicast request reached AHA and no url was adopted
+                        self.gt(len(requests), 0)
+                        self.eq('service', requests[-1].get('type'))
+                        self.eq('testcell00', requests[-1]['data'].get('type'))
+                        self.none(cell.conf.get('aha:provision'))
+
+    async def test_cell_prov_mcast_wait(self):
+
+        # a stand-in for _runProvMcastDiscover that returns a preset sequence of
+        # results, tracking how many discovery passes were attempted.
+        def mockdiscover(results):
+            state = {'calls': 0}
+
+            async def discover(mesg):
+                indx = min(state['calls'], len(results) - 1)
+                state['calls'] += 1
+                return results[indx]
+
+            return state, discover
+
+        secretenv = {'SYN_PROVISION_SECRET': 'test-provision-secret'}
+
+        with self.getTestDir() as dirn:
+            async with await s_t_utils.TestCell00.anit(dirn, conf=self.getCellConf()) as cell:
+
+                # treat this as an inaugural boot so discovery is attempted
+                os.unlink(s_common.genpath(dirn, 'cell.guid'))
+
+                # setting the secret declares that AHA must provision us: discovery
+                # retries indefinitely until AHA responds ( logging a warning while
+                # unresolved ) rather than ever booting un-provisioned, and then
+                # adopts the minted provisioning url
+                state, discover = mockdiscover([None, None, {'url': 'ssl://aha/deadb33f'}])
+                with mock.patch.object(cell, '_runProvMcastDiscover', discover), \
+                     mock.patch.object(s_cell, 'PROV_FOLLOWER_WARN_TIMEOUT', 0.0):
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
+                        with mock.patch.dict(os.environ, secretenv):
+                            await cell._bootCellProvMcast()
+                        await stream.expect('waiting for the AHA service to appear')
+                self.eq('ssl://aha/deadb33f', cell.conf.get('aha:provision'))
+                self.gt(state['calls'], 1)
+
+    async def test_cell_req_aha_servers(self):
+
+        with self.getTestDir() as dirn:
+            async with await s_t_utils.TestCell00.anit(dirn, conf=self.getCellConf()) as cell:
+
+                # with no aha:servers configured, the helper refuses to proceed
+                self.none(cell.conf.get('aha:servers'))
+                with self.raises(s_exc.NeedConfValu):
+                    cell._reqAhaServers()
+
+                # with aha:servers configured, it returns without raising
+                cell.conf['aha:servers'] = ('ssl://aha00.synapse',)
+                cell._reqAhaServers()
+
+    def _freeUdpPort(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind(('', 0))
+        port = sock.getsockname()[1]
+        sock.close()
+        return port
+
+    async def test_prov_request_schema(self):
+
+        # both request types validate
+        s_schemas.reqValidProvRequest({'type': 'service', 'data': {'type': 'cortex'}})
+        s_schemas.reqValidProvRequest({'type': 'aha', 'data': {'host': 'aha01.foo'}})
+        s_schemas.reqValidProvRequest({'type': 'aha', 'data': {'host': 'aha01.foo', 'port': 27492}})
+
+        # cross-typed data, unknown types, extra keys and missing required keys are rejected
+        for bad in (
+            {'type': 'service', 'data': {'host': 'x'}},
+            {'type': 'aha', 'data': {'type': 'cortex'}},
+            {'type': 'newp', 'data': {'type': 'x'}},
+            {'type': 'aha', 'data': {'host': 'x', 'extra': 1}},
+            {'type': 'aha', 'data': {}},
+        ):
+            with self.raises(s_exc.SchemaViolation):
+                s_schemas.reqValidProvRequest(bad)
+
+    async def test_cell_boot_parent_follower(self):
+
+        svcdef = {'name': '00.testcell00.synapse', 'info': {'iden': 'aaa'}}
+
+        class FakeAhaProxy:
+            def __init__(self, results):
+                self.results = results
+                self.calls = 0
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+            async def getAhaSvcByType(self, celltype, **kwargs):
+                self.calls += 1
+                indx = min(self.calls - 1, len(self.results) - 1)
+                return self.results[indx]
+
+        def mockopen(results, failopens=0):
+            proxy = FakeAhaProxy(results)
+            state = {'opens': 0}
+
+            async def openurl(url, **kwargs):
+                state['opens'] += 1
+                if state['opens'] <= failopens:
+                    raise ConnectionError('nope')
+                return proxy
+
+            return proxy, openurl
+
+        follower = {'SYN_PROVISION_FOLLOWER': '1'}
+
+        with self.getTestDir() as dirn:
+            async with await s_t_utils.TestCell00.anit(dirn, conf=self.getCellConf()) as cell:
+
+                # no follower + no aha:servers -> fresh boot
+                self.none(await cell._getBootParentUrl())
+
+                # an explicit parent always wins
+                cell.conf['parent'] = 'aha://leader...'
+                self.eq('aha://leader...', await cell._getBootParentUrl())
+                cell.conf.pop('parent', None)
+
+                # follower + no aha:servers -> fatal
+                with mock.patch.dict(os.environ, follower):
+                    with self.raises(s_exc.FatalErr):
+                        await cell._getBootParentUrl()
+
+                cell.conf['aha:servers'] = ('ssl://aha00.synapse',)
+
+                # not follower + leader present -> clone url
+                proxy, openurl = mockopen([svcdef])
+                with mock.patch.object(s_telepath, 'openurl', openurl):
+                    self.eq('aha://testcell00...', await cell._getBootParentUrl())
+
+                # not follower + no leader -> fresh boot
+                proxy, openurl = mockopen([None])
+                with mock.patch.object(s_telepath, 'openurl', openurl):
+                    self.none(await cell._getBootParentUrl())
+
+                # follower + leader present immediately -> clone url ( single poll )
+                proxy, openurl = mockopen([svcdef])
+                with mock.patch.object(s_telepath, 'openurl', openurl):
+                    with mock.patch.dict(os.environ, follower):
+                        self.eq('aha://testcell00...', await cell._getBootParentUrl())
+                self.eq(1, proxy.calls)
+
+                # follower + leader appears after polling -> clone url ( >1 poll );
+                # the warn timeout has not elapsed so no warning is logged
+                proxy, openurl = mockopen([None, None, svcdef])
+                with mock.patch.object(s_telepath, 'openurl', openurl), \
+                     mock.patch.object(s_cell, 'PROV_FOLLOWER_WAIT_INTERVAL', 0.0):
+                    with mock.patch.dict(os.environ, follower):
+                        self.eq('aha://testcell00...', await cell._getBootParentUrl())
+                self.gt(proxy.calls, 1)
+
+                # a warning is logged while the leader remains unresolved
+                proxy, openurl = mockopen([None, svcdef])
+                with mock.patch.object(s_telepath, 'openurl', openurl), \
+                     mock.patch.object(s_cell, 'PROV_FOLLOWER_WAIT_INTERVAL', 0.0), \
+                     mock.patch.object(s_cell, 'PROV_FOLLOWER_WARN_TIMEOUT', 0.0):
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
+                        with mock.patch.dict(os.environ, follower):
+                            self.eq('aha://testcell00...', await cell._getBootParentUrl())
+                        await stream.expect('no leader has registered')
+
+                # follower + transient AHA connection error is retried until resolved
+                proxy, openurl = mockopen([svcdef], failopens=1)
+                with mock.patch.object(s_telepath, 'openurl', openurl), \
+                     mock.patch.object(s_cell, 'PROV_FOLLOWER_WAIT_INTERVAL', 0.0), \
+                     mock.patch.object(s_cell, 'PROV_FOLLOWER_WARN_TIMEOUT', 0.0):
+                    with mock.patch.dict(os.environ, follower):
+                        self.eq('aha://testcell00...', await cell._getBootParentUrl())
 
     async def test_cell_getLocalUrl(self):
         with self.getTestDir() as dirn:
@@ -526,7 +807,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(cnfo.get('version'), '1.2.3')
                 self.eq(cnfo.get('type'), 'cortex')
                 self.true(cnfo.get('active'))
-                self.none(cnfo.get('mirror', True))
+                self.none(cnfo.get('parent', True))
                 # Nexus info
                 self.ge(nxfo.get('indx'), 0)
                 self.false(nxfo.get('uplink:ready'))
@@ -543,7 +824,7 @@ class CellTest(s_t_utils.SynTest):
                 self.none(info.get('optimized'))
 
                 # Defaults aha data is
-                self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
+                self.eq(cnfo.get('aha'), {'name': None, 'network': None})
 
                 # Synapse information
                 self.eq(snfo.get('version'), s_version.version)
@@ -580,8 +861,7 @@ class CellTest(s_t_utils.SynTest):
                 # Ensure we have a nexus transaction
                 await cell00.sync()
                 cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', EchoAuth,
-                                                                  dirn=cdr1,
-                                                                  provinfo={'mirror': 'cell'}))  # type: EchoAuth
+                                                                  dirn=cdr1))  # type: EchoAuth
 
                 self.true(await asyncio.wait_for(cell01.nexsroot.ready.wait(), timeout=12))
                 await cell01.sync()
@@ -590,18 +870,37 @@ class CellTest(s_t_utils.SynTest):
                 nxfo0 = cnfo0['cell']['nexus']
                 cnfo1 = await cell01.getCellInfo()
                 nxfo1 = cnfo1['cell']['nexus']
-                self.none(cnfo0['cell']['mirror'])
+                self.none(cnfo0['cell']['parent'])
                 self.eq(cnfo0['cell']['version'], '1.2.3')
                 self.false(nxfo0.get('uplink:ready'))
                 self.true(nxfo0.get('ready'))
 
-                self.eq(cnfo1['cell']['mirror'], 'aha://root@cell...')
+                # a follower's parent is resolved dynamically by cell type.
+                self.eq(cnfo1['cell']['parent'], 'aha://echoauth...')
                 self.eq(cnfo1['cell']['version'], '1.2.3')
 
                 self.true(nxfo1.get('uplink:ready'))
                 self.true(nxfo1.get('ready'))
 
                 self.eq(nxfo0['indx'], nxfo1['indx'])
+
+    async def test_cell_celltype(self):
+
+        # By default the cell type is the lower-cased class name.
+        self.none(s_cell.Cell.celltype)
+        self.eq('cell', s_cell.Cell.getCellType())
+
+        # An explicit celltype class variable overrides the default.
+        class FooCell(s_cell.Cell):
+            celltype = 'foo:bar'
+
+        self.eq('foo:bar', FooCell.getCellType())
+
+        # The core services declare explicit, consistent celltype values.
+        self.eq('cortex', s_cortex.Cortex.getCellType())
+        self.eq('axon', s_axon.Axon.getCellType())
+        self.eq('aha', s_aha.AhaCell.getCellType())
+        self.eq('jsonstor', s_jsonstor.JsonStorCell.getCellType())
 
     async def test_cell_dyncall(self):
 
@@ -633,8 +932,90 @@ class CellTest(s_t_utils.SynTest):
 
         async with self.getTestCell(s_cell.Cell) as cell:
             async with cell.getLocalProxy() as proxy:
-                with self.raises(s_exc.BadConfValu):
+                # a standalone leader is not a follower and cannot promote.
+                with self.raises(s_exc.BadState):
                     await proxy.promote()
+
+                # a service with an explicit parent is a pinned follower and
+                # refuses promotion rather than override the configuration.
+                cell.conf['parent'] = 'aha://someupstream...'
+                with self.raises(s_exc.BadState) as cm:
+                    await proxy.promote()
+                self.isin('explicit parent', cm.exception.get('mesg'))
+                cell.conf.pop('parent', None)
+
+            # _waitAhaRegOnline is a no-op when AHA is not configured
+            self.none(cell.ahaclient)
+            await cell._waitAhaRegOnline(timeout=1)
+
+    async def test_cell_on_aha_lead_term(self):
+
+        async with self.getTestCell(s_cell.Cell) as cell:
+
+            svctype = cell.getCellType()
+
+            evt = asyncio.Event()
+            async def fakestartup():
+                evt.set()
+            cell.nexsroot.startup = fakestartup
+
+            # a svc:lead for a different service type is ignored
+            await cell._onAhaLeadTerm(('svc:lead', {'type': 'othertype', 'term': {'name': 'x'}}))
+
+            # our type but we are the leader ( not a follower ) is ignored
+            self.false(cell.isfollower)
+            await cell._onAhaLeadTerm(('svc:lead', {'type': svctype, 'term': {'name': 'x'}}))
+
+            # a pinned follower ( explicit parent ) does not dynamically re-follow
+            cell.isfollower = True
+            cell.conf['parent'] = 'aha://someupstream...'
+            await cell._onAhaLeadTerm(('svc:lead', {'type': svctype, 'term': {'name': 'x'}}))
+            cell.conf.pop('parent', None)
+
+            self.false(evt.is_set())
+
+            # a dynamic follower re-follows the new leader by restarting the nexus
+            await cell._onAhaLeadTerm(('svc:lead', {'type': svctype, 'term': {'name': 'x'}}))
+            self.true(await asyncio.wait_for(evt.wait(), timeout=6))
+
+    async def test_cell_on_aha_servers(self):
+
+        async with self.getTestCell(s_cell.Cell) as cell:
+
+            urls = ('ssl://aha00.loop.vertex.link:0/', 'ssl://aha01.loop.vertex.link:0/')
+
+            # a pushed server list is persisted to the aha:servers conf
+            await cell._onAhaServers(('aha:servers', {'urls': urls}))
+            self.eq(list(urls), list(cell.conf.get('aha:servers')))
+
+            # an empty list is ignored
+            await cell._onAhaServers(('aha:servers', {'urls': ()}))
+            self.eq(list(urls), list(cell.conf.get('aha:servers')))
+
+            # an unchanged list is a no-op ( accepts str/list/tuple stored forms )
+            cell.conf['aha:servers'] = list(urls)
+            await cell._onAhaServers(('aha:servers', {'urls': urls}))
+            self.eq(list(urls), cell.conf.get('aha:servers'))
+
+    async def test_cell_telepath_port(self):
+
+        async with self.getTestCell(s_cell.Cell) as cell:
+
+            # telepath:port overrides only the port on an explicit dmon:listen
+            cell.conf['dmon:listen'] = 'ssl://0.0.0.0:0?hostname=00.cell.synapse&ca=synapse'
+            cell.conf['telepath:port'] = 30001
+            self.eq('ssl://0.0.0.0:30001?hostname=00.cell.synapse&ca=synapse', cell._getDmonListen())
+
+            # without telepath:port the listen URL is returned unchanged
+            cell.conf.pop('telepath:port', None)
+            self.eq('ssl://0.0.0.0:0?hostname=00.cell.synapse&ca=synapse', cell._getDmonListen())
+
+            # telepath:port also applies to the aha:name/network derived fallback
+            cell.conf.pop('dmon:listen', None)
+            cell.conf['aha:name'] = '00.cell'
+            cell.conf['aha:network'] = 'synapse'
+            cell.conf['telepath:port'] = 40002
+            self.eq('ssl://0.0.0.0:40002?hostname=00.cell.synapse&ca=synapse', cell._getDmonListen())
 
     async def test_cell_anon(self):
 
@@ -1789,7 +2170,7 @@ class CellTest(s_t_utils.SynTest):
 
                 conf01 = {'dmon:listen': 'tcp://127.0.0.1:0/',
                           'https:port': 0,
-                          'mirror': cell00.getLocalUrl(),
+                          'parent': cell00.getLocalUrl(),
                           'nexslog:en': True,
                           }
 
@@ -1900,16 +2281,16 @@ class CellTest(s_t_utils.SynTest):
                 cdr0 = s_common.genpath(dirn, 'cell00')
                 cdr1 = s_common.genpath(dirn, 'cell01')
 
-                async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=cdr0) as cell00:
+                async with self.addSvcToAha(aha, '00.cell', s_t_utils.TestCell00, dirn=cdr0) as cell00:
 
-                    conf = {'mirror': 'aha://cell...'}
+                    conf = {'parent': 'aha://cell...'}
                     with self.raises(s_exc.FatalErr) as cm:
                         async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
                             self.fail('Cell01 should never boot')
                     self.isin('No aha:provision configuration has been provided to allow the service to bootstrap',
                               cm.exception.get('mesg'))
 
-                    provurl = await aha.addAhaSvcProv('01.cell', provinfo={'mirror': 'cell'})
+                    provurl = await aha.addAhaSvcProv('01.cell')
                     conf = self.getCellConf({'aha:provision': provurl})
                     async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
                         await cell01.sync()
@@ -1943,8 +2324,7 @@ class CellTest(s_t_utils.SynTest):
                     url = f'https+insecure://root:root@localhost:{port}/api/v3/axon/files/by/sha256/'
 
                     async with self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=cdr0) as core00:
-                        async with self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=cdr1,
-                                                    provinfo={'mirror': 'core'}) as core01:
+                        async with self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=cdr1) as core01:
                             self.len(1, await core00.nodes('[inet:asn=0]'))
                             await core01.sync()
                             self.len(1, await core01.nodes('inet:asn=0'))
@@ -1958,9 +2338,9 @@ class CellTest(s_t_utils.SynTest):
                             self.false(core00.isactive)
 
                             modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
-                            self.eq('aha://root@core...', modinfo.get('mirror', ''))
+                            self.none(modinfo)
                             modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
-                            self.none(modinfo.get('mirror'))
+                            self.none(modinfo)
 
                             async with await axon00.upload() as upfd:
                                 async with core00.getLocalProxy() as prox:
@@ -1969,6 +2349,12 @@ class CellTest(s_t_utils.SynTest):
 
                                     size, sha256 = await upfd.save()
                                     await asyncio.sleep(0)
+
+                    # the original cortex cluster is gone; remove its ( now offline )
+                    # services so the leadership term for the type is popped and the
+                    # restored service can take leadership of a fresh cluster.
+                    await aha.delAhaSvc('00.core...')
+                    await aha.delAhaSvc('01.core...')
 
                     furl = f'{url}{s_common.ehex(sha256)}'
                     purl = await aha.addAhaSvcProv('00.mynewcortex')
@@ -1989,8 +2375,7 @@ class CellTest(s_t_utils.SynTest):
                                     self.true(s_common.isguid(doneiden))
 
                                 # Restore the backup as a mirror of the mynewcortex
-                                purl = await aha.addAhaSvcProv('01.mynewcortex',
-                                                               provinfo={'mirror': 'mynewcortex'})
+                                purl = await aha.addAhaSvcProv('01.mynewcortex')
                                 stream.clear()
                                 with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl,
                                                        SYN_CORTEX_AHA_PROVISION=purl):
@@ -2025,8 +2410,7 @@ class CellTest(s_t_utils.SynTest):
                     url = f'https+insecure://root:root@localhost:{port}/api/v3/axon/files/by/sha256/'
 
                     async with self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=cdr0) as core00:
-                        async with self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=cdr1,
-                                                    provinfo={'mirror': 'core'}) as core01:
+                        async with self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=cdr1) as core01:
                             self.len(1, await core00.nodes('[inet:asn=0]'))
                             await core01.sync()
                             self.len(1, await core01.nodes('inet:asn=0'))
@@ -2040,9 +2424,9 @@ class CellTest(s_t_utils.SynTest):
                             self.false(core00.isactive)
 
                             modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
-                            self.eq('aha://root@core...', modinfo.get('mirror', ''))
+                            self.none(modinfo)
                             modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
-                            self.none(modinfo.get('mirror'))
+                            self.none(modinfo)
 
                             # Promote core00 back to being the leader
                             await core00.promote(graceful=True)
@@ -2050,9 +2434,9 @@ class CellTest(s_t_utils.SynTest):
                             self.false(core01.isactive)
 
                             modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
-                            self.none(modinfo.get('mirror'))
+                            self.none(modinfo)
                             modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
-                            self.eq('aha://root@core...', modinfo.get('mirror', ''))
+                            self.none(modinfo)
 
                             # Backup the mirror (core01) which points to the core00
                             async with await axon00.upload() as upfd:
@@ -2064,6 +2448,12 @@ class CellTest(s_t_utils.SynTest):
 
                                     size, sha256 = await upfd.save()
                                     self.eq(size, tot_chunks)
+
+                    # the original cortex cluster is gone; remove its ( now offline )
+                    # services so the leadership term for the type is popped and the
+                    # restored service can take leadership of a fresh cluster.
+                    await aha.delAhaSvc('00.core...')
+                    await aha.delAhaSvc('01.core...')
 
                     furl = f'{url}{s_common.ehex(sha256)}'
                     purl = await aha.addAhaSvcProv('00.mynewcortex')
@@ -2084,8 +2474,7 @@ class CellTest(s_t_utils.SynTest):
                                     self.true(s_common.isguid(doneiden))
 
                                 # Restore the backup as a mirror of the mynewcortex
-                                purl = await aha.addAhaSvcProv('01.mynewcortex',
-                                                               provinfo={'mirror': 'mynewcortex'})
+                                purl = await aha.addAhaSvcProv('01.mynewcortex')
                                 stream.clear()
                                 with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl,
                                                        SYN_CORTEX_AHA_PROVISION=purl):
@@ -2168,7 +2557,7 @@ class CellTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(dirn=path00, conf=conf) as core00:
 
-                    core01conf = {'mirror': core00.getLocalUrl()}
+                    core01conf = {'parent': core00.getLocalUrl()}
 
                     async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
@@ -2621,6 +3010,19 @@ class CellTest(s_t_utils.SynTest):
             ltk0, ltdf0 = await cell.addUserApiKey(lowuser, name='Visi Token')
             self.eq(lowuser, ltdf0.get('user'))
 
+            # A non-admin user can list their own API key metadata via the
+            # CellApi without any permission -- even when the manage perm is
+            # explicitly denied. Listing another user's keys still requires
+            # ('auth', 'user', 'set', 'apikey').
+            await cell.addUserRule(lowuser, (False, ('auth', 'self', 'set', 'apikey')))
+            async with cell.getLocalProxy(user='lowuser') as lowprox:
+                self.eq((ltdf0,), await lowprox.listUserApiKeys())
+
+                with self.raises(s_exc.AuthDeny):
+                    await lowprox.listUserApiKeys(useriden=root)
+
+            await cell.delUserRule(lowuser, (False, ('auth', 'self', 'set', 'apikey')))
+
             async with self.getHttpSess(port=hport) as sess:
 
                 # New token works
@@ -2817,8 +3219,9 @@ class CellTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadVersion) as exc:
                 with self.getLoggerStream('synapse.lib.cell') as stream:
-                    async with self.getTestCell(s_cell.Cell, dirn=dirn):
-                        pass  # pragma: no cover
+                    with mock.patch('synapse.lib.cell.Cell.reject2xStorage', False):
+                        async with self.getTestCell(s_cell.Cell, dirn=dirn):
+                            pass  # pragma: no cover
 
             mesg = f'Synapse version regression (cell) is not allowed! Stored version: 99.0.0, current version: {lowerversion}.'
             self.eq(exc.exception.get('mesg'), mesg)
@@ -2862,11 +3265,9 @@ class CellTest(s_t_utils.SynTest):
                     dirn02 = s_common.genpath(dirn, '02.cell')
                     dirn0002 = s_common.genpath(dirn, '00.02.cell')
 
-                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
-                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
-                                                                       provinfo={'mirror': 'cell'}))
-                    cell02 = await base.enter_context(self.addSvcToAha(aha, '02.cell', s_cell.Cell, dirn=dirn02,
-                                                                       provinfo={'mirror': 'cell'}))
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_t_utils.TestCell00, dirn=dirn00))
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_t_utils.TestCell00, dirn=dirn01))
+                    cell02 = await base.enter_context(self.addSvcToAha(aha, '02.cell', s_t_utils.TestCell00, dirn=dirn02))
 
                     self.true(cell00.isactive)
                     self.false(cell01.isactive)
@@ -2880,40 +3281,35 @@ class CellTest(s_t_utils.SynTest):
                     # Promote 02.cell -> Promote 01.cell -> Promote 00.cell, without breaking the configured topology
                     await cell02.promote(graceful=True)
                     self.false(cell00.isactive)
-                    self.eq(cell00.conf.get('mirror'), 'aha://root@cell...')
                     self.false(cell01.isactive)
-                    self.eq(cell01.conf.get('mirror'), 'aha://root@cell...')
                     self.true(cell02.isactive)
-                    self.none(cell02.conf.get('mirror'))
                     await cell02.sync()
 
                     await cell01.promote(graceful=True)
                     self.false(cell00.isactive)
-                    self.eq(cell00.conf.get('mirror'), 'aha://root@cell...')
                     self.true(cell01.isactive)
-                    self.none(cell01.conf.get('mirror'))
                     self.false(cell02.isactive)
-                    self.eq(cell02.conf.get('mirror'), 'aha://root@cell...')
                     await cell02.sync()
 
                     await cell00.promote(graceful=True)
                     self.true(cell00.isactive)
-                    self.none(cell00.conf.get('mirror'))
                     self.false(cell01.isactive)
-                    self.eq(cell01.conf.get('mirror'), 'aha://root@cell...')
                     self.false(cell02.isactive)
-                    self.eq(cell02.conf.get('mirror'), 'aha://root@cell...')
                     await cell02.sync()
 
-                    # A follower of a follower cannot be promoted up since its leader is not the active cell.
-                    cell0002 = await base.enter_context(self.addSvcToAha(aha, '00.02.cell', s_cell.Cell, dirn=dirn0002,
-                                                                      provinfo={'mirror': '02.cell'}))
+                    # A newly added mirror dynamically tracks the current leader
+                    # ( 00.cell, resolved by cell type ) rather than a statically
+                    # configured parent, so it joins as a follower and a graceful
+                    # promotion hands off from the active leader.
+                    cell0002 = await base.enter_context(self.addSvcToAha(aha, '00.02.cell', s_t_utils.TestCell00, dirn=dirn0002))
                     self.false(cell0002.isactive)
-                    self.eq(cell0002.conf.get('mirror'), 'aha://root@02.cell...')
-                    with self.raises(s_exc.BadState) as cm:
-                        await cell0002.promote(graceful=True)
-                    mesg = 'ahaname=02.cell is not the current leader and cannot handoff leadership to aha://00.02.cell.synapse.'
-                    self.isin(mesg, cm.exception.get('mesg'))
+                    self.eq(cell0002.getParentUrl(), 'aha://testcell00...')
+                    await cell0002.sync()
+
+                    await cell0002.promote(graceful=True)
+                    self.true(cell0002.isactive)
+                    self.false(cell00.isactive)
+                    await cell00.sync()
 
     async def test_cell_get_aha_proxy(self):
 
@@ -3060,10 +3456,10 @@ class CellTest(s_t_utils.SynTest):
 
             # test some of the gather API implementations...
             purl00 = await aha.addAhaSvcProv('00.cell')
-            purl01 = await aha.addAhaSvcProv('01.cell', provinfo={'mirror': 'cell'})
+            purl01 = await aha.addAhaSvcProv('01.cell')
 
-            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
-            cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
+            cell00 = await aha.enter_context(self.getTestCell(s_t_utils.TestCell00, conf={'aha:provision': purl00}))
+            cell01 = await aha.enter_context(self.getTestCell(s_t_utils.TestCell00, conf={'aha:provision': purl01}))
 
             await cell01.sync()
 
@@ -3171,7 +3567,7 @@ class CellTest(s_t_utils.SynTest):
 
             # test some of the gather API implementations...
             purl00 = await aha.addAhaSvcProv('00.cell')
-            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
+            cell00 = await aha.enter_context(self.getTestCell(s_t_utils.TestCell00, conf={'aha:provision': purl00}))
 
             with self.getLoggerStream('synapse.tests.test_lib_cell') as stream:
                 # confirm last-one-wins "service" key is always initialized

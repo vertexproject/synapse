@@ -1,3 +1,6 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:c7a371ad6cee363de80080982b94c124dd168552fb7e16390e7b50e341d67427
-size 79
+name: testpkg
+version: 0.0.1
+
+docs:
+    - title: newp
+      path: docs/newp.md

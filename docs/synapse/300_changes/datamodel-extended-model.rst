@@ -93,3 +93,42 @@ What you need to do
 
         // 3.x: define an extended property on a specific form
         $lib.model.ext.addFormProp("inet:ip", "_score", ("int", ({})), ({"doc": "..."}))
+
+Extended property type opts require a named type
+------------------------------------------------
+
+What changed
+    A property typedef may no longer carry inline type opts. Declaring an extended property with
+    inline opts on any type (for example ``("str", ({"regex": "..."}))`` or ``("ival", ({"names":
+    {...}}))``) now raises ``BadPropDef``. An array property is declared by putting its element
+    type in the typedef slot (referencing a named type) and its container opts (``uniq`` /
+    ``sorted`` / ``split``) under the ``array`` key of the property info dict; the legacy
+    ``("array", ({"type": ...}))`` container typedef is no longer supported. The ``array`` type
+    remains prop-only: it may not be the base for a named type via ``$lib.model.ext.addType`` --
+    doing so raises ``BadTypeDef``.
+
+Why
+    This gives one consistent rule for where type opts live: a property always references a named
+    type in its typedef slot, and array-specific container opts live under the ``array`` prop info
+    key rather than inline on the typedef.
+
+What you need to do
+    For a non-array extended property that needs custom type opts, declare a named type once with
+    ``$lib.model.ext.addType`` and reference it by name from the property. For an array property,
+    move the element type into the typedef slot and the container opts under the ``array`` prop
+    info key.
+
+    ::
+
+        // 2.x: inline type opts on a non-array extended property
+        $lib.model.ext.addFormProp("inet:ip", "_grade", ("str", ({"lower": true})), ({"doc": "..."}))
+
+        // 3.x: declare a named type, then reference it
+        $lib.model.ext.addType("_grade", "str", ({"lower": true}), ({"doc": "..."}))
+        $lib.model.ext.addFormProp("inet:ip", "_grade", ("_grade", ({})), ({"doc": "..."}))
+
+        // 2.x: array container typedef with inline opts
+        $lib.model.ext.addFormProp("inet:ip", "_tags", ("array", ({"type": "str"})), ({"doc": "..."}))
+
+        // 3.x: element type in the typedef slot, container opts under the "array" prop info key
+        $lib.model.ext.addFormProp("inet:ip", "_tags", ("str", ({})), ({"array": ({}), "doc": "..."}))

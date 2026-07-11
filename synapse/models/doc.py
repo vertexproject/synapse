@@ -13,7 +13,8 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'The {title} ID.'}),
 
-                    ('ids', ('array', {'type': 'base:id'}), {
+                    ('ids', ('base:id', {}), {
+                        'array': {},
                         'doc': 'An array of alternate IDs for the {title}.'}),
 
                     ('url', ('inet:url', {}), {
@@ -31,7 +32,8 @@ modeldefs = (
                     ('version', ('it:version', {}), {
                         'doc': 'The version of the {title}.'}),
 
-                    ('supersedes', ('array', {'type': '{$self}'}), {
+                    ('supersedes', ('{$self}', {}), {
+                        'array': {},
                         'doc': 'An array of {title} versions which are superseded by this {title}.'}),
                 ),
                 'doc': 'Properties common to authorable forms.'}),
@@ -79,7 +81,8 @@ modeldefs = (
                     ('publisher:name', ('entity:name', {}), {
                         'doc': 'The name of the entity which published the {title}.'}),
 
-                    ('topics', ('array', {'type': 'meta:topic'}), {
+                    ('topics', ('meta:topic', {}), {
+                        'array': {},
                         'doc': 'The topics discussed in the {title}.'}),
                 ),
                 'doc': 'Properties common to published documents.'}),
@@ -168,16 +171,20 @@ modeldefs = (
                     ('summary', ('text', {}), {
                         'doc': 'The summary of qualifications from the resume.'}),
 
-                    ('skills', ('array', {'type': 'ps:skill'}), {
+                    ('skills', ('ps:skill', {}), {
+                        'array': {},
                         'doc': 'The skills described in the resume.'}),
 
-                    ('workhist', ('array', {'type': 'ps:workhist'}), {
+                    ('workhist', ('ps:workhist', {}), {
+                        'array': {},
                         'doc': 'Work history described in the resume.'}),
 
-                    ('education', ('array', {'type': 'entity:studied'}), {
+                    ('education', ('entity:studied', {}), {
+                        'array': {},
                         'doc': 'Education experience described in the resume.'}),
 
-                    ('achievements', ('array', {'type': 'entity:achieved'}), {
+                    ('achievements', ('entity:achieved', {}), {
+                        'array': {},
                         'doc': 'Achievements described in the resume.'}),
 
                 ),

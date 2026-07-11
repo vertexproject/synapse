@@ -803,6 +803,13 @@ class FileTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('file:mime:lnk -> it:hostname'))
 
+    async def test_model_file_usable(self):
+
+        async with self.getTestCore() as core:
+
+            for name in ('file:base', 'file:bytes', 'file:attachment'):
+                self.true(core.model.form(name).implements('meta:usable'))
+
     async def test_model_file_attachment(self):
 
         async with self.getTestCore() as core:

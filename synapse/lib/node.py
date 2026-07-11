@@ -1728,8 +1728,8 @@ def reprTag(pode, tag):
     if valu == (None, None, None):
         return ''
     mint = s_time.repr(valu[0])
-    maxt = s_time.repr(valu[1])
-    valu = f'({mint}, {maxt})'
+    maxt = s_time.reprmax(valu[1])
+    valu = f'{mint} - {maxt}'
     return valu
 
 def reprTagProps(pode, tag):

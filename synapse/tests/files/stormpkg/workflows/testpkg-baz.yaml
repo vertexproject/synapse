@@ -1,3 +1,2 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:8b5c74a2c060e50176aa76f0e8641a06de3576e6d0b577d316ee0242394991f6
-size 47
+name: real-baz
+desc: this is the real baz desc

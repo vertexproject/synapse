@@ -266,6 +266,73 @@ reqValidAhaPoolDef = s_config.getJsValidator({
     'required': ['name', 'creator', 'created', 'services'],
 })
 
+reqValidLeadTerm = s_config.getJsValidator({
+    'type': 'object', 'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string', 'minLength': 1},
+        'nexsoffs': {'type': 'integer', 'minimum': 0},
+        'created': {'type': 'integer', 'minimum': 0},
+        'id': {'type': 'integer', 'minimum': 0},
+    },
+    'additionalProperties': False,
+    'required': ['iden', 'name', 'nexsoffs', 'created', 'id'],
+})
+
+# AHA provisioning discovery messages are enveloped as
+# {'type': <msgtype>, 'data': <type-specific-data>}.
+
+# A 'service' request auto-provisions a normal service of the named type.
+_provServiceReqSchema = {
+    'type': 'object',
+    'properties': {
+        'type': {'const': 'service'},
+        'data': {
+            'type': 'object',
+            'properties': {
+                'type': {'type': 'string', 'minLength': 1},
+            },
+            'required': ['type'],
+            'additionalProperties': False,
+        },
+    },
+    'required': ['type', 'data'],
+    'additionalProperties': False,
+}
+
+# An 'aha' request enrolls the sender as a clone of the leader AHA service.
+_provAhaReqSchema = {
+    'type': 'object',
+    'properties': {
+        'type': {'const': 'aha'},
+        'data': {
+            'type': 'object',
+            'properties': {
+                'host': {'type': 'string', 'minLength': 1},
+                'port': {'type': 'integer', 'minimum': 1, 'maximum': 65535},
+            },
+            'required': ['host'],
+            'additionalProperties': False,
+        },
+    },
+    'required': ['type', 'data'],
+    'additionalProperties': False,
+}
+
+_provReqSchema = {'oneOf': [_provServiceReqSchema, _provAhaReqSchema]}
+reqValidProvRequest = s_config.getJsValidator(_provReqSchema)
+
+_provRespSchema = {
+    'type': 'object',
+    'properties': {
+        'type': {'const': 'retn'},
+        # an ( ok, data ) retn tuple; intentionally unconstrained here.
+        'data': {},
+    },
+    'required': ['type', 'data'],
+    'additionalProperties': False,
+}
+reqValidProvResponse = s_config.getJsValidator(_provRespSchema)
+
 _cellUserApiKeySchema = {
     'type': 'object',
     'properties': {
@@ -814,7 +881,16 @@ _reqValidPkgdefSchema = {
             'properties': {
                 'name': {'type': 'string'},
                 'storm': {'type': 'string'},
-                'modconf': {'type': 'object'},
+                'modconf': {
+                    'type': 'object',
+                    'properties': {
+                        'endpoints': {
+                            'type': 'object',
+                            'additionalProperties': {'$ref': '#/definitions/endpoint'},
+                        },
+                    },
+                    'additionalProperties': True,
+                },
                 'apidefs': {
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/apidef'},
@@ -928,6 +1004,16 @@ _reqValidPkgdefSchema = {
         'apitype': {
             'type': 'string',
         },
+        'endpoint': {
+            'type': 'object',
+            'properties': {
+                'path': {'type': 'string'},
+                'url': {'type': 'string'},
+                'desc': {'type': 'string'},
+            },
+            'required': ['path'],
+            'additionalProperties': False
+        },
         'command': {
             'type': 'object',
             'properties': {
@@ -937,16 +1023,7 @@ _reqValidPkgdefSchema = {
                 },
                 'endpoints': {
                     'type': 'array',
-                    'items': {
-                        'type': 'object',
-                        'properties': {
-                            'path': {'type': 'string'},
-                            'host': {'type': 'string'},
-                            'desc': {'type': 'string'},
-                        },
-                        'required': ['path'],
-                        'additionalProperties': False
-                    }
+                    'items': {'$ref': '#/definitions/endpoint'},
                 },
                 'cmdargs': {
                     'type': ['array', 'null'],

@@ -272,9 +272,9 @@ class LinkTest(s_test.SynTest):
 
     async def test_tls_ciphers(self):
         self.thisHostMustNot(platform='darwin')
-        self.skipIfNoPath(path='certdir')
 
         with self.getTestDir(mirror='certdir') as dirn:
+            self.decTinFoilDir(dirn)
             with self.getTestCertDir(dirn) as certdir:
 
                 hostname = socket.gethostname()

@@ -35,9 +35,9 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadFormDef):
                 core.model.addForm('woot:two', {}, ())
 
-            core.model.addType('woot:array', 'array', {'type': 'str'}, {})
-            with self.raises(s_exc.BadFormDef):
-                core.model.addForm('woot:array', {}, ())
+            # the array type may only be used inline on a prop, not as a named type
+            with self.raises(s_exc.BadTypeDef):
+                core.model.addType('woot:array', 'array', {'type': 'str'}, {})
 
             with self.raises(s_exc.NoSuchForm):
                 core.model.reqForm('newp:newp')
@@ -283,6 +283,22 @@ class DataModelTest(s_t_utils.SynTest):
         self.eq(modl.prop('test:pbase:name').type.name, modl.prop('test:pkid:name').type.name)
         self.eq('The kid name.', modl.prop('test:pkid:name').info.get('doc'))
 
+        # a child inheriting an array prop via a None typedef keeps the parent's 'array' container
+        # opts even though it does not restate them (a None-typedef override stays an array).
+        modl.addType('test:arrbase', 'guid', {}, {})
+        modl.addForm('test:arrbase', {}, (
+            ('tags', ('str', {}), {'array': {'uniq': True, 'sorted': False}, 'doc': 'The base tags.'}),
+        ))
+        modl.addType('test:arrkid', 'test:arrbase', {}, {})
+        modl.addForm('test:arrkid', {}, (
+            ('tags', None, {'doc': 'The kid tags.'}),
+        ))
+
+        kidtags = modl.prop('test:arrkid:tags')
+        self.true(kidtags.type.isarray)
+        self.eq(modl.prop('test:arrbase:tags').info['array'], kidtags.info['array'])
+        self.eq('The kid tags.', kidtags.info.get('doc'))
+
         # a None typedef with no parent/interface source to resolve raises
         modl.addType('test:orphan', 'guid', {}, {})
         with self.raises(s_exc.BadPropDef):
@@ -332,7 +348,7 @@ class DataModelTest(s_t_utils.SynTest):
                 await core._addModelDefs(s_t_utils.testmodel + s_t_utils.deprmodel)
 
                 await dstream.expect('type test:dep:easy is based on a deprecated type test:dep:easy')
-                await tstream.expect('Array type test:dep:array is based on a deprecated type test:dep:easy')
+                await tstream.expect('Array type array is based on a deprecated type test:dep:easy')
                 self.notin('type test:dep:comp field str uses a deprecated type test:dep:easy', dstream.getvalue())
 
                 # Using deprecated forms and props is warned to the user
@@ -398,191 +414,60 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(0, nodes, mesg)
 
     async def test_model_invalid_prop_typeopts(self):
-        badmesg = 'Typeopts not valid on poly props'
-        # Real type opts on a form prop now auto-register a named type instead of raising.
-        goodmodel = {
+        # Inline type opts on a non-array prop are rejected; declare a named type instead.
+        badscalar = {
             'types': (
-                ('_good:typeopts', ('guid', {}), {
+                ('_bad:typeopts', ('guid', {}), {
                     'props': (
                         ('hehe', ('ival', {'precision': 'day'}), {}),
                     ),
-                    'doc': 'An ival prop with inline precision opt auto-registers a named type.'}),
+                    'doc': 'An ival prop with an inline precision opt.'}),
             ),
         }
-        modl = s_datamodel.getBaseModel()
-        modl.addModelDefs([goodmodel])
-        heheprop = modl.prop('_good:typeopts:hehe')
-        self.nn(heheprop)
-        # scalar: auto-registered type is in typeset
-        self.true(heheprop.type.ispoly)
-        hehe_typenames = list(heheprop.type.typeset)
-        self.len(1, hehe_typenames)
-        self.true(hehe_typenames[0].startswith('_good:typeopts:hehe:'))
-        self.eq('day', modl.types[hehe_typenames[0]].opts.get('precision'))
+        with self.raises(s_exc.BadPropDef):
+            s_datamodel.getBaseModel().addModelDefs([badscalar])
 
+        # Inline opts on an array's poly-element constituents are rejected too.
         badmodel = {
             'types': (
                 ('_bad:arraytypeopts', ('guid', {}), {
                     'props': (
-                        ('haha', ('array', {
-                            'type': (
+                        ('haha', (
                                 ('int', {'min': 100, 'max': 200}),
                                 ('str', {'lower': True})
-                            )
-                        }), {}),
+                            ), {'array': {}}),
                     ),
-                    'doc': 'An array with a bad poly type opt'}),
+                    'doc': 'An array with inline poly element opts'}),
             ),
         }
-        with self.raises(s_exc.BadPropDef) as cm:
+        with self.raises(s_exc.BadPropDef):
             s_datamodel.getBaseModel().addModelDefs([badmodel])
-        self.isin(badmesg, cm.exception.get('mesg'))
-
-    async def test_model_array_prop_named_type(self):
-        # Props declared with inline typeopts must be auto-registered as named types following
-        # the pattern 'formname:propname:<typehash>', and the prop's typedef becomes
-        # ('<generated-name>', {}).
-        async with self.getTestCore() as core:
-            modl = core.model
-
-            # A known inline array prop: inet:http:request:headers
-            # typedef should now be ('inet:http:request:headers:<hash>', {}) not ('array', {...})
-            prop = modl.prop('inet:http:request:headers')
-            self.nn(prop)
-            self.true(prop.type.name.startswith('inet:http:request:headers:'))
-            self.eq((prop.type.name, {}), prop.typedef)
-            self.true(prop.type.isarray)
-
-            # The registered named array type must be present in model.types
-            tobj = modl.types.get(prop.type.name)
-            self.nn(tobj)
-            self.true(tobj.isarray)
-            # opts preserved: element type is inet:http:request:header
-            self.eq('inet:http:request:header', tobj.opts.get('type'))
-            # uniq/sorted opts preserved
-            self.false(tobj.opts.get('uniq'))
-            self.false(tobj.opts.get('sorted'))
-
-            # stortype and arraytypehash must be the same as before the change
-            # (i.e. registering vs cloning must not change storage identity)
-            self.nn(prop.type.stortype)
-            self.nn(prop.type.arraytypehash)
-
-            # The client model dict keeps the auto-registered type (flagged 'auto', base type
-            # recoverable from bases); the prop references it directly so the client resolves
-            # node poly prop values and shows the base type/opts transparently.
-            mdict = modl.getModelDict()
-            autopack = mdict['types'].get(prop.type.name)
-            self.nn(autopack)
-            self.true(autopack['info'].get('auto'))
-            self.eq('array', autopack['info']['bases'][-1])
-            self.eq('inet:http:request:header', autopack['opts'].get('type'))
-            extprop = mdict['forms']['inet:http:request']['props']['headers']
-            self.eq(prop.type.name, extprop['type'][0])
-
-            # Array prop with split opt: inet:service:message:hashtags
-            prop2 = modl.prop('inet:service:message:hashtags')
-            self.nn(prop2)
-            self.true(prop2.type.name.startswith('inet:service:message:hashtags:'))
-            self.eq((prop2.type.name, {}), prop2.typedef)
-            tobj2 = modl.types.get(prop2.type.name)
-            self.nn(tobj2)
-            self.eq('lang:hashtag', tobj2.opts.get('type'))
-            self.eq(',', tobj2.opts.get('split'))
-
-            # An array prop with no extra opts still registers a named type
-            prop3 = modl.prop('entity:contact:emails')
-            self.nn(prop3)
-            self.true(prop3.type.name.startswith('entity:contact:emails:'))
-            self.eq((prop3.type.name, {}), prop3.typedef)
-            tobj3 = modl.types.get(prop3.type.name)
-            self.nn(tobj3)
-            self.true(tobj3.isarray)
-
-            # Pre-computed typehash must equal the post-instantiation .typehash.
-            # This validates that _genPropTypeName's opt-merge is faithful to Type.extend.
-            modl.addType('_test:hashcheck', 'guid', {}, {'doc': 'Test form.'})
-            modl.addType('_test:hashcheck:name', 'str', {'regex': r'^[a-z]+$'}, {})
-            modl.addForm('_test:hashcheck', {}, (
-                ('names', ('array', {'type': '_test:hashcheck:name'}), {'doc': 'Names.'}),
-                ('code', ('str', {'regex': r'^[A-Z]+$'}), {'doc': 'Code.'}),
-            ))
-            names_prop = modl.prop('_test:hashcheck:names')
-            self.nn(names_prop)
-            self.true(names_prop.type.name.startswith('_test:hashcheck:names:'))
-            # The generated name encodes the typehash -- verify it matches the instantiated type
-            precomp = modl._genPropTypeName('_test:hashcheck', 'names', 'array',
-                                            {'type': '_test:hashcheck:name'})
-            self.eq(precomp, names_prop.type.name)
-            # Scalar prop: the auto-registered type is a poly constituent, not prop.type directly
-            # (convertTypedef wraps non-Array/non-Poly types in poly form). The registered type
-            # name lives in prop.type.typeset.
-            code_prop = modl.prop('_test:hashcheck:code')
-            self.nn(code_prop)
-            self.true(code_prop.type.ispoly)
-            code_typenames = list(code_prop.type.typeset)
-            self.len(1, code_typenames)
-            self.true(code_typenames[0].startswith('_test:hashcheck:code:'))
-            precomp2 = modl._genPropTypeName('_test:hashcheck', 'code', 'str',
-                                             {'regex': r'^[A-Z]+$'})
-            self.eq(precomp2, code_typenames[0])
-
-            # Double-registration of the same inline opts must be idempotent (returns same name).
-            name1 = modl.regPropType('_test:hashcheck', 'code', 'str', {'regex': r'^[A-Z]+$'})
-            self.eq(precomp2, name1)
-
-            # _genPropTypeName raises NoSuchType when the base type doesn't exist.
-            self.raises(s_exc.NoSuchType, modl._genPropTypeName,
-                        '_test:hashcheck', 'code', 'NOTYPE', {})
-
-            # regPropType's defensive conflict guard: if a type already occupies the generated
-            # name but its stored typehash doesn't match its own class/opts (i.e. hand-crafted
-            # squatter), regPropType raises BadTypeDef.
-            conflict_name = modl._genPropTypeName('_test:hashcheck', 'code', 'str',
-                                                  {'regex': r'^[A-Z]+$'})
-            existing = modl.types[conflict_name]
-            saved_hash = existing.typehash
-            existing.typehash = 'badhash' + '0' * 26
-            self.raises(s_exc.BadTypeDef, modl.regPropType,
-                        '_test:hashcheck', 'code', 'str', {'regex': r'^[A-Z]+$'})
-            existing.typehash = saved_hash
 
     async def test_model_poly_prop_named_type(self):
-        # Poly props whose constituents carry real type opts (keys outside the
-        # defnorm/doc member-metadata set) trigger auto-registration of a named type
-        # for each such constituent in processPropdefs.  Constituents with no real opts
-        # pass through unchanged.  _addFormProp raises NoSuchType when given a tdef
-        # whose type name is not registered.
+        # Poly props whose constituents carry real type opts are rejected; constituents must
+        # reference named types.  A poly of named types is accepted.  _addFormProp still raises
+        # NoSuchType when given a tdef whose type name is not registered.
         async with self.getTestCore() as core:
             modl = core.model
 
-            # Build a form whose poly prop has two constituents: one with a real opt
-            # (regex) and one without.  Only the first should get an auto-registered type.
             modl.addType('_test:polyopt', 'guid', {}, {'doc': 'Test form.'})
-            modl.addForm('_test:polyopt', {}, (
-                ('code', (
-                    ('str', {'regex': r'^[A-Z]{3}$', 'lower': False}),
-                    ('int', {}),
-                ), {'doc': 'Poly prop with one opts-bearing constituent.'}),
-            ))
+            with self.raises(s_exc.BadPropDef):
+                modl.addForm('_test:polyopt', {}, (
+                    ('code', (
+                        ('str', {'regex': r'^[A-Z]{3}$'}),
+                        ('int', {}),
+                    ), {'doc': 'Poly prop with one opts-bearing constituent.'}),
+                ))
 
-            prop = modl.prop('_test:polyopt:code')
+            # A poly of named types (no inline opts) loads fine.
+            modl.addType('_test:polyok', 'guid', {}, {'doc': 'Test form.'})
+            modl.addForm('_test:polyok', {}, (
+                ('code', (('str', {}), ('int', {})), {'doc': 'Poly prop of named types.'}),
+            ))
+            prop = modl.prop('_test:polyok:code')
             self.nn(prop)
             self.true(prop.type.ispoly)
-
-            # The 'str' constituent had real opts; an auto-registered type must exist.
-            prefix = '_test:polyopt:code:'
-            poly_auto = [t for t in prop.type.typeset if t.startswith(prefix)]
-            self.len(1, poly_auto)
-
-            auto_type = modl.types.get(poly_auto[0])
-            self.nn(auto_type)
-            # Verify the registered type carries the expected opts.
-            self.true(auto_type.name.startswith(prefix))
-            self.eq(r'^[A-Z]{3}$', auto_type.opts.get('regex'))
-
-            # The 'int' constituent had no real opts; only one auto-registered type total.
-            self.len(1, [t for t in prop.type.typeset if t.startswith(prefix)])
+            self.sorteq(('int', 'str'), prop.type.typeset)
 
             # _addFormProp raises NoSuchType directly when the converted typedef names a
             # type that is not in the model (defensive guard for internal misuse).
@@ -590,117 +475,102 @@ class DataModelTest(s_t_utils.SynTest):
             self.raises(s_exc.NoSuchType, modl._addFormProp,
                         form, '_badprop', ('NOTYPE', {}), {})
 
-    async def test_model_auto_types_external(self):
-        # Auto-registered prop types (flagged 'auto') are excluded from the serialized model
-        # def (getModelDef) and the storm-facing syn:type / syn:prop surfaces, but kept in the
-        # client model dict (getModelDict) so a node's poly prop value -- which carries the
-        # auto constituent name -- resolves client-side to its base type and opts.
+    async def test_model_inline_typeopts_rule(self):
+        # Inline type opts are not permitted on a prop typedef; the element type and every poly
+        # constituent must reference a named type. An array prop declares its element type in
+        # the typedef slot and its container opts under the 'array' prop info key.
         async with self.getTestCore() as core:
             modl = core.model
 
-            # Inline array prop -> auto type.
+            # Array prop -> element type in the typedef slot, container opts in the 'array' info.
             arrprop = modl.prop('inet:http:request:headers')
-            self.true(arrprop.type.name.startswith('inet:http:request:headers:'))
-            self.true(modl.types[arrprop.type.name].info.get('auto'))
+            self.true(arrprop.type.isarray)
+            self.eq(('inet:http:request:header', {}), arrprop.typedef)
+            self.eq({'uniq': False, 'sorted': False}, arrprop.info['array'])
 
-            # getModelDict keeps the auto type (flagged 'auto', base type recoverable from
-            # bases) and the prop references it directly rather than inlining its opts.
+            # getModelDict carries the element typedef with the 'array' info key (self-describing).
             mdict = modl.getModelDict()
-            arrpack = mdict['types'].get(arrprop.type.name)
-            self.nn(arrpack)
-            self.true(arrpack['info'].get('auto'))
-            self.eq('array', arrpack['info']['bases'][-1])
-            arrtype = mdict['forms']['inet:http:request']['props']['headers']['type']
-            self.eq(arrprop.type.name, arrtype[0])
+            headerinfo = mdict['forms']['inet:http:request']['props']['headers']
+            self.eq(('inet:http:request:header', {}), headerinfo['type'])
+            self.eq({'uniq': False, 'sorted': False}, headerinfo['array'])
 
-            # getModelDef still excludes auto types from its serialized type list.
-            mdef = modl.getModelDef()
-            self.notin(arrprop.type.name, [t[0] for t in mdef['types']])
-            self.eq([], [t for t in mdef['types']
-                         if isinstance(t[2], dict) and t[2].get('auto')])
+        # A non-array scalar prop declared with inline opts is rejected.
+        badscalar = {'types': (('_test:bad', ('guid', {}), {
+            'props': (('code', ('str', {'regex': r'^[A-Z]{3}$'}), {}),),
+            'doc': 'x'}),)}
+        with self.raises(s_exc.BadPropDef):
+            s_datamodel.getBaseModel().addModelDefs([badscalar])
 
-            # The auto type is not surfaced as a syn:type runt node, but the inner
-            # (real) element type still is.
-            typenames = [n.ndef[1] for n in await core.nodes('syn:type')]
-            self.notin(arrprop.type.name, typenames)
-            self.isin('inet:http:request:header', typenames)
-            self.len(0, await core.nodes(f'syn:type={arrprop.type.name}'))
+        # A poly prop with an opts-bearing constituent is rejected.
+        badpoly = {'types': (('_test:badpoly', ('guid', {}), {
+            'props': (('code', (('str', {'regex': r'^[A-Z]{2}$'}), ('int', {})), {}),),
+            'doc': 'x'}),)}
+        with self.raises(s_exc.BadPropDef):
+            s_datamodel.getBaseModel().addModelDefs([badpoly])
 
-            # Poly prop with an opts-bearing constituent that also carries a per-member doc:
-            # the doc is keyed internally by the auto constituent name. getModelDict keeps the
-            # auto constituent name (and docs key) so the client resolves its base type/opts.
-            modl.addType('_test:extpoly', 'guid', {}, {'doc': 'Test form.'})
-            modl.addForm('_test:extpoly', {}, (
-                ('code', (
-                    ('str', {'regex': r'^[A-Z]{3}$', 'doc': 'an upper code'}),
-                    ('int', {}),
-                ), {'doc': 'Poly prop with one opts-bearing constituent.'}),
-            ))
-            polyprop = modl.prop('_test:extpoly:code')
-            auto = [t for t in polyprop.type.typeset
-                    if t.startswith('_test:extpoly:code:')]
-            self.len(1, auto)
-            # internally the docs dict is keyed by the auto constituent name
-            self.eq({auto[0]: 'an upper code'}, polyprop.type.opts.get('docs'))
+        # An array prop with a disallowed container opt is rejected.
+        badarr = {'types': (('_test:badarr', ('guid', {}), {
+            'props': (('items', ('str', {}), {'array': {'bogus': True}}),),
+            'doc': 'x'}),)}
+        with self.raises(s_exc.BadPropDef):
+            s_datamodel.getBaseModel().addModelDefs([badarr])
 
-            mdict = modl.getModelDict()
-            autopack = mdict['types'].get(auto[0])
-            self.nn(autopack)
-            self.true(autopack['info'].get('auto'))
-            self.eq('str', autopack['info']['bases'][-1])
-            self.eq(r'^[A-Z]{3}$', autopack['opts'].get('regex'))
-            polytype = mdict['forms']['_test:extpoly']['props']['code']['type']
-            self.eq('poly', polytype[0])
-            self.sorteq((auto[0], 'int'), polytype[1]['types'])
-            # the docs key keeps the auto name so the client can resolve its base type
-            self.eq({auto[0]: 'an upper code'}, polytype[1].get('docs'))
+        # An array prop with inline element typeopts is rejected.
+        badelem = {'types': (('_test:badelem', ('guid', {}), {
+            'props': (('items', ('str', {}), {'array': {'typeopts': {'lower': True}}}),),
+            'doc': 'x'}),)}
+        with self.raises(s_exc.BadPropDef):
+            s_datamodel.getBaseModel().addModelDefs([badelem])
 
-    async def test_model_ext_poly_prop_named_type(self):
-        # On the ext-prop reload path (addFormProp), poly typedefs whose constituents
-        # carry real type opts must auto-register a named type per constituent.
-        # delFormProp must clean up those auto-registered types (poly branch).
+        # An array prop with inline opts on a poly element member is rejected.
+        badpolyelem = {'types': (('_test:badpolyelem', ('guid', {}), {
+            'props': (('items', (('str', {'regex': 'x'}), ('int', {})), {'array': {}}),),
+            'doc': 'x'}),)}
+        with self.raises(s_exc.BadPropDef):
+            s_datamodel.getBaseModel().addModelDefs([badpolyelem])
+
+        # The legacy ('array', {...}) container typedef is no longer supported; the element type
+        # must be the prop type and the container opts declared under the 'array' prop info key.
+        badlegacy = {'types': (('_test:badlegacy', ('guid', {}), {
+            'props': (('items', ('array', {'type': 'str'}), {}),),
+            'doc': 'x'}),)}
+        with self.raises(s_exc.BadPropDef):
+            s_datamodel.getBaseModel().addModelDefs([badlegacy])
+
+        # The 'array' prop info must be a dict of container opts, not a bare value.
+        badarrinfo = {'types': (('_test:badarrinfo', ('guid', {}), {
+            'props': (('items', ('str', {}), {'array': 'nope'}),),
+            'doc': 'x'}),)}
+        with self.raises(s_exc.BadPropDef):
+            s_datamodel.getBaseModel().addModelDefs([badarrinfo])
+
+    async def test_model_ext_prop_inline_opts_rejected(self):
+        # The ext-prop path (addFormProp) enforces the same rule: inline opts on a non-array
+        # prop or on poly constituents are rejected; declare a named type instead.
         async with self.getTestCore() as core:
             modl = core.model
 
-            poly_tdef = (
-                ('str', {'regex': r'^[A-Z]{2}$'}),
-                ('int', {}),
-            )
-            modl.addFormProp('test:int', '_extpoly',
-                             poly_tdef, {'doc': 'Ext poly prop with opts.'})
+            with self.raises(s_exc.BadPropDef):
+                modl.addFormProp('test:int', '_extscalar',
+                                 ('str', {'lower': True}), {'doc': 'x'})
 
-            prop = modl.prop('test:int:_extpoly')
+            poly_tdef = (('str', {'regex': r'^[A-Z]{2}$'}), ('int', {}))
+            with self.raises(s_exc.BadPropDef):
+                modl.addFormProp('test:int', '_extpoly', poly_tdef, {'doc': 'x'})
+
+            # An array ext prop declared with the 'array' prop info key is accepted.
+            modl.addFormProp('test:int', '_extarr',
+                             ('str', {}), {'array': {}, 'doc': 'ok'})
+            prop = modl.prop('test:int:_extarr')
             self.nn(prop)
-            self.true(prop.type.ispoly)
-
-            # Auto-registered constituent type must exist for the opts-bearing 'str' entry.
-            prefix = 'test:int:_extpoly:'
-            auto_types = [t for t in prop.type.typeset if t.startswith(prefix)]
-            self.len(1, auto_types)
-            self.nn(modl.types.get(auto_types[0]))
-
-            # delFormProp must remove the auto-registered constituent types (line 2001).
-            modl.delFormProp('test:int', '_extpoly')
-            self.none(modl.prop('test:int:_extpoly'))
-            for tname in auto_types:
-                self.none(modl.types.get(tname))
-
-    async def test_model_no_inline_array_typeopts(self):
-        # Regression guard: after auto-registration, no prop in the full base model
-        # should still carry inline array typeopts (typedef[0] == 'array' with non-empty opts).
-        # All such props must have been rewritten to ('<full:prop:name>', {}) by processPropdefs.
-        async with self.getTestCore() as core:
-            violations = [
-                prop.full
-                for prop in core.model.getProps()
-                if not prop.isform and prop.typedef[0] == 'array' and prop.typedef[1]
-            ]
-            self.eq([], violations)
+            self.true(prop.type.isarray)
+            modl.delFormProp('test:int', '_extarr')
+            self.none(modl.prop('test:int:_extarr'))
 
     async def test_model_prop_member_docs(self):
-        # 'doc' and 'defnorm' are poly member metadata and must NOT trigger auto-registration.
-        # Any other key in a typedef's info is a real type opt and triggers auto-registration
-        # of a named type instead of being passed to convertPolyinfo as-is.
+        # 'doc' is poly member metadata and is accepted on a prop typedef. Any other key
+        # in a typedef's info is a real type opt and is rejected rather than being passed to
+        # convertPolyinfo as-is.
 
         # 'doc' alone is accepted on a single-type prop (convertTypedef wraps it into poly form)
         goodmodel = {
@@ -720,13 +590,13 @@ class DataModelTest(s_t_utils.SynTest):
         self.nn(docs)
         self.eq('The GUID that is being referenced.', docs.get('guid'))
 
-        # 'doc' + 'defnorm' together are both accepted on a multi-type poly prop
+        # 'doc' is accepted on each member of a multi-type poly prop
         goodmodel2 = {
             'types': (
                 ('_test:memberdoc2', ('guid', {}), {
                     'props': (
                         ('ids', (
-                            ('int', {'defnorm': False, 'doc': 'An integer identifier.'}),
+                            ('int', {'doc': 'An integer identifier.'}),
                             ('str', {'doc': 'A string identifier.'}),
                         ), {}),
                     ),
@@ -744,9 +614,10 @@ class DataModelTest(s_t_utils.SynTest):
 
         # docs survive in pack() and round-trip through the poly opts
         packed = prop2.pack()
-        self.eq(('poly', {'types': ('int', 'str'), 'default_types': ('str',), 'docs': {'int': 'An integer identifier.', 'str': 'A string identifier.'}}), packed['type'])
+        self.eq(('poly', {'types': ('int', 'str'), 'docs': {'int': 'An integer identifier.', 'str': 'A string identifier.'}}), packed['type'])
 
-        # real type opts on a form prop now auto-register a named type; 'doc'/'defnorm' do not
+        # real type opts on a non-array form prop are rejected; declare a named type instead.
+        # ('doc' is poly member metadata and remains accepted.)
         realoptsmodel = {
             'types': (
                 ('_test:memberopts', ('guid', {}), {
@@ -756,29 +627,16 @@ class DataModelTest(s_t_utils.SynTest):
                     'doc': 'A form with a real type opt on a prop.'}),
             ),
         }
-        modl3 = s_datamodel.getBaseModel()
-        modl3.addModelDefs([realoptsmodel])
-        nameprop = modl3.prop('_test:memberopts:name')
-        self.nn(nameprop)
-        # scalar props end up poly-wrapped; the auto-registered name is in typeset
-        self.true(nameprop.type.ispoly)
-        name_typenames = list(nameprop.type.typeset)
-        self.len(1, name_typenames)
-        self.true(name_typenames[0].startswith('_test:memberopts:name:'))
-        autotype = modl3.types.get(name_typenames[0])
-        self.nn(autotype)
-        self.true(autotype.opts.get('lower'))
+        self.raises(s_exc.BadPropDef, s_datamodel.getBaseModel().addModelDefs, [realoptsmodel])
 
         # 'doc' on an array element type is also accepted (goes through convertPolyinfo)
         goodmodel3 = {
             'types': (
                 ('_test:memberdoc3', ('guid', {}), {
                     'props': (
-                        ('tags', ('array', {
-                            'type': (
+                        ('tags', (
                                 ('str', {'doc': 'A string tag.'}),
-                            )
-                        }), {}),
+                            ), {'array': {}}),
                     ),
                     'doc': 'A form with per-member docs on an array element.'}),
             ),
@@ -809,6 +667,17 @@ class DataModelTest(s_t_utils.SynTest):
             tdocs = nodes[0].get('typedocs')
             self.nn(tdocs)
             self.eq(('data', {'guid': 'The GUID that is being referenced.'}), tdocs)
+
+    async def test_model_no_named_array_type(self):
+        # The array type is a prop-only structural container; it may not be the base for a
+        # named type (via addType or a model type def).
+        modl = s_datamodel.getBaseModel()
+        with self.raises(s_exc.BadTypeDef):
+            modl.addType('_test:arr', 'array', {'type': 'str'}, {})
+
+        badmodel = {'types': (('_test:arr2', ('array', {'type': 'str'}), {'doc': 'x'}),)}
+        with self.raises(s_exc.BadTypeDef):
+            s_datamodel.getBaseModel().addModelDefs([badmodel])
 
     async def test_model_invalid_comp_types(self):
 
@@ -1421,7 +1290,7 @@ class DataModelTest(s_t_utils.SynTest):
             core.model.addForm('_test:cve', {}, ())
 
             core.model.addFormProp('test:str', 'cve', ('_test:cve', {}), {})
-            core.model.addFormProp('test:str', 'cves', ('array', {'type': '_test:cve'}), {})
+            core.model.addFormProp('test:str', 'cves', ('_test:cve', {}), {'array': {}})
 
             await core.nodes('''[
                 (test:str=bar :cve=cve-2020-1234)
@@ -1650,10 +1519,6 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:poly.type=test:float')
 
-            with self.raises(s_exc.BadTypeDef):
-                tdef = ('poly', {'forms': ('test:str',), 'default_types': ('test:float',)})
-                core.model.addFormProp('test:str', 'polyfail', tdef, {})
-
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('test:str:poly.newp')
 
@@ -1738,7 +1603,7 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model._addFormProp(form, '_badpoly', ('poly', {'types': ('newp:newp',)}), {})
 
             await core.addType('_test:myint', 'int', {}, {})
-            await core.addFormProp('test:str', '_arryprop', ('array', {'type': '_test:myint'}), {})
+            await core.addFormProp('test:str', '_arryprop', ('_test:myint', {}), {'array': {}})
 
             with self.raises(s_exc.CantDelType):
                 core.model.reqTypeNotInUse('_test:myint')
@@ -1750,7 +1615,7 @@ class DataModelTest(s_t_utils.SynTest):
             await core.delFormProp('test:str', '_ifpoly')
             self.none(core.model.prop('test:str:_ifpoly'))
 
-            await core.addFormProp('test:str', '_ifarry', ('array', {'type': (('inet:fqdn', {}), ('meta:observable', {}))}), {})
+            await core.addFormProp('test:str', '_ifarry', (('inet:fqdn', {}), ('meta:observable', {})), {'array': {}})
             self.nn(core.model.prop('test:str:_ifarry'))
             await core.delFormProp('test:str', '_ifarry')
             self.none(core.model.prop('test:str:_ifarry'))
@@ -1796,7 +1661,7 @@ class DataModelTest(s_t_utils.SynTest):
                 await core.nodes('[test:str=asdf :hehe={[tel:mob:mcc=123]}]')
 
             retn = await core.callStorm('[test:int=1 :seen=2020] $foo=:seen return(`{$foo}`)')
-            self.eq(retn, "('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')")
+            self.eq(retn, '2020-01-01T00:00:00Z - 2020-01-01T00:00:00.000001Z')
 
             retn = await core.callStorm('test:int:seen $foo=:seen return(`{$foo.min}`)')
             self.eq(retn, '1577836800000000')
@@ -1856,3 +1721,36 @@ class DataModelTest(s_t_utils.SynTest):
                     await polytype.normFromTypedValu(('test:int', 3))
             finally:
                 inttype.locked = False
+
+    async def test_datamodel_poly_pack_typed_norm(self):
+        # Poly.packTypedNorm builds the (valu, norminfo) from an already-normed
+        # typed value, reusing the supplied norm/typeinfo instead of re-norming.
+        # This is the path used by editor._resolveSubValu when a comp field's
+        # form-typed value feeds a poly secondary prop.
+
+        async with self.getTestCore() as core:
+
+            modl = core.model
+            polytype = modl.reqProp('test:str:poly').type
+
+            # Pre-normed form value: the supplied typeinfo object is reused verbatim.
+            ininfo = {'virts': {'foo': ('bar', 1)}}
+            norm, info = await polytype.packTypedNorm('test:int', 3, ininfo)
+            self.eq(norm, ('test:int', 3))
+            self.eq(info['adds'], (('test:int', 3, ininfo),))
+            self.true(info['adds'][0][2] is ininfo)
+            self.eq(info.get('virts'), {'foo': ('bar', 1)})
+
+            # When the referenced node exists and a view is given, skipadd is
+            # set and no adds are emitted.
+            await core.nodes('[ test:int=99 ]')
+            norm, info = await polytype.packTypedNorm('test:int', 99, {}, view=core.view)
+            self.eq(norm, ('test:int', 99))
+            self.true(info.get('skipadd'))
+            self.none(info.get('adds'))
+
+            # A non-form type emits no adds/skipadd.
+            norm, info = await polytype.packTypedNorm('int', 7, {})
+            self.eq(norm, ('int', 7))
+            self.none(info.get('adds'))
+            self.none(info.get('skipadd'))

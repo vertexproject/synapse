@@ -9,6 +9,15 @@ logger = logging.getLogger(__name__)
 
 class InetModelTest(s_t_utils.SynTest):
 
+    async def test_model_inet_usable(self):
+
+        async with self.getTestCore() as core:
+
+            forms = ('inet:ip', 'inet:url', 'inet:fqdn', 'inet:email',
+                     'inet:urlfile', 'inet:email:message', 'inet:service:platform')
+            for name in forms:
+                self.true(core.model.form(name).implements('meta:usable'))
+
     async def test_mode_inet_basics(self):
 
         async with self.getTestCore() as core:
@@ -3087,10 +3096,10 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'names', ('slack chat',))
             self.propeq(nodes[0], 'desc', ' Slack is a team communication platform.\n\n Be less busy.')
             self.eq(nodes[0].repr('status'), 'available')
-            self.eq(nodes[0].repr('period'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
+            self.eq(nodes[0].repr('period'), '2022-01-01T00:00:00Z - 2023-01-01T00:00:00Z')
             self.propeq(nodes[0], 'provider', provider.ndef[1])
             self.propeq(nodes[0], 'provider:name', provname)
-            self.eq(nodes[0].repr('seen'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
+            self.eq(nodes[0].repr('seen'), '2022-01-01T00:00:00Z - 2023-01-01T00:00:00Z')
             platform = nodes[0]
 
             nodes = await core.nodes('inet:service:platform=(slack,) :tenant -> *')
@@ -3160,7 +3169,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, accounts)
 
             self.nn(accounts[0].get('tenant'))
-            self.eq(accounts[0].repr('seen'), ('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'))
+            self.eq(accounts[0].repr('seen'), '2022-01-01T00:00:00Z - 2023-01-01T00:00:00Z')
 
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
             self.propeq(accounts[0], 'id', 'U7RN51U1J')

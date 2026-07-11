@@ -54,7 +54,9 @@ import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.thisplat as s_thisplat
+import synapse.lib.provision as s_provision
 import synapse.lib.processpool as s_processpool
 
 import synapse.lib.crypto.passwd as s_passwd
@@ -67,6 +69,13 @@ NEXUS_VERSION = (3, 0)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
+
+# When SYN_PROVISION_FOLLOWER is set, a follower waits indefinitely for a leader of
+# its service type to appear. PROV_FOLLOWER_WAIT_INTERVAL is the poll/retry interval
+# and PROV_FOLLOWER_WARN_TIMEOUT is how often ( seconds ) to log a warning while the
+# leader remains unresolved.
+PROV_FOLLOWER_WAIT_INTERVAL = 1.0
+PROV_FOLLOWER_WARN_TIMEOUT = 60.0
 
 '''
 Base classes for the synapse "cell" microservice architecture.
@@ -504,9 +513,8 @@ class CellApi(s_base.Base):
         if useriden is None:
             useriden = self.user.iden
 
-        if self.user.iden == useriden:
-            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-        else:
+        # Listing your own API key metadata does not require a permission.
+        if self.user.iden != useriden:
             self.user.confirm(('auth', 'user', 'set', 'apikey'))
 
         return await self.cell.listUserApiKeys(useriden)
@@ -865,6 +873,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     # _reqStorageVersion). Cells that migrate 2.x storage in place set this False.
     reject2xStorage = True
 
+    # Required storage version in order to boot the cell; this is specified as a PEP440 vesrion identifier.
+    # This must be updated during beta releases!
+    _reqSynStorVers = '==3.0.0b2'
+
     # Subclasses may set this to an s_mcp.CellMcp subclass to mount an MCP endpoint.
     _mcp_ctor = None
 
@@ -881,8 +893,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
             'hideconf': True,
         },
-        'mirror': {
-            'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
+        'parent': {
+            'description': 'A telepath URL of our upstream/parent. This overrides AHA selection.',
             'type': ['string', 'null'],
             'hidedocs': True,
             'hidecmdl': True,
@@ -913,6 +925,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'dmon:listen': {
             'description': 'A config-driven way to specify the telepath bind URL.',
             'type': ['string', 'null'],
+        },
+        'telepath:port': {
+            'description': 'A config-driven way to specify the telepath listening port while inheriting the provisioned hostname and CA. Takes precedence over the port in dmon:listen.',
+            'type': ['integer', 'null'],
         },
         'https:port': {
             'description': 'A config-driven way to specify the HTTPS port.',
@@ -953,31 +969,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'The name of the cell service in the aha service registry.',
             'type': 'string',
         },
-        'aha:user': {
-            'description': 'The username of this service when connecting to others.',
-            'type': 'string',
-        },
         'aha:promotable': {
             'description': 'Set to false to prevent this service from being promoted to leader.',
             'type': 'boolean',
             'default': True,
         },
-        'aha:leader': {
-            'description': 'The AHA service name to claim as the active instance of a storm service.',
-            'type': 'string',
-        },
         'aha:network': {
             'description': 'The AHA service network.',
             'type': 'string',
         },
-        'aha:registry': {
-            'description': 'The telepath URL of the aha service registry.',
-            'type': ['string', 'array'],
+        'aha:servers': {
+            'description': 'A list of telepath URLs for the aha service registry.',
+            'type': 'array',
             'items': {
                 'type': 'string',
                 'pattern': '^ssl://.+$'
             },
-            'pattern': '^ssl://.+$'
         },
         'aha:provision': {
             'description': 'The telepath URL of the aha provisioning service.',
@@ -1077,6 +1084,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     COMMIT = s_version.commit
     VERSION = s_version.version
 
+    celltype = None
+
     SYSCTL_VALS = {
         'vm.dirty_expire_centisecs': 20,
         'vm.dirty_writeback_centisecs': 20,
@@ -1107,12 +1116,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self._mcp_sess_reaper = None  # background task that evicts idle MCP sessions/cursors
         self.paused = False
         self.isactive = False
+        # our boot-time leader/follower role. this is tracked separately from
+        # isactive because getParentUrl() ( called from nexsroot.startup() )
+        # needs it before setCellActive() runs, and it must survive runtime
+        # promote/handoff transitions.
+        self.isfollower = False
         self.activebase = None
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
         self.https_listeners = []
         self.ahaclient = None
+        self.aharegbump = asyncio.Event()  # wake the AHA reg loop to re-register in place
+        self.leadfollow = None  # name of the leader a dynamic follower is tracking
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
         self._save_optimized = False
@@ -1128,6 +1144,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'tasks': 1,
             'shutdowndrain': 1,
         }
+
+        # advertise that we expose a Storm service API so a Cortex can
+        # discover us via AHA and add us automatically.
+        if issubclass(self.cellapi, s_stormsvc.StormSvc):
+            self.features['stormservice'] = 1
 
         self.safemode = self.conf.req('safemode')
         if self.safemode:
@@ -1212,7 +1233,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.backlastuploaddt = None  # Last time backup completed uploading via iter{New,}BackupArchive
         self.backlastexc = None  # err, errmsg, errtrace of last backup
 
-        if self.conf.get('mirror') and not self.conf.get('nexslog:en'):
+        if self.conf.get('parent') and not self.conf.get('nexslog:en'):
             self.modCellConf({'nexslog:en': True})
 
         await s_nexus.Pusher.__anit__(self, self.iden)
@@ -1273,7 +1294,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = f'Cell version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {self.VERSION}.'
                 logger.error(mesg)
                 raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
-
         self.cellinfo.set('cell:version', self.VERSION)
 
         # Check the synapse version didn't regress
@@ -1668,7 +1688,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initAhaRegistry(self):
 
-        ahaurls = self.conf.get('aha:registry')
+        ahaurls = self.conf.get('aha:servers')
         if ahaurls is not None:
 
             await s_telepath.addAhaUrl(ahaurls)
@@ -1676,19 +1696,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await self.ahaclient.fini()
 
             async def onlink(proxy):
-                ahauser = self.conf.get('aha:user', 'root')
-                newurls = await proxy.getAhaUrls(user=ahauser)
-                oldurls = self.conf.get('aha:registry')
-                if isinstance(oldurls, str):
-                    oldurls = (oldurls,)
-                elif isinstance(oldurls, list):
-                    oldurls = tuple(oldurls)
-                if newurls and newurls != oldurls:
-                    self.modCellConf({'aha:registry': newurls})
+                newurls = await proxy.getAhaUrls()
+                oldurls = self.conf.get('aha:servers')
+                if newurls and tuple(newurls) != tuple(oldurls):  # pragma: no cover
+                    self.modCellConf({'aha:servers': newurls})
                     self.ahaclient.setBootUrls(newurls)
 
-            self.ahaclient = await s_telepath.Client.anit(ahaurls, onlink=onlink)
+            self.ahaclient = await s_telepath.AhaClient.anit(ahaurls, onlink=onlink)
             self.onfini(self.ahaclient)
+
+            # follow leadership changes so a dynamic follower re-syncs from the
+            # new leader of our service type.
+            self.ahaclient.on('svc:lead', self._onAhaLeadTerm)
+            self.ahaclient.on('aha:servers', self._onAhaServers)
 
             async def fini():
                 await s_telepath.delAhaUrl(ahaurls)
@@ -1696,25 +1716,26 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.ahaclient.onfini(fini)
 
         ahaadmin = self.conf.get('aha:admin')
-        ahauser = self.conf.get('aha:user')
-
         if ahaadmin is not None:
             await self._addAdminUser(ahaadmin)
-
-        if ahauser is not None:
-            await self._addAdminUser(ahauser)
 
     def _getDmonListen(self):
 
         lisn = self.conf.get('dmon:listen', s_common.novalu)
-        if lisn is not s_common.novalu:
-            return lisn
+        if lisn is s_common.novalu:
+            lisn = None
+            ahaname = self.conf.get('aha:name')
+            ahanetw = self.conf.get('aha:network')
+            if ahaname is not None and ahanetw is not None:
+                hostname = f'{ahaname}.{ahanetw}'
+                lisn = f'ssl://0.0.0.0:0?hostname={hostname}&ca={ahanetw}'
 
-        ahaname = self.conf.get('aha:name')
-        ahanetw = self.conf.get('aha:network')
-        if ahaname is not None and ahanetw is not None:
-            hostname = f'{ahaname}.{ahanetw}'
-            return f'ssl://0.0.0.0:0?hostname={hostname}&ca={ahanetw}'
+        # telepath:port overrides the port on the listen URL, retaining the rest.
+        port = self.conf.get('telepath:port')
+        if port is not None and lisn is not None:
+            lisn = s_telepath.modurl(lisn, port=port)
+
+        return lisn
 
     async def _addAdminUser(self, username):
         # add the user in a pre-nexus compatible way
@@ -1742,9 +1763,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # initServiceStorage runs, so the stored (previous boot) value must be inspected
         # here, in initServiceEarly, before it is updated.
         lastvers = self.slab.getSafeKeyVal('cell:info').get('synapse:version')
-        if lastvers is not None and s_version.parse(lastvers) < s_version.parse('3.0.0b1'):
-            mesg = f'The {self.getCellType()} storage directory is from a Synapse 2.x release and cannot be migrated to 3.x.'
-            raise s_exc.BadStorageVersion(mesg=mesg, valu=lastvers)
+        if lastvers is not None and s_version.matches(lastvers, self._reqSynStorVers) is False:
+            mesg = f'The {self.getCellType()} storage directory is from a Synapse {lastvers} release and is not compatible with the allowed versions: {self._reqSynStorVers}'
+            raise s_exc.BadStorageVersion(mesg=mesg, valu=lastvers, reqver=self._reqSynStorVers)
 
     async def initCellStorage(self):
         path = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
@@ -1937,11 +1958,139 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def initNexusSubsystem(self):
         if self.cellparent is None:
             await self.nexsroot.recover()
+
+            active = await self._getBootActive()
+
             await self.nexsroot.startup()
-            await self.setCellActive(self.conf.get('mirror') is None)
+            await self.setCellActive(active)
 
             if self.minfree is not None:
                 self.schedCoro(self._runFreeSpaceLoop())
+
+    async def _getBootActive(self):
+        '''
+        Determine if we should boot as the active leader or as a follower.
+
+        An explicit parent always makes us a follower. When running under AHA
+        we register with the leadership term for our service type to decide.
+        '''
+        # an explicit parent means we are always a follower.
+        if self.conf.get('parent') is not None:
+            self.isfollower = True
+            return False
+
+        # if we are not running under AHA, we are a standalone leader.
+        if self.ahaclient is None or self.ahasvcname is None:
+            return True
+
+        # consult the AHA leadership term for our service type to determine
+        # whether we should take leadership or follow the current leader.
+        proxy = await self.getAhaProxy()
+        if proxy is None:  # pragma: no cover
+            ahaurls = self.conf.get('aha:registry', ())
+            if isinstance(ahaurls, str):
+                ahaurls = (ahaurls,)
+
+            ahaurls = [s_urlhelp.sanitizeUrl(u) for u in ahaurls]
+            mesg = f'Unable to reach AHA to register the leadership term during boot. Configured AHA URLs: {ahaurls}'
+            raise s_exc.NotReady(mesg=mesg, aha=ahaurls)
+
+        # our last acknowledged term is persisted whole so we can hand it back as
+        # the anchor for the schism check.
+        lastterm = self.cellinfo.get('aha:lead:term')
+
+        nexsoffs = await self.getNexsIndx()
+
+        try:
+            term = await proxy.regLeadTerm(self.getCellType(), self.ahasvcname, nexsoffs, term=lastterm)
+        except s_exc.LeaderSchism:  # pragma: no cover
+            logger.error('LEADERSHIP SCHISM: this service has diverged from the current leader '
+                         'and must be restored from a backup before it can start.')
+            raise
+
+        self.cellinfo.set('aha:lead:term', term)
+
+        active = term.get('name') == self.ahasvcname
+        self.isfollower = not active
+        return active
+
+    def getParentUrl(self):
+        '''
+        Return the telepath URL of the upstream leader to follow, or None if
+        we are the leader.
+        '''
+        # only a follower has an upstream to sync from. this is gated on the
+        # role ( not the parent config ) so that a promoted leader stops
+        # following without mutating the user-set parent at runtime.
+        if not self.isfollower:
+            return None
+
+        # an explicit parent overrides the leader determined by AHA.
+        parent = self.conf.get('parent')
+        if parent is not None:
+            return parent
+
+        # otherwise sync from the current leader for our service type
+        # ( resolved dynamically via the leadership term ).
+        if self.ahasvcname is not None:
+            return f'aha://{self.getCellType()}...'
+
+        return None
+
+    async def _onAhaLeadTerm(self, mesg):
+        # AHA recorded a new leader for some service type. if it is our type and
+        # we are a dynamic follower ( following via AHA rather than a pinned
+        # parent ), re-follow the new leader by restarting the nexus so it
+        # resolves and consumes nexus edits from the new leader.
+        if mesg[1].get('type') != self.getCellType():
+            return
+
+        if not self.isfollower:
+            return
+
+        if self.conf.get('parent') is not None:
+            return
+
+        # term is always present on the message; guard defensively in case the
+        # message shape changes in the future.
+        if (term := mesg[1].get('term')) is None:  # pragma: no cover
+            term = {}
+
+        leadname = term.get('name', '<unknown>')
+
+        # only re-follow when the leader actually changed. a same-leader event
+        # ( e.g. the current leader restarting ) is handled by the mirror's
+        # normal reconnect; a redundant restart here would race that reconnect.
+        if leadname == self.leadfollow:
+            return
+
+        self.leadfollow = leadname
+
+        logger.info(f'Leadership changed. Following the new leader: {leadname}.', extra=self.getLogExtra())
+
+        async def follow():
+            # hold the nexus lock across the restart so a concurrent proposal
+            # ( which also takes the lock ) cannot observe the nexus mid-teardown
+            # and fail with IsFini.
+            async with self.nexslock:
+                await self.nexsroot.startup()
+
+        self.schedCoro(follow())
+
+    async def _onAhaServers(self, mesg):
+        # AHA pushed a refreshed set of servers ( e.g. a new clone joined ).
+        # persist it to the aha:servers conf so a later restart boots against
+        # the current set of AHA servers. the AhaClient updates its live boot
+        # urls itself via setBootUrls().
+        newurls = mesg[1].get('urls')
+        if not newurls:
+            return
+
+        oldurls = self.conf.get('aha:servers')
+        if oldurls is not None and tuple(newurls) == tuple(oldurls):
+            return
+
+        self.modCellConf({'aha:servers': tuple(newurls)})
 
     async def _bindDmonListen(self):
 
@@ -2001,7 +2150,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         celliden = self.getCellIden()
         runiden = await self.getCellRunId()
-        ahalead = self.conf.get('aha:leader')
 
         # If we are active, then we are ready by definition.
         # If we are not active, then we have to check the nexsroot
@@ -2016,10 +2164,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahainfo = {
             'run': runiden,
             'iden': celliden,
-            'leader': ahalead,
             'urlinfo': urlinfo,
             'ready': ready,
-            'isleader': self.isactive,
+            'type': self.getCellType(),
+            'features': self.features,
             'promotable': self.conf.get('aha:promotable'),
         }
 
@@ -2063,28 +2211,58 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if ahainfo is None:
             return
 
-        ahalead = self.conf.get('aha:leader')
-
         self.ahasvcname = f'{ahaname}.{ahanetw}'
 
         async def _runAhaRegLoop():
 
+            lastproxy = None
+            lastinfo = None
+
             while not self.isfini:
+
+                # clear before registering so a bump that races the
+                # registration is retained and wakes the next wait.
+                self.aharegbump.clear()
 
                 try:
                     proxy = await self.ahaclient.proxy()
 
                     info = await self.getAhaInfo()
-                    await proxy.addAhaSvc(f'{ahaname}...', info)
-                    if self.isactive and ahalead is not None:
-                        await proxy.addAhaSvc(f'{ahalead}...', info)
+
+                    # re-register on a new connection or when our service info
+                    # changed; skip a redundant re-register ( e.g. a bump with
+                    # no state change ) so we do not emit a duplicate svc:add.
+                    if proxy is not lastproxy or info != lastinfo:
+                        await proxy.addAhaSvc(f'{ahaname}...', info)
+                        lastinfo = info
+
+                    # followers track the current leadership term so a later
+                    # reboot does not falsely detect a schism after leadership
+                    # has legitimately changed while we were following.
+                    if not self.isactive:
+                        term = await proxy.getLeadTerm(self.getCellType())
+                        if term is not None:
+                            self.cellinfo.set('aha:lead:term', term)
+                            self.leadfollow = term.get('name')
 
                 except Exception as e:
+                    if self.isfini:  # pragma: no cover
+                        return
+
                     logger.exception(f'Error registering service {self.ahasvcname} with AHA: {e}')
                     await self.waitfini(1)
+                    continue  # pragma: no cover
 
-                else:
-                    await proxy.waitfini()
+                # a new proxy drops us back here on disconnect: its fini handler
+                # sets the same bump event so we only ever wait on one thing.
+                if proxy is not lastproxy:
+                    proxy.onfini(self.aharegbump.set)
+                    lastproxy = proxy
+
+                # wake to re-register when explicitly bumped ( e.g. after an
+                # active/passive transition, over the existing connection ) or
+                # when the proxy drops and we must reconnect.
+                await self.aharegbump.wait()
 
         self.schedCoro(_runAhaRegLoop())
 
@@ -2164,15 +2342,50 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         network = self.conf.req('aha:network')
         return f'aha://{host}.{network}'
 
+    async def _takeLeadTerm(self):
+        # record a new leadership term for our service type via AHA so the
+        # previous leader is retired ( enforces forced promotion retirement ).
+        if self.ahaclient is None or self.ahasvcname is None:
+            return
+
+        proxy = await self.getAhaProxy()
+        if proxy is None:  # pragma: no cover
+            return
+
+        nexsoffs = await self.getNexsIndx()
+        term = await proxy.setLeadTerm(self.getCellType(), self.ahasvcname, nexsoffs)
+        self.cellinfo.set('aha:lead:term', term)
+
+    async def _saveLeadTerm(self):
+        # a follower records the current leadership term so that a later reboot
+        # does not falsely detect a schism after leadership has legitimately
+        # changed while we were following.
+        if self.ahaclient is None or self.ahasvcname is None:
+            return
+
+        proxy = await self.getAhaProxy()
+        if proxy is None:  # pragma: no cover
+            return
+
+        term = await proxy.getLeadTerm(self.getCellType())
+        if term is not None:
+            self.cellinfo.set('aha:lead:term', term)
+
     async def promote(self, graceful=False):
         '''
         Transform this cell from a passive follower to
         an active cell that writes changes locally.
         '''
-        mirurl = self.conf.get('mirror')
-        if mirurl is None:
-            mesg = 'promote() called on non-mirror'
-            raise s_exc.BadConfValu(mesg=mesg)
+        # an explicit parent pins us as a follower of that upstream, so we
+        # refuse promotion rather than override the operator's configuration.
+        if self.conf.get('parent') is not None:
+            mesg = 'promote() is not supported for a service with an explicit parent configured'
+            raise s_exc.BadState(mesg=mesg)
+
+        # isfollower is the authoritative role flag; only a follower may promote.
+        if not self.isfollower:
+            mesg = 'promote() called on a service which is not a follower'
+            raise s_exc.BadState(mesg=mesg)
 
         _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
         logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful}{_dispname}.')
@@ -2181,20 +2394,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             myurl = self.getMyUrl()
 
-            logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff{_dispname}.')
-            async with await s_telepath.openurl(mirurl) as lead:
+            upstream = self.getParentUrl()
+
+            logger.debug(f'PROMOTION: Connecting to {upstream} to request leadership handoff{_dispname}.')
+            async with await s_telepath.openurl(upstream) as lead:
                 await lead.handoff(myurl)
                 logger.warning(f'PROMOTION: Completed leadership handoff to {myurl}{_dispname}')
                 return
 
-        logger.debug(f'PROMOTION: Clearing mirror configuration{_dispname}.')
-        self.modCellConf({'mirror': None})
+        # clear our follower role ( parent is a user-set config and is not
+        # modified at runtime; getParentUrl() returns None once we lead ).
+        self.isfollower = False
 
         logger.debug(f'PROMOTION: Promoting the nexus root{_dispname}.')
         await self.nexsroot.promote()
 
         logger.debug(f'PROMOTION: Setting the cell as active{_dispname}.')
         await self.setCellActive(True)
+
+        logger.debug(f'PROMOTION: Recording the new leadership term{_dispname}.')
+        await self._takeLeadTerm()
+
+        logger.debug(f'PROMOTION: Waiting for AHA to come online{_dispname}.')
+        await self._waitAhaRegOnline()
 
         logger.warning(f'PROMOTION: Finished leadership promotion{_dispname}.')
 
@@ -2225,14 +2447,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
 
-            ahalead = cnfo.get('aha', {}).get('leader')
-            mirror_url = turl
-            if turl.startswith('aha://') and ahalead is not None:
-                ahauser = self.conf.get('aha:user')
-                if ahauser is not None:
-                    ahauser = f'{ahauser}@'
-                mirror_url = f'aha://{ahauser}{ahalead}...'
-
             logger.debug(f'HANDOFF: Obtaining nexus lock{_dispname}.')
 
             async with self.nexslock:
@@ -2252,10 +2466,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.debug(f'HANDOFF: Setting the service as inactive{_dispname}.')
                 await self.setCellActive(False)
 
-                logger.debug(f'HANDOFF: Configuring service to sync from new leader{_dispname} @ {s_urlhelp.sanitizeUrl(mirror_url)}.')
-                self.modCellConf({'mirror': mirror_url})
+                # follow the new leader dynamically ( no explicit parent ).
+                self.isfollower = True
 
-                logger.debug(f'HANDOFF: Restarting the nexus{_dispname}.')
+                # adopt the new leader's term so a later reboot does not falsely
+                # detect a schism now that we have handed off leadership.
+                await self._saveLeadTerm()
+
+                logger.debug(f'HANDOFF: Restarting the nexus to sync from the new leader{_dispname}.')
                 await self.nexsroot.startup()
 
             logger.debug(f'HANDOFF: Released nexus lock{_dispname}.')
@@ -2264,15 +2482,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _getDemotePeers(self, timeout=None):
 
+        # promotion peer discovery must be authoritative, so query the AHA
+        # server directly rather than the eventually-consistent topo cache.
         ahaproxy = await self.reqAhaProxy(timeout=timeout, feats=[('getAhaSvcsByIden', 1)])
 
         retn = []
-        async for svcdef in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
+        async for svcentry in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
 
-            if not svcdef['svcinfo'].get('promotable'): # pragma: no cover
+            if not svcentry['info'].get('promotable'): # pragma: no cover
                 continue
 
-            retn.append(svcdef)
+            retn.append(svcentry)
 
         return retn
 
@@ -2285,8 +2505,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not self.isactive:
             logger.warning('...service is not the leader. Aborting demotion.', extra=extra)
             return False
-
-        user = self.conf.get('aha:user')
 
         if peers is None:
             peers = await self._getDemotePeers(timeout=timeout)
@@ -2301,12 +2519,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 cands = []
 
-                for svcdef in peers:
+                for svcentry in peers:
 
-                    name = svcdef.get('name')
+                    name = svcentry.get('name')
 
                     try:
-                        svcproxy = await base.enter_context(await s_telepath.openurl(f'aha://{user}@{name}'))
+                        svcproxy = await base.enter_context(await s_telepath.openurl(f'aha://{name}'))
 
                         svcindx = await svcproxy.getNexsIndx()
                         cands.append((svcindx, svcproxy))
@@ -2348,6 +2566,50 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     raise s_exc.BadVersion(mesg=mesg)
 
         return proxy
+
+    async def _waitAhaRegOnline(self, timeout=10):
+
+        # After a promotion we bump the registration loop to re-register with
+        # our updated service info. That is asynchronous, so wait for the AHA
+        # topology to reflect our service as online with our runid before
+        # returning. This closes the window where a peer cannot yet resolve the
+        # newly promoted leader. The topo cache is fed by getAhaTopo() events
+        # which AHA emits under its nexus lock, so this is event driven rather
+        # than polling the server.
+        if self.ahaclient is None:
+            return
+
+        def isonline():
+            for svcentry in self.ahaclient.svcs.values():
+                svcinfo = svcentry.get('info') or {}
+                if svcentry.get('online') and svcinfo.get('run') == self.runid:
+                    return True
+
+            return False  # pragma: no cover
+
+        evnt = asyncio.Event()
+
+        async def onmesg(mesg):
+            if isonline():  # pragma: no cover
+                evnt.set()
+
+        # subscribe before the check so an update that lands between the check
+        # and the subscribe is not missed.
+        self.ahaclient.on('svc:add', onmesg)
+        self.ahaclient.on('svc:mod', onmesg)
+
+        try:
+            if isonline():
+                return
+
+            await asyncio.wait_for(evnt.wait(), timeout=timeout)  # pragma: no cover
+
+        except asyncio.TimeoutError:  # pragma: no cover
+            logger.warning(f'Timeout waiting for AHA to come online for {self.ahasvcname}.')
+
+        finally:
+            self.ahaclient.off('svc:add', onmesg)
+            self.ahaclient.off('svc:mod', onmesg)
 
     async def _bumpAhaProxy(self):
 
@@ -2475,7 +2737,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.activebase = None
             await self.initServicePassive()
 
-        await self._bumpAhaProxy()
+        # wake the AHA registration loop to re-register with our updated
+        # ( active/passive ) service info over the existing connection.
+        self.aharegbump.set()
 
     def runActiveTask(self, coro):
         # an API for active coroutines to use when running an
@@ -3802,6 +4066,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @classmethod
     def getCellType(cls):
+        '''
+        The type reported in cell info and used for host cert names and AHA service type identification.
+
+        Notes:
+            This defaults to using the class local celltype value; if None, it defaults to the
+            lower-cased class name. This value should be directly set by implementors to have
+            a stable value for production services.
+
+        Returns:
+            str: The cell name.
+        '''
+        if cls.celltype is not None:
+            return cls.celltype
+
         return cls.__name__.lower()
 
     @classmethod
@@ -3898,24 +4176,156 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _initCellBoot(self):
         # NOTE: best hook point for custom provisioning
 
+        await self._bootCellProvMcast()
+
         isok, pnfo = await self._bootCellProv()
 
-        # check this before we setup loadTeleCell()
-        if not self._mustBootMirror():
+        # if we have already booted once we do not bootstrap from an upstream.
+        if os.path.isfile(s_common.genpath(self.dirn, 'cell.guid')):
             return
 
-        if not isok:
-            # The way that we get to this requires the following states to be true:
-            # 1. self.dirn/cell.guid file is NOT present in the service directory.
-            # 2. mirror config is present.
-            # 3. aha:provision config is not set OR the aha:provision guid matches the self.dirn/prov.done file.
-            mesg = 'Service has been configured to boot from an upstream mirror, but has entered into an invalid ' \
-                   'state. This may have been caused by manipulation of the service storage or an error during a ' \
-                   f'backup / restore operation. {pnfo.get("mesg")}'
-            raise s_exc.FatalErr(mesg=mesg)
-
         async with s_telepath.loadTeleCell(self.dirn):
-            await self._bootCellMirror(pnfo)
+
+            # resolve the upstream to bootstrap from: an explicit parent, or the
+            # current leader for our service type if a leadership term exists.
+            murl = await self._getBootParentUrl()
+
+            # provisioning was configured ( aha:provision set ) but could not
+            # proceed - e.g. the provision URL has already been consumed. with no
+            # local cell.guid this is an invalid state, not a fresh first-leader
+            # boot, even when there is no upstream to bootstrap from.
+            if not isok and self.conf.get('aha:provision') is not None:
+                mesg = 'Service has been configured to bootstrap via AHA provisioning, but has entered into an ' \
+                       'invalid state. This may have been caused by manipulation of the service storage or an ' \
+                       f'error during a backup / restore operation. {pnfo.get("mesg")}'
+                raise s_exc.FatalErr(mesg=mesg)
+
+            if murl is None:
+                # no upstream to bootstrap from: we are the first leader.
+                return
+
+            if not isok:
+                # The way that we get to this requires the following states to be true:
+                # 1. self.dirn/cell.guid file is NOT present in the service directory.
+                # 2. an upstream to bootstrap from is present.
+                # 3. aha:provision config is not set OR the aha:provision guid matches the self.dirn/prov.done file.
+                mesg = 'Service has been configured to boot from an upstream leader, but has entered into an invalid ' \
+                       'state. This may have been caused by manipulation of the service storage or an error during a ' \
+                       f'backup / restore operation. {pnfo.get("mesg")}'
+                raise s_exc.FatalErr(mesg=mesg)
+
+            await self._bootCellMirror(murl, pnfo)
+
+    async def _bootCellProvMcast(self):
+        # On an inaugural boot with SYN_PROVISION_SECRET set and no explicit
+        # aha:provision URL, discover AHA via encrypted multicast and adopt the
+        # provisioning URL it mints. All cert/conf handling then proceeds via
+        # the normal _bootCellProv() path. Setting the secret is itself a
+        # declaration that AHA must provision us, so we retry discovery
+        # indefinitely ( logging a warning roughly every PROV_FOLLOWER_WARN_TIMEOUT
+        # seconds ) rather than ever booting un-provisioned. SYN_PROVISION_FOLLOWER
+        # only governs the later parent-resolution step, not this one.
+
+        celltype = self.getCellType()
+        if celltype is None:
+            return
+
+        if self.conf.get('aha:provision') is not None:
+            return
+
+        secret = os.environ.get('SYN_PROVISION_SECRET')
+        if secret is None:
+            return
+
+        if os.path.isfile(s_common.genpath(self.dirn, 'cell.guid')):
+            return
+
+        logger.info(f'Attempting AHA provisioning discovery for service type {celltype}.')
+
+        mesg = {'type': 'service', 'data': {'type': celltype}}
+
+        warnmesg = f'AHA provisioning discovery received no response for service type ' \
+                   f'{celltype}; waiting for the AHA service to appear.'
+
+        lastwarn = s_common.now()
+
+        # NOTE: this runs during _initCellBoot, before Base.__anit__ sets
+        # self.isfini, so this loop cannot use 'while not self.isfini'.
+        while True:
+
+            data = await self._runProvMcastDiscover(mesg)
+            if data is not None:
+                break
+
+            lastwarn = self._logFollowerWait(lastwarn, warnmesg)
+
+        self.conf['aha:provision'] = data.get('url')
+        logger.info('AHA provisioning discovery succeeded.')
+
+    async def _runProvMcastDiscover(self, mesg):
+        # Send an encrypted multicast provisioning discovery request and return the
+        # response data dict ( containing the minted provisioning url ), or None if
+        # no response was received. SYN_PROVISION_SECRET must be set. When
+        # SYN_PROVISION_HOST is set the request is unicast to that AHA host instead
+        # of multicast ( for services which do not share AHA's broadcast domain ).
+        secret = os.environ.get('SYN_PROVISION_SECRET')
+
+        key = s_provision.deriveKey(secret)
+
+        s_schemas.reqValidProvRequest(mesg)
+
+        host = os.environ.get('SYN_PROVISION_HOST')
+
+        addr = None
+        if host is not None:
+            addr = (host, s_provision.DEFAULT_MCAST_PORT)
+
+        async with await s_provision.ProvCast.anit(key, s_provision.DEFAULT_MCAST_PORT,
+                                                   group=s_provision.DEFAULT_MCAST_GROUP) as cast:
+
+            for _ in range(s_provision.MCAST_ATTEMPTS):
+
+                cast.send(mesg, addr)
+
+                resp = await self._waitProvMcastResp(cast)
+                if resp is None:
+                    continue
+
+                # the response data is an ( ok, data ) retn tuple; result() raises
+                # the reconstructed exception on an error response
+                data = s_common.result(resp.get('data'))
+
+                if data.get('url') is None: # pragma: no cover
+                    continue
+
+                return data
+
+        return None
+
+    async def _waitProvMcastResp(self, cast):
+
+        async def wait():
+
+            # NOTE: reachable during _initCellBoot, before self.isfini exists.
+            while True:
+
+                item = await cast.recv()
+                if item is None: # pragma: no cover
+                    continue
+
+                mesg, addr = item
+
+                try:
+                    s_schemas.reqValidProvResponse(mesg)
+                except s_exc.SchemaViolation: # pragma: no cover
+                    continue
+
+                return mesg
+
+        try:
+            return await asyncio.wait_for(wait(), timeout=s_provision.MCAST_TIMEOUT)
+        except asyncio.TimeoutError:
+            return None
 
     @classmethod
     async def _initBootRestore(cls, dirn):
@@ -4071,7 +4481,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             provinfo = await prov.getProvInfo()
             provconf = provinfo.get('conf', {})
 
-            ahauser = provconf.get('aha:user')
             ahaname = provconf.get('aha:name')
             ahanetw = provconf.get('aha:network')
 
@@ -4100,7 +4509,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
             certdir.delHostCsr(hostname)
 
-            userfull = f'{ahauser}@{ahanetw}'
+            userfull = f'root@{ahanetw}'
             _crt = certdir.getUserCertPath(userfull)
             if _crt:
                 logger.debug(f'Removing existing user crt {_crt}')
@@ -4132,9 +4541,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             provconf (dict): A dictionary containing provisioning config data from AHA.
 
         Notes:
-            The cell.yaml will have the "mirror" key removed from it.
+            The cell.yaml will have the "parent" key removed from it.
             The cell.yaml will be modified with data from provconf.
-            The cell.mods.yaml will have the "mirror" key removed from it.
+            The cell.mods.yaml will have the "parent" key removed from it.
             The cell.mods.yaml will have any keys in the prov conf removed from it.
             This sets the runtime configuration as well.
 
@@ -4155,11 +4564,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         cell_path = s_common.genpath(self.dirn, 'cell.yaml')
 
-        # Slice the mirror option out of the cell.yaml file. This avoids
+        # Slice the parent option out of the cell.yaml file. This avoids
         # a situation where restoring a backup from a cell which was provisioned
-        # as a mirror is then provisioned as a leader and then has an extra
-        # cell config value which conflicts with the new provconf.
-        s_common.yamlpop('mirror', cell_path)
+        # with an explicit parent is then provisioned as a leader and then has an
+        # extra cell config value which conflicts with the new provconf.
+        s_common.yamlpop('parent', cell_path)
 
         # Inject the provconf value into the cell configuration
         s_common.yamlmod(provconf, cell_path)
@@ -4173,11 +4582,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for key in provconf:
             s_common.yamlpop(key, mods_path)
 
-        # Slice the mirror option out of the cell.mods.yaml file. This avoids
+        # Slice the parent option out of the cell.mods.yaml file. This avoids
         # a situation where restoring a backup from a cell which was demoted
         # from a leader to a follower has a config value which conflicts with
         # the new provconf.
-        s_common.yamlpop('mirror', mods_path)
+        s_common.yamlpop('parent', mods_path)
 
         new_conf.setConfFromFile(mods_path, force=True)
 
@@ -4186,16 +4595,89 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.conf = new_conf
         return new_conf
 
-    def _mustBootMirror(self):
-        path = s_common.genpath(self.dirn, 'cell.guid')
-        if os.path.isfile(path):
-            return False
+    async def _getBootParentUrl(self):
+        '''
+        Return the upstream telepath URL to bootstrap ( clone ) from on first
+        boot, or None if we should boot fresh as the first leader.
 
-        murl = self.conf.get('mirror')
-        if murl is None:
-            return False
+        NOTE: this must be called within a loadTeleCell() context so that
+              aha:// URLs may be resolved.
+        '''
+        # an explicit parent means we bootstrap from it.
+        parent = self.conf.get('parent')
+        if parent is not None:
+            return parent
 
-        return True
+        # SYN_PROVISION_FOLLOWER declares that a leader of our service type already
+        # exists and that we must clone from it rather than ever booting fresh.
+        follower = os.environ.get('SYN_PROVISION_FOLLOWER') is not None
+
+        # a fresh service under AHA bootstraps from the current leader if there
+        # is an online leader registered for its service type.
+        ahaurls = self.conf.get('aha:servers')
+        if not ahaurls:
+            if follower:
+                mesg = 'SYN_PROVISION_FOLLOWER is set but no aha:servers are configured to locate a leader.'
+                raise s_exc.FatalErr(mesg=mesg)
+
+            return None
+
+        # a follower assumes a leader exists: wait ( indefinitely ) for one to
+        # register and clone from it rather than ever booting fresh.
+        if follower:
+            return await self._waitFollowerParentUrl(ahaurls[0])
+
+        async with await s_telepath.openurl(ahaurls[0]) as ahaproxy:
+            svcdef = await ahaproxy.getAhaSvcByType(self.getCellType())
+
+        # no online leader ( we are the first of our type ): boot fresh.
+        if svcdef is None:
+            return None
+
+        return f'aha://{self.getCellType()}...'
+
+    async def _waitFollowerParentUrl(self, ahaurl):
+        # SYN_PROVISION_FOLLOWER: assume a leader of our service type exists. Poll
+        # AHA indefinitely until one registers, logging a warning roughly every
+        # PROV_FOLLOWER_WARN_TIMEOUT seconds while it remains unresolved.
+        celltype = self.getCellType()
+
+        warnmesg = f'SYN_PROVISION_FOLLOWER is set but no leader has registered for service ' \
+                   f'type {celltype}; waiting for a leader to appear.'
+
+        lastwarn = s_common.now()
+
+        # NOTE: this runs during _initCellBoot, before Base.__anit__ sets
+        # self.isfini, so these loops cannot use 'while not self.isfini' /
+        # self.waitfini().
+        while True:
+
+            try:
+                async with await s_telepath.openurl(ahaurl) as ahaproxy:
+
+                    while True:
+
+                        svcdef = await ahaproxy.getAhaSvcByType(celltype)
+                        if svcdef is not None:
+                            return f'aha://{celltype}...'
+
+                        lastwarn = self._logFollowerWait(lastwarn, warnmesg)
+                        await asyncio.sleep(PROV_FOLLOWER_WAIT_INTERVAL)
+
+            except Exception as e:
+                logger.debug(f'SYN_PROVISION_FOLLOWER wait error for service type {celltype}: {e}')
+                lastwarn = self._logFollowerWait(lastwarn, warnmesg)
+                await asyncio.sleep(PROV_FOLLOWER_WAIT_INTERVAL)
+
+    def _logFollowerWait(self, lastwarn, warnmesg):
+        # log warnmesg at warning level if at least PROV_FOLLOWER_WARN_TIMEOUT
+        # seconds have elapsed since lastwarn, returning the new anchor time.
+        now = s_common.now()
+        if now - lastwarn >= PROV_FOLLOWER_WARN_TIMEOUT * 1000:
+            logger.warning(warnmesg)
+            return now
+
+        return lastwarn
 
     async def readyToMirror(self):
         if not self.conf.get('nexslog:en'):
@@ -4225,11 +4707,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if os.path.isfile(tarpath):
                 os.unlink(tarpath)
 
-    async def _bootCellMirror(self, pnfo):
+    async def _bootCellMirror(self, murl, pnfo):
         # this function must assume almost nothing is initialized
         # but that's ok since it will only run rarely.
         # It assumes it has a tuple of (provisioning configuration, provisioning iden) available
-        murl = self.conf.req('mirror')
         provconf, providen = pnfo.get('conf'), pnfo.get('iden')
 
         logger.warning(f'Bootstrap mirror from: {murl} (this could take a while!)')
@@ -4265,13 +4746,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self.ahaclient.waitready()
 
+        # mirror enumeration must be authoritative, so query the AHA server
+        # directly rather than the eventually-consistent topo cache.
         proxy = await self.ahaclient.proxy(timeout=5)
         mirrors = await proxy.getAhaSvcMirrors(self.ahasvcname)
         if mirrors is None:
             mesg = 'Service must be configured with AHA to enumerate mirror URLs'
             raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)
 
-        return [f'aha://{svc["name"]}' for svc in mirrors]
+        return [f'aha://{svcentry["name"]}' for svcentry in mirrors]
 
     @classmethod
     async def initFromArgv(cls, argv, outp=None):
@@ -4482,6 +4965,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return retn
 
+    def _reqAhaServers(self):
+        '''
+        Require that AHA servers are configured so this service can locate its
+        peer services by service type. Raises s_exc.NeedConfValu if none are set.
+        '''
+        if self.conf.get('aha:servers') is None:
+            mesg = f'{self.getCellType()} requires configured AHA servers to locate peer services by service type.'
+            raise s_exc.NeedConfValu(mesg=mesg)
+
     async def getAhaProxy(self, timeout=None, feats=None):
 
         if self.ahaclient is None:
@@ -4635,9 +5127,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             Dict: A Dictionary of metadata.
         '''
 
-        mirror = self.conf.get('mirror')
-        if mirror is not None:
-            mirror = s_urlhelp.sanitizeUrl(mirror)
+        parent = self.getParentUrl()
+        if parent is not None:
+            parent = s_urlhelp.sanitizeUrl(parent)
 
         nxfo = await self.nexsroot.getNexsInfo()
 
@@ -4657,10 +5149,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'commit': self.COMMIT,
                 'version': self.VERSION,
                 'cellvers': dict(self.cellvers.items()),
-                'mirror': mirror,
+                'parent': parent,
                 'aha': {
                     'name': self.conf.get('aha:name'),
-                    'leader': self.conf.get('aha:leader'),
                     'network': self.conf.get('aha:network'),
                 },
                 'network': {

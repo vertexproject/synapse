@@ -13,7 +13,7 @@ class TaskLibTest(s_test.SynTest):
             conf = {'aha:provision': await aha.addAhaSvcProv('00.cortex')}
             core00 = await aha.enter_context(self.getTestCore(conf=conf))
 
-            conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex', {'mirror': 'cortex'})}
+            conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex')}
             core01 = await aha.enter_context(self.getTestCore(conf=conf))
 
             iden0 = 'c7fc6d4ced5759fe6fcc047b6bd3374a'

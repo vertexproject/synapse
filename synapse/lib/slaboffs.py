@@ -1,14 +1,12 @@
 import synapse.common as s_common
 
-import synapse.lib.lmdbslab as s_lmdbslab
-
 class SlabOffs:
     '''
     A helper for storing offset integers by iden.
 
     As with all slab objects, this is meant for single-thread async loop use.
     '''
-    def __init__(self, slab: s_lmdbslab.Slab, db: str) -> None:
+    def __init__(self, slab, db: str) -> None:
         self.db = slab.initdb(db)
         self.slab = slab
 

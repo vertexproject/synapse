@@ -245,7 +245,8 @@ modeldefs = (
                     ('from:port', ('transport:air:port', {}), {
                         'doc': 'The most recently registered origin for the flight number.'}),
 
-                    ('stops', ('array', {'type': 'transport:air:port', 'uniq': False, 'sorted': False}), {
+                    ('stops', ('transport:air:port', {}), {
+                        'array': {'uniq': False, 'sorted': False},
                         'doc': 'An ordered list of aiport codes for the flight segments.'}),
                 ),
                 'doc': 'A commercial flight designator including airline and serial.',
@@ -433,7 +434,8 @@ modeldefs = (
                 ),
                 'props': (
 
-                    ('cars', ('array', {'type': 'transport:rail:car', 'sorted': False}), {
+                    ('cars', ('transport:rail:car', {}), {
+                        'array': {'sorted': False},
                         'doc': 'The rail cars, including locomotives, which compose the consist.'}),
                 ),
                 'doc': 'A group of rail cars and locomotives connected together.'}),
@@ -465,7 +467,7 @@ modeldefs = (
                     ('serial', ('base:id', {}), {
                         'doc': 'The manufacturer assigned serial number of the {title}.'}),
 
-                    ('max:occupants', ('int:min0', {}), {
+                    ('max:occupants', ('size', {}), {
                         'doc': 'The maximum number of occupants the {title} can hold.'}),
 
                     ('max:cargo:mass', ('phys:mass', {}), {
@@ -539,7 +541,7 @@ modeldefs = (
                     ('status', ('title', {}), {
                         'doc': 'The status of the {title}.'}),
 
-                    ('occupants', ('int:min0', {}), {
+                    ('occupants', ('size', {}), {
                         'doc': 'The number of occupants of the {vehicle} on this {title}.'}),
 
                     ('cargo:mass', ('phys:mass', {}), {

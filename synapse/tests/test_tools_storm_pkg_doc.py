@@ -128,6 +128,29 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
                 argv = [testpkgfp, ]
                 self.eq(1, await s_t_gendocs.main(argv))
 
+    async def test_storm_pkg_doc_stormpkg_rst_stale(self):
+        # A pre-existing docs/stormpackage.rst (left over from a prior build
+        # with longer content, e.g. a wider endpoint table) must not leak
+        # trailing bytes into the freshly generated file.
+        with self.getTestDir(mirror='testpkg_build_docs') as dirn:
+            testpkgfp = os.path.join(dirn, 'testpkg.yaml')
+            docsdir = os.path.join(dirn, 'docs')
+
+            stale = b'X' * 10000
+            with s_common.genfile(docsdir, 'stormpackage.rst') as fd:
+                fd.write(stale)
+
+            argv = [testpkgfp, ]
+            r = await s_t_gendocs.main(argv)
+            self.eq(r, 0)
+
+            text = s_common.getbytes(os.path.join(docsdir, 'stormpackage.rst')).decode()
+            self.notin('X' * 100, text)
+
+            builddir = os.path.join(dirn, 'docs', '_build')
+            text = s_common.getbytes(os.path.join(builddir, 'stormpackage.md')).decode()
+            self.notin('X' * 100, text)
+
     async def test_storm_pkg_doc_baseurl(self):
         # Build with SYN_DOCS_BASEURL overridden to verify the token is replaced.
         with self.getTestDir(mirror='testpkg_build_docs') as dirn:

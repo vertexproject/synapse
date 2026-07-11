@@ -61,6 +61,7 @@ async def buildPkgDocs(outp, pkgpath: str, rst_only: bool =False):
         logger.info(f'Generating stormpackage.rst for {pkgpath}')
         pkgdocs, pkgname = await s_autodoc.docStormpkg(pkgpath)
         with s_common.genfile(docsdir, 'stormpackage.rst') as fd:
+            fd.truncate()
             text = pkgdocs.getRstText()
             if rst_only is False:
                 # Leave this in place if we're only generating RST

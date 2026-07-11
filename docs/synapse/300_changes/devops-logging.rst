@@ -1,7 +1,43 @@
-.. _vtx_300_devops-logging-iso8601:
+.. _vtx_300_devops-logging:
 
-ISO-8601 UTC Microsecond Logging
-================================
+Logging
+=======
+
+Two logging defaults changed for Synapse 3.x: containers now emit structured JSON logs by default,
+and log timestamps are rendered as ISO-8601 UTC with microsecond precision.
+
+Structured logging on by default
+--------------------------------
+
+What changed
+    Synapse Docker containers now emit JSON structured logging output by default. The
+    ``synsrc/docker/images/synapse/Dockerfile`` sets ``ENV SYN_LOG_STRUCT="true"``, so the
+    service variants built from it log structured JSON out of the box.
+
+    In 2.x, containers emitted unstructured text logs by default and structured JSON was opt-in by
+    setting the ``SYN_LOG_STRUCT=true`` environment variable. This change flips the *container*
+    default only; the library default when ``SYN_LOG_STRUCT`` is unset is unchanged.
+
+Why
+    Structured logs contain the log message, level, time, and metadata about where the message
+    came from, and are designed to be easy to ingest and index into third party log collection
+    platforms. Structured output is the sensible default for the containerized deployments most
+    operators run.
+
+What you need to do
+    If you consume container logs, expect JSON on stdout by default and update any pipelines that
+    parsed the old plaintext output accordingly. To keep unstructured text output, set the
+    ``SYN_LOG_STRUCT=false`` environment variable on the container.
+
+    .. code-block:: bash
+
+        # 3.x container default: JSON structured logs
+
+        # opt back out to unstructured text:
+        SYN_LOG_STRUCT=false
+
+ISO-8601 UTC microsecond timestamps
+-----------------------------------
 
 What changed
     Log timestamps are now rendered in UTC as ISO-8601 with microsecond

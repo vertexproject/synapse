@@ -310,7 +310,8 @@ modeldefs = (
                     ('code', ('dns:reply:code', {}), {
                         'doc': 'The DNS server reply code.'}),
 
-                    ('answers', ('array', {'type': 'inet:dns:answer'}), {
+                    ('answers', ('inet:dns:answer', {}), {
+                        'array': {},
                         'doc': 'The DNS answers included in the response.'}),
                 ),
                 'doc': 'A DNS protocol response.'}),

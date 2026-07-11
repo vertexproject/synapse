@@ -818,7 +818,6 @@ A Synapse Aha service implements an HTTP API for assisting with devops.
                 "provinfo": {
                     "dmon:port": # optional integer, default Telepath listening port.
                     "https:port": # optional integer, default HTTPS listening port.
-                    "mirror": # optional string, service to Mirror.
                     "conf": {
                         ... # optional, default service configuration values.
                     }
@@ -855,12 +854,9 @@ A Synapse Aha service implements an HTTP API for assisting with devops.
             [
                 {
                     "name": "< the full service name >",
-                    "svcname": "< service name part >",
-                    "svcnetw": "< service network part >",
-                    "svcinfo": {
+                    "info": {
                         "run": "< runtime service identifier >",
                         "iden": "< persistent service identifier >",
-                        "leader": "< service leader name >",
                         "urlinfo": {
                             "scheme": "< listening scheme >",
                             "port": listening port,

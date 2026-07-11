@@ -450,6 +450,12 @@ class Agenda(s_base.Base):
         self._wake_event = s_coro.Event()  # Causes the scheduler loop to wake up
         self.onfini(self._wake_event.set)
 
+        # gates the runloop until clearRunningStatus() has run for the current
+        # leadership term, so a cron left flagged isrunning by a crashed leader
+        # is not skipped on promotion ( see runloop / clearRunningStatus ).
+        self._statuscleared = s_coro.Event()
+        self.onfini(self._statuscleared.set)
+
         self.apptdefs = self.core.cortexdata.getSubKeyVal('agenda:appt:')
 
         await self._load_all()
@@ -827,59 +833,73 @@ class Agenda(s_base.Base):
                 await self.core.addCronEdits(appt.iden, edits)
                 await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
 
+        # release the runloop now that the stale running status has been cleared.
+        self._statuscleared.set()
+
     async def runloop(self):
         '''
         Task loop to issue query tasks at the right times.
         '''
-        await self.clearRunningStatus()
+        # clearRunningStatus() runs synchronously as part of becoming the leader
+        # ( see Cortex.initServiceActive ) so that a promotion does not complete
+        # until the running status has been cleared. Wait for it before touching
+        # any appointment, otherwise a due cron left flagged isrunning by a
+        # crashed leader would hit the isrunning skip branch below and be silently
+        # skipped for a full interval after every failover.
+        await self._statuscleared.wait()
 
-        await self._clear_invalid()
+        # re-arm the gate on the way out so the next leadership activation waits
+        # for the running status to be cleared again.
+        try:
+            await self._clear_invalid()
 
-        while not self.isfini:
+            while not self.isfini:
 
-            timeout = None
-            if self.apptheap:
-                timeout = (self.apptheap[0].nexttime - self._getNowTick()) / s_time.onesec
+                timeout = None
+                if self.apptheap:
+                    timeout = (self.apptheap[0].nexttime - self._getNowTick()) / s_time.onesec
 
-            if timeout is None or timeout > 0:
-                self._wake_event.clear()
-                await self._wake_event.timewait(timeout=timeout)
+                if timeout is None or timeout > 0:
+                    self._wake_event.clear()
+                    await self._wake_event.timewait(timeout=timeout)
 
-            if self.isfini:
-                return
+                if self.isfini:
+                    return
 
-            now = self._getNowTick()
-            while self.apptheap and self.apptheap[0].nexttime <= now:
+                now = self._getNowTick()
+                while self.apptheap and self.apptheap[0].nexttime <= now:
 
-                appt = heapq.heappop(self.apptheap)
-                nexttime = appt.updateNexttime(now)
-                edits = {
-                    'nexttime': nexttime,
-                }
-                await self.core.addCronEdits(appt.iden, edits)
+                    appt = heapq.heappop(self.apptheap)
+                    nexttime = appt.updateNexttime(now)
+                    edits = {
+                        'nexttime': nexttime,
+                    }
+                    await self.core.addCronEdits(appt.iden, edits)
 
-                if appt.nexttime:
-                    heapq.heappush(self.apptheap, appt)
+                    if appt.nexttime:
+                        heapq.heappush(self.apptheap, appt)
 
-                if not appt.enabled:
-                    continue
+                    if not appt.enabled:
+                        continue
 
-                if appt.isrunning:  # pragma: no cover
-                    mesg = f'Appointment {appt.iden} {appt.name} is still running from previous time when scheduled' \
-                           f' to run. Skipping.'
-                    logger.warning(mesg, extra=self.core.getLogExtra(iden=appt.iden, name=appt.name))
-                else:
-                    try:
-                        await self._execute(appt)
-                    except Exception as e:
-                        extra = {'iden': appt.iden, 'name': appt.name, 'view': appt.view}
-                        if isinstance(e, s_exc.SynErr):
-                            mesg = e.get('mesg', str(e))
-                        else:  # pragma: no cover
-                            mesg = str(e)
-                        logger.exception(f'Agenda error running appointment {appt.iden} {appt.name}: {mesg}',
-                                         extra=self.core.getLogExtra(**extra))
-                        await self._markfailed(appt, f'error: {e}')
+                    if appt.isrunning:  # pragma: no cover
+                        mesg = f'Appointment {appt.iden} {appt.name} is still running from previous time when scheduled' \
+                               f' to run. Skipping.'
+                        logger.warning(mesg, extra=self.core.getLogExtra(iden=appt.iden, name=appt.name))
+                    else:
+                        try:
+                            await self._execute(appt)
+                        except Exception as e:
+                            extra = {'iden': appt.iden, 'name': appt.name, 'view': appt.view}
+                            if isinstance(e, s_exc.SynErr):
+                                mesg = e.get('mesg', str(e))
+                            else:  # pragma: no cover
+                                mesg = str(e)
+                            logger.exception(f'Agenda error running appointment {appt.iden} {appt.name}: {mesg}',
+                                             extra=self.core.getLogExtra(**extra))
+                            await self._markfailed(appt, f'error: {e}')
+        finally:
+            self._statuscleared.clear()
 
     async def _execute(self, appt):
         '''

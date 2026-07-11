@@ -1,3 +1,5 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:289585ef798d3cce185af91861ab3f5d84ae07d60763150fa27ef8e675afad9d
-size 57
+name: testpkg
+version: 0.0.1
+
+docs:
+    - title: Foo Bar

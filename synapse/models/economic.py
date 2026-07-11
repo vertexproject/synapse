@@ -183,7 +183,7 @@ modeldefs = (
                 'prevnames': ('econ:receipt:item',),
                 'props': (
 
-                    ('count', ('int:min1', {}), {
+                    ('count', ('size', {}), {
                         'doc': 'The number of items included in this line item.'}),
 
                     ('price', ('econ:price', {}), {
@@ -329,6 +329,30 @@ modeldefs = (
                         'doc': 'The balance due.'}),
                 ),
                 'doc': 'An invoice issued requesting payment.'}),
+
+            ('econ:allocation', ('econ:pricechange', {'names': {'start': 'allocated', 'end': 'spent', 'delta': 'variance'}}), {
+                'doc': 'An allocation of funds and the amount spent against it, with the variance between them.'}),
+
+            ('econ:budget', ('guid', {}), {
+                'template': {'title': 'budget', 'verb': 'managed', 'activity': 'was in effect'},
+                'interfaces': (
+                    ('entity:activity', {}),
+                ),
+                'props': (
+
+                    ('id', ('base:id', {}), {
+                        'doc': 'The ID of the budget.'}),
+
+                    ('name', ('title', {}), {
+                        'doc': 'The name of the budget.'}),
+
+                    ('funds', ('econ:allocation', {}), {
+                        'doc': 'The funds allocated and spent over the period.'}),
+
+                    ('previous', ('econ:budget', {}), {
+                        'doc': 'The budget for the previous period.'}),
+                ),
+                'doc': 'A budget of funds allocated and spent over a period.'}),
 
             # common currency symbols -> ISO 4217 codes. ('$' and the yen/yuan
             # sign are ambiguous and are mapped to their most common code.)
@@ -476,7 +500,8 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'The ID or account number of the account.'}),
 
-                    ('ids', ('array', {'type': 'base:id'}), {
+                    ('ids', ('base:id', {}), {
+                        'array': {},
                         'doc': 'An array of IDs or account numbers for the account.'}),
                 ),
                 'doc': 'A financial account which contains a balance of funds.'}),
@@ -551,6 +576,17 @@ modeldefs = (
         ),
 
         'interfaces': (
+            ('econ:budgetable', {
+
+                'doc': 'An interface for forms which may have an associated budget.',
+                'template': {'title': 'item'},
+
+                'props': (
+                    ('budget', ('econ:budget', {}), {
+                        'doc': 'The budget for the {title}.'}),
+                ),
+            }),
+
             ('econ:pay:instrument', {
 
                 'doc': 'An interface for forms which may act as a payment instrument.',
@@ -592,6 +628,9 @@ modeldefs = (
 
             (('econ:purchase', 'ledto', 'econ:payment'), {
                 'doc': 'The purchase led to the payment.'}),
+
+            (('econ:budget', 'had', 'econ:purchase'), {
+                'doc': 'The purchase was included as spent during the budget period.'}),
         ),
     },
 )

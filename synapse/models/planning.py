@@ -31,7 +31,8 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'The phase ID.'}),
 
-                    ('ids', ('array', {'type': (('it:mitre:attack:tactic:id', {}), ('base:id', {}))}), {
+                    ('ids', (('it:mitre:attack:tactic:id', {}), ('base:id', {})), {
+                        'array': {},
                         'doc': 'An array of alternate IDs for the phase.'}),
 
                     ('title', ('title', {}), {
@@ -62,7 +63,8 @@ modeldefs = (
                     ('type', ('plan:procedure:type:taxonomy', {}), {
                         'doc': 'A type classification for the procedure.'}),
 
-                    ('inputs', ('array', {'type': 'plan:procedure:variable'}), {
+                    ('inputs', ('plan:procedure:variable', {}), {
+                        'array': {},
                         'doc': 'An array of inputs required to execute the procedure.'}),
 
                     ('firststep', ('plan:procedure:step', {}), {
@@ -110,10 +112,12 @@ modeldefs = (
                     ('desc', ('text', {}), {
                         'doc': 'A description of the tasks executed within the step.'}),
 
-                    ('outputs', ('array', {'type': 'plan:procedure:variable'}), {
+                    ('outputs', ('plan:procedure:variable', {}), {
+                        'array': {},
                         'doc': 'An array of variables defined in this step.'}),
 
-                    ('links', ('array', {'type': 'plan:procedure:link', 'sorted': False}), {
+                    ('links', ('plan:procedure:link', {}), {
+                        'array': {'sorted': False},
                         'doc': 'An array of links to subsequent steps.'}),
 
                 ),

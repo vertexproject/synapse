@@ -25,7 +25,7 @@ class LibModelExt(s_stormtypes.Lib):
                       {'name': 'formname', 'type': 'str', 'desc': 'The name of the form to add the property to.', },
                       {'name': 'propname', 'type': 'str', 'desc': 'The name of the extended property.', },
                       {'name': 'typedef', 'type': 'list', 'desc': 'A Synapse type definition tuple.', },
-                      {'name': 'propinfo', 'type': 'dict', 'desc': 'A synapse property definition dictionary.', },
+                      {'name': 'propinfo', 'type': 'dict', 'desc': 'A Synapse property definition dictionary.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'addTagProp', 'desc': 'Add an extended tag property definition to the data model.',
@@ -33,7 +33,7 @@ class LibModelExt(s_stormtypes.Lib):
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The name of the tag property.', },
                       {'name': 'typedef', 'type': 'list', 'desc': 'A Synapse type definition tuple.', },
-                      {'name': 'propinfo', 'type': 'dict', 'desc': 'A synapse property definition dictionary.', },
+                      {'name': 'propinfo', 'type': 'dict', 'desc': 'A Synapse property definition dictionary.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delForm', 'desc': 'Remove an extended form definition from the model.',

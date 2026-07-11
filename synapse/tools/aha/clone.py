@@ -9,7 +9,7 @@ Generate a new clone URL to deploy an AHA mirror.
 
 Examples:
 
-    python -m synapse.tools.aha.clone 01.aha.loop.vertex.link
+    python -m synapse.tools.aha.clone 001.aha.loop.vertex.link
 
 '''
 

@@ -1237,43 +1237,51 @@ class User(s_stormtypes.Prim):
         self.runt.confirm(('auth', 'user', 'set', 'apikey'))
         return await self.runt.view.core.addUserApiKey(self.valu, name, duration=duration)
 
+    async def _reqApiKeyPerm(self, iden, manage=True):
+        # Resolve an API key by iden and confirm the permission to access it
+        # based on the key's actual owner, so a caller cannot reach another
+        # user's keys by passing an arbitrary iden through their own User
+        # object. Returns the key def; raises NoSuchIden if it does not exist.
+        kdef = await self.runt.view.core.getUserApiKey(iden)
+        if kdef is None:
+            mesg = f'User API key with {iden=} does not exist.'
+            raise s_exc.NoSuchIden(mesg=mesg, iden=iden)
+
+        if self.runt.user.iden == kdef.get('user'):
+            # Reading your own API key metadata requires no permission; managing
+            # it (modify/delete) requires (auth, self, set, apikey).
+            if manage:
+                self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.runt.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return kdef
+
     @s_stormtypes.stormfunc(readonly=True)
     async def _methGetApiKey(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        if self.runt.user.iden == self.valu:
-            self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-            valu = await self.runt.view.core.getUserApiKey(iden)
-        else:
-            self.runt.confirm(('auth', 'user', 'set', 'apikey'))
-            valu = await self.runt.view.core.getUserApiKey(iden)
-        valu.pop('shadow', None)
-        return valu
+        kdef = await self._reqApiKeyPerm(iden, manage=False)
+        kdef.pop('shadow', None)
+        return kdef
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methListApiKeys(self):
-        if self.runt.user.iden == self.valu:
-            self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-            return await self.runt.view.core.listUserApiKeys(self.valu)
+        # Listing your own API key metadata does not require a permission.
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'set', 'apikey'))
 
-        self.runt.confirm(('auth', 'user', 'set', 'apikey'))
         return await self.runt.view.core.listUserApiKeys(self.valu)
 
     async def _methModApiKey(self, iden, name, valu):
         iden = await s_stormtypes.tostr(iden)
         name = await s_stormtypes.tostr(name)
         valu = await s_stormtypes.toprim(valu)
-        if self.runt.user.iden == self.valu:
-            self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-            return await self.runt.view.core.modUserApiKey(iden, name, valu)
-        self.runt.confirm(('auth', 'user', 'set', 'apikey'))
+        await self._reqApiKeyPerm(iden)
         return await self.runt.view.core.modUserApiKey(iden, name, valu)
 
     async def _methDelApiKey(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        if self.runt.user.iden == self.valu:
-            self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-            return await self.runt.view.core.delUserApiKey(iden)
-        self.runt.confirm(('auth', 'user', 'set', 'apikey'))
+        await self._reqApiKeyPerm(iden)
         return await self.runt.view.core.delUserApiKey(iden)
 
     async def value(self):
@@ -1637,7 +1645,7 @@ class LibUsers(s_stormtypes.Lib):
          'desc': 'Permits a user to set another user\'s JSON storage.',
          'ex': 'auth.user.json.set'},
         {'perm': ('auth', 'user', 'set', 'apikey'), 'gate': 'cortex',
-         'desc': 'Permits a user to manage API keys for other users. USE WITH CAUTUON!'},
+         'desc': 'Permits a user to manage API keys for other users. USE WITH CAUTION!'},
         {'perm': ('auth', 'user', 'add'), 'gate': 'cortex',
          'desc': 'Controls the ability to add a user to the system. USE WITH CAUTION!'},
         {'perm': ('auth', 'user', 'del'), 'gate': 'cortex',

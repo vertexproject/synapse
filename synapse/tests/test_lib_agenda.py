@@ -1,4 +1,5 @@
 import time
+import heapq
 import asyncio
 import hashlib
 import datetime
@@ -815,13 +816,13 @@ class AgendaTest(s_t_utils.SynTest):
             s_tools_backup.backup(path00, path01)
 
             async with self.getTestCore(dirn=path00) as core00:
-                self.false(core00.conf.get('mirror'))
+                self.false(core00.conf.get('parent'))
 
                 await core00.callStorm('cron.add hourly@:01 { $lib.time.sleep(5) }')
 
                 url = core00.getLocalUrl()
 
-                core01conf = {'mirror': url}
+                core01conf = {'parent': url}
 
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
@@ -883,7 +884,7 @@ class AgendaTest(s_t_utils.SynTest):
             }
 
             async with self.getTestCore(conf=conf00) as core00:
-                self.false(core00.conf.get('mirror'))
+                self.false(core00.conf.get('parent'))
 
                 msgs = await core00.stormlist('[it:dev:str=foo]')
                 self.stormHasNoWarnErr(msgs)
@@ -903,9 +904,8 @@ class AgendaTest(s_t_utils.SynTest):
                 opts = {'vars': {'numjobs': NUMJOBS}}
                 await core00.callStorm(q, opts=opts)
 
-                prov01 = {'mirror': '00.cortex'}
                 conf01 = {
-                    'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=prov01),
+                    'aha:provision': await aha.addAhaSvcProv('01.cortex'),
                 }
 
                 async with self.getTestCore(conf=conf01) as core01:
@@ -1080,8 +1080,7 @@ class AgendaTest(s_t_utils.SynTest):
                     dirn01 = s_common.genpath(dirn, 'cell01')
 
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
-                    provinfo = {'mirror': '00.core'}
-                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01, provinfo=provinfo))
+                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01))
 
                     self.len(1, await core00.nodes('[inet:asn=0]'))
                     await core01.sync()
@@ -1165,7 +1164,7 @@ class AgendaTest(s_t_utils.SynTest):
             }
 
             async with self.getTestCore(conf=conf00) as core00:
-                self.false(core00.conf.get('mirror'))
+                self.false(core00.conf.get('parent'))
 
                 q = '''
                 while((true)) {
@@ -1179,9 +1178,8 @@ class AgendaTest(s_t_utils.SynTest):
                 crons00 = await core00.callStorm('return($lib.cron.list())')
                 self.len(1, crons00)
 
-                prov01 = {'mirror': '00.cortex'}
                 conf01 = {
-                    'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=prov01),
+                    'aha:provision': await aha.addAhaSvcProv('01.cortex'),
                 }
 
                 async with self.getTestCore(conf=conf01) as core01:
@@ -1219,7 +1217,7 @@ class AgendaTest(s_t_utils.SynTest):
             }
 
             async with self.getTestCore(conf=conf00) as core00:
-                self.false(core00.conf.get('mirror'))
+                self.false(core00.conf.get('parent'))
 
                 q = '''
                 while((true)) {
@@ -1233,9 +1231,8 @@ class AgendaTest(s_t_utils.SynTest):
                 crons00 = await core00.callStorm('return($lib.cron.list())')
                 self.len(1, crons00)
 
-                prov01 = {'mirror': '00.cortex'}
                 conf01 = {
-                    'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=prov01),
+                    'aha:provision': await aha.addAhaSvcProv('01.cortex'),
                 }
 
                 async with self.getTestCore(conf=conf01) as core01:
@@ -1253,6 +1250,64 @@ class AgendaTest(s_t_utils.SynTest):
                     self.len(1, cron01)
                     self.false(cron01[0].get('isrunning'))
                     self.eq(cron01[0].get('lasterrs')[0], 'aborted')
+
+    async def test_agenda_promotion_clears_before_runloop(self):
+
+        # A cron left flagged isrunning by a crashed leader, whose next fire is
+        # already due, must be executed ( not skipped ) once a mirror is
+        # promoted: the running-status clear has to complete before the agenda
+        # runloop processes any appointment. Regression: the clear was moved out
+        # of the runloop into initServiceActive where it raced the runloop, so
+        # the due cron hit the isrunning skip branch and was silently skipped for
+        # a full interval after every failover.
+        async with self.getTestCore() as core:
+
+            await core.callStorm('$lib.queue.gen(ran)')
+
+            # a dated one-shot far in the future so it never fires on its own; we
+            # drive it explicitly below by making it due while flagged isrunning.
+            cdef = {
+                'creator': core.auth.rootuser.iden,
+                'user': core.auth.rootuser.iden,
+                'storm': '$lib.queue.gen(ran).put(woot)',
+                'reqs': ({'year': 2099, 'month': 1, 'dayofmonth': 1, 'hour': 0, 'minute': 0},),
+            }
+            cdef = await core.addCronJob(cdef)
+            iden = cdef.get('iden')
+
+            # go passive so the runloop stops and we can inject the crashed leader
+            # state without the running loop acting on it first.
+            await core.setCellActive(False)
+
+            appt = core.agenda.appts.get(iden)
+            appt.isrunning = True
+            appt.nexttime = core.agenda._getNowTick() - s_time.onesec
+            heapq.heapify(core.agenda.apptheap)
+
+            # Force the race deterministically: delay the running-status clear so
+            # that, absent the runloop gate, the runloop is guaranteed to reach
+            # the due appointment first and skip it while it is still flagged
+            # isrunning. With the gate the runloop must wait for the clear to
+            # finish regardless of scheduling.
+            realclear = core.agenda.clearRunningStatus
+
+            async def slowclear():
+                for _ in range(100):
+                    await asyncio.sleep(0)
+                await realclear()
+
+            # promote: clearRunningStatus() must complete before the runloop
+            # processes the now-due appointment, so it is executed not skipped.
+            with mock.patch.object(core.agenda, 'clearRunningStatus', slowclear):
+                await core.setCellActive(True)
+
+            # the cron executed ( sentinel drained with a wait so the test fails
+            # deterministically if the fix regresses and the cron is skipped ).
+            self.eq((0, 'woot'), await asyncio.wait_for(
+                core.callStorm('return($lib.queue.gen(ran).pop(wait=(true)))'), timeout=6))
+
+            cron = await core.callStorm('return($lib.cron.get($iden))', opts={'vars': {'iden': iden}})
+            self.false(cron.get('isrunning'))
 
     async def test_agenda_lasterrs(self):
 
@@ -1298,7 +1353,7 @@ class AgendaTest(s_t_utils.SynTest):
                 conf = {'aha:provision': await aha.addAhaSvcProv('00.cortex')}
                 core00 = await aha.enter_context(self.getTestCore(conf=conf, dirn=dirn00))
 
-                conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex', {'mirror': 'cortex'})}
+                conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex')}
                 core01 = await aha.enter_context(self.getTestCore(conf=conf, dirn=dirn01))
 
                 msgs = await core00.stormlist('cron.at --minute +1 { $lib.log.info(cronran) }')
@@ -2087,9 +2142,8 @@ class AgendaTest(s_t_utils.SynTest):
 
             async with self.getTestCore(conf=conf00) as core00:
 
-                prov01 = {'mirror': '00.cortex'}
                 conf01 = {
-                    'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=prov01),
+                    'aha:provision': await aha.addAhaSvcProv('01.cortex'),
                 }
 
                 async with self.getTestCore(conf=conf01) as core01:

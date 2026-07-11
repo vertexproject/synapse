@@ -90,7 +90,8 @@ modeldefs = (
                         'alts': ('names',),
                         'doc': 'The primary entity name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'entity:name'}), {
+                    ('names', ('entity:name', {}), {
+                        'array': {},
                         'doc': 'An array of alternate entity names for the {title}.'}),
 
                     ('lifespan', ('entity:lifespan', {}), {
@@ -113,42 +114,51 @@ modeldefs = (
                     ('lang', ('lang:language', {}), {
                         'doc': 'The primary language of the {title}.'}),
 
-                    ('langs', ('array', {'type': 'lang:language'}), {
+                    ('langs', ('lang:language', {}), {
+                        'array': {},
                         'doc': 'An array of alternate languages for the {title}.'}),
 
                     ('email', ('inet:email', {}), {
                         'doc': 'The primary email address for the {title}.'}),
 
-                    ('emails', ('array', {'type': 'inet:email'}), {
+                    ('emails', ('inet:email', {}), {
+                        'array': {},
                         'doc': 'An array of alternate email addresses for the {title}.'}),
 
                     ('phone', ('tel:phone', {}), {
                         'alts': ('phones',),
                         'doc': 'The primary phone number for the {title}.'}),
 
-                    ('phones', ('array', {'type': 'tel:phone'}), {
+                    ('phones', ('tel:phone', {}), {
+                        'array': {},
                         'doc': 'An array of alternate telephone numbers for the {title}.'}),
 
                     ('username', ('entity:name', {}), {
                         'alts': ('usernames',),
                         'doc': 'The primary user name for the {title}.'}),
 
-                    ('usernames', ('array', {'type': 'entity:name'}), {
+                    ('usernames', ('entity:name', {}), {
+                        'array': {},
                         'doc': 'An array of alternate user names for the {title}.'}),
 
-                    ('creds', ('array', {'type': 'auth:credential'}), {
+                    ('creds', ('auth:credential', {}), {
+                        'array': {},
                         'doc': 'An array of non-ephemeral credentials.'}),
 
-                    ('identifiers', ('array', {'type': 'entity:identifier'}), {
+                    ('identifiers', ('entity:identifier', {}), {
+                        'array': {},
                         'doc': 'Additional entity identifiers.'}),
 
-                    ('social:accounts', ('array', {'type': 'inet:service:account'}), {
+                    ('social:accounts', ('inet:service:account', {}), {
+                        'array': {},
                         'doc': 'Social media or other online accounts listed for the {title}.'}),
 
-                    ('crypto:currency:addresses', ('array', {'type': 'crypto:currency:address'}), {
+                    ('crypto:currency:addresses', ('crypto:currency:address', {}), {
+                        'array': {},
                         'doc': 'Crypto currency addresses listed for the {title}.'}),
 
-                    ('websites', ('array', {'type': 'inet:url'}), {
+                    ('websites', ('inet:url', {}), {
+                        'array': {},
                         'doc': 'Web sites listed for the {title}.'}),
                 ),
                 'doc': 'An interface for forms which contain contact info.'}),
@@ -171,7 +181,8 @@ modeldefs = (
                     ('title', ('entity:title', {}), {
                         'doc': 'The entity title or role for this {title}.'}),
 
-                    ('titles', ('array', {'type': 'entity:title'}), {
+                    ('titles', ('entity:title', {}), {
+                        'array': {},
                         'doc': 'An array of alternate entity titles or roles for this {title}.'}),
                 ),
                 'doc': 'Properties which apply to entities which may represent a person.'}),
@@ -420,7 +431,8 @@ modeldefs = (
                         'alts': ('names',),
                         'doc': 'A terse name for the goal.'}),
 
-                    ('names', ('array', {'type': 'base:name'}), {
+                    ('names', ('base:name', {}), {
+                        'array': {},
                         'doc': 'Alternative names for the goal.'}),
 
                     ('type', ('entity:goal:type:taxonomy', {}), {
@@ -452,6 +464,7 @@ modeldefs = (
             ('entity:campaign', ('guid', {}), {
                 'template': {'title': 'campaign'},
                 'interfaces': (
+                    ('econ:budgetable', {}),
                     ('entity:activity', {}),
                     ('meta:reported', {}),
                     ('meta:observable', {}),
@@ -476,14 +489,16 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the campaign.'}),
 
-                    ('ids', ('array', {'type': (('it:mitre:attack:campaign:id', {}), ('base:id', {}))}), {
+                    ('ids', (('it:mitre:attack:campaign:id', {}), ('base:id', {})), {
+                        'array': {},
                         'doc': 'An array of alternate IDs given to the campaign.'}),
 
                     ('name', ('entity:name', {}), {
                         'alts': ('names',),
                         'doc': 'The primary name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'entity:name'}), {
+                    ('names', ('entity:name', {}), {
+                        'array': {},
                         'doc': 'A list of alternate names for the {title}.'}),
 
                     ('slogan', ('lang:phrase', {}), {
@@ -517,7 +532,8 @@ modeldefs = (
                     ('name', ('event:name', {}), {
                         'doc': 'The name of the conflict.'}),
 
-                    ('adversaries', ('array', {'type': 'entity:actor'}), {
+                    ('adversaries', ('entity:actor', {}), {
+                        'array': {},
                         'doc': 'The primary adversaries in conflict with one another.'}),
                 ),
                 'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),

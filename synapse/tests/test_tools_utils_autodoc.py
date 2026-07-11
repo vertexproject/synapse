@@ -204,6 +204,52 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             self.notin('testmod', s)
 
+            # modconf.endpoints, grouped by resolved base URL, at the bottom of the
+            # doc, rendered as an rst grid table (which survives rst -> md
+            # conversion as a proper table, rather than a literal code block)
+
+            self.isin('Endpoints', s)
+            self.isin('This package communicates with the following API endpoints.', s)
+
+            self.isin('| Path', s)
+            self.isin('| Description', s)
+            self.isin('+=', s)
+
+            self.isin('https://api.example.com', s)
+            self.isin('| /v1/search ', s)
+            self.isin('| Run a search.', s)
+
+            self.isin('https://enrich.example.com', s)
+            self.isin('| /v1/enrich/{iden} ', s)
+            self.isin('| Enrich an item.', s)
+
+            self.isin('(user-configured base URL)', s)
+            self.isin('| /v1/noconf ', s)
+            self.isin('| An endpoint with no configured base.', s)
+
+            # coverage for no endpoints
+            rst = s_l_autodoc.RstHelp()
+            await s_autodoc.processModEndpoints(rst, 'foo', [])
+            self.eq('', rst.getRstText())
+
+            # coverage for an endpoint with no desc, and a desc long enough to
+            # wrap across multiple output lines
+            longdesc = ' '.join(f'word{i}' for i in range(20))
+            rst = s_l_autodoc.RstHelp()
+            await s_autodoc.processModEndpoints(rst, 'foo', [
+                {'name': 'covmod', 'modconf': {
+                    'endpoints': {
+                        'nodesc': {'path': '/v1/nodesc'},
+                        'wrapped': {'path': '/v1/wrapped', 'desc': longdesc},
+                    },
+                }},
+            ])
+            rsttext = rst.getRstText()
+            self.isin('| /v1/nodesc ', rsttext)
+            self.isin('| /v1/wrapped | word0', rsttext)
+            self.isin('| word10 word11', rsttext)
+            self.isin('| word18 word19', rsttext)
+
             self.isin('search(text, mintime=-30days)', s)
             self.isin('text (str): The text.', s)
             self.isin('Yields:', s)
@@ -229,7 +275,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('    Endpoints:', rsttext)
             self.isin('      /v1/test/one\n', rsttext)
             self.isin('      /v1/test/two\n', rsttext)
-            self.isin('      /v1/test/three              : endpoint three', rsttext)
+            self.isin('        /v1/test/three            : endpoint three', rsttext)
 
             self.isin('    Inputs:\n', rsttext)
             self.isin('      test:int                    : Some integer input\n', rsttext)

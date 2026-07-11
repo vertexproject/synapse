@@ -12,14 +12,16 @@ modeldefs = (
                         'ex': 'pivotcon 2026',
                         'doc': 'The name of the {title}.'}),
 
-                    ('names', ('array', {'type': 'event:name'}), {
+                    ('names', ('event:name', {}), {
+                        'array': {},
                         'doc': 'An array of alternate names for the {title}.'}),
 
                     ('website', ('inet:url', {}), {
                         'prevnames': ('url',),
                         'doc': 'The website of the {title}.'}),
 
-                    ('social:accounts', ('array', {'type': 'inet:service:account'}), {
+                    ('social:accounts', ('inet:service:account', {}), {
+                        'array': {},
                         'doc': 'Social media accounts associated with the {title}.'}),
 
                 ),
@@ -44,6 +46,7 @@ modeldefs = (
             ('ou:org', ('guid', {}), {
                 'template': {'title': 'organization'},
                 'interfaces': (
+                    ('econ:budgetable', {}),
                     ('meta:havable', {}),
                     ('entity:actor', {}),
                     ('entity:multiple', {}),
@@ -67,7 +70,8 @@ modeldefs = (
                     ('logo', ('file:bytes', {}), {
                         'doc': 'An image file representing the logo for the organization.'}),
 
-                    ('industries', ('array', {'type': 'ind:industry'}), {
+                    ('industries', ('ind:industry', {}), {
+                        'array': {},
                         'doc': 'The industries associated with the org.'}),
 
                     ('parent', ('ou:org', {}), {
@@ -76,7 +80,8 @@ modeldefs = (
                     ('orgchart', ('ou:position', {}), {
                         'doc': 'The root node for an orgchart made up ou:position nodes.'}),
 
-                    ('dns:mx', ('array', {'type': 'inet:fqdn'}), {
+                    ('dns:mx', ('inet:fqdn', {}), {
+                        'array': {},
                         'doc': 'An array of MX domains used by email addresses issued by the org.'}),
 
                     ('tag', ('syn:tag', {}), {
@@ -207,7 +212,8 @@ modeldefs = (
                     ('title', ('entity:title', {}), {
                         'doc': 'The title of the position.'}),
 
-                    ('reports', ('array', {'type': 'ou:position'}), {
+                    ('reports', ('ou:position', {}), {
+                        'array': {},
                         'doc': 'An array of positions which report to this position.'}),
                 ),
                 'doc': 'A position within an org which can be organized into an org chart with replaceable contacts.'}),
@@ -259,6 +265,7 @@ modeldefs = (
             ('ou:conference', ('guid', {}), {
                 'template': {'title': 'conference'},
                 'interfaces': (
+                    ('econ:budgetable', {}),
                     ('ou:promotable', {}),
                     ('geo:locatable', {}),
                     ('meta:recordable', {}),
@@ -293,6 +300,7 @@ modeldefs = (
                 'template': {'title': 'event'},
                 'prevnames': ('ou:conference:event',),
                 'interfaces': (
+                    ('econ:budgetable', {}),
                     ('ou:promotable', {}),
                     ('geo:locatable', {}),
                     ('meta:recordable', {}),
@@ -325,6 +333,7 @@ modeldefs = (
             ('ou:contest', ('guid', {}), {
                 'template': {'title': 'contest'},
                 'interfaces': (
+                    ('econ:budgetable', {}),
                     ('ou:promotable', {}),
                     ('geo:locatable', {}),
                     ('meta:recordable', {}),
@@ -494,7 +503,8 @@ modeldefs = (
                         'prevnames': ('posted', 'removed'),
                         'doc': 'The time period when the opening existed.'}),
 
-                    ('postings', ('array', {'type': 'inet:url'}), {
+                    ('postings', ('inet:url', {}), {
+                        'array': {},
                         'doc': 'URLs where the opening is listed.'}),
 
                     ('contact', ('entity:contact', {}), {
@@ -573,7 +583,8 @@ modeldefs = (
                     ('recruiter', ('entity:contact', {}), {
                         'doc': 'The contact information of a recruiter who works on behalf of the organization.'}),
 
-                    ('attachments', ('array', {'type': 'file:attachment'}), {
+                    ('attachments', ('file:attachment', {}), {
+                        'array': {},
                         'doc': 'An array of additional files submitted by the candidate.'}),
                 ),
                 'doc': 'A candidate being considered for a role within an organization.',

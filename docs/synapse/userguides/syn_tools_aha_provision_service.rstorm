@@ -7,6 +7,13 @@ aha.provision.service
 
 The Synapse ``aha.provision.service`` tool can be used to prepare provisioning entries in the AHA server.
 
+.. note::
+
+    Most deployments should use automatic provisioning via the shared ``SYN_PROVISION_SECRET`` environment variable rather than
+    this tool. To deploy a service as a follower (mirror) of an existing leader, also set
+    ``SYN_PROVISION_FOLLOWER`` so it clones from the current leader rather than booting fresh. See
+    :ref:`deploy_provisioning` in the deployment guide. This tool remains available for advanced use cases.
+
 Syntax
 ------
 

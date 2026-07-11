@@ -17,7 +17,6 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
-import synapse.lib.nexus as s_nexus
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thisplat as s_thisplat
@@ -538,7 +537,7 @@ class MultiQueue(s_base.Base):
     '''
     Allows creation/consumption of multiple durable queues in a slab.
     '''
-    async def __anit__(self, slab, name, nexsroot: s_nexus.NexsRoot = None, auth=None):  # type: ignore
+    async def __anit__(self, slab, name, nexsroot=None, auth=None):
 
         await s_base.Base.__anit__(self)
 
@@ -1288,57 +1287,77 @@ class Slab(s_base.Base):
             self._relXactForReading()
 
     def has(self, lkey, db=None):
+        self._acqXactForReading()
         realdb, dupsort = self.dbnames[db]
-        with self.xact.cursor(db=realdb) as curs:
-            return curs.set_key(lkey)
+        try:
+            with self.xact.cursor(db=realdb) as curs:
+                return curs.set_key(lkey)
+        finally:
+            self._relXactForReading()
 
     def hasdup(self, lkey, lval, db=None):
+        self._acqXactForReading()
         realdb, dupsort = self.dbnames[db]
-        with self.xact.cursor(db=realdb) as curs:
-            return curs.set_key_dup(lkey, lval)
+        try:
+            with self.xact.cursor(db=realdb) as curs:
+                return curs.set_key_dup(lkey, lval)
+        finally:
+            self._relXactForReading()
 
     def count(self, lkey, db=None):
+        self._acqXactForReading()
         realdb, dupsort = self.dbnames[db]
-        with self.xact.cursor(db=realdb) as curs:
-            if not curs.set_key(lkey):
-                return 0
+        try:
+            with self.xact.cursor(db=realdb) as curs:
+                if not curs.set_key(lkey):
+                    return 0
 
-            if not dupsort:
-                return 1
+                if not dupsort:
+                    return 1
 
-            return curs.count()
+                return curs.count()
+        finally:
+            self._relXactForReading()
 
     def prefexists(self, byts, db=None):
         '''
         Returns True if a prefix exists in the db.
         '''
+        self._acqXactForReading()
         realdb, _ = self.dbnames[db]
-        with self.xact.cursor(db=realdb) as curs:
-            if not curs.set_range(byts):
+        try:
+            with self.xact.cursor(db=realdb) as curs:
+                if not curs.set_range(byts):
+                    return False
+
+                lkey = curs.key()
+
+                if lkey[:len(byts)] == byts:
+                    return True
+
                 return False
-
-            lkey = curs.key()
-
-            if lkey[:len(byts)] == byts:
-                return True
-
-            return False
+        finally:
+            self._relXactForReading()
 
     def rangeexists(self, lmin, lmax=None, db=None):
         '''
         Returns True if at least one key exists in the range.
         '''
+        self._acqXactForReading()
         realdb, _ = self.dbnames[db]
-        with self.xact.cursor(db=realdb) as curs:
-            if not curs.set_range(lmin):
+        try:
+            with self.xact.cursor(db=realdb) as curs:
+                if not curs.set_range(lmin):
+                    return False
+
+                lkey = curs.key()
+
+                if lkey[:len(lmin)] >= lmin and (lmax is None or lkey[:len(lmax)] <= lmax):
+                    return True
+
                 return False
-
-            lkey = curs.key()
-
-            if lkey[:len(lmin)] >= lmin and (lmax is None or lkey[:len(lmax)] <= lmax):
-                return True
-
-            return False
+        finally:
+            self._relXactForReading()
 
     def stat(self, db=None):
         self._acqXactForReading()

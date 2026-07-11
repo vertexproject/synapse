@@ -145,6 +145,10 @@ class BadArg(SynErr):
 
 class BadState(SynErr): pass
 
+class LeaderSchism(SynErr):
+    '''A service has diverged from the current leadership term history and must be restored from a backup.'''
+    pass
+
 class BadFileExt(SynErr): pass
 class BadIndxValu(SynErr): pass
 class BadMesgVers(SynErr): pass

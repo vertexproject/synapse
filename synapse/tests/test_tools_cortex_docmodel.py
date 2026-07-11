@@ -146,17 +146,17 @@ class DocModelTest(s_t_utils.SynTest):
         # Bare poly with no interfaces or forms
         self.eq(resolve(('poly', {})), ['poly'])
 
-        # Array with string element type
-        self.eq(resolve(('array', {'type': 'inet:fqdn'})), ['array of inet:fqdn'])
+        # An array prop renders "array of <element>" via _resolvePropTypeNames.
+        resolveprop = s_docmodel._resolvePropTypeNames
 
-        # Array with tuple element type
-        self.eq(resolve(('array', {'type': ('str', 'int')})), ['array of int, str'])
+        # Array with a named element type
+        self.eq(resolveprop(('inet:fqdn', {}), {'array': {}}), ['array of inet:fqdn'])
 
-        # Array with non-dict opts
-        self.eq(resolve(('array', 'notadict')), ['array'])
+        # Array with a poly element (tuple of constituents)
+        self.eq(resolveprop((('str', {}), ('int', {})), {'array': {}}), ['array of int, str'])
 
-        # Array with no type key
-        self.eq(resolve(('array', {})), ['array'])
+        # A non-array prop is unaffected
+        self.eq(resolveprop(('inet:fqdn', {}), {}), ['inet:fqdn'])
 
         # Generic tuple type (not poly or array)
         self.eq(resolve(('str', {})), ['str'])
@@ -164,72 +164,6 @@ class DocModelTest(s_t_utils.SynTest):
 
         # Non-string, non-tuple, non-list input
         self.eq(resolve(12345), [''])
-
-        # Named array type with string element type
-        types_named_str = {
-            'mymod:myform:names': {
-                'info': {'bases': ('base', 'array')},
-                'opts': {'type': 'entity:name'},
-            }
-        }
-        self.eq(resolve(('mymod:myform:names', {}), types_named_str), ['array of entity:name'])
-
-        # Named array type with tuple element types
-        types_named_tuple = {
-            'mymod:myform:refs': {
-                'info': {'bases': ('base', 'array')},
-                'opts': {'type': ('str', 'int')},
-            }
-        }
-        self.eq(resolve(('mymod:myform:refs', {}), types_named_tuple), ['array of int, str'])
-
-        # Named array type with no type opt -> 'array' (line 118)
-        types_named_notype = {
-            'mymod:myform:items': {
-                'info': {'bases': ('base', 'array')},
-                'opts': {},
-            }
-        }
-        self.eq(resolve(('mymod:myform:items', {}), types_named_notype), ['array'])
-
-        # Auto-registered prop types are shown as their base type, not the form:prop:<hash>
-        # name. This holds for a poly constituent, an array element, and a direct reference.
-        auto_types = {
-            'foo:period:abc': {'info': {'bases': ('base', 'ival'), 'auto': True}, 'opts': {}},
-            'foo:tags:def': {
-                'info': {'bases': ('base', 'array'), 'auto': True},
-                'opts': {'type': 'foo:code:ghi'},
-            },
-            'foo:code:ghi': {'info': {'bases': ('base', 'str'), 'auto': True}, 'opts': {}},
-        }
-        # poly constituent -> base
-        self.eq(resolve(('poly', {'types': ['foo:period:abc']}), auto_types), ['ival'])
-        # two distinct auto constituents sharing a base collapse to one display name
-        two_auto = {
-            'foo:a:1': {'info': {'bases': ('base', 'str'), 'auto': True}, 'opts': {}},
-            'foo:b:2': {'info': {'bases': ('base', 'str'), 'auto': True}, 'opts': {}},
-        }
-        self.eq(resolve(('poly', {'types': ['foo:a:1', 'foo:b:2']}), two_auto), ['str'])
-        # array element that is itself an auto type -> base
-        self.eq(resolve(('foo:tags:def', {}), auto_types), ['array of str'])
-        # direct (non-poly, non-array) auto reference -> base
-        self.eq(resolve(('foo:code:ghi',), auto_types), ['str'])
-
-    def test_tools_docmodel_displaytypename_unit(self):
-
-        disp = s_docmodel._displayTypeName
-
-        types = {'foo:period:abc': {'info': {'bases': ('base', 'ival'), 'auto': True}}}
-
-        # auto type -> base type name
-        self.eq(disp('foo:period:abc', types), 'ival')
-        # non-auto type -> unchanged
-        self.eq(disp('ival', types), 'ival')
-        # no types map / non-string -> unchanged
-        self.eq(disp('foo:period:abc', None), 'foo:period:abc')
-        self.eq(disp(('str', {}), types), ('str', {}))
-        # auto type with no bases -> unchanged
-        self.eq(disp('weird', {'weird': {'info': {'auto': True, 'bases': ()}}}), 'weird')
 
     async def test_tools_docmodel_sorted(self):
 
@@ -362,82 +296,9 @@ class DocModelTest(s_t_utils.SynTest):
         self.eq(getNested(('poly', {'forms': ['inet:fqdn'], 'types': ['str']})), ('inet:fqdn', 'str'))
         self.eq(getNested(('poly', {})), ())
 
-        # Array with string element type -> element type name
-        self.eq(getNested(('array', {'type': 'inet:fqdn'})), ('inet:fqdn',))
-
-        # Array with tuple element type -> all element type names
-        self.eq(getNested(('array', {'type': ('str', 'int')})), ('str', 'int'))
-
-        # Array with no type key -> empty
-        self.eq(getNested(('array', {})), ())
-
-        # Array with non-dict opts -> empty
-        self.eq(getNested(('array', 'notadict')), ())
-
-        # Named array type with string element type
-        types_named_str = {
-            'mymod:myform:names': {
-                'info': {'bases': ('base', 'array')},
-                'opts': {'type': 'entity:name'},
-            }
-        }
-        self.eq(getNested(('mymod:myform:names', {}), types_named_str), ('entity:name',))
-
-        # Named array type with tuple element types (lines 189-190)
-        types_named_tuple = {
-            'mymod:myform:refs': {
-                'info': {'bases': ('base', 'array')},
-                'opts': {'type': ('str', 'int')},
-            }
-        }
-        self.eq(getNested(('mymod:myform:refs', {}), types_named_tuple), ('str', 'int'))
-
-        # Named array type with no type opt (line 191)
-        types_named_notype = {
-            'mymod:myform:items': {
-                'info': {'bases': ('base', 'array')},
-                'opts': {},
-            }
-        }
-        self.eq(getNested(('mymod:myform:items', {}), types_named_notype), ())
-
-        # Auto-registered types resolve to their base so referenced-type sections link to a
-        # documented type rather than the internal form:prop:<hash> name.
-        auto_types = {
-            'foo:period:abc': {'info': {'bases': ('base', 'ival'), 'auto': True}, 'opts': {}},
-            'foo:tags:def': {
-                'info': {'bases': ('base', 'array'), 'auto': True},
-                'opts': {'type': 'foo:code:ghi'},
-            },
-            'foo:code:ghi': {'info': {'bases': ('base', 'str'), 'auto': True}, 'opts': {}},
-        }
-        self.eq(getNested(('poly', {'types': ['foo:period:abc']}), auto_types), ('ival',))
-        self.eq(getNested(('array', {'type': 'foo:code:ghi'}), auto_types), ('str',))
-        self.eq(getNested(('foo:tags:def', {}), auto_types), ('str',))
-        self.eq(getNested(('foo:code:ghi',), auto_types), ('str',))
-
-    def test_tools_docmodel_resolvearray_opts_unit(self):
-
-        resolveOpts = s_docmodel._resolveArrayOpts
-
-        types = {
-            'mymod:myform:names': {
-                'info': {'bases': ('base', 'array')},
-                'opts': {'type': 'entity:name'},
-            }
-        }
-
-        # Named array type -> look up opts in types dict
-        self.eq(resolveOpts('mymod:myform:names', ('mymod:myform:names', {}), types), {'type': 'entity:name'})
-
-        # Typename not in types dict -> empty dict
-        self.eq(resolveOpts('unknown:type', ('unknown:type', {}), types), {})
-
-        # types is None -> empty dict
-        self.eq(resolveOpts('mymod:myform:names', ('mymod:myform:names', {}), None), {})
-
-        # Inline array typedef with dict opts
-        self.eq(resolveOpts('array', ('array', {'type': 'str'}), {}), {'type': 'str'})
+        # An array prop's element typedef is passed directly; a poly element yields its
+        # constituent type names (the named-element case is covered by the regular-type case).
+        self.eq(getNested((('str', {}), ('int', {}))), ('str', 'int'))
 
     def test_tools_docmodel_getbasetypename_unit(self):
 

@@ -10,11 +10,12 @@ A tool to prepare provisioning entries in the AHA server.
 
 Examples:
 
-    # provision a new service named 00.axon from within the AHA container.
-    python -m synapse.tools.aha.provision.service 00.axon
+    # provision a new service named 000.axon from within the AHA container.
+    python -m synapse.tools.aha.provision.service 000.axon
 
-    # provision a new service named 01.cortex as a mirror from within the AHA container.
-    python -m synapse.tools.aha.provision.service 01.cortex --mirror 00.cortex
+    # provision a new service named 001.cortex from within the AHA container. it will
+    # follow the current leader for its service type until promoted.
+    python -m synapse.tools.aha.provision.service 001.cortex
 
 '''
 
@@ -23,9 +24,7 @@ async def main(argv, outp=s_output.stdout):
     pars = s_cmd.Parser(prog='synapse.tools.aha.provision.service', outp=outp, description=descr)
 
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')
-    pars.add_argument('--user', help='Provision the new service with the username.')
     pars.add_argument('--cellyaml', help='Specify the path to a YAML file containing config options for the service.')
-    pars.add_argument('--mirror', help='Provision the new service as a mirror of the existing AHA service.')
     pars.add_argument('--dmon-port', help='Provision the services SSL listener on a given port.', type=int)
     pars.add_argument('--https-port', help='Provision the services HTTPS listener on a given port.', type=int)
     pars.add_argument('--only-url', help='Only output the URL upon successful execution',
@@ -45,11 +44,6 @@ async def main(argv, outp=s_output.stdout):
                     provinfo['conf'] = s_common.yamlload(opts.cellyaml)
 
                 provinfo.setdefault('conf', {})
-
-                provinfo['mirror'] = opts.mirror
-
-                if opts.user is not None:
-                    provinfo['conf']['aha:user'] = opts.user
 
                 if opts.dmon_port is not None:
                     if not 0 <= opts.dmon_port < 65535:

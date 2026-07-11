@@ -16,7 +16,8 @@ modeldefs = (
                         'prevnames': ('iso2',),
                         'doc': 'The country code.'}),
 
-                    ('codes', ('array', {'type': 'pol:country:code'}), {
+                    ('codes', ('pol:country:code', {}), {
+                        'array': {},
                         'doc': 'An array of country codes.'}),
 
                     ('iso:3166:alpha3', ('iso:3166:alpha3', {}), {
@@ -34,7 +35,8 @@ modeldefs = (
                         'alts': ('names',),
                         'doc': 'The name of the country.'}),
 
-                    ('names', ('array', {'type': 'geo:name'}), {
+                    ('names', ('geo:name', {}), {
+                        'array': {},
                         'doc': 'An array of alternate or localized names for the country.'}),
 
                     ('government', ('ou:org', {}), {
@@ -50,7 +52,8 @@ modeldefs = (
                     ('vitals', ('pol:vitals', {}), {
                         'doc': 'The most recent known vitals for the country.'}),
 
-                    ('currencies', ('array', {'type': 'econ:currency'}), {
+                    ('currencies', ('econ:currency', {}), {
+                        'array': {},
                         'doc': 'The official currencies used in the country.'}),
                 ),
                 'doc': 'A GUID for a country.'}),
@@ -109,7 +112,8 @@ modeldefs = (
                     ('population', ('int', {}), {
                         'doc': 'The total number of people living in the country.'}),
 
-                    ('currencies', ('array', {'type': 'econ:currency'}), {
+                    ('currencies', ('econ:currency', {}), {
+                        'array': {},
                         'doc': 'The national currencies.'}),
 
                     ('econ:gdp', ('econ:price', {}), {

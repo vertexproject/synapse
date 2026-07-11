@@ -58,7 +58,8 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the vulnerability.'}),
 
-                    ('ids', ('array', {'type': 'risk:vuln:id'}), {
+                    ('ids', ('risk:vuln:id', {}), {
+                        'array': {},
                         'doc': 'An array of alternate IDs given to the vulnerability.'}),
 
                     ('type', ('risk:vuln:type:taxonomy', {}), {
@@ -113,7 +114,8 @@ modeldefs = (
                     ('cvss:v3_1:score', ('float', {}), {
                         'doc': 'The CVSS v3.1 overall score for the vulnerability.'}),
 
-                    ('cwes', ('array', {'type': 'it:sec:cwe'}), {
+                    ('cwes', ('it:sec:cwe', {}), {
+                        'array': {},
                         'doc': 'MITRE CWE values that apply to the vulnerability.'}),
                 ),
                 'doc': 'A unique vulnerability.'}),
@@ -147,7 +149,8 @@ modeldefs = (
                     ('node', ('risk:exploitable', {}), {
                         'doc': 'The node which is vulnerable.'}),
 
-                    ('mitigations', ('array', {'type': 'meta:technique'}), {
+                    ('mitigations', ('meta:technique', {}), {
+                        'array': {},
                         'doc': 'The mitigations which were used to address the vulnerable node.'}),
                 ),
                 'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
@@ -172,14 +175,16 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the threat.'}),
 
-                    ('ids', ('array', {'type': (('it:mitre:attack:group:id', {}), ('base:id', {}))}), {
+                    ('ids', (('it:mitre:attack:group:id', {}), ('base:id', {})), {
+                        'array': {},
                         'doc': 'An array of alternate IDs given to the threat.'}),
 
                     ('name', ('entity:name', {}), {
                         'alts': ('names',),
                         'doc': 'The primary name of the threat according to the source.'}),
 
-                    ('names', ('array', {'type': 'entity:name'}), {
+                    ('names', ('entity:name', {}), {
+                        'array': {},
                         'doc': 'A list of alternate names for the threat according to the source.'}),
 
                     ('type', ('risk:threat:type:taxonomy', {}), {
@@ -351,7 +356,8 @@ modeldefs = (
                         'alts': ('ids',),
                         'doc': 'A unique ID given to the mitigation.'}),
 
-                    ('ids', ('array', {'type': (('it:mitre:attack:mitigation:id', {}), ('base:id', {}))}), {
+                    ('ids', (('it:mitre:attack:mitigation:id', {}), ('base:id', {})), {
+                        'array': {},
                         'doc': 'An array of alternate IDs given to the mitigation.'}),
                 ),
                 'doc': 'A mitigation for a specific vulnerability or technique.'}),
@@ -414,14 +420,15 @@ modeldefs = (
                     ('public', ('bool', {}), {
                         'doc': 'Set to true if the leaked information was made publicly available.'}),
 
-                    ('urls', ('array', {'type': 'inet:url'}), {
+                    ('urls', ('inet:url', {}), {
+                        'array': {},
                         'prevnames': ('public:url',),
                         'doc': 'URLs where the leaked information was made available.'}),
 
-                    ('size:bytes', ('int:min0', {}), {
+                    ('size:bytes', ('size', {}), {
                         'doc': 'The total size of the leaked data in bytes.'}),
 
-                    ('size:count', ('int:min0', {}), {
+                    ('size:count', ('size', {}), {
                         'doc': 'The number of files included in the leaked data.'}),
 
                     ('size:percent', ('percent', {}), {
@@ -500,6 +507,39 @@ modeldefs = (
                 },
                 'doc': 'An event where an actor stole from a victim.'}),
 
+            ('risk:loss:life', ('guid', {}), {
+                'template': {'title': 'loss of life'},
+                'interfaces': (
+                    ('risk:loss', {}),
+                ),
+                'props': (
+                    ('count', ('size', {}), {
+                        'doc': 'The number of lives lost.'}),
+                ),
+                'doc': 'An aggregate loss of life.'}),
+
+            ('risk:loss:data', ('guid', {}), {
+                'template': {'title': 'data loss'},
+                'interfaces': (
+                    ('risk:loss', {}),
+                ),
+                'props': (
+                    ('size', ('size', {}), {
+                        'doc': 'The total size of the data which was lost.'}),
+                ),
+                'doc': 'An aggregate loss of data which is no longer available. This is not used to record data theft.'}),
+
+            ('risk:loss:funds', ('guid', {}), {
+                'template': {'title': 'loss of funds'},
+                'interfaces': (
+                    ('risk:loss', {}),
+                ),
+                'props': (
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The total value of the funds which were lost.'}),
+                ),
+                'doc': 'An aggregate loss of funds.'}),
+
             ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
                     ('meta:taxonomy', {}),
@@ -566,6 +606,13 @@ modeldefs = (
             ('risk:exploitable', {
                 'doc': 'An interface implemented by forms which may be exploited by an actor.'}),
 
+            ('risk:loss', {
+                'template': {'title': 'loss'},
+                'interfaces': (
+                    ('base:activity', {}),
+                ),
+                'doc': 'An interface for aggregate losses which occur over a period.'}),
+
             ('risk:mitigatable', {
                 'doc': 'A common interface for risks which may be mitigated.'}),
 
@@ -600,6 +647,15 @@ modeldefs = (
 
             (('risk:leak', 'leaked', 'meta:observable'), {
                 'doc': 'The leak included the disclosure of the target node.'}),
+
+            (('risk:loss:funds', 'had', 'econ:payment'), {
+                'doc': 'The loss of funds included the payment.'}),
+
+            (('risk:loss:data', 'had', 'file:attachment'), {
+                'doc': 'The loss of data included the file.'}),
+
+            (('risk:loss:life', 'had', 'entity:singular'), {
+                'doc': 'The loss of life included the entity.'}),
 
             (('risk:extortion', 'leveraged', 'meta:observable'), {
                 'doc': 'The extortion event was based on attacker access to the target node.'}),

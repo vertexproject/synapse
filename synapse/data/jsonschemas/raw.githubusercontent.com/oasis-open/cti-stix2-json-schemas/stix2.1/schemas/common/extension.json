@@ -1,3 +1,28 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:af38272f58f54f0eef8a0662165d156d5380ffeaae002a2d5ddbc160cceb64df
-size 701
+{
+  "$id": "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/extension.json",
+  "$schema": "http://json-schema.org/draft/2020-12/schema#",
+  "type": "object",
+  "minProperties": 1,
+  "properties": {
+    "extension_type": {
+      "description": "The type of extension.",
+      "$ref": "#/definitions/extension-type-enum"
+    }
+  },
+  "allOf": [{ "$ref": "../common/properties.json" }],
+  "required": [
+    "extension_type"
+  ],
+  "definitions": {
+    "extension-type-enum": {
+      "type": "string",
+      "enum": [
+        "new-sdo",
+        "new-sco",
+        "new-sro",
+        "property-extension",
+        "toplevel-property-extension"
+      ]
+    }
+  }
+}

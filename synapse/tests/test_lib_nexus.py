@@ -302,7 +302,7 @@ class NexusTest(s_t_utils.SynTest):
                 path = s_common.genpath(dirn, 'backups', 'cell01')
 
                 conf = s_common.yamlload(path, 'cell.yaml')
-                conf['mirror'] = f'cell://{dirn}'
+                conf['parent'] = f'cell://{dirn}'
                 s_common.yamlsave(conf, path, 'cell.yaml')
 
                 evnt = asyncio.Event()
@@ -370,7 +370,7 @@ class NexusTest(s_t_utils.SynTest):
                 path = s_common.genpath(dirn, 'backups', 'cell01')
 
                 conf = s_common.yamlload(path, 'cell.yaml')
-                conf['mirror'] = f'cell://{dirn}'
+                conf['parent'] = f'cell://{dirn}'
                 s_common.yamlsave(conf, path, 'cell.yaml')
 
                 cell00.getCellInfo = getHigherPreRelVersion
@@ -418,7 +418,7 @@ class NexusTest(s_t_utils.SynTest):
                 path = s_common.genpath(dirn, 'backups', 'cell01')
 
                 conf = s_common.yamlload(path, 'cell.yaml')
-                conf['mirror'] = f'cell://{dirn}'
+                conf['parent'] = f'cell://{dirn}'
                 s_common.yamlsave(conf, path, 'cell.yaml')
 
                 seen = False
@@ -522,7 +522,7 @@ class NexusTest(s_t_utils.SynTest):
             s_backup.backup(path00, path01)
 
             async with self.getTestCore(dirn=path00, conf=conf00) as core00:
-                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                conf01 = {'nexslog:en': True, 'parent': core00.getLocalUrl()}
                 async with self.getTestCore(dirn=path01, conf=conf01) as core01:
 
                     evnt1 = asyncio.Event()
@@ -577,10 +577,10 @@ class NexusTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=path00, conf=conf00) as core00:
 
-                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                conf01 = {'nexslog:en': True, 'parent': core00.getLocalUrl()}
                 async with self.getTestCore(dirn=path01, conf=conf01) as core01:
 
-                    conf02 = {'nexslog:en': True, 'mirror': core01.getLocalUrl()}
+                    conf02 = {'nexslog:en': True, 'parent': core01.getLocalUrl()}
                     async with self.getTestCore(dirn=path02, conf=conf02) as core02:
 
                         evnt1 = asyncio.Event()
@@ -645,8 +645,7 @@ class NexusTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(dirn=path00, conf=conf00) as core00:
 
-                    provinfo = {'mirror': '00.cortex'}
-                    conf01 = {'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)}
+                    conf01 = {'aha:provision': await aha.addAhaSvcProv('01.cortex')}
                     async with self.getTestCore(dirn=path01, conf=conf01) as core01:
                         pass
 

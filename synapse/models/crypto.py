@@ -438,10 +438,12 @@ modeldefs = (
                 ),
                 'props': (
 
-                    ('public:hashes', ('array', {'type': 'crypto:hash'}), {
+                    ('public:hashes', ('crypto:hash', {}), {
+                        'array': {},
                         'doc': 'An array of hashes for the public key.'}),
 
-                    ('private:hashes', ('array', {'type': 'crypto:hash'}), {
+                    ('private:hashes', ('crypto:hash', {}), {
+                        'array': {},
                         'doc': 'An array of hashes for the private key.'}),
                 ),
                 'doc': 'A generic cryptographic key.'}),
@@ -464,16 +466,19 @@ modeldefs = (
                     ('private:exponent', ('hex', {}), {
                         'doc': 'The private exponent of the RSA key.'}),
 
-                    ('private:primes', ('array', {'type': 'crypto:key:rsa:prime'}), {
+                    ('private:primes', ('crypto:key:rsa:prime', {}), {
+                        'array': {},
                         'doc': 'The prime number and exponent combinations used to generate the RSA key.'}),
 
                     ('private:coefficient', ('hex', {}), {
                         'doc': 'The private coefficient of the RSA key.'}),
 
-                    ('public:hashes', ('array', {'type': 'crypto:hash'}), {
+                    ('public:hashes', ('crypto:hash', {}), {
+                        'array': {},
                         'doc': 'An array of hashes for the public key.'}),
 
-                    ('private:hashes', ('array', {'type': 'crypto:hash'}), {
+                    ('private:hashes', ('crypto:hash', {}), {
+                        'array': {},
                         'doc': 'An array of hashes for the private key.'}),
                 ),
                 'doc': 'An RSA public/private key pair.'}),
@@ -512,10 +517,12 @@ modeldefs = (
                     ('private', ('hex', {}), {
                         'doc': 'The HEX encoded private portion of the DSA key.'}),
 
-                    ('public:hashes', ('array', {'type': 'crypto:hash'}), {
+                    ('public:hashes', ('crypto:hash', {}), {
+                        'array': {},
                         'doc': 'An array of hashes for the public key.'}),
 
-                    ('private:hashes', ('array', {'type': 'crypto:hash'}), {
+                    ('private:hashes', ('crypto:hash', {}), {
+                        'array': {},
                         'doc': 'An array of hashes for the private key.'}),
                 ),
                 'doc': 'A DSA public/private key pair.'}),
@@ -563,10 +570,12 @@ modeldefs = (
                     ('private', ('hex', {}), {
                         'doc': 'The HEX encoded private portion of the ECDSA key.'}),
 
-                    ('public:hashes', ('array', {'type': 'crypto:hash'}), {
+                    ('public:hashes', ('crypto:hash', {}), {
+                        'array': {},
                         'doc': 'An array of hashes for the public key.'}),
 
-                    ('private:hashes', ('array', {'type': 'crypto:hash'}), {
+                    ('private:hashes', ('crypto:hash', {}), {
+                        'array': {},
                         'doc': 'An array of hashes for the private key.'}),
                 ),
                 'doc': 'An ECDSA public/private key pair.'}),
@@ -617,7 +626,8 @@ modeldefs = (
                         'doc': 'The subject identifier, commonly in X.500/LDAP format, to which the certificate was issued.',
                     }),
 
-                    ('subject:rdns', ('array', {'type': 'crypto:x509:rdn'}), {
+                    ('subject:rdns', ('crypto:x509:rdn', {}), {
+                        'array': {},
                         'doc': 'The decomposed RDN parts of the certificate subject Distinguished Name (DN).',
                     }),
 
@@ -625,7 +635,8 @@ modeldefs = (
                         'doc': 'The Distinguished Name (DN) of the Certificate Authority (CA) which issued the certificate.',
                     }),
 
-                    ('issuer:rdns', ('array', {'type': 'crypto:x509:rdn'}), {
+                    ('issuer:rdns', ('crypto:x509:rdn', {}), {
+                        'array': {},
                         'doc': 'The decomposed RDN parts of the certificate issuer Distinguished Name (DN).',
                     }),
 
@@ -669,31 +680,38 @@ modeldefs = (
                         'doc': 'The hexadecimal representation of the digital signature.',
                     }),
 
-                    ('ext:sans', ('array', {'type': 'crypto:x509:san'}), {
+                    ('ext:sans', ('crypto:x509:san', {}), {
+                        'array': {},
                         'doc': 'The Subject Alternate Names (SANs) listed in the certificate.',
                     }),
 
-                    ('ext:crls', ('array', {'type': 'crypto:x509:san'}), {
+                    ('ext:crls', ('crypto:x509:san', {}), {
+                        'array': {},
                         'doc': 'A list of Subject Alternate Names (SANs) for Distribution Points.',
                     }),
 
-                    ('identities:fqdns', ('array', {'type': 'inet:fqdn'}), {
+                    ('identities:fqdns', ('inet:fqdn', {}), {
+                        'array': {},
                         'doc': 'The fused list of FQDNs identified by the cert CN and SANs.',
                     }),
 
-                    ('identities:emails', ('array', {'type': 'inet:email'}), {
+                    ('identities:emails', ('inet:email', {}), {
+                        'array': {},
                         'doc': 'The fused list of email addresses identified by the cert CN and SANs.',
                     }),
 
-                    ('identities:ips', ('array', {'type': 'inet:ip'}), {
+                    ('identities:ips', ('inet:ip', {}), {
+                        'array': {},
                         'doc': 'The fused list of IP addresses identified by the cert CN and SANs.',
                         'prevnames': ('identities:ipv4s', 'identities:ipv6s')}),
 
-                    ('identities:urls', ('array', {'type': 'inet:url'}), {
+                    ('identities:urls', ('inet:url', {}), {
+                        'array': {},
                         'doc': 'The fused list of URLs identified by the cert CN and SANs.',
                     }),
 
-                    ('crl:urls', ('array', {'type': 'inet:url'}), {
+                    ('crl:urls', ('inet:url', {}), {
+                        'array': {},
                         'doc': 'The extracted URL values from the CRLs extension.',
                     }),
 
@@ -754,7 +772,7 @@ modeldefs = (
 
             ('crypto:key', {
                 'props': (
-                    ('bits', ('int:min1', {}), {
+                    ('bits', ('size', {}), {
                         'doc': 'The number of bits of key material.'}),
 
                     ('algorithm', ('meta:algorithm', {}), {

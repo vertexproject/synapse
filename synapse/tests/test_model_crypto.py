@@ -631,7 +631,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'subject', "CN=issuer.link")
             self.propeq(nodes[0], 'issuer:cert', icert)
             self.propeq(nodes[0], 'selfsigned', True)
-            self.eq(('2022-01-01T00:00:00Z', '2023-01-01T00:00:00Z'), nodes[0].repr('seen'))
+            self.eq('2022-01-01T00:00:00Z - 2023-01-01T00:00:00Z', nodes[0].repr('seen'))
 
             nodes = await core.nodes('''
                 [ crypto:x509:cert=$cert

@@ -63,8 +63,8 @@ For a production deployment similar to the one described in the :ref:`deployment
 the backup tool by executing a shell **inside** the docker container.  For example, if we were generating
 a backup of the Cortex we would::
 
-    cd /srv/syn/00.cortex
-    docker compose exec 00.cortex /bin/bash
+    cd /srv/syn/000.cortex
+    docker compose exec 000.cortex /bin/bash
 
 And from the shell executed within the container::
 
@@ -77,11 +77,11 @@ This will generate a backup in a time stamp directory similar to::
 Once the backup directory is generated you may exit the docker shell and the backup will be accessible from
 the **host** file system as::
 
-    /srv/syn/00.cortex/storage/backups/20220422094622
+    /srv/syn/000.cortex/storage/backups/20220422094622
 
 At this point it is safe to use standard tools like ``mv``, ``tar``, and ``scp`` on the backup folder::
 
-    mv /srv/syn/00.cortex/storage/backups/20220422094622 /nfs/backups/00.cortex/
+    mv /srv/syn/000.cortex/storage/backups/20220422094622 /nfs/backups/000.cortex/
 
 .. note::
 
@@ -114,15 +114,15 @@ In the hopefully unlikely event that you need to restore a **Synapse** service f
 simple. For a production deployment similar to the one described in :ref:`deploymentguide` and assuming we moved
 the backup file as described in :ref:`devops-task-backup`::
 
-    cd /srv/syn/00.cortex
+    cd /srv/syn/000.cortex
     docker compose down
     mv storage storage.broken
-    cp -R /nfs/backups/00.cortex/20220422094622 storage
+    cp -R /nfs/backups/000.cortex/20220422094622 storage
     docker compose up -d
 
 Then you can tail the logs to ensure the service is fully restored::
 
-    cd /srv/syn/00.cortex
+    cd /srv/syn/000.cortex
     docker compose logs -f
 
 .. _devops-task-promote:
@@ -137,8 +137,8 @@ Promoting a Mirror
 To gracefully promote a mirror which was deployed in a similar fashion to the one described in :ref:`deploymentguide`
 you can use the built-in promote tool ``synapse.tools.service.promote``. Begin by executing a shell within the mirror container::
 
-    cd /srv/syn/01.cortex
-    docker compose exec 01.cortex /bin/bash
+    cd /srv/syn/001.cortex
+    docker compose exec 001.cortex /bin/bash
 
 And from the shell executed within the container::
 
@@ -167,9 +167,9 @@ a "leafs first" order.
 
     A service mirror will enter into read-only mode if they detect that their leader is a higher version than they are.
 
-Continuing with our previous example from the :ref:`deploymentguide` we would update the mirror ``01.cortex`` first::
+Continuing with our previous example from the :ref:`deploymentguide` we would update the mirror ``001.cortex`` first::
 
-    cd /srv/syn/01.cortex
+    cd /srv/syn/001.cortex
     docker compose pull
     docker compose down
     docker compose up -d
@@ -177,7 +177,7 @@ Continuing with our previous example from the :ref:`deploymentguide` we would up
 After ensuring that the mirror has come back online and is fully operational, we will update the leader which may
 include a :ref:`datamigration` while it comes back online::
 
-    cd /srv/syn/00.cortex
+    cd /srv/syn/000.cortex
     docker compose pull
     docker compose down
     docker compose up -d
@@ -252,9 +252,9 @@ For services that are deployed in a mirror configuration, service upgrades can b
    which need to happen. Cortex data model migrations will be checked and executed as well.
 #. Update the old service leader.
 
-Continuing with our previous example from the :ref:`deploymentguide` we would update the mirror ``01.cortex`` first::
+Continuing with our previous example from the :ref:`deploymentguide` we would update the mirror ``001.cortex`` first::
 
-    cd /srv/syn/01.cortex
+    cd /srv/syn/001.cortex
     docker compose pull
     docker compose down
     docker compose up -d
@@ -262,14 +262,14 @@ Continuing with our previous example from the :ref:`deploymentguide` we would up
 Then we would promote the mirror to being a leader. This promotion will also start any data migrations that need to
 be performed::
 
-    cd /srv/syn/01.cortex
-    docker compose exec 01.cortex python -m synapse.tools.service.promote
+    cd /srv/syn/001.cortex
+    docker compose exec 001.cortex python -m synapse.tools.service.promote
 
-After the promotion is completed, the previous leader can be updated. Since it is now mirroring ``01.cortex``, it will
+After the promotion is completed, the previous leader can be updated. Since it is now mirroring ``001.cortex``, it will
 start to replicate any changes from the leader once it comes online, including any data migrations that are being
 performed::
 
-    cd /srv/syn/00.cortex
+    cd /srv/syn/000.cortex
     docker compose pull
     docker compose down
     docker compose up -d
@@ -338,11 +338,7 @@ may be used: ``CRITCAL``, ``ERROR``, ``WARNING``, ``INFO``, and ``DEBUG``. For e
 
     SYN_LOG_LEVEL=INFO
 
-To enable JSON structured logging output suitable for ingest and indexing, specify the following environment variable
-to the ``docker`` container::
-
-    SYN_LOG_STRUCT=true
-
+By default, Synapse containers will emit JSON structured logging output suitable for ingest and indexing.
 These structured logs are designed to be easy to ingest into third party log collection platforms. They contain the log
 message, level, time, and metadata about where the log message came from. The structure contains the following keys:
 
@@ -377,7 +373,7 @@ message, level, time, and metadata about where the log message came from. The st
 The following is an example of a the log event for a user executing a Storm query::
 
     {
-      "service": "00.cortex.synapse",
+      "service": "000.cortex.synapse",
       "message": "Executing storm query {[inet:asn=1234]} as [someUsername]",
       "logger": {
         "name": "synapse.storm",
@@ -405,7 +401,7 @@ The following error example shows an example of a exception raised during the ex
 by the this particular error handler. ::
 
     {
-      "service": "00.cortex.synapse",
+      "service": "000.cortex.synapse",
       "message": "Error during storm execution for { $lib.raise(Newp, 'ruh roh', key=valu) }",
       "logger": {
         "name": "synapse.lib.view",
@@ -440,6 +436,11 @@ by the this particular error handler. ::
         "text": "$lib.raise(Newp, 'ruh roh', key=valu)",
       }
     }
+
+To disable this structed logging, specify the following environment variable to the ``docker`` container running the
+service::
+
+    SYN_LOG_STRUCT=false
 
 Custom date formatting strings can also be provided by setting the ``SYN_LOG_DATEFORMAT`` string. This is expected to be a
 strftime_ format string. The following shows an example of setting this value::
@@ -673,7 +674,7 @@ The following Compose file shows using the policy:
 ::
 
     services:
-      00.cortex:
+      000.cortex:
         user: "999"
         image: vertexproject/synapse-cortex:v3.x.x
         network_mode: host
@@ -681,8 +682,6 @@ The following Compose file shows using the policy:
         volumes:
             - ./storage:/vertex/storage
         environment:
-            SYN_CORTEX_AXON: aha://axon...
-            SYN_CORTEX_JSONSTOR: aha://jsonstor...
             SYN_CORTEX_AUTH_PASSWD_POLICY: '{"complexity": {"length": 12, "sequences": 3, "upper:count": 2, "lower:count": 2, "lower:valid": "abcdefghijklmnopqrstuvwxyzαβγ", "special:count": 2, "number:count": 2}, "attempts": 3, "previous": 2}'
 
 Attempting to set a user password which fails to meet the complexity requirements would produce an error::
@@ -705,33 +704,21 @@ If you have an existing deployment which didn't initially include AHA and Telepa
 configured after the fact.  However, as services move to TLS it will **break existing telepath URLs** that may be in
 use, so you should test the deployment before updating your production instance.
 
-To move to AHA, first deploy an AHA service as discussed in the :ref:`deploymentguide`. For each service, you may then
-run the ``provision`` tool as described and add the ``aha:provision`` configuration option to the ``cell.yaml`` or use
-the service specific environment variable to prompt the service to provision itself.
+To move to AHA, first deploy an AHA service as discussed in the :ref:`deploymentguide`, including choosing a
+shared ``SYN_PROVISION_SECRET`` environment variable. For each existing service, set ``SYN_PROVISION_SECRET`` to that same value and
+restart the service; on its next boot it discovers AHA, provisions itself, and generates its certificates. AHA
+names each service automatically from its service type (the first instance of a type becomes the leader
+``000.<type>``).
 
-.. note::
-    It is recommended that you name your services with leading numbers to prepare for an eventual mirror deployment.
+For example, to add an existing Axon to your new AHA server, add the following environment variable to your
+orchestration::
 
-For example, to add an existing Axon to your new AHA server, you would execute the following from **inside the AHA container**::
-
-    python -m synapse.tools.aha.provision 00.axon
-
-You should see output that looks similar to this::
-
-    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
-
-Then add the following entry to the Axon's ``cell.conf``::
-
-    aha:provision: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
-
-Or add the following environment variable to your orchestration::
-
-    SYN_AXON_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+    SYN_PROVISION_SECRET=<shared-secret>
 
 Then restart the Axon container. As it restarts, the service will generate user and host certificates and update it's
 ``cell.yaml`` file to include the necessary AHA configuration options. The ``dmon:listen`` option will be updated
 to reflect the use of SSL/TLS and the requirement to use client certificates for authentication. As additional services
-are provisioned, you may update the URLs they use to connect to the Axon to ``aha://axon...``.
+are provisioned, they automatically locate the Axon by its service type via AHA.
 
 .. note::
     When specifying a connection string using AHA, you can append a ``mirror=true`` parameter to the connection string
@@ -750,30 +737,19 @@ The following are some additional deployment options not covered in the :ref:`de
 Telepath Listening Port
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-If you need to deploy a service to have Telepath listen on a specific port, you can use the provision tool to specify
-the port to bind. This example will show deploying the Axon to a specific Telepath listening port.
-
-**Inside the AHA container**
-
-Generate a one-time use provisioning URL, with the ``--dmon-port`` option::
-
-    python -m synapse.tools.aha.provision.service --dmon-port 30001 01.axon
-
-You should see output that looks similar to this::
-
-    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
-
-**On the Host**
+If you need to deploy a service with Telepath listening on a specific port, set the ``telepath:port`` config
+option. This overrides the port AHA would otherwise assign during provisioning while inheriting the
+provisioned hostname and CA. This example deploys an Axon with its Telepath listener on port 30001.
 
 Create the container directory::
 
-    mkdir -p /srv/syn/01.axon/storage
-    chown -R 999 /srv/syn/01.axon/storage
+    mkdir -p /srv/syn/001.axon/storage
+    chown -R 999 /srv/syn/001.axon/storage
 
-Create the ``/srv/syn/01.axon/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/001.axon/docker-compose.yaml`` file with contents::
 
     services:
-      01.axon:
+      001.axon:
         user: "999"
         image: vertexproject/synapse-axon:v3.x.x
         network_mode: host
@@ -783,74 +759,38 @@ Create the ``/srv/syn/01.axon/docker-compose.yaml`` file with contents::
         environment:
             # disable HTTPS API for now to prevent port collisions
             - SYN_AXON_HTTPS_PORT=null
-            - SYN_AXON_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+            - SYN_AXON_TELEPATH_PORT=30001
+            - SYN_PROVISION_SECRET=<shared-secret>
 
-After starting the service, the Axon will now be configured to bind its Telepath listening port to 30001. This can be
-seen in the services ``cell.yaml`` file.
-
-  ::
-
-    ---
-    aha:name: 01.axon
-    aha:network: <yournetwork>
-    aha:provision: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
-    aha:registry:
-    - ssl://root@aha.<yournetwork>
-    aha:user: root
-    dmon:listen: ssl://0.0.0.0:30001?hostname=01.axon.<yournetwork>&ca=<yournetwork>
-    ...
+After starting the service, the Axon will bind its Telepath listening port to 30001. This can be
+confirmed in the ``dmon listening`` line of the service startup logs.
 
 HTTPS Listening Port
 ~~~~~~~~~~~~~~~~~~~~
 
-If you need to deploy a service to have HTTPs listen on a specific port, you can use the provision tool to specify
-the port to bind. This example will show deploying the Cortex to a specific HTTPS listening port.
-
-**Inside the AHA container**
-
-Generate a one-time use provisioning URL, with the ``--https-port`` option::
-
-    python -m synapse.tools.aha.provision.service --https-port 8443 02.cortex
-
-You should see output that looks similar to this::
-
-    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
-
-**On the Host**
+If you need to deploy a service with its HTTPS API listening on a specific port, set the ``https:port`` config
+option. This example deploys a Cortex with its HTTPS listener on port 8443.
 
 Create the container directory::
 
-    mkdir -p /srv/syn/02.cortex/storage
-    chown -R 999 /srv/syn/02.cortex/storage
+    mkdir -p /srv/syn/002.cortex/storage
+    chown -R 999 /srv/syn/002.cortex/storage
 
-Create the ``/srv/syn/01.axon/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/002.cortex/docker-compose.yaml`` file with contents::
 
     services:
-      02.cortex:
+      002.cortex:
         user: "999"
-        image: vertexproject/synapse-axon:v3.x.x
+        image: vertexproject/synapse-cortex:v3.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
             - ./storage:/vertex/storage
         environment:
-            - SYN_CORTEX_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+            - SYN_CORTEX_HTTPS_PORT=8443
+            - SYN_PROVISION_SECRET=<shared-secret>
 
-After starting the service, the Cortex will now be configured to bind its HTTPS listening port to 8443. This can be
-seen in the services ``cell.yaml`` file.
-
-  ::
-
-    ---
-    aha:name: 02.cortex
-    aha:network: <yournetwork>
-    aha:provision: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
-    aha:registry:
-    - ssl://root@aha.<yournetwork>
-    aha:user: root
-    dmon:listen: ssl://0.0.0.0:0?hostname=02.cortex.<yournetwork>&ca=<yournetwork>
-    https:port: 8443
-    ...
+After starting the service, the Cortex will bind its HTTPS listening port to 8443.
 
 
 .. _devops-task-nexustrim:
@@ -876,7 +816,7 @@ This ensures that all mirrors have rotated their Nexus logs before the cull oper
 
 The Telepath URLs can be provided to the Storm API as follows::
 
-    $mirrors = ("aha://01.cortex...", "aha://02.cortex...")
+    $mirrors = ("aha://001.cortex...", "aha://002.cortex...")
     $lib.cell.trimNexsLog(consumers=$mirrors)
 
 .. _devops-deprecation-warnings:
@@ -915,7 +855,7 @@ deployments may require additional port mapping for a given deployment.
 
 Create a boothooks directory::
 
-  mkdir -p /srv/syn/00.cortex/bookhooks
+  mkdir -p /srv/syn/000.cortex/bookhooks
 
 Copy the following script to ``/srv/syn/cortex/bookhooks/preboot.sh`` and use ``chmod`` to mark it as an executable
 file:
@@ -927,7 +867,7 @@ That directory will be mounted at ``/vertex/boothooks``. The following Compose f
 directory into the container and setting environment variables for the script to use::
 
   services:
-    00.cortex:
+    000.cortex:
       image: vertexproject/synapse-cortex:v3.x.x
       network_mode: host
       restart: unless-stopped
@@ -937,7 +877,7 @@ directory into the container and setting environment variables for the script to
       environment:
           SYN_LOG_LEVEL: "DEBUG"
           SYN_CORTEX_STORM_LOG: "true"
-          SYN_CORTEX_AHA_PROVISION: "ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>"
+          SYN_PROVISION_SECRET: "<shared-secret>"
           CERTBOT_HOSTNAME: "cortex.acme.corp"
           CERTBOT_EMAIL: "user@acme.corp"
 
@@ -954,79 +894,6 @@ when the container is stopped.
     using the backup APIs. Making backups of any data persisted in these locations is the responsibility of the
     operator configuring the container.
 
-Containers with Custom Users
-----------------------------
-
-By default, Synapse service containers will work running as ``root`` ( uid 0 ) and ``synuser`` ( uid 999 ) without any
-modification. In order to run a Synapse service container as a different user that is not built into the container by
-default, the user, group and home directory need to be added to the image. This can be done with a custom Dockerfile to
-modify a container. For example, the following Dockerfile would add the user ``altuser`` to the Container with a user
-id value of 8888::
-
-    FROM vertexproject/synapse-cortex:v3.x.x
-    RUN set -ex \
-    && groupadd -g 8888 altuser \
-    && useradd -r --home-dir=/home/altuser -u 8888 -g altuser --shell /bin/bash altuser \
-    && mkdir -p /home/altuser \
-    && chown 8888:8888 /home/altuser
-
-Running this with a ``docker build`` command can be used to create the image ``customcortex:v3.x.x``::
-
-    $ docker build -f Dockerfile --tag  customcortex:v3.x.x .
-    Sending build context to Docker daemon  4.608kB
-    Step 1/2 : FROM vertexproject/synapse-cortex:v2.113.0
-    ---> 8a2dd3465700
-    Step 2/2 : RUN set -ex && groupadd -g 8888 altuser && useradd -r --home-dir=/home/altuser -u 8888 -g altuser --shell /bin/bash altuser && mkdir -p /home/altuser && chown 8888:8888 /home/altuser
-    ---> Running in 9c7b30365c2d
-    + groupadd -g 8888 altuser
-    + useradd -r --home-dir=/home/altuser -u 8888 -g altuser --shell /bin/bash altuser
-    + mkdir -p /home/altuser
-    + chown 8888:8888 /home/altuser
-    Removing intermediate container 9c7b30365c2d
-     ---> fd7173d42923
-    Successfully built fd7173d42923
-    Successfully tagged customcortex:v3.x.x
-
-That custom user can then be used to run the Cortex::
-
-    services:
-      00.cortex:
-        user: "8888"
-        image: customcortex:v3.x.x
-        network_mode: host
-        restart: unless-stopped
-        volumes:
-        - ./storage:/vertex/storage
-        environment:
-        - SYN_CORTEX_AXON=aha://axon...
-        - SYN_CORTEX_JSONSTOR=aha://jsonstor...
-        - SYN_CORTEX_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
-
-The following bash script can be used to help automate this process, by adding the user to an image and appending
-the custom username to the image tag:
-
-.. literalinclude:: devguides/adduserimage.sh
-    :language: bash
-
-Saving this to ``adduserimage.sh``, it can then be used to quickly modify an image. The following example shows running
-this to add a user named ``foouser`` with the uid 1234::
-
-    $ ./adduserimage.sh vertexproject/synapse-aha:v2.113.0 foouser 1234
-    Add user/group foouser with 1234 into vertexproject/synapse-aha:v2.113.0, creating: vertexproject/synapse-aha:v2.113.0-foouser
-    Sending build context to Docker daemon  4.608kB
-    Step 1/2 : FROM vertexproject/synapse-aha:v2.113.0
-     ---> 53251b832df0
-    Step 2/2 : RUN set -ex && groupadd -g 1234 foouser && useradd -r --home-dir=/home/foouser -u 1234 -g foouser --shell /bin/bash foouser && mkdir -p /home/foouser && chown 1234:1234 /home/foouser
-     ---> Running in 1c9e793d6761
-    + groupadd -g 1234 foouser
-    + useradd -r --home-dir=/home/foouser -u 1234 -g foouser --shell /bin/bash foouser
-    + mkdir -p /home/foouser
-    + chown 1234:1234 /home/foouser
-    Removing intermediate container 1c9e793d6761
-     ---> 21a12f395462
-    Successfully built 21a12f395462
-    Successfully tagged vertexproject/synapse-aha:v2.113.0-foouser
-
 Configure Custom CA Certificates for HTTP Requests
 --------------------------------------------------
 
@@ -1039,7 +906,7 @@ The following Compose file shows an example using this option with the Cortex.
 ::
 
     services:
-      00.cortex:
+      000.cortex:
         user: "999"
         image: vertexproject/synapse-cortex:v3.x.x
         network_mode: host
@@ -2127,7 +1994,7 @@ You can see the startup logs as well:
 
     $ kubectl logs -l app.kubernetes.io/instance=aha00
     2025-03-12 20:30:49,620 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
-    2025-03-12 20:30:49,620 [INFO] Starting ahacell version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:30:49,620 [INFO] Starting aha version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
     2025-03-12 20:30:49,621 [DEBUG] Set config valu from envar: [SYN_AHA_DNS_NAME] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2025-03-12 20:30:49,621 [DEBUG] Set config valu from envar: [SYN_AHA_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2025-03-12 20:30:49,621 [DEBUG] Set config valu from envar: [SYN_AHA_AHA_NETWORK] [config.py:setConfFromEnvs:MainThread:MainProcess]
@@ -2136,8 +2003,24 @@ You can see the startup logs as well:
     2025-03-12 20:30:49,782 [INFO] Adding user certificate for root@dev.synapse [aha.py:_genUserCert:MainThread:MainProcess]
     2025-03-12 20:30:50,654 [INFO] dmon listening: ssl://0.0.0.0?hostname=aha00.default.svc.cluster.local&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
     2025-03-12 20:30:50,656 [INFO] provision listening: ssl://0.0.0.0:27272?hostname=aha00.default.svc.cluster.local [aha.py:initServiceNetwork:MainThread:MainProcess]
-    2025-03-12 20:30:50,657 [INFO] ...ahacell API (telepath): ssl://0.0.0.0?hostname=aha00.default.svc.cluster.local&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
-    2025-03-12 20:30:50,657 [INFO] ...ahacell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:30:50,657 [INFO] ...aha API (telepath): ssl://0.0.0.0?hostname=aha00.default.svc.cluster.local&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:30:50,657 [INFO] ...aha API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+
+All services in this deployment share a single provisioning secret. When a service boots with this secret configured,
+it discovers the Aha service and provisions itself automatically. The
+secret is stored as a Kubernetes Secret named ``synapse-provision`` and referenced by each deployment. Create it once
+with the following command, using a strong shared secret of your choosing:
+
+.. highlight:: bash
+
+::
+
+    $ kubectl create secret generic synapse-provision --from-literal=secret=<shared-secret>
+
+The same secret is configured on the Aha service and on every service via the ``SYN_PROVISION_SECRET`` environment
+variable. Because Kubernetes pods cannot use multicast discovery, each service also sets the ``SYN_PROVISION_HOST``
+environment variable to the Aha service DNS name (``aha00.default.svc.cluster.local``) so that the discovery request
+is sent directly to the Aha service.
 
 Axon
 ^^^^
@@ -2147,25 +2030,8 @@ The following ``axon.yaml`` can be used as the basis to deploy an Axon service.
 .. literalinclude:: ./kubernetes/axon.yaml
     :language: yaml
 
-Before we deploy that, we need to create the Aha provisioning URL. We can do that via ``kubectl exec``. That should look
-like the following:
-
-.. highlight:: bash
-
-::
-
-    $ kubectl exec deployment/aha00 -- python -m synapse.tools.aha.provision.service 00.axon
-    one-time use URL: ssl://aha00.default.svc.cluster.local:27272/405f7b971824071aeb6ef01abca1a2c8?certhash=2fc63156e8fde22dfa805901b11d80d19fac861f6ef3aac86180ad93a8dd77b7
-
-We want to copy that URL into the ``SYN_AXON_AHA_PROVISION`` environment variable, so that block looks like the
-following:
-
-.. highlight:: yaml
-
-::
-
-    - name: SYN_AXON_AHA_PROVISION
-      value: "ssl://aha00.default.svc.cluster.local:27272/405f7b971824071aeb6ef01abca1a2c8?certhash=2fc63156e8fde22dfa805901b11d80d19fac861f6ef3aac86180ad93a8dd77b7"
+The service auto-provisions against Aha on its first boot using the shared secret configured above; it registers as
+``000.axon.dev.synapse``.
 
 This can then be deployed via ``kubectl apply``:
 
@@ -2187,16 +2053,16 @@ You can see the Axon logs as well. These show provisioning and listening for tra
     2025-03-12 20:31:56,904 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
     2025-03-12 20:31:56,904 [INFO] Starting axon version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
     2025-03-12 20:31:56,904 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-12 20:31:56,904 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [DEBUG] Set config valu from envar: [SYN_PROVISION_SECRET] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [DEBUG] Set config valu from envar: [SYN_PROVISION_HOST] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2025-03-12 20:31:56,904 [INFO] Provisioning axon from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
     2025-03-12 20:31:56,937 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-12 20:31:56,937 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2025-03-12 20:31:58,273 [INFO] Done provisioning axon AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2025-03-12 20:31:58,334 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.axon.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
-    2025-03-12 20:31:58,335 [INFO] ...axon API (telepath): ssl://0.0.0.0:0?hostname=00.axon.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:31:58,334 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=000.axon.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
+    2025-03-12 20:31:58,335 [INFO] ...axon API (telepath): ssl://0.0.0.0:0?hostname=000.axon.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
     2025-03-12 20:31:58,335 [INFO] ...axon API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
-The hostname ``00.axon.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
+The hostname ``000.axon.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
 internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
 name that it uses to register with the Aha service.
 
@@ -2209,26 +2075,8 @@ The following ``jsonstor.yaml`` can be used as the basis to deploy a JSONStor se
 .. literalinclude:: ./kubernetes/jsonstor.yaml
     :language: yaml
 
-Before we deploy that, we need to create the Aha provisioning URL. We can do that via ``kubectl exec``. That should look
-like the following:
-
-.. highlight:: bash
-
-::
-
-    $ kubectl exec deployment/aha00 -- python -m synapse.tools.aha.provision.service 00.jsonstor
-    one-time use URL: ssl://aha00.default.svc.cluster.local:27272/85941d2f2c3ffbe16605cff50d7dfc0d?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591
-
-We want to copy that URL into the ``SYN_JSONSTOR_AHA_PROVISION`` environment variable, so that block looks like the
-following:
-
-.. highlight:: yaml
-
-::
-
-    - name: SYN_JSONSTOR_AHA_PROVISION
-      value: "ssl://aha00.default.svc.cluster.local:27272/85941d2f2c3ffbe16605cff50d7dfc0d?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591"
-
+The service auto-provisions against Aha on its first boot using the shared secret configured above; it registers as
+``000.jsonstor.dev.synapse``.
 
 This can then be deployed via ``kubectl apply``:
 
@@ -2248,18 +2096,18 @@ You can see the JSONStor logs as well. These show provisioning and listening for
 
     $ kubectl logs -l app.kubernetes.io/instance=jsonstor00
     2025-03-12 20:32:29,606 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
-    2025-03-12 20:32:29,607 [INFO] Starting jsonstorcell version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [INFO] Starting jsonstor version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
     2025-03-12 20:32:29,607 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-12 20:32:29,607 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-12 20:32:29,607 [INFO] Provisioning jsonstorcell from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [DEBUG] Set config valu from envar: [SYN_PROVISION_SECRET] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [DEBUG] Set config valu from envar: [SYN_PROVISION_HOST] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [INFO] Provisioning jsonstor from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
     2025-03-12 20:32:29,640 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-12 20:32:29,640 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-12 20:32:30,570 [INFO] Done provisioning jsonstorcell AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2025-03-12 20:32:30,633 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.jsonstor.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
-    2025-03-12 20:32:30,635 [INFO] ...jsonstorcell API (telepath): ssl://0.0.0.0:0?hostname=00.jsonstor.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
-    2025-03-12 20:32:30,635 [INFO] ...jsonstorcell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:32:30,570 [INFO] Done provisioning jsonstor AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:32:30,633 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=000.jsonstor.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
+    2025-03-12 20:32:30,635 [INFO] ...jsonstor API (telepath): ssl://0.0.0.0:0?hostname=000.jsonstor.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:32:30,635 [INFO] ...jsonstor API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
-The hostname ``00.jsonstor.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
+The hostname ``000.jsonstor.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
 internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
 name that it uses to register with the Aha service.
 
@@ -2271,25 +2119,11 @@ The following ``cortex.yaml`` can be used as the basis to deploy the Cortex.
 .. literalinclude:: ./kubernetes/cortex.yaml
     :language: yaml
 
-Before we deploy that, we need to create the Aha provisioning URL. This uses a fixed listening port for the Cortex, so
-that we can later use port-forwarding to access the Cortex service. We do this via ``kubectl exec``. That should look
-like the following:
-
-::
-
-    $ kubectl exec deployment/aha00 -- python -m synapse.tools.aha.provision.service 00.cortex --dmon-port 27492
-    one-time use URL: ssl://aha00.default.svc.cluster.local:27272/5aa07a461673424fa19dcf7d5e17f460?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591
-
-We want to copy that URL into the ``SYN_CORTEX_AHA_PROVISION`` environment variable, so that block looks like the
-following:
-
-.. highlight:: bash
-
-::
-
-    - name: SYN_CORTEX_AHA_PROVISION
-      value: "ssl://aha00.default.svc.cluster.local:27272/5aa07a461673424fa19dcf7d5e17f460?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591"
-
+The service auto-provisions against Aha on its first boot using the shared secret configured above; it registers as
+``000.cortex.dev.synapse``. The Cortex uses a fixed Telepath listening port of ``27492`` so that we can later use
+port-forwarding to access the Cortex service. This port is set via the ``SYN_CORTEX_TELEPATH_PORT`` environment
+variable in ``cortex.yaml``. The ``telepath:port`` option overrides the port Aha would otherwise assign during
+provisioning while inheriting the provisioned hostname and CA, so the Cortex binds this static port.
 
 This can then be deployed via ``kubectl apply``:
 
@@ -2313,26 +2147,24 @@ made to the Axon and JSONStor services:
     $ kubectl logs -l app.kubernetes.io/instance=cortex00
     2025-03-12 20:33:52,998 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
     2025-03-12 20:33:52,998 [INFO] Starting cortex version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
-    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_TELEPATH_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_PROVISION_SECRET] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_PROVISION_HOST] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2025-03-12 20:33:52,998 [INFO] Provisioning cortex from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_TELEPATH_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2025-03-12 20:33:55,169 [INFO] Done provisioning cortex AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
     2025-03-12 20:33:55,533 [WARNING] Detected 255 deprecated properties unlocked and not in use, recommend locking (https://v.vtx.lk/deprlock). [cortex.py:_warnDeprLocks:MainThread:MainProcess]
-    2025-03-12 20:33:55,660 [INFO] dmon listening: ssl://0.0.0.0:27492?hostname=00.cortex.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
-    2025-03-12 20:33:55,661 [INFO] ...cortex API (telepath): ssl://0.0.0.0:27492?hostname=00.cortex.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:33:55,660 [INFO] dmon listening: ssl://0.0.0.0:27492?hostname=000.cortex.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
+    2025-03-12 20:33:55,661 [INFO] ...cortex API (telepath): ssl://0.0.0.0:27492?hostname=000.cortex.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
     2025-03-12 20:33:55,661 [INFO] ...cortex API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
-    2025-03-12 20:33:55,664 [DEBUG] Connected to remote axon aha://axon... [cortex.py:onlink:MainThread:MainProcess]
-    2025-03-12 20:33:55,697 [DEBUG] Connected to remote jsonstor aha://jsonstor... [cortex.py:onlink:MainThread:MainProcess]
+    2025-03-12 20:33:55,664 [DEBUG] Connected to remote axon [cortex.py:onlink:MainThread:MainProcess]
+    2025-03-12 20:33:55,697 [DEBUG] Connected to remote jsonstor [cortex.py:onlink:MainThread:MainProcess]
 
-The hostname ``00.cortex.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
+The hostname ``000.cortex.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
 internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
 name that it uses to register with the Aha service.
 
@@ -2392,13 +2224,13 @@ The Aha service port-forward can be disabled, and replaced with a port-forward f
     kubectl port-forward service/cortex 27492:telepath
 
 Then connect to the Cortex via the Storm CLI, using the URL
-``ssl://visi@localhost:27492/?hostname=00.cortex.dev.synapse``.
+``ssl://visi@localhost:27492/?hostname=000.cortex.dev.synapse``.
 
 .. highlight:: bash
 
 ::
 
-    $ python -m synapse.tools.storm "ssl://visi@localhost:27492/?hostname=00.cortex.dev.synapse"
+    $ python -m synapse.tools.storm "ssl://visi@localhost:27492/?hostname=000.cortex.dev.synapse"
 
     Welcome to the Storm interpreter!
 
@@ -2417,9 +2249,9 @@ command ``aha.svc.list`` to list the services that are registered with the Aha s
 
     storm> aha.svc.list
     Name                                          Leader Online Ready Host            Port
-    00.axon.dev.synapse                           true   true   true  10.244.0.10     38417
-    00.cortex.dev.synapse                         true   true   true  10.244.0.12     27492
-    00.jsonstor.dev.synapse                       true   true   true  10.244.0.11     45681
+    000.axon.dev.synapse                          true   true   true  10.244.0.10     38417
+    000.cortex.dev.synapse                        true   true   true  10.244.0.12     27492
+    000.jsonstor.dev.synapse                      true   true   true  10.244.0.11     45681
     axon.dev.synapse                              true   true   true  10.244.0.10     38417
     cortex.dev.synapse                            true   true   true  10.244.0.12     27492
     jsonstor.dev.synapse                          true   true   true  10.244.0.11     45681
@@ -2443,26 +2275,8 @@ The following ``optic.yaml`` can be used as the basis to deploy Optic.
 .. literalinclude:: ./kubernetes/optic.yaml
     :language: yaml
 
-Before we deploy that, we need to create the Aha provisioning URL. We do this via ``kubectl exec``. That should look
-like the following:
-
-.. highlight:: bash
-
-::
-
-    $ kubectl exec deployment/aha00 -- python -m synapse.tools.aha.provision.service 00.optic
-    one-time use URL: ssl://aha00.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
-
-We want to copy that URL into the ``SYN_OPTIC_AHA_PROVISION`` environment variable, so that block looks like the
-following:
-
-.. highlight:: yaml
-
-::
-
-    - name: SYN_OPTIC_AHA_PROVISION
-      value: "ssl://aha00.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
-
+The service auto-provisions against Aha on its first boot using the shared secret configured above; it registers as
+``000.optic.dev.synapse``.
 
 This can then be deployed via ``kubectl apply``:
 
@@ -2484,15 +2298,11 @@ made to the Axon, Cortex, and JSONStor services:
 
     $ kubectl logs --tail 30 -l app.kubernetes.io/instance=optic00
     2023-03-08 17:32:40,149 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
-    2023-03-08 17:32:40,150 [DEBUG] Set config valu from envar: [SYN_OPTIC_CORTEX] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:32:40,150 [DEBUG] Set config valu from envar: [SYN_OPTIC_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2023-03-08 17:32:40,151 [DEBUG] Set config valu from envar: [SYN_OPTIC_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:32:40,152 [DEBUG] Set config valu from envar: [SYN_OPTIC_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,152 [DEBUG] Set config valu from envar: [SYN_PROVISION_SECRET] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,152 [DEBUG] Set config valu from envar: [SYN_PROVISION_HOST] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2023-03-08 17:32:40,153 [INFO] Provisioning optic from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2023-03-08 17:32:40,264 [DEBUG] Set config valu from envar: [SYN_OPTIC_CORTEX] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:32:40,265 [DEBUG] Set config valu from envar: [SYN_OPTIC_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2023-03-08 17:32:40,265 [DEBUG] Set config valu from envar: [SYN_OPTIC_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:32:40,266 [DEBUG] Set config valu from envar: [SYN_OPTIC_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2023-03-08 17:32:45,181 [INFO] Done provisioning optic AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
     2023-03-08 17:32:45,247 [INFO] optic wwwroot: /usr/local/lib/python3.10/dist-packages/optic/site [app.py:initServiceStorage:MainThread:MainProcess]
     2023-03-08 17:32:45,248 [WARNING] Waiting for remote jsonstor... [app.py:initJsonStor:MainThread:MainProcess]
@@ -2501,10 +2311,10 @@ made to the Axon, Cortex, and JSONStor services:
     2023-03-08 17:32:45,599 [INFO] Connected to Cortex at [aha://cortex...] [app.py:_initOpticCortex:MainThread:MainProcess]
     2023-03-08 17:32:45,930 [INFO] Connected to Axon at [aha://axon...] [app.py:onaxonlink:MainThread:MainProcess]
     2023-03-08 17:32:45,937 [DEBUG] Email settings/server not configured or invalid. [app.py:initEmailApis:asyncio_0:MainProcess]
-    2023-03-08 17:32:45,975 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.optic.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 17:32:45,975 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=000.optic.dev.synapse&ca=dev.synapse [cell.py:initServiceNetwork:MainThread:MainProcess]
     2023-03-08 17:32:45,976 [WARNING] NO CERTIFICATE FOUND! generating self-signed certificate. [cell.py:addHttpsPort:MainThread:MainProcess]
     2023-03-08 17:32:47,773 [INFO] https listening: 4443 [cell.py:initServiceNetwork:MainThread:MainProcess]
-    2023-03-08 17:32:47,773 [INFO] ...optic API (telepath): ssl://0.0.0.0:0?hostname=00.optic.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 17:32:47,773 [INFO] ...optic API (telepath): ssl://0.0.0.0:0?hostname=000.optic.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
     2023-03-08 17:32:47,773 [INFO] ...optic API (https): 4443 [cell.py:initFromArgv:MainThread:MainProcess]
 
 Once Optic is connected, we will need to set a password for the user we previously created in order to log in. This can

@@ -16,6 +16,8 @@ import synapse.lib.scope as s_scope
 import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.multislabseqn as s_multislabseqn
 
 logger = logging.getLogger(__name__)
 
@@ -89,9 +91,6 @@ class NexsRoot(s_base.Base):
     async def __anit__(self, cell):
 
         await s_base.Base.__anit__(self)
-
-        # avoid import cycle
-        import synapse.lib.multislabseqn as s_multislabseqn
 
         self.cell = cell
         self.dirn = cell.dirn
@@ -176,10 +175,6 @@ class NexsRoot(s_base.Base):
             # Fail fast if the nexspath is its own mountpoint.
             mesg = f'The nexpath={nexspath} is located at its own mount point. This configuration cannot be migrated.'
             raise s_exc.BadCoreStore(mesg=mesg, nexspath=nexspath)
-
-        # avoid import cycle
-        import synapse.lib.lmdbslab as s_lmdbslab
-        import synapse.lib.multislabseqn as s_multislabseqn
 
         # Grab the initial index value
         seqn = self.nexsslab.getSeqn('nexuslog')
@@ -572,7 +567,7 @@ class NexsRoot(s_base.Base):
 
         self.client = None
 
-        mirurl = self.cell.conf.get('mirror')
+        mirurl = self.cell.getParentUrl()
 
         await self.setNexsReady(mirurl is None)
 
@@ -734,7 +729,7 @@ class NexsRoot(s_base.Base):
         # will be in the realtime window or not. So we should try to set the ready
         # value to false and clear our internal flag.
         if not self.isfini:
-            await self.setNexsReady(not self.cell.conf.get('mirror'))
+            await self.setNexsReady(self.cell.getParentUrl() is None)
 
     async def _tellAhaReady(self, status):
 
