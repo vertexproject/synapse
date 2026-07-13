@@ -9,6 +9,7 @@ import synapse.common as s_common
 from unittest.mock import patch
 
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -703,6 +704,57 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((b'1', b'1'), next(it))
                 self.raises(StopIteration, next, it)
 
+    async def test_lmdbslab_scan_delete_noreyield(self):
+
+        # Deleting unrelated entries from a db while a scan iterates it must not
+        # disrupt the live cursor and re-emit rows. The slab bumps
+        # active scans on delete/pop so they resume cleanly on the next step.
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                dupsdb = slab.initdb('dups', dupsort=True)
+
+                async def scan_deleting(genr, decode, *unrelated):
+                    # add unrelated rows (sorting before/after the scanned range)
+                    # and delete one per yielded row to perturb the live cursor
+                    for lkey, lval in unrelated:
+                        slab.put(lkey, lval, dupdata=True, db=dupsdb)
+
+                    todel = list(unrelated)
+                    seen = []
+                    async for lkey, lval in genr:
+                        seen.append(decode(lkey, lval))
+                        if todel:
+                            dkey, dval = todel.pop()
+                            slab.delete(dkey, dval, db=dupsdb)
+
+                    return seen
+
+                # scanByDups: four dups under one key
+                key = b'\x10key'
+                for i in range(4):
+                    slab.put(key, s_common.int64en(i), dupdata=True, db=dupsdb)
+
+                seen = await scan_deleting(
+                    s_coro.agen(slab.scanByDups(key, db=dupsdb)),
+                    lambda lkey, lval: s_common.int64un(lval),
+                    (b'\x00aaa', s_common.int64en(0)), (b'\xffzzz', s_common.int64en(0)))
+                self.eq([0, 1, 2, 3], seen)
+
+                # scanByPref: four keys sharing a prefix
+                pref = b'\x20pref'
+                for i in range(4):
+                    slab.put(pref + s_common.int64en(i), b'v', db=dupsdb)
+
+                seen = await scan_deleting(
+                    s_coro.agen(slab.scanByPref(pref, db=dupsdb)),
+                    lambda lkey, lval: s_common.int64un(lkey[len(pref):]),
+                    (b'\x00bbb', s_common.int64en(0)), (b'\xffyyy', s_common.int64en(0)))
+                self.eq([0, 1, 2, 3], seen)
+
     async def test_lmdbslab_scanback(self):
 
         with self.getTestDir() as dirn:
@@ -1078,6 +1130,39 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.nn(proc.exitcode)
                 slab.initdb('foo')
                 self.true(True)
+
+    async def test_slab_readonly_reads(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                testdb = slab.initdb('test')
+                dupsdb = slab.initdb('dups', dupsort=True)
+                slab.put(b'foo', b'bar', db=testdb)
+                slab.put(b'hehe', b'haha', db=dupsdb)
+                slab.put(b'hehe', b'lolz', db=dupsdb)
+
+            async with await s_lmdbslab.Slab.anit(path, readonly=True) as slab:
+                testdb = slab.initdb('test')
+                dupsdb = slab.initdb('dups', dupsort=True)
+
+                self.true(slab.has(b'foo', db=testdb))
+                self.false(slab.has(b'nope', db=testdb))
+
+                self.true(slab.hasdup(b'hehe', b'haha', db=dupsdb))
+                self.false(slab.hasdup(b'hehe', b'nope', db=dupsdb))
+
+                self.eq(2, slab.count(b'hehe', db=dupsdb))
+                self.eq(1, slab.count(b'foo', db=testdb))
+                self.eq(0, slab.count(b'nope', db=testdb))
+
+                self.true(slab.prefexists(b'fo', db=testdb))
+                self.false(slab.prefexists(b'zz', db=testdb))
+
+                self.true(slab.rangeexists(b'a', b'z', db=testdb))
+                self.false(slab.rangeexists(b'x', b'z', db=testdb))
 
     async def test_lmdb_multiqueue(self):
 
