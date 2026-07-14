@@ -375,14 +375,14 @@ class LibHttp(s_stormtypes.Lib):
         data = aiohttp.FormData()
         for field in fields:
             name = field.get('name')
+            if not isinstance(name, str):
+                mesg = f'Each field requires a "name" key with a string value: {name}'
+                raise s_exc.BadArg(mesg=mesg, name=name)
             data.add_field(name,
                            field.get('value'),
                            content_type=field.get('content_type'),
                            filename=field.get('filename'),
                            content_transfer_encoding=field.get('content_transfer_encoding'))
-            if data.is_multipart and not isinstance(name, str):
-                mesg = f'Each field requires a "name" key with a string value when multipart fields are enabled: {name}'
-                raise s_exc.BadArg(mesg=mesg, name=name)
         return data
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None,

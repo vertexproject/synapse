@@ -536,7 +536,7 @@ class StormHttpTest(s_test.SynTest):
             req_headers = s_json.loads(req_headers)
             self.eq(req_headers.get('Foo'), 'Bar')
 
-    async def test_storm_http_post(self):
+    async def test_storm_http_post_base(self):
 
         async with self.getTestCore() as core:
             addr, port = await core.addHttpsPort(0)
@@ -625,7 +625,7 @@ class StormHttpTest(s_test.SynTest):
             '''
             resp = await core.callStorm(q, opts=opts)
             err = resp['err']
-            experr = 'Each field requires a "name" key with a string value when multipart fields are enabled: None'
+            experr = 'Each field requires a "name" key with a string value: None'
             self.eq(experr, err[1].get('mesg'))
 
     async def test_storm_http_post_file(self):
