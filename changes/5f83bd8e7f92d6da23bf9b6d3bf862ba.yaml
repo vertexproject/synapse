@@ -1,0 +1,7 @@
+---
+desc: Added the ``inet:http:request:fetch`` property to record the ``it:exec:url``
+  event which caused the HTTP request.
+desc:literal: false
+prs: []
+type: model
+...
