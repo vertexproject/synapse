@@ -642,6 +642,37 @@ class TeleTest(s_t_utils.SynTest):
 
                 self.eq(retn, [0, 1, 2])
 
+    async def test_telepath_genriter_aclose(self):
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+
+            dmon.share('foo', foo)
+
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
+
+                # aclose() after full iteration must not raise
+                genr = prox.corogenr(3)
+                self.true(isinstance(genr, s_telepath.GenrIter))
+                self.eq([0, 1, 2], [x async for x in genr])
+                await genr.aclose()
+
+                # aclose() with no iteration at all must be a safe no-op
+                genr = prox.corogenr(3)
+                await genr.aclose()
+
+                # aclose() after partial iteration must tear down the remote
+                # generator (rather than raising AttributeError, as it would
+                # for the un-fixed GenrIter)
+                genr = prox.sleepg(t=60)
+                aitr = genr.__aiter__()
+                self.eq(('init', {}), await aitr.__anext__())
+
+                await genr.aclose()
+
+                self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
+
     async def test_telepath_blocking(self):
         ''' Make sure that async methods on the same proxy don't block each other '''
 
