@@ -1,6 +1,0 @@
----
-desc: Fixed an issue where some Slab methods did not work on a read-only Slab.
-desc:literal: false
-prs: []
-type: bug
-...

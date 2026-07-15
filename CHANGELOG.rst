@@ -6,6 +6,42 @@
 Synapse Changelog
 *****************
 
+v2.247.0 - 2026-07-09
+=====================
+
+Model Changes
+-------------
+- Add the ``inet:whois:rec:registrant:name`` and
+  ``inet:whois:iprec:registrant:name`` properties.
+  (`#4979 <https://github.com/vertexproject/synapse/pull/4979>`_)
+- See :ref:`userguide_model_v2_247_0` for more detailed model changes.
+
+Bugfixes
+--------
+- Fixed a bug where changes to the permissions a user or role had on a specific
+  object (such as a Layer or View) were not reflected when those permissions
+  were listed (for example via ``$lib.auth.gates.get()`` or the Beholder
+  stream), even though the changes took effect immediately. Restarting the
+  Cortex would show the updated permissions. Permission enforcement was never
+  affected; only the reported values could be out of date.
+  (`#4980 <https://github.com/vertexproject/synapse/pull/4980>`_)
+- Fixed a bug where a lift matching multiple nodes could return some of them
+  more than once if the query changed a property on those nodes.
+  (`#4981 <https://github.com/vertexproject/synapse/pull/4981>`_)
+- Fixed an issue where some Slab methods did not work on a read-only Slab.
+  (`#4983 <https://github.com/vertexproject/synapse/pull/4983>`_)
+
+Notes
+-----
+- Updated the pinned version of the ``msgpack`` library to ``>=1.2.1,<1.3.0``.
+  (`#4984 <https://github.com/vertexproject/synapse/pull/4984>`_)
+
+Deprecations
+------------
+- Deprecate the ``inet:whois:rec:registrant`` property in favor of
+  ``inet:whois:rec:registrant:name``.
+  (`#4979 <https://github.com/vertexproject/synapse/pull/4979>`_)
+
 v2.246.0 - 2026-06-11
 =====================
 
