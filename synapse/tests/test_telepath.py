@@ -673,6 +673,19 @@ class TeleTest(s_t_utils.SynTest):
 
                 self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
 
+    async def test_telepath_genriter_none_result(self):
+
+        # If proxy.task() resolves to a plain None result for a genr call
+        # (e.g. a stale/mismatched 'genr' methinfo flag causing the peer to
+        # reply via t2:fini instead of opening a genr channel), the async
+        # generator must end iteration cleanly rather than raise.
+        class NoneTaskProxy:
+            async def task(self, todo, name=None):
+                return None
+
+        genr = s_telepath.GenrIter(NoneTaskProxy(), ('meth', (), {}), None)
+        self.eq([], await genr.list())
+
     async def test_telepath_blocking(self):
         ''' Make sure that async methods on the same proxy don't block each other '''
 
