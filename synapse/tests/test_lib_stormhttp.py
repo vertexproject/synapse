@@ -895,6 +895,8 @@ class StormHttpTest(s_test.SynTest):
                 await core.callStorm(query, opts=opts)
             self.isin('connect to proxy 127.0.0.1:1', str(cm.exception))
 
+            print('f' * 80)
+
     async def test_storm_http_mtls(self):
 
         with self.getTestDir() as dirn:

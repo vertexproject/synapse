@@ -348,15 +348,17 @@ class LibHttp(s_stormtypes.Lib):
         if proxyurl := await s_stormtypes.resolveCoreProxyUrl(proxy):
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
 
-        timeout = aiohttp.ClientTimeout(total=timeout)
-        kwargs = {'timeout': timeout}
+        client_timeout = aiohttp.ClientTimeout(total=timeout)
+        kwargs = {}
+        if timeout:
+            kwargs = {'timeout': aiohttp.ClientWSTimeout(ws_receive=None, ws_close=timeout)}
         if params:
             kwargs['params'] = params
 
         kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
 
         try:
-            sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=timeout))
+            sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=client_timeout))
             sock.resp = await sock.enter_context(sess.ws_connect(url, headers=headers, **kwargs))
 
             sock._syn_refs = 0

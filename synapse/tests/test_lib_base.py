@@ -131,6 +131,36 @@ class BaseTest(s_t_utils.SynTest):
             yield state
             state = "after2"
 
+        @contextlib.contextmanager
+        def ctxtest_throw():
+            nonlocal state
+            state = "throw00"
+            raise ValueError(state)
+            yield state
+
+        @contextlib.contextmanager
+        def ctxtest_throw_atexit():
+            nonlocal state
+            state = "throw01_exit"
+            yield state
+            state = "throw01_exiting"
+            raise ValueError(state)
+
+        @contextlib.asynccontextmanager
+        async def actxtest_throw():
+            nonlocal state
+            state = "athrow00"
+            raise ValueError(state)
+            yield state
+
+        @contextlib.asynccontextmanager
+        async def actxtest_throw_atexit():
+            nonlocal state
+            state = "athrow01_exit"
+            yield state
+            state = "athrow01_exiting"
+            raise ValueError(state)
+
         async with await s_base.Base.anit() as base:
             await base.enter_context(ctxtest())
             self.eq("before", state)
@@ -142,6 +172,32 @@ class BaseTest(s_t_utils.SynTest):
             self.eq("before2", state)
 
         self.eq("after2", state)
+
+        with self.raises(ValueError) as cm:
+            async with await s_base.Base.anit() as base:
+                await base.enter_context(ctxtest_throw())
+        self.eq("throw00", state)
+        self.eq(cm.exception.args, ('throw00',))
+
+        with self.raises(ValueError) as cm:
+            async with await s_base.Base.anit() as base:
+                await base.enter_context(actxtest_throw())
+        self.eq("athrow00", state)
+        self.eq(cm.exception.args, ('athrow00',))
+
+        with self.getLoggerStream('synapse.lib.base') as stream:
+            async with await s_base.Base.anit() as base:
+                await base.enter_context(ctxtest_throw_atexit())
+                self.eq("throw01_exit", state)
+            await stream.expect('context exit failed')
+        self.eq("throw01_exiting", state)
+
+        with self.getLoggerStream('synapse.lib.base') as stream:
+            async with await s_base.Base.anit() as base:
+                await base.enter_context(actxtest_throw_atexit())
+                self.eq("athrow01_exit", state)
+            await stream.expect('context aexit failed')
+        self.eq("athrow01_exiting", state)
 
     async def test_base_link(self):
 
