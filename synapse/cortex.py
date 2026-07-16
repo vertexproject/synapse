@@ -46,6 +46,7 @@ import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
+import synapse.lib.stormbin as s_stormbin
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -6559,10 +6560,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return astvalu
 
     async def _getStormQuery(self, args):
+        text, mode = args
         try:
-            query = copy.deepcopy(await s_parser.querycache.aget(args))
+            if mode == 'storm' and s_stormbin.isCompiled(text):
+                query = s_stormbin.load(text)
+            else:
+                query = copy.deepcopy(await s_parser.querycache.aget(args))
         except s_exc.FatalErr: # pragma: no cover
-            logger.exception(f'Fatal error while parsing [{args}]', extra=self.getLogExtra(text=args[0]))
+            logger.exception(f'Fatal error while parsing [{args}]', extra=self.getLogExtra(text=text))
             await self.fini()
             raise
         query.init(self)

@@ -431,7 +431,7 @@ class AstConverter(lark.Transformer):
         if kids[2] == '$':
             tokencls = terminalClassMap.get(kids[3].type, s_ast.Const)
             kidfo = self.metaToAstInfo(kids[3], isterm=True)
-            newkid = s_ast.VarValue(kidfo, kids=[tokencls(kids[3], kids[3])])
+            newkid = s_ast.VarValue(kidfo, kids=[tokencls(kidfo, kids[3])])
         else:
             newkid = self._convert_child(kids[2])
         return s_ast.VarDeref(astinfo, kids=(kids[0], newkid))
