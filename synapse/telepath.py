@@ -467,6 +467,22 @@ class Method:
         todo = (self.name, args, kwargs)
         return await self.proxy.task(todo, name=self.share)
 
+async def _genriter(proxy, todo, share):
+
+    genr = await proxy.task(todo, name=share)
+    if genr is None:
+        return
+
+    aiter = genr.__aiter__()
+    try:
+        async for item in aiter:
+            yield item
+            await asyncio.sleep(0)
+    finally:
+        aclose = getattr(aiter, 'aclose', None)
+        if aclose is not None:
+            await aclose()
+
 class GenrIter:
     '''
     An object to help delay a telepath call until iteration.
@@ -475,19 +491,19 @@ class GenrIter:
         self.todo = todo
         self.proxy = proxy
         self.share = share
+        self.genr = None
 
     async def list(self):
         return [x async for x in self]
 
-    async def __aiter__(self):
+    def __aiter__(self):
+        if self.genr is None:
+            self.genr = _genriter(self.proxy, self.todo, self.share)
+        return self.genr
 
-        genr = await self.proxy.task(self.todo, name=self.share)
-        if genr is None:
-            return
-
-        async for item in genr:
-            yield item
-            await asyncio.sleep(0)
+    async def aclose(self):
+        if self.genr is not None:
+            await self.genr.aclose()
 
     def __iter__(self):
         genr = s_glob.sync(self.proxy.task(self.todo, name=self.share))
