@@ -2641,6 +2641,28 @@ class CellTest(s_t_utils.SynTest):
             self.isin('Skipping backup file', buf)
             self.isin('onboot optimization complete!', buf)
 
+            # Verify the per-slab progress heartbeat logs while a slab copy is
+            # still in-flight, so long-running optimizations are not silent.
+            realsaveto = s_lmdbslab.LmdbBackup.saveto
+
+            async def slowsaveto(self, dstdir):
+                await asyncio.sleep(0.2)
+                await realsaveto(self, dstdir)
+
+            with mock.patch.object(s_lmdbslab.LmdbBackup, 'saveto', slowsaveto), \
+                    mock.patch.object(s_cell, 'ONBOOT_OPTIMIZE_PROGRESS_SECS', 0.01):
+
+                with self.getLoggerStream('synapse.lib.cell') as stream:
+
+                    conf = {'onboot:optimize': True}
+                    async with self.getTestCore(dirn=dirn, conf=conf) as core:
+                        pass
+
+            stream.seek(0)
+            buf = stream.read()
+            self.isin('still optimizing', buf)
+            self.isin('onboot optimization complete!', buf)
+
     async def test_cell_gc(self):
         async with self.getTestCore() as core:
             async with core.getLocalProxy() as proxy:

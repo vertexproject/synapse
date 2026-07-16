@@ -70,6 +70,8 @@ NEXUS_VERSION = (2, 243)
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
 
+ONBOOT_OPTIMIZE_PROGRESS_SECS = 30
+
 '''
 Base classes for the synapse "cell" microservice architecture.
 '''
@@ -1798,15 +1800,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             for i, lmdbpath in enumerate(lmdbs):
 
-                logger.warning(f'... {i + 1}/{size} {lmdbpath}')
+                srcpath = os.path.join(lmdbpath, 'data.mdb')
+                srcsize = os.path.getsize(srcpath)
+
+                logger.warning(f'... {i + 1}/{size} {lmdbpath} ({srcsize} bytes)')
 
                 with self.getTempDir() as backpath:
 
-                    async with await s_lmdbslab.LmdbBackup.anit(lmdbpath) as backup:
-                        await backup.saveto(backpath)
-
-                    srcpath = os.path.join(lmdbpath, 'data.mdb')
                     dstpath = os.path.join(backpath, 'data.mdb')
+
+                    async with await s_lmdbslab.LmdbBackup.anit(lmdbpath) as backup:
+
+                        copytask = s_coro.create_task(backup.saveto(backpath))
+
+                        while not copytask.done():
+
+                            await asyncio.wait((copytask,), timeout=ONBOOT_OPTIMIZE_PROGRESS_SECS)
+
+                            if copytask.done():
+                                break
+
+                            copied = os.path.getsize(dstpath) if os.path.isfile(dstpath) else 0
+                            pct = (copied / srcsize * 100) if srcsize else 100
+                            logger.warning(f'... still optimizing {lmdbpath} ({copied}/{srcsize} bytes, ~{pct:.0f}%)')
+
+                        await copytask
 
                     os.rename(dstpath, srcpath)
 
