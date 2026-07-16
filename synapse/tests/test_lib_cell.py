@@ -2661,6 +2661,7 @@ class CellTest(s_t_utils.SynTest):
             stream.seek(0)
             buf = stream.read()
             self.isin('still optimizing', buf)
+            self.isin('finished optimizing', buf)
             self.isin('onboot optimization complete!', buf)
 
     async def test_cell_gc(self):
