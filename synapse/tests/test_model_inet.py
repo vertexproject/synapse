@@ -865,11 +865,13 @@ class InetModelTest(s_t_utils.SynTest):
             server = s_common.guid()
             flow = s_common.guid()
             iden = s_common.guid()
+            fetch = s_common.guid()
 
             props = {
                 'body': 64 * 'b',
                 'flow': flow,
                 'sess': sess,
+                'fetch': fetch,
                 'client:host': client,
                 'server:host': server,
                 'sandbox:file': 64 * 'c'
@@ -893,6 +895,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :server="5.5.5.5:443"
                 :server:host=$p."server:host"
                 :session=$p.sess
+                :fetch=$p.fetch
                 :sandbox:file=$p."sandbox:file"
                 ]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': iden, 'p': props}})
@@ -912,6 +915,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('response:headers'), (('baz', 'faz'),))
             self.eq(node.get('response:body'), 'sha256:' + 64 * 'b')
             self.eq(node.get('session'), sess)
+            self.eq(node.get('fetch'), fetch)
             self.eq(node.get('sandbox:file'), 'sha256:' + 64 * 'c')
             self.eq(node.get('client'), 'tcp://1.2.3.4')
             self.eq(node.get('client:ipv4'), 0x01020304)

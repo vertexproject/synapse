@@ -858,6 +858,9 @@ class ItModule(s_module.CoreModule):
                 # ('it:os:windows:task', ('guid', {}), {
                 #     'doc': 'A Microsoft Windows scheduled task configuration.'}),
 
+                ('it:os:posix:cron', ('guid', {}), {
+                    'doc': 'A cron job entry configured on a host.'}),
+
                 # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
                 ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
                     'doc': 'A Microsoft Windows Security Identifier.',
@@ -2645,6 +2648,34 @@ class ItModule(s_module.CoreModule):
 
                     ('imagepath', ('file:path', {}), {
                         'doc': 'The path to the service binary from the ImagePath registry key.'}),
+                )),
+
+                ('it:os:posix:cron', {}, (
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host on which the cron job was configured.'}),
+
+                    ('cmd', ('it:cmd', {}), {
+                        'doc': 'The command which the cron job runs.'}),
+
+                    ('schedule', ('it:dev:str', {}), {
+                        'doc': 'The cron schedule string.'}),
+
+                    ('account', ('it:account', {}), {
+                        'doc': 'The account which the cron job runs as.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period when the cron job entry existed.'}),
+
+                    # TODO 3.0 text
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the cron job entry.'}),
+
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path to the cron file which contained the job.'}),
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The cron file which contains the job definition.'}),
                 )),
 
                 ('it:query', {}, ()),

@@ -2428,6 +2428,9 @@ class InetModule(s_module.CoreModule):
                         ('response:body', ('file:bytes', {}), {}),
                         ('session', ('inet:http:session', {}), {
                             'doc': 'The HTTP session this request was part of.'}),
+
+                        ('fetch', ('it:exec:url', {}), {
+                            'doc': 'The fetch or page load event which caused the HTTP request.'}),
                     )),
 
                     ('inet:http:session', {}, (
