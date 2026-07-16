@@ -2505,3 +2505,38 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:os:windows:service -> file:path'))
 
             self.len(1, await core.nodes('[ it:exec:proc=* :windows:service={ it:os:windows:service } ] -> it:os:windows:service'))
+
+    async def test_infotech_posix_cron(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:os:posix:cron=*
+                    :host=*
+                    :cmd="/usr/bin/backup.sh --full"
+                    :schedule="*/5 * * * *"
+                    :account=*
+                    :period=(2020-01-01, 2021-01-01)
+                    :desc="nightly backup"
+                    :path=/etc/cron.d/backup
+                    :file=*
+                ]
+            ''')
+
+            self.len(1, nodes)
+            self.eq(nodes[0].get('cmd'), '/usr/bin/backup.sh --full')
+            self.eq(nodes[0].get('schedule'), '*/5 * * * *')
+            self.eq(nodes[0].get('desc'), 'nightly backup')
+            self.eq(nodes[0].get('path'), '/etc/cron.d/backup')
+            self.eq(nodes[0].get('period'), (1577836800000, 1609459200000))
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('account'))
+            self.nn(nodes[0].get('file'))
+
+            self.len(1, await core.nodes('it:os:posix:cron -> it:host'))
+            self.len(1, await core.nodes('it:os:posix:cron -> it:cmd'))
+            self.len(1, await core.nodes('it:os:posix:cron -> it:account'))
+            self.len(1, await core.nodes('it:os:posix:cron -> file:bytes'))
+            self.len(1, await core.nodes('it:os:posix:cron -> file:path'))
+            self.len(1, await core.nodes('it:os:posix:cron:schedule="*/5 * * * *"'))
+            self.len(1, await core.nodes('it:os:posix:cron:period@=2020'))
