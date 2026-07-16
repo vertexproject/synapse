@@ -1801,9 +1801,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             for i, lmdbpath in enumerate(lmdbs):
 
                 srcpath = os.path.join(lmdbpath, 'data.mdb')
-                srcsize = os.path.getsize(srcpath)
 
-                logger.warning(f'... {i + 1}/{size} {lmdbpath} ({srcsize} bytes)')
+                logger.warning(f'... {i + 1}/{size} {lmdbpath}')
 
                 with self.getTempDir() as backpath:
 
@@ -1821,13 +1820,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                                 break
 
                             copied = os.path.getsize(dstpath) if os.path.isfile(dstpath) else 0
-                            logger.warning(f'... still optimizing {lmdbpath} ({copied}/{srcsize} bytes copied)')
+                            logger.warning(f'... still optimizing {lmdbpath} ({copied} bytes copied so far)')
 
                         await copytask
 
-                    dstsize = os.path.getsize(dstpath)
-                    pct = (dstsize / srcsize * 100) if srcsize else 100
-                    logger.warning(f'... finished optimizing {lmdbpath} ({dstsize}/{srcsize} bytes, ~{pct:.0f}%)')
+                    logger.warning(f'... finished optimizing {lmdbpath}')
 
                     os.rename(dstpath, srcpath)
 
