@@ -1307,6 +1307,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 (it:cmd:history=(1715936400001, $sessiden)
                     :cmd="ls -la"
                     :time=(1715936400001)
+                    :output="total 0 drwxr-xr-x 2 root root"
                 )
 
                 (it:cmd:history=(1715936400002, $sessiden)
@@ -1329,6 +1330,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('cmd'), 'ls -la')
             self.eq(nodes[0].get('time'), 1715936400001)
             self.eq(nodes[0].get('session'), cmdsess.ndef[1])
+            self.eq(nodes[0].get('output'), 'total 0 drwxr-xr-x 2 root root')
 
             self.eq(nodes[1].ndef, ('it:cmd:history', s_common.guid(('1715936400002', cmdsess.ndef[1]))))
             self.eq(nodes[1].get('cmd'), 'cd /')

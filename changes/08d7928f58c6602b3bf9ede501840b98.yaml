@@ -1,0 +1,6 @@
+---
+desc: Added the ``it:cmd:history:output`` property to record the output of a command.
+desc:literal: false
+prs: []
+type: model
+...
