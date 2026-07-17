@@ -1,6 +1,0 @@
----
-desc: Added a ``minutely`` recurrence period to the ``cron.add`` and ``cron.mod`` ``--period`` syntax for scheduling cron jobs that run every N minutes.
-desc:literal: false
-prs: []
-type: feat
-...

@@ -1,7 +1,0 @@
----
-desc: Added the ``it:os:posix:cron`` form to model cron job entries configured on
-  a host.
-desc:literal: false
-prs: []
-type: model
-...
