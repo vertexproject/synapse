@@ -27,14 +27,14 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Fix an issue where the ``Base.enter_context()`` method would hold onto the
+- Fixed an issue where the ``Base.enter_context()`` method would hold onto the
   item whose context was entered, even if the ``__enter__`` or ``__aenter__``
   methods failed. This could cause extraneous warnings on ``Base.fini()`` if
   the item was partially constructed.
   (`#4987 <https://github.com/vertexproject/synapse/pull/4987>`_)
 - Storm HTTP API calls using ``fields`` to send ``multipart/form-data`` must
   now include the key ``name`` in each field. Previously this key could be
-  omitted, which lead to undefined behavior.
+  omitted, which led to undefined behavior.
   (`#4987 <https://github.com/vertexproject/synapse/pull/4987>`_)
 - Fixed an issue where closing a Storm query result obtained over a telepath
   proxy (such as during MCP storm cursor teardown) could raise an
