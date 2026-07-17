@@ -50,7 +50,7 @@ class LmdbBackup(s_base.Base):
         self.ltxn = await self.enter_context(self.lenv.begin())
 
     async def saveto(self, dstdir):
-        self.lenv.copy(dstdir, compact=True, txn=self.ltxn)
+        await s_coro.executor(self.lenv.copy, dstdir, compact=True, txn=self.ltxn)
 
 class Hist:
     '''

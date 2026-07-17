@@ -553,6 +553,14 @@ dictionary returned by ``getCellInfo()`` and persists across restarts.
     Though not encouraged, it is safe to shutdown a service during the optimization
     process. Progress on the LMDB database being optimized at the time of shutdown will be lost.
 
+.. note::
+
+    The optimization process runs before the service has bound its listeners, so healthcheck
+    probes will fail for the entire duration of the optimization. In orchestrated deployments
+    (e.g. Kubernetes), a liveness or readiness probe with too short a failure window can
+    terminate the service mid-optimization. See the Healthchecks guidance in
+    :ref:`orch-kubernetes-deployment` for recommended probe settings.
+
 .. _devops-task-users:
 
 Managing Users and Roles
@@ -2534,9 +2542,11 @@ The following items should be considered for Kubernetes deployments intended for
 
   Healthchecks
     These examples use large ``startupProbe`` failure values. Vertex recommends these large values, since service
-    updates may have automatic data migrations which they perform at startup. These will be performed before a service
-    has enabled any listeners which would respond to healthcheck probes. The large value prevents a service from being
-    terminated prior to a long running data migration completing.
+    updates may have automatic data migrations which they perform at startup, and services booted with
+    ``onboot:optimize`` (see :ref:`devops-task-onboot-optimize`) will delay startup to optimize their databases.
+    Both of these will be performed before a service has enabled any listeners which would respond to healthcheck
+    probes. The large value prevents a service from being terminated prior to a long running data migration or
+    database optimization completing.
 
   Ingress and Load Balancing
     The use of ``kubectl port-forward`` may not be sustainable in a production environment. It is common to use a form
