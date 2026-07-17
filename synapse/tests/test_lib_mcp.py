@@ -501,8 +501,16 @@ class McpTest(s_tests.SynTest):
                     self.isin('libraries', s_json.loads(data['result']['contents'][0]['text']))
 
                     # the storm tool creates a node on the backend cortex (as the auth'd user)
-                    await self._tool(sess, url, sid, 'storm', {'query': '[ inet:ipv4=1.2.3.4 ]'})
+                    # and its cursor teardown (a telepath GenrIter, since getCore() is a proxy)
+                    # must not raise/log an error closing the storm generator
+                    with self.getLoggerStream('synapse.lib.mcp') as stream:
+                        await self._tool(sess, url, sid, 'storm', {'query': '[ inet:ipv4=1.2.3.4 ]'})
+
                     self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+
+                    logged = stream.getvalue()
+                    self.notin('error closing storm cursor task', logged)
+                    self.notin("'GenrIter' object has no attribute 'aclose'", logged)
 
                     # completion -> model:forms completer -> CoreApi.getFormsByPrefix over telepath
                     status, data = await self._rpc(sess, url, sid, 'completion/complete',

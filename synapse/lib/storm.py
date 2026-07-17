@@ -92,6 +92,7 @@ Notes:
         <periodicity>[/<value>...][@<time>]
 
     Periodicity:
+        - minutely: Every minute
         - hourly: Every hour (defaults to minute 0)
         - daily: Every day (defaults to 00:00 UTC)
         - weekly: Every week (defaults to Monday at 00:00 UTC)
@@ -99,6 +100,7 @@ Notes:
         - yearly: Every year (defaults to January 1 at 00:00 UTC)
 
     Value:
+        - minutely/N: Every N minutes
         - hourly/N: Every N hours
         - daily/N: Every N days
         - weekly/day1,day2: Specific weekdays (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
@@ -111,6 +113,12 @@ Notes:
         - :MM,MM,... (comma-separated minutes, e.g., :15,45 runs at minute 15 and 45)
 
 Examples:
+    # Run every minute
+    cron.add --period minutely { $lib.print(minutely) }
+
+    # Run every 5 minutes
+    cron.add --period minutely/5 { $lib.print(minutely) }
+
     # Run every day at midnight UTC
     cron.add --period daily { $lib.print(daily) }
 
@@ -178,6 +186,9 @@ Examples:
 
     # Change to hourly period at minute 25
     cron.mod <iden> --period hourly@:25
+
+    # Change to run every 5 minutes
+    cron.mod <iden> --period minutely/5
 '''
 
 atcrondescr = '''
