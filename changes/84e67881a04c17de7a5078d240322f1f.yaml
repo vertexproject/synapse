@@ -1,8 +1,0 @@
----
-desc: Fixed an issue where closing a Storm query result obtained over a telepath proxy
-  (such as during MCP storm cursor teardown) could raise an AttributeError, causing
-  error log spam.
-desc:literal: false
-prs: []
-type: bug
-...

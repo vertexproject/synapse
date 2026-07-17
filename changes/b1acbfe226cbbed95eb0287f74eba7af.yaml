@@ -1,9 +1,0 @@
----
-desc: Fixed an issue where ``onboot:optimize`` could block the event loop during LMDB
-  compaction, delaying progress logs until the optimization pass completed and making
-  a long-running optimize look hung. Boot optimization now also logs periodic per-slab
-  progress so operators can confirm it is still running.
-desc:literal: false
-prs: []
-type: bug
-...
