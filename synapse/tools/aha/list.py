@@ -5,7 +5,7 @@ import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version
 
-reqver = '>=3.0.0b2,<4.0.0'
+reqver = '>=3.0.0b3,<4.0.0'
 
 descr = 'List AHA services.'
 

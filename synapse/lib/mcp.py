@@ -274,7 +274,7 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
     # initialize response. If None, no instructions field is included.
     _mcp_instructions = None
 
-    def getCore(self):
+    async def getCore(self):
         # Abstraction (mirrors s_httpapi.StormHandler.getCore) which allows subclasses to
         # dictate how a reference to the cortex is returned from the handler. Defaults to the
         # cell the handler is mounted on; a subclass (e.g. mounted on Optic) may override this
@@ -811,11 +811,11 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
 
     @tool(desc='Return metadata about the service.')
     async def get_service_info(self):
-        return await self.getCore().getCellInfo()
+        return await (await self.getCore()).getCellInfo()
 
     @resource(uri='syn://cellinfo', name='cellinfo', desc='Metadata about the cell.')
     async def _resCellInfo(self):
-        return await self.getCore().getCellInfo()
+        return await (await self.getCore()).getCellInfo()
 
 _CORTEX_INSTRUCTIONS = '''
 This is a Synapse Cortex: the ground-truth store for an interdisciplinary, graph-based intelligence system. Knowledge is modeled as a hypergraph of typed nodes (forms) with properties and tags spanning many domains (cyber, geopolitical, org, person, crypto, media, and more) and is accessed primarily through the Storm query language.
@@ -983,7 +983,7 @@ that the parent already reflects the merged data the instant this returns; re-qu
         opts.setdefault('user', useriden)
 
         if opts.get('user') != useriden:
-            if not await self.getAuthCell().isUserAllowed(useriden, ('impersonate',)):
+            if not await (await self.getAuthCell()).isUserAllowed(useriden, ('impersonate',)):
                 raise s_exc.AuthDeny(mesg='Impersonation requires the impersonate permission.',
                                      user=useriden, perm='impersonate')
 
@@ -1003,7 +1003,7 @@ that the parent already reflects the merged data the instant this returns; re-qu
     async def _userViewIden(self):
         # The calling user's effective default view, honoring their cortex:view profile.
         # Resolved on the cortex via getCore() so it works for a local or remote cortex.
-        return await self.getCore().callStorm('return($lib.view.get().iden)', opts=self._coreOpts())
+        return await (await self.getCore()).callStorm('return($lib.view.get().iden)', opts=self._coreOpts())
 
     async def _viewTarget(self, view):
         # Resolve the target view for a view_* operation, defaulting to the user's default view.
@@ -1040,7 +1040,7 @@ that the parent already reflects the merged data the instant this returns; re-qu
             oldest = min(cursors, key=lambda i: cursors[i]['touched'])
             await self._closeStormCursor(cursors, oldest)
 
-        core = self.getCore()
+        core = await self.getCore()
         queue = asyncio.Queue(maxsize=STORM_PAGE_SIZE * 2)
 
         # core.storm() may be a local async generator or a telepath GenrIter (when getCore()
@@ -1140,11 +1140,11 @@ that the parent already reflects the merged data the instant this returns; re-qu
     @tool(desc=_call_storm_desc, schema=_storm_schema)
     async def call_storm(self, query, opts=None):
         opts = await self._stormOpts(opts)
-        return await self.getCore().callStorm(query, opts=opts)
+        return await (await self.getCore()).callStorm(query, opts=opts)
 
     @tool(desc='Validate the syntax of a Storm query without executing it.', schema=_storm_validate_schema)
     async def storm_validate(self, query):
-        valid, info = await self.getCore().isValidStorm(query)
+        valid, info = await (await self.getCore()).isValidStorm(query)
         if valid:
             return {'valid': True}
 
@@ -1158,7 +1158,7 @@ that the parent already reflects the merged data the instant this returns; re-qu
         except re.error as e:
             raise s_exc.BadArg(mesg=f'Invalid model_find pattern: {e}') from None
 
-        mdef = await self.getCore().getModelDict()
+        mdef = await (await self.getCore()).getModelDict()
 
         types = {}
         for name, tdef in mdef['types'].items():
@@ -1204,7 +1204,7 @@ that the parent already reflects the merged data the instant this returns; re-qu
         }
         return($views)
         '''
-        return {'views': await self.getCore().callStorm(query, opts=self._coreOpts())}
+        return {'views': await (await self.getCore()).callStorm(query, opts=self._coreOpts())}
 
     @tool(desc=_view_get_desc)
     async def view_get(self):
@@ -1216,7 +1216,7 @@ that the parent already reflects the merged data the instant this returns; re-qu
 
         # $lib.view fork enforces view.add / view.read / view.fork as the calling user.
         query = 'return($lib.view.get($iden).fork(name=$name).iden)'
-        forkiden = await self.getCore().callStorm(query, opts=self._coreOpts(iden=iden, name=name))
+        forkiden = await (await self.getCore()).callStorm(query, opts=self._coreOpts(iden=iden, name=name))
 
         return {'view': forkiden, 'parent': iden}
 
@@ -1224,12 +1224,14 @@ that the parent already reflects the merged data the instant this returns; re-qu
     async def view_del(self, view=None):
         iden = await self._viewTarget(view)
 
+        core = await self.getCore()
+
         # $lib.view.get() raises NoSuchView if missing; capture the parent for the result.
-        parent = await self.getCore().callStorm('return($lib.view.get($iden).parent)',
-                                                opts=self._coreOpts(iden=iden))
+        parent = await core.callStorm('return($lib.view.get($iden).parent)',
+                                      opts=self._coreOpts(iden=iden))
 
         # $lib.view.del enforces the caller's view.del permission.
-        await self.getCore().callStorm('$lib.view.del($iden)', opts=self._coreOpts(iden=iden))
+        await core.callStorm('$lib.view.del($iden)', opts=self._coreOpts(iden=iden))
 
         return {'deleted': iden, 'parent': parent}
 
@@ -1237,15 +1239,17 @@ that the parent already reflects the merged data the instant this returns; re-qu
     async def view_merge(self, view=None, force=False):
         iden = await self._viewTarget(view)
 
-        parent = await self.getCore().callStorm('return($lib.view.get($iden).parent)',
-                                                opts=self._coreOpts(iden=iden))
+        core = await self.getCore()
+
+        parent = await core.callStorm('return($lib.view.get($iden).parent)',
+                                      opts=self._coreOpts(iden=iden))
         if parent is None:
             raise s_exc.BadArg(mesg=f'View {iden} is not a fork and cannot be merged.')
 
         # $lib.view merge enforces the caller's merge permissions and quorum rules. The merge
         # is scheduled as a background task; the fork view is removed when it completes.
-        await self.getCore().callStorm('$lib.view.get($iden).merge(force=$force)',
-                                       opts=self._coreOpts(iden=iden, force=force))
+        await core.callStorm('$lib.view.get($iden).merge(force=$force)',
+                             opts=self._coreOpts(iden=iden, force=force))
 
         return {'merged': iden, 'parent': parent}
 
@@ -1253,11 +1257,11 @@ that the parent already reflects the merged data the instant this returns; re-qu
 
     @resource(uri='syn://model', name='datamodel', desc='The Synapse data model definition.')
     async def _resModel(self):
-        return await self.getCore().getModelDict()
+        return await (await self.getCore()).getModelDict()
 
     @resource(uri='syn://stormdocs', name='stormdocs', desc='Storm library, type, and command documentation.')
     async def _resStormDocs(self):
-        return (await self.getCore().getCoreInfoV2()).get('stormdocs')
+        return (await (await self.getCore()).getCoreInfoV2()).get('stormdocs')
 
     @resource(uri='skill://storm/SKILL.md', name='storm',
               desc='A skill describing the Storm query language syntax.', mimeType='text/markdown')
@@ -1273,7 +1277,7 @@ that the parent already reflects the merged data the instant this returns; re-qu
     @resource(uri='syn://model/form/{name}', name='form', desc='A single data model form definition.',
               completers={'name': 'model:forms'})
     async def _resForm(self, name):
-        mdef = await self.getCore().getModelDict()
+        mdef = await (await self.getCore()).getModelDict()
         form = mdef['forms'].get(name)
         if form is None:
             raise s_exc.JsonRpcError.init(RESOURCE_NOT_FOUND, f'No such form: {name}',
@@ -1285,4 +1289,4 @@ that the parent already reflects the merged data the instant this returns; re-qu
 
     @completer(name='model:forms')
     async def _completeForms(self, value, context):
-        return await self.getCore().getFormsByPrefix(value)
+        return await (await self.getCore()).getFormsByPrefix(value)

@@ -9,10 +9,10 @@ import shutil
 import signal
 import socket
 import asyncio
+import hashlib
 import logging
-import tarfile
+import zipfile
 import argparse
-import datetime
 import platform
 import tempfile
 import functools
@@ -70,6 +70,8 @@ NEXUS_VERSION = (3, 0)
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
 
+ONBOOT_OPTIMIZE_PROGRESS_SECS = 30
+
 # When SYN_PROVISION_FOLLOWER is set, a follower waits indefinitely for a leader of
 # its service type to appear. PROV_FOLLOWER_WAIT_INTERVAL is the poll/retry interval
 # and PROV_FOLLOWER_WARN_TIMEOUT is how often ( seconds ) to log a warning while the
@@ -92,8 +94,6 @@ permnames = {
     PERM_EDIT: 'edit',
     PERM_ADMIN: 'admin',
 }
-
-feat_aha_callpeers_v1 = ('callpeers', 1)
 
 diskspace = "Insufficient free space on disk."
 
@@ -142,63 +142,55 @@ def from_leader(func):
 
         return await func(self, *args, **kwargs)
 
+    wrapper._from_leader = True
     return wrapper
 
-async def _doIterBackup(path, chunksize=1024):
+# target size of each backup ``('data', <bytes>)`` message.
+BACKUP_CHUNKSIZE = 1024 * 1024
+
+class _BackupWriter:
     '''
-    Create tarball and stream bytes.
-
-    Args:
-        path (str): Path to the backup.
-
-    Yields:
-        (bytes): File bytes
+    A write-only file object used inside the backup subprocess: it batches the zip
+    archive bytes into ``('data', <chunk>)`` messages passed to the ``emit`` callable,
+    while computing the running size and sha256 of the archive. The ``emit`` callable
+    is responsible for framing/transporting the message (see ``_backupProc`` and
+    ``_backupProcHandoff``).
     '''
-    output_filename = path + '.tar.gz'
-    link0, file1 = await s_link.linkfile()
+    def __init__(self, emit, chunksize=BACKUP_CHUNKSIZE):
+        self.emit = emit
+        self.chunksize = chunksize
+        self.buf = bytearray()
+        self.size = 0
+        self.sha256 = hashlib.sha256()
 
-    def dowrite(fd):
-        with tarfile.open(output_filename, 'w|gz', fileobj=fd, compresslevel=1) as tar:
-            tar.add(path, arcname=os.path.basename(path))
-        fd.close()
+    def _emit(self, chunk):
+        self.size += len(chunk)
+        self.sha256.update(chunk)
+        self.emit(('data', chunk))
 
-    coro = s_coro.executor(dowrite, file1)
+    def write(self, byts):
+        self.buf += byts
+        while len(self.buf) >= self.chunksize:
+            self._emit(bytes(self.buf[:self.chunksize]))
+            del self.buf[:self.chunksize]
 
-    while True:
-        byts = await link0.recv(chunksize)
-        if not byts:
-            break
-        yield byts
+        return len(byts)
 
-    await coro
-    await link0.fini()
+    def flush(self):
+        if self.buf:
+            self._emit(bytes(self.buf))
+            self.buf.clear()
 
-async def _iterBackupWork(path, linkinfo):
+def _emitBackupData(lmdbinfo, srcdir, emit):
     '''
-    Inner setup for backup streaming.
-
-    Args:
-        path (str): Path to the backup.
-        linkinfo(dict): Link info dictionary.
-
-    Returns:
-        None: Returns None.
+    Stream the zip archive as ``('data', <chunk>)`` messages via ``emit`` and return
+    the terminal ``fini`` info (compressed ``size``, ``sha256`` and uncompressed
+    ``rawsize`` of the archive).
     '''
-    logger.info(f'Getting backup streaming link for [{path}].')
-    link = await s_link.fromspawn(linkinfo)
-
-    await s_daemon.t2call(link, _doIterBackup, (path,), {}, first=False)
-    await link.fini()
-
-    logger.info(f'Backup streaming for [{path}] completed.')
-
-def _iterBackupProc(path, linkinfo, logconf):
-    '''
-    Multiprocessing target for streaming a backup.
-    '''
-    s_logging.setup(**logconf)
-    logger.info(f'Backup streaming process for [{path}] starting.')
-    asyncio.run(_iterBackupWork(path, linkinfo))
+    writer = _BackupWriter(emit)
+    rawsize = s_t_backup.iterslabzip(lmdbinfo, srcdir, writer)
+    writer.flush()
+    return {'size': writer.size, 'sha256': writer.sha256.hexdigest(), 'rawsize': rawsize}
 
 class CellApi(s_base.Base):
 
@@ -394,8 +386,8 @@ class CellApi(s_base.Base):
         return await self.cell.waitNexsOffs(offs, timeout=timeout)
 
     @adminapi(log=True)
-    async def promote(self, *, graceful=False):
-        return await self.cell.promote(graceful=graceful)
+    async def promote(self, *, force=False):
+        return await self.cell.promote(force=force)
 
     @adminapi(log=True)
     async def handoff(self, turl, *, timeout=30):
@@ -420,8 +412,6 @@ class CellApi(s_base.Base):
             A dictionary with the following keys.  All size values are in bytes:
                 - volsize - Volume where cell is running total space
                 - volfree - Volume where cell is running free space
-                - backupvolsize - Backup directory volume total space
-                - backupvolfree - Backup directory volume free space
                 - celluptime - Cell uptime in microseconds
                 - cellrealdisk - Cell's use of disk, equivalent to du
                 - cellapprdisk - Cell's apparent use of disk, equivalent to ls -l
@@ -735,90 +725,33 @@ class CellApi(s_base.Base):
             yield item
 
     @adminapi()
-    async def runBackup(self, *, name=None, wait=True):
-        '''
-        Run a new backup.
-
-        Args:
-            name (str): The optional name of the backup.
-            wait (bool): On True, wait for backup to complete before returning.
-
-        Returns:
-            str: The name of the newly created backup.
-        '''
-        return await self.cell.runBackup(name=name, wait=wait)
+    async def getNexusCommitPulse(self):
+        async for offs in self.cell.getNexusCommitPulse():
+            yield offs
 
     @adminapi()
-    async def getBackupInfo(self):
+    async def initBackupStream(self):
         '''
-        Get information about recent backup activity.
+        Take a live backup of the service and stream it as a series of typed messages.
 
-        Returns:
-            (dict) It has the following keys:
-                - currduration - If backup currently running, time in ms since backup started, otherwise None
-                - laststart - Last time (in epoch microseconds) a backup started
-                - lastend - Last time (in epoch microseconds) a backup ended
-                - lastduration - How long last backup took in ms
-                - lastsize - Disk usage of last backup completed
-                - lastupload - Time a backup was last completed being uploaded via iter(New)BackupArchive
-                - lastexception - Tuple of exception information if last backup failed, otherwise None
-
-        Note:  these statistics are not persistent, i.e. they are not preserved between cell restarts.
+        Yields:
+            (str, object): ``(mesgtype, info)`` tuples. The first message is
+            ``('init', {...})`` and carries metadata known before streaming (including the
+            captured ``nexsoffs``). It is followed by ``('data', <bytes>)`` chunks of the
+            compressed archive, terminated by ``('fini', {'size', 'sha256'})`` on success or
+            ``('err', {...excinfo})`` (inlined ``s_common.excinfo`` fields) on failure.
         '''
-        return await self.cell.getBackupInfo()
+        # when invoked over telepath, hand the caller's socket to the backup
+        # subprocess so it streams the archive directly to the caller instead of
+        # relaying every chunk through this event loop.
+        link = s_scope.get('link')
+        if link is not None:
+            await self.cell._streamBackupHandoff(link)
+            raise s_exc.DmonSpawn(mesg='backup stream handed off to subprocess')
 
-    @adminapi()
-    async def getBackups(self):
-        '''
-        Retrieve a list of backups.
-
-        Returns:
-            list[str]: A list of backup names.
-        '''
-        return await self.cell.getBackups()
-
-    @adminapi()
-    async def delBackup(self, name):
-        '''
-        Delete a backup by name.
-
-        Args:
-            name (str): The name of the backup to delete.
-        '''
-        return await self.cell.delBackup(name)
-
-    @adminapi()
-    async def iterBackupArchive(self, name):
-        '''
-        Retrieve a backup by name as a compressed stream of bytes.
-
-        Note: Compression and streaming will occur from a separate process.
-
-        Args:
-            name (str): The name of the backup to retrieve.
-        '''
-        await self.cell.iterBackupArchive(name, user=self.user)
-
-        # Make this a generator
-        if False:  # pragma: no cover
-            yield
-
-    @adminapi()
-    async def iterNewBackupArchive(self, *, name=None, remove=False):
-        '''
-        Run a new backup and return it as a compressed stream of bytes.
-
-        Note: Compression and streaming will occur from a separate process.
-
-        Args:
-            name (str): The name of the backup to retrieve.
-            remove (bool): Delete the backup after streaming.
-        '''
-        await self.cell.iterNewBackupArchive(user=self.user, name=name, remove=remove)
-
-        # Make this a generator
-        if False:  # pragma: no cover
-            yield
+        # in-process fallback (no telepath link): relay via this event loop.
+        async for mesg in self.cell.initBackupStream():
+            yield mesg
 
     @adminapi()
     async def getDiagInfo(self):
@@ -875,10 +808,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     # Required storage version in order to boot the cell; this is specified as a PEP440 vesrion identifier.
     # This must be updated during beta releases!
-    _reqSynStorVers = '==3.0.0b2'
+    _reqSynStorVers = '==3.0.0b3'
 
     # Subclasses may set this to an s_mcp.CellMcp subclass to mount an MCP endpoint.
     _mcp_ctor = None
+
+    # When True, dirty slabs are committed after every nexus transaction is
+    # applied (NexsRoot._eat -> Slab.commitDirtyNow) rather than relying on the
+    # periodic Slab sync loop. The cell's slabs are opened with commitpulse=False
+    # and do not fire the 'commit' event, so nexus handlers must flush any
+    # buffered writers they touch.
+    nexuscommit = False
 
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
     confbase = {
@@ -943,10 +883,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Enable the HTTPS server to parse X-Forwarded-For and X-Real-IP headers to determine requester IP addresses.',
             'type': 'boolean',
             'default': False,
-        },
-        'backup:dir': {
-            'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
-            'type': 'string',
         },
         'onboot:optimize': {
             'default': False,
@@ -1110,6 +1046,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.runid = s_common.guid()
 
         self.auth = None
+        self.readonly = readonly
         self.cellparent = parent
         self.sessions = {}
         self._mcp_sessions = {}  # MCP server session state, keyed by Mcp-Session-Id
@@ -1125,6 +1062,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
+        self._localsockbound = False
         self.https_listeners = []
         self.ahaclient = None
         self.aharegbump = asyncio.Event()  # wake the AHA reg loop to re-register in place
@@ -1138,17 +1076,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.netready = asyncio.Event()
 
         self.conf = self._initCellConf(conf)
-        self.features = {
-            'tellready': 1,
-            'dynmirror': 1,
-            'tasks': 1,
-            'shutdowndrain': 1,
-        }
+        self.features = {}
 
         # advertise that we expose a Storm service API so a Cortex can
         # discover us via AHA and add us automatically.
         if issubclass(self.cellapi, s_stormsvc.StormSvc):
-            self.features['stormservice'] = 1
+            self.features['stormservice'] = '1.0.0'
 
         self.safemode = self.conf.req('safemode')
         if self.safemode:
@@ -1165,9 +1098,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
                 raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
 
-        self._delTmpFiles()
+        # a readonly cell shares another process's dirn; it must not mutate it
+        if not self.readonly:
+            self._delTmpFiles()
 
-        if self.conf.get('onboot:optimize'):
+        if not self.readonly and self.conf.get('onboot:optimize'):
             await self._onBootOptimize()
 
         await self._initCellBoot()
@@ -1208,35 +1143,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # read & lock our guid file
         self._cellguidfd = s_common.genfile(path)
         self.iden = self._cellguidfd.read().decode().strip()
-        self._getCellLock()
+        # a readonly cell must not take the exclusive lock the writer holds
+        if not self.readonly:
+            self._getCellLock()
 
-        backdirn = self.conf.get('backup:dir')
-        if backdirn is not None:
-            backdirn = s_common.genpath(backdirn)
-            if backdirn.startswith(self.dirn):
-                mesg = 'backup:dir must not be within the service directory'
-                raise s_exc.BadConfValu(mesg=mesg)
-
-        else:
-            backdirn = s_common.genpath(self.dirn, 'backups')
-
-        backdirn = s_common.gendir(backdirn)
-
-        self.backdirn = backdirn
-        self.backuprunning = False  # Whether a backup is currently running
-        self.backupstreaming = False  # Whether a temporary new backup is currently streaming
-        self.backmonostart = None  # If a backup is running, when did it start (monotonic timer)
-        self.backstartdt = None  # Last backup start time
-        self.backenddt = None  # Last backup end time
-        self.backlasttook = None  # Last backup duration
-        self.backlastsize = None  # Last backup size
-        self.backlastuploaddt = None  # Last time backup completed uploading via iter{New,}BackupArchive
-        self.backlastexc = None  # err, errmsg, errtrace of last backup
+        self.slabfileholds = 0  # count of active holds preventing nexus log cull/rotate (see holdSlabFiles)
 
         if self.conf.get('parent') and not self.conf.get('nexslog:en'):
             self.modCellConf({'nexslog:en': True})
 
-        await s_nexus.Pusher.__anit__(self, self.iden)
+        await s_nexus.Pusher.__anit__(self, self.iden, readonly=self.readonly)
 
         self._initCertDir()
 
@@ -1294,7 +1210,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = f'Cell version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {self.VERSION}.'
                 logger.error(mesg)
                 raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
-        self.cellinfo.set('cell:version', self.VERSION)
 
         # Check the synapse version didn't regress
         if (lastver := self.cellinfo.get('synapse:version')) is not None:
@@ -1303,7 +1218,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.error(mesg)
                 raise s_exc.BadVersion(mesg=mesg, currver=s_version.version, lastver=lastver)
 
-        self.cellinfo.set('synapse:version', s_version.version)
+        # a readonly cell must not stamp versions into the shared slab
+        if not self.readonly:
+            self.cellinfo.set('cell:version', self.VERSION)
+            self.cellinfo.set('synapse:version', s_version.version)
 
         self.nexsvers = self.cellinfo.get('nexus:version', (0, 0))
         self.nexspatches = ()
@@ -1332,7 +1250,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
 
-        if self.conf.get('health:sysctl:checks'):
+        if not self.readonly and self.conf.get('health:sysctl:checks'):
             self.schedCoro(self._runSysctlLoop())
 
         # initialize network backend infrastructure
@@ -1501,15 +1419,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             for i, lmdbpath in enumerate(lmdbs):
 
+                srcpath = os.path.join(lmdbpath, 'data.mdb')
+
                 logger.warning(f'... {i + 1}/{size} {lmdbpath}')
 
                 with self.getTempDir() as backpath:
 
-                    async with await s_lmdbslab.LmdbBackup.anit(lmdbpath) as backup:
-                        await backup.saveto(backpath)
-
-                    srcpath = os.path.join(lmdbpath, 'data.mdb')
                     dstpath = os.path.join(backpath, 'data.mdb')
+
+                    async with await s_lmdbslab.LmdbBackup.anit(lmdbpath) as backup:
+
+                        copytask = s_coro.create_task(backup.saveto(backpath))
+
+                        while not copytask.done():
+
+                            await asyncio.wait((copytask,), timeout=ONBOOT_OPTIMIZE_PROGRESS_SECS)
+
+                            if copytask.done():
+                                break
+
+                            copied = os.path.getsize(dstpath) if os.path.isfile(dstpath) else 0
+                            logger.warning(f'... still optimizing {lmdbpath} ({copied} bytes copied so far)')
+
+                        await copytask
+
+                    logger.warning(f'... finished optimizing {lmdbpath}')
 
                     os.rename(dstpath, srcpath)
 
@@ -1582,7 +1516,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _setNexsVers(self, vers):
         if vers > self.nexsvers:
             await self._migrNexsVers(vers)
-            self.cellinfo.set('nexus:version', vers)
+            if not self.readonly:
+                self.cellinfo.set('nexus:version', vers)
             self.nexsvers = vers
             await self.configNexsVers()
 
@@ -1610,7 +1545,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         else:
             await self._setCellVers(name, vers)
 
-    @s_nexus.Pusher.onPush('cell:vers:set')
+    @s_nexus.Pusher.onPush('cell:vers:set', reader=False)
     async def _setCellVers(self, name, vers):
         self.cellvers.set(name, vers)
 
@@ -1769,14 +1704,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initCellStorage(self):
         path = s_common.gendir(self.dirn, 'slabs', 'drive.lmdb')
-        sockpath = s_common.genpath(self.sockdirn, 'drive')
 
-        if s_common.envbool('SYNDEV_CELL_DRIVE_NOSPAWN'):
-            self.drive_slab = await self._initSlabFile(path)
-            self.drive = await s_drive.Drive.anit(self.drive_slab, s_drive.CELLDRIVE)
-        else:
-            spawner = s_drive.FileDrive.spawner(base=self, sockpath=sockpath)
-            self.drive = await spawner(path)
+        self.drive_slab = await self._initSlabFile(path, readonly=self.readonly)
+        self.drive = await s_drive.Drive.anit(self.drive_slab, s_drive.CELLDRIVE)
 
         self.onfini(self.drive.fini)
 
@@ -1791,7 +1721,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return await self._push('drive:add', info, path=path, reldir=reldir)
 
-    @s_nexus.Pusher.onPush('drive:add')
+    @s_nexus.Pusher.onPush('drive:add', reader=False)
     async def _addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
 
         # replay safety...
@@ -1871,16 +1801,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async for item in self.drive.getItemDataVersions(iden):
             yield item
 
-    @s_nexus.Pusher.onPushAuto('drive:del')
+    @s_nexus.Pusher.onPushAuto('drive:del', reader=False)
     async def delDriveInfo(self, iden):
         if await self.drive.getItemInfo(iden) is not None:
             await self.drive.delItemInfo(iden)
 
-    @s_nexus.Pusher.onPushAuto('drive:set:perm')
+    @s_nexus.Pusher.onPushAuto('drive:set:perm', reader=False)
     async def setDriveInfoPerm(self, iden, perm):
         return await self.drive.setItemPerm(iden, perm)
 
-    @s_nexus.Pusher.onPushAuto('drive:data:path:set')
+    @s_nexus.Pusher.onPushAuto('drive:data:path:set', reader=False)
     async def setDriveItemProp(self, iden, vers, path, valu):
         if isinstance(path, str):
             path = (path,)
@@ -1902,7 +1832,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return await self.drive.setItemData(iden, vers, item)
 
-    @s_nexus.Pusher.onPushAuto('drive:data:path:del')
+    @s_nexus.Pusher.onPushAuto('drive:data:path:del', reader=False)
     async def delDriveItemProp(self, iden, vers, path):
         if isinstance(path, str):
             path = (path,)
@@ -1924,7 +1854,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return await self.drive.setItemData(iden, vers, item)
 
-    @s_nexus.Pusher.onPushAuto('drive:set:path')
+    @s_nexus.Pusher.onPushAuto('drive:set:path', reader=False)
     async def setDriveInfoPath(self, iden, path):
 
         path = await self.drive.getPathNorm(path)
@@ -1934,7 +1864,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return await self.drive.setItemPath(iden, path)
 
-    @s_nexus.Pusher.onPushAuto('drive:data:set')
+    @s_nexus.Pusher.onPushAuto('drive:data:set', reader=False)
     async def setDriveData(self, iden, versinfo, data):
         return await self.drive.setItemData(iden, versinfo, data)
 
@@ -1944,7 +1874,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             vers = info.get('version')
         return await self._push('drive:data:del', iden, vers)
 
-    @s_nexus.Pusher.onPush('drive:data:del')
+    @s_nexus.Pusher.onPush('drive:data:del', reader=False)
     async def _delDriveData(self, iden, vers):
         return await self.drive.delItemData(iden, vers)
 
@@ -1957,14 +1887,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initNexusSubsystem(self):
         if self.cellparent is None:
-            await self.nexsroot.recover()
+            # a readonly cell shares the writer's storage: it must not replay the
+            # nexus log (the writer already applied it), must not become active,
+            # and must not run write-side background loops.
+            if not self.readonly:
+                await self.nexsroot.recover()
 
-            active = await self._getBootActive()
+            # a readonly cell never boots active; otherwise consult the boot-time
+            # leadership determination (explicit parent / AHA leadership term).
+            active = not self.readonly and await self._getBootActive()
 
             await self.nexsroot.startup()
             await self.setCellActive(active)
 
-            if self.minfree is not None:
+            if not self.readonly and self.minfree is not None:
                 self.schedCoro(self._runFreeSpaceLoop())
 
     async def _getBootActive(self):
@@ -2092,10 +2028,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.modCellConf({'aha:servers': tuple(newurls)})
 
-    async def _bindDmonListen(self):
+    async def _bindLocalSock(self):
 
-        # functionalized so downstream code can bind early.
-        if self.sockaddr is not None:
+        # a readonly cell shares the writer's dirn and must NOT listen on the
+        # shared {dirn}/sock - that belongs to the writer.
+        if self.readonly:
+            return
+
+        # split out from _bindDmonListen so downstream code can bind the local
+        # socket BEFORE binding the external listeners, without a flurry of client
+        # connect-retry warnings.
+        if self._localsockbound:
             return
 
         # start a unix local socket daemon listener
@@ -2104,11 +2047,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
             await self.dmon.listen(sockurl)
+            self._localsockbound = True
         except OSError as e:
             logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
             logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
         except Exception:  # pragma: no cover
             logging.exception('Unknown dmon listen error.')
+
+    async def _bindDmonListen(self):
+
+        if self.readonly:
+            return
+
+        # functionalized so downstream code can bind early.
+        if self.sockaddr is not None:
+            return
+
+        await self._bindLocalSock()
 
         turl = self._getDmonListen()
         if turl is not None:
@@ -2280,22 +2235,50 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getNexsIndx(self):
         return await self.nexsroot.index()
 
+    @contextlib.asynccontextmanager
+    async def holdSlabFiles(self):
+        '''
+        Hold the cell's slab files stable while they are being read (e.g. during a
+        live backup), preventing nexus log cull/rotate for the duration.
+
+        Reentrant: holds are counted, so nested or concurrent holds are all honored
+        and the hold is released only when the last holder exits.
+        '''
+        self.slabfileholds += 1
+        try:
+            yield
+        finally:
+            self.slabfileholds -= 1
+
+    async def getNexsOffs(self):
+        '''
+        Returns the last committed offset.
+        '''
+        return await self.getNexsIndx() - 1
+
     async def cullNexsLog(self, offs):
-        if self.backuprunning:
-            raise s_exc.SlabInUse(mesg='Cannot cull Nexus log while a backup is running')
+        if self.slabfileholds:
+            raise s_exc.SlabInUse(mesg='Cannot cull Nexus log while slab files are held (backup in progress)')
         return await self._push('nexslog:cull', offs)
 
-    @s_nexus.Pusher.onPush('nexslog:cull')
+    @s_nexus.Pusher.onPush('nexslog:cull', reader=False)
     async def _cullNexsLog(self, offs):
         return await self.nexsroot.cull(offs)
 
     async def rotateNexsLog(self):
-        if self.backuprunning:
-            raise s_exc.SlabInUse(mesg='Cannot rotate Nexus log while a backup is running')
+        if self.slabfileholds:
+            raise s_exc.SlabInUse(mesg='Cannot rotate Nexus log while slab files are held (backup in progress)')
         return await self._push('nexslog:rotate')
 
-    @s_nexus.Pusher.onPush('nexslog:rotate')
-    async def _rotateNexsLog(self):
+    @s_nexus.Pusher.onPush('nexslog:rotate', passitem=True)
+    async def _rotateNexsLog(self, nexsitem=None):
+        if self.readonly:
+            # a readonly cell follows the leader's rotation without rotating itself
+            # (the leader owns the files): adopt the new tail slab the leader created,
+            # which starts at the offset after this rotate event.
+            await self.nexsroot.nexslog.setTailSlab(nexsitem[0] + 1)
+            return
+
         return await self.nexsroot.rotate()
 
     async def waitNexsOffs(self, offs, timeout=None):
@@ -2331,11 +2314,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 await asyncio.gather(*[waitFor(*cons) for cons in cons_opened])
 
+            await self._waitNexsTrimReady(cullat, timeout)
+
             if not await self.cullNexsLog(cullat):
                 mesg = 'trimNexsLog did not execute cull at the rotated offset'
                 raise s_exc.SynErr(mesg=mesg, offs=cullat)
 
             return cullat
+
+    async def _waitNexsTrimReady(self, cullat, timeout):
+        pass
 
     def getMyUrl(self, user='root'):
         host = self.conf.req('aha:name')
@@ -2371,10 +2359,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if term is not None:
             self.cellinfo.set('aha:lead:term', term)
 
-    async def promote(self, graceful=False):
+    async def promote(self, force=False):
         '''
         Transform this cell from a passive follower to
         an active cell that writes changes locally.
+
+        Args:
+            force (bool): If False (the default), coordinate a graceful
+                leadership handoff with the current leader. If True,
+                promote unilaterally without contacting the current leader.
+                A forced promotion does NOT stop the old leader from also
+                believing it is still the leader ( split-brain ): if the old
+                leader is still alive and reachable, it will very likely
+                detect a leadership schism and require a restore from
+                backup to rejoin. Only use force=True when the old leader
+                is confirmed unreachable/offline.
         '''
         # an explicit parent pins us as a follower of that upstream, so we
         # refuse promotion rather than override the operator's configuration.
@@ -2388,9 +2387,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.BadState(mesg=mesg)
 
         _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
-        logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful}{_dispname}.')
+        logger.warning(f'PROMOTION: Performing leadership promotion force={force}{_dispname}.')
 
-        if graceful:
+        if not force:
 
             myurl = self.getMyUrl()
 
@@ -2461,7 +2460,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     raise s_exc.NotReady(mesg=mesg)
 
                 logger.debug(f'HANDOFF: Mirror has caught up to the current leader, performing promotion{_dispname}.')
-                await cell.promote()
+                await cell.promote(force=True)
 
                 logger.debug(f'HANDOFF: Setting the service as inactive{_dispname}.')
                 await self.setCellActive(False)
@@ -2484,7 +2483,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # promotion peer discovery must be authoritative, so query the AHA
         # server directly rather than the eventually-consistent topo cache.
-        ahaproxy = await self.reqAhaProxy(timeout=timeout, feats=[('getAhaSvcsByIden', 1)])
+        ahaproxy = await self.reqAhaProxy(timeout=timeout)
 
         retn = []
         async for svcentry in ahaproxy.getAhaSvcsByIden(self.iden, skiprun=self.runid):
@@ -2539,7 +2538,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 for svcindx, svcproxy in sorted(cands):
 
                     try:
-                        await svcproxy.promote(graceful=True)
+                        await svcproxy.promote()
 
                         logger.warning(f'... successfully promoted: {svcproxy._ahainfo["name"]}', extra=extra)
                         return True
@@ -2551,19 +2550,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.exception(f'...error demoting service: {s_exc.reprexc(e)}', extra=extra)
             return False
 
-    async def reqAhaProxy(self, timeout=None, feats=None):
+    async def reqAhaProxy(self, timeout=None):
 
         if self.ahaclient is None:
             mesg = 'AHA is not configured on this service.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
         proxy = await self.ahaclient.proxy(timeout=timeout)
-
-        if feats is not None:
-            for name, vers in feats:
-                if not proxy._hasTeleFeat(name, vers):
-                    mesg = f'AHA server does not support feature: {name} >= {vers}'
-                    raise s_exc.BadVersion(mesg=mesg)
 
         return proxy
 
@@ -2757,326 +2750,350 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async for item in self.nexsroot.iter(offs, tellready=tellready, wait=wait):
             yield item
 
-    def _reqBackDirn(self, name):
+    async def getNexusCommitPulse(self):
+        async for offs in self.nexsroot.iterCommitPulse():
+            yield offs
 
-        self._reqBackConf()
+    async def _preCaptureBackup(self):
+        '''
+        An overridable hook invoked at the start of a backup capture, before the
+        consistent snapshot is pinned. Present for subclass/test instrumentation.
+        '''
+        pass
 
-        path = s_common.genpath(self.backdirn, name)
-        if not path.startswith(self.backdirn):
-            mesg = 'Directory traversal detected'
-            raise s_exc.BadArg(mesg=mesg)
+    @staticmethod
+    def _backupProc(datasock, srcdir, logconf, info):
+        '''
+        (In a separate process) Pin a consistent set of lmdb read transactions and
+        stream a zip archive of the service directory to ``datasock``.
 
-        return path
+        All communication is a sequence of msgpack ``(<type>, <info>)`` tuples on the
+        socket: ``('init', <info>)`` (the metadata dict passed in by the parent) once
+        the read transactions are pinned (so the parent can release the nexus lock),
+        then any number of ``('data', <bytes>)`` messages, terminated by
+        ``('fini', {'size', 'sha256', 'rawsize'})`` or ``('err', <excinfo>)``.
+        '''
+        # This is a new process: configure logging
+        s_logging.setup(**logconf)
+        fileobj = datasock.makefile('wb')
 
-    def _reqBackupSpace(self):
-
-        disk = shutil.disk_usage(self.backdirn)
-        cellsize, _ = s_common.getDirSize(self.dirn)
-
-        if os.stat(self.dirn).st_dev == os.stat(self.backdirn).st_dev:
-            reqspace = self.minfree * disk.total + cellsize
-        else:
-            reqspace = cellsize
-
-        if reqspace > disk.free:
-            mesg = f'Insufficient free space on {self.backdirn} to run a backup ' \
-                    f'({disk.free} bytes free, {reqspace} required)'
-            raise s_exc.LowSpace(mesg=mesg, dirn=self.backdirn)
-
-    async def runBackup(self, name=None, wait=True):
-
-        if self.backuprunning:
-            raise s_exc.BackupAlreadyRunning(mesg='Another backup is already running')
+        def emit(mesg):
+            fileobj.write(s_msgpack.en(mesg))
 
         try:
-            task = None
 
-            backupstartdt = datetime.datetime.now()
+            with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
 
-            if name is None:
-                name = time.strftime('%Y%m%d%H%M%S', backupstartdt.timetuple())
+                emit(('init', info))
+                fileobj.flush()
+                logger.debug('Acquired LMDB transactions')
 
-            path = self._reqBackDirn(name)
-            if os.path.isdir(path):
-                mesg = 'Backup with name already exists'
-                raise s_exc.BadArg(mesg=mesg)
+                emit(('fini', _emitBackupData(lmdbinfo, srcdir, emit)))
 
-            self._reqBackupSpace()
+            fileobj.flush()
+            logger.debug('Backup process completed')
 
-            self.backuprunning = True
-            self.backlastexc = None
-            self.backmonostart = time.monotonic()
-            self.backstartdt = backupstartdt
+        except Exception as e:
+            logger.exception(f'Error running backup of {srcdir}')
+            emit(('err', s_common.excinfo(e)))
+            fileobj.flush()
 
-            task = self.schedCoro(self._execBackupTask(path))
+        finally:
+            fileobj.close()
+            datasock.close()
 
-            def done(self, task):
-                try:
-                    self.backlastsize, _ = s_common.getDirSize(path)
-                except s_exc.NoSuchDir:
-                    pass
-                self.backlasttook = time.monotonic() - self.backmonostart
-                self.backenddt = datetime.datetime.now()
-                self.backmonostart = None
-
-                try:
-                    exc = task.exception()
-                except asyncio.CancelledError as e:
-                    exc = e
-                if exc:
-                    self.backlastexc = s_common.excinfo(exc)
-                    self.backlastsize = None
-                else:
-                    self.backlastexc = None
-                    try:
-                        self.backlastsize, _ = s_common.getDirSize(path)
-                    except Exception:
-                        self.backlastsize = None
-
-                self.backuprunning = False
-
-                phrase = f'with exception {self.backlastexc["errmsg"]}' if self.backlastexc else 'successfully'
-                logger.info(f'Backup {name} completed {phrase}.  Took {self.backlasttook / 1000} s')
-
-            task.add_done_callback(functools.partial(done, self))
-
-            if wait:
-                logger.info(f'Waiting for backup task to complete [{name}]')
-                await task
-
-            return name
-
-        except (asyncio.CancelledError, Exception):
-            if task is not None:
-                task.cancel()
-            raise
-
-    async def getBackupInfo(self):
+    @staticmethod
+    def _backupProcHandoff(ctrlsock, callersock, srcdir, logconf, info):
         '''
-        Gets information about recent backup activity
-        '''
-        running = int((time.monotonic() - self.backmonostart) * 1000) if self.backmonostart is not None else None
+        (In a separate process) Like ``_backupProc``, but stream the backup messages
+        directly to the telepath caller by writing telepath ``t2:yield`` frames to
+        ``callersock``, while signaling capture completion to the leader on
+        ``ctrlsock`` so it can release the nexus lock.
 
-        retn = {
-            'currduration': running,
-            'laststart': int(self.backstartdt.timestamp() * 1000) if self.backstartdt else None,
-            'lastend': int(self.backenddt.timestamp() * 1000) if self.backenddt else None,
-            'lastduration': int(self.backlasttook * 1000) if self.backlasttook else None,
-            'lastsize': self.backlastsize,
-            'lastupload': int(self.backlastuploaddt.timestamp() * 1000) if self.backlastuploaddt else None,
-            'lastexception': self.backlastexc,
-        }
-
-        return retn
-
-    async def _execBackupTask(self, dirn):
+        The caller receives ``('t2:yield', {'retn': (True, <item>)})`` for each backup
+        ``(<type>, <info>)`` tuple (init/data/fini or an in-band err), terminated by
+        ``('t2:yield', {'retn': None})``.
         '''
-        A task that backs up the cell to the target directory
+        # This is a new process: configure logging
+        s_logging.setup(**logconf)
+
+        callerfile = callersock.makefile('wb')
+        ctrlfile = ctrlsock.makefile('wb')
+
+        def emit(mesg):
+            callerfile.write(s_msgpack.en(('t2:yield', {'retn': (True, mesg)})))
+
+        captured = False
+        try:
+
+            with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
+
+                # signal the leader that the snapshot is captured so it can release
+                # the nexus lock; from here we own the caller stream.
+                ctrlfile.write(s_msgpack.en(('captured', None)))
+                ctrlfile.flush()
+                captured = True
+                logger.debug('Acquired LMDB transactions')
+
+                emit(('init', info))
+                emit(('fini', _emitBackupData(lmdbinfo, srcdir, emit)))
+
+            callerfile.write(s_msgpack.en(('t2:yield', {'retn': None})))
+            callerfile.flush()
+            logger.debug('Backup process completed')
+
+        except Exception as e:
+            logger.exception(f'Error running backup of {srcdir}')
+            # once captured we own the caller stream: surface the error as an in-band
+            # ('err', ...) item plus the terminal frame so the caller's generator ends
+            # cleanly. before capture, closing ctrlsock signals the leader (which then
+            # frames the error to the caller itself).
+            if captured:
+                emit(('err', s_common.excinfo(e)))
+                callerfile.write(s_msgpack.en(('t2:yield', {'retn': None})))
+                callerfile.flush()
+
+        finally:
+            callerfile.close()
+            ctrlfile.close()
+            callersock.close()
+            ctrlsock.close()
+
+    async def _streamBackupHandoff(self, link):
         '''
-        logger.info(f'Starting backup to [{dirn}]')
+        Hand the telepath caller's socket to a backup subprocess so it streams the
+        archive (as telepath ``t2:yield`` frames) directly to the caller, taking this
+        event loop out of the per-chunk relay path.
+
+        Returns once the subprocess has streamed the whole archive (the caller then
+        raises ``DmonSpawn``). Raises ``s_exc.SynErr`` - which the daemon frames back
+        to the caller - if the subprocess fails to capture its snapshot or exits
+        abnormally mid-stream.
+        '''
+        await self._preCaptureBackup()
 
         await self.boss.promote('backup', self.auth.rootuser)
+
         slabs = s_lmdbslab.Slab.getSlabsInDir(self.dirn)
-        assert slabs
 
         ctx = multiprocessing.get_context('spawn')
 
-        mypipe, child_pipe = ctx.Pipe()
-        paths = [str(slab.path) for slab in slabs]
+        # hand off the caller's socket (see Link.getSpawnInfo): for unix/tcp this is
+        # the live client socket the child writes to directly; for tls it is one end
+        # of a socketpair bridged to the real link by an in-process relay.
+        spawninfo = await link.getSpawnInfo()
+        callersock = spawninfo['sock']
+
+        # a small control channel used only for the child's 'captured' handshake so we
+        # can release the nexus lock; the archive stream goes to the caller socket.
+        ctrl, child_ctrl = await s_link.linksock()
 
         proc = None
         logconf = self.getLogConf()
 
         try:
+            # hold the slab files stable (blocking nexus log cull/rotate) for the
+            # duration of the capture and stream.
+            async with self.holdSlabFiles():
 
-            async with self.nexslock:
+                async with self.nexslock:
 
-                logger.debug('Syncing LMDB Slabs')
+                    logger.debug('Syncing LMDB Slabs')
+                    await self.drive.sync()
 
-                await self.drive.sync()
+                    # commitDirtyNow (not syncLoopOnce) so commitpulse=False slabs
+                    # are flushed too.
+                    while True:
+                        await s_lmdbslab.Slab.commitDirtyNow()
+                        if not any(slab.dirty for slab in slabs):
+                            break
 
-                while True:
-                    await s_lmdbslab.Slab.syncLoopOnce()
-                    if not any(slab.dirty for slab in slabs):
-                        break
+                    # sample the nexus offset while quiesced under the lock so it
+                    # matches the captured snapshot exactly.
+                    nexsindx = await self.getNexsIndx()
 
-                logger.debug('Starting backup process')
+                    info = {
+                        'nexsoffs': nexsindx,
+                        'iden': self.getCellIden(),
+                        'type': self.getCellType(),
+                        'name': self._getAhaSvcName(),
+                    }
 
-                # Copy cell.guid first to ensure the backup can be deleted
-                dstdir = s_common.gendir(dirn)
-                shutil.copy(os.path.join(self.dirn, 'cell.guid'), os.path.join(dstdir, 'cell.guid'))
+                    logger.debug('Starting backup process')
 
-                args = (child_pipe, self.dirn, dirn, paths, logconf)
+                    def startproc():
+                        nonlocal proc
+                        proc = ctx.Process(target=self._backupProcHandoff,
+                                           args=(child_ctrl, callersock, self.dirn, logconf, info))
+                        proc.start()
+                        # drop our handles to the child's ends. the caller sock is only
+                        # ours to close when getSpawnInfo handed back a throwaway (tls);
+                        # a live client sock belongs to the daemon.
+                        child_ctrl.close()
+                        if spawninfo['closesock']:
+                            callersock.close()
 
-                def waitforproc1():
-                    nonlocal proc
-                    proc = ctx.Process(target=self._backupProc, args=args)
-                    proc.start()
-                    hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
-                    if not hasdata:
-                        raise s_exc.SynErr(mesg='backup subprocess start timed out')
-                    data = mypipe.recv()
-                    assert data == 'captured'
+                    await s_coro.executor(startproc)
 
-                await s_coro.executor(waitforproc1)
+                    # wait for the child to capture (pin its read txns) before we
+                    # release the nexus lock so the snapshot matches nexsindx.
+                    try:
+                        mesg = await asyncio.wait_for(ctrl.rx(), timeout=self.BACKUP_SPAWN_TIMEOUT)
+                    except asyncio.TimeoutError:
+                        raise s_exc.SynErr(mesg='backup subprocess start timed out') from None
 
-            def waitforproc2():
-                proc.join()
-                if proc.exitcode:
-                    raise s_exc.SpawnExit(code=proc.exitcode)
+                    if mesg is None or mesg[0] != 'captured':
+                        raise s_exc.SynErr(mesg='backup subprocess did not capture its read transactions')
 
-            await s_coro.executor(waitforproc2)
-            proc = None
+                # nexus lock released; the child streams directly to the caller. hold
+                # the slab files until it finishes.
+                await s_coro.executor(proc.join)
 
-            logger.info(f'Backup completed to [{dirn}]')
-            return
+                if proc.exitcode != 0:
+                    raise s_exc.SynErr(mesg='backup subprocess exited abnormally during streaming')
 
-        except (asyncio.CancelledError, Exception):
-            logger.exception(f'Error performing backup to [{dirn}]')
-            raise
+                proc = None
 
         finally:
-            if proc:
-                proc.terminate()
+            await ctrl.fini()
 
-    @staticmethod
-    def _backupProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
+            if proc is not None:
+                def killproc():
+                    proc.terminate()
+                    proc.join()
+
+                await s_coro.executor(killproc)
+
+            child_ctrl.close()
+            if spawninfo['closesock']:
+                callersock.close()
+
+    async def initBackupStream(self):
         '''
-        (In a separate process) Actually do the backup
+        Take a live backup and stream it as a sequence of typed messages.
+
+        Yields:
+            (str, object): ``(mesgtype, info)`` tuples. The sequence is a single ``init``
+            message, followed by any number of ``data`` messages, terminated by either a
+            ``fini`` or an ``err`` message:
+
+                - ``('init', {'nexsoffs', 'iden', 'type', 'name'})`` - metadata known before
+                  streaming, including the nexus offset the snapshot corresponds to.
+                - ``('data', <bytes>)`` - a chunk of the compressed (zip) archive.
+                - ``('fini', {'size', 'sha256', 'rawsize'})`` - total compressed size and sha256 of
+                  the streamed archive, plus ``rawsize`` (the uncompressed size of the archive
+                  contents); only known once generation completes.
+                - ``('err', {...excinfo})`` - streaming failed after the init message; the
+                  info is the inlined ``s_common.excinfo`` dict.
         '''
-        # This is a new process: configure logging
-        s_logging.setup(**logconf)
-        try:
+        await self._preCaptureBackup()
 
-            with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
-                pipe.send('captured')
-                logger.debug('Acquired LMDB transactions')
-                s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)
-        except Exception:
-            logger.exception(f'Error running backup of {srcdir}')
-            raise
+        await self.boss.promote('backup', self.auth.rootuser)
 
-        logger.debug('Backup process completed')
-
-    def _reqBackConf(self):
-        if self.backdirn is None:
-            mesg = 'Backup APIs require the backup:dir config option is set'
-            raise s_exc.NeedConfValu(mesg=mesg)
-
-    async def delBackup(self, name):
-
-        self._reqBackConf()
-        path = self._reqBackDirn(name)
-
-        cellguid = os.path.join(path, 'cell.guid')
-        if not os.path.isfile(cellguid):
-            mesg = 'Specified backup path has no cell.guid file.'
-            raise s_exc.BadArg(mesg=mesg)
-        logger.info(f'Removing backup for [{path}]')
-        await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
-        logger.info(f'Backup removed from [{path}]')
-
-    async def getBackups(self):
-        self._reqBackConf()
-        backups = []
-
-        def walkpath(path):
-
-            for name in os.listdir(path):
-
-                full = os.path.join(path, name)
-                cellguid = os.path.join(full, 'cell.guid')
-
-                if os.path.isfile(cellguid):
-                    backups.append(os.path.relpath(full, self.backdirn))
-                    continue
-
-                if os.path.isdir(full):
-                    walkpath(full)
-
-        walkpath(self.backdirn)
-        return backups
-
-    async def _streamBackupArchive(self, path, user, name):
-        link = s_scope.get('link')
-        if link is None:
-            mesg = 'Link not found in scope. This API must be called via a CellApi.'
-            raise s_exc.SynErr(mesg=mesg)
-
-        logconf = self.getLogConf()
-        linkinfo = await link.getSpawnInfo()
-
-        await self.boss.promote('backup:stream', user=user, info={'name': name})
+        slabs = s_lmdbslab.Slab.getSlabsInDir(self.dirn)
 
         ctx = multiprocessing.get_context('spawn')
 
-        def getproc():
-            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, logconf))
-            proc.start()
-            return proc
+        # the child streams msgpack (type, info) messages on the socket; a Link
+        # wraps our end and decodes them (rx() reads and unpacks incrementally,
+        # and the OS socket buffer provides backpressure to the child).
+        link, child_sock = await s_link.linksock()
 
-        mesg = 'Streaming complete'
-        proc = await s_coro.executor(getproc)
-        cancelled = False
-        try:
-            await s_coro.executor(proc.join)
-            self.backlastuploaddt = datetime.datetime.now()
-            logger.debug(f'Backup streaming completed successfully for {name}')
-
-        except asyncio.CancelledError:
-            logger.warning('Backup streaming was cancelled.')
-            cancelled = True
-            raise
-
-        except Exception as e:
-            logger.exception('Error during backup streaming.')
-            mesg = repr(e)
-            raise
-
-        finally:
-            proc.terminate()
-
-            if not cancelled:
-                raise s_exc.DmonSpawn(mesg=mesg)
-
-    async def iterBackupArchive(self, name, user):
-        path = self._reqBackDirn(name)
-        cellguid = os.path.join(path, 'cell.guid')
-        if not os.path.isfile(cellguid):
-            mesg = 'Specified backup path has no cell.guid file.'
-            raise s_exc.BadArg(mesg=mesg, arg='path', valu=path)
-        await self._streamBackupArchive(path, user, name)
-
-    async def _removeStreamingBackup(self, path):
-        logger.debug(f'Removing {path}')
-        await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
-        logger.debug(f'Removed {path}')
-        self.backupstreaming = False
-
-    async def iterNewBackupArchive(self, user, name=None, remove=False):
-
-        if self.backupstreaming:
-            raise s_exc.BackupAlreadyRunning(mesg='Another streaming backup is already running')
+        proc = None
+        logconf = self.getLogConf()
 
         try:
-            if remove:
-                self.backupstreaming = True
+            # hold the slab files stable (blocking nexus log cull/rotate) for the
+            # duration of the capture and stream.
+            async with self.holdSlabFiles():
 
-            if name is None:
-                name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
+                async with self.nexslock:
 
-            path = self._reqBackDirn(name)
-            if os.path.isdir(path):
-                mesg = 'Backup with name already exists'
-                raise s_exc.BadArg(mesg=mesg)
+                    logger.debug('Syncing LMDB Slabs')
+                    await self.drive.sync()
 
-            await self.runBackup(name)
-            await self._streamBackupArchive(path, user, name)
+                    # commitDirtyNow (not syncLoopOnce) so commitpulse=False slabs
+                    # are flushed too.
+                    while True:
+                        await s_lmdbslab.Slab.commitDirtyNow()
+                        if not any(slab.dirty for slab in slabs):
+                            break
+
+                    # sample the nexus offset while quiesced under the lock so it
+                    # matches the captured snapshot exactly.
+                    nexsindx = await self.getNexsIndx()
+
+                    # the metadata known before streaming; passed to the child so it
+                    # can emit it directly in its 'init' message.
+                    info = {
+                        'nexsoffs': nexsindx,
+                        'iden': self.getCellIden(),
+                        'type': self.getCellType(),
+                        'name': self._getAhaSvcName(),
+                    }
+
+                    logger.debug('Starting backup process')
+
+                    def startproc():
+                        nonlocal proc
+                        proc = ctx.Process(target=self._backupProc, args=(child_sock, self.dirn, logconf, info))
+                        proc.start()
+                        # close our handle to the child's socket end so a child exit
+                        # is observable as EOF.
+                        child_sock.close()
+
+                    await s_coro.executor(startproc)
+
+                    # the child pins its read transactions before sending 'init';
+                    # we hold the nexus lock until we receive it so the snapshot
+                    # matches nexsindx exactly.
+                    try:
+                        mesg = await asyncio.wait_for(link.rx(), timeout=self.BACKUP_SPAWN_TIMEOUT)
+                    except asyncio.TimeoutError:
+                        raise s_exc.SynErr(mesg='backup subprocess start timed out') from None
+
+                    if mesg is None or mesg[0] != 'init':
+                        raise s_exc.SynErr(mesg='backup subprocess did not pin its read transactions')
+
+                # yield the child's init message directly now that the nexus lock is
+                # released.
+                yield mesg
+
+                # yield the child's ('data', ...) / ('fini', ...) / ('err', ...)
+                # messages directly, terminating on fini or err.
+                try:
+                    while True:
+                        mesg = await link.rx()
+                        if mesg is None:
+                            mesg = 'backup subprocess exited without completing the archive'
+                            raise s_exc.SynErr(mesg=mesg)
+
+                        yield mesg
+
+                        if mesg[0] == 'err':
+                            return
+
+                        if mesg[0] == 'fini':
+                            await s_coro.executor(proc.join)
+                            proc = None
+                            return
+
+                except (asyncio.CancelledError, Exception) as e:
+                    logger.exception('Error during backup streaming.')
+                    yield ('err', s_common.excinfo(e))
+                    return
 
         finally:
-            if remove:
-                self.removetask = asyncio.create_task(self._removeStreamingBackup(path))
-                await asyncio.shield(self.removetask)
+            await link.fini()
+
+            if proc is not None:
+                def killproc():
+                    proc.terminate()
+                    proc.join()
+
+                await s_coro.executor(killproc)
+
+            child_sock.close()
 
     async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
         user = self.auth.user(iden)  # type: s_auth.User
@@ -3494,7 +3511,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if info:
             return info
 
-    @s_nexus.Pusher.onPushAuto('http:sess:add')
+    @s_nexus.Pusher.onPushAuto('http:sess:add', reader=False)
     async def addHttpSess(self, iden, info):
         for name, valu in info.items():
             self.sessstor.set(iden, name, valu)
@@ -3503,7 +3520,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def delHttpSess(self, iden):
         await self._push('http:sess:del', iden)
 
-    @s_nexus.Pusher.onPush('http:sess:del')
+    @s_nexus.Pusher.onPush('http:sess:del', reader=False)
     async def _delHttpSess(self, iden):
         await self.sessstor.del_(iden)
         sess = self.sessions.pop(iden, None)
@@ -3511,14 +3528,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             sess.info.clear()
             self.schedCoro(sess.fini())
 
-    @s_nexus.Pusher.onPushAuto('http:sess:set')
+    @s_nexus.Pusher.onPushAuto('http:sess:set', reader=False)
     async def setHttpSessInfo(self, iden, name, valu):
         self.sessstor.set(iden, name, valu)
         sess = self.sessions.get(iden)
         if sess is not None:
             sess.info[name] = valu
 
-    @s_nexus.Pusher.onPushAuto('http:sess:update')
+    @s_nexus.Pusher.onPushAuto('http:sess:update', reader=False)
     async def updateHttpSessInfo(self, iden, vals: dict):
         for name, valu in vals.items():
             s_msgpack.isok(valu)
@@ -3742,8 +3759,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.onfini(self.dmon.fini)
 
-    async def _initSlabFile(self, path, readonly=False, ephemeral=False):
-        slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
+    async def _initSlabFile(self, path, readonly=False, ephemeral=False, commitpulse=None):
+        if commitpulse is None:
+            commitpulse = not self.nexuscommit
+        slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly,
+                                          commitpulse=commitpulse)
         slab.addResizeCallback(self.checkFreeSpace)
         fini = slab.fini
         if ephemeral:
@@ -3761,7 +3781,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             _slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE)
             await _slab.fini()
 
-        self.slab = await self._initSlabFile(path)
+        self.slab = await self._initSlabFile(path, readonly=readonly)
 
     async def _initCellAuth(self):
 
@@ -4383,11 +4403,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             rurl = 'https://' + rurl[len(insecure_marker):]
 
         tmppath = s_common.gendir(dirn, 'tmp')
-        tarpath = s_common.genpath(tmppath, f'restore_{rurliden}.tgz')
+        zippath = s_common.genpath(tmppath, f'restore_{rurliden}.zip')
 
         try:
 
-            with s_common.genfile(tarpath) as fd:
+            with s_common.genfile(zippath) as fd:
                 # Leave a 60 second timeout check for the connection and reads.
                 # Disable total timeout
                 timeout = aiohttp.client.ClientTimeout(
@@ -4420,15 +4440,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                                 percentage = (tsize / content_length) * 100
                                 logger.warning(f'Downloaded {tsize / s_const.megabyte:.3f} MB, {percentage:.3f}%')
 
-            logger.warning(f'Extracting {tarpath} to {dirn}')
+            logger.warning(f'Extracting {zippath} to {dirn}')
 
-            with tarfile.open(tarpath) as tgz:
-                for memb in tgz.getmembers():
-                    if memb.name.find('/') == -1:
-                        continue
-                    memb.name = memb.name.split('/', 1)[1]
-                    logger.warning(f'Extracting {memb.name}')
-                    tgz.extract(memb, dirn, filter='data')
+            with zipfile.ZipFile(zippath) as zf:
+                for zinfo in zf.infolist():
+                    # strip the leading 'backup/' archive-root component
+                    zinfo.filename = zinfo.filename.split('/', 1)[1]
+                    logger.warning(f'Extracting {zinfo.filename}')
+                    zf.extract(zinfo, dirn)
 
             # and record the rurliden
             with s_common.genfile(donepath) as fd:
@@ -4448,8 +4467,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return
 
         finally:
-            if os.path.isfile(tarpath):
-                os.unlink(tarpath)
+            if os.path.isfile(zippath):
+                os.unlink(zippath)
 
     async def _bootCellProv(self):
 
@@ -4610,7 +4629,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # SYN_PROVISION_FOLLOWER declares that a leader of our service type already
         # exists and that we must clone from it rather than ever booting fresh.
-        follower = os.environ.get('SYN_PROVISION_FOLLOWER') is not None
+        follower = s_common.envbool('SYN_PROVISION_FOLLOWER')
 
         # a fresh service under AHA bootstraps from the current leader if there
         # is an online leader registered for its service type.
@@ -4687,25 +4706,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCloneCell(self, proxy):
 
-        tarpath = s_common.genpath(self.dirn, 'tmp', 'bootstrap.tgz')
+        zippath = s_common.genpath(self.dirn, 'tmp', 'bootstrap.zip')
         try:
 
                 await proxy.readyToMirror()
-                with s_common.genfile(tarpath) as fd:
-                    async for byts in proxy.iterNewBackupArchive(remove=True):
-                        fd.write(byts)
-
-                with tarfile.open(tarpath) as tgz:
-                    for memb in tgz.getmembers():
-                        if memb.name.find('/') == -1:
+                with s_common.genfile(zippath) as fd:
+                    async for mtyp, minfo in proxy.initBackupStream():
+                        if mtyp == 'data':
+                            fd.write(minfo)
                             continue
-                        memb.name = memb.name.split('/', 1)[1]
-                        tgz.extract(memb, self.dirn, filter='data')
+
+                        if mtyp == 'err':
+                            mesg = minfo.get('errmsg', 'backup stream error')
+                            raise s_exc.SynErr(mesg=f'Error bootstrapping mirror backup: {mesg}')
+
+                with zipfile.ZipFile(zippath) as zf:
+                    for zinfo in zf.infolist():
+                        # strip the leading 'backup/' archive-root component
+                        zinfo.filename = zinfo.filename.split('/', 1)[1]
+                        zf.extract(zinfo, self.dirn)
 
         finally:
 
-            if os.path.isfile(tarpath):
-                os.unlink(tarpath)
+            if os.path.isfile(zippath):
+                os.unlink(zippath)
 
     async def _bootCellMirror(self, murl, pnfo):
         # this function must assume almost nothing is initialized
@@ -4996,7 +5020,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Yield responses from our peers via the AHA gather call API.
         '''
-        proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
+        proxy = await self.getAhaProxy(timeout=timeout)
         if proxy is None:
             return
 
@@ -5007,7 +5031,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Yield responses from invoking a generator via the AHA gather API.
         '''
-        proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
+        proxy = await self.getAhaProxy(timeout=timeout)
         if proxy is None:
             return
 
@@ -5175,8 +5199,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             A dictionary with the following keys.  All size values are in bytes:
                 - volsize - Volume where cell is running total space
                 - volfree - Volume where cell is running free space
-                - backupvolsize - Backup directory volume total space
-                - backupvolfree - Backup directory volume free space
                 - cellstarttime - Cell start time in epoch microseconds
                 - celluptime - Cell uptime in microseconds
                 - cellrealdisk - Cell's use of disk, equivalent to du
@@ -5191,12 +5213,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         uptime = time.monotonic_ns() // 1000 - self.starttime
         disk = shutil.disk_usage(self.dirn)
 
-        if self.backdirn:
-            backupdisk = shutil.disk_usage(self.backdirn)
-            backupvolsize, backupvolfree = backupdisk.total, backupdisk.free
-        else:
-            backupvolsize, backupvolfree = 0, 0
-
         myusage, myappusage = s_common.getDirSize(self.dirn)
         totalmem = s_thisplat.getTotalMemory()
         availmem = s_thisplat.getAvailableMemory()
@@ -5208,8 +5224,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = {
             'volsize': disk.total,             # Volume where cell is running total bytes
             'volfree': disk.free,              # Volume where cell is running free bytes
-            'backupvolsize': backupvolsize,    # Cell's backup directory volume total bytes
-            'backupvolfree': backupvolfree,    # Cell's backup directory volume free bytes
             'cellstarttime': self.startmicros, # Cell's start time in epoch micros
             'celluptime': uptime,              # Cell's uptime in micros
             'cellrealdisk': myusage,           # Cell's use of disk, equivalent to du
@@ -5337,7 +5351,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef.pop('shadow')
         return token, kdef
 
-    @s_nexus.Pusher.onPush('user:apikey:add')
+    @s_nexus.Pusher.onPush('user:apikey:add', reader=False)
     async def _genUserApiKey(self, kdef):
         iden = s_common.uhex(kdef.get('iden'))
         user = s_common.uhex(kdef.get('user'))
@@ -5491,7 +5505,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef.pop('shadow')
         return kdef
 
-    @s_nexus.Pusher.onPush('user:apikey:edit')
+    @s_nexus.Pusher.onPush('user:apikey:edit', reader=False)
     async def _setUserApiKey(self, user, iden, vals):
         lkey = s_common.uhex(user) + b'apikey' + s_common.uhex(iden)
         buf = self.slab.get(lkey, db=self.usermetadb)
@@ -5523,7 +5537,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                                                  status='MODIFY'))
         return ret
 
-    @s_nexus.Pusher.onPush('user:apikey:del')
+    @s_nexus.Pusher.onPush('user:apikey:del', reader=False)
     async def _delUserApiKey(self, user, iden):
         user = s_common.uhex(user)
         iden = s_common.uhex(iden)
@@ -5656,7 +5670,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning('...committing pending transactions.')
 
             await self.drive.sync()
-            await self.slab.syncLoopOnce()
+            # commitDirtyNow (not syncLoopOnce) so commitpulse=False slabs are
+            # flushed too.
+            await s_lmdbslab.Slab.commitDirtyNow()
 
             logger.warning('...flushing dirty buffers to disk.')
             await s_task.executor(os.sync)

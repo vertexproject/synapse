@@ -183,7 +183,7 @@ class Link(s_base.Base):
 
         if self.certhash is not None:
 
-            byts = info.get('ssl').telessl.getpeercert(True)
+            byts = self.writer.get_extra_info('ssl_object').getpeercert(True)
             cert = c_x509.load_der_x509_certificate(byts)
             thishash = s_common.ehex(cert.fingerprint(c_hashes.SHA256()))
             if thishash != self.certhash:
@@ -209,6 +209,13 @@ class Link(s_base.Base):
     async def getSpawnInfo(self):
         info = {}
 
+        # closesock signals whether the returned sock is a throwaway the caller
+        # owns (and must close once it has handed the fd off) or the live link
+        # socket the caller must NOT close. A TLS link cannot hand off its own
+        # encrypted socket, so we return one end of a fresh socketpair bridged
+        # to the real link by the relay below; that end is the caller's to close.
+        closesock = False
+
         # selectively add info for pickle...
         if self.info.get('unix'):
             info['unix'] = True
@@ -227,6 +234,7 @@ class Link(s_base.Base):
                         await self.send(byts)
 
             self.schedCoro(relay(link0))
+            closesock = True
 
         else:
             sock = self.reader._transport._sock
@@ -234,6 +242,7 @@ class Link(s_base.Base):
         return {
             'info': info,
             'sock': sock,
+            'closesock': closesock,
         }
 
     def getAddrInfo(self):

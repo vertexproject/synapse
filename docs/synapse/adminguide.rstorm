@@ -21,9 +21,8 @@ Synapse provides a number of additional methods that can be used to perform some
 described in this guide; however, these methods are **not** covered here. Additional methods include:
 
 - :ref:`stormtypes-libs-header` that allow you to work with a broad range of objects in Synapse.
-- Synapse tools that can be used from the host CLI (as opposed to the Storm CLI). Tools are available in
-  the :mod:`synapse.tools` package of the :ref:`apidocs`. The :ref:`userguide` includes documentation on
-  some of these :ref:`userguide_tools`.
+- Synapse tools that can be used from the host CLI (as opposed to the Storm CLI). The :ref:`userguide`
+  includes documentation on some of these :ref:`userguide_tools`.
 - The :ref:`http-api`.
 
 .. TIP::

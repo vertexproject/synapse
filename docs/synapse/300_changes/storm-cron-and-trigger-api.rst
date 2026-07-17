@@ -68,17 +68,17 @@ What changed
     In 2.x ``cron.mod <iden> [<query>] [--period ...]`` could only change the query and/or period, and the
     standalone commands ``cron.move``, ``cron.enable``, and ``cron.disable`` handled the rest. In 3.x ``cron.move``,
     ``cron.enable``, and ``cron.disable`` are removed; their behavior folds into ``cron.mod``, which now takes
-    ``<iden>`` plus the flags ``--view``, ``--storm``, ``--user``, ``--doc``, ``--name``, ``--pool``,
+    ``<iden>`` plus the flags ``--view``, ``--storm``, ``--user``, ``--doc``, ``--name``,
     ``--enabled``, ``--loglevel``, and ``--period``. The 3.x cron command set is add/at/del/mod/cleanup/list/stat.
 
     ``$lib.cron`` lost the ``move()``, ``enable()``, and ``disable()`` methods and now exposes only ``at``, ``add``,
     ``del``, ``get``, ``mod``, and ``list``. ``$lib.cron.mod(prefix, edits)`` now takes a single ``edits`` dict
     instead of a positional query. Allowed edit keys are ``storm``, ``reqs``, ``incunit``, ``incvals``, ``name``,
-    ``enabled``, ``pool``, ``affinity``, ``doc``, ``loglevel``, ``user``, and ``view`` (a ``period`` key is parsed
+    ``enabled``, ``affinity``, ``doc``, ``loglevel``, ``user``, and ``view`` (a ``period`` key is parsed
     into ``reqs``/``incunit``/``incvals``); any other key raises ``BadOptValu``.
 
 Why
-    Consolidating all cron mutation through one dict-based edit path lets a user change view/user/pool/enabled/
+    Consolidating all cron mutation through one dict-based edit path lets a user change view/user/enabled/
     loglevel/doc/name/storm/period in one command and removes the need for separate move/enable/disable commands
     and methods.
 

@@ -17,6 +17,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.cell as s_cell
 import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
@@ -174,8 +175,24 @@ async def getCell(ctor, conf):
     loc = s_dyndeps.getDynLocal(ctor)
     if loc is None:
         raise s_exc.NoSuchCtor(mesg=f'Unable to resolve ctor [{ctor}]', ctor=ctor)
+
+    # Build the cell config explicitly (rather than handing anit() a bare dict) so
+    # that SYN_<CELL>_* environment variables are honored, matching production boot
+    # behavior. The caller-provided conf takes precedence over the environment. Not
+    # every rstorm ctor is a real Cell (some doc-only ctors are lightweight test
+    # doubles with a custom anit()) -- fall back to the bare conf dict for those,
+    # since they never supported env-var overrides in the first place.
+    if issubclass(loc, s_cell.Cell):
+        cellconf = loc.initCellConf()
+        for name, valu in conf.items():
+            cellconf.setdefault(name, valu)
+
+        cellconf.setConfFromEnvs()
+    else:
+        cellconf = conf
+
     with s_common.getTempDir() as dirn:
-        async with await loc.anit(dirn, conf=conf) as cell:
+        async with await loc.anit(dirn, conf=cellconf) as cell:
             yield cell
 
 class StormRst(s_base.Base):

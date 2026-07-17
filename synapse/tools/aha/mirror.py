@@ -94,13 +94,6 @@ async def main(argv, outp=s_output.stdout):
     async with s_telepath.withTeleEnv():
         try:
             async with await s_telepath.openurl(opts.url) as prox:
-                try:
-                    if not prox._hasTeleFeat('callpeers', vers=1):
-                        outp.printf(f'Service at {opts.url} does not support the required callpeers feature.')
-                        return 1
-                except s_exc.NoSuchMeth:
-                    outp.printf(f'Service at {opts.url} does not support the required callpeers feature.')
-                    return 1
                 classes = prox._getClasses()
                 if 'synapse.lib.aha.AhaApi' not in classes:
                     outp.printf(f'Service at {opts.url} is not an Aha server')

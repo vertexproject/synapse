@@ -757,6 +757,49 @@ class Array(Type):
         for oper in ('=', '<', '>', '<=', '>='):
             self.virtlifts['size'][oper] = self._storLiftSize
 
+        # Range comparisons on the whole array value don't make sense (the
+        # storage layer's range lifter assumes scalar-orderable bounds and
+        # leaks a raw TypeError on array-shaped values); :size range= above
+        # is unaffected since it operates on a plain int, not the array itself.
+        self.storlifts.pop('range=', None)
+        self._cmpr_ctors.pop('range=', None)
+
+    async def getStorCmprs(self, cmpr, valu, virt=None):
+
+        if (virt is None and cmpr != '?=' and self.splitstr is None
+                and not isinstance(valu, (list, tuple))):
+            mesg = ('Array properties cannot be lifted with a bare value; use array '
+                     f'element syntax instead, e.g. *[{cmpr} <valu>]')
+            if cmpr == '=':
+                mesg += ', or provide the complete list of values to match the whole array.'
+            else:
+                mesg += '.'
+            raise s_exc.BadCmprType(name=self.name, mesg=mesg)
+
+        return await super().getStorCmprs(cmpr, valu, virt=virt)
+
+    async def _ctorCmprRe(self, text):
+        # A split-less array has no meaningful whole-array string repr (see
+        # repr()), so a '~=' filter against the bare array value can't be
+        # evaluated; point the user at array element filter syntax instead of
+        # leaking a TypeError from regex.search() on a list. Split arrays keep
+        # the inherited (joined string) behavior, which already works correctly.
+        if self.splitstr is not None:
+            return await super()._ctorCmprRe(text)
+
+        mesg = ('Array properties cannot be filtered with a bare value using \'~=\'; use array '
+                'element filter syntax instead, e.g. +prop*[~= <valu>].')
+        raise s_exc.BadCmprType(name=self.name, mesg=mesg)
+
+    async def _ctorCmprPref(self, valu):
+        # See _ctorCmprRe above -- same reasoning for '^='.
+        if self.splitstr is not None:
+            return await super()._ctorCmprPref(valu)
+
+        mesg = ('Array properties cannot be filtered with a bare value using \'^=\'; use array '
+                'element filter syntax instead, e.g. +prop*[^= <valu>].')
+        raise s_exc.BadCmprType(name=self.name, mesg=mesg)
+
     def _getSize(self, valu):
         return len(valu[0])
 
@@ -778,7 +821,7 @@ class Array(Type):
 
     async def _normPyStr(self, text, view=None):
         if self.splitstr is None:
-            mesg = f'{self.name} type has no split-char defined.'
+            mesg = 'Array values must be provided as a list of values, not a single string.'
             raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
         parts = [p.strip() for p in text.split(self.splitstr)]
         return await self._normPyTuple(parts, view=view)

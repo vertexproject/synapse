@@ -19,9 +19,6 @@ class StormCellTest(s_test.SynTest):
             ret = await core.callStorm('return ( $lib.cell.getCellInfo() )')
             self.eq(ret, await core.getCellInfo())
 
-            ret = await core.callStorm('return ( $lib.cell.getBackupInfo() )')
-            self.eq(ret, await core.getBackupInfo())
-
             ret = await core.callStorm('return ( $lib.cell.getSystemInfo() )')
             tst = await core.getSystemInfo()
             self.eq(set(ret.keys()), set(tst.keys()))
@@ -46,9 +43,6 @@ class StormCellTest(s_test.SynTest):
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.cell.getCellInfo() )', opts=opts)
-
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return ( $lib.cell.getBackupInfo() )', opts=opts)
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.cell.getSystemInfo() )', opts=opts)

@@ -1765,6 +1765,40 @@ modeldefs = (
                 'ex': '1001',
                 'doc': 'A POSIX user or group ID.'}),
 
+            ('it:os:posix:cron', ('guid', {}), {
+                'template': {'title': 'cron job'},
+                'interfaces': (
+                    ('file:entry', {}),
+                    ('meta:usable', {}),
+                    ('base:activity', {}),
+                ),
+                'props': (
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host on which the cron job was configured.'}),
+
+                    ('cmd', ('it:cmd', {}), {
+                        'doc': 'The command which the cron job runs.'}),
+
+                    ('schedule', ('it:dev:str', {}), {
+                        'doc': 'The cron schedule string.'}),
+
+                    ('account', ('it:host:posix:account', {}), {
+                        'doc': 'The account which the cron job runs as.'}),
+
+                    ('period', ('it:lifespan', {}), {
+                        'doc': 'The period when the cron job entry existed.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'A description of the cron job entry.'}),
+
+                    ('path', None, {
+                        'doc': 'The path to the cron file which contained the job.'}),
+
+                    ('file', None, {
+                        'doc': 'The cron file which contains the job definition.'}),
+                ),
+                'doc': 'A cron job entry configured on a host.'}),
+
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
             ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
                 'ex': 'S-1-5-21-1220945662-1202665555-839525555-5555',
@@ -1890,9 +1924,6 @@ modeldefs = (
 
                     ('cmd', ('it:cmd', {}), {
                         'doc': 'The command string used to launch the process.'}),
-
-                    ('cmd:history', ('it:cmd:history', {}), {
-                        'doc': 'The command history entry which caused this process to be run.'}),
 
                     ('pid', ('int', {}), {
                         'doc': 'The process ID.'}),
@@ -2088,19 +2119,23 @@ modeldefs = (
                 ),
                 'doc': 'A command line session with multiple commands run over time.'}),
 
-            ('it:cmd:history', ('guid', {}), {
+            ('it:exec:command', ('guid', {}), {
+                'template': {'title': 'command execution'},
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
                 'props': (
                     ('cmd', ('it:cmd', {}), {
                         'doc': 'The command that was executed.'}),
 
                     ('session', ('it:cmd:session', {}), {
-                        'doc': 'The session that contains this history entry.'}),
-
-                    ('time', ('time', {}), {
-                        'doc': 'The time that the command was executed.'}),
+                        'doc': 'The session that contains this command execution.'}),
 
                     ('index', ('int', {}), {
                         'doc': 'Used to order the commands when times are not available.'}),
+
+                    ('output', ('text', {}), {
+                        'doc': 'The output of the command.'}),
                 ),
                 'doc': 'A single command executed within a session.'}),
 

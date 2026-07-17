@@ -55,10 +55,8 @@ class StormLibPkgTest(s_test.SynTest):
             pkgdef = {
                 'name': 'bazfaz',
                 'version': '2.2.2',
-                'depends': {
-                    'conflicts': (
-                        {'name': 'foobar'},
-                    ),
+                'conflicts': {
+                    'foobar': {},
                 }
             }
 
@@ -76,10 +74,8 @@ class StormLibPkgTest(s_test.SynTest):
             pkgdef = {
                 'name': 'bazfaz',
                 'version': '2.2.2',
-                'depends': {
-                    'conflicts': (
-                        {'name': 'foobar', 'version': '>=1.0.0', 'desc': 'foo'},
-                    ),
+                'conflicts': {
+                    'foobar': {'version': '>=1.0.0', 'desc': 'foo'},
                 }
             }
 
@@ -97,24 +93,29 @@ class StormLibPkgTest(s_test.SynTest):
             pkgdef = {
                 'name': 'bazfaz',
                 'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0'},
-                    ),
+                'dependencies': {
+                    'foobar': {'version': '>=2.0.0,<3.0.0'},
                 }
             }
 
-            with self.getLoggerStream('synapse.cortex') as stream:
+            with self.raises(s_exc.StormPkgRequires) as cm:
                 await core.addStormPkg(pkgdef)
-                await stream.expect('bazfaz requirement', timeout=1)
+            self.isin('bazfaz requirement foobar>=2.0.0,<3.0.0 is currently unmet', str(cm.exception))
+
+            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
+            self.eq({
+                'requires': (
+                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'desc': None,
+                     'ok': False, 'actual': '1.2.3', 'optional': False},
+                ),
+                'conflicts': ()
+            }, deps)
 
             pkgdef = {
                 'name': 'bazfaz',
                 'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'optional': True},
-                    ),
+                'dependencies': {
+                    'foobar': {'version': '>=2.0.0,<3.0.0', 'optional': True},
                 }
             }
 
@@ -147,13 +148,11 @@ class StormLibPkgTest(s_test.SynTest):
             pkgdef = {
                 'name': 'bazfaz',
                 'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'desc': 'lol'},
-                    ),
-                    'conflicts': (
-                        {'name': 'foobar', 'version': '>=3.0.0'},
-                    ),
+                'dependencies': {
+                    'lolzlolz': {'version': '>=1.0.0,<2.0.0', 'desc': 'lol'},
+                },
+                'conflicts': {
+                    'foobar': {'version': '>=3.0.0'},
                 }
             }
 
@@ -162,7 +161,8 @@ class StormLibPkgTest(s_test.SynTest):
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
                 'requires': (
-                    {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'desc': 'lol', 'ok': True, 'actual': '1.2.3'},
+                    {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'desc': 'lol', 'ok': True, 'actual': '1.2.3',
+                     'optional': False},
                 ),
                 'conflicts': (
                     {'name': 'foobar', 'version': '>=3.0.0', 'desc': None, 'ok': True, 'actual': '1.2.3'},
@@ -172,13 +172,11 @@ class StormLibPkgTest(s_test.SynTest):
             pkgdef = {
                 'name': 'zoinkszoinks',
                 'version': '2.2.2',
-                'depends': {
-                    'requires': (
-                        {'name': 'newpnewp', 'version': '1.2.3'},
-                    ),
-                    'conflicts': (
-                        {'name': 'newpnewp'},
-                    ),
+                'dependencies': {
+                    'newpnewp': {'version': '1.2.3', 'optional': True},
+                },
+                'conflicts': {
+                    'newpnewp': {},
                 }
             }
 
@@ -187,7 +185,8 @@ class StormLibPkgTest(s_test.SynTest):
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
                 'requires': (
-                    {'name': 'newpnewp', 'version': '1.2.3', 'desc': None, 'ok': False, 'actual': None},
+                    {'name': 'newpnewp', 'version': '1.2.3', 'desc': None, 'ok': False, 'actual': None,
+                     'optional': True},
                 ),
                 'conflicts': (
                     {'name': 'newpnewp', 'version': None, 'desc': None, 'ok': True, 'actual': None},

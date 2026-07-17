@@ -1,7 +1,10 @@
 name: acme-hello
 version: 0.0.1
 
-synapse_version: '>=3.0.0b2,<4.0.0'
+dependencies:
+  synapse:
+    version: '>=3.0.0b3,<4.0.0'
+
 genopts:
     dotstorm: true # Specify that storm command/module files end with ".storm"
 

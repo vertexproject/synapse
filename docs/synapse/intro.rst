@@ -90,7 +90,7 @@ scheduled cron jobs, or stored macros.
 **API Access**
 
 Synapse includes multiple well-documented APIs for interacting with the data store and other
-Synapse components. (See :ref:`http-api` and :ref:`apidocs`.)
+Synapse components (see :ref:`http-api`).
  
 **Lightning Fast Performance**
 
@@ -127,7 +127,6 @@ What's Next?
 +----------------------+-----------------------------------------------+
 | **Developers**       | - :ref:`devguide`                             |
 |                      | - :ref:`http-api`                             |
-|                      | - :ref:`apidocs`                              |
 |                      | - :ref:`dm-index`                             |
 |                      | - :ref:`stormtypes_index`                     |
 +----------------------+-----------------------------------------------+

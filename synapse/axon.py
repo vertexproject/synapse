@@ -12,6 +12,7 @@ import aiohttp_socks
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
@@ -36,7 +37,7 @@ MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
 
 class AxonHandlerMixin:
-    def getAxon(self):
+    async def getAxon(self):
         '''
         Get a reference to the Axon interface used by the handler.
         '''
@@ -53,7 +54,7 @@ class AxonHttpUploadV3(AxonHandlerMixin, s_httpapi.StreamHandler):
         # max_body_size defaults to 100MB and requires a value
         self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)
 
-        self.upfd = await self.getAxon().upload()
+        self.upfd = await (await self.getAxon()).upload()
         self.hashset = s_hashset.HashSet()
 
     async def data_received(self, chunk):
@@ -64,7 +65,7 @@ class AxonHttpUploadV3(AxonHandlerMixin, s_httpapi.StreamHandler):
 
     def on_finish(self):
         if self.upfd is not None and not self.upfd.isfini:
-            self.getAxon().schedCoroSafe(self.upfd.fini())
+            self.cell.schedCoroSafe(self.upfd.fini())
 
     def on_connection_close(self):
         self.on_finish()
@@ -97,7 +98,7 @@ class AxonHttpHasV3(AxonHandlerMixin, s_httpapi.Handler):
     async def get(self, sha256):
         if not await self.allowed(('axon', 'has')):
             return
-        resp = await self.getAxon().has(s_common.uhex(sha256))
+        resp = await (await self.getAxon()).has(s_common.uhex(sha256))
         return self.sendRestRetn(resp)
 
 reqValidAxonDel = s_config.getJsValidator({
@@ -125,19 +126,19 @@ class AxonHttpDelV3(AxonHandlerMixin, s_httpapi.Handler):
 
         sha256s = body.get('sha256s')
         hashes = [s_common.uhex(s) for s in sha256s]
-        resp = await self.getAxon().dels(hashes)
+        resp = await (await self.getAxon()).dels(hashes)
         return self.sendRestRetn(tuple(zip(sha256s, resp)))
 
 class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
 
     async def getAxonInfo(self):
-        return await self.getAxon().getCellInfo()
+        return await (await self.getAxon()).getCellInfo()
 
     async def _setSha256Headers(self, sha256b):
 
         self.ranges = []
 
-        self.blobsize = await self.getAxon().size(sha256b)
+        self.blobsize = await (await self.getAxon()).size(sha256b)
         if self.blobsize is None:
             self.sendRestErr('NoSuchFile', f'SHA-256 not found: {s_common.ehex(sha256b)}',
                              status_code=s_httpapi.HTTPStatus.NOT_FOUND)
@@ -204,19 +205,21 @@ class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
 
     async def _sendSha256Byts(self, sha256b):
 
+        axon = await self.getAxon()
+
         # a single range is simple...
         if self.ranges:
             # TODO eventually support multi-range returns
             soff, eoff = self.ranges[0]
             size = eoff - soff
-            async for byts in self.getAxon().get(sha256b, offs=soff, size=size):
+            async for byts in axon.get(sha256b, offs=soff, size=size):
                 self.write(byts)
                 await self.flush()
                 await asyncio.sleep(0)
             return
 
         # standard file return
-        async for byts in self.getAxon().get(sha256b):
+        async for byts in axon.get(sha256b):
             self.write(byts)
             await self.flush()
             await asyncio.sleep(0)
@@ -260,12 +263,13 @@ class AxonHttpBySha256V3(AxonFileHandler):
             return
 
         sha256b = s_common.uhex(sha256)
-        if not await self.getAxon().has(sha256b):
+        axon = await self.getAxon()
+        if not await axon.has(sha256b):
             self.sendRestErr('NoSuchFile', f'SHA-256 not found: {sha256}',
                              status_code=s_httpapi.HTTPStatus.NOT_FOUND)
             return
 
-        resp = await self.getAxon().del_(sha256b)
+        resp = await axon.del_(sha256b)
         return self.sendRestRetn(resp)
 
 class AxonHttpBySha256InvalidV3(AxonFileHandler):
@@ -846,7 +850,6 @@ class Axon(s_cell.Cell):
         # out of the gate.
         self.features.update({
             'byterange': int(self.byterange),
-            'unpack': 1,
         })
 
     async def initServiceRuntime(self):
@@ -1887,6 +1890,94 @@ class Axon(s_cell.Cell):
                     'reason': reason,
                     'err': err,
                 }
+
+class HasAxon:
+    '''
+    Mixin for a Cell which uses an Axon. When the Cell is an AHA client the
+    Axon is resolved by service type ( aha://axon... ); otherwise an embedded
+    Axon is created under the cell directory and reached via its local url.
+    Either way a telepath client is created and getAxon() returns a live proxy,
+    so embedded and remote deployments exercise the same path. Use getAxon() /
+    getAxonInfo() rather than the underlying objects.
+    '''
+    # constructor for the embedded Axon. subclasses may override to boot an
+    # alternative embedded implementation ( eg an enterprise Axon ).
+    _has_axon_ctor = Axon.anit
+
+    async def initServiceStorage(self):
+
+        self._has_axon = None
+        self._has_axoninfo = {}
+
+        # NEVER reach for self._has_axon* directly. getAxon() returns a proxy to
+        # the axon ( embedded or remote ) via the telepath client.
+        if self.ahaclient is None and self.readonly:
+            # a readonly cell shares the writer's dirn and must not run its own
+            # embedded axon. point the client at the leader's embedded axon
+            # socket so consumers reach the axon without proxying through the
+            # leader.
+            aurl = f'cell://{os.path.join(self.dirn, "axon")}'
+
+        elif self.ahaclient is None:
+            path = os.path.join(self.dirn, 'axon')
+            # the embedded axon does not run its own host sysctl checks
+            conf = {'health:sysctl:checks': False}
+
+            proxyurl = self.conf.get('http:proxy')
+            if proxyurl is not None:
+                conf['http:proxy'] = proxyurl
+
+            cadir = self.conf.get('tls:ca:dir')
+            if cadir is not None:
+                conf['tls:ca:dir'] = cadir
+
+            # parent=self makes the embedded axon a nexus-sharing child so its
+            # writes ride the host cell's nexus and replicate to mirrors.
+            self._has_axon = await self._has_axon_ctor(path, conf=conf, parent=self)
+            self.onfini(self._has_axon.fini)
+            self.dynitems['axon'] = self._has_axon
+
+            await self._initEmbeddedAxon(self._has_axon)
+
+            aurl = self._has_axon.getLocalUrl()
+
+        else:
+            aurl = 'aha://axon...'
+
+        self._has_axon_client = await s_telepath.ClientV2.anit(aurl, onlink=self._onLinkAxon)
+        self.onfini(self._has_axon_client)
+
+        # set up our axon before delegating so the rest of the storage init
+        # chain ( or an updated pattern ) can rely on getAxon(). return the
+        # parent result in case the callback ever produces one.
+        return await super().initServiceStorage()
+
+    async def _initEmbeddedAxon(self, axon):
+        # hook invoked with the freshly created embedded Axon. subclasses may
+        # override to run inaugural-style setup.
+        pass
+
+    async def _onLinkAxon(self, proxy, urlinfo):
+        # default onlink handler for the axon client; refreshes the cached cell
+        # info on every (re)connect. subclasses may override to react to
+        # (re)connects and should call super()._onLinkAxon(...) to keep the cache.
+        logger.debug('Connected to axon')
+        self._has_axoninfo = await proxy.getCellInfo()
+
+    async def getAxon(self, timeout=None):
+        # returns a live proxy to the axon ( embedded or remote ) so callers get
+        # a uniform, prod-equivalent method-call interface.
+        return await self._has_axon_client.proxy(timeout=timeout)
+
+    async def getAxonInfo(self):
+        # lazily resolve and cache the axon cell info. the onlink handler
+        # refreshes it on (re)connect; if it is not populated yet we await a
+        # proxy to fetch it here.
+        if not self._has_axoninfo:
+            axon = await self.getAxon()
+            self._has_axoninfo = await axon.getCellInfo()
+
+        return self._has_axoninfo
 
 def _spawn_readlines(sock, errors='ignore'): # pragma: no cover
     try:

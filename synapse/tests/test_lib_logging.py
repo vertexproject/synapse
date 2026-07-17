@@ -88,6 +88,84 @@ class LoggingTest(s_test.SynTest):
         rtime = int(record.created * 1e6)
         self.lt(rtime - now, 1e3)
 
+    async def test_lib_logging_inject(self):
+
+        # Ensure we're starting the test from a clean slate
+        self.none(s_logging.StreamHandler._pump_task)
+
+        # setup() starts the pump via ensurePump()
+        s_logging.setup()
+        self.nn(s_logging.StreamHandler._pump_task)
+
+        # ensurePump is idempotent while the pump is already running
+        pumptask = s_logging.StreamHandler._pump_task
+        s_logging.ensurePump()
+        self.eq(pumptask, s_logging.StreamHandler._pump_task)
+
+        # ensurePump does nothing when there is no running loop (the worker
+        # spawner configures logging before its loop exists)
+        s_logging.reset()
+        self.none(s_logging.StreamHandler._pump_task)
+        with mock.patch.object(s_coro, 'has_running_loop', lambda: False):
+            s_logging.ensurePump()
+            self.none(s_logging.StreamHandler._pump_task)
+
+        # bring the pump back up for the injection stream
+        s_logging.setup()
+
+        msgs = []
+        evnt0 = asyncio.Event()
+        evnt1 = asyncio.Event()
+
+        async def collector():
+            evnt0.set()
+            # last=0 seeds no history and streams only new records
+            async for m in s_logging.watch(last=0):
+                if m.get('message', '').startswith('injected'):
+                    msgs.append(m)
+                    if m['message'] == 'injected1':
+                        break
+            evnt1.set()
+            return True
+
+        self.len(0, s_logging._log_wins)
+
+        task = s_coro.create_task(collector())
+        await asyncio.wait_for(evnt0.wait(), timeout=12)
+        while not s_logging._log_wins:
+            await asyncio.sleep(0)
+
+        # an empty inject is a no-op
+        await s_logging.injectLogs([])
+
+        # injected (e.g. subprocess) records reach live watch() windows and the
+        # logs() ring, tagged with their originating process
+        rec0 = {'message': 'injected0', 'logger': {'process': 'SpawnProcess-1'}, 'params': {}}
+        rec1 = {'message': 'injected1', 'logger': {'process': 'SpawnProcess-1'}, 'params': {}}
+        await s_logging.injectLogs([rec0])
+        await s_logging.injectLogs([rec1])
+
+        await asyncio.wait_for(evnt1.wait(), timeout=12)
+        self.true(await task)
+
+        self.eq(['injected0', 'injected1'], [m['message'] for m in msgs])
+
+        logmsgs = [m['message'] for m in s_logging.logs(last=100)]
+        self.isin('injected0', logmsgs)
+        self.isin('injected1', logmsgs)
+
+        # watch(last>0) seeds recent history from the ring buffer
+        seeded = []
+        async with contextlib.aclosing(s_logging.watch(last=100)) as agen:
+            async for m in agen:
+                seeded.append(m.get('message'))
+                if m.get('message') == 'injected1':
+                    break
+        self.isin('injected0', seeded)
+        self.isin('injected1', seeded)
+
+        s_logging.reset()
+
     async def test_lib_logging_base(self):
 
         # Ensure we're starting the test from a clean slate

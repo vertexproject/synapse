@@ -1,5 +1,6 @@
 import ssl
 import http
+import asyncio
 
 import aiohttp
 import aiohttp.client_exceptions as a_exc
@@ -8,7 +9,6 @@ import synapse.common as s_common
 import synapse.tools.service.backup as s_backup
 
 import synapse.exc as s_exc
-import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.link as s_link
 import synapse.lib.httpapi as s_httpapi
@@ -1062,7 +1062,7 @@ class HttpApiTest(s_tests.SynTest):
                 spkg = {
                     'name': 'testy',
                     'version': (0, 0, 1),
-                    'synapse_version': '>=3.0.0b2,<4.0.0',
+                    'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
                     'modules': (
                         {'name': 'testy.ingest', 'storm': 'function punch(x, y) { return (($x + $y)) }'},
                     ),
@@ -2072,19 +2072,23 @@ class HttpApiTest(s_tests.SynTest):
 
     async def test_core_local_axon_http(self):
         async with self.getTestCore() as core:
-            await s_t_axon.AxonTest.runAxonTestHttp(self, core, realaxon=core.axon, apikey=True)
+            await s_t_axon.AxonTest.runAxonTestHttp(self, core, realaxon=(await core.getAxon()), apikey=True)
 
     async def test_core_remote_axon_http(self):
         timeout = aiohttp.ClientTimeout(total=1)
 
         # the cortex locates its axon by cell type via AHA
         async with self.getTestCoreProv() as (core, axon, jsonstor):
-            self.true(await s_coro.event_wait(core.axready, timeout=1))
+            self.nn(await asyncio.wait_for(core.getAxon(), timeout=10))
 
-            # additional test for axon down
+            # additional test for axon down. authenticate so the request reaches
+            # the axon-backed handler body ( the handler resolves the axon proxy
+            # lazily via getAxon(), so a down axon blocks there and the client
+            # times out ).
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
-            async with self.getHttpSess() as sess:
+            apikey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
+            async with self.getHttpSess(port=port, headers={'X-API-KEY': apikey}) as sess:
                 await axon.fini()
 
                 with self.raises(TimeoutError):

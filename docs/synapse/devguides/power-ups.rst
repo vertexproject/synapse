@@ -36,8 +36,14 @@ that gets processed and loaded into your Cortex.
 
     name: acme-hello
     version: 0.0.1
+    title: Acme Hello
 
-    synapse_version: '>=3.0.0,<4.0.0'
+    dependencies:
+      synapse:
+        version: '>=3.0.0,<4.0.0'
+      acme-utils:
+        version: '>=1.0.0'
+        optional: true
 
     author:
       url: https://acme.newp
@@ -54,6 +60,26 @@ that gets processed and loaded into your Cortex.
     commands:
       - name: acme.hello.sayhi
         descr: Print the hello message.
+
+The ``title`` field is a short, human-readable name for the package which is
+displayed in UIs such as **Optic**, as opposed to the ``name`` field which is
+the package's namespaced identifier.
+
+The ``dependencies`` field is a dictionary, keyed by package name, which
+declares the other **Storm Packages** (and/or **Synapse** version) that your
+package requires. The reserved name ``synapse`` refers to the running
+**Synapse** version rather than a loaded **Storm Package**, and replaces the
+old top level ``synapse_version`` field. Each entry may specify a ``version``
+requirement using the same range syntax shown above, an optional ``desc``
+describing the dependency, and an optional ``optional`` flag (defaults to
+``false``). When a non-optional dependency is unmet, the **Storm Package**
+will fail to load and an error is raised. Unmet optional dependencies are
+only logged and do not block package load.
+
+The ``conflicts`` field is similarly a dictionary, keyed by package name, of
+packages (or ``synapse`` versions) that must **not** be present for your
+package to load. If a conflict is matched, the **Storm Package** will fail to
+load and an error is raised.
 
 .. note::
 

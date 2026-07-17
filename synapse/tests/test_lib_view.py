@@ -1,16 +1,44 @@
+import os
 import asyncio
 import contextlib
 import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 
 import synapse.lib.time as s_time
+import synapse.lib.layer as s_layer
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
 class ViewTest(s_t_utils.SynTest):
+
+    async def test_view_readonly(self):
+        '''
+        On a readonly Cortex, view metadata edits are skipped (the leader owns
+        the shared storage): _delMergeMeta makes no durable write, and deleting a
+        view fini's it but does not rmtree the shared on-disk storage.
+        '''
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+                await core.nodes('[ inet:ip=1.2.3.4 ]')
+
+            async with await s_cortex.Cortex.anit(dirn, readonly=True) as core:
+
+                view = core.getView()
+
+                # _delMergeMeta is a no-op on a readonly cortex (no durable write)
+                await view._delMergeMeta()
+
+                # deleting a readonly view fini's it but must NOT rmtree the
+                # shared storage
+                viewdirn = view.dirn
+                await view.delete()
+                self.true(view.isfini)
+                self.true(os.path.isdir(viewdirn))
 
     async def test_view_protected(self):
         async with self.getTestCore() as core:
@@ -1256,6 +1284,24 @@ class ViewTest(s_t_utils.SynTest):
             node = await view.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
             self.eq(node.ndef[0], 'inet:dns:a')
 
+    async def test_view_nodesByPropArray_non_array(self):
+        '''
+        nodesByPropArray() called directly against a non-array prop raises a
+        clean, typed BadCmprType (a comparator/type mismatch, not a bad
+        value). No current Storm grammar path reaches this guard live (every
+        caller of nodesByPropArray already checks prop.type.isarray first, or
+        goes through the permanently-dead getPivLifts pivot-lift branch), so
+        it's exercised directly via the View API instead.
+        '''
+        async with self.getTestCore() as core:
+
+            view = core.getView()
+            await view.addNode('test:str', 'hehe')
+
+            with self.raises(s_exc.BadCmprType) as exc:
+                await alist(view.nodesByPropArray('test:str', '=', 'hehe'))
+            self.isin('Array syntax is invalid on non array type', exc.exception.get('mesg'))
+
     @contextlib.asynccontextmanager
     async def _getTestCoreMultiLayer(self):
         '''
@@ -1361,7 +1407,6 @@ class ViewTest(s_t_utils.SynTest):
             original_node0 = await view.addNode('test:str', 'node0')
             self.len(1, view.nodecache)
             self.len(1, view.livenodes)
-            self.len(0, view.tagcache)
             self.len(0, core.tagnorms)
 
             await original_node0.addTag('foo.bar.baz')
@@ -1387,7 +1432,6 @@ class ViewTest(s_t_utils.SynTest):
 
             self.len(0, view.nodecache)
             self.len(0, view.livenodes)
-            self.len(0, view.tagcache)
             self.len(0, core.tagnorms)
 
             # After clearing the cache and lifting nodes, the new node
@@ -2044,6 +2088,147 @@ class ViewTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(('test:int', 1), nodes[0].ndef)
             self.eq(('test:int', 3), nodes[1].ndef)
+
+    async def test_view_getpropvalues_cmpr(self):
+
+        async def collect(genr):
+            return [valu async for (indx, valu) in genr]
+
+        async with self.getTestCore() as core:
+
+            view = core.getView()
+
+            await core.nodes('''[
+                (test:str=foo :poly={[ test:str=p1 ]})
+                (test:str=bar :poly={[ test:int=3 ]})
+                (test:str=baz :poly={[ test:hasiface=p2 ]})
+                (test:str=faz :poly={[ test:lowstr=p1 ]})
+                (test:str=nop :poly={[ test:int=1 ]})
+            ]''')
+
+            # a polymorphic property yields (membertype, value) tuples across every member type
+            vals = await collect(view.iterPropValuesWithCmpr('test:str:poly', '^=', 'p'))
+            self.eq(sorted([('test:hasiface', 'p2'), ('test:lowstr', 'p1'), ('test:str', 'p1')]),
+                    sorted(vals))
+
+            # the member-type filter restricts the (index-native) scan to a single member type
+            vals = await collect(view.iterPropValuesWithCmpr('test:str:poly', '^=', 'p', types=('test:str',)))
+            self.eq([('test:str', 'p1')], vals)
+
+            vals = await collect(view.iterPropValuesWithCmpr('test:str:poly', '^=', 'p', types=('test:hasiface',)))
+            self.eq([('test:hasiface', 'p2')], vals)
+
+            # a member type that does not participate yields nothing
+            vals = await collect(view.iterPropValuesWithCmpr('test:str:poly', '^=', 'p', types=('newp:newp',)))
+            self.eq([], vals)
+
+            # a member-type filter on a non-polymorphic property is rejected rather than yielding nothing
+            with self.raises(s_exc.BadArg):
+                await collect(view.iterPropValuesWithCmpr('test:str', '^=', 'ba', types=('test:str',)))
+
+            # the limit is applied to the merged, de-duplicated stream
+            vals = await collect(view.iterPropValuesWithCmpr('test:str:poly', '^=', 'p', limit=1))
+            self.len(1, vals)
+
+            # comparator-aware counts on a plain (non-poly) property (test:str=p1 is the poly target)
+            self.eq(6, await view.getPropCount('test:str'))
+            self.eq(2, await view.getPropCount('test:str', valu='ba', cmpr='^='))
+            self.eq(1, await view.getPropCount('test:str', valu='foo', cmpr='^='))
+            self.eq(0, await view.getPropCount('test:str', valu='zzz', cmpr='^='))
+            self.eq(1, await view.getPropCount('test:str', valu='bar'))
+            self.eq(1, await view.getPropCount('test:str', valu='bar', cmpr='='))
+
+            # only the = and ^= comparators are allowed
+            with self.raises(s_exc.BadArg):
+                await view.getPropCount('test:str', valu='ba', cmpr='~=')
+
+            with self.raises(s_exc.BadArg):
+                await view.getPropCount('test:str', valu='ba', cmpr='range=')
+
+            # ^= counting works for polymorphic props (summed per string member type); cross-check
+            # the count against the equivalent lift
+            polycnt = await view.getPropCount('test:str:poly', valu='p', cmpr='^=')
+            self.eq(polycnt, len(await core.nodes('test:str:poly^=p')))
+            self.true(polycnt > 0)
+
+            # the type filter counts only one poly member type's values (from its index slice); no
+            # value, works for non-string member stortypes (int) too
+            self.eq(5, await view.getPropCount('test:str:poly'))
+            self.eq(2, await view.getPropCount('test:str:poly', type='test:int'))
+            self.eq(1, await view.getPropCount('test:str:poly', type='test:str'))
+            self.eq(1, await view.getPropCount('test:str:poly', type='test:lowstr'))
+            # a valid member type with no stored values counts zero
+            self.eq(0, await view.getPropCount('test:str:poly', type='inet:server'))
+
+            # the type filter is only for poly props and cannot be combined with a valu
+            with self.raises(s_exc.BadArg):
+                await view.getPropCount('test:str', type='test:str')
+
+            with self.raises(s_exc.BadArg):
+                await view.getPropCount('test:str:poly', valu='p', cmpr='^=', type='test:str')
+
+            # a plain (non-poly) property ^= count routes through getStorCmprs, so a type with no
+            # prefix comparator (int) is rejected at the type level, just like a lift would be
+            with self.raises(s_exc.NoSuchCmpr):
+                await view.getPropCount('test:int', valu='3', cmpr='^=')
+
+            # a non-poly type that does have a ^= cmpr but a non-string stortype (guid) is rejected
+            # by the prefix counter, which only scans string indexes
+            with self.raises(s_exc.BadArg):
+                await view.getPropCount('test:guid', valu='aa', cmpr='^=')
+
+            # a poly with no string-prefix-capable member (fqdn) has no ^= cmpr to count
+            with self.raises(s_exc.NoSuchCmpr):
+                await view.getPropCount('inet:dns:a:fqdn', valu='v', cmpr='^=')
+
+            # getPolyPropPrefCount rejects a member stortype that is not a plain-string prefix
+            with self.raises(s_exc.BadArg):
+                await core.getLayer().getPolyPropPrefCount('test:str', 'poly',
+                                                           s_layer.STOR_TYPE_GUID, ('test:str',), 'p')
+
+            # a poly prop with no index yet counts as zero (no such abrv)
+            self.eq(0, await core.getLayer().getPolyPropPrefCount('test:str', 'newp',
+                                                                  s_layer.STOR_TYPE_UTF8, ('test:str',), 'p'))
+
+            # a numeric-looking string prefix normalises and matches like any other string prefix
+            await core.nodes('[ test:str=5nine ]')
+            self.eq(1, await view.getPropCount('test:str', valu='5', cmpr='^='))
+
+            # type counts are maintained on poly prop edits (not scanned): a delete decrements the
+            # member type's slice
+            await core.nodes('test:str=nop [ -:poly ]')
+            self.eq(4, await view.getPropCount('test:str:poly'))
+            self.eq(1, await view.getPropCount('test:str:poly', type='test:int'))
+
+            # overwriting a member with a different type moves the count between slices
+            await core.nodes('test:str=foo [ :poly={[ test:int=99 ]} ]')
+            self.eq(4, await view.getPropCount('test:str:poly'))
+            self.eq(0, await view.getPropCount('test:str:poly', type='test:str'))
+            self.eq(2, await view.getPropCount('test:str:poly', type='test:int'))
+
+            # a poly prop with no index yet counts as zero (no such abrv)
+            self.eq(0, core.getLayer().getPolyPropTypeCount('test:str', 'newp',
+                                                            s_layer.STOR_TYPE_UTF8, ('test:str',)))
+
+    async def test_view_filter_cmprvals_by_type(self):
+
+        async with self.getTestCore() as core:
+
+            view = core.getView()
+
+            poly = s_layer.STOR_FLAG_POLY | s_layer.STOR_TYPE_UTF8
+            cmprvals = (
+                # a polymorphic cmprval carries member type names and is narrowed to the requested type
+                ('^=', ('p', ('test:str', 'test:lowstr')), poly),
+                # a homogeneous (non-poly) cmprval carries no member type and is dropped
+                ('^=', 'p', s_layer.STOR_TYPE_UTF8),
+            )
+
+            self.eq([('^=', ('p', ('test:str',)), poly)],
+                    view._filterCmprValsByType(cmprvals, ('test:str',)))
+
+            # nothing matches the requested member type
+            self.eq([], view._filterCmprValsByType(cmprvals, ('newp',)))
 
     async def test_view_edge_counts(self):
 

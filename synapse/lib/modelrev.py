@@ -73,9 +73,6 @@ class ModelRev:
         if opts is None:
             opts = {}
 
-        # Migrations only run on leaders
-        opts['mirror'] = False
-
         async def _runStorm():
             async for mesgtype, mesginfo in self.core.storm(text, opts=opts):
                 if mesgtype == 'print':

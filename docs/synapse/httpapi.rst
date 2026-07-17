@@ -797,10 +797,10 @@ This API endpoint is used as the Base URL for Extended HTTP API endpoints which 
 :ref:`devops-svc-cortex-ext-http` for additional information about this endpoint.
 
 
-Aha
+AHA
 ---
 
-A Synapse Aha service implements an HTTP API for assisting with devops.
+A Synapse AHA service implements an HTTP API for assisting with devops.
 
 /api/v3/aha/provision/service
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

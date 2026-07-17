@@ -27,21 +27,20 @@ _HttpExtAPIConfSchema = {
             'type': 'object',
             'default': {},
             'properties': {
-                'get': {'type': 'string', 'minLen': 1},
-                'head': {'type': 'string', 'minLen': 1},
-                'post': {'type': 'string', 'minLen': 1},
-                'put': {'type': 'string', 'minLen': 1},
-                'delete': {'type': 'string', 'minLen': 1},
-                'patch': {'type': 'string', 'minLen': 1},
-                'options': {'type': 'string', 'minLen': 1},
+                'get': {'type': 'string', 'minLength': 1},
+                'head': {'type': 'string', 'minLength': 1},
+                'post': {'type': 'string', 'minLength': 1},
+                'put': {'type': 'string', 'minLength': 1},
+                'delete': {'type': 'string', 'minLength': 1},
+                'patch': {'type': 'string', 'minLength': 1},
+                'options': {'type': 'string', 'minLength': 1},
             },
             'additionalProperties': False,
         },
         'authenticated': {'type': 'boolean', 'default': True},
         'name': {'type': 'string', 'default': ''},
         'desc': {'type': 'string', 'default': ''},
-        'path': {'type': 'string', 'minlen': 1},
-        'pool': {'type': 'boolean', 'default': False},
+        'path': {'type': 'string', 'minLength': 1},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'runas': {'type': 'string', 'pattern': '^(owner|user)$'},
         'owner': {'type': 'string', 'pattern': s_config.re_iden},
@@ -54,7 +53,7 @@ _HttpExtAPIConfSchema = {
             'items': {
                 'type': 'object',
                 'properties': {
-                    'perm': {'type': 'array', 'items': {'type': 'string', 'minlen': 1}},
+                    'perm': {'type': 'array', 'items': {'type': 'string', 'minLength': 1}},
                     'default': {'type': 'boolean', 'default': False},
                 }
             },
@@ -73,7 +72,7 @@ _LayerPushPullSchema = {
     'properties': {
         'url': {'type': 'string'},
         'time': {'type': 'number'},
-        'soffs': {'type': 'number', 'minval': 0},
+        'soffs': {'type': 'number', 'minimum': 0},
         'offs': {'type': 'number'},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
@@ -95,14 +94,13 @@ reqValidLoglevel = s_config.getJsValidator(loglevelSchema)
 _CronJobSchema = {
     'type': 'object',
     'properties': {
-        'storm': {'type': 'string', 'minlen': 1},
+        'storm': {'type': 'string', 'minLength': 1},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
-        'pool': {'type': 'boolean'},
         'affinity': {'type': ['string', 'null']},
         'doc': {'type': 'string'},
         'ver': {'type': 'integer'},
@@ -165,14 +163,15 @@ reqValidCronDef = s_config.getJsValidator(_CronJobSchema)
 reqValidVault = s_config.getJsValidator({
     'type': 'object',
     'properties': {
-        'name': {'type': 'string', 'pattern': '^.{1,128}$'},
+        'name': {'type': 'string', 'minLength': 1, 'maxLength': 128},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'type': {'type': 'string', 'pattern': '^.{1,128}$'},
+        'type': {'type': 'string', 'minLength': 1, 'maxLength': 128},
         'scope': {'type': ['string', 'null'], 'enum': [None, 'user', 'role', 'global']},
         'owner': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'permissions': s_msgpack.deepcopy(easyPermSchema),
         'secrets': {'type': 'object'},
         'configs': {'type': 'object'},
+        'type:version': {'type': 'integer', 'minimum': 0},
     },
     'additionalProperties': False,
     'required': [
@@ -185,6 +184,18 @@ reqValidVault = s_config.getJsValidator({
         'secrets',
         'configs',
     ],
+})
+
+reqValidVaultType = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string', 'minLength': 1, 'maxLength': 128},
+        'version': {'type': 'integer', 'minimum': 0},
+        'schema': {'type': ['object', 'null'], 'default': None},
+        'migration': {'type': ['string', 'null'], 'default': None},
+    },
+    'additionalProperties': False,
+    'required': ['name', 'version'],
 })
 
 reqValidView = s_config.getJsValidator({
@@ -226,9 +237,9 @@ reqValidMerge = s_config.getJsValidator({
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'created': {'type': 'number', 'minval': 0},
+        'created': {'type': 'number', 'minimum': 0},
         'comment': {'type': 'string'},
-        'updated': {'type': 'number', 'minval': 0},
+        'updated': {'type': 'number', 'minimum': 0},
     },
     'required': ['iden', 'creator', 'created'],
     'additionalProperties': False,
@@ -238,32 +249,15 @@ reqValidVote = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'user': {'type': 'string', 'pattern': s_config.re_iden},
-        'offset': {'type': 'number', 'minval': 0},
-        'created': {'type': 'number', 'minval': 0},
+        # -1 is a valid offset, matching Layer.getEditIndx()'s empty-layer sentinel.
+        'offset': {'type': 'number', 'minimum': -1},
+        'created': {'type': 'number', 'minimum': 0},
         'approved': {'type': 'boolean'},
         'comment': {'type': 'string'},
-        'updated': {'type': 'number', 'minval': 0},
+        'updated': {'type': 'number', 'minimum': 0},
     },
     'required': ['user', 'offset', 'created', 'approved'],
     'additionalProperties': False,
-})
-
-reqValidAhaPoolDef = s_config.getJsValidator({
-    'type': 'object', 'properties': {
-        'name': {'type': 'string', 'minLength': 1},
-        'created': {'type': 'number', 'minval': 0},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'services': {'type': 'object', 'patternProperties': {
-            '.+': {'type': 'object', 'properties': {
-                'created': {'type': 'number', 'minval': 0},
-                'creator': {'type': 'string', 'pattern': s_config.re_iden},
-            },
-            'required': ['creator', 'created'],
-            'additionalProperties': False,
-        }}},
-    },
-    'additionalProperties': False,
-    'required': ['name', 'creator', 'created', 'services'],
 })
 
 reqValidLeadTerm = s_config.getJsValidator({
@@ -369,16 +363,6 @@ _sslCtxOptsSchema = {
     'additionalProperties': False,
 }
 reqValidSslCtxOpts = s_config.getJsValidator(_sslCtxOptsSchema)
-
-_stormPoolOptsSchema = {
-    'type': 'object',
-    'properties': {
-        'timeout:sync': {'type': 'integer', 'minimum': 1},
-        'timeout:connection': {'type': 'integer', 'minimum': 1},
-    },
-    'additionalProperties': False,
-}
-reqValidStormPoolOpts = s_config.getJsValidator(_stormPoolOptsSchema)
 
 _authRulesSchema = {
     'type': 'array',
@@ -759,9 +743,7 @@ _reqValidPkgdefSchema = {
             },
             'required': ['cert', 'sign'],
         },
-        'synapse_version': {
-            'type': 'string',
-        },
+        'title': {'type': 'string'},
         'modules': {
             'type': ['array', 'null'],
             'items': {'$ref': '#/definitions/module'}
@@ -810,12 +792,13 @@ _reqValidPkgdefSchema = {
             },
             'required': ['name', 'url'],
         },
-        'depends': {
-            'properties': {
-                'requires': {'type': 'array', 'items': {'$ref': '#/definitions/require'}},
-                'conflicts': {'type': 'array', 'items': {'$ref': '#/definitions/conflict'}},
-            },
-            'additionalProperties': True,
+        'dependencies': {
+            'type': 'object',
+            'additionalProperties': {'$ref': '#/definitions/dependency'},
+        },
+        'conflicts': {
+            'type': 'object',
+            'additionalProperties': {'$ref': '#/definitions/conflict'},
         },
         'perms': {
             'type': 'array',
@@ -849,16 +832,17 @@ _reqValidPkgdefSchema = {
                 '^.*$': {
                     'type': 'object',
                     'properties': {
-                        'schemas': {
-                            'type': 'object',
-                            'properties': {
-                                'configs': {'$ref': 'https://json-schema.org/draft-07/schema'},
-                                'secrets': {'$ref': 'https://json-schema.org/draft-07/schema'}
-                            },
-                            'additionalProperties': False,
-                        },
+                        'version': {'type': 'integer', 'minimum': 0},
+                        'migration': {'type': 'string'},
+                        # opaque here: the schema is validated (and rejected for
+                        # miscased keywords) at type registration via
+                        # validateSchemaDef. A $ref to the draft-07 meta-schema
+                        # would additionally materialize meta-schema defaults into
+                        # it, diverging from the API registration path.
+                        'schema': {'type': 'object'},
                     },
                     'additionalProperties': False,
+                    'required': ['version'],
                 },
             },
             'additionalProperties': False,
@@ -1126,26 +1110,23 @@ _reqValidPkgdefSchema = {
                 },
             }
         },
-        'require': {
+        'dependency': {
             'type': 'object',
             'properties': {
-                'name': {'type': 'string'},
                 'version': {'type': 'string'},
                 'desc': {'type': 'string'},
                 'optional': {'type': 'boolean'},
             },
             'additionalItems': True,
-            'required': ('name', 'version'),
+            'required': ('version',),
         },
         'conflict': {
             'type': 'object',
             'properties': {
-                'name': {'type': 'string'},
                 'version': {'type': 'string'},
                 'desc': {'type': 'string'},
             },
             'additionalItems': True,
-            'required': ('name',),
         }
     }
 }

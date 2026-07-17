@@ -7,8 +7,9 @@ import base64
 import signal
 import socket
 import asyncio
+import hashlib
 import logging
-import tarfile
+import zipfile
 import collections
 import multiprocessing
 
@@ -47,15 +48,70 @@ import synapse.tests.utils as s_t_utils
 logger = logging.getLogger(__name__)
 
 # Defective versions of spawned backup processes
-def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
+def _sleeperProc(datasock, srcdir, logconf, info):
     time.sleep(3.0)
 
-def _sleeper2Proc(pipe, srcdir, dstdir, lmdbpaths, logconf):
-    time.sleep(2.0)
-
-def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
-    pipe.send('captured')
+def _exiterProc(datasock, srcdir, logconf, info):
+    with datasock.makefile('wb') as fd:
+        fd.write(s_msgpack.en(('init', info)))
+    datasock.close()
     sys.exit(1)
+
+def _boomProc(datasock, srcdir, logconf, info):
+    with datasock.makefile('wb') as fd:
+        fd.write(s_msgpack.en(('init', info)))
+        try:
+            raise RuntimeError('boom')
+        except RuntimeError as e:
+            fd.write(s_msgpack.en(('err', s_common.excinfo(e))))
+    datasock.close()
+
+def _deadProc(datasock, srcdir, logconf, info):
+    # exit without pinning (no 'init' message)
+    datasock.close()
+
+# Defective versions of the direct-to-caller (telepath handoff) backup process. These
+# write telepath t2:yield frames to callersock and the capture handshake to ctrlsock.
+def _sleeperProcHandoff(ctrlsock, callersock, srcdir, logconf, info):
+    time.sleep(3.0)
+
+def _deadProcHandoff(ctrlsock, callersock, srcdir, logconf, info):
+    # exit without capturing (no 'captured' signal)
+    ctrlsock.close()
+    callersock.close()
+
+def _exiterProcHandoff(ctrlsock, callersock, srcdir, logconf, info):
+    # capture, emit an init item, then exit abnormally without a terminal frame
+    with ctrlsock.makefile('wb') as fd:
+        fd.write(s_msgpack.en(('captured', None)))
+    with callersock.makefile('wb') as fd:
+        fd.write(s_msgpack.en(('t2:yield', {'retn': (True, ('init', info))})))
+    ctrlsock.close()
+    callersock.close()
+    sys.exit(1)
+
+async def _waitHoldsZero(cell):
+    # on the handoff path the leader releases its slab-file hold once it reaps the
+    # subprocess, which can lag the client observing stream completion by a tick.
+    for _ in range(1000):
+        if cell.slabfileholds == 0:
+            return True
+        await asyncio.sleep(0.01)
+    return False
+
+def _boomProcHandoff(ctrlsock, callersock, srcdir, logconf, info):
+    # capture, emit init, then surface an in-band err item plus the terminal frame
+    with ctrlsock.makefile('wb') as fd:
+        fd.write(s_msgpack.en(('captured', None)))
+    with callersock.makefile('wb') as fd:
+        fd.write(s_msgpack.en(('t2:yield', {'retn': (True, ('init', info))})))
+        try:
+            raise RuntimeError('boom')
+        except RuntimeError as e:
+            fd.write(s_msgpack.en(('t2:yield', {'retn': (True, ('err', s_common.excinfo(e)))})))
+        fd.write(s_msgpack.en(('t2:yield', {'retn': None})))
+    ctrlsock.close()
+    callersock.close()
 
 def _backupSleep(path, linkinfo):
     time.sleep(3.0)
@@ -314,6 +370,80 @@ class CellTest(s_t_utils.SynTest):
         sock.close()
         return port
 
+    async def test_cell_readonly_and_pulse(self):
+        '''
+        A readonly cell shares a writer's dirn: it opens its storage readonly,
+        binds neither the shared local sock nor external listeners, and follows
+        the leader's nexus-log rotation rather than rotating the shared files
+        itself. A writable cell streams its nexus commit pulse over the CellApi
+        and binds its dmon listeners only once.
+        '''
+        with self.getTestDir() as dirn:
+
+            # a writer creates the dirn (so the readonly opener has files to
+            # attach to) and listens so sockaddr is set.
+            conf = {'dmon:listen': 'tcp://127.0.0.1:0/'}
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+
+                # the commit-pulse CellApi wrapper streams the committed offset;
+                # it yields the current commit index immediately.
+                async with cell.getLocalProxy() as proxy:
+                    async for offs in proxy.getNexusCommitPulse():
+                        self.true(isinstance(offs, int))
+                        break
+
+                # binding the dmon listeners again is a no-op (sockaddr is set)
+                self.nn(cell.sockaddr)
+                await cell._bindDmonListen()
+
+            # reopen the same dirn readonly
+            async with await s_cell.Cell.anit(dirn, readonly=True) as cell:
+
+                self.true(cell.readonly)
+
+                # storage opened readonly, and neither the local sock nor the
+                # external listeners were bound (those belong to the writer)
+                self.true(cell.drive_slab.readonly)
+                self.none(cell.sockaddr)
+
+                # _bindLocalSock is a no-op on a readonly cell
+                await cell._bindLocalSock()
+                self.false(cell._localsockbound)
+
+                # a readonly cell follows the leader's nexslog:rotate by adopting
+                # the new tail slab (the offset after the rotate event) rather
+                # than rotating the shared files itself.
+                calls = []
+
+                async def _setTailSlab(indx):
+                    calls.append(indx)
+
+                with mock.patch.object(cell.nexsroot.nexslog, 'setTailSlab', _setTailSlab):
+                    self.none(await cell._rotateNexsLog(nexsitem=(41, None)))
+
+                self.eq([42], calls)
+
+    async def test_cell_commitpulse_base(self):
+        # a base cell does not commit per nexus transaction (nexuscommit=False),
+        # so the pulse yields the current committed offset once and then never
+        # fires - the fan-out in NexsRoot._eat is gated on nexuscommit.
+        async with self.getTestCell() as cell:
+
+            self.false(cell.nexuscommit)
+
+            genr = cell.getNexusCommitPulse()
+            try:
+                await asyncio.wait_for(genr.__anext__(), timeout=6)
+
+                # a nexus write (addUser) must NOT produce a pulse on a base cell
+                await cell.auth.addUser('bob')
+
+                with self.raises(asyncio.TimeoutError):
+                    await asyncio.wait_for(genr.__anext__(), timeout=0.5)
+
+            finally:
+                await genr.aclose()
+
     async def test_prov_request_schema(self):
 
         # both request types validate
@@ -365,6 +495,7 @@ class CellTest(s_t_utils.SynTest):
             return proxy, openurl
 
         follower = {'SYN_PROVISION_FOLLOWER': '1'}
+        notfollower = {'SYN_PROVISION_FOLLOWER': '0'}
 
         with self.getTestDir() as dirn:
             async with await s_t_utils.TestCell00.anit(dirn, conf=self.getCellConf()) as cell:
@@ -381,6 +512,11 @@ class CellTest(s_t_utils.SynTest):
                 with mock.patch.dict(os.environ, follower):
                     with self.raises(s_exc.FatalErr):
                         await cell._getBootParentUrl()
+
+                # SYN_PROVISION_FOLLOWER=0 is envbool-false -> treated as not a
+                # follower, so no aha:servers is a fresh boot rather than fatal
+                with mock.patch.dict(os.environ, notfollower):
+                    self.none(await cell._getBootParentUrl())
 
                 cell.conf['aha:servers'] = ('ssl://aha00.synapse',)
 
@@ -1125,13 +1261,18 @@ class CellTest(s_t_utils.SynTest):
 
                 async with cell.getLocalProxy() as prox:
 
-                    # test backup running
+                    # nexus log cull/rotate/trim are blocked while slab files are held
                     ind = await prox.getNexsIndx()
-                    cell.backuprunning = True
-                    await self.asyncraises(s_exc.SlabInUse, prox.rotateNexsLog())
-                    await self.asyncraises(s_exc.SlabInUse, prox.cullNexsLog(0))
-                    await self.asyncraises(s_exc.SlabInUse, prox.trimNexsLog())
-                    cell.backuprunning = False
+                    async with cell.holdSlabFiles():
+                        with self.raises(s_exc.SlabInUse):
+                            await prox.rotateNexsLog()
+
+                        with self.raises(s_exc.SlabInUse):
+                            await prox.cullNexsLog(0)
+
+                        with self.raises(s_exc.SlabInUse):
+                            await prox.trimNexsLog()
+
                     self.eq(ind, await prox.getNexsIndx())
 
                     # trim can run on empty log since it generates two events
@@ -1299,10 +1440,10 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(slab['readonly'])
                 self.nn(slab['readahead'])
                 self.nn(slab['recovering'])
+                self.nn(slab['commitpulse'])
 
     async def test_cell_system_info(self):
         with self.getTestDir() as dirn:
-            backdirn = os.path.join(dirn, 'backups')
             coredirn = os.path.join(dirn, 'cortex')
 
             async with self.getTestCore(dirn=coredirn) as core:
@@ -1315,16 +1456,9 @@ class CellTest(s_t_utils.SynTest):
                                  'cellapprdisk', 'totalmem', 'availmem'):
                         self.lt(0, info.get(prop))
 
-            conf = {'backup:dir': backdirn}
-            async with self.getTestCore(conf=conf, dirn=coredirn) as core:
-                async with core.getLocalProxy() as proxy:
-                    info = await proxy.getSystemInfo()
-                    for prop in ('osversion', 'pyversion', 'sysctls', 'tmpdir'):
-                        self.nn(info.get(prop))
-
-                    for prop in ('volsize', 'volfree', 'backupvolsize', 'backupvolfree', 'celluptime', 'cellrealdisk',
-                                 'cellapprdisk', 'totalmem', 'availmem'):
-                        self.lt(0, info.get(prop))
+                    # the backup directory volume keys were removed
+                    self.notin('backupvolsize', info)
+                    self.notin('backupvolfree', info)
 
     async def test_cell_confprint(self):
 
@@ -1421,172 +1555,153 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_backup(self):
 
-        with self.getTestDir() as dirn:
-            s_common.yamlsave({'backup:dir': dirn}, dirn, 'cell.yaml')
-            with self.raises(s_exc.BadConfValu):
-                async with self.getTestCore(dirn=dirn) as core:
-                    pass
+        async with self.getTestCore() as core:
 
-        with self.getTestDir() as dirn:
+            # create rando slabs inside the cell dir to confirm they are captured
+            slabpath = s_common.genpath(core.dirn, 'randoslab')
+            async with await s_lmdbslab.Slab.anit(slabpath):
+                pass
 
-            backdirn = os.path.join(dirn, 'backups')
-            coredirn = os.path.join(dirn, 'cortex')
+            slabpath = s_common.genpath(core.dirn, 'randodirn', 'randoslab2')
+            async with await s_lmdbslab.Slab.anit(slabpath):
+                pass
 
-            conf = {'backup:dir': backdirn}
-            s_common.yamlsave(conf, coredirn, 'cell.yaml')
+            self.len(1, await core.nodes('[inet:ip=1.2.3.4]'))
 
-            async with self.getTestCore(dirn=coredirn) as core:
+            async with core.getLocalProxy() as proxy:
 
-                async with core.getLocalProxy() as proxy:
+                nexsoffs = await core.getNexsIndx()
 
-                    info = await proxy.getBackupInfo()
-                    self.none(info['currduration'])
-                    self.none(info['laststart'])
-                    self.none(info['lastend'])
-                    self.none(info['lastduration'])
-                    self.none(info['lastsize'])
-                    self.none(info['lastupload'])
-                    self.none(info['lastexception'])
+                mesgs = [mesg async for mesg in proxy.initBackupStream()]
 
-                    # Verify currduration is a positive ms value while a backup is running
-                    core.backmonostart = time.monotonic() - 5.0
-                    info = await proxy.getBackupInfo()
-                    self.isinstance(info['currduration'], int)
-                    self.ge(info['currduration'], 5000)
-                    core.backmonostart = None
+                # the first message is init and carries the captured nexus offset
+                self.eq('init', mesgs[0][0])
+                self.eq(nexsoffs, mesgs[0][1]['nexsoffs'])
+                self.eq(core.getCellIden(), mesgs[0][1]['iden'])
+                self.eq(core.getCellType(), mesgs[0][1]['type'])
 
-                    with self.raises(s_exc.BadArg):
-                        await proxy.runBackup(name='../woot')
+                # the last message is fini with the size, sha256 and rawsize of the archive
+                self.eq('fini', mesgs[-1][0])
+                self.gt(mesgs[-1][1]['size'], 0)
+                self.len(64, mesgs[-1][1]['sha256'])
+                self.gt(mesgs[-1][1]['rawsize'], 0)
 
-                    with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 0.1):
-                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup(name='_sleeperProc'))
+                # the data messages reassemble into the archive described by fini
+                databyts = b''.join([m[1] for m in mesgs if m[0] == 'data'])
+                self.eq(len(databyts), mesgs[-1][1]['size'])
+                self.eq(hashlib.sha256(databyts).hexdigest(), mesgs[-1][1]['sha256'])
 
-                    info = await proxy.getBackupInfo()
-                    errinfo = info.get('lastexception')
-                    laststart1 = info['laststart']
-                    self.eq(errinfo['err'], 'SynErr')
-                    self.eq(errinfo['errinfo']['mesg'], 'backup subprocess start timed out')
+                # the archive is a valid zip containing the captured slabs
+                with self.getTestDir() as extdir:
+                    zippath = s_common.genpath(extdir, 'backup.zip')
+                    with s_common.genfile(zippath) as fd:
+                        fd.write(databyts)
 
-                    # Test runners can take an unusually long time to spawn a process
-                    with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
+                    with zipfile.ZipFile(zippath) as zf:
+                        names = zf.namelist()
+                        # rawsize is the uncompressed size of the archive members
+                        self.eq(mesgs[-1][1]['rawsize'], sum(zinfo.file_size for zinfo in zf.infolist()))
 
-                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup(name='_sleeper2Proc'))
+                self.true(any(n.endswith('randoslab/data.mdb') for n in names))
+                self.true(any(n.endswith('randodirn/randoslab2/data.mdb') for n in names))
+                self.true(any(n.endswith('cell.guid') for n in names))
 
-                        info = await proxy.getBackupInfo()
-                        laststart2 = info['laststart']
-                        self.ne(laststart1, laststart2)
-                        errinfo = info.get('lastexception')
-                        self.eq(errinfo['err'], 'SynErr')
-                        self.eq(errinfo['errinfo']['mesg'], 'backup subprocess start timed out')
+                # the streaming backup does not require additional disk space
+                tmpdirn = s_common.genpath(core.dirn, 'tmp')
+                if os.path.isdir(tmpdirn):
+                    self.eq([], [n for n in os.listdir(tmpdirn) if n.startswith('backup_')])
 
-                    with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                        await self.asyncraises(s_exc.SpawnExit, proxy.runBackup(name='_exiterProc'))
+                # a handoff subprocess start timeout surfaces as a SynErr (before capture)
+                with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 0.1):
+                    with mock.patch.object(s_cell.Cell, '_backupProcHandoff', staticmethod(_sleeperProcHandoff)):
+                        with self.raises(s_exc.SynErr):
+                            async for mesg in proxy.initBackupStream():
+                                pass
 
-                    info = await proxy.getBackupInfo()
-                    laststart3 = info['laststart']
-                    self.ne(laststart2, laststart3)
-                    errinfo = info.get('lastexception')
-                    self.eq(errinfo['err'], 'SpawnExit')
-                    self.eq(errinfo['errinfo']['code'], 1)
+                # a handoff subprocess that exits without capturing surfaces as a SynErr
+                with mock.patch.object(s_cell.Cell, '_backupProcHandoff', staticmethod(_deadProcHandoff)):
+                    with self.raises(s_exc.SynErr):
+                        async for mesg in proxy.initBackupStream():
+                            pass
 
-                    # Create rando slabs inside cell dir
-                    slabpath = s_common.genpath(coredirn, 'randoslab')
-                    async with await s_lmdbslab.Slab.anit(slabpath):
+                # a handoff subprocess that exits abnormally mid-stream surfaces as a SynErr
+                with mock.patch.object(s_cell.Cell, '_backupProcHandoff', staticmethod(_exiterProcHandoff)):
+                    with self.raises(s_exc.SynErr):
+                        async for mesg in proxy.initBackupStream():
+                            pass
+
+                # a failure inside the handoff subprocess is delivered as a terminal in-band err
+                with mock.patch.object(s_cell.Cell, '_backupProcHandoff', staticmethod(_boomProcHandoff)):
+                    mesgs = [mesg async for mesg in proxy.initBackupStream()]
+                    self.eq('init', mesgs[0][0])
+                    self.eq('err', mesgs[-1][0])
+                    self.eq('RuntimeError', mesgs[-1][1]['err'])
+
+                    # iterBackupData surfaces the terminal err as a SynErr
+                    with self.raises(s_exc.SynErr):
+                        async for chunk in s_t_utils.iterBackupData(proxy):
+                            pass
+
+            # holdSlabFiles blocks nexus log cull/rotate while held, is reentrant,
+            # and releases only when the last holder exits.
+            self.true(await _waitHoldsZero(core))
+
+            # the in-process fallback (no telepath link in scope) relays the stream
+            # through this event loop via Cell.initBackupStream.
+            link, sock = await s_link.linksock()
+            sess = await s_daemon.Sess.anit()
+            link.onfini(sess.fini)
+            link.set('sess', sess)
+            api = await core.getCellApi(link, core.auth.rootuser, ())
+            try:
+                mesgs = [mesg async for mesg in api.initBackupStream()]
+                self.eq('init', mesgs[0][0])
+                self.eq(core.getCellIden(), mesgs[0][1]['iden'])
+                self.eq('fini', mesgs[-1][0])
+                self.gt(mesgs[-1][1]['rawsize'], 0)
+            finally:
+                await api.fini()
+                await link.fini()
+                sock.close()
+
+            # fallback error paths: Cell.initBackupStream relays subprocess failures.
+            with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 0.1):
+                with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
+                    with self.raises(s_exc.SynErr):
+                        async for mesg in core.initBackupStream():
+                            pass
+
+            with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_deadProc)):
+                with self.raises(s_exc.SynErr):
+                    async for mesg in core.initBackupStream():
                         pass
 
-                    slabpath = s_common.genpath(coredirn, 'randodirn', 'randoslab2')
-                    async with await s_lmdbslab.Slab.anit(slabpath):
-                        pass
+            with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
+                mesgs = [mesg async for mesg in core.initBackupStream()]
+                self.eq('init', mesgs[0][0])
+                self.eq('err', mesgs[-1][0])
+                self.isin('exited without completing', mesgs[-1][1]['errmsg'])
 
-                    await proxy.delBackup('_sleeperProc')
-                    await proxy.delBackup('_sleeper2Proc')
-                    await proxy.delBackup('_exiterProc')
+            with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_boomProc)):
+                mesgs = [mesg async for mesg in core.initBackupStream()]
+                self.eq('init', mesgs[0][0])
+                self.eq('err', mesgs[-1][0])
+                self.eq('RuntimeError', mesgs[-1][1]['err'])
 
-                    name = await proxy.runBackup()
-                    self.eq((name,), await proxy.getBackups())
+            self.eq(0, core.slabfileholds)
 
-                    srcreal, _ = s_common.getDirSize(coredirn)
-                    backupdir = s_common.reqdir(backdirn, name)
-                    backreal, _ = s_common.getDirSize(backupdir)
-                    self.le(backreal, srcreal)
+            async with core.holdSlabFiles():
+                async with core.holdSlabFiles():
+                    self.eq(2, core.slabfileholds)
+                    with self.raises(s_exc.SlabInUse):
+                        await core.rotateNexsLog()
 
-                    info = await proxy.getBackupInfo()
-                    self.none(info['currduration'])
-                    laststart4 = info['laststart']
-                    self.ne(laststart3, laststart4)
-                    self.true(0 < info['lastsize'] <= srcreal)
-                    self.nn(info['lastend'])
-                    self.lt(0, info['lastduration'])
-                    self.none(info['lastexception'])
-                    self.none(info['lastupload'])
+                # still held by the outer context
+                self.eq(1, core.slabfileholds)
+                with self.raises(s_exc.SlabInUse):
+                    await core.cullNexsLog(0)
 
-                    # look inside backup
-                    backups = await proxy.getBackups()
-                    self.len(1, backups)
-                    backupdir = s_common.reqdir(backdirn, backups[0])
-                    s_common.reqpath(backupdir, 'cell.yaml')
-                    s_common.reqpath(backupdir, 'randoslab', 'data.mdb')
-                    s_common.reqpath(backupdir, 'randodirn', 'randoslab2', 'data.mdb')
-
-                    await proxy.delBackup(name)
-                    self.eq((), await proxy.getBackups())
-                    self.false(os.path.exists(backupdir))
-
-                    name = await proxy.runBackup(name='foo/bar')
-
-                    with self.raises(s_exc.BadArg):
-                        await proxy.delBackup(name='foo')
-
-                    self.true(os.path.isdir(os.path.join(backdirn, 'foo', 'bar')))
-                    self.eq(('foo/bar',), await proxy.getBackups())
-
-                    with self.raises(s_exc.BadArg):
-                        await proxy.runBackup(name='foo/bar')
-
-                    _ntuple_stat = collections.namedtuple('stat', 'st_dev st_mode st_blocks st_size')
-                    _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
-
-                    def lowspace(dirn):
-                        cellsize = s_common.getDirSize(coredirn)
-                        return _ntuple_diskusage(1, cellsize, 1)
-
-                    realstat = os.stat
-                    def diffdev(dirn):
-                        real = realstat(dirn)
-                        if dirn == coredirn:
-                            return _ntuple_stat(1, real.st_mode, real.st_blocks, real.st_size)
-                        elif dirn == backdirn:
-                            return _ntuple_stat(2, real.st_mode, real.st_blocks, real.st_size)
-                        return real
-
-                    with mock.patch('shutil.disk_usage', lowspace):
-                        await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
-
-                        with mock.patch('os.stat', diffdev):
-                            await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
-
-                user = await core.auth.getUserByName('root')
-                with self.raises(s_exc.SynErr) as cm:
-                    await core.iterNewBackupArchive(user)
-                self.isin('This API must be called via a CellApi', cm.exception.get('mesg'))
-
-            async def err(*args, **kwargs):
-                raise RuntimeError('boom')
-
-            async with self.getTestCore(dirn=coredirn) as core:
-                async with core.getLocalProxy() as proxy:
-
-                    with mock.patch('synapse.lib.coro.executor', err):
-                        with self.raises(s_exc.SynErr) as cm:
-                            await proxy.runBackup(name='partial')
-                        self.eq(cm.exception.get('errx'), 'RuntimeError')
-
-                    self.isin('partial', await proxy.getBackups())
-
-                    await proxy.delBackup(name='partial')
-                    self.notin('partial', await proxy.getBackups())
+            self.eq(0, core.slabfileholds)
 
     async def test_cell_tls_client(self):
 
@@ -1812,216 +1927,6 @@ class CellTest(s_t_utils.SynTest):
 
             self.none(await cell.delActiveCoro(s_common.guid()))
 
-    async def test_cell_stream_backup(self):
-
-        with self.getTestDir() as dirn:
-
-            backdirn = os.path.join(dirn, 'backups')
-            coredirn = os.path.join(dirn, 'cortex')
-            bkuppath = os.path.join(dirn, 'bkup.tar.gz')
-            bkuppath2 = os.path.join(dirn, 'bkup2.tar.gz')
-            bkuppath3 = os.path.join(dirn, 'bkup3.tar.gz')
-            bkuppath4 = os.path.join(dirn, 'bkup4.tar.gz')
-            bkuppath5 = os.path.join(dirn, 'bkup5.tar.gz')
-
-            conf = {'backup:dir': backdirn}
-            s_common.yamlsave(conf, coredirn, 'cell.yaml')
-
-            async with self.getTestCore(dirn=coredirn) as core:
-
-                core.certdir.genCaCert('localca')
-                core.certdir.genHostCert('localhost', signas='localca')
-                core.certdir.genUserCert('root@localhost', signas='localca')
-
-                root = await core.auth.addUser('root@localhost')
-                await root.setAdmin(True)
-
-                nodes = await core.nodes('[test:str=streamed]')
-                self.len(1, nodes)
-
-                async with core.getLocalProxy() as proxy:
-
-                    with self.raises(s_exc.BadArg):
-                        async for msg in proxy.iterBackupArchive('nope'):
-                            pass
-
-                    await proxy.runBackup(name='bkup')
-
-                    with mock.patch('synapse.lib.cell._iterBackupProc', _backupSleep):
-                        arch = s_t_utils.alist(proxy.iterBackupArchive('bkup'))
-                        with self.raises(asyncio.TimeoutError):
-                            await asyncio.wait_for(arch, timeout=0.1)
-
-                        async def _fakeBackup(self, name=None, wait=True):
-                            s_common.gendir(os.path.join(backdirn, name))
-
-                        with mock.patch.object(s_cell.Cell, 'runBackup', _fakeBackup):
-                            arch = s_t_utils.alist(proxy.iterNewBackupArchive(name='nobkup'))
-                            with self.raises(asyncio.TimeoutError):
-                                await asyncio.wait_for(arch, timeout=0.1)
-
-                        async def _slowFakeBackup(self, name=None, wait=True):
-                            s_common.gendir(os.path.join(backdirn, name))
-                            await asyncio.sleep(3.0)
-
-                        with mock.patch.object(s_cell.Cell, 'runBackup', _slowFakeBackup):
-                            arch = s_t_utils.alist(proxy.iterNewBackupArchive(name='nobkup2'))
-                            with self.raises(asyncio.TimeoutError):
-                                await asyncio.wait_for(arch, timeout=0.1)
-
-                        evt0 = asyncio.Event()
-                        evt1 = asyncio.Event()
-                        orig = s_cell.Cell.iterNewBackupArchive
-
-                        async def _slowFakeBackup2(self, name=None, wait=True):
-                            evt0.set()
-                            s_common.gendir(os.path.join(backdirn, name))
-                            await asyncio.sleep(3.0)
-
-                        async def _iterNewDup(self, user, name=None, remove=False):
-                            try:
-                                await orig(self, user, name=name, remove=remove)
-                            except asyncio.CancelledError:
-                                evt1.set()
-                                raise
-
-                        with mock.patch.object(s_cell.Cell, 'runBackup', _slowFakeBackup2):
-                            with mock.patch.object(s_cell.Cell, 'iterNewBackupArchive', _iterNewDup):
-                                arch = s_t_utils.alist(proxy.iterNewBackupArchive(name='dupbackup', remove=True))
-                                task = core.schedCoro(arch)
-                                await asyncio.wait_for(evt0.wait(), timeout=2)
-
-                        fail = s_t_utils.alist(proxy.iterNewBackupArchive(name='alreadystreaming', remove=True))
-                        await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
-                        task.cancel()
-                        await asyncio.wait_for(evt1.wait(), timeout=2)
-
-                    with self.raises(s_exc.BadArg):
-                        async for msg in proxy.iterNewBackupArchive(name='bkup'):
-                            pass
-
-                    # Get an existing backup
-                    with open(bkuppath, 'wb') as bkup:
-                        async for msg in proxy.iterBackupArchive('bkup'):
-                            bkup.write(msg)
-
-                    # Create a new backup
-                    nodes = await core.nodes('[test:str=freshbkup]')
-                    self.len(1, nodes)
-
-                    with open(bkuppath2, 'wb') as bkup2:
-                        async for msg in proxy.iterNewBackupArchive(name='bkup2'):
-                            bkup2.write(msg)
-
-                    self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
-                    self.true(os.path.isdir(os.path.join(backdirn, 'bkup2')))
-
-                    # Create a new backup and remove after
-                    nodes = await core.nodes('[test:str=lastbkup]')
-                    self.len(1, nodes)
-
-                    with open(bkuppath3, 'wb') as bkup3:
-                        async for msg in proxy.iterNewBackupArchive(name='bkup3', remove=True):
-                            self.true(core.backupstreaming)
-                            bkup3.write(msg)
-
-                    async def streamdone():
-                        while core.backupstreaming:
-                            await asyncio.sleep(0.1)
-
-                    task = core.schedCoro(streamdone())
-                    try:
-                        await asyncio.wait_for(task, 5)
-                    except TimeoutError:
-                        raise TimeoutError('Timeout waiting for streaming backup cleanup of bkup3 to complete.')
-
-                    self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
-                    self.false(os.path.isdir(os.path.join(backdirn, 'bkup3')))
-
-                    # Create a new backup without a name param
-                    nodes = await core.nodes('[test:str=noname]')
-                    self.len(1, nodes)
-
-                    with open(bkuppath4, 'wb') as bkup4:
-                        async for msg in proxy.iterNewBackupArchive(remove=True):
-                            bkup4.write(msg)
-
-                    task = core.schedCoro(streamdone())
-                    try:
-                        await asyncio.wait_for(task, 5)
-                    except TimeoutError:
-                        raise TimeoutError('Timeout waiting for streaming backup cleanup of bkup4 to complete.')
-
-                    self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
-
-                    # Start another backup while one is already running
-                    bkup = s_t_utils.alist(proxy.iterNewBackupArchive(name='runbackup', remove=True))
-                    task = core.schedCoro(bkup)
-                    await asyncio.sleep(0)
-
-                    fail = s_t_utils.alist(proxy.iterNewBackupArchive(name='alreadyrunning', remove=True))
-                    await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
-                    await asyncio.wait_for(task, 5)
-
-            with tarfile.open(bkuppath, 'r:gz') as tar:
-                tar.extractall(path=dirn, filter='data')
-
-            bkupdirn = os.path.join(dirn, 'bkup')
-            async with self.getTestCore(dirn=bkupdirn) as core:
-                nodes = await core.nodes('test:str=streamed')
-                self.len(1, nodes)
-
-                nodes = await core.nodes('test:str=freshbkup')
-                self.len(0, nodes)
-
-            with tarfile.open(bkuppath2, 'r:gz') as tar:
-                tar.extractall(path=dirn, filter='data')
-
-            bkupdirn2 = os.path.join(dirn, 'bkup2')
-            async with self.getTestCore(dirn=bkupdirn2) as core:
-                nodes = await core.nodes('test:str=freshbkup')
-                self.len(1, nodes)
-
-            with tarfile.open(bkuppath3, 'r:gz') as tar:
-                tar.extractall(path=dirn, filter='data')
-
-            bkupdirn3 = os.path.join(dirn, 'bkup3')
-            async with self.getTestCore(dirn=bkupdirn3) as core:
-                nodes = await core.nodes('test:str=lastbkup')
-                self.len(1, nodes)
-
-            with tarfile.open(bkuppath4, 'r:gz') as tar:
-                bkupname = os.path.commonprefix(tar.getnames())
-                tar.extractall(path=dirn, filter='data')
-
-            bkupdirn4 = os.path.join(dirn, bkupname)
-            async with self.getTestCore(dirn=bkupdirn4) as core:
-                nodes = await core.nodes('test:str=noname')
-                self.len(1, nodes)
-
-            # Test backup over SSL
-            async with self.getTestCore(dirn=coredirn) as core:
-
-                nodes = await core.nodes('[test:str=ssl]')
-                addr, port = await core.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
-
-                async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=localhost') as proxy:
-                    with open(bkuppath5, 'wb') as bkup5:
-                        async for msg in proxy.iterNewBackupArchive(remove=True):
-                            bkup5.write(msg)
-
-                    with mock.patch('synapse.lib.cell._iterBackupProc', _backupEOF):
-                        await s_t_utils.alist(proxy.iterNewBackupArchive(name='eof', remove=True))
-
-            with tarfile.open(bkuppath5, 'r:gz') as tar:
-                bkupname = os.path.commonprefix(tar.getnames())
-                tar.extractall(path=dirn, filter='data')
-
-            bkupdirn5 = os.path.join(dirn, bkupname)
-            async with self.getTestCore(dirn=bkupdirn5) as core:
-                nodes = await core.nodes('test:str=ssl')
-                self.len(1, nodes)
-
     async def test_inaugural_users(self):
 
         conf = {
@@ -2144,15 +2049,16 @@ class CellTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.runBackup('foo')
-            await core.runBackup('bar')
-
             foopath = s_common.genpath(core.dirn, 'backups', 'foo')
             barpath = s_common.genpath(core.dirn, 'backups', 'bar')
+
+            await s_t_utils.pullBackup(core, foopath)
+            await s_t_utils.pullBackup(core, barpath)
 
             self.true(os.path.isdir(foopath))
             self.true(os.path.isdir(barpath))
 
+            # the backups directory is excluded from the captured snapshot
             foonest = s_common.genpath(core.dirn, 'backups', 'bar', 'backups')
             self.false(os.path.isdir(foonest))
 
@@ -2203,7 +2109,7 @@ class CellTest(s_t_utils.SynTest):
 
                     async with core.getLocalProxy() as prox:
 
-                        async for chunk in prox.iterNewBackupArchive():
+                        async for chunk in s_t_utils.iterBackupData(prox):
                             await upfd.write(chunk)
 
                         size, sha256 = await upfd.save()
@@ -2231,7 +2137,7 @@ class CellTest(s_t_utils.SynTest):
                             # Take a backup of the cell with the restore.done file in place
                             async with await axon.upload() as upfd:
                                 async with core.getLocalProxy() as prox:
-                                    async for chunk in prox.iterNewBackupArchive():
+                                    async for chunk in s_t_utils.iterBackupData(prox):
                                         await upfd.write(chunk)
 
                                     size, sha256r = await upfd.save()
@@ -2303,6 +2209,24 @@ class CellTest(s_t_utils.SynTest):
                     self.isin('The aha:provision URL guid matches the service prov.done guid',
                               cm.exception.get('mesg'))
 
+    async def test_cell_mirror_bootstrap_err(self):
+        # a terminal err from the leader stream during mirror clone bootstrap
+        # surfaces as a SynErr and prevents the mirror from booting.
+        async with self.getTestAha() as aha:
+            with self.getTestDir() as dirn:
+                dirn00 = s_common.genpath(dirn, 'cell00')
+                dirn01 = s_common.genpath(dirn, 'cell01')
+
+                async with self.addSvcToAha(aha, '00.cell', s_t_utils.TestCell00, dirn=dirn00):
+
+                    with mock.patch.object(s_cell.Cell, '_backupProcHandoff', staticmethod(_boomProcHandoff)):
+                        with self.raises(s_exc.SynErr) as cm:
+                            async with self.addSvcToAha(aha, '01.cell', s_t_utils.TestCell00, dirn=dirn01,
+                                                        provinfo={'mirror': '00.cell'}):
+                                self.fail('mirror should never boot')
+
+                    self.isin('Error bootstrapping mirror backup', cm.exception.get('mesg'))
+
     async def test_backup_restore_aha(self):
         # do a mirror provisioning of a Cell
         # promote the mirror to being a leader
@@ -2332,7 +2256,7 @@ class CellTest(s_t_utils.SynTest):
                             self.true(core00.isactive)
                             self.false(core01.isactive)
 
-                            await core01.promote(graceful=True)
+                            await core01.promote()
 
                             self.true(core01.isactive)
                             self.false(core00.isactive)
@@ -2344,7 +2268,7 @@ class CellTest(s_t_utils.SynTest):
 
                             async with await axon00.upload() as upfd:
                                 async with core00.getLocalProxy() as prox:
-                                    async for chunk in prox.iterNewBackupArchive():
+                                    async for chunk in s_t_utils.iterBackupData(prox):
                                         await upfd.write(chunk)
 
                                     size, sha256 = await upfd.save()
@@ -2418,7 +2342,7 @@ class CellTest(s_t_utils.SynTest):
                             self.true(core00.isactive)
                             self.false(core01.isactive)
 
-                            await core01.promote(graceful=True)
+                            await core01.promote()
 
                             self.true(core01.isactive)
                             self.false(core00.isactive)
@@ -2429,7 +2353,7 @@ class CellTest(s_t_utils.SynTest):
                             self.none(modinfo)
 
                             # Promote core00 back to being the leader
-                            await core00.promote(graceful=True)
+                            await core00.promote()
                             self.true(core00.isactive)
                             self.false(core01.isactive)
 
@@ -2442,7 +2366,7 @@ class CellTest(s_t_utils.SynTest):
                             async with await axon00.upload() as upfd:
                                 async with core01.getLocalProxy() as prox:
                                     tot_chunks = 0
-                                    async for chunk in prox.iterNewBackupArchive():
+                                    async for chunk in s_t_utils.iterBackupData(prox):
                                         await upfd.write(chunk)
                                         tot_chunks += len(chunk)
 
@@ -2702,7 +2626,7 @@ class CellTest(s_t_utils.SynTest):
 
             # Local backup files are skipped
             async with self.getTestCore(dirn=dirn) as core:
-                await core.runBackup()
+                await s_t_utils.pullBackup(core, s_common.genpath(core.dirn, 'backups', 'bkup'))
 
             with self.getLoggerStream('synapse.lib.cell') as stream:
 
@@ -2713,6 +2637,29 @@ class CellTest(s_t_utils.SynTest):
             stream.seek(0)
             buf = stream.read()
             self.isin('Skipping backup file', buf)
+            self.isin('onboot optimization complete!', buf)
+
+            # Verify the per-slab progress heartbeat logs while a slab copy is
+            # still in-flight, so long-running optimizations are not silent.
+            realsaveto = s_lmdbslab.LmdbBackup.saveto
+
+            async def slowsaveto(self, dstdir):
+                await asyncio.sleep(0.2)
+                await realsaveto(self, dstdir)
+
+            with mock.patch.object(s_lmdbslab.LmdbBackup, 'saveto', slowsaveto), \
+                    mock.patch.object(s_cell, 'ONBOOT_OPTIMIZE_PROGRESS_SECS', 0.01):
+
+                with self.getLoggerStream('synapse.lib.cell') as stream:
+
+                    conf = {'onboot:optimize': True}
+                    async with self.getTestCore(dirn=dirn, conf=conf) as core:
+                        pass
+
+            stream.seek(0)
+            buf = stream.read()
+            self.isin('still optimizing', buf)
+            self.isin('finished optimizing', buf)
             self.isin('onboot optimization complete!', buf)
 
     async def test_cell_gc(self):
@@ -3279,19 +3226,19 @@ class CellTest(s_t_utils.SynTest):
                     self.isin('01.cell is not the current leader', cm.exception.get('mesg'))
 
                     # Promote 02.cell -> Promote 01.cell -> Promote 00.cell, without breaking the configured topology
-                    await cell02.promote(graceful=True)
+                    await cell02.promote()
                     self.false(cell00.isactive)
                     self.false(cell01.isactive)
                     self.true(cell02.isactive)
                     await cell02.sync()
 
-                    await cell01.promote(graceful=True)
+                    await cell01.promote()
                     self.false(cell00.isactive)
                     self.true(cell01.isactive)
                     self.false(cell02.isactive)
                     await cell02.sync()
 
-                    await cell00.promote(graceful=True)
+                    await cell00.promote()
                     self.true(cell00.isactive)
                     self.false(cell01.isactive)
                     self.false(cell02.isactive)
@@ -3306,7 +3253,7 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(cell0002.getParentUrl(), 'aha://testcell00...')
                     await cell0002.sync()
 
-                    await cell0002.promote(graceful=True)
+                    await cell0002.promote()
                     self.true(cell0002.isactive)
                     self.false(cell00.isactive)
                     await cell00.sync()
@@ -3378,69 +3325,6 @@ class CellTest(s_t_utils.SynTest):
             with self.getLoggerStream('synapse.lib.cell') as stream:
                 await cell._bumpAhaProxy()
                 await stream.expect('Error forcing AHA reconnect.', timeout=1)
-
-    async def test_stream_backup_exception(self):
-
-        with self.getTestDir() as dirn:
-            backdirn = os.path.join(dirn, 'backups')
-            coredirn = os.path.join(dirn, 'cortex')
-
-            conf = {'backup:dir': backdirn}
-            s_common.yamlsave(conf, coredirn, 'cell.yaml')
-
-            async with self.getTestCore(dirn=coredirn) as core:
-                async with core.getLocalProxy() as proxy:
-
-                    await proxy.runBackup(name='bkup')
-
-                    mock_proc = mock.Mock()
-                    mock_proc.join = mock.Mock()
-
-                    async def mock_executor(func, *args, **kwargs):
-                        if isinstance(func, mock.Mock) and func is mock_proc.join:
-                            raise Exception('boom')
-                        return mock_proc
-
-                    with mock.patch('synapse.lib.cell.s_coro.executor', mock_executor):
-                        with self.getLoggerStream('synapse.lib.cell') as stream:
-                            with self.raises(Exception) as cm:
-                                async for _ in proxy.iterBackupArchive('bkup'):
-                                    pass
-                            await stream.expect('Error during backup streaming', timeout=6)
-
-    async def test_iter_new_backup_archive(self):
-
-        with self.getTestDir() as dirn:
-            backdirn = os.path.join(dirn, 'backups')
-            coredirn = os.path.join(dirn, 'cortex')
-
-            conf = {'backup:dir': backdirn}
-            s_common.yamlsave(conf, coredirn, 'cell.yaml')
-
-            async with self.getTestCore(dirn=coredirn) as core:
-                async with core.getLocalProxy() as proxy:
-
-                    async def mock_runBackup(*args, **kwargs):
-                        raise Exception('backup failed')
-
-                    with mock.patch.object(s_cell.Cell, 'runBackup', mock_runBackup):
-                        with self.getLoggerStream('synapse.lib.cell') as stream:
-                            with self.raises(s_exc.SynErr) as cm:
-                                async for _ in proxy.iterNewBackupArchive(name='failedbackup', remove=True):
-                                    pass
-
-                            self.isin('backup failed', str(cm.exception))
-                            await stream.expect('Removing', timeout=6)
-
-                            path = os.path.join(backdirn, 'failedbackup')
-                            self.false(os.path.exists(path))
-
-                    self.false(core.backupstreaming)
-
-                    core.backupstreaming = True
-                    with self.raises(s_exc.BackupAlreadyRunning):
-                        async for _ in proxy.iterNewBackupArchive(name='newbackup', remove=True):
-                            pass
 
     async def test_cell_peer_noaha(self):
 

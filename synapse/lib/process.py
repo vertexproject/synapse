@@ -32,7 +32,7 @@ def _exectodo(que, todo, logconf):
         exc = s_exc.SynErr(mesg=mesg, name=name, info=info)
         que.put(exc)
 
-async def spawn(todo, timeout=None, ctx=None, logconf=None):
+async def spawn(todo, timeout=None, ctx=None, logconf=None, name=None):
     '''
     Run a todo (func, args, kwargs) tuple in a multiprocessing subprocess.
 
@@ -41,6 +41,8 @@ async def spawn(todo, timeout=None, ctx=None, logconf=None):
         timeout (int): The timeout to wait for the todo function to finish.
         ctx (multiprocess.Context): A optional multiprocessing context object.
         logconf (dict): An optional logging configuration for the spawned process.
+        name (str): An optional process name (used as the log ``process`` field);
+            defaults to the multiprocessing default (``SpawnProcess-N``).
 
     Notes:
         The contents of the todo tuple must be able to be pickled for execution.
@@ -56,7 +58,7 @@ async def spawn(todo, timeout=None, ctx=None, logconf=None):
         logconf = {}
 
     que = ctx.Queue()
-    proc = ctx.Process(target=_exectodo, args=(que, todo, logconf))
+    proc = ctx.Process(target=_exectodo, args=(que, todo, logconf), name=name)
 
     def execspawn():
 

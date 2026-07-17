@@ -261,7 +261,6 @@ class _Appt:
     _synced_attrs = {
         'doc',
         'name',
-        'pool',
         'affinity',
         'created',
         'enabled',
@@ -276,12 +275,11 @@ class _Appt:
         'lastfinishtime',
     }
 
-    def __init__(self, stor, iden, recur, indx, storm, creator, user, recs, nexttime=None, view=None, created=None, pool=False, affinity=None, loglevel=None):
+    def __init__(self, stor, iden, recur, indx, storm, creator, user, recs, nexttime=None, view=None, created=None, affinity=None, loglevel=None):
         self.doc = ''
         self.name = ''
         self.task = None
         self.stor = stor
-        self.pool = pool
         self.affinity = affinity
         self.iden = iden
         self.recur = recur  # does this appointment repeat
@@ -327,7 +325,6 @@ class _Appt:
             'ver': 2,
             'doc': self.doc,
             'name': self.name,
-            'pool': self.pool,
             'affinity': self.affinity,
             'enabled': self.enabled,
             'recur': self.recur,
@@ -361,7 +358,6 @@ class _Appt:
                    nexttime=val['nexttime'], view=val.get('view'), loglevel=loglevel)
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
-        appt.pool = val.get('pool', False)
         appt.affinity = val.get('affinity')
         appt.created = val.get('created', None)
         appt.laststarttime = val['laststarttime']
@@ -626,11 +622,7 @@ class Agenda(s_base.Base):
         loglevel = cdef.get('loglevel', 'WARNING')
         s_schemas.reqValidLoglevel(loglevel)
 
-        pool = cdef.get('pool', False)
         affinity = cdef.get('affinity')
-
-        if affinity and pool:
-            raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
 
         indx = self._next_indx
         self._next_indx += 1
@@ -653,7 +645,7 @@ class Agenda(s_base.Base):
 
         # TODO: this is insane. Make _Appt take the cdef directly...
         appt = _Appt(self, iden, recur, indx, storm, creator, user, recs, nexttime=nexttime, view=view,
-                           created=created, pool=pool, affinity=affinity, loglevel=loglevel)
+                           created=created, affinity=affinity, loglevel=loglevel)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')
@@ -706,17 +698,9 @@ class Agenda(s_base.Base):
             elif name == 'doc':
                 appt.doc = valu
 
-            elif name == 'pool':
-                appt.pool = bool(valu)
-                if valu and appt.affinity:
-                    raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
-                appt.pool = valu
-
             elif name == 'affinity':
                 if valu is not None:
                     valu = str(valu)
-                    if appt.pool:
-                        raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
                 appt.affinity = valu
 
             elif name == 'loglevel':
@@ -1002,7 +986,6 @@ class Agenda(s_base.Base):
             opts = {
                 'user': user.iden,
                 'view': appt.view,
-                'mirror': appt.pool,
                 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}},
                 '_loginfo': {
                     'cron': appt.iden

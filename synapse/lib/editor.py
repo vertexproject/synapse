@@ -423,7 +423,7 @@ class ProtoNode(s_node.NodeBase):
     async def _getRealTag(self, tag):
 
         norm, info = await self.editor.view.core.getTagNorm(tag)
-        tagnode = await self.editor.view.getTagNode(norm)
+        tagnode = await self.editor.getTagNode(norm)
         if tagnode is not s_common.novalu:
             return self.editor.loadNode(tagnode)
 
@@ -432,7 +432,7 @@ class ProtoNode(s_node.NodeBase):
         for i in range(len(toks)):
 
             toktag = '.'.join(toks[:i + 1])
-            toknode = await self.editor.view.getTagNode(toktag)
+            toknode = await self.editor.getTagNode(toktag)
             if toknode is s_common.novalu:
                 continue
 
@@ -441,7 +441,7 @@ class ProtoNode(s_node.NodeBase):
                 continue
 
             realnow = tokvalu + norm[len(toktag):]
-            tagnode = await self.editor.view.getTagNode(realnow)
+            tagnode = await self.editor.getTagNode(realnow)
             if tagnode is not s_common.novalu:
                 return self.editor.loadNode(tagnode)
 
@@ -943,12 +943,23 @@ class NodeEditor:
     '''
     A NodeEditor allows tracking node edits with subs/deps as a transaction.
     '''
-    def __init__(self, view, user, meta=None):
+    def __init__(self, view, user, meta=None, tagcache=None):
         self.meta = meta
         self.user = user
         self.view = view
+        self.tagcache = tagcache
         self.protonodes = {}
         self.maxnodes = view.core.maxnodes
+
+    async def getTagNode(self, name):
+        '''
+        Resolve a (normed) tag name to its syn:tag node, using the provided tag
+        cache when one is supplied.
+        '''
+        if self.tagcache is not None:
+            return await self.tagcache.aget(name)
+
+        return await self.view._getTagNode(name)
 
     def getEditorMeta(self):
         if self.meta is not None:

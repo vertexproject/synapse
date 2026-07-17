@@ -418,7 +418,7 @@ $lib.vault.list()                            // list all vaults
 // Package
 $lib.pkg.get(package-name)                   // get package def
 $lib.pkg.get(name).version                   // package version
-$lib.pkg.get(name).vaults.$type.schemas      // vault schemas
+$lib.pkg.get(name).vaults.$type.schema       // vault type schema
 
 // JSON
 $lib.json.schema($schema).validate($data)    // returns ($ok, $result)

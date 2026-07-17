@@ -52,7 +52,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                 self.eq(retn, 0)
 
                 outp.expect('Service Leader', whitespace=False)
-                outp.expect('cell00.synapse true', whitespace=False)
+                outp.expect('cell0.synapse True', whitespace=False)
 
                 outs = ' '.join(str(outp).split())
                 self.isin('00.mir.synapse True', outs)
@@ -324,20 +324,6 @@ class AhaToolsTest(s_t_utils.SynTest):
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
             self.eq(retn, 0)
 
-            with mock.patch('synapse.telepath.Proxy._hasTeleFeat',
-                          return_value=False):
-                argv = ['--url', ahaurl]
-                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                self.eq(retn, 1)
-                outp.expect(f'Service at {ahaurl} does not support the required callpeers feature.')
-
-            with mock.patch('synapse.telepath.Proxy._hasTeleFeat',
-                          side_effect=s_exc.NoSuchMeth(name='_hasTeleFeat')):
-                argv = ['--url', ahaurl]
-                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                self.eq(retn, 1)
-                outp.expect(f'Service at {ahaurl} does not support the required callpeers feature.')
-
             argv = ['--url', 'tcp://newp:1234/']
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
             self.eq(retn, 1)
@@ -389,11 +375,9 @@ class AhaToolsTest(s_t_utils.SynTest):
             async with self.getTestCore() as core:
                 curl = core.getLocalUrl()
                 argv = ['--url', curl]
-                with mock.patch('synapse.telepath.Proxy._hasTeleFeat',
-                          return_value=True):
-                    retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                    self.eq(1, retn)
-                    outp.expect(f'Service at {curl} is not an Aha server')
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                self.eq(1, retn)
+                outp.expect(f'Service at {curl} is not an Aha server')
 
             async with aha.waiter(1, 'aha:svc:add', timeout=10):
 
@@ -402,17 +386,17 @@ class AhaToolsTest(s_t_utils.SynTest):
                 await cell02.sync()
 
             async def mock_failed_api(*args, **kwargs):
-                yield ('00.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 10}}))
+                yield ('00.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 10, 'active': True}}))
                 yield ('01.cell.synapse', (False, 'error'))
-                yield ('02.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 12}}))
+                yield ('02.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 12, 'active': False}}))
 
             with mock.patch.object(aha, 'callAhaPeerApi', mock_failed_api):
                 argv = ['--url', ahaurl, '--timeout', '1']
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                 outp.expect('00.cell.synapse                          leader     True     True    127.0.0.1', whitespace=False)
-                outp.expect('nexsindx      10', whitespace=False)
-                outp.expect('02.cell.synapse                          leader     True     True    127.0.0.1', whitespace=False)
-                outp.expect('nexsindx      12', whitespace=False)
+                outp.expect('10 01.cell.synapse', whitespace=False)
+                outp.expect('02.cell.synapse                          follower   True     True    127.0.0.1', whitespace=False)
+                outp.expect('12 Group Status: Out of Sync', whitespace=False)
                 outp.expect('01.cell.synapse                          <unknown>  True     True', whitespace=False)
                 outp.expect('<unknown>    <unknown>', whitespace=False)
 

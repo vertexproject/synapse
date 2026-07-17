@@ -94,7 +94,7 @@ class HandlerBase:
             self.add_header('Access-Control-Allow-Credentials', 'true')
             self.add_header('Access-Control-Allow-Headers', 'Content-Type')
 
-    def getAuthCell(self):
+    async def getAuthCell(self):
         '''
         Return a reference to the cell used for auth operations.
         '''
@@ -250,7 +250,7 @@ class HandlerBase:
         if iden is None:
             return False
 
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         udef = await authcell.getUserDef(iden, packroles=False)
         if not udef.get('admin'):
             return False
@@ -273,7 +273,7 @@ class HandlerBase:
             self.sendAuthRequired()
             return False
 
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         udef = await authcell.getUserDef(iden, packroles=False)
         if not udef.get('admin'):
             self.sendRestErr('AuthDeny', f'User {self.web_useriden} ({self.web_username}) is not an admin.',
@@ -364,7 +364,7 @@ class HandlerBase:
         Returns:
             str: The user iden of the logged in user.
         '''
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
 
         auth = self.request.headers.get('Authorization')
         if auth is None:
@@ -400,7 +400,7 @@ class HandlerBase:
         return self.web_useriden
 
     async def handleApiKeyAuth(self):
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         key = self.request.headers.get('X-API-KEY')
         isok, info = await authcell.checkUserApiKey(key)  # errfo or dict with tdef + udef
         if isok is False:
@@ -428,7 +428,7 @@ class HandlerBase:
         Returns:
             bool: True if the user has the requested permission.
         '''
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
 
         useriden = await self.useriden()
         if useriden is None:
@@ -480,19 +480,6 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
     async def xmit(self, name, **info):
         await self.write_message(s_json.dumps({'type': name, 'data': info}))
-
-    async def _reqUserAllow(self, perm):
-
-        iden = await self.useriden()
-        if iden is None:
-            mesg = 'Session is not authenticated.'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm)
-
-        authcell = self.getAuthCell()
-        if not await authcell.isUserAllowed(iden, perm):
-            ptxt = '.'.join(perm)
-            mesg = f'Permission denied: {ptxt}.'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm)
 
 class Handler(HandlerBase, t_web.RequestHandler):
 
@@ -548,7 +535,7 @@ class StreamHandler(Handler):
 
 class StormHandler(Handler):
 
-    def getCore(self):
+    async def getCore(self):
         # add an abstraction to allow subclasses to dictate how
         # a reference to the cortex is returned from the handler.
         return self.cell
@@ -618,7 +605,7 @@ class StormV3(ApiKeyOnlyMixin, StormHandler):
         opts.setdefault('editformat', 'nodeedits')
         flushed = None
         try:
-            async for mesg in self.getCore().storm(query, opts=opts):
+            async for mesg in (await self.getCore()).storm(query, opts=opts):
                 self.write(s_json.dumps(mesg, newline=jsonlines))
                 await self.flush()
                 flushed = True
@@ -648,7 +635,7 @@ class StormCallV3(ApiKeyOnlyMixin, StormHandler):
             return
 
         try:
-            ret = await self.getCore().callStorm(query, opts=opts)
+            ret = await (await self.getCore()).callStorm(query, opts=opts)
         except Exception as e:
             return self._handleStormErr(e)
         else:
@@ -678,7 +665,7 @@ class StormExportV3(ApiKeyOnlyMixin, StormHandler):
         flushed = False
         try:
             self.set_header('Content-Type', 'application/x-synapse-nodes')
-            async for pode in self.getCore().exportStorm(query, opts=opts):
+            async for pode in (await self.getCore()).exportStorm(query, opts=opts):
                 self.write(s_msgpack.en(pode))
                 await self.flush()
                 flushed = True
@@ -767,7 +754,7 @@ class LoginV3(Handler):
         name = body.get('user')
         passwd = body.get('passwd')
 
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         udef = await authcell.getUserDefByName(name)
         if udef is None:
             self.logAuthIssue(mesg='No such user.', username=name)
@@ -798,7 +785,7 @@ class LogoutV3(Handler):
         if sess is not None:
             self.web_useriden = sess.info.get('user')
             self.web_username = sess.info.get('username', '<no username>')
-            await self.getAuthCell().delHttpSess(sess.iden)
+            await (await self.getAuthCell()).delHttpSess(sess.iden)
 
         self.clear_cookie('sess')
 
@@ -823,7 +810,7 @@ class AuthUsersV3(Handler):
             return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.',
                                     status_code=HTTPStatus.BAD_REQUEST)
 
-        users = await self.getAuthCell().getUserDefs()
+        users = await (await self.getAuthCell()).getUserDefs()
 
         if not archived:
             users = [udef for udef in users if not udef.get('archived')]
@@ -839,7 +826,7 @@ class AuthRolesV3(Handler):
         if not await self.reqAuthUser():
             return
 
-        self.sendRestRetn(await self.getAuthCell().getRoleDefs())
+        self.sendRestRetn(await (await self.getAuthCell()).getRoleDefs())
 
 class AuthUserV3(Handler):
 
@@ -848,7 +835,7 @@ class AuthUserV3(Handler):
         if not await self.reqAuthUser():
             return
 
-        udef = await self.getAuthCell().getUserDef(iden, packroles=False)
+        udef = await (await self.getAuthCell()).getUserDef(iden, packroles=False)
         if udef is None:
             self.sendRestErr('NoSuchUser', f'User {iden} does not exist.',
                              status_code=HTTPStatus.NOT_FOUND)
@@ -862,7 +849,7 @@ class AuthUserV3(Handler):
         if not await self.reqAuthAdmin():
             return
 
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
 
         udef = await authcell.getUserDef(iden)
         if udef is None:
@@ -910,7 +897,7 @@ class AuthUserPasswdV3(Handler):
         if body is s_common.novalu:
             return
 
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         udef = await authcell.getUserDef(iden)
         if udef is None:
             self.sendRestErr('NoSuchUser', f'User does not exist: {iden}',
@@ -935,7 +922,7 @@ class AuthRoleV3(Handler):
         if not await self.reqAuthUser():
             return
 
-        rdef = await self.getAuthCell().getRoleDef(iden)
+        rdef = await (await self.getAuthCell()).getRoleDef(iden)
         if rdef is None:
             self.sendRestErr('NoSuchRole', f'Role {iden} does not exist.', status_code=HTTPStatus.NOT_FOUND)
             return
@@ -947,7 +934,7 @@ class AuthRoleV3(Handler):
         if not await self.reqAuthAdmin():
             return
 
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         rdef = await authcell.getRoleDef(iden)
         if rdef is None:
             self.sendRestErr('NoSuchRole', f'Role {iden} does not exist.', status_code=HTTPStatus.NOT_FOUND)
@@ -982,7 +969,7 @@ class AuthGrantV3(Handler):
             return
 
         useriden = body.get('user')
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         udef = await authcell.getUserDef(useriden)
         if udef is None:
             self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.',
@@ -1018,7 +1005,7 @@ class AuthRevokeV3(Handler):
             return
 
         useriden = body.get('user')
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         udef = await authcell.getUserDef(useriden)
         if udef is None:
             self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.',
@@ -1054,7 +1041,7 @@ class AuthAddUserV3(Handler):
                              status_code=HTTPStatus.BAD_REQUEST)
             return
 
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         if await authcell.getUserDefByName(name) is not None:
             self.sendRestErr('DupUser', f'A user named {name} already exists.',
                              status_code=HTTPStatus.BAD_REQUEST)
@@ -1101,7 +1088,7 @@ class AuthAddRoleV3(Handler):
                              status_code=HTTPStatus.BAD_REQUEST)
             return
 
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         if await authcell.getRoleDefByName(name) is not None:
             self.sendRestErr('DupRole', f'A role named {name} already exists.',
                              status_code=HTTPStatus.BAD_REQUEST)
@@ -1134,7 +1121,7 @@ class AuthDelRoleV3(Handler):
                              status_code=HTTPStatus.BAD_REQUEST)
             return
 
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         rdef = await authcell.getRoleDefByName(name)
         if rdef is None:
             return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!',
@@ -1271,7 +1258,7 @@ class OnePassIssueV3(Handler):
 
         iden = body.get('user')
         duration = body.get('duration', 600000)
-        authcell = self.getAuthCell()
+        authcell = await self.getAuthCell()
         try:
             passwd = await authcell.genUserOnepass(iden, duration)
         except s_exc.NoSuchUser:
@@ -1381,7 +1368,7 @@ class ExtApiHandler(ApiKeyOnlyMixin, StormHandler):
         return await self._runHttpExt('options', path)
 
     async def _runHttpExt(self, meth, path):
-        core = self.getCore()
+        core = await self.getCore()
         adef, args = await core.getHttpExtApiByPath(path)
         if adef is None:
             self.sendRestErr('NoSuchPath', f'No Extended HTTP API endpoint matches {path}',
@@ -1445,7 +1432,6 @@ class ExtApiHandler(ApiKeyOnlyMixin, StormHandler):
         varz['_http_request_info'] = info
 
         opts = {
-            'mirror': adef.get('pool', False),
             'readonly': adef.get('readonly'),
             'show': (
                 'http:resp:body',

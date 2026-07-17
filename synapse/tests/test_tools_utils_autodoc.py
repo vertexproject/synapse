@@ -185,6 +185,21 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('Storm Package\\: testpkg', s)
             self.isin('This documentation is generated for version 0.0.1 of the package.', s)
 
+            # Dependencies, rendered as an rst grid table (which survives
+            # rst -> md conversion as a proper table, rather than a literal
+            # code block)
+            self.isin('Dependencies', s)
+            self.isin('This package depends on the following packages.', s)
+            self.isin('| Name', s)
+            self.isin('synapse', s)
+            self.isin('>=3.0.0b3,<4.0.0', s)
+            self.isin('testpkg-optdep', s)
+            self.isin('>=1.0.0,<2.0.0', s)
+            self.isin('Optional dependency used to enrich testpkg nodes with', s)
+            self.isin('additional metadata.', s)
+            self.isin('| yes', s)
+            self.isin('| no', s)
+
             self.isin('This package implements the following Storm Commands.', s)
             self.isin('.. _stormcmd-testpkg-testpkgcmd', s)
 

@@ -3724,6 +3724,7 @@ A single HTTP request.
 | `:client:host` | `it:host` | The client host which initiated the HTTP request. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the HTTP request. |
 | `:cookies` | `array of inet:http:cookie` | An array of HTTP cookie values parsed from the "Cookies:" header in the request. |
+| `:fetch` | `it:exec:fetch` | The fetch or page load event which caused the HTTP request. |
 | `:flow` | `inet:flow` | The network flow which contained the HTTP request. |
 | `:header:host` | `inet:fqdn` | The FQDN parsed from the "Host:" header in the request. |
 | `:header:referer` | `inet:url` | The referer URL parsed from the "Referer:" header in the request. |
@@ -5467,17 +5468,6 @@ A unique command-line string.
 |-----------|
 | `meta:usable` |
 
-### `it:cmd:history`
-
-A single command executed within a session.
-
-| Property | Type | Doc |
-|----------|------|-----|
-| `:cmd` | `it:cmd` | The command that was executed. |
-| `:index` | `int` | Used to order the commands when times are not available. |
-| `:session` | `it:cmd:session` | The session that contains this history entry. |
-| `:time` | `time` | The time that the command was executed. |
-
 ### `it:cmd:session`
 
 A command line session with multiple commands run over time.
@@ -5740,6 +5730,29 @@ An instance of a host binding a listening port.
 | `:thread` | `it:exec:thread` | The thread which caused the bind event. |
 | `:time` | `time` | The time the port was bound. |
 
+### `it:exec:command`
+
+A single command executed within a session.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `it:host:activity` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this command execution. |
+| `:cmd` | `it:cmd` | The command that was executed. |
+| `:exe` | `file:bytes` | The executable file which caused the command execution. |
+| `:host` | `it:host` | The host on which the command execution occurred. |
+| `:index` | `int` | Used to order the commands when times are not available. |
+| `:output` | `text` | The output of the command. |
+| `:period` | `activity` | The period over which the command execution occurred. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:session` | `it:cmd:session` | The session that contains this command execution. |
+
 ### `it:exec:fetch`
 
 An instance of a host requesting a URL using any protocol scheme.
@@ -5983,7 +5996,6 @@ A process executing on a host.
 | `:account` | `it:host:account` | The account of the process owner. |
 | `:activity` | `base:activity` | A parent activity which includes this process. |
 | `:cmd` | `it:cmd` | The command string used to launch the process. |
-| `:cmd:history` | `it:cmd:history` | The command history entry which caused this process to be run. |
 | `:exe` | `file:bytes` | The main executable file for the process. |
 | `:exitcode` | `int` | The exit code for the process. |
 | `:host` | `it:host` | The host that executed the process. |
@@ -6808,6 +6820,29 @@ The given software requests the android permission.
 |----------|------|-----|
 | `:app` | `it:software` | The android app which requests the permission. |
 | `:perm` | `it:os:android:perm` | The android permission requested by the app. |
+
+### `it:os:posix:cron`
+
+A cron job entry configured on a host.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `file:entry` |
+| `meta:causal` |
+| `meta:usable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:account` | `it:host:posix:account` | The account which the cron job runs as. |
+| `:activity` | `base:activity` | A parent activity which includes this cron job. |
+| `:cmd` | `it:cmd` | The command which the cron job runs. |
+| `:desc` | `text` | A description of the cron job entry. |
+| `:file` | `file:bytes` | The cron file which contains the job definition. |
+| `:host` | `it:host` | The host on which the cron job was configured. |
+| `:path` | `file:path` | The path to the cron file which contained the job. |
+| `:period` | `it:lifespan` | The period when the cron job entry existed. |
+| `:schedule` | `it:dev:str` | The cron schedule string. |
 
 ### `it:os:windows:registry:entry`
 
@@ -8789,8 +8824,6 @@ A GUID for a country.
 | `:currencies` | `array of econ:currency` | The official currencies used in the country. |
 | `:flag` | `file:bytes` | A thumbnail image of the flag of the country. |
 | `:government` | `ou:org` | The government of the country. |
-| `:iso:3166:alpha3` | `iso:3166:alpha3` | The ISO 3166 Alpha-3 country code. |
-| `:iso:3166:numeric3` | `iso:3166:numeric3` | The ISO 3166 Numeric-3 country code. |
 | `:name` | `geo:name` | The name of the country. |
 | `:names` | `array of geo:name` | An array of alternate or localized names for the country. |
 | `:period` | `ival` | The period over which the country existed. |
@@ -9269,7 +9302,6 @@ An instance of an actor attacking a target.
 | `:activity` | `base:activity` | A parent activity which includes this attack. |
 | `:actor` | `entity:actor` | The actor who carried out the attack. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the attack. |
-| `:compromise` | `risk:compromise` | A compromise that this attack contributed to. |
 | `:desc` | `text` | A description of the attack. |
 | `:detected` | `time` | The first confirmed detection time of the attack. |
 | `:discovered` | `time` | The earliest known time when the attack was discovered. |
@@ -9393,7 +9425,6 @@ Activity where an attacker attempted to extort a victim.
 | `:activity` | `base:activity` | A parent activity which includes this extortion. |
 | `:actor` | `entity:actor` | The actor who carried out the extortion. |
 | `:actor:name` | `entity:name` | The name of the actor who carried out the extortion. |
-| `:compromise` | `risk:compromise` | The compromise which allowed the attacker to extort the target. |
 | `:desc` | `text` | A description of the extortion. |
 | `:enacted` | `bool` | Set to true if attacker carried out the threat. |
 | `:id` | `base:id` | A unique ID given to the extortion. |
@@ -9589,7 +9620,6 @@ An outage event which affected resource availability.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:activity` | `base:activity` | A parent activity which includes this outage. |
-| `:attack` | `risk:attack` | An attack which caused the outage. |
 | `:cause` | `risk:outage:cause:taxonomy` | The outage cause type. |
 | `:desc` | `text` | A description of the outage. |
 | `:id` | `base:id` | A unique ID given to the outage. |
@@ -9692,6 +9722,7 @@ A threat cluster or subgraph of threat activity, as defined by a specific source
 | `entity:resolvable` |
 | `geo:locatable` |
 | `meta:discoverable` |
+| `meta:observable` |
 | `meta:reported` |
 
 | Property | Type | Doc |
@@ -9737,6 +9768,7 @@ A threat cluster or subgraph of threat activity, as defined by a specific source
 | `:reporter:updated` | `time` | The time when the threat was last updated. |
 | `:reporter:url` | `inet:url` | The URL for the threat provided by the reporter. |
 | `:resolved` | `ou:org`, `ps:person` | The resolved entity to which this threat belongs. |
+| `:seen` | `ival` | The threat was observed during the time interval. |
 | `:social:accounts` | `array of inet:service:account` | Social media or other online accounts listed for the threat. |
 | `:sophistication` | `meta:score` | The sources's assessed sophistication of the threat cluster. |
 | `:tag` | `syn:tag` | The tag used to annotate nodes that are associated with the threat cluster. |
@@ -11069,6 +11101,7 @@ Properties common to activity which occurs over a period.
 | `inet:data:link` |
 | `inet:flow` |
 | `inet:wifi:link` |
+| `it:os:posix:cron` |
 | `pol:election` |
 | `pol:race` |
 | `proj:sprint` |
@@ -11587,6 +11620,7 @@ Properties common to forms representing a file at a path.
 | `it:exec:file:del` |
 | `it:exec:file:read` |
 | `it:exec:file:write` |
+| `it:os:posix:cron` |
 
 ### `file:mime:exe`
 
@@ -11963,6 +11997,7 @@ Activity which occurred on a host.
 
 | Form |
 |------|
+| `it:exec:command` |
 | `it:exec:proc` |
 | `it:exec:thread` |
 | `it:os:windows:service` |
@@ -12198,6 +12233,7 @@ Properties common to forms which can be observed.
 | `meta:technique` |
 | `ou:id` |
 | `risk:mitigation` |
+| `risk:threat` |
 | `risk:vuln` |
 | `tel:mob:imei` |
 | `tel:mob:imid` |
@@ -12418,6 +12454,7 @@ An interface implemented by forms which can be used by an actor.
 | `it:cmd` |
 | `it:dev:str` |
 | `it:hardware` |
+| `it:os:posix:cron` |
 | `it:software` |
 | `meta:algorithm` |
 | `meta:rule` |

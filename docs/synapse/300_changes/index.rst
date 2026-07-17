@@ -105,6 +105,7 @@ and CLI tooling.
     devops-nexus-deconfliction
     devops-storage-config-changes
     devops-telepath-async-only
+    devops-telepath-clientv2
     devops-feed-single-format
     devops-layer-sync-pushpull
     devops-python-version

@@ -37,6 +37,31 @@ class PromoteToolTest(s_t_utils.SynTest):
                     self.true(cell01.isactive)
                     await cell00.sync()
 
+    async def test_tool_promote_failure(self):
+        # --failure maps to a forced promotion, which does not coordinate
+        # with the current leader ( unlike the default graceful handoff ).
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+                    dirn00 = s_common.genpath(dirn, '00.cell')
+                    dirn01 = s_common.genpath(dirn, '01.cell')
+
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_t_utils.TestCell00, dirn=dirn00))
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_t_utils.TestCell00, dirn=dirn01))
+                    self.true(cell00.isactive)
+                    self.false(cell01.isactive)
+                    await cell01.sync()
+
+                    outp = self.getTestOutp()
+                    argv = ['--url', cell01.getLocalUrl(), '--failure']
+                    ret = await s_tools_promote.main(argv, outp=outp)
+                    self.eq(0, ret)
+
+                    # the forced promotion never contacted the old leader, so
+                    # it does not yet know it has been demoted ( split-brain ).
+                    self.true(cell01.isactive)
+                    self.true(cell00.isactive)
+
     async def test_tool_promote_schism(self):
         # under dynamic leadership every follower syncs from the current leader,
         # so promoting any follower gracefully hands off from the current leader.

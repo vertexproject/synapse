@@ -11,6 +11,13 @@ import logging
 import multiprocessing
 import concurrent.futures
 
+# Bind BrokenProcessPool as a module-level name. concurrent.futures lazily binds
+# only ProcessPoolExecutor/ThreadPoolExecutor via __getattr__, not the .process
+# submodule; a process that never creates a pool (the pool is MainProcess-only,
+# below) never imports it, so `except concurrent.futures.process.BrokenProcessPool`
+# would raise AttributeError and mask the real exception.
+from concurrent.futures.process import BrokenProcessPool
+
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
@@ -22,8 +29,22 @@ forkpool_sema = None
 max_workers = None
 def_max_workers = 8
 reserved_workers = 2
-if multiprocessing.current_process().name == 'MainProcess':
-    # only create the forkpools in the MainProcess...
+
+_pool_logconf = None
+
+def initForkPool():
+    '''
+    Initialize the shared forkserver process pool for this process.
+
+    Called automatically at import for the MainProcess. Child processes that
+    run their own CPU-bound work must call it explicitly to get a pool;
+    otherwise forked()/semafork() fall back to a per-call spawn. Idempotent.
+    '''
+    global forkpool, forkpool_sema, max_workers
+
+    if forkpool is not None:
+        return
+
     try:
         mpctx = multiprocessing.get_context('forkserver')
         max_workers = int(os.getenv('SYN_FORKED_WORKERS', 0)) or max(def_max_workers, os.cpu_count() or def_max_workers)
@@ -33,6 +54,15 @@ if multiprocessing.current_process().name == 'MainProcess':
     except OSError as e:  # pragma: no cover
         max_workers = None
         logger.warning(f'Failed to init forkserver pool, fallback enabled: {e}', exc_info=True)
+        return
+
+    # re-apply logging config set before the pool existed
+    if _pool_logconf is not None:
+        _setPoolLogging(_pool_logconf)
+
+if multiprocessing.current_process().name == 'MainProcess':
+    # only auto-create the forkpool in the MainProcess...
+    initForkPool()
 
 def _runtodo(todo):  # pragma: no cover
     return todo[0](*todo[1], **todo[2])
@@ -42,7 +72,6 @@ def _initPoolWorker(logconf):  # prama: no cover
     p = multiprocessing.current_process()
     logger.debug(f'Initialized new forkserver pool worker: name={p.name} pid={p.ident}')
 
-_pool_logconf = None
 def _setPoolLogging(logconf):
     # This must be called before any calls to forked() and _parserforked()
     global _pool_logconf
@@ -70,7 +99,7 @@ async def forked(func, *args, **kwargs):
     if forkpool is not None:
         try:
             return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)
-        except concurrent.futures.process.BrokenProcessPool as e:  # pragma: no cover
+        except BrokenProcessPool as e:  # pragma: no cover
             logger.exception(f'Shared forkserver pool is broken, fallback enabled: {func}')
 
     logger.debug(f'Forkserver pool using spawn fallback: {func}')
@@ -117,6 +146,6 @@ async def _parserforked(func, *args, **kwargs):
     todo = (func, args, kwargs)
     try:
         return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)
-    except concurrent.futures.process.BrokenProcessPool as e:  # pragma: no cover
+    except BrokenProcessPool as e:  # pragma: no cover
         logger.exception(f'Fatal error executing forked task: {func} {args} {kwargs}')
         raise s_exc.FatalErr(mesg=f'Fatal error encountered: {e}') from None

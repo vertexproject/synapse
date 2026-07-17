@@ -58,6 +58,45 @@ jsonsbuf = b'''
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_stormtypes_lib_private(self):
+        # a lib flagged _storm_lib_private is omitted from generated docs
+        # (getLibDocs) and from the help command's child-lib listing
+        # (_getChildLibs); sibling libs without the flag are not.
+
+        class TstPrivBase(s_stormtypes.Lib):
+            '''A test lib namespace.'''
+            _storm_lib_path = ('tstpriv',)
+
+        class TstPrivPub(s_stormtypes.Lib):
+            '''A public child test lib.'''
+            _storm_lib_path = ('tstpriv', 'pub')
+
+        class TstPrivPriv(s_stormtypes.Lib):
+            '''A private child test lib.'''
+            _storm_lib_private = True
+            _storm_lib_path = ('tstpriv', 'priv')
+
+        reg = s_stormtypes.registry
+        for ctor in (TstPrivBase, TstPrivPub, TstPrivPriv):
+            reg.registerLib(ctor)
+
+        try:
+            async with self.getTestCore() as core:
+
+                docs = await core.getStormDocs()
+                paths = [tuple(d['path']) for d in docs['libraries']]
+                self.isin(('lib', 'tstpriv'), paths)
+                self.isin(('lib', 'tstpriv', 'pub'), paths)
+                self.notin(('lib', 'tstpriv', 'priv'), paths)
+
+                msgs = await core.stormlist('help $lib.tstpriv')
+                self.stormIsInPrint('$lib.tstpriv.pub', msgs)
+                self.stormNotInPrint('$lib.tstpriv.priv', msgs)
+
+        finally:
+            for path in (('tstpriv',), ('tstpriv', 'pub'), ('tstpriv', 'priv')):
+                reg.delStormLib(path)
+
     async def test_stormtypes_copy(self):
 
         async with self.getTestCore() as core:
@@ -365,7 +404,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'bam': 3}, await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, baz, asof="-1day"))'))
 
             path = ('cells', core.iden, 'foo', 'bar')
-            items = sorted(await alist(core.jsonstor.getPathObjs(path)), key=lambda x: x[1]['asof'])
+            items = sorted(await alist(core._has_jsonstor.getPathObjs(path)), key=lambda x: x[1]['asof'])
             self.len(2, items)
             self.true(all(len(item[0]) == 1 and s_common.isguid(item[0][0]) for item in items))
             [item[1].pop('asof') for item in items]
@@ -375,7 +414,7 @@ class StormTypesTest(s_test.SynTest):
             self.true(await core.callStorm('return($lib.jsonstor.cachedel(newp/newp, nah))'))
             self.true(await core.callStorm('return($lib.jsonstor.cachedel(foo/bar, baz))'))
             self.true(await core.callStorm('return($lib.jsonstor.cachedel((foo, bar), (baz, true)))'))
-            await self.agenlen(0, core.jsonstor.getPathObjs(path))
+            await self.agenlen(0, core._has_jsonstor.getPathObjs(path))
 
             with self.raises(s_exc.NoSuchType):
                 await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, $lib.queue, (1)))')
@@ -646,7 +685,7 @@ class StormTypesTest(s_test.SynTest):
             'name': 'foo',
             'desc': 'test',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0b2,<4.0.0',
+            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
             'modules': [
                 {
                     'name': 'test',
@@ -4302,7 +4341,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[1].ndef, ('test:str', asdfhash_h))
 
             bkey = s_common.uhex(asdfhash_h)
-            byts = b''.join([b async for b in core.axon.get(bkey)])
+            byts = b''.join([b async for b in (await core.getAxon()).get(bkey)])
             self.eq(b'asdfasdf', byts)
 
             ret = await core.callStorm('return($lib.axon.has($hash))', {'vars': {'hash': asdfhash_h}})
@@ -4408,7 +4447,7 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.axready.wait()
+            await core.getAxon()
 
             # urlsafe
             opts = {'vars': {'bytes': b'fooba?'}}
@@ -4421,7 +4460,7 @@ class StormTypesTest(s_test.SynTest):
             text = '$lib.axon.put($lib.base64.decode($bytes))'
             nodes = await core.nodes(text, opts)
             key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
-            byts = b''.join([b async for b in core.axon.get(key)])
+            byts = b''.join([b async for b in (await core.getAxon()).get(key)])
             self.eq(byts, b'fooba?')
 
             # normal
@@ -4435,7 +4474,7 @@ class StormTypesTest(s_test.SynTest):
             text = '$lib.axon.put($lib.base64.decode($bytes, $(0)))'
             nodes = await core.nodes(text, opts)
             key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
-            byts = b''.join([b async for b in core.axon.get(key)])
+            byts = b''.join([b async for b in (await core.getAxon()).get(key)])
             self.eq(byts, b'fooba?')
 
             # unhappy cases
@@ -6187,7 +6226,6 @@ class StormTypesTest(s_test.SynTest):
 
                     self.stormIsInPrint('last result:     finished successfully with 0 nodes', mesgs)
                     self.stormIsInPrint('entries:         <None>', mesgs)
-                    self.stormIsInPrint('pool:            false', mesgs)
 
                     # Test 'stat' command
                     mesgs = await core.stormlist('cron.stat xxx')
@@ -6268,7 +6306,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('data.iden must match pattern', msgs)
 
                 opts = {'vars': {'iden': 'cd263bd133a5dafa1e1c5e9a01d9d486'}}
-                q = "cron.add --pool --iden $iden daily@:14 {[test:guid=$lib.guid()]}"
+                q = "cron.add --iden $iden daily@:14 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
 
@@ -7004,6 +7042,68 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq([], await alist(core.getLayer().iterPropIndxNids('newp', 'newp', 'newp')))
 
+            # new getPropValues kwargs on the view stormlib: prefix/limit/member-type listing
+            cq = '''
+            $vals = ([])
+            for $v in $genr { $vals.append($v) }
+            return($vals)
+            '''
+
+            # prefix listing on a polymorphic property yields (membertype, value) tuples (main view)
+            q = cq.replace('$genr', "$lib.view.get().getPropValues(doc:report:title, valu=f, cmpr='^=')")
+            self.sorteq([('title', 'faz'), ('title', 'foo')], await core.callStorm(q))
+
+            # the limit caps the merged, de-duplicated stream
+            q = cq.replace('$genr', "$lib.view.get().getPropValues(doc:report:title, valu=f, cmpr='^=', limit=1)")
+            self.len(1, await core.callStorm(q))
+
+            # the member-type filter keeps / drops by poly member type
+            q = cq.replace('$genr', "$lib.view.get().getPropValues(doc:report:title, valu=f, cmpr='^=', type=title)")
+            self.sorteq([('title', 'faz'), ('title', 'foo')], await core.callStorm(q))
+
+            # poly results are (memberType, value) pairs; Optic autocomplete takes the value (index 1)
+            self.sorteq(['faz', 'foo'], [item[1] for item in await core.callStorm(q)])
+
+            q = cq.replace('$genr', "$lib.view.get().getPropValues(doc:report:title, valu=f, cmpr='^=', type=newp)")
+            self.eq([], await core.callStorm(q))
+
+            # only the = and ^= comparators are accepted
+            with self.raises(s_exc.BadArg):
+                q = cq.replace('$genr', "$lib.view.get().getPropValues(doc:report:title, valu=f, cmpr='~=')")
+                await core.callStorm(q)
+
+            # limit must be >= 1
+            with self.raises(s_exc.BadArg):
+                q = cq.replace('$genr', "$lib.view.get().getPropValues(doc:report:title, valu=f, cmpr='^=', limit=0)")
+                await core.callStorm(q)
+
+            # without a valu, limit still applies but cmpr / type must not be silently ignored
+            q = cq.replace('$genr', '$lib.view.get().getPropValues(doc:report:title, limit=1)')
+            self.len(1, await core.callStorm(q))
+
+            with self.raises(s_exc.BadArg):
+                q = cq.replace('$genr', '$lib.view.get().getPropValues(doc:report:title, type=title)')
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadArg):
+                q = cq.replace('$genr', "$lib.view.get().getPropValues(doc:report:title, cmpr='^=')")
+                await core.callStorm(q)
+
+            # comparator-aware getPropCount via the view stormlib
+            await core.nodes('[ test:str=zebra test:str=zebu test:str=yak ]')
+            self.eq(2, await core.callStorm("return($lib.view.get().getPropCount(test:str, valu=ze, cmpr='^='))"))
+            self.eq(1, await core.callStorm("return($lib.view.get().getPropCount(test:str, valu=zebra, cmpr='='))"))
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm("return($lib.view.get().getPropCount(test:str, valu=ze, cmpr='range='))")
+
+            # ^= counting works for a (polymorphic) secondary prop, summed per string member type
+            self.eq(2, await core.callStorm("return($lib.view.get().getPropCount(doc:report:title, valu=f, cmpr='^='))"))
+
+            # the type filter reaches getPropCount through the stormlib type kwarg
+            await core.nodes('[ test:str=zebra :poly={[ test:int=7 ]} ]')
+            self.eq(1, await core.callStorm("return($lib.view.get().getPropCount(test:str:poly, type=test:int))"))
+
     async def test_lib_stormtypes_cmdopts(self):
         pdef = {
             'name': 'foo',
@@ -7359,7 +7459,7 @@ class StormTypesTest(s_test.SynTest):
                 return items
             task = core.schedCoro(waitlist())
             await asyncio.sleep(0.1)
-            await core.axon.put(b'visi')
+            await (await core.getAxon()).put(b'visi')
             items = await task
             self.len(6, items)
             self.eq(items[5][1], 'e45bbb7e03acacf4d1cca4c16af1ec0c51d777d10e53ed3155bd3d8deb398f3f')
@@ -7371,7 +7471,7 @@ Stephen,Tyler,"7452 Terrace ""At the Plaza"" road",SomeTown,SD, 91234
 ,Blankman,,SomeTown, SD, 00298
 "Joan ""the bone"", Anne",Jet,"9th, at Terrace plc",Desert City,CO,00123
 Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
-            size, sha256 = await core.axon.put(data.encode())
+            size, sha256 = await (await core.getAxon()).put(data.encode())
             sha256 = s_common.ehex(sha256)
             q = '''
             $genr = $lib.axon.csvrows($sha256)
@@ -7392,7 +7492,7 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
 
             data = '''foo\tbar\tbaz
 words\tword\twrd'''
-            size, sha256 = await core.axon.put(data.encode())
+            size, sha256 = await (await core.getAxon()).put(data.encode())
             sha256 = s_common.ehex(sha256)
             # Note: The tab delimiter in the query here is double quoted
             # so that we decode it in the Storm parser.
@@ -7415,7 +7515,7 @@ words\tword\twrd'''
             }, await core.callStorm('return($lib.axon.metrics())'))
 
             bin_buf = b'\xbb/$\xc0A\xf1\xbf\xbc\x00_\x82v4\xf6\xbd\x1b'
-            binsize, bin256 = await core.axon.put(bin_buf)
+            binsize, bin256 = await (await core.getAxon()).put(bin_buf)
 
             opts = {'vars': {'sha256': s_common.ehex(bin256)}}
             with self.raises(s_exc.BadDataValu):
@@ -7436,7 +7536,7 @@ words\tword\twrd'''
             # Upload some test data
             data = b'foobarbaz'
             sha256 = hashlib.sha256(data).hexdigest()
-            await core.axon.put(data)
+            await (await core.getAxon()).put(data)
 
             # raise an exception if axon.put is called
             def axonput(*args, **kwargs):
@@ -7449,13 +7549,15 @@ words\tword\twrd'''
                 self.eq(size, len(data))
                 self.eq(_sha256, sha256)
 
-                # This does raise because the data isn't already in the axon
-                with self.raises(Exception) as exc:
+                # This does raise because the data isn't already in the axon.
+                # the axon is reached via a telepath proxy, so a non-synapse
+                # exception comes back wrapped as a SynErr.
+                with self.raises(s_exc.SynErr) as exc:
                     data = b'newp'
                     opts = {'vars': {'byts': data}}
                     await core.callStorm('return($lib.axon.put($byts))', opts=opts)
 
-                self.eq(exc.exception.args, ('newp',))
+                self.eq('newp', exc.exception.get('mesg'))
 
     async def test_storm_lib_axon_perms(self):
 
@@ -7474,7 +7576,7 @@ words\tword\twrd'''
             url = f'https://visi:secret@127.0.0.1:{port}/api/v0/test'
 
             async def _addfile():
-                async with await core.axon.upload() as fd:
+                async with await (await core.getAxon()).upload() as fd:
                     await fd.write(b'{"foo": "bar"}')
                     return await fd.save()
 
@@ -7592,7 +7694,7 @@ words\tword\twrd'''
         async with self.getTestCore() as core:
             await core.nodes('[inet:dns:a=(vertex.link, 1.2.3.4)]')
             size, sha256 = await core.callStorm('return( $lib.export.toaxon(${.created}) )')
-            byts = b''.join([b async for b in core.axon.get(s_common.uhex(sha256))])
+            byts = b''.join([b async for b in (await core.getAxon()).get(s_common.uhex(sha256))])
             self.isin(b'vertex.link', byts)
 
             with self.raises(s_exc.BadArg):
@@ -8269,8 +8371,8 @@ words\tword\twrd'''
 
             await core.sync()
 
-            await core.runBackup(name='lead00', wait=True)
-            await core.runBackup(name='mirror00', wait=True)
+            await s_test.pullBackup(core, s_common.genpath(core.dirn, 'backups', 'lead00'))
+            await s_test.pullBackup(core, s_common.genpath(core.dirn, 'backups', 'mirror00'))
 
             # test that when a leader restarts it fires and completes the merge
             dirn = s_common.genpath(core.dirn, 'backups', 'lead00')
@@ -8287,7 +8389,7 @@ words\tword\twrd'''
                 layr = view.layers[0]
                 # clear the explicit parent pin before promoting.
                 mirror.conf.pop('parent', None)
-                await mirror.promote(graceful=False)
+                await mirror.promote(force=True)
                 self.true(await view.waitfini(6))
                 self.true(await layr.waitfini(6))
                 self.len(1, await mirror.nodes('inet:ip=5.5.5.5'))
@@ -8304,21 +8406,11 @@ words\tword\twrd'''
 
             visi = await core.auth.addUser('visi')
 
-            orig_axoninfo = core.axoninfo
-            core.axoninfo = {'features': {}}
-            data = struct.pack('>Q', 1)
-            size, sha256 = await core.axon.put(data)
-            sha256_s = s_common.ehex(sha256)
-            q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
-            await self.asyncraises(s_exc.FeatureNotSupported,
-                                   core.callStorm(q, opts={'vars': {'sha256': sha256_s}}))
-            core.axoninfo = orig_axoninfo
-
             data = b'vertex.link'
-            size, sha256 = await core.axon.put(data)
+            size, sha256 = await (await core.getAxon()).put(data)
             sha256_s = s_common.ehex(sha256)
 
-            _, emptyhash = await core.axon.put(b'')
+            _, emptyhash = await (await core.getAxon()).put(b'')
             emptyhash = s_common.ehex(emptyhash)
 
             opts = {'user': visi.iden, 'vars': {'sha256': sha256_s, 'emptyhash': emptyhash}}
@@ -8344,7 +8436,7 @@ words\tword\twrd'''
             await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
 
             intdata = struct.pack('>QQQ', 1, 2, 3)
-            size, sha256 = await core.axon.put(intdata)
+            size, sha256 = await (await core.getAxon()).put(intdata)
             sha256_s = s_common.ehex(sha256)
             opts = {'user': visi.iden, 'vars': {'sha256': sha256_s}}
 

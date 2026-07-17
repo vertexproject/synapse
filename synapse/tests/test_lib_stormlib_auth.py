@@ -291,7 +291,6 @@ class StormLibAuthTest(s_test.SynTest):
             self.isin(('queue',), perms)
             self.isin(('trigger',), perms)
             self.isin(('cron',), perms)
-            self.isin(('backup',), perms)
             # Verify previously undeclared leaf perms
             self.isin(('auth', 'user', 'add'), perms)
             self.isin(('auth', 'user', 'del'), perms)
@@ -1053,7 +1052,7 @@ class StormLibAuthTest(s_test.SynTest):
             self.nn(await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
                 if $( $visi.name = "visi" ) {
-                    for $role in $visi.roles() {
+                    for $role in $visi.roles {
                         if $("all" = $role.name) {
                             return($role)
                         }
@@ -1118,7 +1117,7 @@ class StormLibAuthTest(s_test.SynTest):
             $role=$lib.auth.roles.byname(admins) $roles.append($role.iden)
             $role=$lib.auth.roles.byname(all) $roles.append($role.iden)
             $lib.auth.users.byname(visi).setRoles($roles)
-            return ($lib.auth.users.byname(visi).roles())
+            return ($lib.auth.users.byname(visi).roles)
             ''')
             self.len(2, roles)
             self.eq(roles[0].get('name'), 'admins')
@@ -1401,7 +1400,7 @@ class StormLibAuthTest(s_test.SynTest):
             q = '$r = $lib.auth.roles.byname(all) return ( $lib.dict.has($r.authgates, newp) )'
             self.false(await core.callStorm(q))
 
-            q = '$user = $lib.auth.users.add(gone) $lib.auth.users.del($user.iden) return($user.roles())'
+            q = '$user = $lib.auth.users.add(gone) $lib.auth.users.del($user.iden) return($user.roles)'
             self.eq((), await core.callStorm(q))
 
     async def test_stormlib_auth_gateadmin(self):

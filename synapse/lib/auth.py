@@ -1,5 +1,6 @@
 import string
 import logging
+import weakref
 import dataclasses
 
 from typing import Optional, Union
@@ -181,6 +182,8 @@ class Auth(s_nexus.Pusher):
         self.maxusers = maxusers
         self.policy = policy
 
+        self._liveusers = weakref.WeakValueDictionary()
+
         self.userdefs = self.stor.getSubKeyVal('user:info:')
         self.useridenbyname = self.stor.getSubKeyVal('user:name:')
         self.useridenbyemail = self.stor.getSubKeyVal('user:email:')
@@ -210,13 +213,16 @@ class Auth(s_nexus.Pusher):
             await self._addUser(guid, 'root')
             self.rootuser = self.user(guid)
 
-        await self.rootuser.setAdmin(True, logged=False)
-        await self.rootuser.setLocked(False, logged=False)
+        # a readonly auth shares an existing writer's storage: root is already
+        # present and admin/unlocked, so skip these ensure-writes.
+        if not self.slab.readonly:
+            await self.rootuser.setAdmin(True, logged=False)
+            await self.rootuser.setLocked(False, logged=False)
 
     def users(self):
         for useriden in self.useridenbyname.values():
             userinfo = self.userdefs.get(useriden)
-            yield User(userinfo, self)
+            yield self._genUser(userinfo)
 
     def useridens(self):
         for useriden in self.useridenbyname.values():
@@ -245,7 +251,27 @@ class Auth(s_nexus.Pusher):
     def _getUser(self, iden):
         userinfo = self.userdefs.get(iden)
         if userinfo is not None:
-            return User(userinfo, self)
+            return self._genUser(userinfo)
+
+    def _genUser(self, info):
+        # return the canonical live User instance for the iden, tracking a new one
+        # if none is live. On a readonly cell the slab may be updated out-of-band,
+        # so reconcile a retained instance with the freshly read info.
+        iden = info.get('iden')
+
+        user = self._liveusers.get(iden)
+        if user is not None:
+            if self.slab.readonly:
+                user.info = info
+                user.name = info.get('name')
+                user.authgates = info.get('authgates')
+                user.clearAuthCache()
+
+            return user
+
+        user = User(info, self)
+        self._liveusers[iden] = user
+        return user
 
     async def reqUser(self, iden):
         user = self.user(iden)
@@ -773,7 +799,7 @@ class Auth(s_nexus.Pusher):
         self.userdefs.set(iden, info)
         self.useridenbyname.set(name, iden)
 
-        user = User(info, self)
+        user = self._genUser(info)
         self.userbyidencache.put(iden, user)
         self.useridenbynamecache.put(name, iden)
 
@@ -852,6 +878,7 @@ class Auth(s_nexus.Pusher):
         udef = user.pack()
         self.userbyidencache.pop(user.iden)
         self.useridenbynamecache.pop(user.name)
+        self._liveusers.pop(user.iden, None)
 
         email = user.info.get('email')
         if email is not None:
@@ -916,6 +943,22 @@ class Auth(s_nexus.Pusher):
         self.rolebyidencache.clear()
         self.roleidenbynamecache.clear()
         self.authgates.clear()
+
+    def refreshUser(self, iden):
+        '''
+        Reconcile the live User instance for the iden with the slab in place, so a
+        reference held outside the auth caches observes an out-of-band auth change.
+        A no-op when no live instance exists for the iden.
+        '''
+        user = self._liveusers.get(iden)
+        if user is None:
+            return
+
+        info = self.userdefs.get(iden)
+        if info is None:  # pragma: no cover
+            return
+
+        self._genUser(info)
 
 class AuthGate:
     '''

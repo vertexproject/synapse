@@ -17,16 +17,15 @@ import synapse.cortex as s_cortex
 import synapse.models as s_models
 import synapse.telepath as s_telepath
 
-import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
-import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.version as s_version
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.stormsvc as s_stormsvc
@@ -39,10 +38,242 @@ from synapse.tests.utils import alist
 
 logger = logging.getLogger(__name__)
 
+class HasCoreCell(s_cortex.HasCore, s_cell.Cell):
+    # a minimal Cell which mixes in HasCore to exercise the mixin directly.
+    confdefs = {
+        'http:proxy': {
+            'description': 'Proxy URL threaded into the embedded cortex.',
+            'type': 'string',
+        },
+        'tls:ca:dir': {
+            'description': 'CA dir threaded into the embedded cortex.',
+            'type': 'string',
+        },
+    }
+
+    corelinked = False
+    embcalled = False
+
+    async def _initEmbeddedCore(self, core):
+        await super()._initEmbeddedCore(core)
+        self.embcalled = True
+
+    async def _onLinkCore(self, proxy, urlinfo):
+        # exercise the overridable onlink hook ( and keep the cached info via super )
+        await super()._onLinkCore(proxy, urlinfo)
+        self.corelinked = True
+
+class HasCoreTest(s_t_utils.SynTest):
+
+    async def test_cortex_hascore_embedded(self):
+        # a standalone ( non-aha ) HasCore cell boots an embedded cortex, reaches
+        # it via a local client, and threads its http:proxy / tls:ca:dir conf.
+        with self.getTestDir() as dirn:
+
+            cadir = s_common.gendir(dirn, 'cas')
+            proxyurl = 'socks5://user:pass@127.0.0.1:1'
+            conf = {'http:proxy': proxyurl, 'tls:ca:dir': cadir}
+
+            async with await HasCoreCell.anit(dirn, conf=conf) as cell:
+
+                # getCore() returns a proxy even for the embedded cortex
+                core = await cell.getCore()
+                self.eq(1, await core.callStorm('return((1))'))
+
+                # the _initEmbeddedCore hook ran and the embedded cortex got the conf
+                self.true(cell.embcalled)
+                self.eq(proxyurl, cell._has_core.conf.get('http:proxy'))
+                self.eq(cadir, cell._has_core.conf.get('tls:ca:dir'))
+
+                # the local client link fired _onLinkCore ( populating cached info )
+                self.true(cell.corelinked)
+                self.true(cell._has_coreinfo)
+                info = await cell.getCoreInfo()
+                self.isin('cell', info)
+
+                # force the lazy getCoreInfo fetch path
+                cell._has_coreinfo = {}
+                self.isin('cell', await cell.getCoreInfo())
+
+    async def test_cortex_hascore_aha(self):
+        # an aha client HasCore cell resolves the cortex by cell type ( aha://cortex... )
+        async with self.getTestAha() as aha:
+
+            async with self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex):
+
+                async with self.addSvcToAha(aha, '00.hascore', HasCoreCell) as cell:
+
+                    # remote: no embedded cortex, resolved via aha
+                    self.none(cell._has_core)
+                    self.false(cell.embcalled)
+
+                    core = await asyncio.wait_for(cell.getCore(), timeout=10)
+                    self.eq(1, await core.callStorm('return((1))'))
+
+                    # the overridable _onLinkCore hook fired on connect
+                    self.true(cell.corelinked)
+
+                    info = await cell.getCoreInfo()
+                    self.isin('cell', info)
+
 class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+    async def test_cortex_readonly(self):
+        '''
+        A read-only Cortex with no AHA deployment connects directly to the
+        leader's embedded jsonstor and axon unix sockets rather than booting its
+        own. Its pkg:add handler
+        drops any copy it already loaded (tracked in the in-memory stormpkgs,
+        since pkgdefs reads through to the leader's current def) before
+        (re)loading, and makes no durable write.
+        '''
+        with self.getTestDir() as dirn:
+
+            # write with the leader, then release its slabs so the read-only
+            # Cortex can open the shared dirn in this same process.
+            svciden = s_common.guid()
+            async with self.getTestCore(dirn=dirn) as core:
+                await core.nodes('[ inet:ip=1.2.3.4 ]')
+                # seed a durable svcdef so the read-only cortex sees it read
+                # through to the leader's committed svcdefs. It has no ``url``,
+                # so the read-only cortex's boot-time _initStormSvcs logs a
+                # benign "initStormService ... failed: BadArg" warning when it
+                # tries to connect; a real sdef always carries a url.
+                core.svcdefs.set(svciden, {'iden': svciden, 'name': 'testsvc'})
+
+            # stand the leader's embedded jsonstor / axon back up on their own
+            # sockets so the read-only Cortex has live services to connect to.
+            jsonpath = os.path.join(dirn, 'jsonstor')
+            axonpath = os.path.join(dirn, 'axon')
+            storconf = {'health:sysctl:checks': False}
+
+            async with await s_jsonstor.JsonStorCell.anit(jsonpath, conf=storconf) as jsoncell, \
+                       await s_axon.Axon.anit(axonpath, conf=storconf) as axoncell:
+
+                async with await s_cortex.Cortex.anit(dirn, readonly=True) as core:
+
+                    # the read-only cortex connects to the leader's jsonstor /
+                    # axon sockets via telepath clients rather than booting its
+                    # own embedded cells.
+                    self.none(core._has_jsonstor)
+                    self.none(core._has_axon)
+                    self.nn(await asyncio.wait_for(core.getJsonStor(), timeout=10))
+                    self.nn(await asyncio.wait_for(core.getAxon(), timeout=10))
+                    self.nn(await core.getAxonInfo())
+
+                    pkgdef = {
+                        'name': 'testpkg',
+                        'version': (0, 0, 1),
+                        'commands': ({'name': 'testcmd', 'storm': 'inet:ip'},),
+                    }
+
+                    # first replay: nothing loaded yet, so it just loads
+                    await core._addStormPkg(pkgdef)
+                    self.nn(core.stormpkgs.get('testpkg'))
+                    self.nn(core.getStormCmd('testcmd'))
+
+                    # a second replay finds the loaded copy and drops it before
+                    # (re)loading to match the replayed event
+                    await core._addStormPkg(pkgdef)
+                    self.nn(core.stormpkgs.get('testpkg'))
+                    self.nn(core.getStormCmd('testcmd'))
+
+                    # setStormSvcEvents / _runStormSvcAdd are called on the
+                    # read-only cortex when a storm service connects, but a
+                    # reader takes no part in service event tracking (only the
+                    # active leader runs the add/del hooks that consume evts).
+                    evts = {'add': {'storm': '$lib.print(hi)'}}
+                    sdef = await core.setStormSvcEvents(svciden, evts)
+                    self.notin('evts', sdef)
+
+                    self.none(await core._runStormSvcAdd(svciden))
+
+                    stored = core.svcdefs.get(svciden)
+                    self.notin('evts', stored)
+                    self.notin('added', stored)
+
+    async def test_cortex_nexuscommit(self):
+        # the Cortex commits its slabs after each nexus transaction rather than
+        # on the timed sync loop: its slabs are commitpulse=False and an applied
+        # edit is durable (committed) as soon as it returns, with no timer wait.
+        async with self.getTestCore() as core:
+
+            self.true(core.nexuscommit)
+
+            # cortex-owned slabs opt out of the periodic pulse
+            self.false(core.slab.commitpulse)
+            self.false(core.v3stor.commitpulse)
+            self.false(core.nexsroot.nexsslab.commitpulse)
+
+            layr = core.getLayer()
+            self.false(layr.layrslab.commitpulse)
+            self.false(layr.dataslab.commitpulse)
+
+            # the periodic sync loop skips commitpulse=False slabs, so the only
+            # thing that can commit them is the per-transaction commit in
+            # NexsRoot._eat. syncLoopOnce here is therefore a no-op for the layer.
+            await core.nodes('[ inet:ip=1.2.3.4 ]')
+            await layr.layrslab.syncLoopOnce()
+
+            # edit:indx read fresh from the committed slab (bypassing the
+            # in-memory HotCount cache) matches the applied edit offset - the
+            # edit was made durable by the nexus transaction, not a timer.
+            committed = layr.editindx.getFresh('edit:indx', defv=-1)
+            self.eq(committed, layr.getEditIndx())
+            self.gt(committed, -1)
+
+    async def test_cortex_commitpulse(self):
+        # the commit pulse signals the offset of each committed nexus transaction.
+        async with self.getTestCore() as core:
+
+            self.true(core.nexuscommit)
+
+            genr = core.getNexusCommitPulse()
+            try:
+                # the first item is the last FULLY committed offset at attach
+                # time (never the not-yet-written next offset).
+                first = await asyncio.wait_for(genr.__anext__(), timeout=6)
+                self.eq(first, await core.getNexsIndx() - 1)
+
+                # a committed transaction pulses its offset, and that offset is
+                # already durable when the pulse fires.
+                await core.nodes('[ inet:ip=1.2.3.4 ]')
+                offs = await core.getNexsIndx() - 1
+
+                pulsed = first
+                while pulsed < offs:
+                    pulsed = await asyncio.wait_for(genr.__anext__(), timeout=6)
+
+                self.eq(pulsed, offs)
+
+                layr = core.getLayer()
+                self.ge(layr.editindx.getFresh('edit:indx', defv=-1), pulsed)
+
+            finally:
+                await genr.aclose()
+
+            # over a telepath proxy the offsets are pushed directly on the link
+            # (rather than yielded through the daemon genr loop).
+            async with core.getLocalProxy() as prox:
+                genr = prox.getNexusCommitPulse().__aiter__()
+                try:
+                    first = await asyncio.wait_for(genr.__anext__(), timeout=6)
+                    self.eq(first, await core.getNexsIndx() - 1)
+
+                    await core.nodes('[ inet:ip=5.6.7.8 ]')
+                    offs = await core.getNexsIndx() - 1
+
+                    pulsed = first
+                    while pulsed < offs:
+                        pulsed = await asyncio.wait_for(genr.__anext__(), timeout=6)
+
+                    self.eq(pulsed, offs)
+
+                finally:
+                    await genr.aclose()
+
     async def test_cortex_basics(self):
 
         with self.getTestDir() as dirn:
@@ -84,9 +315,26 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getTestCore(conf=conf) as core00:
             async with self.getTestCore(conf=conf) as core01:
                 self.eq(core00.iden, core01.iden)
-                self.eq(core00.jsonstor.iden, core01.jsonstor.iden)
-                self.eq(core00.jsonstor.auth.allrole.iden, core01.jsonstor.auth.allrole.iden)
-                self.eq(core00.jsonstor.auth.rootuser.iden, core01.jsonstor.auth.rootuser.iden)
+                self.eq(core00._has_jsonstor.iden, core01._has_jsonstor.iden)
+                self.eq(core00._has_jsonstor.auth.allrole.iden, core01._has_jsonstor.auth.allrole.iden)
+                self.eq(core00._has_jsonstor.auth.rootuser.iden, core01._has_jsonstor.auth.rootuser.iden)
+
+    async def test_cortex_jsonstor_iden_migration(self):
+        # a pre-existing embedded jsonstor whose cell.guid drifted from the
+        # deterministic iden ( derived from the cortex iden ) is migrated back
+        # on the next boot.
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.eq(s_common.guid((core.iden, 'jsonstor')), core._has_jsonstor.iden)
+
+            # stamp the embedded jsonstor with a mismatched iden
+            idenpath = os.path.join(dirn, 'jsonstor', 'cell.guid')
+            with open(idenpath, 'w') as fd:
+                fd.write(s_common.guid())
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.eq(s_common.guid((core.iden, 'jsonstor')), core._has_jsonstor.iden)
 
     async def test_cortex_handoff(self):
 
@@ -1812,6 +2060,35 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'a' * 258}}))
             self.len(1, await core.nodes('test:str^=aa'))
 
+            # values longer than the index size are truncated with an appended
+            # hash so they remain distinct for equality lifts
+            size = s_layer.LAYER_UTF8_INDEX_SIZE
+            base = 'z' * (size + 10)
+            vala = base + 'AAAA'
+            valb = base + 'BBBB'
+            opts = {'vars': {'a': vala, 'b': valb}}
+            self.len(1, await core.nodes('[test:str=$a]', opts=opts))
+            self.len(1, await core.nodes('[test:str=$b]', opts=opts))
+
+            self.eq(['test:str', vala], (await core.nodes('test:str=$a', opts=opts))[0].ndef)
+            self.eq(['test:str', valb], (await core.nodes('test:str=$b', opts=opts))[0].ndef)
+            self.len(2, await core.nodes('test:str^=zzz'))
+
+            # a ^= prefix within the retained base ( LAYER_UTF8_INDEX_SIZE
+            # bytes ) matches the index directly
+            self.len(2, await core.nodes('test:str^=$p', opts={'vars': {'p': 'z' * (size - 8)}}))
+
+            # a longer prefix uses the partial index and filters on the real
+            # value so overflowing values still match as expected
+            self.len(2, await core.nodes('test:str^=$p', opts={'vars': {'p': 'z' * (size + 5)}}))
+            self.len(1, await core.nodes('test:str^=$a', opts=opts))
+            self.eq(['test:str', vala], (await core.nodes('test:str^=$a', opts=opts))[0].ndef)
+            self.len(0, await core.nodes('test:str^=$p', opts={'vars': {'p': base + 'C'}}))
+
+            # poly props filter through the member type the same way
+            self.len(1, await core.nodes('[test:str=pnode :poly=$a]', opts=opts))
+            self.eq(['test:str', 'pnode'], (await core.nodes('test:str:poly^=$a', opts=opts))[0].ndef)
+
     async def test_tags(self):
 
         async with self.getTestReadWriteCores() as (core, wcore):
@@ -3432,7 +3709,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_version': '>=3.0.0b2,<4.0.0',
+                'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -3512,31 +3789,31 @@ class CortexBasicTest(s_t_utils.SynTest):
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'synapse_version': '>=1337.0.0,<2000.0.0',
+                'dependencies': {'synapse': {'version': '>=1337.0.0,<2000.0.0'}},
                 'commands': ()
             }
 
-            with self.raises(s_exc.BadVersion):
+            with self.raises(s_exc.StormPkgRequires):
                 await core.addStormPkg(oldverpkg)
 
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'synapse_version': '>=1337.0.0,<2000.0.0',
+                'dependencies': {'synapse': {'version': '>=1337.0.0,<2000.0.0'}},
                 'commands': ()
             }
 
-            with self.raises(s_exc.BadVersion):
+            with self.raises(s_exc.StormPkgRequires):
                 await core.addStormPkg(oldverpkg)
 
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'synapse_version': '>=0.0.1,<2.0.0',
+                'dependencies': {'synapse': {'version': '>=0.0.1,<2.0.0'}},
                 'commands': ()
             }
 
-            with self.raises(s_exc.BadVersion):
+            with self.raises(s_exc.StormPkgRequires):
                 await core.addStormPkg(oldverpkg)
 
             noverpkg = {
@@ -5826,6 +6103,29 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core01.nodes('[ inet:fqdn=www.vertex.link ]')
                     self.len(1, await core01.nodes('inet:fqdn=www.vertex.link'))
 
+                    # modHttpExtApi stamps 'updated' in its top half and pushes it,
+                    # so the mirror applies the SAME timestamp on replay rather than
+                    # recomputing s_common.now() and diverging from the leader.
+                    unfo = await core00.addUser('httpuser')
+                    hadef = await core00.addHttpExtApi({
+                        'path': 'foo/bar',
+                        'owner': unfo.get('iden'),
+                        'view': core00.getView().iden,
+                    })
+                    hiden = hadef.get('iden')
+
+                    # sleep so a recomputed now() on the mirror would differ
+                    await asyncio.sleep(0.005)
+                    hmod = await core00.modHttpExtApi(hiden, 'name', 'wow')
+                    self.gt(hmod.get('updated'), hadef.get('updated'))
+
+                    await core01.sync()
+
+                    hmirror = await core01.getHttpExtApi(hiden)
+                    self.eq('wow', hmirror.get('name'))
+                    self.eq(hmod.get('updated'), hmirror.get('updated'))
+                    self.eq(hmod.get('created'), hmirror.get('created'))
+
                     # get the nexus index
                     nexusind = core01.nexsroot.nexslog.index()
 
@@ -5884,11 +6184,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # remove the mirrorness from the Cortex and ensure that we can
                 # write to the Cortex. This will move the core01 ahead of
-                # core00 & core01 can become the leader. By default this is
-                # not a graceful promotion. An explicit parent pins the service
-                # as a follower, so clear it before promoting.
+                # core00 & core01 can become the leader. The old leader is
+                # down, so this must be a forced promotion. An explicit parent
+                # pins the service as a follower, so clear it before promoting.
                 core01.conf.pop('parent', None)
-                await core01.promote()
+                await core01.promote(force=True)
                 self.false(core01.nexsroot._mirready.is_set())
 
                 self.len(1, await core01.nodes('[inet:ip=9.9.9.8]'))
@@ -6762,52 +7062,34 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_axon(self):
         async with self.getTestCore() as core:
             # By default, a cortex has a local Axon instance available
-            await core.axready.wait()
-            size, sha2 = await core.axon.put(b'asdfasdf')
+            await core.getAxon()
+            size, sha2 = await (await core.getAxon()).put(b'asdfasdf')
             self.eq(size, 8)
             self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
-            self.true(core.nexsroot is core.axon.nexsroot)
-        self.true(core.axon.isfini)
-        self.false(core.axready.is_set())
+        self.true(core._has_axon.isfini)
 
         with self.getTestDir() as dirn:
 
             async with self.getTestAha() as aha:
 
-                # provision the axon dir ( establishes its aha config ) then close it,
-                # so the cortex boots before the axon is online to exercise reconnect.
-                async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, dirn=dirn):
-                    pass
-
-                async with self.addSvcToAha(aha, '00.jsonstor', s_jsonstor.JsonStorCell), \
+                # an AHA deployed cortex locates a remote axon by cell type. the
+                # ClientV2 axon client connects ( and reconnects ) on its own.
+                async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, dirn=dirn) as axon, \
+                        self.addSvcToAha(aha, '00.jsonstor', s_jsonstor.JsonStorCell), \
                         self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex) as core:
 
-                    async with await s_axon.Axon.anit(dirn) as axon:
-                        self.true(await asyncio.wait_for(core.axready.wait(), 10))
+                    # Use dyncalls, not direct object access.
+                    asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
+                    size, sha2 = await core.callStorm('return( $lib.axon.put($buf) )',
+                                                      {'vars': {'buf': b'asdfasdf'}})
+                    self.eq(size, 8)
+                    self.eq(sha2, asdfhash_h)
+                    self.true(await core.callStorm('return( $lib.axon.has($hash) )',
+                                                   {'vars': {'hash': asdfhash_h}}))
 
-                        # Use dyncalls, not direct object access.
-                        asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
-                        size, sha2 = await core.callStorm('return( $lib.axon.put($buf) )',
-                                                          {'vars': {'buf': b'asdfasdf'}})
-                        self.eq(size, 8)
-                        self.eq(sha2, asdfhash_h)
-                        self.true(await core.callStorm('return( $lib.axon.has($hash) )',
-                                                       {'vars': {'hash': asdfhash_h}}))
-
-                    unset = False
-                    for _ in range(20):
-                        aset = core.axready.is_set()
-                        if aset is False:
-                            unset = True
-                            break
-                        await asyncio.sleep(0.1)  # pragma: no cover
-                    self.true(unset)
-
-                    async with await s_axon.Axon.anit(dirn) as axon:
-                        self.true(await asyncio.wait_for(core.axready.wait(), 10))
-                        # ensure we can use the proxy
-                        self.eq(await axon.metrics(),
-                                await core.axon.metrics())
+                    # ensure the cortex can use the remote axon proxy
+                    coreaxon = await core.getAxon()
+                    self.eq(await axon.metrics(), await coreaxon.metrics())
 
     async def test_cortex_delLayerView(self):
 
@@ -6979,7 +7261,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         {  # type: ignore
                             'name': 'foo',
                             'version': (0, 0, 1),
-                            'synapse_version': '>=2.100.0,<3.0.0',
+                            'dependencies': {'synapse': {'version': '>=2.100.0,<3.0.0'}},
                             'modules': [],
                             'commands': []
                         }
@@ -7086,7 +7368,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0b2,<4.0.0',
+            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
             'modules': [
                 {
                     'name': 'boom.mod',
@@ -7158,6 +7440,111 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
                         "Storm package boom has unknown config var type newp.")
+
+    async def test_stormpkg_deps(self):
+
+        async with self.getTestCore() as core:
+
+            # a dependencies.synapse entry whose version spec matches the running
+            # synapse version loads fine
+            pkg = {
+                'name': 'depsynok',
+                'version': (0, 0, 1),
+                'dependencies': {
+                    'synapse': {'version': '>=3.0.0b1,<4.0.0'},
+                },
+            }
+            await core.addStormPkg(pkg)
+            self.nn(await core.getStormPkg('depsynok'))
+
+            # a dependencies.synapse entry whose version spec does NOT match the
+            # running synapse version raises StormPkgRequires
+            pkg = {
+                'name': 'depsynbad',
+                'version': (0, 0, 1),
+                'dependencies': {
+                    'synapse': {'version': '>=1337.0.0,<2000.0.0'},
+                },
+            }
+            with self.raises(s_exc.StormPkgRequires):
+                await core.addStormPkg(pkg)
+            self.none(await core.getStormPkg('depsynbad'))
+
+            # a non-optional dependency on a package that is not loaded raises
+            # StormPkgRequires
+            pkg = {
+                'name': 'depmissing',
+                'version': (0, 0, 1),
+                'dependencies': {
+                    'notloaded': {'version': '>=1.0.0'},
+                },
+            }
+            with self.raises(s_exc.StormPkgRequires):
+                await core.addStormPkg(pkg)
+            self.none(await core.getStormPkg('depmissing'))
+
+            # the same missing dependency marked optional loads successfully
+            pkg = {
+                'name': 'depmissingopt',
+                'version': (0, 0, 1),
+                'dependencies': {
+                    'notloaded': {'version': '>=1.0.0', 'optional': True},
+                },
+            }
+            await core.addStormPkg(pkg)
+            self.nn(await core.getStormPkg('depmissingopt'))
+
+            # a conflict entry that matches an already loaded package's version
+            # raises StormPkgConflicts
+            confbase = {
+                'name': 'confbase',
+                'version': '1.2.3',
+            }
+            await core.addStormPkg(confbase)
+
+            pkg = {
+                'name': 'confpkg',
+                'version': (0, 0, 1),
+                'conflicts': {
+                    'confbase': {'version': '>=1.0.0,<2.0.0'},
+                },
+            }
+            with self.raises(s_exc.StormPkgConflicts):
+                await core.addStormPkg(pkg)
+            self.none(await core.getStormPkg('confpkg'))
+
+            # the base Cortex only PKG_PROVIDES the reserved "synapse" name; a
+            # dependency on "synapse-enterprise" (an enterprise-only reserved
+            # name) is treated as an unloaded package and raises
+            # StormPkgRequires rather than resolving to the running version
+            self.eq(('synapse',), core.PKG_PROVIDES)
+
+            pkg = {
+                'name': 'depsynentnotprovided',
+                'version': (0, 0, 1),
+                'dependencies': {
+                    'synapse-enterprise': {'version': '>=3.0.0b3,<4.0.0'},
+                },
+            }
+            with self.raises(s_exc.StormPkgRequires):
+                await core.addStormPkg(pkg)
+            self.none(await core.getStormPkg('depsynentnotprovided'))
+
+    async def test_stormpkg_schema(self):
+
+        pkgdef = {
+            'name': 'schemapkg',
+            'version': '0.0.1',
+            'title': 'A Schema Test Power-Up',
+            'dependencies': {
+                'synapse': {'version': '>=3.0.0b1,<4.0.0'},
+                'other': {'version': '>=1.0.0', 'optional': True, 'desc': 'an optional dep'},
+            },
+            'conflicts': {
+                'legacy': {'version': '<1.0.0', 'desc': 'an old conflicting pkg'},
+            },
+        }
+        s_schemas.reqValidPkgdef(pkgdef)
 
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
@@ -7269,7 +7656,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # concat the bytes and add back to the axon
                 byts = b''.join(s_msgpack.en(p) for p in podes)
-                size, sha256b = await core.axon.put(byts)
+                size, sha256b = await (await core.getAxon()).put(byts)
                 sha256 = s_common.ehex(sha256b)
 
                 opts = {'view': altview, 'vars': {'sha256': sha256}}
@@ -7279,7 +7666,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # try-again w/ meta node: concat the bytes and add back to the axon
                 byts = s_msgpack.en(meta) + b''.join(s_msgpack.en(p) for p in podes)
-                size, sha256b = await core.axon.put(byts)
+                size, sha256b = await (await core.getAxon()).put(byts)
                 sha256 = s_common.ehex(sha256b)
                 opts['vars']['sha256'] = sha256
 
@@ -7353,7 +7740,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 for x in (): yield x
                 raise s_exc.BadArg()
 
-            core.axon.iterMpkFile = boom
+            core._has_axon.iterMpkFile = boom
             with self.raises(s_exc.BadArg):
                 await core.feedFromAxon(s_common.ehex(sha256b))
 
@@ -7369,17 +7756,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             sha256 = s_common.ehex(sha256b)
             opts = {'vars': {'sha256': sha256}}
 
-            async with await s_telepath.Client.anit(curl) as client_obj:
-                await client_obj.waitready()
+            async with await s_telepath.ClientV2.anit(curl) as client_obj:
+                proxy = await client_obj.proxy()
                 with self.raises(s_exc.BadDataValu) as cm:
-                    await client_obj.callStorm('$lib.feed.fromAxon($sha256)', opts=opts)
+                    await proxy.callStorm('$lib.feed.fromAxon($sha256)', opts=opts)
                 self.isin('Invalid syn.nodes data.', cm.exception.get('mesg'))
 
     async def test_cortex_export_toaxon(self):
         async with self.getTestCore() as core:
             await core.nodes('[inet:dns:a=(vertex.link, 1.2.3.4)]')
             size, sha256 = await core.exportStormToAxon('.created')
-            byts = b''.join([b async for b in core.axon.get(s_common.uhex(sha256))])
+            byts = b''.join([b async for b in (await core.getAxon()).get(s_common.uhex(sha256))])
             self.isin(b'vertex.link', byts)
 
     async def test_cortex_export_metadata(self):
@@ -7662,7 +8049,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     # clear the explicit parent pin before promoting.
                     core01.conf.pop('parent', None)
-                    await core01.promote(graceful=False)
+                    await core01.promote(force=True)
                     await asyncio.sleep(0)
 
                     task = await core01.callStorm('''
@@ -7729,7 +8116,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     # clear the explicit parent pin before promoting.
                     core01.conf.pop('parent', None)
-                    await core01.promote(graceful=False)
+                    await core01.promote(force=True)
                     await asyncio.sleep(0)
 
                     # trigger fires during migration (not silently dropped)
@@ -7852,6 +8239,445 @@ class CortexBasicTest(s_t_utils.SynTest):
             vaults = list(core.listVaults())
             self.len(3, vaults)
 
+    async def test_cortex_vault_type_schemas(self):
+        '''
+        A vault type's single JSON schema (applied to the whole vault) validates
+        vaults of that type, registered either from a storm package "vaults"
+        field or via the generic addVaultType() API. Versions are append-only.
+        '''
+        def _schema(configs, secrets=None):
+            props = {'configs': configs}
+            if secrets is not None:
+                props['secrets'] = secrets
+            return {'type': 'object', 'properties': props}
+
+        confsch = {
+            'type': 'object',
+            'properties': {
+                'host': {'type': 'string'},
+                'port': {'type': 'integer', 'default': 443},
+            },
+            'required': ['host'],
+            'additionalProperties': False,
+        }
+        secsch = {
+            'type': 'object',
+            'properties': {'password': {'type': 'string'}},
+            'additionalProperties': False,
+        }
+        schema = _schema(confsch, secsch)
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            def _vdef(name, vtype, configs, secrets):
+                return {'name': name, 'type': vtype, 'scope': None,
+                        'owner': visi.iden, 'configs': configs, 'secrets': secrets}
+
+            # (1) package registration from the pkgdef "vaults" field happens
+            # when the package is added (before it is loaded)
+            pkgvtype = 'synapse-test:pkg'
+            pkgdef = {
+                'name': 'synapse-test-vaults',
+                'version': (0, 0, 1),
+                'vaults': {pkgvtype: {'version': 1, 'schema': copy.deepcopy(schema)}},
+            }
+            await core.addStormPkg(pkgdef)
+            self.eq(1, core.getVaultType(pkgvtype)['version'])
+
+            # (2) generic, nexus-persisted registration
+            genvtype = 'synapse-test:gen'
+            await core.addVaultType({'name': genvtype, 'version': 1, 'schema': schema})
+            self.eq(1, core.getVaultType(genvtype)['version'])
+
+            self.isin(genvtype, [v['name'] for v in core.listVaultTypes()])
+
+            geniden = None
+            for vtype in (pkgvtype, genvtype):
+                # valid configs are accepted and schema defaults are filled
+                iden = await core.addVault(_vdef(f'ok-{vtype}', vtype, {'host': 'h'}, {'password': 'p'}))
+                self.eq(443, core.getVault(iden)['configs']['port'])
+                if vtype == genvtype:
+                    geniden = iden
+
+                # missing required / unknown config / bad secret rejected
+                await self.asyncraises(s_exc.SchemaViolation, core.addVault(_vdef(f'b1-{vtype}', vtype, {}, {})))
+                await self.asyncraises(s_exc.SchemaViolation,
+                                       core.addVault(_vdef(f'b2-{vtype}', vtype, {'host': 'h', 'x': 1}, {})))
+                await self.asyncraises(s_exc.SchemaViolation,
+                                       core.addVault(_vdef(f'b3-{vtype}', vtype, {'host': 'h'}, {'nope': 'x'})))
+
+                # replace + single-key set validate the resulting vault
+                await self.asyncraises(s_exc.SchemaViolation, core.replaceVaultConfigs(iden, {'port': 1}))
+                await self.asyncraises(s_exc.SchemaViolation, core.setVaultConfigs(iden, 'x', 1))
+                await self.asyncraises(s_exc.SchemaViolation, core.setVaultConfigs(iden, 'host', s_common.novalu))
+                await core.setVaultConfigs(iden, 'host', 'h2')
+                self.eq('h2', core.getVault(iden)['configs']['host'])
+
+            tighter = _schema({
+                'type': 'object',
+                'properties': {'host': {'type': 'string'}, 'region': {'type': 'string'}},
+                'required': ['host', 'region'],
+                'additionalProperties': False,
+            })
+
+            # re-registering an existing version with a byte-identical
+            # definition is an idempotent no-op
+            self.eq(genvtype, await core.addVaultType({'name': genvtype, 'version': 1, 'schema': schema}))
+            self.eq(1, core.getVaultType(genvtype)['version'])
+
+            # ...but re-registering the same version with a different definition
+            # is rejected
+            await self.asyncraises(s_exc.BadArg,
+                                   core.addVaultType({'name': genvtype, 'version': 1, 'schema': tighter}))
+
+            # a version below the latest is rejected
+            await self.asyncraises(s_exc.BadArg, core.addVaultType({'name': genvtype, 'version': 0, 'schema': schema}))
+
+            # a version is append-only: the new version becomes latest, the old
+            # one is retained, and existing vaults stay at their own version
+            await core.addVaultType({'name': genvtype, 'version': 2, 'schema': tighter})
+            self.eq(2, core.getVaultType(genvtype)['version'])
+            self.eq(1, core.getVaultType(genvtype, version=1)['version'])
+            self.eq(1, core.getVault(geniden)['type:version'])
+            # the straggler still validates against its own (v1) schema
+            await core.setVaultConfigs(geniden, 'host', 'h3')
+            self.eq('h3', core.getVault(geniden)['configs']['host'])
+            # a new vault of the type is stamped and validated at the latest version
+            await self.asyncraises(s_exc.SchemaViolation, core.addVault(_vdef('new1', genvtype, {'host': 'h'}, {})))
+            newiden = await core.addVault(_vdef('new2', genvtype, {'host': 'h', 'region': 'eu'}, {}))
+            self.eq(2, core.getVault(newiden)['type:version'])
+
+            # every registered version is enumerable, oldest first, while
+            # listVaultTypes still surfaces only the latest of each type
+            self.eq([1, 2], [v['version'] for v in core.getVaultTypeVersions(genvtype)])
+            self.eq(2, [v for v in core.listVaultTypes() if v['name'] == genvtype][0]['version'])
+            self.eq([], core.getVaultTypeVersions('synapse-test:nope'))
+
+            # $lib.vault.type exposes get(version)/versions() alongside list()
+            opts = {'vars': {'vtype': genvtype}}
+            self.eq(1, await core.callStorm('return($lib.vault.type.get($vtype, version=1).version)', opts=opts))
+            self.eq(2, await core.callStorm('return($lib.vault.type.get($vtype).version)', opts=opts))
+            self.eq([1, 2], await core.callStorm('''
+                $vers = ([])
+                for $vt in $lib.vault.type.versions($vtype) { $vers.append($vt.version) }
+                return($vers)
+            ''', opts=opts))
+
+            # updateVault atomically replaces a vault, validating against its
+            # own version and honoring rename; type/scope/owner are immutable
+            vdef = core.getVault(geniden)
+            vdef['configs']['host'] = 'h4'
+            vdef['name'] = 'renamed'
+            await core.updateVault(vdef)
+            self.eq('h4', core.getVault(geniden)['configs']['host'])
+            self.nn(core.getVaultByName('renamed'))
+
+            vdef = core.getVault(geniden)
+            vdef['configs'] = {'bad': 1}
+            await self.asyncraises(s_exc.SchemaViolation, core.updateVault(vdef))
+
+            # a typed vault cannot be downgraded or un-typed
+            vdef = core.getVault(geniden)
+            vdef['type:version'] = 0
+            await self.asyncraises(s_exc.BadArg, core.updateVault(vdef))
+
+            # dropping type:version on a typed vault trips the un-type guard
+            vdef = core.getVault(geniden)
+            vdef.pop('type:version')
+            await self.asyncraises(s_exc.BadArg, core.updateVault(vdef))
+
+            # type:version, when present, must be a non-negative integer
+            vdef = core.getVault(geniden)
+            vdef['type:version'] = None
+            await self.asyncraises(s_exc.SchemaViolation, core.updateVault(vdef))
+
+            # type, scope, and owner are immutable
+            vdef = core.getVault(geniden)
+            vdef['scope'] = 'global'
+            await self.asyncraises(s_exc.BadArg, core.updateVault(vdef))
+
+            vdef = core.getVault(geniden)
+            vdef['owner'] = s_common.guid()
+            await self.asyncraises(s_exc.BadArg, core.updateVault(vdef))
+
+            # the onPush handler is the concurrency backstop: a stale write
+            # (built from an older read, as when a config update races a
+            # migration bump) that would downgrade or un-type is dropped even
+            # though it bypasses the pre-push guard
+            curv = core.getVault(geniden)
+            stale = dict(curv, configs=dict(curv['configs'], host='stale'))
+            stale['type:version'] = curv['type:version'] - 1
+            self.none(await core._updateVault(stale))
+            self.eq(curv['type:version'], core.getVault(geniden)['type:version'])
+            self.ne('stale', core.getVault(geniden)['configs']['host'])
+
+            stale['type:version'] = None
+            self.none(await core._updateVault(stale))
+            self.eq(curv['type:version'], core.getVault(geniden)['type:version'])
+
+            # a same-version write (the normal config-update path) still applies
+            same = dict(core.getVault(geniden))
+            same['configs'] = dict(same['configs'], host='same')
+            self.nn(await core._updateVault(same))
+            self.eq('same', core.getVault(geniden)['configs']['host'])
+
+            # an invalid schema is rejected at registration
+            await self.asyncraises(s_exc.BadArg, core.addVaultType({'name': 'bad', 'version': 1,
+                                                                    'schema': {'type': 'nope'}}))
+
+            # an untyped vault (no registered type) works on every path: it is
+            # stored unvalidated, carries no type:version, and freely updatable
+            other = await core.addVault(_vdef('other', 'unregistered', {'whatever': 1}, {'s': 2}))
+            self.notin('type:version', core.getVault(other))
+            await core.setVaultConfigs(other, 'anything', 'ok')
+            vdef = core.getVault(other)
+            vdef['configs'] = {'totally': 'different'}
+            vdef['name'] = 'other2'
+            await core.updateVault(vdef)
+            self.eq('different', core.getVault(other)['configs']['totally'])
+            self.nn(core.getVaultByName('other2'))
+
+            # a registered type need not define a schema; a defined schema
+            # validates and an unregistered type does not
+            await core.addVaultType({'name': 'noschema', 'version': 1})
+            self.nn(await core.addVault(_vdef('ns', 'noschema', {'anything': 1}, {'s': 2})))
+
+            # the schema restricts only what it declares; it can also constrain
+            # the vault name (secrets here are left unvalidated)
+            named = _schema(confsch)
+            named['properties']['name'] = {'type': 'string', 'pattern': '^good:'}
+            await core.addVaultType({'name': 'named', 'version': 1, 'schema': named})
+            self.nn(await core.addVault(_vdef('good:one', 'named', {'host': 'h'}, {'anything': 'ok'})))
+            await self.asyncraises(s_exc.SchemaViolation,
+                                   core.addVault(_vdef('bad:one', 'named', {'host': 'h'}, {})))
+
+            # a type with live instances cannot be deleted; the stamp must
+            # always resolve to a registered type
+            await self.asyncraises(s_exc.CantDelType, core.delVaultType(genvtype))
+
+            # once the instances are gone delVaultType removes all versions;
+            # persisted types survive a package drop
+            for vault in [v for v in core.listVaults() if v['type'] == genvtype]:
+                await core.delVault(vault['iden'])
+            await core.delVaultType(genvtype)
+            self.none(core.getVaultType(genvtype))
+            self.none(core.getVaultType(genvtype, version=1))
+            await self.asyncraises(s_exc.NoSuchName, core.delVaultType(genvtype))
+            core._dropStormPkg(pkgdef)
+            self.nn(core.getVaultType(pkgvtype))
+
+            # a package can be re-added with its byte-identical vault type: the
+            # persisted type is a no-op rather than a version-conflict, so a
+            # deleted-and-re-added package does not raise (matches generic add)
+            await core.addStormPkg(pkgdef)
+            self.eq(1, core.getVaultType(pkgvtype)['version'])
+
+            # re-declaring the same type version with a different schema is
+            # rejected on the package-add path too, before anything is applied
+            badpkg = copy.deepcopy(pkgdef)
+            badpkg['vaults'][pkgvtype]['schema'] = copy.deepcopy(tighter)
+            await self.asyncraises(s_exc.BadArg, core.addStormPkg(badpkg))
+            self.eq(1, core.getVaultType(pkgvtype)['version'])
+
+            # a package vault type must declare a version (no silent default)
+            noverpkg = {'name': 'synapse-test-nover', 'version': (0, 0, 1),
+                        'vaults': {'synapse-test:nover': {'schema': copy.deepcopy(schema)}}}
+            await self.asyncraises(s_exc.SchemaViolation, core.addStormPkg(noverpkg))
+            self.none(core.getVaultType('synapse-test:nover'))
+
+        # registration persists across a restart (nexus-backed)
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                await core.addVaultType({'name': 'persist:me', 'version': 3, 'schema': schema})
+            async with self.getTestCore(dirn=dirn) as core:
+                self.eq(3, core.getVaultType('persist:me')['version'])
+
+    async def test_cortex_vault_type_migration(self):
+        '''
+        The background migration runner, fired per vault type on add and on
+        boot, brings each vault up to its type's latest version by running the
+        type's convergent migration callback once per vault; the callback itself
+        calls $lib.vault.update.
+        '''
+        def _schema(configs):
+            return {'type': 'object', 'properties': {'configs': configs}}
+
+        c1 = {'type': 'object', 'properties': {'host': {'type': 'string'}},
+              'required': ['host'], 'additionalProperties': False}
+        c2 = {'type': 'object', 'properties': {'host': {'type': 'string'}, 'region': {'type': 'string'}},
+              'required': ['host', 'region'], 'additionalProperties': False}
+        c3 = {'type': 'object',
+              'properties': {'host': {'type': 'string'}, 'region': {'type': 'string'}, 'tier': {'type': 'string'}},
+              'required': ['host', 'region', 'tier'], 'additionalProperties': False}
+
+        # convergent callbacks: fill whatever the current data is missing, then
+        # commit. The v3 callback handles a vault coming from either v1 or v2.
+        migr2 = '''
+            if (not $vault.configs.region) { $vault.configs.region = "eu" }
+            $lib.vault.update($vault)
+        '''
+        migr3 = '''
+            if (not $vault.configs.region) { $vault.configs.region = "eu" }
+            if (not $vault.configs.tier) { $vault.configs.tier = "gold" }
+            $lib.vault.update($vault)
+        '''
+
+        async with self.getTestCore() as core:
+            user = await core.auth.addUser('u')
+
+            def _vdef(name, vtype, configs):
+                return {'name': name, 'type': vtype, 'scope': None,
+                        'owner': user.iden, 'configs': configs, 'secrets': {}}
+
+            await core.addVaultType({'name': 't', 'version': 1, 'schema': _schema(c1)})
+            iden = await core.addVault(_vdef('v', 't', {'host': 'h'}))
+            self.eq(1, core.getVault(iden)['type:version'])
+
+            # bump v1 -> v2 -> v3, then drive the migration deterministically.
+            # The vault converges to v3 with data from both the region (v2) and
+            # tier (v3) fills, proving the single convergent callback walk.
+            await core.addVaultType({'name': 't', 'version': 2, 'schema': _schema(c2), 'migration': migr2})
+            await core.addVaultType({'name': 't', 'version': 3, 'schema': _schema(c3), 'migration': migr3})
+            await core._migrateVaultType('t')
+            self.eq(3, core.getVault(iden)['type:version'])
+            self.eq('eu', core.getVault(iden)['configs']['region'])
+            self.eq('gold', core.getVault(iden)['configs']['tier'])
+
+            # a migration that leaves the vault invalid against the new schema is
+            # rejected; the vault stays at its own (still-valid) version
+            await core.addVaultType({'name': 'bad', 'version': 1, 'schema': _schema(c1)})
+            biden = await core.addVault(_vdef('b', 'bad', {'host': 'h'}))
+            await core.addVaultType({'name': 'bad', 'version': 2, 'schema': _schema(c2),
+                                     'migration': '$vault.configs.nope = "x" $lib.vault.update($vault)'})
+            await core._migrateVaultType('bad')
+            self.eq(1, core.getVault(biden)['type:version'])
+            self.eq({'host': 'h'}, core.getVault(biden)['configs'])
+
+            # a migration callback may import a loaded package's storm module
+            pkgdef = {
+                'name': 'synapse-test-mig',
+                'version': (0, 0, 1),
+                'modules': ({'name': 'synapse-test-mig.util',
+                             'storm': 'function addreg(configs) { $configs.region = "eu" return($configs) }'},),
+            }
+            await core.addStormPkg(pkgdef)
+            await core.addVaultType({'name': 'mig', 'version': 1, 'schema': _schema(c1)})
+            miden = await core.addVault(_vdef('m', 'mig', {'host': 'h'}))
+            migr = '$vault.configs = $lib.import("synapse-test-mig.util").addreg($vault.configs) $lib.vault.update($vault)'
+            await core.addVaultType({'name': 'mig', 'version': 2, 'schema': _schema(c2), 'migration': migr})
+            await core._migrateVaultType('mig')
+            self.eq(2, core.getVault(miden)['type:version'])
+            self.eq('eu', core.getVault(miden)['configs']['region'])
+
+            # a package that declares its vault type via the pkgdef "vaults"
+            # field can, on a version bump, migrate with a callback that imports
+            # the package's own module -- the type registers only after the
+            # package (and its module) load, so the import resolves
+            util = 'function addreg(configs) { $configs.region = "eu" return($configs) }'
+            pvtype = 'synapse-test:pkgvault'
+            pkg1 = {'name': 'synapse-test-pkgvault', 'version': (0, 0, 1),
+                    'modules': ({'name': 'synapse-test-pkgvault.util', 'storm': util},),
+                    'vaults': {pvtype: {'version': 1, 'schema': _schema(c1)}}}
+            await core.addStormPkg(pkg1)
+            piden = await core.addVault(_vdef('p', pvtype, {'host': 'h'}))
+            self.eq(1, core.getVault(piden)['type:version'])
+
+            pmigr = '$vault.configs = $lib.import("synapse-test-pkgvault.util").addreg($vault.configs) $lib.vault.update($vault)'
+            pkg2 = dict(pkg1, version=(0, 0, 2),
+                        vaults={pvtype: {'version': 2, 'schema': _schema(c2), 'migration': pmigr}})
+            await core.addStormPkg(pkg2)
+            await core._migrateVaultType(pvtype)
+            self.eq(2, core.getVault(piden)['type:version'])
+            self.eq('eu', core.getVault(piden)['configs']['region'])
+
+            # a callback that never calls $lib.vault.update commits nothing, so
+            # the vault stays behind at its prior version (a straggler)
+            await core.addVaultType({'name': 'noop', 'version': 1, 'schema': _schema(c1)})
+            npiden = await core.addVault(_vdef('np', 'noop', {'host': 'h'}))
+            await core.addVaultType({'name': 'noop', 'version': 2, 'schema': _schema(c2),
+                                     'migration': '$lib.print(noop)'})
+            await core._migrateVaultType('noop')
+            self.eq(1, core.getVault(npiden)['type:version'])
+            self.eq({'host': 'h'}, core.getVault(npiden)['configs'])
+
+        # registering a type auto-fires the runner (its onPush handler schedules
+        # it), which migrates a vault created before the type was versioned. A
+        # fresh cortex with only this one type has a single migration event.
+        async with self.getTestCore() as core:
+            user = await core.auth.addUser('u')
+            noneiden = await core.addVault({'name': 'n', 'type': 'later', 'scope': None,
+                                            'owner': user.iden, 'configs': {'host': 'h'}, 'secrets': {}})
+            self.notin('type:version', core.getVault(noneiden))
+
+            waiter = core.waiter(1, 'core:vaults:migrated')
+            await core.addVaultType({'name': 'later', 'version': 1, 'schema': _schema(c1)})
+            self.true(await waiter.wait(timeout=12))
+            self.eq(1, core.getVault(noneiden)['type:version'])
+
+    async def test_cortex_vault_update_error_paths(self):
+        async with self.getTestCore() as core:
+            user = await core.auth.addUser('u')
+
+            # the migration runner is a no-op for an unregistered type
+            await core._migrateVaultType('nosuchvaulttype')
+
+            schema = {
+                'type': 'object',
+                'properties': {
+                    'configs': {'type': 'object', 'properties': {'host': {'type': 'string'}},
+                                'required': ['host'], 'additionalProperties': False},
+                    'secrets': {'type': 'object', 'properties': {'apikey': {'type': 'string'}},
+                                'additionalProperties': False},
+                },
+            }
+            await core.addVaultType({'name': 'dbt', 'version': 1, 'schema': schema})
+            await core.addVaultType({'name': 'dbt', 'version': 2, 'schema': schema})
+
+            # a package re-declaring an already-registered type at a lower/equal
+            # version is skipped (the type stays at its current version)
+            await core.addStormPkg({'name': 'redecl', 'version': (0, 0, 1),
+                                    'vaults': {'dbt': {'version': 1, 'schema': schema}}})
+            self.eq(2, core.getVaultType('dbt')['version'])
+
+            iden = await core.addVault({'name': 'v0', 'type': 'dbt', 'scope': 'global',
+                                        'owner': None, 'configs': {'host': 'h'}, 'secrets': {'apikey': 'k'}})
+            self.eq(2, core.getVault(iden)['type:version'])
+
+            # updateVault to a version the type does not have
+            vdef = core.getVault(iden)
+            vdef['type:version'] = 99
+            with self.raises(s_exc.BadArg) as exc:
+                await core.updateVault(vdef)
+            self.isin('has no registered version 99', exc.exception.get('mesg'))
+
+            # non-msgpack configs/secrets are rejected (untyped vault so the type
+            # schema does not reject the value before the msgpack check)
+            uiden = await core.addVault({'name': 'u0', 'type': 'untyped', 'scope': None,
+                                         'owner': user.iden, 'configs': {}, 'secrets': {}})
+            vdef = core.getVault(uiden)
+            vdef['configs'] = {'x': self}
+            with self.raises(s_exc.BadArg) as exc:
+                await core.updateVault(vdef)
+            self.eq('Vault definition must be msgpack safe.', exc.exception.get('mesg'))
+
+            vdef = core.getVault(uiden)
+            vdef['secrets'] = {'x': self}
+            with self.raises(s_exc.BadArg) as exc:
+                await core.updateVault(vdef)
+            self.eq('Vault definition must be msgpack safe.', exc.exception.get('mesg'))
+
+            # renaming onto an existing vault name is a DupName
+            u2 = await core.addVault({'name': 'u2', 'type': 'untyped2', 'scope': None,
+                                      'owner': user.iden, 'configs': {}, 'secrets': {}})
+            vdef = core.getVault(u2)
+            vdef['name'] = 'u0'
+            await self.asyncraises(s_exc.DupName, core.updateVault(vdef))
+
+            # the vault:update handler is a no-op when the vault is missing
+            self.none(await core._updateVault({'iden': s_common.guid()}))
+
     async def test_cortex_vaults_errors(self):
         '''
         Simple argument checking and simple permission checking tests.
@@ -7968,7 +8794,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'secrets': {},
                 }
                 await core.addVault(vault)
-            self.eq('Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault definition must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
                 # secrets not msgpack safe
@@ -7981,7 +8807,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'secrets': {'foo': self},
                 }
                 await core.addVault(vault)
-            self.eq('Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault definition must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
                 # Iden == None, scope != 'global'
@@ -8325,342 +9151,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(('whip', None), core.getAbrvIndx(s_common.int64en(offs + 1)))
             self.raises(s_exc.NoSuchAbrv, core.getAbrvIndx, s_common.int64en(offs + 2))
 
-    async def test_cortex_query_offload(self):
-
-        async def _hang(*args, **kwargs):
-            await asyncio.sleep(6)
-            return
-
-        async with self.getTestAha() as aha:
-
-            ahanet = aha.conf.req('aha:network')
-
-            async with await s_base.Base.anit() as base:
-
-                with self.getTestDir() as dirn:
-
-                    dirn00 = s_common.genpath(dirn, 'cell00')
-                    dirn01 = s_common.genpath(dirn, 'cell01')
-
-                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
-                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01))
-
-                    self.len(1, await core00.nodes('[inet:asn=0]'))
-                    await core01.sync()
-                    self.len(1, await core01.nodes('inet:asn=0'))
-
-                    msgs = await core00.stormlist('cortex.storm.pool.get')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('No Storm pool configuration found.', msgs)
-
-                    msgs = await core00.stormlist('aha.pool.add pool00...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Created AHA service pool: pool00.synapse', msgs)
-
-                    msgs = await core00.stormlist('aha.pool.svc.add pool00... 01.core...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.synapse)', msgs)
-
-                    msgs = await core00.stormlist('cortex.storm.pool.set newp')
-                    self.stormIsInErr(':// not found in [newp]', msgs)
-
-                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Storm pool configuration set.', msgs)
-
-                    await core00.fini()
-                    await core01.fini()
-
-                    core00 = await base.enter_context(self.getTestCore(dirn=dirn00))
-                    core01 = await base.enter_context(self.getTestCore(dirn=dirn01, conf={'storm:log': True}))
-
-                    await core00.stormpool.waitready(timeout=12)
-
-                    # storm()
-                    q = 'inet:asn=0'
-                    qhash = s_storm.queryhash(q)
-                    with self.getLoggerStream('synapse') as stream:
-                        msgs = await alist(core00.storm(q))
-                        self.len(1, [m for m in msgs if m[0] == 'node'])
-
-                    data = stream.getvalue()
-                    self.notin('Timeout', data)
-                    msgs = stream.jsonlines()
-                    self.len(2, msgs)
-
-                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0]['params'].get('hash'), qhash)
-                    self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
-
-                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1]['params'].get('hash'), qhash)
-                    self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
-
-                    # callStorm()
-                    q = 'inet:asn=0 return((true))'
-                    qhash = s_storm.queryhash(q)
-                    with self.getLoggerStream('synapse') as stream:
-                        self.true(await core00.callStorm(q))
-
-                    data = stream.getvalue()
-                    self.notin('Timeout', data)
-                    msgs = stream.jsonlines()
-                    self.len(2, msgs)
-
-                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0]['params'].get('hash'), qhash)
-                    self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
-
-                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1]['params'].get('hash'), qhash)
-                    self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
-
-                    # exportStorm()
-                    q = 'inet:asn=0'
-                    qhash = s_storm.queryhash(q)
-                    with self.getLoggerStream('synapse') as stream:
-                        self.len(2, await alist(core00.exportStorm(q)))
-
-                    data = stream.getvalue()
-                    self.notin('Timeout', data)
-                    msgs = stream.jsonlines()
-                    self.len(2, msgs)
-
-                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0]['params'].get('hash'), qhash)
-                    self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
-
-                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1]['params'].get('hash'), qhash)
-                    self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
-
-                    # count()
-                    q = 'inet:asn=0'
-                    qhash = s_storm.queryhash(q)
-                    with self.getLoggerStream('synapse') as stream:
-                        self.eq(1, await core00.count(q))
-
-                    data = stream.getvalue()
-                    self.notin('Timeout', data)
-                    msgs = stream.jsonlines()
-                    self.len(2, msgs)
-
-                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0]['params'].get('hash'), qhash)
-                    self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
-
-                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1]['params'].get('hash'), qhash)
-                    self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
-
-                    with self.getLoggerStream('synapse') as stream:
-                        core01.boss.is_shutdown = True
-                        self.stormHasNoWarnErr(await core00.stormlist('inet:asn=0'))
-                        core01.boss.is_shutdown = False
-
-                    self.isin('Proxy for pool mirror [01.core.synapse] is shutting down. Skipping.', stream.getvalue())
-
-                    with mock.patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
-
-                        with self.getLoggerStream('synapse') as stream:
-                            msgs = await alist(core00.storm('inet:asn=0'))
-                            self.len(1, [m for m in msgs if m[0] == 'node'])
-
-                        data = stream.getvalue()
-                        self.notin('Offloading Storm query', data)
-                        self.isin('Timeout waiting for pool mirror [01.core.synapse] Nexus offset', data)
-                        self.notin('Timeout waiting for query mirror', data)
-
-                    await core00.stormpool.waitready(timeout=12)
-
-                    with mock.patch('synapse.telepath.Proxy.getPoolLink', _hang):
-
-                        with self.getLoggerStream('synapse') as stream:
-                            msgs = await alist(core00.storm('inet:asn=0'))
-                            self.len(1, [m for m in msgs if m[0] == 'node'])
-
-                        data = stream.getvalue()
-                        self.notin('Offloading Storm query', data)
-                        self.isin('Timeout waiting for pool mirror [01.core.synapse] Nexus offset', data)
-                        self.notin('Timeout waiting for query mirror', data)
-
-                    await core00.stormpool.waitready(timeout=12)
-
-                    with self.getLoggerStream('synapse') as stream:
-                        msgs = await alist(core00.storm('inet:asn=0'))
-                        self.len(1, [m for m in msgs if m[0] == 'node'])
-
-                    data = stream.getvalue()
-                    self.isin('Offloading Storm query', data)
-                    self.notin('Timeout waiting for pool mirror', data)
-                    self.notin('Timeout waiting for query mirror', data)
-
-                    orig = s_telepath.ClientV2.proxy
-                    async def finidproxy(self, timeout=None):
-                        prox = await orig(self, timeout=timeout)
-                        await prox.fini()
-                        return prox
-
-                    with mock.patch('synapse.telepath.ClientV2.proxy', finidproxy):
-                        with self.getLoggerStream('synapse') as stream:
-                            msgs = await alist(core00.storm('inet:asn=0'))
-                            self.len(1, [m for m in msgs if m[0] == 'node'])
-
-                    data = stream.getvalue()
-                    self.isin('Proxy for pool mirror [01.core.synapse] was shutdown. Skipping.', data)
-
-                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Storm pool configuration set.', msgs)
-                    await core00.stormpool.waitready(timeout=12)
-
-                    core01.nexsroot.nexslog.indx = 0
-
-                    with mock.patch('synapse.cortex.MAX_NEXUS_DELTA', 1):
-
-                        nexsoffs = await core00.getNexsIndx()
-
-                        with self.getLoggerStream('synapse') as stream:
-                            msgs = await alist(core00.storm('inet:asn=0'))
-                            self.len(1, [m for m in msgs if m[0] == 'node'])
-
-                        data = stream.getvalue()
-                        explog = ('Pool mirror [01.core.synapse] is too far out of sync. Skipping.')
-                        self.isin(explog, data)
-                        self.notin('Offloading Storm query', data)
-
-                    with self.getLoggerStream('synapse') as stream:
-                        msgs = await alist(core00.storm('inet:asn=0'))
-                        self.len(1, [m for m in msgs if m[0] == 'node'])
-
-                    data = stream.getvalue()
-                    self.isin('Offloading Storm query', data)
-                    self.isin('Timeout waiting for query mirror', data)
-
-                    with self.getLoggerStream('synapse') as stream:
-                        self.true(await core00.callStorm('inet:asn=0 return((true))'))
-
-                    data = stream.getvalue()
-                    self.isin('Offloading Storm query', data)
-                    self.isin('Timeout waiting for query mirror', data)
-
-                    with self.getLoggerStream('synapse') as stream:
-                        self.len(2, await alist(core00.exportStorm('inet:asn=0')))
-
-                    data = stream.getvalue()
-                    self.isin('Offloading Storm query', data)
-                    self.isin('Timeout waiting for query mirror', data)
-
-                    with self.getLoggerStream('synapse') as stream:
-                        self.eq(1, await core00.count('inet:asn=0'))
-
-                    data = stream.getvalue()
-                    self.isin('Offloading Storm query', data)
-                    self.isin('Timeout waiting for query mirror', data)
-
-                    opts = {'nexsoffs': 1000000, 'nexstimeout': 0}
-                    with self.raises(s_exc.TimeOut):
-                        await alist(core01.storm('inet:asn=0', opts=opts))
-
-                    with self.raises(s_exc.TimeOut):
-                        await core00.callStorm('inet:asn=0', opts=opts)
-
-                    with self.raises(s_exc.TimeOut):
-                        await alist(core00.exportStorm('inet:asn=0', opts=opts))
-
-                    with self.raises(s_exc.TimeOut):
-                        await core00.count('inet:asn=0', opts=opts)
-
-                    core00.stormpool.ready.clear()
-
-                    with self.getLoggerStream('synapse') as stream:
-                        msgs = await alist(core00.storm('inet:asn=0'))
-                        self.len(1, [m for m in msgs if m[0] == 'node'])
-
-                    data = stream.getvalue()
-                    self.isin('Timeout waiting for pool mirror proxy.', data)
-                    self.isin('Pool members exhausted. Running query locally.', data)
-
-                    await core01.fini()
-
-                    with self.getLoggerStream('synapse') as stream:
-                        msgs = await alist(core00.storm('inet:asn=0'))
-                        self.len(1, [m for m in msgs if m[0] == 'node'])
-
-                    data = stream.getvalue()
-                    self.isin('Storm query mirror pool is empty, running query locally.', data)
-
-                    with self.getLoggerStream('synapse') as stream:
-                        self.true(await core00.callStorm('inet:asn=0 return((true))'))
-
-                    data = stream.getvalue()
-                    self.isin('Storm query mirror pool is empty, running query locally.', data)
-
-                    with self.getLoggerStream('synapse') as stream:
-                        self.len(2, await alist(core00.exportStorm('inet:asn=0')))
-
-                    data = stream.getvalue()
-                    self.isin('Storm query mirror pool is empty, running query locally.', data)
-
-                    with self.getLoggerStream('synapse') as stream:
-                        self.eq(1, await core00.count('inet:asn=0'))
-
-                    data = stream.getvalue()
-                    self.isin('Storm query mirror pool is empty, running query locally.', data)
-
-                    core01 = await base.enter_context(self.getTestCore(dirn=dirn01))
-                    await core01.promote(graceful=True)
-
-                    self.true(core01.isactive)
-                    self.false(core00.isactive)
-
-                    # Let the mirror reconnect
-                    self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), timeout=12))
-
-                    with self.getLoggerStream('synapse') as stream:
-                        self.true(await core01.callStorm('inet:asn=0 return((true))'))
-
-                    data = stream.getvalue()
-                    # test that it reverts to local when referencing self
-                    self.notin('Offloading Storm query', data)
-                    self.notin('Timeout waiting for query mirror', data)
-
-                    waiter = core01.stormpool.waiter(1, 'svc:del')
-                    msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core.synapse) removed from service pool (pool00.synapse)', msgs)
-
-                    # TODO: this wait should not return None
-                    await waiter.wait(timeout=3)
-                    with self.getLoggerStream('synapse') as stream:
-                        msgs = await alist(core01.storm('inet:asn=0'))
-                        self.len(1, [m for m in msgs if m[0] == 'node'])
-
-                    data = stream.getvalue()
-                    self.isin('Storm query mirror pool is empty', data)
-
-                    with self.getLoggerStream('synapse') as stream:
-                        msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
-                        self.len(1, [m for m in msgs if m[0] == 'node'])
-
-                    data = stream.getvalue()
-                    self.notin('Storm query mirror pool is empty', data)
-
-                    msgs = await core00.stormlist('cortex.storm.pool.get')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Storm Pool URL: aha://pool00...', msgs)
-
-                    msgs = await core00.stormlist('cortex.storm.pool.del')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Storm pool configuration removed.', msgs)
-
-                    msgs = await core00.stormlist('cortex.storm.pool.get')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('No Storm pool configuration found.', msgs)
-
-                    msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
-                    self.len(1, [m for m in msgs if m[0] == 'node'])
-
     async def test_cortex_check_nexus_init(self):
         # This test is a simple safety net for making sure no nexus events
         # happen before the nexus subsystem is initialized (initNexusSubsystem).
@@ -8702,7 +9192,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         # - dmons
         # - storm package onloads
         # - merge tasks (e.g. for quorum)
-        # - storm pools
 
         # Make sure we're logging the message
         with self.getLoggerStream('synapse.lib.cell') as stream:
@@ -8921,53 +9410,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodes = await core.nodes('test:str')
                 self.len(1, nodes)
                 self.eq(nodes[0].repr(), 'fork')
-
-        # Check storm pools are not enabled
-        async with self.getTestAha() as aha:
-
-            ahanet = aha.conf.req('aha:network')
-
-            async with await s_base.Base.anit() as base:
-
-                with self.getTestDir() as dirn:
-
-                    dirn00 = s_common.genpath(dirn, 'cell00')
-                    dirn01 = s_common.genpath(dirn, 'cell01')
-
-                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00,
-                                                                       conf=safemode))
-                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01))
-
-                    msgs = await core01.stormlist('aha.pool.add pool00...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Created AHA service pool: pool00.synapse', msgs)
-
-                    msgs = await core01.stormlist('aha.pool.svc.add pool00... 01.core...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.synapse)', msgs)
-
-                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Storm pool configuration set.', msgs)
-
-                    # Make sure queries still work
-                    nodes = await core00.nodes('[ it:dev:str="stormpools!" ]', opts={'mirror': True})
-                    self.len(1, nodes)
-
-                    self.none(core00.stormpool)
-
-                    await core00.fini()
-
-                    # Now disable safemode and check that the stormpool is enabled
-                    core00 = await base.enter_context(self.getTestCore(dirn=dirn00, conf=nosafe))
-
-                    nodes = await core00.nodes('it:dev:str', opts={'mirror': True})
-                    self.len(1, nodes)
-
-                    self.nn(core00.stormpool)
-
-                    await core00.fini()
-                    await core01.fini()
 
     async def test_cortex_prop_copy(self):
         async with self.getTestCore() as core:

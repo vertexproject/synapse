@@ -447,6 +447,55 @@ class MultiSlabSeqn(s_t_utils.SynTest):
 
                 self.eq(12, msqn.tailseqn.indx)
 
+    async def _writeSeqnSlab(self, dirn, startidx, items, firstindx):
+        # write a standalone seqn slab file directly, mimicking a slab a storage-
+        # owning writer would produce on rotate (a distinct path, so it does not
+        # collide with a concurrently-open readonly reader's handles).
+        fn = s_multislabseqn.MultiSlabSeqn.slabFilename(dirn, startidx)
+        async with await s_lmdbslab.Slab.anit(fn) as slab:
+            seqn = slab.getSeqn('nexuslog')
+            for indx, item in items:
+                seqn.add(item, indx=indx)
+
+            s_multislabseqn.MultiSlabSeqn._setFirstIndx(slab, firstindx)
+
+    async def test_multislabseqn_settailslab(self):
+        '''
+        A readonly reader adopts a tail slab a writer created via rotation, and an
+        in-flight iter() crosses into it.
+        '''
+        with self.getTestDir() as dirn:
+
+            # a writer lays down the initial slab, then closes so the reader can
+            # open the shared files readonly (Slab guards against a double-open in
+            # the same process)
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as wsqn:
+                for i in range(3):
+                    await wsqn.add(f'foo{i}')  # offsets 0,1,2
+
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, slabopts={'readonly': True}) as rsqn:
+
+                self.eq([(0, 'foo0'), (1, 'foo1'), (2, 'foo2')], await alist(rsqn.iter(0)))
+
+                # begin an iteration and consume the first item, pinning the tail
+                it = rsqn.iter(0)
+                self.eq((0, 'foo0'), await it.__anext__())
+
+                # a writer rotation lands the next offsets in a new slab file on disk
+                await self._writeSeqnSlab(dirn, 3, [(3, 'foo3'), (4, 'foo4')], firstindx=0)
+
+                # the reader adopts the writer's new tail (as its follower would on
+                # replaying nexslog:rotate) while the iter above is mid-flight
+                await rsqn.setTailSlab(3)
+
+                # the in-flight iterator crosses into the newly-adopted slab
+                self.eq([(1, 'foo1'), (2, 'foo2'), (3, 'foo3'), (4, 'foo4')], await alist(it))
+                await it.aclose()
+
+                # a fresh iteration also sees the full, crossed range
+                self.eq([(0, 'foo0'), (1, 'foo1'), (2, 'foo2'), (3, 'foo3'), (4, 'foo4')],
+                        await alist(rsqn.iter(0)))
+
     async def test_multislabseqn_multicache(self):
         '''
         A new consumer can iterate over an older non-cacheslab while the cacheslab is in use

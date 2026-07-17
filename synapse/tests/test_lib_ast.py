@@ -20,7 +20,7 @@ foo_stormpkg = {
     'name': 'foo',
     'desc': 'The Foo Module',
     'version': (0, 0, 1),
-    'synapse_version': '>=3.0.0b2,<4.0.0',
+    'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
     'modules': [
         {
             'name': 'hehe.haha',
@@ -381,6 +381,27 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'strs', ('neato', 'burrito'))
 
+            q = 'test:str=foo $prop=seen [:$prop=(2015, 2020)]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'seen', (1420070400000000, 1577836800000000, 157766400000000))
+
+            q = 'test:str=foo $prop=seen.min [:$prop=2010]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'seen.min', 1262304000000000)
+
+            q = 'test:str=foo $prop=seen.min [:$prop=2015]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'seen.min', 1420070400000000)
+
+            q = 'test:str=foo $prop=seen.min [:$prop=2121]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'seen.min', 4765132800000000)
+            self.propeq(nodes[0], 'seen.max', 4765132800000001)
+
             # Sad paths
             q = '[test:str=newp -:newp]'
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
@@ -402,6 +423,15 @@ class AstTest(s_test.SynTest):
 
             q = 'test:str=foo $newp=($node.repr(), bar) [*$newp=foo]'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = '[test:str=bar] $prop=seen.lolnope [:$prop=2020]'
+            await self.asyncraises(s_exc.NoSuchVirt, core.nodes(q))
+
+            q = 'test:str=foo $prop=".min" [:$prop=2016]'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
+            q = 'test:str=foo $prop=seen.min [:$prop=lolnope]'
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes(q))
 
     async def test_ast_condsetoper(self):
         async with self.getTestCore() as core:
@@ -1342,13 +1372,24 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('test:arrayprop:newp*[^=asdf]')
 
-            with self.raises(s_exc.BadTypeValu):
+            # Array lift/filter syntax against a non-array prop is a
+            # comparator/type mismatch, not a bad value -- both the lift
+            # (LiftByArray) and filter (RelPropCond) forms raise BadCmprType.
+            with self.raises(s_exc.BadCmprType) as exc:
                 await core.nodes('test:comp:hehe*[^=asdf]')
+            self.isin('Array syntax is invalid on non array type', exc.exception.get('mesg'))
 
             await core.nodes('[ test:comp=(10,asdf) ]')
 
-            with self.raises(s_exc.BadCmprType):
+            with self.raises(s_exc.BadCmprType) as exc:
                 await core.nodes('test:comp +:hehe*[^=asdf]')
+            self.isin('Array filter syntax is invalid for non-array prop', exc.exception.get('mesg'))
+
+            # The virtual-property array-lift variant (LiftByArrayVirt,
+            # prop*[.virt cmpr valu]) has the same non-array guard.
+            with self.raises(s_exc.BadCmprType) as exc:
+                await core.nodes('test:comp:hehe*[.min^=asdf]')
+            self.isin('Array syntax is invalid on non array type', exc.exception.get('mesg'))
 
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(100, 101, 102) ]')
@@ -1641,13 +1682,13 @@ class AstTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': '0.0.1',
-            'synapse_version': '>=3.0.0b2,<4.0.0',
+            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
         }
 
         stormpkg = {
             'name': 'stormpkg',
             'version': '1.2.3',
-            'synapse_version': '>=3.0.0b2,<4.0.0',
+            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
             'commands': (
                 {
                  'name': 'pkgcmd.old',
@@ -1659,7 +1700,7 @@ class AstTest(s_test.SynTest):
         stormpkgnew = {
             'name': 'stormpkg',
             'version': '1.2.4',
-            'synapse_version': '>=3.0.0b2,<4.0.0',
+            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
             'commands': (
                 {
                  'name': 'pkgcmd.new',
@@ -1671,7 +1712,7 @@ class AstTest(s_test.SynTest):
         jsonpkg = {
             'name': 'jsonpkg',
             'version': '1.2.3',
-            'synapse_version': '>=3.0.0b2,<4.0.0',
+            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
             'docs': (
                 {
                  'title': 'User Guide',
@@ -3440,7 +3481,7 @@ class AstTest(s_test.SynTest):
 
             opts = {'vars': {'sha256': hashlib.sha256(b'asdf').hexdigest()}}
             await core.nodes('[ file:bytes=({"sha256": $sha256}) ]', opts=opts)
-            await core.axon.put(b'asdf')
+            await (await core.getAxon()).put(b'asdf')
             self.len(1, await core.nodes('file:bytes +$lib.axon.has(:sha256)'))
 
     async def test_ast_walkcond(self):

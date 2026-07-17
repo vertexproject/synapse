@@ -1,6 +1,9 @@
 name: foopkg
 version: 1.0.0
-synapse_version: '>=3.0.0,<4.0.0'
+
+dependencies:
+  synapse:
+    version: '>=3.0.0,<4.0.0'
 
 onload: $lib.import(foomod).onload()
 

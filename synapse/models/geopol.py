@@ -20,14 +20,6 @@ modeldefs = (
                         'array': {},
                         'doc': 'An array of country codes.'}),
 
-                    ('iso:3166:alpha3', ('iso:3166:alpha3', {}), {
-                        'prevnames': ('iso3',),
-                        'doc': 'The ISO 3166 Alpha-3 country code.'}),
-
-                    ('iso:3166:numeric3', ('iso:3166:numeric3', {}), {
-                        'prevnames': ('isonum',),
-                        'doc': 'The ISO 3166 Numeric-3 country code.'}),
-
                     ('tld', ('inet:fqdn', {}), {
                         'doc': 'The top-level domain for the country.'}),
 

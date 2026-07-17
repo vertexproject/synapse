@@ -168,14 +168,16 @@ class Base:
         if self._context_managers is None:
             self._context_managers = []
 
-        self._context_managers.append(item)
         entr = getattr(item, '__aenter__', None)
-        if entr is not None:
-            return await entr()
+        if entr is None:
+            entr = getattr(item, '__enter__', None)
 
-        entr = getattr(item, '__enter__', None)
         assert entr is not None
-        return entr()
+
+        ret = await s_coro.ornot(entr)
+        self._context_managers.append(item)
+
+        return ret
 
     def onfini(self, func):
         '''
@@ -420,6 +422,7 @@ class Base:
                     except Exception:
                         logger.exception(f'{self} {item} - context exit failed!')
                     continue
+            self._context_managers.clear()
 
         for fini in self._fini_funcs:
             try:

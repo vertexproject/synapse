@@ -518,3 +518,129 @@ class StormlibVaultTest(s_test.SynTest):
                 'cfgdict': {'boo': 'bar', 'foo': 'bar'},
                 'cfglist': ['foo', 'bar', 'baz', 'moo'],
             })
+
+    async def test_stormlib_vault_types(self):
+
+        schema = {
+            'type': 'object',
+            'properties': {
+                'configs': {
+                    'type': 'object',
+                    'properties': {'host': {'type': 'string'}},
+                    'required': ['host'],
+                    'additionalProperties': False,
+                },
+            },
+        }
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                opts = {'vars': {'schema': schema}}
+
+                # registering a vault type requires admin
+                visi = await core.auth.addUser('visi')
+                await self.asyncraises(s_exc.AuthDeny, core.callStorm(
+                    '$lib.vault.type.add(db:source:test, (1), schema=$schema)',
+                    opts={'user': visi.iden, 'vars': {'schema': schema}}))
+
+                self.eq('db:source:test', await core.callStorm(
+                    'return($lib.vault.type.add(db:source:test, (1), schema=$schema))', opts=opts))
+                self.eq(1, core.getVaultType('db:source:test')['version'])
+
+                # $lib.vault.type.get returns the registered definition
+                vtdef = await core.callStorm('return($lib.vault.type.get(db:source:test))')
+                self.eq(1, vtdef['version'])
+                self.none(await core.callStorm('return($lib.vault.type.get(db:source:nope))'))
+
+                # $lib.vault.type.list returns all registered definitions
+                vtypes = await core.callStorm('return($lib.vault.type.list())')
+                self.isin('db:source:test', [v['name'] for v in vtypes])
+
+                # the registered type validates vault configs on add
+                q = '''
+                    $iden = $lib.vault.add($name, db:source:test, (null), $lib.auth.users.get().iden, ({}), $cfg)
+                    return($iden)
+                '''
+                t1 = await core.callStorm(q, opts={'vars': {'name': 't1', 'cfg': {'host': 'h'}}})
+                self.nn(t1)
+                await self.asyncraises(s_exc.SchemaViolation,
+                                       core.callStorm(q, opts={'vars': {'name': 't2', 'cfg': {'bad': 1}}}))
+
+                # $vault.vdef() + $lib.vault.update() replace the vault
+                # atomically, validating against the vault's version
+                upd = '''
+                    $vdef = $lib.vault.byname(t1).vdef()
+                    $vdef.configs.host = "h2"
+                    return($lib.vault.update($vdef))
+                '''
+                await core.callStorm(upd)
+                self.eq('h2', core.getVaultByName('t1')['configs']['host'])
+
+                bad = '''
+                    $vdef = $lib.vault.byname(t1).vdef()
+                    $vdef.configs = ({"bad": 1})
+                    return($lib.vault.update($vdef))
+                '''
+                await self.asyncraises(s_exc.SchemaViolation, core.callStorm(bad))
+
+                # a version is append-only; the existing vault stays at v1
+                tighter = {
+                    'type': 'object',
+                    'properties': {
+                        'configs': {
+                            'type': 'object',
+                            'properties': {'host': {'type': 'string'}, 'region': {'type': 'string'}},
+                            'required': ['host', 'region'],
+                            'additionalProperties': False,
+                        },
+                    },
+                }
+                self.eq('db:source:test', await core.callStorm(
+                    'return($lib.vault.type.add(db:source:test, (2), schema=$s))',
+                    opts={'vars': {'s': tighter}}))
+                self.eq(2, core.getVaultType('db:source:test')['version'])
+                self.eq(1, core.getVaultByName('t1')['type:version'])
+
+                # get(version) fetches a specific version; list() shows the
+                # latest while versions() enumerates every version, oldest first
+                self.eq(1, await core.callStorm('return($lib.vault.type.get(db:source:test, version=1).version)'))
+                self.eq(2, await core.callStorm('return($lib.vault.type.get(db:source:test).version)'))
+                self.eq([1, 2], await core.callStorm('''
+                    $vers = ([])
+                    for $vt in $lib.vault.type.versions(db:source:test) { $vers.append($vt.version) }
+                    return($vers)
+                '''))
+
+            # the registration persisted across a restart (nexus-backed)
+            async with self.getTestCore(dirn=dirn) as core:
+                self.nn(core.getVaultType('db:source:test'))
+
+                # the type cannot be deleted while an instance remains
+                await self.asyncraises(s_exc.CantDelType,
+                                       core.callStorm('$lib.vault.type.del(db:source:test)'))
+
+                await core.callStorm('$lib.vault.byname(t1).delete()')
+                await core.callStorm('$lib.vault.type.del(db:source:test)')
+                self.none(core.getVaultType('db:source:test'))
+
+    async def test_stormlib_vault_update_perms(self):
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+
+            giden = await core.callStorm(
+                'return($lib.vault.add("gv", "synapse-test", "global", (null), ({"k": "sekret"}), ({"c": "v"})))')
+
+            # $lib.vault.update that changes permissions requires admin (run as
+            # root); exercises the admin-permission branch of the update helper
+            await core.callStorm('''
+                $vdef = $lib.vault.get($iden).vdef()
+                $vdef.permissions.users.($uiden) = (1)
+                return($lib.vault.update($vdef))
+            ''', opts={'vars': {'iden': giden, 'uiden': visi.iden}})
+
+            # $vault.vdef() as a user without edit permission omits secrets
+            vdef = await core.callStorm('return($lib.vault.get($iden).vdef())',
+                                        opts={'vars': {'iden': giden}, 'user': visi.iden})
+            self.none(vdef.get('secrets'))

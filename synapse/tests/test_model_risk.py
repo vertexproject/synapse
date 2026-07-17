@@ -248,6 +248,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name=apt1
                     :names=(comment crew,)
                     :desc=VTX-APT1
+                    :seen=(20220101, 20220601)
                     :resolved={[ ou:org=({"name": "pla unit 61398"}) ]}
                     :tag=cno.threat.apt1
                     :activity=high
@@ -272,6 +273,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'name', 'apt1')
             self.propeq(nodes[0], 'names', ('comment crew',))
             self.propeq(nodes[0], 'desc', 'VTX-APT1')
+            self.propeq(nodes[0], 'seen', (1640995200000000, 1654041600000000, 13046400000000))
             self.propeq(nodes[0], 'activity', 40)
             self.propeq(nodes[0], 'place:country:code', 'cn')
             self.propeq(nodes[0], 'place:loc', 'cn.shanghai')
@@ -343,7 +345,6 @@ class RiskModelTest(s_t_utils.SynTest):
                 :enacted=(true)
                 :public=(true)
                 :public:url=https://apt99.com/acme
-                :compromise={[ risk:compromise=* :victim={ gen.org acme } ]}
                 :reporter={ gen.org vertex }
                 :reporter:name=vertex
                 :paid:price=12345
@@ -362,7 +363,6 @@ class RiskModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('risk:extortion :victim -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:extortion :actor -> entity:contact +:name=agent99'))
-            self.len(1, await core.nodes('risk:extortion -> risk:compromise :victim -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:extortion :reporter -> ou:org +:name=vertex'))
 
             nodes = await core.nodes('''
@@ -456,13 +456,11 @@ class RiskModelTest(s_t_utils.SynTest):
                     :cause=nature.earthquake
                     :provider={[ ou:org=* :name="desert power" ]}
                     :provider:name="desert power"
-                    :attack={[ risk:attack=* ]}
                     :reporter={ ou:org:name=vertex }
                     :reporter:name=vertex
                 ]
             ''')
             self.len(1, nodes)
-            self.nn(nodes[0].get('attack'))
             self.nn(nodes[0].get('reporter'))
             self.propeq(nodes[0], 'name', 'The Big One')
             self.propeq(nodes[0], 'reporter:name', 'vertex')
@@ -471,7 +469,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'cause', 'nature.earthquake.')
             self.propeq(nodes[0], 'period', (1672531200000000, 1704067200000000, 31536000000000))
 
-            self.len(1, await core.nodes('risk:outage -> risk:attack'))
             self.len(1, await core.nodes('risk:outage -> risk:outage:cause:taxonomy'))
             self.len(1, await core.nodes('risk:outage :reporter -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('risk:outage :provider -> ou:org +:name="desert power"'))

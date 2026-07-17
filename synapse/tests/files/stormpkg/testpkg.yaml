@@ -1,6 +1,14 @@
 name: testpkg
 version: 0.0.1
 
+dependencies:
+  synapse:
+    version: ">=3.0.0b3,<4.0.0"
+  testpkg-optdep:
+    version: ">=1.0.0,<2.0.0"
+    desc: Optional dependency used to enrich testpkg nodes with additional metadata.
+    optional: true
+
 logo:
     mime: image/svg
     path: docs/foobar.svg
@@ -55,6 +63,13 @@ modules:
             returns:
               type: 'null'
               desc: '``newp()`` does not return data.'
+    - name: testpkg.testext
+      package: synapse.tests.files
+      path: stormmod/common
+    - name: testpkg.testextfile
+      # This can be either an absolute path or a relative path from the
+      # directory containing this yaml file.
+      path: ../stormmod/common
 
 onload: |
   $time = $lib.globals.onload_sleep
@@ -76,16 +91,6 @@ inits:
       desc: Another init
       version: 2
       query: "$lib.globals.set(testpkg-second, (true))"
-
-external_modules:
-    - name: testext
-      package: synapse.tests.files
-      package_path: stormmod/common
-
-    - name: testextfile
-      # This can be either an absolute path or a relative path from the
-      # directory containing this yaml file.
-      file_path: ../stormmod/common
 
 graphs:
     - name: testgraph
@@ -131,32 +136,35 @@ configvars:
 
 vaults:
   testpkg:
-    schemas:
-      configs:
-        type: object
-        properties:
-          foo:
-            type: string
-            default: hehe haha
-          bar:
-            oneOf:
-              - { type: boolean }
-              - { type: string }
-          baz:
-            type: boolean
-        additionalProperties: false
-        required:
-          - bar
-          - baz
-      secrets:
-        type: object
-        properties:
-          quux:
-            type: string
-            minLength: 2
-        additionalProperties: false
-        required:
-          - quux
+    version: 1
+    schema:
+      type: object
+      properties:
+        configs:
+          type: object
+          properties:
+            foo:
+              type: string
+              default: hehe haha
+            bar:
+              oneOf:
+                - { type: boolean }
+                - { type: string }
+            baz:
+              type: boolean
+          additionalProperties: false
+          required:
+            - bar
+            - baz
+        secrets:
+          type: object
+          properties:
+            quux:
+              type: string
+              minLength: 2
+          additionalProperties: false
+          required:
+            - quux
 
 commands:
     - name: testpkgcmd

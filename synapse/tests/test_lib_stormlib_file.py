@@ -24,7 +24,7 @@ class FileTest(s_test.SynTest):
         async with self.getTestCore() as core:
             # Create a file:bytes node from bytes
 
-            self.false(await core.axon.has(sha256b))
+            self.false(await (await core.getAxon()).has(sha256b))
 
             opts = {'vars': {'data': data}}
             nodes = await core.nodes('yield $lib.file.frombytes($data)', opts=opts)
@@ -37,10 +37,10 @@ class FileTest(s_test.SynTest):
                 self.nn(hashvalu)
                 self.propeq(nodes[0], hashname, s_common.ehex(hashes.get(hashname)))
 
-            self.true(await core.axon.has(sha256b))
+            self.true(await (await core.getAxon()).has(sha256b))
 
             valu = b''
-            async for byts in core.axon.get(sha256b):
+            async for byts in (await core.getAxon()).get(sha256b):
                 valu += byts
 
             self.eq(valu, data)

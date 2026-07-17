@@ -221,6 +221,18 @@ async def _pumpLogStream():
         except Exception:
             _writestderr('Error during log handling:\n' + traceback.format_exc())
 
+def ensurePump():
+    '''
+    Start the async log-pump task if a loop is running and it is not already
+    started. setup() starts the pump when called with a running loop; a process
+    that configured logging before its loop was available (e.g. a spawned
+    worker) calls this once its loop is up so watch() windows receive live
+    records.
+    '''
+    if s_coro.has_running_loop() and StreamHandler._pump_task is None:
+        StreamHandler._pump_event = asyncio.Event()
+        StreamHandler._pump_task = s_coro.create_task(_pumpLogStream())
+
 def logs(last=100):
     return tuple(StreamHandler._logs_fifo)[-last:]
 
@@ -228,10 +240,32 @@ async def watch(last=100):
     # avoid a circular import...
     import synapse.lib.queue as s_queue
     async with await s_queue.Window.anit(maxsize=10000) as window:
-        await window.puts(logs(last=last))
+        # last<=0 seeds no history and streams only new records (logs(last=0)
+        # would otherwise return the whole ring via the [-0:] slice).
+        if last > 0:
+            await window.puts(logs(last=last))
         _log_wins.add(window)
         async for item in window:
             yield item
+
+async def injectLogs(items):
+    '''
+    Merge externally-sourced structured log records (e.g. from a subprocess)
+    into this process's log ring buffer and any live watch() windows, so the
+    Cell log APIs (logs()/watch()) present them alongside local records.
+
+    The originating process is responsible for writing them to its own stderr;
+    injectLogs deliberately does not, to avoid duplicating them on the shared
+    stderr stream.
+    '''
+    items = tuple(items)
+    if not items:
+        return
+
+    StreamHandler._logs_fifo.extend(items)
+
+    for wind in tuple(_log_wins):
+        await wind.puts(items)
 
 _glob_logconf = {}
 
@@ -256,9 +290,7 @@ def setup(**conf):
     if not conf.get('structlog'):
         fmtclass = TextFormatter
 
-    if s_coro.has_running_loop() and StreamHandler._pump_task is None:
-        StreamHandler._pump_event = asyncio.Event()
-        StreamHandler._pump_task = s_coro.create_task(_pumpLogStream())
+    ensurePump()
 
     # this is used to pass things like service name
     # to child processes and forked workers...

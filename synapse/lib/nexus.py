@@ -32,7 +32,8 @@ FOLLOWER_CONNECT_WAIT_S = 60.0
 mirrordisconnect = f'Unable to connect to leader for {FOLLOWER_CONNECT_WAIT_S}s.'
 
 WINDOW_MAXSIZE = 10_000
-YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3\x92'
+PULSE_YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3'
+MIRROR_YIELD_PREFIX = PULSE_YIELD_PREFIX + b'\x92'
 
 class RegMethType(type):
     '''
@@ -40,8 +41,7 @@ class RegMethType(type):
     '''
     def __init__(cls, name: str, bases: List[type], attrs: Dict[str, Any]):
         # Start with my parents' definitions
-        cls._regclstupls: List[Tuple[str, Callable, bool]] = \
-            sum((getattr(scls, '_regclstupls', []) for scls in bases), [])
+        cls._regclstupls = sum((getattr(scls, '_regclstupls', []) for scls in bases), [])
 
         # Add my own definitions
         for meth in attrs.values():
@@ -112,6 +112,14 @@ class NexsRoot(s_base.Base):
         self._mirrors: List[ChangeDist] = []
         self._linkmirrors: List[s_queue.Window] = []
 
+        self._commitpulse = []
+
+        # highest nexus offset whose commit (all slabs) has fully completed. Only
+        # ever holds a fully-committed offset (updated in _eat after
+        # commitDirtyNow), so it is safe even when read outside nexslock.
+        # Set to the last durable offset at boot.
+        self._commitindx = -1
+
         self._nexskids: Dict[str, 'Pusher'] = {}
 
         # Used to match pending follower write requests with the responses arriving on the log
@@ -122,12 +130,12 @@ class NexsRoot(s_base.Base):
 
         logpath = s_common.genpath(self.dirn, 'slabs', 'nexuslog')
 
-        self.nexsslab = await cell._initSlabFile(path)
+        self.nexsslab = await cell._initSlabFile(path, readonly=cell.readonly)
 
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
         if fresh:
-            self.nexshot.set('version', 2)
+            self.nexshot.setnow('version', 2)
 
         vers = self.nexshot.get('version')
 
@@ -136,18 +144,35 @@ class NexsRoot(s_base.Base):
         elif vers != 2:
             raise s_exc.BadStorageVersion(mesg=f'Got nexus log version {vers}.  Expected 2.  Accidental downgrade?')
 
-        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, cell=cell)
+        slabopts = {'readonly': True} if cell.readonly else None
+        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, cell=cell, slabopts=slabopts)
 
         # just in case were previously configured differently
         logindx = self.nexslog.index()
         hotindx = self.nexshot.get('nexs:indx')
         maxindx = max(logindx, hotindx)
 
-        self.nexshot.set('nexs:indx', maxindx)
-        self.nexslog.setIndex(maxindx)
+        # everything durable in the log at boot is committed (each entry commits
+        # in its own transaction under nexuscommit), so the last committed offset
+        # is one before the next-write index.
+        self._commitindx = maxindx - 1
+
+        # a readonly cell must not rewrite the shared index
+        if not cell.readonly:
+            self.nexshot.setnow('nexs:indx', maxindx)
+            self.nexslog.setIndex(maxindx)
+
+            # nexshot writes above use setnow (write-through), but the nexus slab
+            # on a nexuscommit cell is commitpulse=False and, with donexslog, is
+            # written only here at boot - nothing commits it later. Commit now so
+            # version/nexs:indx are durable immediately.
+            await self.nexsslab.sync()
 
         async def fini():
             for wind in self._linkmirrors:
+                await wind.fini()
+
+            for wind in self._commitpulse:
                 await wind.fini()
 
             for dist in self._mirrors:
@@ -287,6 +312,11 @@ class NexsRoot(s_base.Base):
         try:
             await self._apply(*indxitem)
 
+            # persist the replayed state (nexuscommit cells commit per
+            # transaction rather than on the periodic sync loop).
+            if self.cell.nexuscommit:
+                await s_lmdbslab.Slab.commitDirtyNow()
+
         except Exception:
             logger.exception(f'Exception while replaying log: {s_common.trimText(repr(indxitem))}')
 
@@ -357,7 +387,7 @@ class NexsRoot(s_base.Base):
         self.reqNotReadOnly()
 
         try:
-            await client.waitready(timeout=FOLLOWER_WRITE_WAIT_S)
+            proxy = await client.proxy(timeout=FOLLOWER_WRITE_WAIT_S)
         except asyncio.TimeoutError:
             mesg = 'Mirror cannot reach leader for write request'
             raise s_exc.LinkErr(mesg=mesg) from None
@@ -367,12 +397,19 @@ class NexsRoot(s_base.Base):
 
         # If this issue came from a downstream mirror, just forward the request
         if 'resp' in meta:
-            await client.issue(nexsiden, event, args, kwargs, meta=meta, wait=False)
+            await proxy.issue(nexsiden, event, args, kwargs, meta=meta, wait=False)
             return
 
+        return await self._issueFollower(proxy, nexsiden, event, args, kwargs, meta)
+
+    async def _issueFollower(self, proxy, nexsiden, event, args, kwargs, meta):
+        '''
+        Forward a write to the leader from a non-leader nexus and return the
+        applied result once this nexus has observed it.
+        '''
         with self._getResponseFuture() as (iden, futu):
             meta['resp'] = iden
-            await client.issue(nexsiden, event, args, kwargs, meta=meta, wait=False)
+            await proxy.issue(nexsiden, event, args, kwargs, meta=meta, wait=False)
             return await futu
 
     async def eat(self, nexsiden, event, args, kwargs, meta, etime, wait=True, lock=True):
@@ -427,7 +464,7 @@ class NexsRoot(s_base.Base):
                 saveindx, packitem = await self.nexslog.addWithPackRetn(item, indx=indx)
 
                 if self._linkmirrors:
-                    tupl = (saveindx, YIELD_PREFIX + s_msgpack.en(saveindx) + packitem)
+                    tupl = (saveindx, MIRROR_YIELD_PREFIX + s_msgpack.en(saveindx) + packitem)
                     for wind in tuple(self._linkmirrors):
                         await wind.put(tupl)
 
@@ -442,7 +479,30 @@ class NexsRoot(s_base.Base):
 
                 self.nexshot.inc('nexs:indx')
 
-            return (saveindx, await self._apply(saveindx, item))
+                # nexshot (a commitpulse=False HotCount when nexuscommit is set)
+                # no longer flushes via the 'commit' event, so push the offset
+                # into the txn before the per-transaction commit below.
+                if self.cell.nexuscommit:
+                    self.nexshot.sync()
+
+            retn = await self._apply(saveindx, item)
+
+            # commit the dirty slabs while still holding nexslock, so the
+            # nexus-log write (this same transaction) and the applied state are
+            # durable together. Only on success: a failed handler's partial
+            # state stays uncommitted (the log entry is durable and is replayed
+            # on restart).
+            if self.cell.nexuscommit:
+                await s_lmdbslab.Slab.commitDirtyNow()
+
+                self._commitindx = saveindx
+
+                if self._commitpulse:
+                    pulseitem = (saveindx, PULSE_YIELD_PREFIX + s_msgpack.en(saveindx))
+                    for wind in tuple(self._commitpulse):
+                        await wind.put(pulseitem)
+
+            return (saveindx, retn)
 
         finally:
             self.cell.nexslock.release()
@@ -557,6 +617,42 @@ class NexsRoot(s_base.Base):
 
             yield dist
 
+    @contextlib.asynccontextmanager
+    async def getCommitPulseWindow(self):
+        async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE, clearonfini=True) as wind:
+
+            async def fini():
+                if wind in self._commitpulse:
+                    self._commitpulse.remove(wind)
+
+            wind.onfini(fini)
+
+            self._commitpulse.append(wind)
+
+            yield wind
+
+    async def iterCommitPulse(self) -> AsyncIterator[int]:
+        '''
+        Yield the committed offset of each nexus transaction as it commits.
+
+        Only meaningful on a ``nexuscommit`` cell (the fan-out in _eat is gated
+        on it); on other cells it yields the current index once and then nothing.
+        '''
+        # attach the window BEFORE reading the committed index, so a commit racing
+        # this attach is either delivered via the window or covered by the index
+        # we yield next. We yield _commitindx (the last FULLY committed offset),
+        # never index() (the next-write offset, which can be read mid-transaction).
+        async with self.getCommitPulseWindow() as wind:
+
+            yield self._commitindx
+
+            if (link := s_scope.get('link')) is None:
+                async for offs, item in wind:
+                    yield offs
+            else:
+                async for offs, item in wind:
+                    await link.send(item)
+
     async def startup(self):
 
         if self.client is not None:
@@ -572,7 +668,7 @@ class NexsRoot(s_base.Base):
         await self.setNexsReady(mirurl is None)
 
         if mirurl is not None:
-            self.client = await s_telepath.Client.anit(mirurl, onlink=self._onTeleLink)
+            self.client = await s_telepath.ClientV2.anit(mirurl, onlink=self._onTeleLink)
             self.onfini(self.client)
             self.timeouttask = self.client.schedCoro(self.connectTimeout())
 
@@ -611,7 +707,7 @@ class NexsRoot(s_base.Base):
             for futu in list(self._futures.values()):
                 futu.set_exception(s_exc.LinkErr(mesg=mirrordisconnect))
 
-    async def _onTeleLink(self, proxy):
+    async def _onTeleLink(self, proxy, urlinfo):
         if self.timeouttask is not None:
             self.timeouttask.cancel()
             await asyncio.wait([self.timeouttask])
@@ -635,9 +731,7 @@ class NexsRoot(s_base.Base):
         cellinfo = None
         try:
             cellinfo = await proxy.getCellInfo()
-            features = cellinfo.get('features', {})
-            if features.get('dynmirror'):
-                await proxy.readyToMirror()
+            await proxy.readyToMirror()
 
             cellvers = cellinfo['cell']['version']
             if s_version.parse(cellvers) > s_version.parse(self.cell.VERSION):
@@ -749,9 +843,9 @@ class Pusher(s_base.Base, metaclass=RegMethType):
     '''
     A mixin-class to manage distributing changes where one might plug in mirroring or consensus protocols
     '''
-    _regclstupls: List[Tuple[str, Callable, bool]] = []
+    _regclstupls = []
 
-    async def __anit__(self, iden: str, nexsroot: NexsRoot = None):  # type: ignore
+    async def __anit__(self, iden: str, nexsroot: NexsRoot = None, readonly=False):  # type: ignore
 
         await s_base.Base.__anit__(self)
         self._nexshands: Dict[str, Tuple[Callable, bool]] = {}
@@ -762,7 +856,9 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         if nexsroot is not None:
             self.setNexsRoot(nexsroot)
 
-        for event, func, passitem in self._regclstupls:  # type: ignore
+        for event, func, passitem, reader in self._regclstupls:  # type: ignore
+            if readonly and not reader:
+                continue
             self._nexshands[event] = func, passitem
 
     def setNexsRoot(self, nexsroot):
@@ -790,34 +886,36 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         await nexsroot.startup()
 
     @classmethod
-    def onPush(cls, event: str, passitem=False) -> Callable:
+    def onPush(cls, event: str, passitem=False, reader=True) -> Callable:
         '''
         Decorator that registers a method to be a handler for a named event
 
         Args:
             event: string that distinguishes one handler from another.  Must be unique per Pusher subclass
             passitem:  whether to pass the (offs, mesg) tuple to the handler as "nexsitem"
+            reader: whether this handler runs on a readonly version of the pusher (default True).
         '''
         def decorator(func):
-            func._regme = (event, func, passitem)
+            func._regme = (event, func, passitem, reader)
             return func
 
         return decorator
 
     @classmethod
-    def onPushAuto(cls, event: str, passitem=False) -> Callable:
+    def onPushAuto(cls, event: str, passitem=False, reader=True) -> Callable:
         '''
         Decorator that does the same as onPush, except automatically creates the top half method
 
         Args:
             event: string that distinguishes one handler from another.  Must be unique per Pusher subclass
             passitem:  whether to pass the (offs, mesg) tuple to the handler as "nexsitem"
+            reader: whether this handler runs on a readonly version of the pusher (default True).
         '''
         async def pushfunc(self, *args, **kwargs):
             return await self._push(event, *args, **kwargs)
 
         def decorator(func):
-            pushfunc._regme = (event, func, passitem)
+            pushfunc._regme = (event, func, passitem, reader)
             setattr(cls, '_hndl' + func.__name__, func)
             functools.update_wrapper(pushfunc, func)
             return pushfunc

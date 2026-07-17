@@ -51,7 +51,13 @@ class TestPullFile(s_t_utils.SynTest):
                 self.true(outp.expect(f'Fetching {testhash} to file'))
                 self.true(outp.expect(f'Fetching {visihash} to file'))
 
-                with mock.patch('synapse.axon.Axon.get', self._getFail):
-                    self.eq(0, await s_get.main(['-a', axonurl,
-                                                '-l', visihash], outp))
-                    self.isin('Error: Hit Exception', str(outp))
+                # A failed fetch must not leave an (empty) output file behind.
+                with self.getTestDir(chdir=True) as faildir:
+
+                    with mock.patch('synapse.axon.Axon.get', self._getFail):
+                        self.eq(0, await s_get.main(['-a', axonurl,
+                                                    '-l', visihash], outp))
+                        self.isin('Error: Hit Exception', str(outp))
+
+                    self.false(os.path.exists(pathlib.Path(faildir, visihash)))
+                    self.eq([], os.listdir(faildir))

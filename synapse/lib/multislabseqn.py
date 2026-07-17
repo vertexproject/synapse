@@ -208,6 +208,31 @@ class MultiSlabSeqn(s_base.Base):
         logger.info('Rotating %s at indx %d', self.tailslab.path, self.indx)
         return await self._initTailSlab(self.indx)
 
+    async def setTailSlab(self, indx: int) -> None:
+        '''
+        Adopt a tail slab that a storage-owning writer created at ``indx`` via a
+        rotation.
+
+        A readonly reader shares the writer's files but must not run rotate() itself.
+        Instead, when the reader's follower replays the writer's ``nexslog:rotate``
+        event, it calls this to adopt the writer's already-created new tail slab.
+
+        Notes:
+            Extending self._ranges is safe even while an iter() is mid-flight (iter()
+            re-reads len(self._ranges) each range and picks up the appended range);
+            the outgoing tail is refcount-held by the in-progress _getSeqn until its
+            scan drains, so fini() here only marks it for close. An old offset re-read
+            later reopens it on demand via _getSeqn.
+        '''
+        assert self.slabopts.get('readonly')
+        assert self.tailslab
+
+        await self.tailslab.fini()
+
+        self.tailslab, self.tailseqn = await self._makeSlab(indx)
+        self._ranges.append(indx)
+        self.indx = self.tailseqn.index()
+
     async def cull(self, offs: int) -> bool:
         '''
         Remove entries up to (and including) the given offset.

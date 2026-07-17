@@ -3,6 +3,7 @@ import asyncio
 
 import synapse.common as s_common
 
+import synapse.lib.process as s_process
 import synapse.lib.processpool as s_processpool
 
 import synapse.tests.utils as s_t_utils
@@ -21,6 +22,18 @@ def spawnfakeit():
 
 def chkpool():
     return s_processpool.forkpool is None
+
+def spawn_initpool():
+    # a spawned (non-MainProcess) process gets no forkpool at import; set a
+    # logconf first to exercise the re-apply path, then confirm idempotency.
+    before = s_processpool.forkpool is None
+    s_processpool._pool_logconf = {}
+    s_processpool.initForkPool()
+    pool = s_processpool.forkpool
+    inited = pool is not None and pool._initializer is not None
+    s_processpool.initForkPool()
+    same = s_processpool.forkpool is pool
+    return (before, inited, same)
 
 class ProcessTest(s_t_utils.SynTest):
 
@@ -48,6 +61,13 @@ class ProcessTest(s_t_utils.SynTest):
             self.eq(50, await s_processpool.forked(spawnfunc, 20, y=30))
         finally:
             s_processpool.forkpool = oldpool
+
+    async def test_lib_process_init_child(self):
+        # a spawn()ed child does not get the MainProcess import-time forkpool;
+        # initForkPool() stands one up in-process so its CPU-bound work uses the
+        # pool rather than a per-call spawn.
+        retn = await s_process.spawn((spawn_initpool, (), {}), timeout=60)
+        self.eq((True, True, True), retn)
 
     async def test_lib_process_semafork(self):
 
@@ -88,3 +108,28 @@ class ProcessTest(s_t_utils.SynTest):
 
         with self.raises(Exception):
             await s_processpool._parserforked(newp)
+
+    async def test_lib_process_parserforked_nopool(self):
+        # a spawned worker never creates the forkpool (only MainProcess does), so
+        # the concurrent.futures.process submodule may be unbound. _parserforked
+        # must still run via the default executor and propagate real exceptions
+        # rather than masking them with an AttributeError on the missing submodule.
+        import concurrent.futures
+
+        oldpool = s_processpool.forkpool
+        realproc = getattr(concurrent.futures, 'process', None)
+
+        s_processpool.forkpool = None
+        try:
+            if realproc is not None:
+                delattr(concurrent.futures, 'process')
+
+            self.eq(50, await s_processpool._parserforked(spawnfunc, 20, y=30))
+
+            with self.raises(FakeError):
+                await s_processpool._parserforked(spawnfakeit)
+
+        finally:
+            if realproc is not None:
+                concurrent.futures.process = realproc
+            s_processpool.forkpool = oldpool

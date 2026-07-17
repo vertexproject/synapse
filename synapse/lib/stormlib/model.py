@@ -384,6 +384,7 @@ class ModelProp(s_stormtypes.Prim):
     _storm_locals = (
         {'name': 'name', 'desc': 'The short name of the Property.', 'type': 'str', },
         {'name': 'full', 'desc': 'The full name of the Property.', 'type': 'str', },
+        {'name': 'computed', 'desc': "True if the Property has been computed from another.", 'type': 'boolean', },
         {'name': 'form', 'desc': 'Get the Form for the Property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropForm',
                   'returns': {'type': ['model:form', 'null']}}},
@@ -403,6 +404,7 @@ class ModelProp(s_stormtypes.Prim):
 
         self.locls['name'] = self.valu.name
         self.locls['full'] = self.valu.full
+        self.locls['computed'] = bool(self.valu.info.get('computed', False))
 
     def _ctorPropTypes(self, path=None):
         ptyp = self.valu.type

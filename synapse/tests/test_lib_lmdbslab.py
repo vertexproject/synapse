@@ -84,6 +84,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(3, await slab.countByPref(b'h', db=dupsdb))
                 self.eq(2, await slab.countByPref(b'h', db=testdb))
 
+                # maxsize stops the count early once it is reached; a dupsort key whose count jumps
+                # past maxsize in one step still stops (count >= maxsize, not == maxsize)
+                self.eq(1, await slab.countByPref(b'h', db=testdb, maxsize=1))
+                self.eq(2, await slab.countByPref(b'h', db=dupsdb, maxsize=1))
+
                 # now lets delete the key we're on
                 testgenr = slab.scanKeys(db=testdb)
                 dupsgenr = slab.scanKeys(db=testdb)
@@ -546,6 +551,76 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.gt(len(commitstats), 0)
             commitstats = [x[1] for x in commitstats if x[1] != 0]
             self.eq(commitstats, (100, 100, 100, 100, 100, 100, 100, 100, 100, 100))
+
+    async def test_lmdbslab_commitpulse(self):
+        # a commitpulse=False slab opts out of the periodic sync loop and does
+        # not fire the 'commit' event; its owner is responsible for committing.
+        with self.getTestDir() as dirn:
+            pulsepath = os.path.join(dirn, 'pulse.lmdb')
+            nopulsepath = os.path.join(dirn, 'nopulse.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(pulsepath, map_size=100000) as pulse, \
+                       await s_lmdbslab.Slab.anit(nopulsepath, map_size=100000, commitpulse=False) as nopulse:
+
+                self.true(pulse.commitpulse)
+                self.false(nopulse.commitpulse)
+
+                # a 'commit' listener fires for the pulsing slab but never for the
+                # commitpulse=False one.
+                pulsed = []
+                nopulsed = []
+                pulse.on('commit', lambda mesg: pulsed.append(True))
+                nopulse.on('commit', lambda mesg: nopulsed.append(True))
+
+                foo = pulse.initdb('foo')
+                bar = nopulse.initdb('bar')
+
+                await pulse.put(b'k', b'v', db=foo)
+                await nopulse.put(b'k', b'v', db=bar)
+
+                self.true(pulse.dirty)
+                self.true(nopulse.dirty)
+
+                # the periodic loop commits only the pulsing slab
+                await s_lmdbslab.Slab.syncLoopOnce()
+
+                self.false(pulse.dirty)
+                self.true(nopulse.dirty)
+                self.eq(pulsed, [True])
+                self.eq(nopulsed, [])
+
+                # the owner commits the commitpulse=False slab itself; sync() is a
+                # pure forcecommit and still does not fire 'commit'.
+                await nopulse.sync()
+                self.false(nopulse.dirty)
+                self.eq(nopulsed, [])
+
+    async def test_lmdbslab_hotcount_setnow(self):
+        # setnow() writes through into the txn immediately, so a bare forcecommit
+        # persists it without a separate sync() - unlike set(), which buffers
+        # until the next flush. This is how commitpulse=False HotCount owners
+        # (e.g. the Cortex layeroffs) stay durable without the 'commit' event.
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, commitpulse=False) as slab:
+                hot = await slab.getHotCount('counts')
+
+                hot.set('buffered', 10)
+                hot.setnow('written', 20)
+
+                # both are readable from cache immediately
+                self.eq(10, hot.get('buffered'))
+                self.eq(20, hot.get('written'))
+
+                # only the write-through value is in the txn; commit without sync()
+                slab.forcecommit()
+                self.none(hot.getFresh('buffered', defv=None))
+                self.eq(20, hot.getFresh('written'))
+
+                # flushing the buffered set then commits it too
+                hot.sync()
+                slab.forcecommit()
+                self.eq(10, hot.getFresh('buffered'))
 
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:
@@ -1320,6 +1395,145 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.true(slab.rangeexists(b'a', b'z', db=testdb))
                 self.false(slab.rangeexists(b'x', b'z', db=testdb))
 
+    async def test_lmdbslab_refresh_read_xact(self):
+        '''
+        A readonly slab's read transaction can be re-seated onto the writer's
+        latest committed snapshot (_refreshReadXact), so a reader pinning the
+        txn (e.g. an in-flight scan) observes commits made after it acquired.
+        The refresh is a no-op on a writer slab (nothing to re-seat).
+        '''
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'reader.lmdb')
+
+            # a writer creates the slab + db so the readonly opener can attach
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as slab:
+                slab.initdb('foo')
+                slab.forcecommit()
+
+            # a writer slab is not readonly: refresh is a no-op
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as wslab:
+                pre = wslab.xact
+                wslab._refreshReadXact()
+                self.eq(pre, wslab.xact)
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, readonly=True) as slab:
+                slab.initdb('foo')
+
+                # pin a read txn (as an in-flight scan would) then refresh: the
+                # transaction is re-opened onto a fresh committed snapshot
+                slab._acqXactForReading()
+                try:
+                    self.nn(slab.xact)
+                    oldxact = slab.xact
+                    slab._refreshReadXact()
+                    self.nn(slab.xact)
+                    self.ne(oldxact, slab.xact)
+                finally:
+                    slab._relXactForReading()
+
+    async def test_lmdbslab_readonly_kv_tripwire(self):
+        '''
+        The KV-wrapper helpers (HotKeyVal / HotCount / LruHotCount / SafeKeyVal)
+        are readable read-through on a readonly slab but raise IsReadOnly on any
+        durable write rather than silently no-op'ing it, and never write on cache
+        eviction, sync, or fini. SlabDict and MultiQueue expose their own readonly
+        paths.
+        '''
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'kvtrip.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as slab:
+                async with await s_lmdbslab.HotKeyVal.anit(slab, 'kv') as kv:
+                    kv.set('foo', {'val': 42})
+
+                hotc = await slab.getHotCount('counts')
+                hotc.set('a', 5)
+
+                # a small LRU written past capacity so eviction commits each value
+                async with await s_lmdbslab.LruHotCount.anit(slab, 'lru', size=3, commitsize=1) as lru:
+                    for valu in range(6):
+                        lru.set(str(valu).encode(), valu)
+
+                skv = slab.getSafeKeyVal('skv')
+                skv.set('c', 'hehe')
+
+                # a SlabDict and a MultiQueue to exercise their readonly paths
+                sd = s_lmdbslab.SlabDict(slab, db=slab.initdb('sd'))
+                sd.set('foo', 10)
+                sd.set('bar', 'baz')
+
+                mque = await slab.getMultiQueue('q')
+                await mque.add('hehe', {})
+                await mque.put('hehe', 'item0')
+
+                slab.forcecommit()
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, readonly=True) as slab:
+
+                # HotKeyVal: reads read-through, writes trip, and sync()/fini
+                # never attempt a durable write
+                kv = await s_lmdbslab.HotKeyVal.anit(slab, 'kv')
+                self.eq({'val': 42}, kv.get('foo'))
+                self.raises(s_exc.IsReadOnly, kv.set, 'foo', 1)
+                kv.sync()  # no-op on a readonly slab (does not raise)
+                await kv.fini()
+
+                hotc = await slab.getHotCount('counts')
+                lru = await s_lmdbslab.LruHotCount.anit(slab, 'lru', size=3, commitsize=1)
+                skv = slab.getSafeKeyVal('skv')
+
+                # reads return the committed values read-through
+                self.eq(5, hotc.get('a'))
+                self.eq('hehe', skv.get('c'))
+
+                # every durable write trips IsReadOnly (no silent no-op)
+                self.raises(s_exc.IsReadOnly, hotc.set, 'a', 9)
+                self.raises(s_exc.IsReadOnly, hotc.inc, 'a')
+                self.raises(s_exc.IsReadOnly, hotc.setnow, 'a', 9)
+                self.raises(s_exc.IsReadOnly, lru.set, b'0', 9)
+                self.raises(s_exc.IsReadOnly, lru.inc, b'0')
+                self.raises(s_exc.IsReadOnly, skv.set, 'c', 'newp')
+                self.raises(s_exc.IsReadOnly, skv.pop, 'c')
+                self.raises(s_exc.IsReadOnly, skv.delete, 'c')
+
+                # reads that overflow the LRU must not attempt a write on eviction
+                for valu in range(6):
+                    self.eq(valu, lru.get(str(valu).encode()))
+                await lru.fini()
+
+                # a SlabDict on a readonly slab reads through to the committed
+                # slab rather than a cache populated once at construction
+                sd = s_lmdbslab.SlabDict(slab, db=slab.initdb('sd'))
+                self.eq(('bar', 'foo'), tuple(sorted(sd.keys())))
+                self.eq({'foo': 10, 'bar': 'baz'}, dict(sd.items()))
+                self.eq(10, sd.get('foo'))
+                self.none(sd.get('nope'))
+                self.eq('def', sd.get('nope', 'def'))
+
+                # MultiQueue.puts is a durable write and trips IsReadOnly like the
+                # rest. The readonly-safe path is wake(): it makes no durable write,
+                # returns the current offset, and wakes any local gets(wait=True)
+                # waiter (which re-scans the slab).
+                mque = await slab.getMultiQueue('q')
+
+                with self.raises(s_exc.IsReadOnly):
+                    await mque.puts('hehe', ('x',))
+
+                # no local waiter registered: wake() just returns the current offset
+                self.eq(mque.offset('hehe'), mque.wake('hehe'))
+
+                # a registered waiter (a blocked local getter) is woken
+                evnt = mque.waiters['hehe']
+                self.false(evnt.is_set())
+                self.eq(mque.offset('hehe'), mque.wake('hehe'))
+                self.true(evnt.is_set())
+
+                # wake() on a queue that does not exist raises NoSuchName
+                with self.raises(s_exc.NoSuchName):
+                    mque.wake('nope')
+
     async def test_lmdb_multiqueue(self):
 
         with self.getTestDir() as dirn:
@@ -1751,6 +1965,36 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     self.eq(b'hehe', slabcopy.get(b'\x00\x01', db=foo))
 
                 await self.asyncraises(s_exc.DataAlreadyExists, slab.copyslab(copypath))
+
+    async def test_lmdbbackup_saveto_yields(self):
+
+        with self.getTestDir() as dirn:
+
+            srcpath = os.path.join(dirn, 'src.lmdb')
+            dstpath = os.path.join(dirn, 'dst')
+
+            async with await s_lmdbslab.Slab.anit(srcpath) as slab:
+                foo = slab.initdb('foo')
+                await slab.put(b'\x00', b'bar', db=foo)
+
+            os.makedirs(dstpath)
+
+            yielded = {'v': False}
+
+            async def marker():
+                yielded['v'] = True
+
+            async with await s_lmdbslab.LmdbBackup.anit(srcpath) as backup:
+                task = asyncio.get_running_loop().create_task(marker())
+                await backup.saveto(dstpath)
+
+                # a scheduled task only runs once the loop regains control; if
+                # saveto() yields to the loop (executor offload), marker() has
+                # already run by the time saveto() returns.
+                self.true(yielded['v'])
+                await task
+
+            self.true(os.path.isfile(os.path.join(dstpath, 'data.mdb')))
 
     async def test_lmdbslab_statinfo(self):
 

@@ -48,7 +48,7 @@ class LmdbBackup(s_base.Base):
         self.ltxn = await self.enter_context(self.lenv.begin())
 
     async def saveto(self, dstdir):
-        self.lenv.copy(dstdir, compact=True, txn=self.ltxn)
+        await s_coro.executor(self.lenv.copy, dstdir, compact=True, txn=self.ltxn)
 
 class Hist:
     '''
@@ -104,6 +104,9 @@ class SlabDict:
         return props
 
     def keys(self):
+        if self.slab.readonly:
+            return list(self._getPrefProps(self.pref).keys())
+
         return self.info.keys()
 
     def items(self):
@@ -113,6 +116,9 @@ class SlabDict:
         Returns:
             (((str, object), ...)): Tuple of (name, valu) tuples.
         '''
+        if self.slab.readonly:
+            return tuple(self._getPrefProps(self.pref).items())
+
         return tuple(self.info.items())
 
     def get(self, name, defval=None):
@@ -126,6 +132,16 @@ class SlabDict:
         Returns:
             (obj): The return value, or None.
         '''
+        if self.slab.readonly:
+            # in a readonly slab, the in-memory cache is populated once at
+            # construction and never updated, so read through to the slab to
+            # observe values the writer committed since.
+            byts = self.slab.get(self.pref + name.encode('utf8'), db=self.db)
+            if byts is None:
+                return defval
+
+            return s_msgpack.un(byts)
+
         return self.info.get(name, defval)
 
     def set(self, name, valu):
@@ -406,7 +422,10 @@ class HotKeyVal(s_base.Base):
         for lkey, lval in self.slab.scanByFull(db=self.db):
             self.cache[lkey] = self.DecFunc(lval)
 
-        slab.on('commit', self._onSlabCommit)
+        # a commitpulse=False slab does not fire 'commit'; its owner flushes us
+        # explicitly. onfini(self.sync) still flushes on shutdown either way.
+        if slab.commitpulse:
+            slab.on('commit', self._onSlabCommit)
 
         self.onfini(self.sync)
 
@@ -417,11 +436,37 @@ class HotKeyVal(s_base.Base):
     def get(self, name: str, defv=None):
         return self.cache.get(name.encode(), defv)
 
+    def getFresh(self, name: str, defv=None):
+        # read the durably-committed value directly from the slab, bypassing the
+        # in-memory cache. Used by readonly readers whose cache is loaded once at
+        # construction and never updated (the writer is a different process).
+        byts = self.slab.get(name.encode(), db=self.db)
+        if byts is None:
+            return defv
+        return self.DecFunc(byts)
+
     def set(self, name: str, valu):
+        if self.slab.readonly:
+            raise s_exc.IsReadOnly(mesg='Cannot set on a HotKeyVal backed by a readonly slab.')
+
         byts = name.encode()
         self.cache[byts] = valu
         self.dirty.add(byts)
         self.slab.dirty = True
+        return valu
+
+    def setnow(self, name: str, valu):
+        # like set(), but write straight into the slab txn (as delete() does)
+        # rather than buffering for the next 'commit'-event flush. For a
+        # commitpulse=False slab (no commit event) this makes the value durable
+        # on the owner's per-transaction commit without a separate sync().
+        if self.slab.readonly:
+            raise s_exc.IsReadOnly(mesg='Cannot set on a HotKeyVal backed by a readonly slab.')
+
+        byts = name.encode()
+        self.cache[byts] = valu
+        self.dirty.discard(byts)
+        self.slab._put(byts, self.EncFunc(valu), db=self.db)
         return valu
 
     def delete(self, name: str):
@@ -431,6 +476,10 @@ class HotKeyVal(s_base.Base):
         self.slab.delete(byts, db=self.db)
 
     def sync(self):
+        # a readonly slab has no write txn; nothing is ever dirtied
+        if self.slab.readonly:
+            return
+
         tups = [(p, self.EncFunc(self.cache[p])) for p in self.dirty]
         if not tups:
             return
@@ -449,11 +498,17 @@ class HotCount(HotKeyVal):
     DecFunc = staticmethod(s_common.signedint64un)
 
     def inc(self, name: str, valu=1):
+        if self.slab.readonly:
+            raise s_exc.IsReadOnly(mesg='Cannot inc on a HotCount backed by a readonly slab.')
+
         byts = name.encode()
         self.cache[byts] += valu
         self.dirty.add(byts)
 
     def set(self, name: str, valu):
+        if self.slab.readonly:
+            raise s_exc.IsReadOnly(mesg='Cannot set on a HotCount backed by a readonly slab.')
+
         byts = name.encode()
         self.cache[byts] = valu
         self.dirty.add(byts)
@@ -479,7 +534,10 @@ class LruHotCount(s_base.Base):
         self.maxsize = size
         self.commitsize = commitsize
 
-        slab.on('commit', self._onSlabCommit)
+        # see HotKeyVal.__anit__: skip the 'commit' hook on a commitpulse=False
+        # slab (owner-flushed); onfini(self.sync) still flushes on shutdown.
+        if slab.commitpulse:
+            slab.on('commit', self._onSlabCommit)
 
         self.onfini(self.sync)
 
@@ -488,6 +546,10 @@ class LruHotCount(s_base.Base):
             self.sync()
 
     def sync(self):
+        # a readonly slab has no write txn; cache eviction must not write
+        if self.slab.readonly:
+            return
+
         if not self.dirty:
             return()
 
@@ -495,6 +557,13 @@ class LruHotCount(s_base.Base):
         self.dirty.clear()
 
     def get(self, name, defv=0):
+        # On a readonly slab the cache is loaded once at construction and is
+        # never refreshed (the writer mutates counts in another process), so the
+        # cached value goes stale. Read the committed value fresh from the slab.
+        if self.slab.readonly:
+            byts = self.slab.get(name, db=self.db)
+            return self.decode(byts) if byts is not None else defv
+
         if (valu := self.cache.get(name)) is not None:
             self.cache.move_to_end(name)
             return valu
@@ -515,11 +584,17 @@ class LruHotCount(s_base.Base):
         return valu
 
     def inc(self, name, valu=1):
+        if self.slab.readonly:
+            raise s_exc.IsReadOnly(mesg='Cannot inc on a LruHotCount backed by a readonly slab.')
+
         self.cache[name] = self.get(name) + valu
         self.dirty.add(name)
         self.slab.dirty = True
 
     def set(self, name, valu):
+        if self.slab.readonly:
+            raise s_exc.IsReadOnly(mesg='Cannot set on a LruHotCount backed by a readonly slab.')
+
         self.cache[name] = valu
         self.dirty.add(name)
         self.slab.dirty = True
@@ -621,6 +696,21 @@ class MultiQueue(s_base.Base):
 
     async def put(self, name, item, reqid=None):
         return await self.puts(name, (item,), reqid=reqid)
+
+    def wake(self, name):
+        '''
+        Wake any local gets(wait=True) waiters on a queue, returning the queue's
+        current head offset.
+        '''
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        evnt = self.waiters.get(name)
+        if evnt is not None:
+            evnt.set()
+
+        return self.offsets.get(name, 0)
 
     async def puts(self, name, items, reqid=None):
 
@@ -898,9 +988,23 @@ class Slab(s_base.Base):
     @classmethod
     async def syncLoopOnce(clas):
         for slab in list(clas.allslabs.values()):
-            if slab.dirty:
+            # commitpulse=False slabs are committed by their owner per nexus
+            # transaction, not by the timer - skip them here.
+            if slab.dirty and slab.commitpulse:
                 await slab.sync()
                 await asyncio.sleep(0)
+
+    @classmethod
+    async def commitDirtyNow(clas):
+        '''
+        Commit all currently-dirty slabs immediately. Intended for an external
+        per-event committer (e.g. a per-nexus-transaction commit) where the dirty
+        set is small and bounded to the slabs the just-applied event touched -
+        unlike syncLoopOnce, which walks every open slab on the periodic pulse.
+        '''
+        for slab in list(clas.allslabs.values()):
+            if slab.dirty:
+                await slab.sync()
 
     @classmethod
     async def getSlabStats(clas):
@@ -913,6 +1017,7 @@ class Slab(s_base.Base):
                 'readonly': slab.readonly,
                 'readahead': slab.readahead,
                 'recovering': slab.recovering,
+                'commitpulse': slab.commitpulse,
                 'maxsize': slab.maxsize,
                 'growsize': slab.growsize,
                 'mapasync': True,
@@ -965,6 +1070,15 @@ class Slab(s_base.Base):
         self.growsize = opts.pop('growsize', self.DEFAULT_GROWSIZE)
 
         self.readonly = opts.get('readonly', False)
+        # commitpulse is a runtime-only opt-in (popped, not persisted): when True
+        # (the default) this slab is committed by the periodic sync loop, which
+        # fires the 'commit' event so buffered writers flush before the commit.
+        # A cell that commits its own slabs after every nexus transaction (see
+        # Cell.nexuscommit / Slab.commitDirtyNow) opens them with
+        # commitpulse=False: they are skipped by the sync loop, sync() does not
+        # fire the 'commit' event, and the owner is responsible for flushing
+        # buffered state (in its nexus handlers) and committing.
+        self.commitpulse = opts.pop('commitpulse', True)
         self.readahead = opts.get('readahead', True)
 
         self.mapsize = _mapsizeround(mapsize)
@@ -1003,7 +1117,7 @@ class Slab(s_base.Base):
 
         self.commitstats = collections.deque(maxlen=1000)  # stores Tuple[time, replayloglen, commit time delta]
 
-        if not self.readonly:
+        if not self.readonly and self.commitpulse:
             await Slab.initSyncLoop(self)
 
     def __repr__(self):
@@ -1090,8 +1204,12 @@ class Slab(s_base.Base):
 
     async def sync(self):
         try:
-            # do this from the loop thread only to avoid recursion
-            await self.fire('commit')
+            # do this from the loop thread only to avoid recursion. On a
+            # commitpulse=False slab sync() is a pure forcecommit - no 'commit'
+            # event, the owner having already flushed buffered writers (see the
+            # commitpulse doc in __anit__).
+            if self.commitpulse:
+                await self.fire('commit')
             self.forcecommit()
 
         except lmdb.MapFullError:
@@ -1476,7 +1594,7 @@ class Slab(s_base.Base):
                 else:
                     count += 1
 
-                if maxsize is not None and maxsize == count:
+                if maxsize is not None and count >= maxsize:
                     return count
 
                 await asyncio.sleep(0)
@@ -2296,6 +2414,17 @@ class Slab(s_base.Base):
 
         self._initCoXact()
         return True
+
+    def _refreshReadXact(self):
+        '''
+        Refresh a readonly slab's read transaction so a fresh MVCC snapshot of the
+        latest committed state is observed and any in-flight scans re-seek onto it.
+        '''
+        if not self.readonly or self.xact is None:
+            return
+
+        self._finiCoXact()
+        self._initCoXact()
 
 class Scan:
     '''

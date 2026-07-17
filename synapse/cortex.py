@@ -4,6 +4,7 @@ import regex
 import asyncio
 import logging
 import textwrap
+import functools
 import contextlib
 import collections
 
@@ -42,7 +43,6 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
-import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
@@ -89,7 +89,6 @@ import synapse.lib.stormlib.stats as s_stormlib_stats  # noqa: F401
 import synapse.lib.stormlib.storm as s_stormlib_storm  # noqa: F401
 import synapse.lib.stormlib.utils as s_stormlib_utils  # noqa: F401
 import synapse.lib.stormlib.vault as s_stormlib_vault  # noqa: F401
-import synapse.lib.stormlib.backup as s_stormlib_backup  # noqa: F401
 import synapse.lib.stormlib.cortex as s_stormlib_cortex  # noqa: F401
 import synapse.lib.stormlib.hashes as s_stormlib_hashes  # noqa: F401
 import synapse.lib.stormlib.quorum as s_stormlib_quorum  # noqa: F401
@@ -110,8 +109,6 @@ stormlogger = logging.getLogger('synapse.storm')
 '''
 A Cortex implements the synapse hypergraph object.
 '''
-
-MAX_NEXUS_DELTA = 3_600
 
 reqValidTagModel = s_config.getJsValidator({
     'type': 'object',
@@ -148,15 +145,11 @@ reqValidStormMacro = s_config.getJsValidator({
 
 class CortexAxonMixin:
 
-    async def prepare(self):
-        await self.cell.axready.wait()
-        await s_coro.ornot(super().prepare)
-
-    def getAxon(self):
-        return self.cell.axon
+    async def getAxon(self):
+        return await self.cell.getAxon()
 
     async def getAxonInfo(self):
-        return self.cell.axoninfo
+        return await self.cell.getAxonInfo()
 
 class CortexAxonHttpHasV3(s_httpapi.ApiKeyOnlyMixin, CortexAxonMixin, s_axon.AxonHttpHasV3):
     pass
@@ -229,8 +222,8 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getCoreInfoV2()
 
     @s_cell.adminapi()
-    async def saveLayerNodeEdits(self, layriden, edits, meta, *, waitiden=None):
-        return await self.cell.saveLayerNodeEdits(layriden, edits, meta, waitiden=waitiden)
+    async def saveLayerNodeEdits(self, layriden, edits, meta, *, waitiden=None, retnoffs=False):
+        return await self.cell.saveLayerNodeEdits(layriden, edits, meta, waitiden=waitiden, retnoffs=retnoffs)
 
     def _reqValidStormOpts(self, opts):
 
@@ -248,6 +241,7 @@ class CoreApi(s_cell.CellApi):
         Return the value expressed in a return() statement within storm.
         '''
         opts = self._reqValidStormOpts(opts)
+
         return await self.cell.callStorm(text, opts=opts)
 
     async def exportStorm(self, text, *, opts=None):
@@ -303,6 +297,7 @@ class CoreApi(s_cell.CellApi):
             (int): The number of nodes resulting from the query.
         '''
         opts = self._reqValidStormOpts(opts)
+
         return await self.cell.count(text, opts=opts)
 
     async def storm(self, text, *, opts=None):
@@ -594,14 +589,14 @@ class CoreApi(s_cell.CellApi):
 
     async def getAxonUpload(self):
         self.user.confirm(('axon', 'upload'))
-        await self.cell.axready.wait()
-        upload = await self.cell.axon.upload()
+        axon = await self.cell.getAxon()
+        upload = await axon.upload()
         return await s_axon.UpLoadProxy.anit(self.link, upload)
 
     async def getAxonBytes(self, sha256):
         self.user.confirm(('axon', 'get'))
-        await self.cell.axready.wait()
-        async for byts in self.cell.axon.get(s_common.uhex(sha256)):
+        axon = await self.cell.getAxon()
+        async for byts in axon.get(s_common.uhex(sha256)):
             yield byts
 
     @s_cell.adminapi()
@@ -636,11 +631,17 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getViewDef(iden, user=self.user)
 
-class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
+class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the Synapse hypergraph.
     '''
 
+    PKG_PROVIDES = ('synapse',)
+
+    # The Cortex commits its slabs after each nexus transaction (see
+    # Cell.nexuscommit / NexsRoot._eat -> Slab.commitDirtyNow) rather than on the
+    # periodic Slab sync loop.
+    nexuscommit = True
     celltype = 'cortex'
 
     # For the cortex, nexslog:en defaults to True
@@ -652,7 +653,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     confbase['safemode']['hidecmdl'] = False
     confbase['safemode']['description'] = (
         'Enable safe-mode which disables crons, triggers, dmons, storm '
-        'package onload handlers, view merge tasks, and storm pools.'
+        'package onload handlers, and view merge tasks.'
     )
 
     confdefs = {
@@ -743,6 +744,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.svcsbyname = {}
         self.svcsbysvcname = {}  # remote name, not local name
 
+        # runtime-only ( not persisted ) set of stable idens for storm services
+        # we have auto-added from AHA discovery. The AHA topo stream replays
+        # svc:add for its whole snapshot on every reconnect, so this guards
+        # against re-adding a discovered service -- including one that has since
+        # been removed with delStormSvc.
+        self.ahastormsvcs = set()
+
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
@@ -753,18 +761,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
-        self.stormpool = None
-        self.stormpoolurl = None
-        self.stormpoolopts = None
-
         self.libroot = (None, {}, {})
         self.stormlibs = []
-
-        self.axon = None  # type: s_axon.AxonApi
-        self.jsonstor = None  # type: s_jsonstor.JsonStorApi
-        self.jsonremote = False
-        self.axready = asyncio.Event()
-        self.axoninfo = {}
 
         self.view = None  # The default/main view
 
@@ -802,9 +800,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._loadExtModel()
         await self._initStormCmds()
 
-        # Initialize our storage and views
-        await self._initCoreAxon()
-        await self._initJsonStor()
+        # Initialize our storage and views. The HasAxon and HasJsonStor mixins
+        # set up our axon and jsonstor ( embedded or aha-resolved ) via the
+        # initServiceStorage() chain.
+        await super().initServiceStorage()
 
         await self._initLayerV3Stor()
         await self._initCoreLayers()
@@ -925,7 +924,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return mdef
 
-    @s_nexus.Pusher.onPush('storm:macro:add')
+    @s_nexus.Pusher.onPush('storm:macro:add', reader=False)
     async def _addStormMacro(self, mdef):
         name = mdef.get('name')
         reqValidStormMacro(mdef)
@@ -946,7 +945,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('storm:macro:del', name)
 
-    @s_nexus.Pusher.onPush('storm:macro:del')
+    @s_nexus.Pusher.onPush('storm:macro:del', reader=False)
     async def _delStormMacro(self, name):
         if not name:
             raise s_exc.BadArg(mesg='Macro names must be at least 1 character long')
@@ -963,7 +962,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self._reqStormMacroPerm(user, name, s_cell.PERM_EDIT)
         return await self._push('storm:macro:mod', name, info)
 
-    @s_nexus.Pusher.onPush('storm:macro:mod')
+    @s_nexus.Pusher.onPush('storm:macro:mod', reader=False)
     async def _modStormMacro(self, name, info):
 
         mdef = self.getStormMacro(name)
@@ -996,7 +995,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('storm:macro:set:perm', name, scope, iden, level)
 
-    @s_nexus.Pusher.onPush('storm:macro:set:perm')
+    @s_nexus.Pusher.onPush('storm:macro:set:perm', reader=False)
     async def _setStormMacroPerm(self, name, scope, iden, level):
 
         mdef = self.reqStormMacro(name)
@@ -1253,7 +1252,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceActive(self):
 
         await self.stormdmons.start()
-        await self.initStormPool()
 
         async def _runMigrations():
             await self.boss.promote('cortex:migration:layers', self.auth.rootuser, background=True, protected=True)
@@ -1286,6 +1284,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.runActiveTask(_runMigrations())
 
+        for vtdef in self.listVaultTypes():
+            self.runActiveTask(self._migrateVaultType(vtdef['name']))
+
     async def initServicePassive(self):
 
         if __debug__:
@@ -1297,8 +1298,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await view.finiTrigTask()
             await view.finiMergeTask()
 
-        await self.finiStormPool()
-
     async def _execCellUpdates(self):
         await super()._execCellUpdates()
 
@@ -1308,76 +1307,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self._mainlinehash != oldhash:
             await self._push('model:set', self._mainlinemdefs)
 
-    async def initStormPool(self):
-
-        if self.safemode:
-            return
-
-        try:
-
-            byts = self.slab.get(b'storm:pool', db='cell:conf')
-            if byts is None:
-                return
-
-            url, opts = s_msgpack.un(byts)
-
-            self.stormpoolurl = url
-            self.stormpoolopts = opts
-
-            async def onlink(proxy, urlinfo):
-                _url = s_urlhelp.sanitizeUrl(s_telepath.zipurl(urlinfo))
-                logger.debug(f'Stormpool client connected to {_url}')
-
-            self.stormpool = await s_telepath.open(url, onlink=onlink)
-
-            # make this one a fini weakref vs the fini() handler
-            self.onfini(self.stormpool)
-
-        except Exception as e:  # pragma: no cover
-            logger.exception(f'Error starting stormpool, it will not be available: {e}')
-
-    async def finiStormPool(self):
-
-        if self.stormpool is not None:
-            await self.stormpool.fini()
-            self.stormpool = None
-
-    async def getStormPool(self):
-        byts = self.slab.get(b'storm:pool', db='cell:conf')
-        if byts is None:
-            return None
-        return s_msgpack.un(byts)
-
-    @s_nexus.Pusher.onPushAuto('storm:pool:set')
-    async def setStormPool(self, url, opts):
-
-        s_schemas.reqValidStormPoolOpts(opts)
-
-        info = (url, opts)
-        await self.slab.put(b'storm:pool', s_msgpack.en(info), db='cell:conf')
-
-        if self.isactive:
-            await self.finiStormPool()
-            await self.initStormPool()
-
-    @s_nexus.Pusher.onPushAuto('storm:pool:del')
-    async def delStormPool(self):
-
-        self.slab.pop(b'storm:pool', db='cell:conf')
-
-        if self.isactive:
-            await self.finiStormPool()
-
     @s_nexus.Pusher.onPushAuto('model:lock:prop')
     async def setPropLocked(self, name, locked):
         prop = self.model.reqProp(name)
-        self.modellocks.set(f'prop/{name}', locked)
+        if not self.readonly:
+            self.modellocks.set(f'prop/{name}', locked)
         prop.locked = locked
 
     @s_nexus.Pusher.onPushAuto('model:lock:tagprop')
     async def setTagPropLocked(self, name, locked):
         prop = self.model.reqTagProp(name)
-        self.modellocks.set(f'tagprop/{name}', locked)
+        if not self.readonly:
+            self.modellocks.set(f'tagprop/{name}', locked)
         prop.locked = locked
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
@@ -1397,7 +1338,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = 'setDeprLock() called on non-existant or non-deprecated form, property, or type.'
             raise s_exc.NoSuchProp(name=name, mesg=mesg)
 
-        self.deprlocks.set(name, locked)
+        if not self.readonly:
+            self.deprlocks.set(name, locked)
 
         for elem in todo:
             elem.locked = locked
@@ -1483,7 +1425,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('storm:graph:add', gdef)
 
-    @s_nexus.Pusher.onPush('storm:graph:add')
+    @s_nexus.Pusher.onPush('storm:graph:add', reader=False)
     async def _addStormGraph(self, gdef):
         s_schemas.reqValidGdef(gdef)
 
@@ -1525,7 +1467,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._reqStormGraphPerm(user, iden, s_cell.PERM_ADMIN)
         return await self._push('storm:graph:del', iden)
 
-    @s_nexus.Pusher.onPush('storm:graph:del')
+    @s_nexus.Pusher.onPush('storm:graph:del', reader=False)
     async def _delStormGraph(self, iden):
         gdef = self.graphs.pop(iden, None)
         if gdef is not None:
@@ -1557,7 +1499,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         info['updated'] = s_common.now()
         return await self._push('storm:graph:mod', iden, info)
 
-    @s_nexus.Pusher.onPush('storm:graph:mod')
+    @s_nexus.Pusher.onPush('storm:graph:mod', reader=False)
     async def _modStormGraph(self, iden, info):
 
         gdef = self._reqStormGraphPerm(None, iden, s_cell.PERM_EDIT)
@@ -1577,7 +1519,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._reqStormGraphPerm(user, gden, s_cell.PERM_ADMIN)
         return await self._push('storm:graph:set:perm', gden, scope, iden, level, s_common.now())
 
-    @s_nexus.Pusher.onPush('storm:graph:set:perm')
+    @s_nexus.Pusher.onPush('storm:graph:set:perm', reader=False)
     async def _setStormGraphPerm(self, gden, scope, iden, level, utime):
 
         gdef = self._reqStormGraphPerm(None, gden, s_cell.PERM_ADMIN)
@@ -1605,7 +1547,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         s_schemas.reqValidQueueDef(qdef)
         return await self._push('queue:add', qdef)
 
-    @s_nexus.Pusher.onPush('queue:add')
+    @s_nexus.Pusher.onPush('queue:add', reader=False)
     async def _addCoreQueue(self, qdef):
         iden = qdef.get('iden')
         name = qdef.get('name')
@@ -1665,7 +1607,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.reqCoreQueue(iden)
         await self._push('queue:del', iden)
 
-    @s_nexus.Pusher.onPush('queue:del')
+    @s_nexus.Pusher.onPush('queue:del', reader=False)
     async def _delCoreQueue(self, iden):
         if (info := await self.getCoreQueue(iden)) is None:
             return
@@ -1702,16 +1644,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def coreQueuePuts(self, name, items):
         return await self._push('queue:puts', name, items)
 
-    @s_nexus.Pusher.onPush('queue:puts', passitem=True)
+    @s_nexus.Pusher.onPush('queue:puts', passitem=True, reader=False)
     async def _coreQueuePuts(self, name, items, nexsitem):
         nexsoff, nexsmesg = nexsitem
         return await self.multiqueue.puts(name, items, reqid=nexsoff)
 
-    @s_nexus.Pusher.onPushAuto('queue:cull')
+    @s_nexus.Pusher.onPushAuto('queue:cull', reader=False)
     async def coreQueueCull(self, name, offs):
         await self.multiqueue.cull(name, offs)
 
-    @s_nexus.Pusher.onPushAuto('queue:pop')
+    @s_nexus.Pusher.onPushAuto('queue:pop', reader=False)
     async def coreQueuePop(self, name, offs):
         return await self.multiqueue.pop(name, offs)
 
@@ -1743,7 +1685,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         meta[name] = valu
         reqValidTagModel(meta)
 
-        self.tagmeta.set(tagname, meta)
+        if not self.readonly:
+            self.tagmeta.set(tagname, meta)
 
         # clear cached entries
         if name == 'regex':
@@ -1759,7 +1702,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Arguments:
             tagname (str): The name of the tag.
         '''
-        self.tagmeta.pop(tagname)
+        if not self.readonly:
+            self.tagmeta.pop(tagname)
         self.tagvalid.clear()
         self.tagprune.clear()
 
@@ -1781,7 +1725,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return None
 
         retn = meta.pop(name, None)
-        self.tagmeta.set(tagname, meta)
+        if not self.readonly:
+            self.tagmeta.set(tagname, meta)
 
         if name == 'regex':
             self.tagvalid.clear()
@@ -1909,7 +1854,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
 
-        slab = await s_lmdbslab.Slab.anit(path)
+        slab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly, commitpulse=not self.nexuscommit)
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
@@ -1919,7 +1864,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # TODO we should probably just store this in the cell.slab to save a file handle :D
         path = os.path.join(self.dirn, 'slabs', 'graphs.lmdb')
 
-        slab = await s_lmdbslab.Slab.anit(path)
+        slab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly,
+                                          commitpulse=not self.nexuscommit)
         self.onfini(slab.fini)
 
         self.pkggraphs = {}
@@ -1928,7 +1874,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _initLayerV3Stor(self):
 
         path = os.path.join(self.dirn, 'slabs', 'layersv3.lmdb')
-        self.v3stor = await s_lmdbslab.Slab.anit(path)
+        self.v3stor = await s_lmdbslab.Slab.anit(path, readonly=self.readonly, commitpulse=not self.nexuscommit)
 
         self.onfini(self.v3stor.fini)
 
@@ -1966,7 +1912,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return nid
         return await self._push('nid:gen', ndef)
 
-    @s_nexus.Pusher.onPush('nid:gen')
+    @s_nexus.Pusher.onPush('nid:gen', reader=False)
     async def _genNdefNid(self, ndef):
         ndefhash = s_common.buid(ndef)
         nid = self.v3stor.get(ndefhash, db=self.ndef2nid)
@@ -2029,7 +1975,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         name = cdef.get('name')
         self._setStormCmd(cdef)
-        self.cmddefs.set(name, cdef)
+        if not self.readonly:
+            self.cmddefs.set(name, cdef)
 
     async def _reqStormCmd(self, cdef):
 
@@ -2107,20 +2054,24 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'No storm command named {name}.'
             raise s_exc.NoSuchCmd(name=name, mesg=mesg)
 
+        # validate "is dynamic" here (not in the onPush handler) so the handler
+        # is replay-safe: a readonly cortex replays cmd:del after the cmddefs
+        # delete is committed, when cmddefs.get would be None.
+        if self.cmddefs.get(name) is None:
+            mesg = f'The storm command ({name}) is not dynamic.'
+            raise s_exc.CantDelCmd(mesg=mesg)
+
         return await self._push('cmd:del', name)
 
     @s_nexus.Pusher.onPush('cmd:del')
     async def _delStormCmd(self, name):
-        ctor = self.stormcmds.get(name)
-        if ctor is None:
+        if self.stormcmds.get(name) is None:
             return
 
-        cdef = self.cmddefs.get(name)
-        if cdef is None:
-            mesg = f'The storm command ({name}) is not dynamic.'
-            raise s_exc.CantDelCmd(mesg=mesg)
-
-        self.cmddefs.pop(name)
+        # operate on the in-memory registry; a readonly cortex skips the durable
+        # cmddefs.pop (the delete is already committed).
+        if not self.readonly:
+            self.cmddefs.pop(name)
         self.stormcmds.pop(name, None)
 
     async def addStormPkg(self, pkgdef, verify=False):
@@ -2173,18 +2124,40 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('pkg:add')
     async def _addStormPkg(self, pkgdef):
         name = pkgdef.get('name')
-        olddef = self.pkgdefs.get(name, None)
-        if olddef is not None:
-            if s_hashitem.hashitem(pkgdef) != s_hashitem.hashitem(olddef):
-                self._dropStormPkg(olddef)
-            else:
-                return
+
+        if not self.readonly:
+            # pkgdefs holds the last-loaded def, so bounce an identical re-add
+            # and drop the old def on a changed re-add.
+            olddef = self.pkgdefs.get(name, None)
+            if olddef is not None:
+                if s_hashitem.hashitem(pkgdef) != s_hashitem.hashitem(olddef):
+                    self._dropStormPkg(olddef)
+                else:
+                    return
+        else:
+            # a readonly cortex reads pkgdefs through to the leader's current
+            # def, so it uses the in-memory stormpkgs to find any loaded copy to
+            # drop before (re)loading to match the replayed event.
+            loaded = self.stormpkgs.get(name)
+            if loaded is not None:
+                self._dropStormPkg(loaded)
 
         self.loadStormPkg(pkgdef)
         self._runStormPkgOnload(pkgdef)
-        self.pkgdefs.set(name, pkgdef)
+        if not self.readonly:
+            self.pkgdefs.set(name, pkgdef)
 
         self._clearPermDefs()
+
+        for vtype, vinfo in pkgdef.get('vaults', {}).items():
+            vtdef = self._reqValidVaultTypeDef({
+                'name': vtype,
+                'version': vinfo.get('version'),
+                'schema': vinfo.get('schema'),
+                'migration': vinfo.get('migration'),
+            })
+            if self._reqAddableVaultType(vtdef):
+                await self._addVaultType(vtdef)
 
         gates = []
         perms = []
@@ -2207,10 +2180,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Delete a storm package by name.
         '''
-        pkgdef = self.pkgdefs.pop(name, None)
+        # source the def from the in-memory registry rather than the persisted
+        # store: a readonly cortex replays this after the pkgdefs delete is
+        # committed, when a persisted lookup would return None.
+        pkgdef = self.stormpkgs.get(name)
         if pkgdef is None:
             return
 
+        if not self.readonly:
+            self.pkgdefs.pop(name, None)
         self._dropStormPkg(pkgdef)
 
         self._clearPermDefs()
@@ -2266,6 +2244,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             name = pkgdef.get('name', '')
             logger.exception(f'Error loading pkg: {name}, {str(e)}')
 
+    async def _getStormDepPkg(self, pkgname):
+        '''
+        Resolve a dependency/conflict name to a currently loaded package def.
+
+        The reserved names in self.PKG_PROVIDES refer to the running Synapse version rather
+        than a loaded Storm package.
+        '''
+        if pkgname in self.PKG_PROVIDES:
+            return {
+                'name': pkgname,
+                'version': s_version.version
+            }
+
+        return await self.getStormPkg(pkgname)
+
     async def verifyStormPkgDeps(self, pkgdef):
 
         result = {
@@ -2273,50 +2266,49 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'conflicts': [],
         }
 
-        deps = pkgdef.get('depends')
-        if deps is None:
-            return result
+        dependencies = pkgdef.get('dependencies')
+        if dependencies is not None:
+            for pkgname, dependency in dependencies.items():
 
-        requires = deps.get('requires', ())
-        for require in requires:
+                cmprvers = dependency.get('version')
 
-            pkgname = require.get('name')
-            cmprvers = require.get('version')
+                item = dependency.copy()
+                item['name'] = pkgname
+                item.setdefault('desc', None)
+                item.setdefault('optional', False)
 
-            item = require.copy()
-            item.setdefault('desc', None)
+                cpkg = await self._getStormDepPkg(pkgname)
 
-            cpkg = await self.getStormPkg(pkgname)
+                if cpkg is None:
+                    item.update({'ok': False, 'actual': None})
+                else:
+                    cver = cpkg.get('version')
+                    ok = s_version.matches(cver, cmprvers)
+                    item.update({'ok': ok, 'actual': cver})
 
-            if cpkg is None:
-                item.update({'ok': False, 'actual': None})
-            else:
-                cver = cpkg.get('version')
-                ok = s_version.matches(cver, cmprvers)
-                item.update({'ok': ok, 'actual': cver})
+                result['requires'].append(item)
 
-            result['requires'].append(item)
+        conflicts = pkgdef.get('conflicts')
+        if conflicts is not None:
+            for pkgname, conflict in conflicts.items():
 
-        conflicts = deps.get('conflicts', ())
-        for conflict in conflicts:
+                cmprvers = conflict.get('version')
 
-            pkgname = conflict.get('name')
-            cmprvers = conflict.get('version')
+                item = conflict.copy()
+                item['name'] = pkgname
+                item.setdefault('version', None)
+                item.setdefault('desc', None)
 
-            item = conflict.copy()
-            item.setdefault('version', None)
-            item.setdefault('desc', None)
+                cpkg = await self._getStormDepPkg(pkgname)
 
-            cpkg = await self.getStormPkg(pkgname)
+                if cpkg is None:
+                    item.update({'ok': True, 'actual': None})
+                else:
+                    cver = cpkg.get('version')
+                    ok = cmprvers is not None and not s_version.matches(cver, cmprvers)
+                    item.update({'ok': ok, 'actual': cver})
 
-            if cpkg is None:
-                item.update({'ok': True, 'actual': None})
-            else:
-                cver = cpkg.get('version')
-                ok = cmprvers is not None and not s_version.matches(cver, cmprvers)
-                item.update({'ok': ok, 'actual': cver})
-
-            result['conflicts'].append(item)
+                result['conflicts'].append(item)
 
         return result
 
@@ -2331,12 +2323,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if require['ok']:
                 continue
 
-            option = ' '
-            if require.get('optional'):
-                option = ' optional '
+            mesg = f'Storm package {name} requirement {require.get("name")}{require.get("version")} is currently unmet.'
 
-            mesg = f'Storm package {name}{option}requirement {require.get("name")}{require.get("version")} is currently unmet.'
-            logger.debug(mesg)
+            if require.get('optional'):
+                logger.debug(f'Storm package {name} optional requirement {require.get("name")}{require.get("version")} is currently unmet.')
+                continue
+
+            raise s_exc.StormPkgRequires(mesg=mesg)
 
         for conflict in deps['conflicts']:
 
@@ -2366,13 +2359,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._reqStormPkgDeps(pkgdef)
 
         pkgname = pkgdef.get('name')
-
-        # Check synapse version requirement
-        reqversion = pkgdef.get('synapse_version')
-        if reqversion is not None:
-            mesg = f'Storm package {pkgname} requires Synapse {reqversion} but ' \
-                   f'Cortex is running {s_version.version}'
-            s_version.reqVersion(s_version.version, reqversion, mesg=mesg)
 
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
@@ -2425,6 +2411,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if validstorm:
                 await self.reqValidStormGraph(gdef)
+
+        for vtype, vinfo in pkgdef.get('vaults', {}).items():
+            vtdef = self._reqValidVaultTypeDef({
+                'name': vtype,
+                'version': vinfo.get('version'),
+                'schema': vinfo.get('schema'),
+                'migration': vinfo.get('migration'),
+            })
+            # reject a conflicting re-registration before the push so a package
+            # add is never partially applied
+            self._reqAddableVaultType(vtdef)
+
+            migration = vinfo.get('migration')
+            if migration is not None and validstorm:
+                await self.getStormQuery(migration)
 
         # Validate package def (post normalization)
         s_schemas.reqValidPkgdef(pkgdef)
@@ -2522,7 +2523,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         try:
                             if (opts := initdef.get('queryopts')) is None:
                                 opts = {}
-                            opts.setdefault('mirror', False)
 
                             async for mesg in self.storm(initdef['query'], opts=opts):
                                 match mesg[0]:
@@ -2553,7 +2553,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 if onload is not None:
                     try:
-                        async for mesg in self.storm(onload, opts={'mirror': False}):
+                        async for mesg in self.storm(onload):
                             if mesg[0] == 'print':
                                 logger.info(f'{name} onload output: {mesg[1].get("mesg")}', extra=logextra)
                             if mesg[0] == 'warn':
@@ -2609,8 +2609,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return ssvc
 
     async def waitStormSvc(self, name, timeout=None):
+        # Readiness of this cortex instance's own service client.
         ssvc = self.getStormSvc(name)
-        return await s_coro.event_wait(ssvc.ready, timeout=timeout)
+
+        # Short circuit asyncio.wait_for logic by checking the ready event value.
+        # If we call wait_for with a timeout=0 we'll almost always raise a
+        # TimeoutError unless the future previously had the option to complete.
+        if timeout == 0:
+            return ssvc.svcready.is_set()
+
+        return await s_coro.event_wait(ssvc.svcready, timeout=timeout)
 
     async def addStormSvc(self, sdef):
         '''
@@ -2635,7 +2643,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return ssvc.sdef
 
         ssvc = await self._setStormSvc(sdef)
-        self.svcdefs.set(iden, sdef)
+        if not self.readonly:
+            self.svcdefs.set(iden, sdef)
 
         await self.feedBeholder('svc:add', {'name': sdef.get('name'), 'iden': iden})
         return ssvc.sdef
@@ -2653,8 +2662,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Delete a registered storm service from the cortex.
         '''
-        sdef = self.svcdefs.get(iden)
-        if sdef is None:  # pragma: no cover
+        ssvc = self.svcsbyiden.get(iden)
+        if ssvc is None:  # pragma: no cover
             return
 
         try:
@@ -2663,18 +2672,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         except Exception as e:
             logger.exception(f'service.del hook for service {iden} failed with error: {e}')
 
-        sdef = self.svcdefs.pop(iden)
+        # a readonly cortex skips the durable pop (the delete is already committed).
+        if not self.readonly:
+            self.svcdefs.pop(iden)
 
         await self._delStormSvcPkgs(iden)
 
-        name = sdef.get('name')
+        name = ssvc.name
         if name is not None:
             self.svcsbyname.pop(name, None)
 
-        ssvc = self.svcsbyiden.pop(iden, None)
-        if ssvc is not None:
-            self.svcsbysvcname.pop(ssvc.svcname, None)
-            await ssvc.fini()
+        self.svcsbyiden.pop(iden, None)
+        self.svcsbysvcname.pop(ssvc.svcname, None)
+        await ssvc.fini()
 
         await self.feedBeholder('svc:del', {'iden': iden, 'name': name, 'svcname': ssvc.svcname})
 
@@ -2731,11 +2741,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
+        # A readonly cortex takes no part in storm service event tracking: the
+        # add/del hooks that consume evts only run on an active leader.
+        if self.readonly:
+            return sdef
+
         sdef['evts'] = edef
         self.svcdefs.set(iden, sdef)
         return sdef
 
     async def _runStormSvcAdd(self, iden):
+        # A readonly cortex never runs the service.add hook.
+        if self.readonly:
+            return
+
         sdef = self.svcdefs.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
@@ -2774,14 +2793,123 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _setStormSvc(self, sdef):
 
-        ssvc = await s_stormsvc.StormSvcClient.anit(self, sdef)
+        iden = sdef.get('iden')
+
+        # the service client is a telepath ClientV2 which carries the cortex
+        # side service state as attributes. the handshake and storm package
+        # registration are driven by _onStormSvcLink when a link is made.
+        ssvc = await s_telepath.ClientV2.anit(sdef.get('url'),
+                                              onlink=functools.partial(self._onStormSvcLink, iden))
+        ssvc.sdef = sdef
+        ssvc.iden = iden
+        ssvc.name = sdef.get('name')  # local name for the cortex
+        ssvc.svcname = ''  # remote name from the service
+        ssvc.svcvers = ''  # remote version from the service
+        ssvc.info = None  # service info from the server
+
+        # set once the service handshake and package registration completes.
+        # distinct from the ClientV2 link-ready event ( ssvc.ready ).
+        ssvc.svcready = asyncio.Event()
+
+        # max time to wait for a live proxy when a storm service method is
+        # dereferenced ( preserves the legacy telepath Client ready timeout ).
+        ssvc.readytimeout = 10
 
         self.onfini(ssvc)
 
-        self.svcsbyiden[ssvc.iden] = ssvc
+        self.svcsbyiden[iden] = ssvc
         self.svcsbyname[ssvc.name] = ssvc
 
         return ssvc
+
+    async def _onStormSvcLink(self, iden, proxy, urlinfo):
+
+        ssvc = self.svcsbyiden.get(iden)
+        if ssvc is None:  # pragma: no cover
+            return
+
+        names = [c.rsplit('.', 1)[-1] for c in proxy._getClasses()]
+
+        if 'CellApi' in names:
+            cellinfo = await proxy.getCellInfo()
+            cellvers = cellinfo['synapse']['version']
+            if not s_version.matches(cellvers, '>=3.0.0b3'):
+                mesg = f'Service {ssvc.name} ({iden}) is running Synapse {cellvers} and must be updated to >= 3.0.0'
+                logger.error(mesg)
+                raise s_exc.BadVersion(mesg=mesg)
+
+        if 'StormSvc' in names:
+            ssvc.info = await proxy.getStormSvcInfo()
+            await self._runStormSvcInit(ssvc)
+
+        async def unready():
+            ssvc.svcready.clear()
+            await self.fire('stormsvc:client:unready', iden=iden)
+
+        proxy.onfini(unready)
+
+        ssvc.svcready.set()
+
+    async def _runStormSvcInit(self, ssvc):
+
+        # update the remote svcname index for this service
+        self.svcsbysvcname.pop(ssvc.svcname, None)
+        ssvc.svcname = ssvc.info['name']
+        ssvc.svcvers = ssvc.info['vers']
+        self.svcsbysvcname[ssvc.svcname] = ssvc
+
+        await self.feedBeholder('svc:set', {'name': ssvc.name, 'iden': ssvc.iden,
+                                            'svcname': ssvc.svcname, 'version': ssvc.svcvers})
+
+        oldpkgs = self.getStormSvcPkgs(ssvc.iden)
+        byname = {}
+        done = set()
+        for pdef in oldpkgs:
+            byname[pdef.get('name')] = s_hashitem.hashitem(pdef)
+
+        # register new packages
+        for pdef in ssvc.info.get('pkgs', ()):
+            try:
+                pdef['svciden'] = ssvc.iden
+                await self._normStormPkg(pdef)
+            except Exception:
+                name = pdef.get('name')
+                logger.exception(f'normStormPkg ({name}) failed for service {ssvc.name} ({ssvc.iden})')
+                continue
+
+            name = pdef.get('name')
+            pkgiden = s_hashitem.hashitem(pdef)
+
+            done.add(name)
+            if name in byname:
+                if byname[name] != pkgiden:
+                    await self._delStormPkg(name)  # updating an old package: delete the old then re-add
+                else:
+                    continue  # pkg unchanged. skip.
+
+            try:
+                await self._addStormPkg(pdef)
+            except Exception:  # pragma: no cover
+                logger.exception(f'addStormPkg ({name}) failed for service {ssvc.name} ({ssvc.iden})')
+
+        # clean up any packages that no longer exist
+        for name in byname.keys():
+            if name not in done:
+                await self._delStormPkg(name)
+
+        # set events and fire as needed
+        evts = ssvc.info.get('evts')
+        try:
+            if evts is not None:
+                ssvc.sdef = await self.setStormSvcEvents(ssvc.iden, evts)
+        except Exception:
+            logger.exception(f'setStormSvcEvents failed for service {ssvc.name} ({ssvc.iden})')
+
+        try:
+            if self.isactive:
+                await self._runStormSvcAdd(ssvc.iden)
+        except Exception:
+            logger.exception(f'service.add storm hook failed for service {ssvc.name} ({ssvc.iden})')
 
     def getStormSvcs(self):
         return list(self.svcsbyiden.values())
@@ -2827,9 +2955,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         # use a stable iden derived from the service type so re-discovery
-        # ( reconnect, reboot ) is idempotent and never re-adds the service.
+        # ( reconnect, reboot ) is idempotent and never re-adds the service. The
+        # runtime ahastormsvcs set remembers types we have already auto-added so
+        # a topology re-sync ( which replays svc:add for the whole AHA snapshot )
+        # does not re-add one, including a service since removed via delStormSvc.
         iden = s_common.guid(('aha', 'stormsvc', svctype))
-        if self.svcsbyiden.get(iden) is not None:
+        if iden in self.ahastormsvcs:
             return
 
         # do not clobber a manually added service using the type as its name.
@@ -2842,6 +2973,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'url': f'aha://{svctype}...',
         }
 
+        self.ahastormsvcs.add(iden)
         logger.info(f'Automatically adding AHA storm service: {svctype}')
         await self.addStormSvc(sdef)
 
@@ -2856,14 +2988,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return default
         return valu
 
-    @s_nexus.Pusher.onPush('stormvar:pop')
+    @s_nexus.Pusher.onPush('stormvar:pop', reader=False)
     async def _popStormVar(self, name, default=None):
         valu = self.stormvars.pop(name, defv=s_common.novalu)
         if valu is s_common.novalu:
             return False, None
         return True, valu
 
-    @s_nexus.Pusher.onPushAuto('stormvar:set')
+    @s_nexus.Pusher.onPushAuto('stormvar:set', reader=False)
     async def setStormVar(self, name, valu):
         return self.stormvars.set(name, valu)
 
@@ -2889,7 +3021,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('storm:pkg:var:pop', name, key, default=default)
 
-    @s_nexus.Pusher.onPush('storm:pkg:var:pop')
+    @s_nexus.Pusher.onPush('storm:pkg:var:pop', reader=False)
     async def _popStormPkgVar(self, name, key, default=None):
         pkgvars = self._getStormPkgVarKV(name)
         return pkgvars.pop(key, defv=default)
@@ -2901,7 +3033,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('storm:pkg:var:set', name, key, valu)
 
-    @s_nexus.Pusher.onPush('storm:pkg:var:set')
+    @s_nexus.Pusher.onPush('storm:pkg:var:set', reader=False)
     async def _setStormPkgVar(self, name, key, valu):
         pkgvars = self._getStormPkgVarKV(name)
         return pkgvars.set(key, valu)
@@ -2929,7 +3061,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('storm:pkg:state:pop', name, key, default=default)
 
-    @s_nexus.Pusher.onPush('storm:pkg:state:pop')
+    @s_nexus.Pusher.onPush('storm:pkg:state:pop', reader=False)
     async def _popStormPkgState(self, name, key, default=None):
         pkgstate = self._getStormPkgStateKV(name)
         return pkgstate.pop(key, defv=default)
@@ -2941,7 +3073,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('storm:pkg:state:set', name, key, valu)
 
-    @s_nexus.Pusher.onPush('storm:pkg:state:set')
+    @s_nexus.Pusher.onPush('storm:pkg:state:set', reader=False)
     async def _setStormPkgState(self, name, key, valu):
         pkgstate = self._getStormPkgStateKV(name)
         return pkgstate.set(key, valu)
@@ -2966,7 +3098,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._push('storm:pkg:queue:add', pkgname, name, info)
 
-    @s_nexus.Pusher.onPush('storm:pkg:queue:add')
+    @s_nexus.Pusher.onPush('storm:pkg:queue:add', reader=False)
     async def _addStormPkgQueue(self, pkgname, name, info):
         guid = s_common.guid((pkgname, name))
         if self.stormpkgqueue.exists(guid):
@@ -2990,7 +3122,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._push('storm:pkg:queue:del', pkgname, name)
 
-    @s_nexus.Pusher.onPush('storm:pkg:queue:del')
+    @s_nexus.Pusher.onPush('storm:pkg:queue:del', reader=False)
     async def _delStormPkgQueue(self, pkgname, name):
         guid = s_common.guid((pkgname, name))
         if not self.stormpkgqueue.exists(guid):
@@ -3016,18 +3148,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def stormPkgQueuePuts(self, pkgname, name, items):
         return await self._push('storm:pkg:queue:puts', pkgname, name, items)
 
-    @s_nexus.Pusher.onPush('storm:pkg:queue:puts', passitem=True)
+    @s_nexus.Pusher.onPush('storm:pkg:queue:puts', passitem=True, reader=False)
     async def _stormPkgQueuePuts(self, pkgname, name, items, nexsitem):
         nexsoff, nexsmesg = nexsitem
         guid = s_common.guid((pkgname, name))
         return await self.stormpkgqueue.puts(guid, items, reqid=nexsoff)
 
-    @s_nexus.Pusher.onPushAuto('storm:pkg:queue:cull')
+    @s_nexus.Pusher.onPushAuto('storm:pkg:queue:cull', reader=False)
     async def stormPkgQueueCull(self, pkgname, name, offs):
         guid = s_common.guid((pkgname, name))
         await self.stormpkgqueue.cull(guid, offs)
 
-    @s_nexus.Pusher.onPushAuto('storm:pkg:queue:pop')
+    @s_nexus.Pusher.onPushAuto('storm:pkg:queue:pop', reader=False)
     async def stormPkgQueuePop(self, pkgname, name, offs):
         guid = s_common.guid((pkgname, name))
         return await self.stormpkgqueue.pop(guid, offs)
@@ -3092,7 +3224,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._initDeprLocks()
             self._loadedhash = modelhash
 
-        self.cellinfo.set('cortex:model', mdefs)
+        if not self.readonly:
+            self.cellinfo.set('cortex:model', mdefs)
         await self.feedBeholder('model:set', {'hash': modelhash})
 
     async def _loadExtModel(self):
@@ -3340,7 +3473,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, typeinfo, ())
 
-        self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
+        if not self.readonly:
+            self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
         await self.fire('core:extmodel:change', form=formname, act='add', type='form')
         form = self.model.form(formname)
         ftyp = self.model.type(formname)
@@ -3372,7 +3506,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.model.delForm(formname)
         self.model.delType(formname)
 
-        self.extforms.pop(formname, None)
+        if not self.readonly:
+            self.extforms.pop(formname, None)
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
         await self.feedBeholder('model:form:del', {'form': formname})
 
@@ -3413,11 +3548,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.addType(typename, basetype, typeopts, typeinfo)
 
-        self.exttypes.set(typename, (typename, basetype, typeopts, typeinfo))
+        if not self.readonly:
+            self.exttypes.set(typename, (typename, basetype, typeopts, typeinfo))
         await self.fire('core:extmodel:change', name=typename, act='add', type='type')
 
         if (_type := self.model.type(typename)) is not None:
-            await self.feedBeholder('model:type:add', {'type': _type.pack()})
+            await self.feedBeholder('model:type:add', {'type': _type.pack(), 'name': typename})
 
     async def delType(self, typename):
         if not typename.startswith('_'):
@@ -3436,7 +3572,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.delType(typename)
 
-        self.exttypes.pop(typename, None)
+        if not self.readonly:
+            self.exttypes.pop(typename, None)
         await self.fire('core:extmodel:change', name=typename, act='del', type='type')
         await self.feedBeholder('model:type:del', {'type': typename})
 
@@ -3485,7 +3622,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             logger.warning(mesg)
 
         full = f'{form}:{prop}'
-        self.extprops.set(full, (form, prop, tdef, info))
+        if not self.readonly:
+            self.extprops.set(full, (form, prop, tdef, info))
         await self.fire('core:extmodel:change', form=form, prop=prop, act='add', type='formprop')
         prop = self.model.prop(full)
         if prop:
@@ -3579,8 +3717,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         full = f'{form}:{prop}'
 
-        pdef = self.extprops.get(full)
-        if pdef is None:
+        # guard on the in-memory model (see _addTagProp) so a readonly cortex
+        # that replays this handler removes the prop from its model.
+        _form = self.model.form(form)
+        if _form is None or _form.prop(prop) is None:
             return
 
         for formname in self.model.getChildForms(form):
@@ -3590,8 +3730,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delFormProp(form, prop)
-        self.extprops.pop(full, None)
-        self.modellocks.pop(f'prop/{full}', None)
+        if not self.readonly:
+            self.extprops.pop(full, None)
+            self.modellocks.pop(f'prop/{full}', None)
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='del', type='formprop')
 
@@ -3620,12 +3761,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('model:tagprop:add')
     async def _addTagProp(self, name, tdef, info):
-        if self.exttagprops.get(name) is not None:
+        # guard on the in-memory model (what this handler mutates) rather than
+        # the persisted ext store: a readonly cortex replays this handler to
+        # refresh its model, and its ext store is shared read-through, so a
+        # persisted-state guard would wrongly short-circuit the in-memory add.
+        # Equivalent on the leader (both are set together).
+        if self.model.tagprop(name) is not None:
             return
 
         self.model.addTagProp(name, tdef, info)
 
-        self.exttagprops.set(name, (name, tdef, info))
+        if not self.readonly:
+            self.exttagprops.set(name, (name, tdef, info))
         await self.fire('core:tagprop:change', name=name, act='add')
         tagp = self.model.tagprop(name)
         if tagp:
@@ -3640,8 +3787,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('model:tagprop:del')
     async def _delTagProp(self, name):
-        pdef = self.exttagprops.get(name)
-        if pdef is None:
+        # guard on the in-memory model (see _addTagProp) so a readonly cortex
+        # that replays this handler removes the tagprop from its model.
+        if self.model.tagprop(name) is None:
             return
 
         for layr in self.layers.values():
@@ -3651,8 +3799,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.delTagProp(name)
 
-        self.exttagprops.pop(name, None)
-        self.modellocks.pop(f'tagprop/{name}', None)
+        if not self.readonly:
+            self.exttagprops.pop(name, None)
+            self.modellocks.pop(f'tagprop/{name}', None)
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.feedBeholder('model:tagprop:del', {'tagprop': name})
 
@@ -3685,7 +3834,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.addEdge(edge, edgeinfo)
 
-        self.extedges.set(s_common.guid(edge), (edge, edgeinfo))
+        if not self.readonly:
+            self.extedges.set(s_common.guid(edge), (edge, edgeinfo))
         await self.fire('core:extmodel:change', edge=edge, act='add', type='edge')
         await self.feedBeholder('model:edge:add', {'edge': edge, 'info': edgeinfo})
 
@@ -3698,7 +3848,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('model:edge:del')
     async def _delEdge(self, edge):
         edgeguid = s_common.guid(edge)
-        if self.extedges.get(edgeguid) is None:
+        # guard on the in-memory model (see _addTagProp) so a readonly cortex
+        # that replays this handler removes the edge from its model.
+        if self.model.edge(edge) is None:
             return
 
         (n1form, verb, n2form) = edge
@@ -3710,7 +3862,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.delEdge(edge)
 
-        self.extedges.pop(edgeguid, None)
+        if not self.readonly:
+            self.extedges.pop(edgeguid, None)
         await self.fire('core:extmodel:change', edge=edge, act='del', type='edge')
         await self.feedBeholder('model:edge:del', {'edge': edge})
 
@@ -3718,11 +3871,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Generic fini handler for cortex components which may change or vary at runtime.
         '''
-        if self.axon is not None:
-            await self.axon.fini()
-
-        if self.jsonstor is not None:
-            await self.jsonstor.fini()
+        # the axon and jsonstor are owned by the HasAxon / HasJsonStor mixins,
+        # so they do not need teardown here.
 
     async def _initCoreInfo(self):
         self.stormvars = self.cortexdata.getSubKeyVal('storm:vars:')
@@ -3768,144 +3918,78 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if prop is not None:
                 prop.locked = locked
 
-    async def _initJsonStor(self):
+    def _getEmbeddedJsonStorConf(self, path):
+        # pin a deterministic cell:guid for the embedded jsonstor, derived from
+        # the cortex iden. ( bugfix for the first release where the cell was
+        # allowed to generate its own iden. )
+        jsoniden = s_common.guid((self.iden, 'jsonstor'))
 
-        # when this cortex is part of an AHA deployment we locate the jsonstor
-        # service by cell type. otherwise we boot an embedded jsonstor child.
-        self.jsonremote = self.ahaclient is not None
-        if self.jsonremote:
+        idenpath = os.path.join(path, 'cell.guid')
+        if os.path.isfile(idenpath):
 
-            async def onlink(proxy: s_telepath.Proxy):
-                logger.debug('Connected to remote jsonstor')
+            with open(idenpath, 'r') as fd:
+                existiden = fd.read()
 
-            self.jsonstor = await s_telepath.Client.anit('aha://jsonstor...', onlink=onlink)
-            self.onfini(self.jsonstor)
-        else:
-            path = os.path.join(self.dirn, 'jsonstor')
-            jsoniden = s_common.guid((self.iden, 'jsonstor'))
+            if jsoniden != existiden:
+                with open(idenpath, 'w') as fd:
+                    fd.write(jsoniden)
 
-            idenpath = os.path.join(path, 'cell.guid')
-            # check that the jsonstor cell GUID is what it should be. If not, update it.
-            # ( bugfix for first release where cell was allowed to generate it's own iden )
-            if os.path.isfile(idenpath):
-
-                with open(idenpath, 'r') as fd:
-                    existiden = fd.read()
-
-                if jsoniden != existiden:
-                    with open(idenpath, 'w') as fd:
-                        fd.write(jsoniden)
-
-            # Disable sysctl checks for embedded jsonstor server
-            conf = {'cell:guid': jsoniden, 'health:sysctl:checks': False}
-            self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
+        return {'cell:guid': jsoniden}
 
     async def getJsonObj(self, path):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        return await self.jsonstor.getPathObj(path)
+        jsonstor = await self.getJsonStor()
+        return await jsonstor.getPathObj(path)
 
     async def hasJsonObj(self, path):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        return await self.jsonstor.hasPathObj(path)
+        jsonstor = await self.getJsonStor()
+        return await jsonstor.hasPathObj(path)
 
     async def getJsonObjs(self, path):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        async for item in self.jsonstor.getPathObjs(path):
+        jsonstor = await self.getJsonStor()
+        async for item in jsonstor.getPathObjs(path):
             yield item
 
     async def getJsonObjProp(self, path, prop):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        return await self.jsonstor.getPathObjProp(path, prop)
+        jsonstor = await self.getJsonStor()
+        return await jsonstor.getPathObjProp(path, prop)
 
     async def delJsonObj(self, path):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        return await self.jsonstor.delPathObj(path)
+        jsonstor = await self.getJsonStor()
+        return await jsonstor.delPathObj(path)
 
     async def delJsonObjProp(self, path, prop):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        return await self.jsonstor.delPathObjProp(path, prop)
+        jsonstor = await self.getJsonStor()
+        return await jsonstor.delPathObjProp(path, prop)
 
     async def setJsonObj(self, path, item):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        return await self.jsonstor.setPathObj(path, item)
+        jsonstor = await self.getJsonStor()
+        return await jsonstor.setPathObj(path, item)
 
     async def setJsonObjProp(self, path, prop, item):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        return await self.jsonstor.setPathObjProp(path, prop, item)
+        jsonstor = await self.getJsonStor()
+        return await jsonstor.setPathObjProp(path, prop, item)
 
     async def getUserNotif(self, indx):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        return await self.jsonstor.getUserNotif(indx)
+        jsonstor = await self.getJsonStor()
+        return await jsonstor.getUserNotif(indx)
 
     async def delUserNotif(self, indx):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        return await self.jsonstor.delUserNotif(indx)
+        jsonstor = await self.getJsonStor()
+        return await jsonstor.delUserNotif(indx)
 
     async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        return await self.jsonstor.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
+        jsonstor = await self.getJsonStor()
+        return await jsonstor.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
 
     async def iterUserNotifs(self, useriden, size=None):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        async for item in self.jsonstor.iterUserNotifs(useriden, size=size):
+        jsonstor = await self.getJsonStor()
+        async for item in jsonstor.iterUserNotifs(useriden, size=size):
             yield item
 
     async def watchAllUserNotifs(self, offs=None):
-        if self.jsonremote:
-            await self.jsonstor.waitready()
-        async for item in self.jsonstor.watchAllUserNotifs(offs=offs):
+        jsonstor = await self.getJsonStor()
+        async for item in jsonstor.watchAllUserNotifs(offs=offs):
             yield item
-
-    async def _initCoreAxon(self):
-
-        # when this cortex is part of an AHA deployment we locate the axon
-        # service by cell type. otherwise we boot an embedded axon child.
-        if self.ahaclient is None:
-            path = os.path.join(self.dirn, 'axon')
-            # Disable sysctl checks for embedded axon server
-            conf = {'health:sysctl:checks': False}
-
-            proxyurl = self.conf.get('http:proxy')
-            if proxyurl is not None:
-                conf['http:proxy'] = proxyurl
-
-            cadir = self.conf.get('tls:ca:dir')
-            if cadir is not None:
-                conf['tls:ca:dir'] = cadir
-
-            self.axon = await s_axon.Axon.anit(path, conf=conf, parent=self)
-            self.axoninfo = await self.axon.getCellInfo()
-            self.axon.onfini(self.axready.clear)
-            self.dynitems['axon'] = self.axon
-            self.axready.set()
-            return
-
-        async def onlink(proxy: s_telepath.Proxy):
-            logger.debug('Connected to remote axon')
-
-            async def fini():
-                self.axready.clear()
-
-            self.axoninfo = await proxy.getCellInfo()
-
-            proxy.onfini(fini)
-            self.axready.set()
-
-        self.axon = await s_telepath.Client.anit('aha://axon...', onlink=onlink)
-        self.dynitems['axon'] = self.axon
-        self.onfini(self.axon)
 
     async def _initStormCmds(self):
         '''
@@ -3945,9 +4029,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
         self.addStormCmd(s_stormlib_storm.StormExecCmd)
         self.addStormCmd(s_stormlib_stats.StatsCountByCmd)
-        self.addStormCmd(s_stormlib_cortex.StormPoolDelCmd)
-        self.addStormCmd(s_stormlib_cortex.StormPoolGetCmd)
-        self.addStormCmd(s_stormlib_cortex.StormPoolSetCmd)
 
         cmdmods = [
             s_storm,
@@ -4072,20 +4153,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('http:api:add')
     async def _addHttpExtApi(self, adef):
         iden = adef.get('iden')
-        await self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
 
-        order = self.slab.get(self._exthttpapiorder, db=self.httpextapidb)
-        if order is None:
-            await self.slab.put(self._exthttpapiorder, s_msgpack.en([iden]), db=self.httpextapidb)
-        else:
-            order = s_msgpack.un(order)  # type: tuple
-            if iden not in order:
-                # Replay safety
-                order = order + (iden, )  # New handlers go to the end of the list of handlers
-                await self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
+        # Update the in-memory cache from the event args (new handlers go to the
+        # end of the ordered dict) rather than re-reading the slab: a readonly
+        # cortex replays this handler to refresh its cache, and reading the slab
+        # here would race the leader's cortex slab commit. Durable writes are
+        # skipped on a readonly cortex (the leader already committed them).
+        self._exthttpapis[iden] = adef
+        self._exthttpapicache.clear()
 
-        # Re-initialize the HTTP API list from the index order
-        self._initCortexExtHttpApi()
+        if not self.readonly:
+            await self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
+            await self.slab.put(self._exthttpapiorder, s_msgpack.en(list(self._exthttpapis)), db=self.httpextapidb)
+
         return adef
 
     @s_nexus.Pusher.onPushAuto('http:api:del')
@@ -4093,22 +4173,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if s_common.isguid(iden) is False:
             raise s_exc.BadArg(mesg=f'Must provide an iden. Got {iden}')
 
-        self.slab.pop(s_common.uhex(iden), db=self.httpextapidb)
+        # Drop from the in-memory cache (and persist the resulting order) without
+        # re-reading the slab - see _addHttpExtApi.
+        self._exthttpapis.pop(iden, None)
+        self._exthttpapicache.clear()
 
-        byts = self.slab.get(self._exthttpapiorder, self.httpextapidb)
-        order = list(s_msgpack.un(byts))
-        if iden in order:
-            order.remove(iden)
-            await self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
-
-        self._initCortexExtHttpApi()
+        if not self.readonly:
+            self.slab.pop(s_common.uhex(iden), db=self.httpextapidb)
+            await self.slab.put(self._exthttpapiorder, s_msgpack.en(list(self._exthttpapis)), db=self.httpextapidb)
 
         return
 
-    @s_nexus.Pusher.onPushAuto('http:api:mod')
     async def modHttpExtApi(self, iden, name, valu):
         # Created, Creator, Updated are not mutable
-        if name in ('name', 'desc', 'runas', 'methods', 'authenticated', 'pool', 'perms', 'readonly', 'vars'):
+        if name in ('name', 'desc', 'runas', 'methods', 'authenticated', 'perms', 'readonly', 'vars'):
             # Schema takes care of these values
             pass
         elif name == 'owner':
@@ -4128,17 +4206,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         else:
             raise s_exc.BadArg(mesg=f'Cannot set {name=} on extended httpapi')
 
-        byts = self.slab.get(s_common.uhex(iden), db=self.httpextapidb)
-        if byts is None:
+        if self._exthttpapis.get(iden) is None:
             raise s_exc.NoSuchIden(mesg=f'No http api for {iden=}', iden=iden)
 
-        adef = s_msgpack.un(byts)
-        adef[name] = valu
-        adef['updated'] = s_common.now()
-        adef = s_schemas.reqValidHttpExtAPIConf(adef)
-        await self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
+        return await self._push('http:api:mod', iden, name, valu, s_common.now())
 
-        self._initCortexExtHttpApi()
+    @s_nexus.Pusher.onPush('http:api:mod')
+    async def _modHttpExtApi(self, iden, name, valu, updated):
+        # Read the current def from the in-memory cache (authoritative on the
+        # leader and kept current by replay on a readonly cortex) rather than the
+        # slab, which a readonly cortex may not yet see committed - see
+        # _addHttpExtApi.
+        adef = self._exthttpapis.get(iden)
+        if adef is None:
+            raise s_exc.NoSuchIden(mesg=f'No http api for {iden=}', iden=iden)
+
+        adef = copy.deepcopy(adef)
+        adef[name] = valu
+        adef['updated'] = updated
+        adef = s_schemas.reqValidHttpExtAPIConf(adef)
+
+        self._exthttpapis[iden] = adef
+        self._exthttpapicache.clear()
+
+        if not self.readonly:
+            await self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
 
         return adef
 
@@ -4146,13 +4238,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def setHttpApiIndx(self, iden, indx):
         if indx < 0:
             raise s_exc.BadArg(mesg=f'indx must be greater than or equal to 0; got {indx}')
-        byts = self.slab.get(self._exthttpapiorder, db=self.httpextapidb)
-        if byts is None:
+
+        # Reorder using the in-memory key order rather than the slab order, which
+        # a readonly cortex may not yet see committed - see _addHttpExtApi.
+        order = list(self._exthttpapis)
+        if not order:
             raise s_exc.SynErr(mesg='No Extended HTTP handlers registered. Cannot set order.')
 
-        order = list(s_msgpack.un(byts))
-
-        if iden not in order:
+        if iden not in self._exthttpapis:
             raise s_exc.NoSuchIden(mesg=f'Extended HTTP API is not set: {iden}')
 
         if order.index(iden) == indx:
@@ -4160,8 +4253,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         order.remove(iden)
         # indx values > length of the list end up at the end of the list.
         order.insert(indx, iden)
-        await self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
-        self._initCortexExtHttpApi()
+
+        self._exthttpapis = {iapi: self._exthttpapis[iapi] for iapi in order}
+        self._exthttpapicache.clear()
+
+        if not self.readonly:
+            await self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
         return order.index(iden)
 
     async def getHttpExtApis(self):
@@ -4375,17 +4472,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         creator = vdef.get('creator', self.auth.rootuser.iden)
         user = await self.auth.reqUser(creator)
 
-        await self.auth.addAuthGate(iden, 'view')
-        await user.setAdmin(True, gateiden=iden, logged=False)
+        # On a readonly cortex the auth gate + rules and the persisted view def
+        # are shared read-through (the leader already committed them), so skip the
+        # durable/auth writes here and just build the in-memory View below.
+        if not self.readonly:
+            await self.auth.addAuthGate(iden, 'view')
+            await user.setAdmin(True, gateiden=iden, logged=False)
 
         # worldreadable does not get persisted with the view; the state ends up in perms
         worldread = vdef.pop('worldreadable', False)
 
-        if worldread:
+        if worldread and not self.readonly:
             role = await self.auth.getRoleByName('all')
             await role.addRule((True, ('view', 'read')), gateiden=iden, nexs=False)
 
-        self.viewdefs.set(iden, vdef)
+        if not self.readonly:
+            self.viewdefs.set(iden, vdef)
 
         view = await self._loadView(vdef)
         view.init2()
@@ -4443,7 +4545,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             else:
                 cview.info['parent'] = newparent.iden
                 newparent._children.append(cview)
-            self.viewdefs.set(cview.iden, cview.info)
+            if not self.readonly:
+                self.viewdefs.set(cview.iden, cview.info)
 
             valu = newparent.iden if newparent is not None else None
             mesg = {'iden': cview.iden, 'name': 'parent', 'valu': valu}
@@ -4453,12 +4556,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if view.parent is not None:
             view.parent._children.remove(view)
 
-        self.viewdefs.pop(iden)
+        if not self.readonly:
+            self.viewdefs.pop(iden)
         await view.delete()
 
         self._calcViewsByLayer()
         await self.feedBeholder('view:del', {'iden': iden}, gates=[iden])
-        await self.auth.delAuthGate(iden)
+        # auth gate teardown is a durable auth write; a readonly cortex shares the
+        # gate read-through and the leader already removed it.
+        if not self.readonly:
+            await self.auth.delAuthGate(iden)
 
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
@@ -4487,10 +4594,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.fire('core:layr:del', iden=layr.iden, offs=nexsitem[0])
         await self.feedBeholder('layer:del', {'iden': iden}, gates=[iden])
-        await self.auth.delAuthGate(iden)
+        # auth gate teardown and layerdefs removal are durable writes; a readonly
+        # cortex shares the gate/def read-through and the leader already removed
+        # them.
+        if not self.readonly:
+            await self.auth.delAuthGate(iden)
         self.dynitems.pop(iden)
 
-        self.layerdefs.pop(iden)
+        if not self.readonly:
+            self.layerdefs.pop(iden)
 
         await layr.delete()
 
@@ -4721,10 +4833,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         user = await self.auth.reqUser(creator)
 
-        self.layerdefs.set(iden, ldef)
+        # on a readonly cortex the layer def + auth gate/admin are shared read-
+        # through (the leader already committed them); _initLayr still builds the
+        # in-memory Layer and (via addAuthGate's read-through early return) the gate.
+        if not self.readonly:
+            self.layerdefs.set(iden, ldef)
 
         layr = await self._initLayr(ldef, nexsoffs=nexsitem[0])
-        await user.setAdmin(True, gateiden=iden, logged=False)
+        if not self.readonly:
+            await user.setAdmin(True, gateiden=iden, logged=False)
 
         # forward wind the new layer to the current model version
         await layr._setModelVers(s_modelrev.maxvers)
@@ -4791,14 +4908,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def setLayrSyncOffs(self, iden, offs):
         await self._push('layer:sync:offs:set', iden, offs)
 
-    @s_nexus.Pusher.onPush('layer:sync:offs:set')
+    @s_nexus.Pusher.onPush('layer:sync:offs:set', reader=False)
     async def _setLayrSyncOffs(self, iden, offs):
         if offs is not None:
-            self.layeroffs.set(iden, offs)
+            # setnow (write-through) so the offset is in the txn for this nexus
+            # transaction's commit; a commitpulse=False slab has no 'commit' event
+            # to flush a buffered set(). delete() likewise writes through.
+            self.layeroffs.setnow(iden, offs)
         else:
             self.layeroffs.delete(iden)
 
-    @s_nexus.Pusher.onPushAuto('layer:push:add')
+    @s_nexus.Pusher.onPushAuto('layer:push:add', reader=False)
     async def addLayrPush(self, layriden, pdef):
 
         s_schemas.reqValidPush(pdef)
@@ -4824,7 +4944,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.runLayrPush(layr, pdef)
 
-    @s_nexus.Pusher.onPushAuto('layer:push:del')
+    @s_nexus.Pusher.onPushAuto('layer:push:del', reader=False)
     async def delLayrPush(self, layriden, pushiden):
 
         layr = self.layers.get(layriden)
@@ -4845,7 +4965,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.delActiveCoro(pushiden)
 
-    @s_nexus.Pusher.onPushAuto('layer:pull:add')
+    @s_nexus.Pusher.onPushAuto('layer:pull:add', reader=False)
     async def addLayrPull(self, layriden, pdef):
 
         s_schemas.reqValidPull(pdef)
@@ -4871,7 +4991,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.runLayrPull(layr, pdef)
 
-    @s_nexus.Pusher.onPushAuto('layer:pull:del')
+    @s_nexus.Pusher.onPushAuto('layer:pull:del', reader=False)
     async def delLayrPull(self, layriden, pulliden):
 
         layr = self.layers.get(layriden)
@@ -5040,9 +5160,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     await dst.saveNodeEdits(alledits, meta, compat=compat)
                     await self.setLayrSyncOffs(iden, offs)
 
-    async def saveLayerNodeEdits(self, layriden, edits, meta, waitiden=None):
+    async def saveLayerNodeEdits(self, layriden, edits, meta, waitiden=None, retnoffs=False):
         layr = self.reqLayer(layriden)
-        return await layr.saveNodeEdits(edits, meta, waitiden=waitiden)
+        return await layr.saveNodeEdits(edits, meta, waitiden=waitiden, retnoffs=retnoffs)
 
     async def cloneLayer(self, iden, ldef=None):
         '''
@@ -5078,20 +5198,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         newpath = s_common.gendir(self.dirn, 'layers', newiden)
-        await layr.clone(newpath)
+        # cloning the layer files, persisting the def, and the admin grant are
+        # leader-only durable writes; a readonly cortex shares the leader's cloned
+        # files and just builds the in-memory Layer via _initLayr below.
+        if not self.readonly:
+            await layr.clone(newpath)
 
         copyinfo = self.layerdefs.get(iden)
 
         for name, valu in copyinfo.items():
             ldef.setdefault(name, valu)
 
-        self.layerdefs.set(newiden, ldef)
+        if not self.readonly:
+            self.layerdefs.set(newiden, ldef)
 
         copylayr = await self._initLayr(ldef, nexsoffs=nexsitem[0])
 
         creator = copyinfo.get('creator')
         user = await self.auth.reqUser(creator)
-        await user.setAdmin(True, gateiden=newiden, logged=False)
+        if not self.readonly:
+            await user.setAdmin(True, gateiden=newiden, logged=False)
 
         return ldef
 
@@ -5119,7 +5245,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('storm:dmon:add', ddef)
 
-    @s_nexus.Pusher.onPushAuto('storm:dmon:bump')
+    @s_nexus.Pusher.onPushAuto('storm:dmon:bump', reader=False)
     async def bumpStormDmon(self, iden):
         ddef = self.stormdmondefs.get(iden)
         if ddef is None:
@@ -5142,7 +5268,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if ddef.get('user') == iden:
                 await self.bumpStormDmon(dmoniden)
 
-    @s_nexus.Pusher.onPushAuto('storm:dmon:enable')
+    @s_nexus.Pusher.onPushAuto('storm:dmon:enable', reader=False)
     async def enableStormDmon(self, iden):
         dmon = self.stormdmons.getDmon(iden)
         if dmon is None:
@@ -5161,7 +5287,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return True
 
-    @s_nexus.Pusher.onPushAuto('storm:dmon:disable')
+    @s_nexus.Pusher.onPushAuto('storm:dmon:disable', reader=False)
     async def disableStormDmon(self, iden):
 
         dmon = self.stormdmons.getDmon(iden)
@@ -5181,7 +5307,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return True
 
-    @s_nexus.Pusher.onPush('storm:dmon:add')
+    @s_nexus.Pusher.onPush('storm:dmon:add', reader=False)
     async def _onAddStormDmon(self, ddef):
         iden = ddef['iden']
 
@@ -5210,7 +5336,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('storm:dmon:del', iden)
 
-    @s_nexus.Pusher.onPush('storm:dmon:del')
+    @s_nexus.Pusher.onPush('storm:dmon:del', reader=False)
     async def _delStormDmon(self, iden):
         ddef = self.stormdmondefs.pop(iden)
         if ddef is None:  # pragma: no cover
@@ -5283,10 +5409,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getStormCmds(self):
         return list(self.stormcmds.items())
 
-    async def getAxon(self):
-        await self.axready.wait()
-        return self.axon.iden
-
     async def setUserLocked(self, iden, locked):
         retn = await s_cell.Cell.setUserLocked(self, iden, locked)
         await self._bumpUserDmons(iden)
@@ -5349,26 +5471,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         opts = self._initStormOpts(opts)
 
-        if self.stormpool is not None and opts.get('mirror', True):
-            proxy = await self._getMirrorProxy(opts)
-
-            if proxy is not None:
-                proxname = proxy._ahainfo.get('name')
-                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
-                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
-
-                mirropts = await self._getMirrorOpts(opts)
-
-                mirropts.setdefault('_loginfo', {})
-                mirropts['_loginfo']['pool:from'] = self.ahasvcname
-
-                try:
-                    return await proxy.count(text, opts=mirropts)
-
-                except s_exc.TimeOut:
-                    mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg)
-
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
                 raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in count()')
@@ -5381,89 +5483,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return i
 
-    async def _getMirrorOpts(self, opts):
-        assert 'nexsoffs' in opts
-        mirropts = s_msgpack.deepcopy(opts)
-        mirropts['mirror'] = False
-        mirropts['nexstimeout'] = self.stormpoolopts.get('timeout:sync')
-        return mirropts
-
-    async def _getMirrorProxy(self, opts):
-
-        if self.stormpool is None:  # pragma: no cover
-            return None
-
-        size = self.stormpool.size()
-        if size == 0:
-            logger.warning('Storm query mirror pool is empty, running query locally.')
-            return None
-
-        timeout = self.stormpoolopts.get('timeout:connection')
-
-        for _ in range(size):
-
-            try:
-                proxy = await self.stormpool.proxy(timeout=timeout)
-
-                proxyname = proxy._ahainfo.get('name')
-                if proxyname is not None and proxyname == self.ahasvcname:
-                    # we are part of the pool and were selected. Skip.
-                    continue
-
-            except TimeoutError:
-                logger.warning('Timeout waiting for pool mirror proxy.')
-                continue
-
-            try:
-
-                curoffs = opts.setdefault('nexsoffs', await self.getNexsIndx() - 1)
-                miroffs = await asyncio.wait_for(proxy.getNexsIndx(), timeout) - 1
-                if (delta := curoffs - miroffs) <= MAX_NEXUS_DELTA:
-                    return proxy
-
-                mesg = f'Pool mirror [{proxyname}] is too far out of sync. Skipping.'
-                logger.warning(mesg, extra=self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
-
-            except s_exc.ShuttingDown:
-                mesg = f'Proxy for pool mirror [{proxyname}] is shutting down. Skipping.'
-                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
-
-            except s_exc.IsFini:
-                mesg = f'Proxy for pool mirror [{proxyname}] was shutdown. Skipping.'
-                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
-
-            except TimeoutError:
-                mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset.'
-                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
-
-        logger.warning('Pool members exhausted. Running query locally.', extra=self.getLogExtra())
-        return None
-
     async def storm(self, text, opts=None):
 
         opts = self._initStormOpts(opts)
-
-        if self.stormpool is not None and opts.get('mirror', True):
-            proxy = await self._getMirrorProxy(opts)
-
-            if proxy is not None:
-                proxname = proxy._ahainfo.get('name')
-                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
-                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
-
-                mirropts = await self._getMirrorOpts(opts)
-
-                mirropts.setdefault('_loginfo', {})
-                mirropts['_loginfo']['pool:from'] = self.ahasvcname
-
-                try:
-                    async for mesg in proxy.storm(text, opts=mirropts):
-                        yield mesg
-                    return
-
-                except s_exc.TimeOut:
-                    mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
@@ -5477,25 +5499,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         opts = self._initStormOpts(opts)
 
-        if self.stormpool is not None and opts.get('mirror', True):
-            proxy = await self._getMirrorProxy(opts)
-
-            if proxy is not None:
-                proxname = proxy._ahainfo.get('name')
-                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
-                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
-
-                mirropts = await self._getMirrorOpts(opts)
-
-                mirropts.setdefault('_loginfo', {})
-                mirropts['_loginfo']['pool:from'] = self.ahasvcname
-
-                try:
-                    return await proxy.callStorm(text, opts=mirropts)
-                except s_exc.TimeOut:
-                    mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg, extra=extra)
-
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
                 raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in callStorm().')
@@ -5506,28 +5509,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def exportStorm(self, text, opts=None):
 
         opts = self._initStormOpts(opts)
-
-        if self.stormpool is not None and opts.get('mirror', True):
-            proxy = await self._getMirrorProxy(opts)
-
-            if proxy is not None:
-                proxname = proxy._ahainfo.get('name')
-                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
-                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
-
-                mirropts = await self._getMirrorOpts(opts)
-
-                mirropts.setdefault('_loginfo', {})
-                mirropts['_loginfo']['pool:from'] = self.ahasvcname
-
-                try:
-                    async for mesg in proxy.exportStorm(text, opts=mirropts):
-                        yield mesg
-                    return
-
-                except s_exc.TimeOut:
-                    mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
@@ -5598,13 +5579,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         yield pode1
 
     async def exportStormToAxon(self, text, opts=None):
-        async with await self.axon.upload() as fd:
+        axon = await self.getAxon()
+        async with await axon.upload() as fd:
             async for pode in self.exportStorm(text, opts=opts):
                 await fd.write(s_msgpack.en(pode))
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
 
-    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0b2,<4.0.0'):
+    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0b3,<4.0.0'):
         '''
         Validate an export storm meta dict for schema, version, and synapse version compatibility.
 
@@ -5645,6 +5627,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         async with await s_base.Base.anit() as base:
 
+            axon = await self.getAxon()
+
             async def fill():
                 nonlocal feedexc
                 try:
@@ -5652,7 +5636,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     # We avoid using anext() because telepath client objects return GenrIter
                     # objects which don't implement __anext__, causing AttributeError
                     first = True
-                    async for item in self.axon.iterMpkFile(sha256):
+                    async for item in axon.iterMpkFile(sha256):
                         if first:
                             self.reqValidExportStormMeta(item)
                             first = False
@@ -6017,7 +6001,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('cron:add', cdef)
 
-    @s_nexus.Pusher.onPush('cron:add')
+    @s_nexus.Pusher.onPush('cron:add', reader=False)
     async def _onAddCronJob(self, cdef):
 
         iden = cdef['iden']
@@ -6038,7 +6022,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.feedBeholder('cron:add', cdef, gates=[iden])
         return cdef
 
-    @s_nexus.Pusher.onPushAuto('cron:del')
+    @s_nexus.Pusher.onPushAuto('cron:del', reader=False)
     async def delCronJob(self, iden):
         '''
         Delete a cron job
@@ -6072,14 +6056,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             elif name == 'storm':
                 await self.getStormQuery(valu)
 
-            elif name == 'pool':
-                if valu and edits.get('affinity'):
-                    raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
-
-            elif name == 'affinity':
-                if valu and edits.get('pool'):
-                    raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
-
             elif name == 'reqs':
                 if isinstance(valu, Mapping):
                     reqs = self._convert_reqdict(valu)
@@ -6096,7 +6072,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         nreqs.append(nr)
                     reqs = nreqs
 
-            elif name not in ('name', 'enabled', 'pool', 'affinity', 'doc', 'loglevel', 'incvals', 'incunit'):
+            elif name not in ('name', 'enabled', 'affinity', 'doc', 'loglevel', 'incvals', 'incunit'):
                 raise s_exc.BadOptValu(mesg='Cron Job does not support setting specified property.', prop=name)
 
             if cdef.get(name) == valu:
@@ -6112,7 +6088,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return cdef
 
-    @s_nexus.Pusher.onPush('cron:edit')
+    @s_nexus.Pusher.onPush('cron:edit', reader=False)
     async def _editCronJob(self, iden, edits):
         '''
         Edit properties on an existing cron job.
@@ -6131,7 +6107,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return False
         return await self._push('cron:task:kill', iden)
 
-    @s_nexus.Pusher.onPush('cron:task:kill')
+    @s_nexus.Pusher.onPush('cron:task:kill', reader=False)
     async def _killCronTask(self, iden):
 
         appt = self.agenda.appts.get(iden)
@@ -6167,7 +6143,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return crons
 
-    @s_nexus.Pusher.onPushAuto('cron:edits')
+    @s_nexus.Pusher.onPushAuto('cron:edits', reader=False)
     async def addCronEdits(self, iden, edits):
         '''
         Take a dictionary of edits and apply them to the appointment (cron job)
@@ -6279,6 +6255,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # scoped vaults without requiring a bunch of other indexes.
         self.vaultsbyTSIdb = self.slab.initdb('vaults:byTSI')
         # { TSI.encode(): idenb, ... }
+
+        # Versioned vault type definitions (schemas + migration), persisted and
+        # read on demand. self._vaultvalids caches the compiled schema validators.
+        self.vaulttypesdb = self.slab.initdb('vaults:types')
+        self._vaultvalids = {}
 
     def _getVaults(self):
         '''
@@ -6472,6 +6453,234 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return vault
 
+    def _vaultTypeKey(self, vtype, version):
+        return f'{vtype}\x00{version:016x}'.encode()
+
+    def getVaultType(self, vtype, version=None):
+        '''
+        Get a registered vault type definition. Returns the latest version when
+        version is None, otherwise the definition for that specific version.
+        '''
+        if version is not None:
+            byts = self.slab.get(self._vaultTypeKey(vtype, version), db=self.vaulttypesdb)
+            return s_msgpack.un(byts) if byts is not None else None
+
+        for lkey, byts in self.slab.scanByPrefBack(f'{vtype}\x00'.encode(), db=self.vaulttypesdb):
+            return s_msgpack.un(byts)
+
+        return None
+
+    def getVaultTypeVersions(self, vtype):
+        '''
+        Return every registered definition for a vault type, oldest version
+        first. listVaultTypes only exposes the latest version of each type.
+        '''
+        return [s_msgpack.un(byts) for lkey, byts in
+                self.slab.scanByPref(f'{vtype}\x00'.encode(), db=self.vaulttypesdb)]
+
+    def listVaultTypes(self):
+        latest = {}
+        for lkey, byts in self.slab.scanByFull(db=self.vaulttypesdb):
+            vtdef = s_msgpack.un(byts)
+            cur = latest.get(vtdef['name'])
+            if cur is None or vtdef['version'] > cur['version']:
+                latest[vtdef['name']] = vtdef
+        return list(latest.values())
+
+    def _reqValidVaultTypeDef(self, vtdef):
+        # validate the vtdef shape, then validate the data schema is a well-formed
+        # draft-07 JSON Schema. validateSchemaDef also rejects miscased/truncated
+        # keywords (e.g. minLen, minlength) that fastjsonschema would otherwise
+        # silently ignore, and is called explicitly so the check runs in
+        # production builds too (getJsValidator only runs it under __debug__).
+        vtdef = s_schemas.reqValidVaultType(vtdef)
+        sch = vtdef.get('schema')
+        if sch is not None:
+            try:
+                s_config.validateSchemaDef(sch)
+            except Exception as e:
+                raise s_exc.BadArg(mesg=f'Invalid schema for vault type {vtdef["name"]}: {e}') from None
+
+        return vtdef
+
+    def _reqAddableVaultType(self, vtdef):
+        # decide whether a (validated) vault type version should be applied.
+        # Returns True to add it, False when it is an idempotent re-registration
+        # (byte-identical to what is already stored). Raises when it conflicts:
+        # re-registering an existing version with a different definition, or
+        # registering a version below the latest. Shared by the generic add and
+        # the package-add path so both agree.
+        vtype = vtdef['name']
+        newvers = vtdef['version']
+
+        existing = self.getVaultType(vtype, version=newvers)
+        if existing is not None:
+            # tuplify the candidate before comparing: a stored def comes back
+            # from msgpack with arrays as tuples, while a fresh one has lists, so
+            # tuplify puts both in the same form. dict == then ignores key order,
+            # so a def that only reordered keys (e.g. via a yaml round-trip)
+            # still counts as the same registration
+            if existing == s_common.tuplify(vtdef):
+                return False
+            mesg = f'Vault type {vtype} version {newvers} is already registered with a different definition.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        cur = self.getVaultType(vtype)
+        if cur is not None and newvers < cur['version']:
+            mesg = f'Vault type {vtype} already exists at version {cur["version"]}; version must increment (got {newvers}).'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return True
+
+    async def addVaultType(self, vtdef):
+        '''
+        Register a new version of a vault type and its data JSON schema. Versions
+        are append-only and must strictly increment; existing vaults are brought
+        up to the new version by the migration runner. Persisted via nexus.
+
+        Re-registering an existing version with a byte-identical definition is an
+        idempotent no-op; re-registering it with a different definition, or
+        registering a version below the latest, raises.
+        '''
+        vtdef = self._reqValidVaultTypeDef(vtdef)
+
+        if not self._reqAddableVaultType(vtdef):
+            return vtdef['name']
+
+        return await self._push('vault:type:add', vtdef)
+
+    @s_nexus.Pusher.onPush('vault:type:add', reader=False)
+    async def _addVaultType(self, vtdef):
+        # apply a (pre-validated) vault type version: persist it, drop the cached
+        # validator, and (leader-only) kick the background migration. Called via
+        # nexus for the generic API, and directly from _addStormPkg (already in
+        # the pkg:add apply context) for package-declared types.
+        vtype = vtdef['name']
+        version = vtdef['version']
+
+        await self.slab.put(self._vaultTypeKey(vtype, version), s_msgpack.en(vtdef), db=self.vaulttypesdb)
+        self._vaultvalids.pop((vtype, version), None)
+
+        if self.isactive:
+            self.runActiveTask(self._migrateVaultType(vtype))
+
+        return vtype
+
+    async def delVaultType(self, vtype):
+        # deletes every version of the type; deleting a single historical
+        # version would orphan any vault still stamped at it
+        if self.getVaultType(vtype) is None:
+            raise s_exc.NoSuchName(mesg=f'No registered vault type named {vtype}.', name=vtype)
+
+        # refuse while instances exist so a non-None type:version always resolves
+        # to a registered type. The byTSI index cannot answer this (it omits
+        # unscoped vaults and its keys collide when type names contain ':'), so
+        # scan; delVaultType is a rare admin operation.
+        for vault in self._getVaults():
+            if vault.get('type') == vtype:
+                mesg = f'Vault type {vtype} still has instances; delete them before removing the type.'
+                raise s_exc.CantDelType(mesg=mesg)
+
+        return await self._push('vault:type:del', vtype)
+
+    @s_nexus.Pusher.onPush('vault:type:del', reader=False)
+    async def _delVaultType(self, vtype):
+        for lkey, byts in self.slab.scanByPref(f'{vtype}\x00'.encode(), db=self.vaulttypesdb):
+            self.slab.delete(lkey, db=self.vaulttypesdb)
+
+        for key in [k for k in self._vaultvalids if k[0] == vtype]:
+            self._vaultvalids.pop(key, None)
+
+    def _reqValidVault(self, vault):
+        '''
+        Validate (and default-fill) a whole vault definition against the base
+        vault schema, then against the schema registered for its type at its
+        type:version (if any). An untyped vault, or a type with no schema, only
+        gets the base validation.
+        '''
+        vault = s_schemas.reqValidVault(vault)
+
+        version = vault.get('type:version')
+        if version is None:
+            return vault
+
+        vtype = vault['type']
+        valid = self._vaultvalids.get((vtype, version))
+        if valid is None:
+            vtdef = self.getVaultType(vtype, version=version)
+            if vtdef is None:
+                return vault
+
+            sch = vtdef.get('schema')
+            if sch is None:
+                return vault
+
+            valid = s_config.getJsValidator(sch)
+            self._vaultvalids[(vtype, version)] = valid
+
+        try:
+            return valid(vault)
+        except s_exc.SchemaViolation as e:
+            mesg = f'Invalid data for vault type {vtype}: {e.get("mesg")}'
+            raise s_exc.SchemaViolation(mesg=mesg, type=vtype) from None
+
+    async def _migrateVaultType(self, vtype):
+        '''
+        Bring every vault of vtype that is behind up to the type's latest
+        version. The type's migration callback (if any) must itself call
+        $lib.vault.update; otherwise the Cortex commits a re-validated
+        (default-filled) vault. The runner is not single-flight, so a callback
+        may run more than once for the same vault (e.g. registration and
+        activation racing) and must be convergent (idempotent); the monotonic
+        guard in _updateVault keeps concurrent applies forward-only. Idens are
+        gathered up front (a bounded scan) so only one vault is held in memory
+        during migration.
+        '''
+        latest = self.getVaultType(vtype)
+        if latest is None:
+            return
+
+        tovers = latest['version']
+        migration = latest.get('migration')
+
+        # a vault with no type:version was created before the type was
+        # versioned; it is brought into the versioned regime too
+        idens = []
+        for vault in self._getVaults():
+            if vault.get('type') != vtype:
+                continue
+            version = vault.get('type:version')
+            if version is None or version < tovers:
+                idens.append(vault['iden'])
+
+        for iden in idens:
+
+            vault = self.getVault(iden)
+            # defensive: the vault was deleted between the up-front scan and
+            # processing (a concurrent migration or a user delete)
+            if vault is None:
+                continue  # pragma: no cover
+
+            version = vault.get('type:version')
+            # defensive: the vault was advanced past tovers between the scan and
+            # processing (a concurrent migration re-fire for the same type)
+            if version is not None and version >= tovers:
+                continue  # pragma: no cover
+
+            vault['type:version'] = tovers
+
+            try:
+                if migration is None:
+                    await self.updateVault(vault)
+                else:
+                    await self.callStorm(migration, opts={'vars': {'vault': vault}})
+            except Exception as exc:
+                logger.warning(f'vault migration failed for {iden} (type {vtype})', exc_info=exc)
+
+            await asyncio.sleep(0)
+
+        await self.fire('core:vaults:migrated', type=vtype)
+
     async def addVault(self, vdef):
         '''
         Create a new vault.
@@ -6487,8 +6696,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             synapse.exc.BadArg:
                 - Invalid vault definition provided.
                 - Owner required for unscoped, user, and role vaults.
-                - Vault secrets is not msgpack safe.
-                - Vault configs is not msgpack safe.
+                - Vault definition is not msgpack safe.
 
         Returns: iden of new vault
         '''
@@ -6503,7 +6711,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self._initEasyPerm(vdef, default=s_cell.PERM_DENY)
 
-        vault = s_schemas.reqValidVault(vdef)
+        # stamp the vault at its type's latest version so the single validation
+        # pass covers both the base schema and the type schema. An untyped vault
+        # carries no type:version at all.
+        vtype = vdef.get('type')
+        latest = self.getVaultType(vtype) if isinstance(vtype, str) else None
+        if latest is not None:
+            vdef['type:version'] = latest['version']
+        else:
+            vdef.pop('type:version', None)
+
+        vault = self._reqValidVault(vdef)
 
         scope = vault.get('scope')
         vtype = vault.get('type')
@@ -6525,18 +6743,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mesg = f'A {scope} config already exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
 
-        secrets = vault.get('secrets')
-        configs = vault.get('configs')
-
         try:
-            s_msgpack.en(secrets)
-        except s_exc.NotMsgpackSafe as exc:
-            raise s_exc.BadArg(mesg='Vault secrets must be msgpack safe.') from None
-
-        try:
-            s_msgpack.en(configs)
-        except s_exc.NotMsgpackSafe as exc:
-            raise s_exc.BadArg(mesg='Vault configs must be msgpack safe.') from None
+            s_msgpack.en(vault)
+        except s_exc.NotMsgpackSafe:
+            raise s_exc.BadArg(mesg='Vault definition must be msgpack safe.') from None
 
         if scope == 'global':
             # everyone gets read access
@@ -6566,7 +6776,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('vault:add', vault)
 
-    @s_nexus.Pusher.onPush('vault:add')
+    @s_nexus.Pusher.onPush('vault:add', reader=False)
     async def _addVault(self, vault):
         iden = vault.get('iden')
         name = vault.get('name')
@@ -6625,6 +6835,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             except s_exc.NotMsgpackSafe as exc:
                 raise s_exc.NotMsgpackSafe(mesg='Vault secrets must be msgpack safe.') from None
 
+        newdata = dict(secrets)
+        if delete:
+            newdata.pop(key, None)
+        else:
+            newdata[key] = valu
+
+        probe = dict(vault)
+        probe['secrets'] = newdata
+        self._reqValidVault(probe)
+
         return await self._push('vault:data:set', iden, 'secrets', key, valu, delete)
 
     async def setVaultConfigs(self, iden, key, valu):
@@ -6663,9 +6883,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             except s_exc.NotMsgpackSafe as exc:
                 raise s_exc.NotMsgpackSafe(mesg='Vault configs must be msgpack safe.') from None
 
+        newdata = dict(configs)
+        if delete:
+            newdata.pop(key, None)
+        else:
+            newdata[key] = valu
+
+        probe = dict(vault)
+        probe['configs'] = newdata
+        self._reqValidVault(probe)
+
         return await self._push('vault:data:set', iden, 'configs', key, valu, delete)
 
-    @s_nexus.Pusher.onPush('vault:data:set')
+    @s_nexus.Pusher.onPush('vault:data:set', reader=False)
     async def _setVaultData(self, iden, obj, key, valu, delete):
         vault = self.reqVault(iden)
         data = vault.get(obj)
@@ -6711,6 +6941,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 name='valu',
                 valu=short) from None
 
+        probe = dict(vault)
+        probe['configs'] = valu
+        probe = self._reqValidVault(probe)
+        valu = probe['configs']
+
         return await self._push('vault:data:replace', iden, 'configs', valu)
 
     async def replaceVaultSecrets(self, iden, valu):
@@ -6743,9 +6978,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 name='valu',
                 valu=short) from None
 
+        probe = dict(vault)
+        probe['secrets'] = valu
+        probe = self._reqValidVault(probe)
+        valu = probe['secrets']
+
         return await self._push('vault:data:replace', iden, 'secrets', valu)
 
-    @s_nexus.Pusher.onPush('vault:data:replace')
+    @s_nexus.Pusher.onPush('vault:data:replace', reader=False)
     async def _replaceVaultData(self, iden, obj, valu):
         vault = self.reqVault(iden)
         bidn = s_common.uhex(iden)
@@ -6814,7 +7054,78 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push(('vault:set'), iden, 'name', name)
 
-    @s_nexus.Pusher.onPush('vault:set')
+    async def updateVault(self, vdef):
+        '''
+        Atomically replace a vault with the given vdef (configs, secrets, name,
+        permissions, type:version). Configs/secrets are validated against the
+        schema for vdef['type:version']. The vault type, scope, and owner are immutable.
+
+        Returns: the updated vault.
+        '''
+        vdef = self._reqValidVault(vdef)
+
+        iden = vdef['iden']
+        cur = self.reqVault(iden)
+
+        for field in ('type', 'scope', 'owner'):
+            if vdef.get(field) != cur.get(field):
+                raise s_exc.BadArg(mesg=f'Cannot change vault {field} on update.')
+
+        vtype = cur['type']
+        version = vdef.get('type:version')
+        curvers = cur.get('type:version')
+
+        # The type:version field is the type version the data conforms to (absent
+        # when untyped). A typed vault may only move forward to a registered
+        # version; it can be neither downgraded nor un-typed (version removed).
+        if curvers is not None and (version is None or version < curvers):
+            raise s_exc.BadArg(mesg=f'Cannot downgrade or un-type vault {iden}: version {curvers} to {version}.')
+
+        if version is not None and self.getVaultType(vtype) is not None and self.getVaultType(vtype, version=version) is None:
+            raise s_exc.BadArg(mesg=f'Vault type {vtype} has no registered version {version}.')
+
+        try:
+            s_msgpack.en(vdef)
+        except s_exc.NotMsgpackSafe:
+            raise s_exc.BadArg(mesg='Vault definition must be msgpack safe.') from None
+
+        name = vdef['name']
+        if name != cur['name']:
+            other = self.getVaultByName(name)
+            if other is not None and other['iden'] != iden:
+                raise s_exc.DupName(mesg=f'Vault with name {name} already exists.', name=name)
+
+        return await self._push('vault:update', vdef)
+
+    @s_nexus.Pusher.onPush('vault:update', reader=False)
+    async def _updateVault(self, vdef):
+        iden = vdef['iden']
+        bidn = s_common.uhex(iden)
+
+        cur = self._getVaultByBidn(bidn)
+        if cur is None:
+            return None
+
+        # runs under the nexus lock: re-check version monotonicity here so a
+        # write built from a now-stale read (e.g. a config update racing a
+        # migration bump) cannot downgrade or un-type the stored vault. The
+        # pre-push guard in updateVault() cannot see concurrent applies, and
+        # this keeps leader and mirror replay deterministically forward-only.
+        curvers = cur.get('type:version')
+        newvers = vdef.get('type:version')
+        if curvers is not None and (newvers is None or newvers < curvers):
+            return None
+
+        oldname = cur['name']
+        newname = vdef['name']
+        if newname != oldname:
+            self.slab.delete(oldname.encode(), db=self.vaultsbynamedb)
+            await self.slab.put(newname.encode(), bidn, db=self.vaultsbynamedb)
+
+        await self.slab.put(bidn, s_msgpack.en(vdef), db=self.vaultsdb)
+        return vdef
+
+    @s_nexus.Pusher.onPush('vault:set', reader=False)
     async def _setVault(self, iden, key, valu):
         if key not in ('name', 'permissions'):  # pragma: no cover
             raise s_exc.BadArg(mesg='Only vault names and permissions can be changed.')
@@ -6834,7 +7145,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return vault
 
-    @s_nexus.Pusher.onPushAuto('vault:del')
+    @s_nexus.Pusher.onPushAuto('vault:del', reader=False)
     async def delVault(self, iden):
         '''
         Delete a vault.
@@ -6866,6 +7177,86 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.slab.delete(name.encode(), db=self.vaultsbynamedb)
         self.slab.delete(bidn, db=self.vaultsdb)
+
+class HasCore:
+    '''
+    Mixin for a Cell which uses a Cortex. When the Cell is an AHA client the
+    Cortex is resolved by service type ( aha://cortex... ); otherwise an
+    embedded Cortex is created under the cell directory and reached via its
+    local url. Either way a telepath client is created and getCore() returns a
+    live proxy, so embedded and remote deployments exercise the same path. Use
+    getCore() / getCoreInfo() rather than the underlying objects.
+    '''
+    # constructor for the embedded Cortex. subclasses may override to boot an
+    # alternative embedded implementation.
+    _has_core_ctor = Cortex.anit
+
+    async def initServiceStorage(self):
+
+        self._has_core = None
+        self._has_coreinfo = {}
+
+        # NEVER reach for self._has_core* directly. getCore() returns a proxy to
+        # the cortex ( embedded or remote ) via the telepath client.
+        if self.ahaclient is None:
+            path = os.path.join(self.dirn, 'cortex')
+            # the embedded cortex does not run its own host sysctl checks
+            conf = {'health:sysctl:checks': False}
+
+            proxyurl = self.conf.get('http:proxy')
+            if proxyurl is not None:
+                conf['http:proxy'] = proxyurl
+
+            cadir = self.conf.get('tls:ca:dir')
+            if cadir is not None:
+                conf['tls:ca:dir'] = cadir
+
+            self._has_core = await self._has_core_ctor(path, conf=conf)
+            self.onfini(self._has_core.fini)
+            self.dynitems['cortex'] = self._has_core
+
+            await self._initEmbeddedCore(self._has_core)
+
+            curl = self._has_core.getLocalUrl()
+
+        else:
+            curl = 'aha://cortex...'
+
+        self._has_core_client = await s_telepath.ClientV2.anit(curl, onlink=self._onLinkCore)
+        self.onfini(self._has_core_client)
+
+        # set up our cortex before delegating so the rest of the storage init
+        # chain ( or an updated pattern ) can rely on getCore(). return the
+        # parent result in case the callback ever produces one.
+        return await super().initServiceStorage()
+
+    async def _initEmbeddedCore(self, core):
+        # hook invoked with the freshly created embedded Cortex. subclasses may
+        # override to run inaugural setup ( e.g. add themselves as a storm svc ).
+        pass
+
+    async def _onLinkCore(self, proxy, urlinfo):
+        # default onlink handler for the cortex client; refreshes the cached cell
+        # info on every (re)connect. subclasses may override this to react to
+        # (re)connects ( e.g. start a beholder or index loop ) and should call
+        # super()._onLinkCore(...) to keep the cached info fresh.
+        logger.debug('Connected to cortex')
+        self._has_coreinfo = await proxy.getCellInfo()
+
+    async def getCore(self, timeout=None):
+        # returns a live proxy to the cortex ( embedded or remote ) so callers
+        # get a uniform, prod-equivalent method-call interface.
+        return await self._has_core_client.proxy(timeout=timeout)
+
+    async def getCoreInfo(self):
+        # lazily resolve and cache the cortex cell info. the remote onlink handler
+        # refreshes it on (re)connect; if it is not populated yet we await a
+        # proxy to fetch it here.
+        if not self._has_coreinfo:
+            core = await self.getCore()
+            self._has_coreinfo = await core.getCellInfo()
+
+        return self._has_coreinfo
 
 @contextlib.asynccontextmanager
 async def getTempCortex():

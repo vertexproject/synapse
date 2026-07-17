@@ -11,6 +11,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.json as s_json
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
@@ -139,33 +140,27 @@ def loadPkgProto(path, no_docs=False, readonly=False):
 
     for mod in pkgdef.get('modules', ()):
 
-        name = f'{mod.get("name")}.storm'
+        # A module loads its storm from a python package asset (package + path),
+        # a file (path), or by convention from storm/modules/<name>.storm.
+        modpkg = mod.pop('package', None)
+        modpth = mod.pop('path', None)
 
-        mod_path = s_common.genpath(protodir, 'storm', 'modules', name)
-        if readonly:
-            mod['storm'] = getStormStr(mod_path)
+        if modpkg is not None:
+            mod['storm'] = s_dyndeps.reqDynMod(modpkg).getAssetStr(modpth)
+
+        elif modpth is not None:
+            if not os.path.isabs(modpth):
+                modpth = os.path.join(protodir, modpth)
+            mod['storm'] = getStormStr(modpth)
+
         else:
-            with s_common.genfile(mod_path) as fd:
-                mod['storm'] = fd.read().decode()
-
-    for extmod in pkgdef.get('external_modules', ()):
-        fpth = extmod.get('file_path')
-        if fpth is not None:
-            if not os.path.isabs(fpth):
-                fpth = os.path.join(protodir, fpth)
-            extmod['storm'] = getStormStr(fpth)
-        else:
-            path = extmod.get('package_path')
-            extpkg = s_dyndeps.reqDynMod(extmod.get('package'))
-            extmod['storm'] = extpkg.getAssetStr(path)
-
-        extname = extmod.get('name')
-        extmod['name'] = f'{pkgname}.{extname}'
-
-        pkgdef.setdefault('modules', [])
-        pkgdef['modules'].append(extmod)
-
-    pkgdef.pop('external_modules', None)
+            name = f'{mod.get("name")}.storm'
+            mod_path = s_common.genpath(protodir, 'storm', 'modules', name)
+            if readonly:
+                mod['storm'] = getStormStr(mod_path)
+            else:
+                with s_common.genfile(mod_path) as fd:
+                    mod['storm'] = fd.read().decode()
 
     for cmd in pkgdef.get('commands', ()):
 
@@ -199,6 +194,14 @@ def loadPkgProto(path, no_docs=False, readonly=False):
         loadOpticWorkflows(pkgdef, wflowdir)
 
     s_schemas.reqValidPkgdef(pkgdef)
+
+    # the pkgdef schema treats each vault type schema as an opaque object; check
+    # it is a well-formed JSON Schema here (the Cortex does the same at type
+    # registration) so a bad schema fails at build time rather than install time
+    for vdef in (pkgdef.get('vaults') or {}).values():
+        sch = vdef.get('schema')
+        if sch is not None:
+            s_config.validateSchemaDef(sch)
 
     # Ensure the package is json safe and tuplify it.
     s_json.reqjsonsafe(pkgdef)

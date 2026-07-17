@@ -323,8 +323,7 @@ class StormLibStixTest(s_test.SynTest):
             $bundle.add($node)
             fini { return($bundle) }''')
             self.reqValidStix(bund)
-            import synapse.lib.json as s_json
-            s_json.jssave(bund, 'risk0.json')
+            s_json.reqjsonsafe(bund)
             self.bundeq(self.getTestBundle('risk0.json'), bund)
 
     async def test_stix_import(self):

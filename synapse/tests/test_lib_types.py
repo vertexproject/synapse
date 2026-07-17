@@ -698,6 +698,21 @@ class TypesTest(s_t_utils.SynTest):
             self.len(0, [m for m in msgs if m[0] == 'node'])
             self.stormIsInErr('Bad value for prop ou:org:phone: requires a digit string', msgs)
 
+            # A bare string against an array-typed $props value (with no split=
+            # option) raises a clear, plain-language error rather than the raw
+            # "type has no split-char defined."
+            msgs = await core.stormlist('[ou:org=({"name": "acme corp", "$props": {"industries": "not-a-list"}})]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInErr(
+                'Bad value for prop ou:org:industries: Array values must be provided as a '
+                'list of values, not a single string.', msgs)
+
+            # ...and $try still silently skips it, unaffected by the message change.
+            nodes = await core.nodes(
+                '[ou:org=({"name": "acme corp2", "$try": true, "$props": {"industries": "not-a-list"}})]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('industries'))
+
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({"$try": true}) ]')
 
@@ -3415,6 +3430,115 @@ class TypesTest(s_t_utils.SynTest):
 
             await core.nodes('test:int=3 [ :_vers-=v1.2.3 ]')
             self.len(1, await core.nodes('test:int:_vers*[.semver=1.2.3]'))
+
+    async def test_types_array_cmprs(self):
+        '''
+        Systematic matrix of every comparator (=, !=, ~=, ^=, *in=, *range=, ?=)
+        against an array property, in both lift (prop<cmpr>valu) and filter
+        (+prop<cmpr>valu) form, for both a split-less array (ips) and a
+        split-configured array (fqdns). Each cell asserts either a clean,
+        typed exception (never a bare Python exception) or a correct match.
+        '''
+
+        mdef = {
+            'types': (
+                ('test:witharray', ('guid', {}), {
+                    'props': (
+                        ('ips', ('inet:ip', {}), {'array': {}}),
+                        ('fqdns', ('inet:fqdn', {}), {'array': {'uniq': True, 'sorted': True, 'split': ','}}),
+                    ),
+                }),
+            ),
+        }
+
+        async with self.getTestCore() as core:
+
+            core.model.addModelDefs([mdef])
+
+            await core.nodes('[ test:witharray=* :ips=(1.2.3.4, 5.6.7.8) :fqdns=(vertex.link, woot.com) ]')
+
+            # --- split-less array (:ips) -----------------------------------
+
+            # '=' lift: bare scalar is a clean, actionable BadCmprType; an
+            # exact list is a correct whole-array match.
+            with self.raises(s_exc.BadCmprType) as exc:
+                await core.nodes('test:witharray:ips=1.2.3.4')
+            self.isin('use array element syntax', exc.exception.get('mesg'))
+            self.isin('or provide the complete list', exc.exception.get('mesg'))
+            self.len(1, await core.nodes('test:witharray:ips=(1.2.3.4, 5.6.7.8)'))
+
+            # '=' filter: bare scalar is a clean BadTypeValu (via the array
+            # norm path, not the lift path); an exact list matches correctly.
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:witharray +:ips=1.2.3.4')
+            self.len(1, await core.nodes('test:witharray +:ips=(1.2.3.4, 5.6.7.8)'))
+            self.len(0, await core.nodes('test:witharray +:ips!=(1.2.3.4, 5.6.7.8)'))
+
+            # '~=' / '^=' lift: clean BadCmprType, no "provide a list" hint
+            # (a list value doesn't resolve these -- regex needs a string
+            # pattern, and Array never registers a '^=' storlift at all).
+            for q in ('test:witharray:ips~=1.2.3.4', 'test:witharray:ips^=1.2.3'):
+                with self.raises(s_exc.BadCmprType) as exc:
+                    await core.nodes(q)
+                self.isin('use array element syntax', exc.exception.get('mesg'))
+                self.notin('provide the complete list', exc.exception.get('mesg'))
+
+            # '~=' / '^=' filter: clean BadCmprType pointing at array element
+            # filter syntax (previously leaked a raw TypeError / AttributeError
+            # from Array.repr() returning a list).
+            for q in ('test:witharray +:ips~=1.2.3.4', 'test:witharray +:ips^=1.2.3'):
+                with self.raises(s_exc.BadCmprType) as exc:
+                    await core.nodes(q)
+                self.isin('array element filter syntax', exc.exception.get('mesg'))
+
+            # the correct array element filter syntax works, matching per-element.
+            self.len(1, await core.nodes('test:witharray +:ips*[~=1.2.3.4]'))
+            self.len(1, await core.nodes('test:witharray +:ips*[^=1.2.3]'))
+            self.len(0, await core.nodes('test:witharray +:ips*[~=9.9.9.9]'))
+            self.len(0, await core.nodes('test:witharray +:ips*[^=9.9.9]'))
+
+            # '*in=' lift: bare-scalar candidates recurse into the '=' guard
+            # per-candidate; list-of-lists candidates match correctly.
+            with self.raises(s_exc.BadCmprType):
+                await core.nodes('test:witharray:ips*in=(1.2.3.4, 9.9.9.9)')
+            self.len(1, await core.nodes('test:witharray:ips*in=((1.2.3.4, 5.6.7.8), (9.9.9.9,))'))
+
+            # '*in=' filter: same split as lift.
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:witharray +:ips*in=(1.2.3.4, 9.9.9.9)')
+            self.len(1, await core.nodes('test:witharray +:ips*in=((1.2.3.4, 5.6.7.8), (9.9.9.9,))'))
+
+            # '*range=' lift and filter: array values have no meaningful order,
+            # so range comparisons are simply unsupported (clean NoSuchCmpr),
+            # regardless of value shape. The storage layer's range lifter
+            # assumes scalar-orderable bounds and leaked a raw TypeError on
+            # array-shaped bounds before this was disabled at the type level.
+            for q in ('test:witharray:ips*range=(1.2.3.4, 9.9.9.9)',
+                      'test:witharray:ips*range=((1.2.3.4, 5.6.7.8), (9.9.9.9,))',
+                      'test:witharray +:ips*range=(1.2.3.4, 9.9.9.9)',
+                      'test:witharray +:ips*range=((1.2.3.4, 5.6.7.8), (9.9.9.9,))'):
+                with self.raises(s_exc.NoSuchCmpr):
+                    await core.nodes(q)
+
+            # the :size virt is a plain int and is unaffected by disabling
+            # whole-array range=.
+            self.len(1, await core.nodes('test:witharray:ips.size*range=(1,3)'))
+            self.len(1, await core.nodes('test:witharray +:ips.size*range=(1,3)'))
+
+            # '?=' lift retains its safe/quiet contract: no match, not an error.
+            self.len(0, await core.nodes('test:witharray:ips?=1.2.3.4'))
+
+            # the correct array element syntax always works.
+            self.len(1, await core.nodes('test:witharray:ips*[=1.2.3.4]'))
+
+            # --- split-configured array (:fqdns) ----------------------------
+            # A configured split= means the array *does* have a meaningful
+            # whole-array string repr, so the inherited (joined-string) '~='/
+            # '^=' behavior applies unchanged -- confirming our new Array
+            # overrides don't alter this already-working case.
+            self.len(1, await core.nodes('test:witharray +:fqdns~=vertex'))
+            self.len(1, await core.nodes('test:witharray +:fqdns^=vertex.link'))
+            self.len(0, await core.nodes('test:witharray +:fqdns~=newp'))
 
     async def test_types_typehash(self):
         async with self.getTestCore() as core:

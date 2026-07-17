@@ -13,20 +13,56 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
-def getIvalStorVirts(ival, virts, defprec):
-    retn = {
-        'min': ival[0],
-        'max': ival[1],
-        'duration': ival[2]
-    }
+def getIvalStorVirts(ival, virts, proptype):
+    names = proptype.opts.get('names') or {}
+    parts = [
+        'min',
+        'max',
+        'duration',
+    ]
+
+    retn = {}
+    for idx, canon in enumerate(parts):
+        name = names.get(canon, canon)
+        retn[name] = ival[idx]
+
+    name = names.get('precision', 'precision')
     if virts and (prec := virts.get('precision')):
-        retn['precision'] = prec[0]
+        retn[name] = prec[0]
     else:
-        retn['precision'] = defprec
+        retn[name] = proptype.prec
 
     return retn
 
+def getPriceRangeStorVirts(chng, virts, proptype):
+    names = proptype.opts.get('names') or {}
+    if 'econ:pricerange' in proptype.types:
+        parts = ['min', 'max', 'delta']
+    else:
+        parts = ['start', 'end', 'delta']
+    retn = {}
+    for idx, canon in enumerate(parts):
+        name = names.get(canon, canon)
+        retn[name] = chng[idx]
+
+    if len(chng) > 3:
+        name = names.get('rate', 'rate')
+        retn[name] = chng[3]
+
+    name = names.get('currency', 'currency')
+    if virts and (curr := virts.get('currency')):
+        retn[name] = curr[0]
+
+    return retn
+
+storvirts = {
+    s_layer.STOR_TYPE_IVAL: getIvalStorVirts,
+    s_layer.STOR_TYPE_PRICERANGE: getPriceRangeStorVirts
+}
+
 class NodeBase:
+
+    __slots__ = ()
 
     def repr(self, name=None, defv=None):
 
@@ -208,18 +244,34 @@ class Node(NodeBase):
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
+    __slots__ = ('view', 'nid', '_ndef', 'soderefs', 'sodes', 'form', '__weakref__')
+
     def __init__(self, view, nid, ndef, soderefs):
         self.view = view
 
         self.nid = nid
-        self.ndef = ndef
+        self._ndef = ndef
 
         # must hang on to these to keep the weakrefs alive
         self.soderefs = soderefs
 
         self.sodes = [sref.sode for sref in soderefs]
 
-        self.form = view.core.model.form(self.ndef[0])
+        self.form = view.core.model.form(ndef[0])
+
+    @property
+    def ndef(self):
+        # Resolve the ndef from the sodes (like props) so it can never go stale.
+        # The form is fixed; only the primary value can change (case-retention re-adds).
+        # Store in _ndef and fall back to it when no layer has a valu, so a held
+        # reference to a deleted node still reports its last-known ndef.
+        for sode in self.sodes:
+            valu = sode.get('valu')
+            if valu is not None:
+                self._ndef = (self.form.name, valu[0])
+                return self._ndef
+
+        return self._ndef
 
     async def getStorNodes(self):
         '''
@@ -499,9 +551,9 @@ class Node(NodeBase):
                 else:
                     embdnode[f'{relp}.type'] = valu[0]
 
-                    if stortype == s_layer.STOR_TYPE_IVAL:
+                    if virtfunc := storvirts.get(stortype):
                         proptype = self.form.modl.type(valu[0])
-                        for vname, vval in getIvalStorVirts(valu[1], virts, proptype.prec).items():
+                        for vname, vval in virtfunc(valu[1], virts, proptype).items():
                             embdnode[f'{relp}.{vname}'] = vval
 
         return retn
@@ -964,9 +1016,9 @@ class Node(NodeBase):
 
                     retn[f'{name}.type'] = valu[0]
 
-                    if stortype == s_layer.STOR_TYPE_IVAL:
+                    if virtfunc := storvirts.get(stortype):
                         proptype = self.form.modl.type(valu[0])
-                        for vname, vval in getIvalStorVirts(valu[1], vprops, proptype.prec).items():
+                        for vname, vval in virtfunc(valu[1], vprops, proptype).items():
                             retn[f'{name}.{vname}'] = vval
 
         return retn
@@ -1335,6 +1387,8 @@ class RuntNode(NodeBase):
     Runtime node instances are a separate class to minimize isrunt checking in
     real node code.
     '''
+    __slots__ = ('view', 'ndef', 'pode', 'form', 'nid')
+
     def __init__(self, view, pode, nid=None):
         self.view = view
         self.ndef = pode[0]
@@ -1411,6 +1465,9 @@ class Path:
     '''
     A path context tracked through the storm runtime.
     '''
+    __slots__ = ('node', 'links', 'vars', 'frames', 'ctors', 'builtins',
+                 'display', 'metadata', 'nodedata')
+
     def __init__(self, vars, node, links=None):
 
         self.node = node

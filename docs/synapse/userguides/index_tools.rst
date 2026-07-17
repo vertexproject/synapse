@@ -29,7 +29,6 @@ Tools
     syn_tools_service_apikey
     syn_tools_service_backup
     syn_tools_service_demote
-    syn_tools_service_livebackup
     syn_tools_service_modrole
     syn_tools_service_moduser
     syn_tools_service_promote

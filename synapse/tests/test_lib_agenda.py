@@ -382,13 +382,11 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # schedule a query to run every Wednesday and Friday at 10:15am
                 cdef = {'user': visi.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(bar)',
-                        'pool': True,
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
                 adef = await agenda.add(cdef)
 
-                self.true(adef['pool'])
                 guid = adef.get('iden')
 
                 self.len(1, agenda.apptheap)
@@ -743,11 +741,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.stormHasNoErr(msgs)
 
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
-            self.false(cdef['pool'])
             self.eq(cdef['user'], core.auth.rootuser.iden)
-
-            cdef = await core.callStorm('for $cron in $lib.cron.list() { $cron.pool = (true) return($cron) }')
-            self.true(cdef['pool'])
 
             opts = {'vars': {'lowuser': lowuser}}
             cdef = await core.callStorm('for $cron in $lib.cron.list() { $cron.user = $lowuser return($cron) }',
@@ -959,7 +953,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                     with self.getLoggerStream('synapse.lib.agenda') as stream:
                         # Promote and inspect cortex status
-                        await core01.promote(graceful=True)
+                        await core01.promote()
                         self.false(core00.isactive)
                         self.true(core01.isactive)
                         await stream.expect('name=CRON99', timeout=6)
@@ -1065,87 +1059,6 @@ class AgendaTest(s_t_utils.SynTest):
             cdef = await core.callStorm(get_cron, opts=opts)
             self.false(cdef.get('isrunning'))
 
-    async def test_cron_kill_pool(self):
-
-        async with self.getTestAha() as aha:
-
-            import synapse.cortex as s_cortex
-            import synapse.lib.base as s_base
-
-            async with await s_base.Base.anit() as base:
-
-                with self.getTestDir() as dirn:
-
-                    dirn00 = s_common.genpath(dirn, 'cell00')
-                    dirn01 = s_common.genpath(dirn, 'cell01')
-
-                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
-                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01))
-
-                    self.len(1, await core00.nodes('[inet:asn=0]'))
-                    await core01.sync()
-                    self.len(1, await core01.nodes('inet:asn=0'))
-
-                    msgs = await core00.stormlist('aha.pool.add pool00...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Created AHA service pool: pool00.synapse', msgs)
-
-                    msgs = await core00.stormlist('aha.pool.svc.add pool00... 01.core...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.synapse)', msgs)
-
-                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Storm pool configuration set.', msgs)
-
-                    await core00.stormpool.waitready(timeout=12)
-
-                    data = []
-                    evt = asyncio.Event()
-
-                    async def task():
-                        async for mesg in core00.behold():
-                            data.append(mesg)
-                            if mesg.get('event') == 'cron:stop':
-                                evt.set()
-
-                    core00.schedCoro(task())
-
-                    q = '$q=$lib.queue.gen(test) for $i in $lib.range(60) { $lib.time.sleep(0.1) $q.put($i) }'
-                    guid = s_common.guid()
-                    cdef = {
-                        'creator': core00.auth.rootuser.iden, 'iden': guid,
-                        'user': core00.auth.rootuser.iden,
-                        'storm': q,
-                        'reqs': {'NOW': True},
-                        'pool': True,
-                    }
-                    await core00.addCronJob(cdef)
-
-                    q = '$q=$lib.queue.gen(test) for $valu in $q.get((0), wait=(true)) { return ($valu) }'
-                    valu = await core00.callStorm(q, opts={'mirror': False})
-                    self.eq(valu, 0)
-
-                    opts = {'vars': {'iden': guid}, 'mirror': False}
-                    get_cron = 'return($lib.cron.get($iden))'
-                    cdef = await core00.callStorm(get_cron, opts=opts)
-                    self.true(cdef.get('isrunning'))
-
-                    self.true(await core00.callStorm('return($lib.cron.get($iden).kill())', opts=opts))
-
-                    self.true(await asyncio.wait_for(evt.wait(), timeout=12))
-
-                    await core01.sync()
-
-                    cdef00 = await core00.callStorm(get_cron, opts=opts)
-                    self.false(cdef00.get('isrunning'))
-
-                    cdef01 = await core01.callStorm(get_cron, opts=opts)
-                    self.false(cdef01.get('isrunning'))
-                    self.eq(cdef01.get('lastresult'), 'cancelled')
-                    self.gt(cdef00['laststarttime'], 0)
-                    self.eq(cdef00['laststarttime'], cdef01['laststarttime'])
-
     async def test_agenda_warnings(self):
 
         async with self.getTestCore() as core:
@@ -1191,7 +1104,7 @@ class AgendaTest(s_t_utils.SynTest):
                     self.len(1, cron)
                     self.true(cron[0].get('isrunning'))
 
-                    await core01.promote(graceful=True)
+                    await core01.promote()
 
                     self.false(core00.isactive)
                     self.true(core01.isactive)
@@ -1241,7 +1154,7 @@ class AgendaTest(s_t_utils.SynTest):
                     self.len(1, cron)
                     self.true(cron[0].get('isrunning'))
 
-                    await core01.promote(graceful=False)
+                    await core01.promote(force=True)
 
                     self.true(core00.isactive)
                     self.true(core01.isactive)
@@ -1469,7 +1382,7 @@ class AgendaTest(s_t_utils.SynTest):
                     await stream.expect('I AM A ERROR', timeout=12)
                 await core01.sync()
 
-                await core01.promote(graceful=True)
+                await core01.promote()
                 await core00.sync()
 
                 cron00 = await core00.listCronJobs()
@@ -2050,64 +1963,6 @@ class AgendaTest(s_t_utils.SynTest):
             q = 'return($lib.cron.at(query=$q, now=(true), affinity="atsvc.cortex..."))'
             cdef = await core.callStorm(q, opts={'vars': {'q': '$lib.print(at)'}})
             self.eq(cdef.get('affinity'), 'atsvc.cortex...')
-
-    async def test_cron_affinity_mutual_exclusivity(self):
-
-        async with self.getTestCore() as core:
-
-            # Creating with both pool and affinity should fail
-            cdef = {
-                'user': core.auth.rootuser.iden,
-                'creator': core.auth.rootuser.iden,
-                'storm': '$lib.print(test)',
-                'reqs': {'hour': 10},
-                'incunit': 'day',
-                'incvals': 1,
-                'pool': True,
-                'affinity': 'mysvc.cortex...',
-            }
-            with self.raises(s_exc.BadConfValu):
-                await core.addCronJob(cdef)
-
-            # Create with pool, then try to set affinity
-            cdef = {
-                'user': core.auth.rootuser.iden,
-                'creator': core.auth.rootuser.iden,
-                'storm': '$lib.print(test)',
-                'reqs': {'hour': 10},
-                'incunit': 'day',
-                'incvals': 1,
-                'pool': True,
-            }
-            adef = await core.addCronJob(cdef)
-            guid = adef.get('iden')
-            opts = {'vars': {'guid': guid}}
-
-            with self.raises(s_exc.BadConfValu):
-                q = '$cron=$lib.cron.get($guid) $cron.affinity = "mysvc.cortex..."'
-                await core.callStorm(q, opts=opts)
-
-            # Create with affinity, then try to set pool
-            cdef = {
-                'user': core.auth.rootuser.iden,
-                'creator': core.auth.rootuser.iden,
-                'storm': '$lib.print(test)',
-                'reqs': {'hour': 10},
-                'incunit': 'day',
-                'incvals': 1,
-                'affinity': 'mysvc.cortex...',
-            }
-            adef = await core.addCronJob(cdef)
-            guid2 = adef.get('iden')
-            opts2 = {'vars': {'guid': guid2}}
-
-            with self.raises(s_exc.BadConfValu):
-                q = '$cron=$lib.cron.get($guid) $cron.pool = (true)'
-                await core.callStorm(q, opts=opts2)
-
-            # Test via storm command
-            msgs = await core.stormlist('cron.add --pool --affinity mysvc... daily { $lib.print(test) }')
-            self.stormIsInErr('Cron jobs may not have both affinity and pool set', msgs)
 
     async def test_cron_affinity_fallback(self):
 

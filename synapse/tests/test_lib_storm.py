@@ -1038,11 +1038,7 @@ class StormTest(s_t_utils.SynTest):
             # is in a steady state for layer merge --diff tests.
 
             real_layer = core.layers.get(layr)  # type: s_layer.Layer
-            if real_layer.dirty:
-                waiter = real_layer.layrslab.waiter(1, 'commit')
-                await waiter.wait(timeout=12)
 
-            waiter = real_layer.layrslab.waiter(1, 'commit')
             nodes = await core.nodes('[ inet:fqdn=mvmnasde.com ]', opts=opts)
             fqdnnid = s_common.ehex(nodes[0].nid)
             msgs = await core.stormlist('inet:fqdn=mvmnasde.com | merge', opts=opts)
@@ -1054,9 +1050,11 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint(f'{fqdnnid} inet:fqdn:iszone = true', msgs)
             self.stormIsInPrint(f'{fqdnnid} inet:fqdn:zone = mvmnasde.com', msgs)
 
-            # Ensure that the layer has sync()'d to avoid getting data from
-            # dirty sodes in the merge --diff tests.
-            self.len(1, await waiter.wait(timeout=12))
+            # Ensure the layer is in a steady state to avoid getting data from
+            # dirty sodes in the merge --diff tests. Under a nexuscommit Cortex the
+            # layrslab commits after each nexus transaction and _storNodeEdits
+            # flushes dirty sodes itself, so nothing remains buffered here.
+            self.false(real_layer.dirty)
 
             # test that a user without perms can diff but not apply
             await visi.addRule((True, ('view', 'read')))
@@ -1159,7 +1157,7 @@ class StormTest(s_t_utils.SynTest):
             class ExpHandler(s_httpapi.StormHandler):
                 async def get(self, name):
                     self.set_header('Content-Type', 'application/x-synapse-nodes')
-                    core = self.getCore()
+                    core = await self.getCore()
                     if name == 'kewl':
                         form = 'test:guid'
                     elif name == 'neat':
@@ -2365,7 +2363,7 @@ class StormTest(s_t_utils.SynTest):
                     sha = node[1]['props']['sha256'][1]
 
             buf = b''
-            async for bytz in core.axon.get(s_common.uhex(sha)):
+            async for bytz in (await core.getAxon()).get(s_common.uhex(sha)):
                 buf += bytz
 
             resp = s_json.loads(buf)
@@ -2840,9 +2838,11 @@ class StormTest(s_t_utils.SynTest):
 
                     waiter = core01.waiter(2, 'core:pkg:onload:start', 'core:pkg:onload:complete')
 
-                    # clear the explicit parent pin before promoting.
+                    # clear the explicit parent pin before promoting. this
+                    # deployment has no AHA, so a graceful handoff is not
+                    # possible; force the promotion.
                     core01.conf.pop('parent', None)
-                    await core01.promote()
+                    await core01.promote(force=True)
 
                     events = await waiter.wait(timeout=10)
                     self.eq(events, [
@@ -3138,7 +3138,7 @@ class StormTest(s_t_utils.SynTest):
             base = {
                 'name': 'endptest',
                 'version': '0.0.1',
-                'synapse_version': '>=3.0.0b2,<4.0.0',
+                'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
             }
 
             # a modconf endpoint with an unknown key is rejected
@@ -3434,6 +3434,46 @@ class StormTest(s_t_utils.SynTest):
             # Runtsafety test
             q = '[ test:str=hehe ]  | movetag $node.ndef haha'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+    async def test_storm_tagcache_runtime(self):
+
+        # The tag cache lives on the Runtime (per-query), not the View
+        # (per-cortex), so a syn:tag :isnow redirect applied out-of-band is
+        # picked up by the next query rather than being masked by a stale cache.
+        async with self.getTestCore() as core:
+
+            # a first query populates that runtime's tag cache for #foo, then is
+            # discarded along with its cache.
+            await core.nodes('[ test:str=a +#foo ]')
+
+            # apply an :isnow redirect directly (bypassing movetag's own cache
+            # clear), standing in for the edit arriving from another instance.
+            await core.nodes('[ syn:tag=bar ]')
+            self.len(1, await core.nodes('syn:tag=foo [ :isnow=bar ]'))
+
+            # a fresh runtime resolves foo -> bar; the redirect is not masked.
+            nodes = await core.nodes('[ test:str=b +#foo ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('bar'))
+            self.none(nodes[0].getTag('foo'))
+
+            # the runtime keeps one tag cache per view, built on first request.
+            view = core.getView()
+            forkview = core.getView((await view.fork())['iden'])
+
+            query = await core.getStormQuery('')
+            async with core.getStormRuntime(query, view=view) as runt:
+                self.eq({}, runt.tagcaches)
+
+                cache = runt.tagcaches[view]
+                # same view -> same cache instance (not rebuilt)
+                self.true(runt.tagcaches[view] is cache)
+                # a different view -> its own cache, so a cross-view editor
+                # (e.g. merging into a parent) still gets a useful cache.
+                self.false(runt.tagcaches[forkview] is cache)
+                self.len(2, runt.tagcaches)
+                self.isin(view, runt.tagcaches)
+                self.isin(forkview, runt.tagcaches)
 
     async def test_storm_spin(self):
 
@@ -3809,6 +3849,19 @@ class StormTest(s_t_utils.SynTest):
             self.stormHasNoWarnErr(msgs)
             msgs = await core.stormlist('[ doc:report=* :title="https://t.c\\\\" ] | scrape :title')
             self.stormHasNoWarnErr(msgs)
+
+    async def test_storm_fini_nexsoffs(self):
+
+        async with self.getTestCore() as core:
+
+            msgs = await core.stormlist('[ test:str=foo ]')
+            fini = [m for m in msgs if m[0] == 'fini'][0]
+            offs = fini[1].get('nexsoffs')
+            self.eq(offs, await core.getNexsIndx() - 1)
+
+            msgs = await core.stormlist('test:str=foo', opts={'nexsoffs': offs})
+            self.eq('fini', msgs[-1][0])
+            self.nn(msgs[-1][1].get('nexsoffs'))
 
     async def test_storm_tee(self):
 
@@ -4683,7 +4736,7 @@ class StormTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_version': '>=3.0.0b2,<4.0.0',
+                'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
                 'commands': ({
                                  'name': 'testcmd',
                                  'descr': 'test command',
@@ -4828,7 +4881,7 @@ class StormTest(s_t_utils.SynTest):
             deprpkg = {
                 'name': 'testdepr',
                 'version': '0.0.1',
-                'synapse_version': '>=2.8.0,<4.0.0',
+                'dependencies': {'synapse': {'version': '>=2.8.0,<4.0.0'}},
                 'commands': (
                     {
                         'name': 'deprmesg',
@@ -6142,7 +6195,7 @@ class StormTest(s_t_utils.SynTest):
             opts = {'vars': {'sha256': sha256}}
             await core.nodes('file:bytes | delnode')
             self.len(0, await core.nodes('file:bytes'))
-            self.true(await core.axon.has(s_common.uhex(sha256)))
+            self.true(await (await core.getAxon()).has(s_common.uhex(sha256)))
 
             self.len(1, await core.nodes('[ file:bytes=({"sha256": $sha256}) ]', opts=opts))
 
@@ -6155,7 +6208,7 @@ class StormTest(s_t_utils.SynTest):
 
                 await asvisi.callStorm('file:bytes | delnode --delbytes')
                 self.len(0, await core.nodes('file:bytes'))
-                self.false(await core.axon.has(s_common.uhex(sha256)))
+                self.false(await (await core.getAxon()).has(s_common.uhex(sha256)))
 
     async def test_lib_dmon_embed(self):
 

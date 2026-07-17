@@ -590,6 +590,8 @@ FORM_MIGR = {
     'inet:net6': (rename, {'name': 'inet:net'}),
     'inet:url': (urldecnorm, {'name': 'inet:url'}),
 
+    'it:cmd:history': (rename, {'name': 'it:exec:command'}),
+
     'it:prod:hardwaretype': (rename, {'name': 'it:hardware:type:taxonomy'}),
 
     'media:news:taxonomy': (rename, {'name': 'doc:report:type:taxonomy'}),
@@ -643,6 +645,15 @@ PROP_MIGR = {
     },
     'inet:email:message:attachment': {
         'message': (None, None),
+    },
+    # it:cmd:history was renamed to it:exec:command and gained the it:host:activity
+    # interface; the :time prop was removed in favor of the interface :period.
+    'it:cmd:history': {
+        'time': (None, None),
+    },
+    'it:exec:proc': {
+        # the :cmd:history prop was removed from it:exec:proc
+        'cmd:history': (None, None),
     },
     'ou:campaign': {
         'type': (None, None),
@@ -776,6 +787,9 @@ class Migrator(s_base.Base):
     '''
     async def __anit__(self, conf):
         await s_base.Base.__anit__(self)
+        self.readonly = False
+        self.nexuscommit = False
+
         self.migrdir = 'migration'
 
         logger.debug(f'Migrator conf: {conf}')

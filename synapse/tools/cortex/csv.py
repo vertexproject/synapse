@@ -12,7 +12,7 @@ import synapse.lib.version as s_version
 
 import synapse.tools.storm._cli as s_t_storm
 
-reqver = '>=3.0.0b2,<4.0.0'
+reqver = '>=3.0.0b3,<4.0.0'
 desc = '''Command line tool for ingesting csv files into a cortex
 
 The storm file is run with the CSV rows specified in the variable "rows" so most

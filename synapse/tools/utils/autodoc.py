@@ -668,6 +668,86 @@ async def processStormModules(rst, pkgname, modules):
     if not hasapi:
         rst.addLines('This package does not export any Storm APIs.\n')
 
+def _renderDepsTable(rows):
+    '''
+    Render (name, version, optional, desc) tuples as an RST grid table with
+    Name, Version, Optional, and Description columns.
+
+    Grid tables survive the rst -> markdown (pandoc) conversion used to
+    build package docs: pandoc reads the multi-line cells and re-emits
+    them as a single markdown pipe table row, whereas a literal (``::``)
+    block would come through as an opaque code block.
+
+    Args:
+        rows (list): A list of (name, version, optional, desc) tuples.
+
+    Returns:
+        list: The rendered table lines.
+    '''
+    name_hdr, vers_hdr, opt_hdr, desc_hdr = 'Name', 'Version', 'Optional', 'Description'
+
+    # The name and version columns are not wrapped, so they must be sized to
+    # the longest value in this table -- a grid table's cell content cannot
+    # exceed its declared column width without corrupting the whole table.
+    # The description column is wrapped to a fixed width, so it can stay
+    # constant. Optional is always 'yes'/'no', so its width is fixed too.
+    name_w = max(len(name_hdr), max(len(name) for name, vers, opt, desc in rows))
+    vers_w = max(len(vers_hdr), max(len(vers) for name, vers, opt, desc in rows))
+    opt_w = len(opt_hdr)
+    desc_w = _endpoint_desc_w
+
+    sep = f'+{"-" * (name_w + 2)}+{"-" * (vers_w + 2)}+{"-" * (opt_w + 2)}+{"-" * (desc_w + 2)}+'
+    hsep = f'+{"=" * (name_w + 2)}+{"=" * (vers_w + 2)}+{"=" * (opt_w + 2)}+{"=" * (desc_w + 2)}+'
+
+    lines = [
+        sep,
+        f'| {name_hdr:<{name_w}} | {vers_hdr:<{vers_w}} | {opt_hdr:<{opt_w}} | {desc_hdr:<{desc_w}} |',
+        hsep,
+    ]
+
+    for name, vers, optional, desc in rows:
+
+        name = name.replace('|', '\\|')
+        vers = vers.replace('|', '\\|')
+        opttext = 'yes' if optional else 'no'
+        desc_lines = textwrap.wrap(desc.replace('|', '\\|'), desc_w) if desc else []
+
+        first = desc_lines[0] if desc_lines else ''
+        lines.append(f'| {name:<{name_w}} | {vers:<{vers_w}} | {opttext:<{opt_w}} | {first:<{desc_w}} |')
+        for ln in desc_lines[1:]:
+            lines.append(f'| {"":<{name_w}} | {"":<{vers_w}} | {"":<{opt_w}} | {ln:<{desc_w}} |')
+
+        lines.append(sep)
+
+    return lines
+
+async def processStormDeps(rst, pkgname, dependencies):
+    '''
+    Render the package's dependencies map as an rst grid table.
+
+    Args:
+        rst (RstHelp):
+        pkgname (str):
+        dependencies (dict):
+
+    Returns:
+        None
+    '''
+    rst.addHead('Dependencies', lvl=2)
+    rst.addLines('This package depends on the following packages.\n')
+
+    rows = []
+    for name in sorted(dependencies.keys()):
+        depinfo = dependencies[name]
+        vers = depinfo.get('version', '')
+        optional = depinfo.get('optional', False)
+        desc = depinfo.get('desc')
+        rows.append((name, vers, optional, desc))
+
+    lines = _renderDepsTable(rows)
+    lines.append('')
+    rst.addLines(*lines)
+
 _unconfigured_base = '(user-configured base URL)'
 
 _endpoint_desc_w = 60
@@ -1039,6 +1119,9 @@ async def docStormpkg(pkgpath):
              f'{s_version.fmtVersion(pkgdef.get("version"))} of the package.',
              ]
     rst.addLines(*lines)
+
+    if dependencies := pkgdef.get('dependencies'):
+        await processStormDeps(rst, pkgname, dependencies)
 
     commands = pkgdef.get('commands')
     if commands:

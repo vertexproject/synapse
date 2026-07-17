@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.lib.auth as s_auth
 import synapse.lib.cell as s_cell
 import synapse.lib.nexus as s_nexus
+import synapse.lib.queue as s_queue
 
 import synapse.tools.service.backup as s_backup
 
@@ -61,6 +62,17 @@ class SampleMixin(metaclass=s_nexus.RegMethType):
 class SampleNexus2(SampleNexus, SampleMixin):
     async def doathing(self, eventdict):
         return await self._push('thing:doathing', eventdict, 'bar')
+
+class ReadonlyPusher(s_nexus.Pusher):
+    # a reader=True (default) handler and a reader=False (leader-only) handler,
+    # to exercise readonly handler registration.
+    @s_nexus.Pusher.onPush('reader:event')
+    async def _onReaderEvent(self):
+        pass  # pragma: no cover
+
+    @s_nexus.Pusher.onPush('leader:event', reader=False)
+    async def _onLeaderEvent(self):
+        pass  # pragma: no cover
 
 class NexusTest(s_t_utils.SynTest):
 
@@ -126,6 +138,35 @@ class NexusTest(s_t_utils.SynTest):
                     offs, item = await asyncio.wait_for(task, timeout=12)
                     self.eq(offs, nexsindx)
                     self.eq(item[1], 'thing:doathing')
+
+    async def test_nexus_readonly_handler_skip(self):
+        # a readonly Pusher does not register reader=False leader-only handlers.
+        async with await ReadonlyPusher.anit(s_common.guid(), readonly=True) as pushr:
+            self.isin('reader:event', pushr._nexshands)
+            self.notin('leader:event', pushr._nexshands)
+
+        # a writable Pusher registers both.
+        async with await ReadonlyPusher.anit(s_common.guid()) as pushr:
+            self.isin('reader:event', pushr._nexshands)
+            self.isin('leader:event', pushr._nexshands)
+
+    async def test_nexus_commitpulse_fini(self):
+        # a commit-pulse window still attached when the NexsRoot fini's (a
+        # consumer that had not yet detached at shutdown) is torn down as part
+        # of the NexsRoot's shutdown cleanup.
+        with self.getTestDir() as dirn:
+
+            conf = {'nexslog:en': True}
+            nexus = await SampleNexus.anit(conf=conf, dirn=dirn)
+            nexsroot = nexus.nexsroot
+
+            wind = await s_queue.Window.anit(maxsize=10, clearonfini=True)
+            nexsroot._commitpulse.append(wind)
+
+            await nexus.fini()
+
+            # NexsRoot.fini fini'd the still-attached window
+            self.true(wind.isfini)
 
     async def test_nexus_fini(self):
 
@@ -297,9 +338,8 @@ class NexusTest(s_t_utils.SynTest):
                     info['cell']['version'] = '9999.0.0'
                     return info
 
-                await cell00.runBackup(name='cell01')
-
                 path = s_common.genpath(dirn, 'backups', 'cell01')
+                await s_t_utils.pullBackup(cell00, path)
 
                 conf = s_common.yamlload(path, 'cell.yaml')
                 conf['parent'] = f'cell://{dirn}'
@@ -365,9 +405,8 @@ class NexusTest(s_t_utils.SynTest):
                     info['cell']['version'] = '3.1.0a1'
                     return info
 
-                await cell00.runBackup(name='cell01')
-
                 path = s_common.genpath(dirn, 'backups', 'cell01')
+                await s_t_utils.pullBackup(cell00, path)
 
                 conf = s_common.yamlload(path, 'cell.yaml')
                 conf['parent'] = f'cell://{dirn}'
@@ -413,9 +452,8 @@ class NexusTest(s_t_utils.SynTest):
             s_common.yamlsave({'nexslog:en': True}, dirn, 'cell.yaml')
             async with await s_cell.Cell.anit(dirn=dirn) as cell00:
 
-                await cell00.runBackup(name='cell01')
-
                 path = s_common.genpath(dirn, 'backups', 'cell01')
+                await s_t_utils.pullBackup(cell00, path)
 
                 conf = s_common.yamlload(path, 'cell.yaml')
                 conf['parent'] = f'cell://{dirn}'
@@ -713,7 +751,7 @@ class NexusTest(s_t_utils.SynTest):
                             self.len(2, core01.views)
 
                             # After promotion we should not have any stray connect timeouts
-                            await core01.promote(graceful=True)
+                            await core01.promote()
                             await asyncio.wait_for(core00.nexsroot.miruplink.wait(), 6)
 
                             self.false(core00.nexsroot.readonly)

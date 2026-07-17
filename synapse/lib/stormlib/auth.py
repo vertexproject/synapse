@@ -407,7 +407,7 @@ stormcmds = (
             $role = $lib.auth.roles.byname($cmdopts.rolename)
             if (not $role) { $lib.exit(`No role named: {$cmdopts.rolename}`) }
 
-            if (not $user.roles().has($role)) {
+            if (not $user.roles.has($role)) {
                 $lib.exit(`User {$cmdopts.username} does not have role {$cmdopts.rolename}`)
             }
 
@@ -445,7 +445,7 @@ stormcmds = (
 
             $lib.print("")
             $lib.print("  Roles:")
-            for $role in $user.roles() {
+            for $role in $user.roles {
                 $lib.print(`    {$role.iden} - {$role.name}`)
             }
 
@@ -802,7 +802,7 @@ class User(s_stormtypes.Prim):
                   ),
                   'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
         {'name': 'roles', 'desc': 'Get the Roles for the User.',
-         'type': {'type': 'function', '_funcname': '_methUserRoles',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorUserRoles',
                   'returns': {'type': 'list',
                               'desc': 'A list of ``auth:roles`` which the user is a member of.', }}},
         {'name': 'allowed', 'desc': 'Check if the user has a given permission.',
@@ -1036,6 +1036,9 @@ class User(s_stormtypes.Prim):
             'vars': self._ctorUserVars,
             'profile': self._ctorUserProfile,
         })
+        self.gtors.update({
+            'roles': self._gtorUserRoles,
+        })
 
     def __hash__(self):
         return hash((self._storm_typename, self.locls['iden']))
@@ -1056,7 +1059,6 @@ class User(s_stormtypes.Prim):
         return {
             'get': self._methUserGet,
             'gates': self._methGates,
-            'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
             'grant': self._methUserGrant,
             'revoke': self._methUserRevoke,
@@ -1091,6 +1093,10 @@ class User(s_stormtypes.Prim):
         await self.runt.view.core.setUserName(self.valu, name)
 
     async def _derefGet(self, name):
+        valu = await s_stormtypes.Prim._derefGet(self, name)
+        if valu is not s_common.novalu:
+            return valu
+
         udef = await self.runt.view.core.getUserDef(self.valu, packroles=False)
         return udef.get(name, s_common.novalu)
 
@@ -1114,7 +1120,7 @@ class User(s_stormtypes.Prim):
         return retn
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methUserRoles(self):
+    async def _gtorUserRoles(self):
         return [Role(self.runt, role.iden) async for role in self.runt.view.core.getUserRoles(self.valu)]
 
     @s_stormtypes.stormfunc(readonly=True)

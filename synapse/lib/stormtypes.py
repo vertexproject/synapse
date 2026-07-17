@@ -357,6 +357,9 @@ class StormTypesRegistry:
         else:
             libs = ((lib._storm_lib_path, lib),)
 
+        # private libs (internal helper namespaces) are omitted from docs/help
+        libs = [(path, slib) for (path, slib) in libs if not slib._storm_lib_private]
+
         docs = []
         for (sname, slib) in libs:
             sname = slib.__class__.__name__
@@ -599,6 +602,9 @@ class Lib(StormType):
     _storm_typename = 'lib'
     _storm_lib_perms = ()
     _storm_lib_deprecation = None
+    # when True the lib is omitted from generated docs and the help command
+    # (e.g. internal helper namespaces mounted for reuse, not public API)
+    _storm_lib_private = False
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
@@ -978,7 +984,7 @@ class LibService(Lib):
 
         for ssvc in self.runt.view.core.getStormSvcs():
             sdef = dict(ssvc.sdef)
-            sdef['ready'] = ssvc.ready.is_set()
+            sdef['ready'] = ssvc.svcready.is_set()
             sdef['svcname'] = ssvc.svcname
             sdef['svcvers'] = ssvc.svcvers
             retn.append(sdef)
@@ -995,20 +1001,7 @@ class LibService(Lib):
             raise s_exc.NoSuchName(mesg=mesg, name=name)
         self.runt.confirm(('service', 'get'))
 
-        # Short circuit asyncio.wait_for logic by checking the ready event
-        # value. If we call wait_for with a timeout=0 we'll almost always
-        # raise a TimeoutError unless the future previously had the option
-        # to complete.
-        if timeout == 0:
-            return ssvc.ready.is_set()
-
-        fut = ssvc.ready.wait()
-        try:
-            await asyncio.wait_for(fut, timeout=timeout)
-        except asyncio.TimeoutError:
-            return False
-        else:
-            return True
+        return await self.runt.view.core.waitStormSvc(name, timeout=timeout)
 
 @registry.registerLib
 class LibTags(Lib):
@@ -2230,19 +2223,19 @@ class LibAxon(Lib):
     @stormfunc(readonly=True)
     async def readlines(self, sha256, errors='ignore'):
         self.runt.confirm(('axon', 'get'))
-        await self.runt.view.core.getAxon()
+        axon = await self.runt.view.core.getAxon()
 
         sha256 = await tostr(sha256)
-        async for line in self.runt.view.core.axon.readlines(sha256, errors=errors):
+        async for line in axon.readlines(sha256, errors=errors):
             yield line
 
     @stormfunc(readonly=True)
     async def jsonlines(self, sha256, errors='ignore'):
         self.runt.confirm(('axon', 'get'))
-        await self.runt.view.core.getAxon()
+        axon = await self.runt.view.core.getAxon()
 
         sha256 = await tostr(sha256)
-        async for line in self.runt.view.core.axon.jsonlines(sha256):
+        async for line in axon.jsonlines(sha256):
             yield line
 
     async def dels(self, sha256s):
@@ -2256,9 +2249,7 @@ class LibAxon(Lib):
 
         hashes = [s_common.uhex(s) for s in sha256s]
 
-        await self.runt.view.core.getAxon()
-
-        axon = self.runt.view.core.axon
+        axon = await self.runt.view.core.getAxon()
         return await axon.dels(hashes)
 
     async def del_(self, sha256):
@@ -2268,9 +2259,7 @@ class LibAxon(Lib):
         sha256 = await tostr(sha256)
 
         sha256b = s_common.uhex(sha256)
-        await self.runt.view.core.getAxon()
-
-        axon = self.runt.view.core.axon
+        axon = await self.runt.view.core.getAxon()
         return await axon.del_(sha256b)
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
@@ -2292,13 +2281,11 @@ class LibAxon(Lib):
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
-        await self.runt.view.core.getAxon()
-
         kwargs = {
             'proxy': await resolveAxonProxyArg(proxy)
         }
 
-        axon = self.runt.view.core.axon
+        axon = await self.runt.view.core.getAxon()
         resp = await axon.wget(url, headers=headers, params=params, method=method, json=json, body=body,
                                ssl=ssl, timeout=timeout, **kwargs)
         resp['original_url'] = url
@@ -2322,13 +2309,11 @@ class LibAxon(Lib):
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
-        await self.runt.view.core.getAxon()
-
         kwargs = {
             'proxy': await resolveAxonProxyArg(proxy)
         }
 
-        axon = self.runt.view.core.axon
+        axon = await self.runt.view.core.getAxon()
         sha256byts = s_common.uhex(sha256)
 
         return await axon.wput(sha256byts, url, headers=headers, params=params, method=method,
@@ -2408,8 +2393,7 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.view.core.getAxon()
-        axon = self.runt.view.core.axon
+        axon = await self.runt.view.core.getAxon()
 
         async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
@@ -2419,27 +2403,28 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'get'))
 
-        await self.runt.view.core.getAxon()
+        axon = await self.runt.view.core.getAxon()
 
         sha256 = await tostr(sha256)
         dialect = await tostr(dialect)
         fmtparams = await toprim(fmtparams)
-        async for item in self.runt.view.core.axon.csvrows(s_common.uhex(sha256), dialect,
-                                                           errors=errors, **fmtparams):
+        async for item in axon.csvrows(s_common.uhex(sha256), dialect=dialect,
+                                       errors=errors, **fmtparams):
             yield item
             await asyncio.sleep(0)
 
     @stormfunc(readonly=True)
     async def metrics(self):
         self.runt.confirm(('axon', 'has'))
-        return await self.runt.view.core.axon.metrics()
+        axon = await self.runt.view.core.getAxon()
+        return await axon.metrics()
 
     async def upload(self, genr):
 
         self.runt.confirm(('axon', 'upload'))
 
-        await self.runt.view.core.getAxon()
-        async with await self.runt.view.core.axon.upload() as upload:
+        axon = await self.runt.view.core.getAxon()
+        async with await axon.upload() as upload:
             async for byts in s_coro.agen(genr):
                 await upload.write(byts)
             size, sha256 = await upload.save()
@@ -2453,8 +2438,8 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.view.core.getAxon()
-        return await self.runt.view.core.axon.has(s_common.uhex(sha256))
+        axon = await self.runt.view.core.getAxon()
+        return await axon.has(s_common.uhex(sha256))
 
     @stormfunc(readonly=True)
     async def size(self, sha256):
@@ -2462,8 +2447,8 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.view.core.getAxon()
-        return await self.runt.view.core.axon.size(s_common.uhex(sha256))
+        axon = await self.runt.view.core.getAxon()
+        return await axon.size(s_common.uhex(sha256))
 
     async def put(self, byts):
         if not isinstance(byts, bytes):
@@ -2474,11 +2459,11 @@ class LibAxon(Lib):
 
         sha256 = hashlib.sha256(byts).digest()
 
-        await self.runt.view.core.getAxon()
-        if await self.runt.view.core.axon.has(sha256):
+        axon = await self.runt.view.core.getAxon()
+        if await axon.has(sha256):
             return (len(byts), s_common.ehex(sha256))
 
-        size, sha256 = await self.runt.view.core.axon.put(byts)
+        size, sha256 = await axon.put(byts)
         return (size, s_common.ehex(sha256))
 
     @stormfunc(readonly=True)
@@ -2487,8 +2472,8 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.view.core.getAxon()
-        return await self.runt.view.core.axon.hashset(s_common.uhex(sha256))
+        axon = await self.runt.view.core.getAxon()
+        return await axon.hashset(s_common.uhex(sha256))
 
     @stormfunc(readonly=True)
     async def read(self, sha256, offs=0, size=s_const.mebibyte):
@@ -2505,10 +2490,10 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'get'))
 
-        await self.runt.view.core.getAxon()
+        axon = await self.runt.view.core.getAxon()
 
         byts = b''
-        async for chunk in self.runt.view.core.axon.get(s_common.uhex(sha256), offs=offs, size=size):
+        async for chunk in axon.get(s_common.uhex(sha256), offs=offs, size=size):
             byts += chunk
         return byts
 
@@ -2517,18 +2502,14 @@ class LibAxon(Lib):
         '''
         Unpack bytes from a file in the Axon using struct.
         '''
-        if self.runt.view.core.axoninfo.get('features', {}).get('unpack', 0) < 1:
-            mesg = 'The connected Axon does not support the the unpack API. Please update your Axon.'
-            raise s_exc.FeatureNotSupported(mesg=mesg)
-
         sha256 = await tostr(sha256)
         fmt = await tostr(fmt)
         offs = await toint(offs)
 
         self.runt.confirm(('axon', 'get'))
 
-        await self.runt.view.core.getAxon()
-        return await self.runt.view.core.axon.unpack(s_common.uhex(sha256), fmt, offs)
+        axon = await self.runt.view.core.getAxon()
+        return await axon.unpack(s_common.uhex(sha256), fmt, offs=offs)
 
 @registry.registerLib
 class LibLift(Lib):
@@ -4104,7 +4085,8 @@ class ProxyGenrMethod(StormType):
 class Service(Proxy):
 
     def __init__(self, runt, ssvc):
-        Proxy.__init__(self, runt, ssvc.proxy)
+        Proxy.__init__(self, runt, None)
+        self.ssvc = ssvc
         self.name = ssvc.name
 
     async def deref(self, name):
@@ -4112,7 +4094,10 @@ class Service(Proxy):
         name = await tostr(name)
 
         try:
-            await self.proxy.waitready()
+            # resolve the current telepath proxy from the service client. the
+            # legacy telepath Client had a 10s default ready timeout; preserve
+            # it so a down service raises rather than hanging.
+            self.proxy = await self.ssvc.proxy(timeout=self.ssvc.readytimeout)
             return await Proxy.deref(self, name)
         except asyncio.TimeoutError:
             mesg = f'Timeout waiting for storm service {self.name}.{name}'
@@ -8192,13 +8177,19 @@ class View(Prim):
                This is a fast approximate count calculated by summing the number of
                nodes with the property value in each layer of the view. Property values
                which are overwritten by different values in higher layers will still
-               be included in the count.
+               be included in the count. When ``valu`` is provided, only the ``=`` (exact)
+               and ``^=`` (prefix) comparators are supported.
             ''',
          'type': {'type': 'function', '_funcname': '_methGetPropCount',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
                       {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
                        'desc': 'The value of the property to look up.', },
+                      {'name': 'cmpr', 'type': 'str', 'default': '=',
+                       'desc': 'The comparator to use with valu. Only = and ^= are supported.', },
+                      {'name': 'type', 'type': 'str', 'default': '$lib.undef',
+                       'desc': 'For a polymorphic property, count only values of this member type '
+                               '(cannot be combined with valu).', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
 
@@ -8242,10 +8233,25 @@ class View(Prim):
                   'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
 
         {'name': 'getPropValues',
-         'desc': 'Yield unique property values in the view for the given form or property name.',
+         'desc': '''
+            Yield unique property values in the view for the given form or property name.
+
+            Notes:
+                When ``valu`` is provided, only the ``=`` (exact) and ``^=`` (prefix) comparators are
+                supported. For a polymorphic property, ``type`` restricts the results to a single
+                member type.
+            ''',
          'type': {'type': 'function', '_funcname': '_methGetPropValues',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
+                      {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
+                       'desc': 'An optional value to filter results using the specified comparator.', },
+                      {'name': 'cmpr', 'type': 'str', 'default': '=',
+                       'desc': 'The comparator to use with valu. Only = and ^= are supported.', },
+                      {'name': 'limit', 'type': 'int', 'default': '$lib.undef',
+                       'desc': 'An optional maximum number of values to yield.', },
+                      {'name': 'type', 'type': 'str', 'default': '$lib.undef',
+                       'desc': 'For a polymorphic property, restrict results to this member type name.', },
                   ),
                   'returns': {'name': 'yields', 'type': 'any', 'desc': 'Unique property values.', }}},
 
@@ -8425,8 +8431,11 @@ class View(Prim):
         return await view.getFormCounts()
 
     @stormfunc(readonly=True)
-    async def _methGetPropCount(self, propname, valu=undef):
+    async def _methGetPropCount(self, propname, valu=undef, cmpr='=', type=undef):
         propname = await tostr(propname)
+        cmpr = await tostr(cmpr)
+
+        mtyp = None if type is undef else await tostr(type)
 
         if valu is undef:
             valu = s_common.novalu
@@ -8437,7 +8446,7 @@ class View(Prim):
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         view = self.runt.view.core.getView(viewiden)
 
-        return await view.getPropCount(propname, valu=valu)
+        return await view.getPropCount(propname, valu=valu, cmpr=cmpr, type=mtyp)
 
     @stormfunc(readonly=True)
     async def _methGetTagPropCount(self, tag, propname, form=None, valu=undef):
@@ -8472,15 +8481,46 @@ class View(Prim):
         return await view.getPropArrayCount(propname, valu=valu)
 
     @stormfunc(readonly=True)
-    async def _methGetPropValues(self, propname):
+    async def _methGetPropValues(self, propname, valu=undef, cmpr='=', limit=undef, type=undef):
         propname = await tostr(propname)
+        cmpr = await tostr(cmpr)
+
+        limit = None if limit is undef else await toint(limit)
+        if limit is not None and limit < 1:
+            mesg = f'getPropValues() limit must be >= 1, got: {limit}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        types = None if type is undef else (await tostr(type),)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         view = self.runt.view.core.getView(viewiden)
 
-        async for valu in view.iterPropValues(propname):
-            yield valu
+        if valu is undef:
+            # without a value there is no comparator scan, so cmpr and the poly type filter do not
+            # apply; only the limit is honoured (rather than silently ignored)
+            if cmpr != '=' or types is not None:
+                mesg = 'getPropValues() cmpr and type require a valu to be provided.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            count = 0
+            async for pval in view.iterPropValues(propname):
+                yield pval
+
+                count += 1
+                if limit is not None and count >= limit:
+                    return
+
+            return
+
+        if cmpr not in ('=', '^='):
+            mesg = f'getPropValues() only supports the = and ^= comparators, not {cmpr}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        valu = await tostor(valu)
+
+        async for _, pval in view.iterPropValuesWithCmpr(propname, cmpr, valu, types=types, limit=limit):
+            yield pval
 
     @stormfunc(readonly=True)
     async def _methGetChildren(self):
@@ -9763,12 +9803,9 @@ class LibCron(Lib):
         incunit = None
         incval = None
         reqdict = {}
-        pool = await tobool(kwargs.get('pool', False))
         affinity = kwargs.get('affinity')
         if affinity is not None:
             affinity = await tostr(affinity)
-            if pool:
-                raise s_exc.BadConfValu(mesg='Cron jobs may not have both affinity and pool set.')
 
         valinfo = {  # unit: (minval, next largest unit)
             'month': (1, 'year'),
@@ -9789,7 +9826,6 @@ class LibCron(Lib):
 
         cdef = {'storm': query,
                 'reqs': reqdict,
-                'pool': pool,
                 'affinity': affinity,
                 'incunit': incunit,
                 'incvals': incval,
@@ -9972,7 +10008,6 @@ class CronJob(Prim):
         {'name': 'enabled', 'desc': 'Whether the Cron Job is enabled.', 'type': 'boolean'},
         {'name': 'iden', 'desc': 'The iden of the Cron Job.', 'type': 'str'},
         {'name': 'name', 'desc': 'The name of the Cron Job.', 'type': 'str'},
-        {'name': 'pool', 'desc': 'Whether the Cron Job will offload the query to a Storm pool.', 'type': 'boolean'},
         {'name': 'storm', 'desc': 'The Storm query the Cron Job runs.', 'type': 'str'},
         {'name': 'view', 'desc': 'The iden of the view the Cron Job runs in.', 'type': 'str'},
         {'name': 'user', 'desc': 'The iden of the user the Cron Job runs as.', 'type': 'str'},
@@ -10062,7 +10097,6 @@ class CronJob(Prim):
             'view': view,
             'viewshort': view[:8] + '..',
             'storm': self.valu.get('storm') or '<missing>',
-            'pool': self.valu.get('pool', False),
             'affinity': self.valu.get('affinity') or '(null)',
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',

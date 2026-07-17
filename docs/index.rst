@@ -24,7 +24,6 @@ Welcome to the Synapse documentation!
    synapse/glossary
    synapse/contributing
 
-   synapse/apidocs
    synapse/httpapi
 
    synapse/datamodel

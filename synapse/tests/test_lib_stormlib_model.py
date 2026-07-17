@@ -116,6 +116,9 @@ class StormlibModelTest(s_test.SynTest):
 
             self.len(1, await core.callStorm('return($lib.model.form(test:str).props.hehe.types)'))
 
+            self.true(await core.callStorm('return($lib.model.form(test:comp).props.hehe.computed)'))
+            self.false(await core.callStorm('return($lib.model.form(test:hugenum).props.huge.computed)'))
+
     async def test_stormlib_model_depr(self):
 
         with self.getTestDir() as dirn:

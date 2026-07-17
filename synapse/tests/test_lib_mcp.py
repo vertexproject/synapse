@@ -497,10 +497,10 @@ class McpTest(s_tests.SynTest):
             async with core.getLocalProxy() as prox:
 
                 class RemoteCortexMcp(s_mcp.CortexMcp):
-                    def getCore(self):
+                    async def getCore(self):
                         return prox
 
-                    def getAuthCell(self):
+                    async def getAuthCell(self):
                         return prox
 
                 core.addHttpApi('/api/v3/mcpremote', RemoteCortexMcp, {'cell': core})

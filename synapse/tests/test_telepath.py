@@ -376,6 +376,75 @@ class TeleTest(s_t_utils.SynTest):
                     foo.link.set('certhash', certhash)
                     self.eq('woot', await foo.echo('woot'))
 
+    async def test_telepath_tls_certhash_shared_ctx(self):
+        # One SSLContext is shared across a proxy pool's links ( see
+        # Proxy._initPoolLink ), so the certhash check must read the peer cert
+        # from each connection's own ssl object. Prove that holds under many
+        # concurrent handshakes to different-cert servers over one SSLContext.
+
+        self.thisHostMustNot(platform='darwin')
+
+        hostname = socket.gethostname()
+
+        with self.getTestDir() as dirn:
+
+            patha = (s_common.gendir(dirn, 'certsa'),)
+            pathb = (s_common.gendir(dirn, 'certsb'),)
+
+            certdira = s_certdir.CertDir(path=patha)
+            certdirb = s_certdir.CertDir(path=pathb)
+
+            certdira.genCaCert('loopya')
+            certdirb.genCaCert('loopyb')
+
+            _, hostcerta = certdira.genHostCert(hostname, signas='loopya')
+            _, hostcertb = certdirb.genHostCert(hostname, signas='loopyb')
+
+            hasha = s_common.ehex(hostcerta.fingerprint(c_hashes.SHA256()))
+            hashb = s_common.ehex(hostcertb.fingerprint(c_hashes.SHA256()))
+
+            # two servers on the same host with distinct certs / certhashes
+            self.ne(hasha, hashb)
+
+            async with await s_daemon.Daemon.anit(certdir=certdira) as dmona:
+                async with await s_daemon.Daemon.anit(certdir=certdirb) as dmonb:
+
+                    _, porta = await dmona.listen(f'ssl://{hostname}:0')
+                    _, portb = await dmonb.listen(f'ssl://{hostname}:0')
+
+                    # a single SSLContext shared across every connection, exactly
+                    # as a telepath proxy link pool reuses self.link['ssl'].
+                    sslctx = ssl.create_default_context()
+                    sslctx.check_hostname = False
+                    sslctx.verify_mode = ssl.CERT_NONE
+
+                    async def openlink(port, certhash):
+                        info = {'certhash': certhash, 'hostname': hostname}
+                        return await s_link.connect(hostname, port, ssl=sslctx, linkinfo=info)
+
+                    # interleave many concurrent handshakes to BOTH servers over
+                    # the one shared context; each link must pin its own peer cert.
+                    coros = []
+                    for _ in range(20):
+                        coros.append(openlink(porta, hasha))
+                        coros.append(openlink(portb, hashb))
+
+                    links = await asyncio.gather(*coros)
+                    self.len(40, links)
+                    for link in links:
+                        self.false(link.isfini)
+                        await link.fini()
+
+                    # a mismatched pin still fails, even while sharing the context
+                    # concurrently ( no cross-connection cert leakage ).
+                    errs = await asyncio.gather(
+                        openlink(porta, hashb),
+                        openlink(portb, hasha),
+                        return_exceptions=True,
+                    )
+                    for err in errs:
+                        self.isinstance(err, s_exc.LinkBadCert)
+
     async def test_telepath_ssl_client_cert(self):
 
         foo = Foo()
@@ -1005,133 +1074,6 @@ class TeleTest(s_t_utils.SynTest):
             await prox.fini()
 
             await self.asyncraises(s_exc.LinkShutDown, task)
-
-    async def test_telepath_client_onlink_exc(self):
-
-        cnts = {
-            'ok': 0,
-            'exc': 0,
-            'loops': 0,
-            'inits': 0
-        }
-        evnt = asyncio.Event()
-        loopevent = asyncio.Event()
-        origfire = s_telepath.Client._fireLinkLoop
-        originit = s_telepath.Client._initTeleLink
-
-        tgt = {'n': 3}
-
-        async def countLinkLoops(self):
-            cnts['loops'] += 1
-            if cnts['loops'] > tgt.get('n'):
-                loopevent.set()
-            await origfire(self)
-
-        async def countInitLinks(self, url):
-            cnts['inits'] += 1
-            if cnts['inits'] > tgt.get('n'):
-                evnt.set()
-
-            await originit(self, url)
-
-        async def onLinkOk(p):
-            cnts['ok'] += 1
-
-        async def onlinkFail(p):
-            await p.fini()
-
-        async def onlinkExc(p):
-            cnts['exc'] += 1
-            raise s_exc.SynErr(mesg='ohhai')
-
-        foo = Foo()
-
-        async with self.getTestDmon() as dmon:
-            dmon.share('foo', foo)
-            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
-
-            async with await s_telepath.Client.anit(url) as targ:
-                proxy = await targ.proxy(timeout=2)
-                await targ.onlink(onLinkOk)
-                self.ge(cnts['ok'], 1)
-                with self.raises(s_exc.SynErr):
-                    await targ.onlink(onlinkExc)
-                self.ge(cnts['exc'], 1)
-
-            with mock.patch('synapse.telepath.Client._fireLinkLoop', countLinkLoops):
-                with mock.patch('synapse.telepath.Client._initTeleLink', countInitLinks):
-                    async with await s_telepath.Client.anit(url, onlink=onlinkFail) as targ:
-                        fut = asyncio.gather(asyncio.wait_for(evnt.wait(), timeout=6),
-                                             asyncio.wait_for(loopevent.wait(), timeout=6))
-                        self.eq((True, True), await fut)
-                        self.ge(cnts['loops'], 4)
-                        self.ge(cnts['inits'], 4)
-
-                    evnt.clear()
-                    loopevent.clear()
-                    tgt['n'] = 4
-
-                    async with await s_telepath.Client.anit(url, onlink=onlinkExc) as targ:
-                        fut = asyncio.gather(asyncio.wait_for(evnt.wait(), timeout=30),
-                                             asyncio.wait_for(loopevent.wait(), timeout=30),)
-                        self.eq((True, True), await fut)
-                        self.ge(cnts['loops'], 5)
-                        self.ge(cnts['inits'], 5)
-
-    async def test_client_method_reset(self):
-        class Foo:
-            def __init__(self):
-                self.a = 1
-
-            async def foo(self):
-                return self.a
-
-            async def bar(self):
-                for i in range(self.a):
-                    yield i
-
-        class Bar:
-            def bar(self):
-                return 'bar'
-
-        foo = Foo()
-        bar = Bar()
-
-        with self.getTestDir() as dirn:
-            url = f'cell://{dirn}'
-            url = url + ':obj'
-            surl = os.path.join(f'unix://{dirn}', 'sock')
-
-            async with await s_telepath.Client.anit(url) as prox:
-                async with self.getTestDmon() as dmon:
-                    dmon.share('obj', foo)
-                    await dmon.listen(surl)
-
-                    self.none(await prox.waitready())
-                    self.eq(await prox.foo(), 1)
-
-                    # The .bar function is a genrmeth
-                    self.eq(await prox.bar().list(), [0],)
-                    self.eq(prox._t_named_meths, {'foo', 'bar'})
-
-                    # Disable the dmon and wait for the proxy to have been fini'd
-                    dmon.schedCoro(dmon.setReady(False))
-                    self.true(await prox._t_proxy.waitfini(10))
-
-                    # Swap out the object and reconnect
-                    dmon.share('obj', bar)
-                    await dmon.setReady(True)
-                    self.none(await prox.waitready())
-                    self.eq(prox._t_named_meths, set())
-
-                    # .foo is gone
-                    with self.raises(s_exc.NoSuchMeth):
-                        self.eq(await prox.foo(), 1)
-                    # The type of the .bar function changed so it is
-                    # no longer a genrmeth and can be called directly
-                    self.eq(await prox.bar(), 'bar')
-                    # We still have foo and bar as named meths
-                    self.eq(prox._t_named_meths, {'foo', 'bar'})
 
     async def test_telepath_loadenv(self):
         with self.getTestDir() as dirn:

@@ -77,9 +77,13 @@ class GenPkgTest(s_test.SynTest):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badapidef.yaml')
             await s_genpkg.main((ymlpath,))
 
-        with self.raises(s_exc.SchemaViolation):
-            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badendpoints.yaml')
-            await s_genpkg.main((ymlpath,))
+        # loadPkgProto materializes command storm files before schema
+        # validation runs, so load this invalid proto from a mirrored copy of
+        # the fixtures to avoid creating command files in the source tree.
+        with self.getTestDir(mirror='stormpkg') as tdir:
+            ymlpath = s_common.genpath(tdir, 'badendpoints.yaml')
+            with self.raises(s_exc.SchemaViolation):
+                await s_genpkg.main((ymlpath,))
 
         with self.raises(s_exc.BadPkgDef):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badinits.yaml')
@@ -89,7 +93,7 @@ class GenPkgTest(s_test.SynTest):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badvaultskeys.yaml')
             await s_genpkg.main((ymlpath,))
 
-        with self.raises(s_exc.SchemaViolation):
+        with self.raises(s_exc.BadArg):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badvaultsschema.yaml')
             await s_genpkg.main((ymlpath,))
 
@@ -156,16 +160,17 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['configvars'][1]['workflowconfig'], True)
             self.eq(pdef['configvars'][1]['type'], ['inet:fqdn', ['str', 'inet:url']])
 
-            pvault = pdef['vaults']['testpkg']
-            self.eq(pvault['schemas']['configs']['properties']['foo']['type'], 'string')
-            self.eq(pvault['schemas']['configs']['properties']['foo']['default'], 'hehe haha')
-            self.eq(pvault['schemas']['configs']['properties']['bar']['oneOf'][0]['type'], 'boolean')
-            self.eq(pvault['schemas']['configs']['properties']['bar']['oneOf'][1]['type'], 'string')
-            self.eq(pvault['schemas']['configs']['properties']['baz']['type'], 'boolean')
-            self.eq(pvault['schemas']['configs']['additionalProperties'], False)
-            self.eq(pvault['schemas']['secrets']['properties']['quux']['type'], 'string')
-            self.eq(pvault['schemas']['secrets']['properties']['quux']['minLength'], 2)
-            self.eq(pvault['schemas']['secrets']['required'], ('quux',))
+            pconfigs = pdef['vaults']['testpkg']['schema']['properties']['configs']
+            psecrets = pdef['vaults']['testpkg']['schema']['properties']['secrets']
+            self.eq(pconfigs['properties']['foo']['type'], 'string')
+            self.eq(pconfigs['properties']['foo']['default'], 'hehe haha')
+            self.eq(pconfigs['properties']['bar']['oneOf'][0]['type'], 'boolean')
+            self.eq(pconfigs['properties']['bar']['oneOf'][1]['type'], 'string')
+            self.eq(pconfigs['properties']['baz']['type'], 'boolean')
+            self.eq(pconfigs['additionalProperties'], False)
+            self.eq(psecrets['properties']['quux']['type'], 'string')
+            self.eq(psecrets['properties']['quux']['minLength'], 2)
+            self.eq(psecrets['required'], ('quux',))
 
             self.eq(pdef['docs'][0]['title'], 'Foo Bar')
             self.eq(pdef['docs'][0]['content'], 'Hello!\n')
@@ -191,7 +196,7 @@ class GenPkgTest(s_test.SynTest):
             self.eq(build.get('synapse:commit'), s_version.commit)
 
             ret = await core.callStorm('''
-                $s = $lib.pkg.get(testpkg).vaults.testpkg.schemas.configs
+                $s = $lib.pkg.get(testpkg).vaults.testpkg.schema.properties.configs
                 return($lib.json.schema($s).validate(({"bar": true, "baz": true})))
             ''')
             self.eq([True, {
@@ -201,7 +206,7 @@ class GenPkgTest(s_test.SynTest):
             }], ret)
 
             ret = await core.callStorm('''
-                $s = $lib.pkg.get(testpkg).vaults.testpkg.schemas.secrets
+                $s = $lib.pkg.get(testpkg).vaults.testpkg.schema.properties.secrets
                 return($lib.json.schema($s).validate(({"quux": "foo"})))
             ''')
             self.eq([True, {'quux': 'foo'}], ret)

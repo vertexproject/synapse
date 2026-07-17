@@ -386,6 +386,94 @@ class ConfTest(s_test.SynTest):
         item = validator({'key:multi': '123'})
         self.eq(item['key:multi'], '123')
 
+    def test_schema_validation(self):
+
+        # a valid draft-07 schema compiles cleanly
+        s_config.getJsValidator({
+            'type': 'object',
+            'properties': {
+                'a': {'type': 'string', 'minLength': 1, 'maxLength': 80},
+                'b': {'type': 'number', 'minimum': 0, 'maximum': 10},
+                'c': {'type': 'array', 'minItems': 1, 'maxItems': 10},
+            },
+        })
+
+        # a schema which uses a remote $ref string still compiles - the
+        # strict check is purely structural and does not resolve refs
+        s_config.getJsValidator({
+            '$ref': 'http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json',
+        })
+
+        # a property literally named after a bad keyword is not a false positive
+        s_config.getJsValidator({
+            'type': 'object',
+            'properties': {
+                'minLen': {'type': 'string'},
+            },
+        })
+
+        badkeys = ('minLen', 'maxLen', 'minlen', 'maxlen',
+                   'minVal', 'maxVal', 'minval', 'maxval',
+                   'minItem', 'maxItem')
+
+        for badkey in badkeys:
+            with self.raises(s_exc.BadArg):
+                s_config.getJsValidator({
+                    'type': 'object',
+                    'properties': {
+                        'a': {'type': 'string', badkey: 1},
+                    },
+                })
+
+        # case-insensitive matches against real keywords are also caught,
+        # not just the enumerated truncated-typo forms above
+        for badkey in ('minlength', 'MinLength', 'MINLENGTH', 'Minimum', 'ADDITIONALPROPERTIES'):
+            with self.raises(s_exc.BadArg):
+                s_config.getJsValidator({
+                    'type': 'object',
+                    'properties': {
+                        'a': {'type': 'string', badkey: 1},
+                    },
+                })
+
+        # nested occurrences are caught recursively
+        with self.raises(s_exc.BadArg):
+            s_config.getJsValidator({
+                'type': 'object',
+                'properties': {
+                    'a': {
+                        'type': 'object',
+                        'properties': {
+                            'b': {'type': 'string', 'minLen': 1},
+                        },
+                    },
+                },
+            })
+
+        # a malformed items definition fails draft-07 meta-schema validation
+        with self.raises(s_exc.BadArg):
+            s_config.getJsValidator({
+                'type': 'array',
+                'items': [[{}, {'type': 'integer'}]],
+            })
+
+        # occurrences nested under a schema-valued (as opposed to a
+        # property-list-valued) "dependencies" entry are caught recursively
+        with self.raises(s_exc.BadArg):
+            s_config.getJsValidator({
+                'type': 'object',
+                'properties': {
+                    'a': {'type': 'string'},
+                },
+                'dependencies': {
+                    'a': {
+                        'properties': {
+                            'b': {'type': 'string', 'minLen': 1},
+                        },
+                    },
+                },
+            })
+
     async def test_config_ref_handler(self):
 
         filename = pathlib.Path(s_data.path(

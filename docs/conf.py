@@ -223,17 +223,6 @@ if os.environ.get("READTHEDOCS", "") == "True":
     html_context["READTHEDOCS"] = True
 
 # Our magic
-def run_apidoc(_):
-    from sphinx.ext.apidoc import main
-
-    args = ['-M', '--no-toc', '-o', './synapse/autodocs', '../synapse', ]
-    ignores = ['../synapse/tests/test_*',
-               '../synapse/tests/files',
-               '../synapse/tests/nopmod',
-               '../synapse/vendor']
-    args.extend(ignores)
-    main(args)
-
 def run_modeldoc(_):
     import synapse
     import subprocess
@@ -333,7 +322,6 @@ def _subst_docs_baseurl(app, docname, source):
 
 def setup(app):
     app.connect('source-read', _subst_docs_baseurl)
-    app.connect('builder-inited', run_apidoc)
     app.connect('builder-inited', run_modeldoc)
     app.connect('builder-inited', run_confdocs)
     app.connect('builder-inited', convert_rstorm)

@@ -27,6 +27,7 @@ import shutil
 import asyncio
 import inspect
 import logging
+import zipfile
 import tempfile
 import unittest
 import contextlib
@@ -94,6 +95,44 @@ _TINFOIL_EXT = '.tinfoil'
 
 async def alist(coro):
     return [x async for x in coro]
+
+async def iterBackupData(proxy):
+    '''
+    Consume proxy.initBackupStream() and yield only the archive data bytes.
+
+    Raises SynErr if the stream terminates with an err message.
+    '''
+    async for mtyp, minfo in proxy.initBackupStream():
+        if mtyp == 'data':
+            yield minfo
+            continue
+
+        if mtyp == 'err':
+            raise s_exc.SynErr(mesg=minfo.get('errmsg', 'backup stream error'))
+
+async def pullBackup(proxy, dstdir):
+    '''
+    Stream a backup from proxy via initBackupStream() and extract it into dstdir.
+
+    This produces the same on-disk result as the removed runBackup(name=...) API,
+    for tests which need a bootable backup directory.
+    '''
+    dstdir = s_common.gendir(dstdir)
+    zippath = s_common.genpath(dstdir, 'backup.zip')
+    try:
+        with s_common.genfile(zippath) as fd:
+            async for byts in iterBackupData(proxy):
+                fd.write(byts)
+
+        with zipfile.ZipFile(zippath) as zf:
+            for zinfo in zf.infolist():
+                # strip the leading 'backup/' archive-root component
+                zinfo.filename = zinfo.filename.split('/', 1)[1]
+                zf.extract(zinfo, dstdir)
+
+    finally:
+        if os.path.isfile(zippath):
+            os.unlink(zippath)
 
 def norm(z):
     if isinstance(z, (list, tuple)):
@@ -716,7 +755,7 @@ class TstOutPut(s_output.OutPutStr):
 
         if not whitespace:
             outs = ' '.join(outs.split())
-            substr = ' '.join(outs.split())
+            substr = ' '.join(substr.split())
 
         if outs.find(substr) == -1:
             if throw:
@@ -1669,7 +1708,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             while True:
                 ssvc = core.getStormSvc(name)
                 if ssvc is not None:
-                    await ssvc.ready.wait()
+                    await ssvc.svcready.wait()
                     return ssvc
 
                 await asyncio.sleep(0.1)

@@ -1,7 +1,10 @@
+import gc
 import string
 import pathlib
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+import synapse.lib.cell as s_cell
 import synapse.telepath as s_telepath
 
 import synapse.tests.utils as s_test
@@ -23,6 +26,47 @@ class AuthTest(s_test.SynTest):
 
             self.eq(role, auth.role(role.iden))
             self.eq(role, await auth.getRoleByName('ninjas'))
+
+            # There is only ever one live User instance per iden. Reconciling that
+            # instance with the slab happens only on a readonly cell, where auth
+            # changes arrive out-of-band; a writable cell keeps it in sync via the
+            # setters, so read-through does not reconcile. None and idens with no
+            # live instance are always no-ops.
+            refr = await auth.addUser('refreshme')
+            auth.refreshUser(None)
+            auth.refreshUser(s_common.guid())
+
+            info = dict(auth.userdefs.get(refr.iden))
+            info['name'] = 'renamed'
+            info['authgates'] = {'gate00': {'admin': True, 'rules': ()}}
+            auth.userdefs.set(refr.iden, info)
+
+            # writable cell: the out-of-band slab edit is NOT reconciled, and
+            # evicting + re-resolving returns the SAME (still stale) instance.
+            # (the readonly reconcile path is covered by test_auth_readonly_reconcile)
+            self.eq('refreshme', refr.name)
+            self.false(refr.isAdmin(gateiden='gate00'))
+            auth.refreshUser(refr.iden)
+            self.eq('refreshme', refr.name)
+
+            auth.userbyidencache.pop(refr.iden)
+            self.true(refr is auth.user(refr.iden))
+            self.eq('refreshme', refr.name)
+
+            # Live User instances are tracked by weak reference: once the last
+            # reference is dropped and collected, the _liveusers entry goes away
+            # and a fresh lookup builds a brand new instance.
+            gcme = await auth.addUser('gcme')
+            gciden = gcme.iden
+            auth.userbyidencache.pop(gciden)
+            gcme = None
+            gc.collect()
+
+            self.notin(gciden, auth._liveusers)
+
+            gcme = auth.user(gciden)
+            self.isin(gciden, auth._liveusers)
+            self.true(gcme is auth.user(gciden))
 
             with self.raises(s_exc.DupUserName):
                 await auth.addUser('visi@vertex.link')
@@ -165,6 +209,32 @@ class AuthTest(s_test.SynTest):
 
             with self.raises(s_exc.InconsistentStorage):
                 await auth.addAuthGate(core.view.iden, 'newp')
+
+    async def test_auth_readonly_reconcile(self):
+
+        # On a readonly cell, auth changes may be committed by a writer out-of-band
+        # (the setters never run locally), so read-through must reconcile a retained
+        # live User instance with the slab in place. Prove it by corrupting the
+        # in-memory state and confirming a cache-miss re-resolve restores it.
+        with self.getTestDir() as dirn:
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+                await cell.auth.addUser('neo')
+
+            async with await s_cell.Cell.anit(dirn, readonly=True) as cell:
+
+                auth = cell.auth
+                self.true(auth.slab.readonly)
+
+                neo = await auth.getUserByName('neo')
+                self.nn(neo)
+
+                neo.name = 'corrupted'
+                auth.userbyidencache.pop(neo.iden)
+
+                # re-resolve: still the one canonical instance, reconciled in place
+                self.true(neo is auth.user(neo.iden))
+                self.eq('neo', neo.name)
 
     async def test_auth_email_unique(self):
 

@@ -485,6 +485,13 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:budget:name="FY24 Marketing" :actor -> ou:org'))
             self.len(1, await core.nodes('econ:budget:name="FY24 Marketing" :previous -> econ:budget +:name="FY23 Marketing"'))
 
+            props = budget.getProps(virts=True)
+            self.eq(props.get('funds.type'), 'econ:allocation')
+            self.eq(props.get('funds.allocated'), '5000')
+            self.eq(props.get('funds.spent'), '1000')
+            self.eq(props.get('funds.variance'), '-4000')
+            self.eq(props.get('funds.rate'), '-80')
+
             # econ:allocation renamed virts (allocated/spent/variance) are liftable
             self.len(1, await core.nodes('econ:budget:funds.allocated=5000'))
             self.len(1, await core.nodes('econ:budget:funds.spent=1000'))
@@ -699,6 +706,11 @@ class EconTest(s_utils.SynTest):
             self.eq('1.5', nodes[0].get('range.min'))
             self.eq('3', nodes[0].get('range.max'))
             self.eq('1.5', nodes[0].get('range.delta'))
+
+            props = nodes[0].getProps(virts=True)
+            self.eq(props.get('range.min'), '1.5')
+            self.eq(props.get('range.max'), '3')
+            self.eq(props.get('range.delta'), '1.5')
 
             # build a range from parts, then partial-capture with sentinel
             await core.nodes('''[

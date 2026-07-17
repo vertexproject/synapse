@@ -1353,40 +1353,49 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             q = '''
             [
-                (it:cmd:history=(1715936400000001, $sessiden)
+                (it:exec:command=(1715936400000001, $sessiden)
                     :cmd="ls -la"
-                    :time=(1715936400000001)
+                    :host={ it:host=$hostiden }
+                    :period=(202405170900, 202405171000)
+                    :output="total 0 drwxr-xr-x 2 root root"
                 )
 
-                (it:cmd:history=(1715936400000002, $sessiden)
+                (it:exec:command=(1715936400000002, $sessiden)
                     :cmd="cd /"
-                    :time=(1715936400000002)
                 )
 
-                (it:cmd:history=(1715936400000003, $sessiden)
+                (it:exec:command=(1715936400000003, $sessiden)
                     :cmd="ls -laR"
-                    :time=(1715936400000003)
                 )
 
                 :session=$sessiden as it:cmd:session
             ]
             '''
-            opts = {'vars': {'sessiden': cmdsess.ndef[1]}}
+            opts = {'vars': {'sessiden': cmdsess.ndef[1], 'hostiden': hostguid}}
             nodes = await core.nodes(q, opts=opts)
             self.len(3, nodes)
-            self.eq(nodes[0].ndef, ('it:cmd:history', s_common.guid(('1715936400000001', cmdsess.ndef[1]))))
+            self.eq(nodes[0].ndef, ('it:exec:command', s_common.guid(('1715936400000001', cmdsess.ndef[1]))))
             self.propeq(nodes[0], 'cmd', 'ls -la')
-            self.propeq(nodes[0], 'time', 1715936400000001)
+            self.eq(nodes[0].get('host'), ('it:host', hostguid))
+            self.propeq(nodes[0], 'period', (1715936400000000, 1715940000000000, 3600000000))
             self.propeq(nodes[0], 'session', cmdsess.ndef[1])
+            self.propeq(nodes[0], 'output', 'total 0 drwxr-xr-x 2 root root')
 
-            self.eq(nodes[1].ndef, ('it:cmd:history', s_common.guid(('1715936400000002', cmdsess.ndef[1]))))
+            # the form was renamed and the it:host:activity interface replaced :time with :period
+            self.nn(core.model.form('it:exec:command'))
+            self.none(core.model.form('it:cmd:history'))
+            self.none(core.model.prop('it:exec:command:time'))
+            self.true(core.model.form('it:exec:command').implements('it:host:activity'))
+
+            # the :cmd:history property was removed from it:exec:proc
+            self.none(core.model.prop('it:exec:proc:cmd:history'))
+
+            self.eq(nodes[1].ndef, ('it:exec:command', s_common.guid(('1715936400000002', cmdsess.ndef[1]))))
             self.propeq(nodes[1], 'cmd', 'cd /')
-            self.propeq(nodes[1], 'time', 1715936400000002)
             self.propeq(nodes[1], 'session', cmdsess.ndef[1])
 
-            self.eq(nodes[2].ndef, ('it:cmd:history', s_common.guid(('1715936400000003', cmdsess.ndef[1]))))
+            self.eq(nodes[2].ndef, ('it:exec:command', s_common.guid(('1715936400000003', cmdsess.ndef[1]))))
             self.propeq(nodes[2], 'cmd', 'ls -laR')
-            self.propeq(nodes[2], 'time', 1715936400000003)
             self.propeq(nodes[2], 'session', cmdsess.ndef[1])
 
             m0 = s_common.guid()
@@ -2439,6 +2448,41 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ file:bytes=* ]} ]'))
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ it:dev:str=woot ]} ]'))
             self.len(1, await core.nodes('it:os:windows:registry:entry -> it:os:windows:registry:key'))
+
+    async def test_infotech_posix_cron(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:os:posix:cron=*
+                    :host=* as it:host
+                    :cmd="/usr/bin/backup.sh --full"
+                    :schedule="*/5 * * * *"
+                    :account=* as it:host:posix:account
+                    :period=(2020-01-01, 2021-01-01)
+                    :desc="nightly backup"
+                    :path=/etc/cron.d/backup
+                    :file=* as file:bytes
+                ]
+            ''')
+
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'cmd', '/usr/bin/backup.sh --full')
+            self.propeq(nodes[0], 'schedule', '*/5 * * * *')
+            self.propeq(nodes[0], 'desc', 'nightly backup')
+            self.propeq(nodes[0], 'path', '/etc/cron.d/backup')
+            self.propeq(nodes[0], 'period', (1577836800000000, 1609459200000000, 31622400000000))
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('account'))
+            self.nn(nodes[0].get('file'))
+
+            self.len(1, await core.nodes('it:os:posix:cron -> it:host'))
+            self.len(1, await core.nodes('it:os:posix:cron -> it:cmd'))
+            self.len(1, await core.nodes('it:os:posix:cron :account -> it:host:posix:account'))
+            self.len(1, await core.nodes('it:os:posix:cron -> file:bytes'))
+            self.len(1, await core.nodes('it:os:posix:cron -> file:path'))
+            self.len(1, await core.nodes('it:os:posix:cron:schedule="*/5 * * * *"'))
+            self.len(1, await core.nodes('it:os:posix:cron:period@=2020'))
 
     async def test_infotech_mitre(self):
 

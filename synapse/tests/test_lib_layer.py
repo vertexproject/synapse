@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 
 import synapse.exc as s_exc
+import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -384,6 +385,27 @@ class LayerTest(s_t_utils.SynTest):
         longfqdn = '.'.join(('a' * 63,) * 5)
         indx = stor.indx(longfqdn)
         self.eq(s_common.novalu, stor.decodeIndx(indx[0]))
+
+    async def test_layer_stortype_utf8(self):
+        size = s_layer.LAYER_UTF8_INDEX_SIZE
+
+        stor = s_layer.StorTypeUtf8(None)
+        for valu in ('', 'foo', 'a' * (size - 1)):
+            self.eq(valu, stor.decodeIndx(stor.indx(valu)[0]))
+
+        # values longer than the index size retain size bytes plus an 8 byte
+        # appended hash and can no longer be decoded from the index
+        longval = 'a' * (size + 10)
+        indx = stor.indx(longval)[0]
+        self.len(size + 8, indx)
+        self.eq(s_common.novalu, stor.decodeIndx(indx))
+
+        # distinct values sharing a prefix get distinct indexes via the hash
+        self.ne(stor.indx('a' * size + 'x')[0], stor.indx('a' * size + 'y')[0])
+
+        # the text stortype lower-cases its index value
+        stor = s_layer.StorTypeText(None)
+        self.eq(b'foo', stor.indx('FoO')[0])
 
     async def test_layer_stortype_hugenum(self):
         stor = s_layer.StorTypeHugeNum(self, None)
@@ -855,6 +877,16 @@ class LayerTest(s_t_utils.SynTest):
 
                 await layrprox.storNodeEdits(nodeedits)
                 await layrprox.storNodeEditsNoLift(nodeedits)
+
+            # _saveNodeEditsFollower (the non-leader edit-forward path) returns
+            # the leader's result directly when the forwarded saveLayerNodeEdits
+            # answers non-None, rather than waiting on the response future.
+            class Proxy:
+                async def saveLayerNodeEdits(self, iden, edits, meta, waitiden=None):
+                    return ('offs', ['appliededit'])
+
+            retn = await layer0._saveNodeEditsFollower(Proxy(), (), {})
+            self.eq(('offs', ['appliededit']), retn)
 
     async def test_layer_tombstone(self):
 
@@ -1760,6 +1792,26 @@ class LayerTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.IsReadOnly):
                     await core.nodes('[inet:fqdn=vertex.link]', opts={'view': view['iden']})
+
+                # a node in the default (writable) layer to read back after the
+                # whole-Cortex readonly reopen below
+                await core.nodes('[ inet:ip=1.2.3.4 ]')
+
+            # reopening the whole Cortex readonly opens every layer's storage
+            # read-only (slabopts readonly); reads still work against the shared
+            # files, and deleting such a layer fini's it but skips the durable
+            # rmtree of the shared files (the writer owns them).
+            async with await s_cortex.Cortex.anit(dirn, readonly=True) as core:
+
+                layr = core.getLayer()
+                self.true(layr.layrslab.readonly)
+
+                self.eq(1, await core.count('inet:ip=1.2.3.4'))
+
+                layrdirn = layr.dirn
+                await layr.delete()
+                self.true(layr.isdeleted)
+                self.true(os.path.isdir(layrdirn))
 
     async def test_layer_iter_props(self):
 
@@ -2759,8 +2811,9 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('test:virtiface +:newp*[.ip=127.0.0.1]')
 
-            with self.raises(s_exc.BadTypeValu):
+            with self.raises(s_exc.BadCmprType) as exc:
                 await core.nodes('test:virtiface:server*[.ip=127.0.0.1]')
+            self.isin('Array syntax is invalid on non array type', exc.exception.get('mesg'))
 
             # TODO check possible types and their virts to raise
             # with self.raises(s_exc.NoSuchCmpr):
@@ -3126,6 +3179,7 @@ class LayerTest(s_t_utils.SynTest):
             forkview.wlyr._testAddPropArrayIndx(nodes[0].nid, 'test:arrayprop', 'strs', (('test:str', 'a' * 500),))
 
             self.len(0, await core.nodes('test:arrayprop:strs*[=$long]', opts=viewopts2))
+            self.len(0, await core.nodes('test:arrayprop:strs*[^=$long]', opts=viewopts2))
             self.len(1, await core.nodes('test:arrayprop:strs*[=bar]', opts=viewopts2))
             self.len(0, await core.nodes('test:arrayprop:strs*[={[test:str=$long]}]', opts=viewopts2))
 

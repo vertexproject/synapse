@@ -426,39 +426,6 @@ the user should be able to use standard Synapse CLI tools using the ``aha://`` U
 
     python -m synapse.tools.storm aha://visi@cortex...
 
-.. _deployment-guide-storm-pool:
-
-Configure a Storm Query Pool (optional)
-=======================================
-
-A Cortex may be configured to use a pool of mirrors in order to offload Storm query execution and distribute
-query load among a configurable group of mirrors. We will assume you have configured two additional mirrors named
-``001.cortex...`` and ``002.cortex...`` using the process described in the previous :ref:`deployment-guide-mirror`
-step. In our example, we will also assume that the mirrors will be used for both query parallelism and for graceful
-promotions to minimize downtime during upgrades and optimization.
-
-The following commands are run using the Storm CLI tool discussed in the :ref:`enroll_cli_users` section. First, use
-the Storm CLI to run the ``aha.pool.add`` command to create a new AHA pool::
-
-    aha.pool.add pool00.cortex...
-
-Then add the Cortex leader as well as the two mirrors to the pool::
-
-    aha.pool.svc.add pool00.cortex... 000.cortex...
-    aha.pool.svc.add pool00.cortex... 001.cortex...
-    aha.pool.svc.add pool00.cortex... 002.cortex...
-
-Then configure the Cortex to use the newly created AHA service pool::
-
-    cortex.storm.pool.set aha://pool00.cortex...
-
-Now your Cortex will distribute Storm queries across the available mirrors. You may add or remove mirrors
-from the pool at any time using the ``aha.pool.svc.add`` and ``aha.pool.svc.del`` commands and the pool topology
-updates will be automatically sent. You may want to review some of the command options to adjust timeouts for your
-environment.
-
-If you wish to remove the pool configuration from the Cortex you may use the ``cortex.storm.pool.del`` command.
-
 What's next?
 ============
 

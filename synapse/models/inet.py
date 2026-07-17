@@ -1822,6 +1822,9 @@ modeldefs = (
 
                     ('response', ('inet:http:response', {}), {
                         'doc': 'The HTTP response sent by the server.'}),
+
+                    ('fetch', ('it:exec:fetch', {}), {
+                        'doc': 'The fetch or page load event which caused the HTTP request.'}),
                 ),
                 'doc': 'A single HTTP request.'}),
 

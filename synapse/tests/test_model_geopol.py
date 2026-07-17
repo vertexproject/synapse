@@ -11,8 +11,6 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :period=(2022, 2023)
                     :name=visiland
                     :names=(visitopia,)
-                    :iso:3166:alpha3=vis
-                    :iso:3166:numeric3=137
                     :currencies=(usd, vcoins, PESOS, USD)
                 ]
             ''')
@@ -22,8 +20,6 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'names', ('visitopia',))
             self.propeq(nodes[0], 'period', (1640995200000000, 1672531200000000, 31536000000000))
             self.propeq(nodes[0], 'code', 'vi', type='iso:3166:alpha2')
-            self.propeq(nodes[0], 'iso:3166:alpha3', 'vis')
-            self.propeq(nodes[0], 'iso:3166:numeric3', '137')
             self.propeq(nodes[0], 'currencies', ('PESOS', 'USD', 'VCOINS'))
             self.len(2, await core.nodes('pol:country -> geo:name'))
             self.len(3, await core.nodes('pol:country -> econ:currency'))

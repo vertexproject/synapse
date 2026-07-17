@@ -151,6 +151,7 @@ class LibModelExt(s_stormtypes.Lib):
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(name=propname, mesg=mesg)
+
         await self.runt.view.core.addTagProp(propname, typedef, propinfo)
 
     async def delForm(self, formname):

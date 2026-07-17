@@ -62,7 +62,7 @@ section_types = (
     (9, 'only function pointers for init'),
     (10, 'only function pointers for fini'),
     (11, 'contains symbols to be coalesced'),
-    (12, 'zero fill on deman (greater than 4gb)'),
+    (12, 'zero fill on demand (greater than 4gb)'),
     (13, 'only pairs of function pointers for interposing'),
     (14, 'only 16 byte literals'),
     (15, 'dtrace object format'),

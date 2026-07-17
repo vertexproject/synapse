@@ -3,15 +3,20 @@ import glob
 import time
 import shutil
 import fnmatch
+import zipfile
 import logging
 import argparse
+import threading
 import contextlib
 
 import lmdb
 
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
+import synapse.lib.output as s_output
+import synapse.lib.urlhelp as s_urlhelp
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +70,11 @@ def capturelmdbs(srcdir, skipdirs=None, onlydirs=None):
             map_size = stat.st_size
             env = stack.enter_context(
                 lmdb.open(path, map_size=map_size, max_dbs=16384, create=False, readonly=True))
-            txn = stack.enter_context(env.begin())
+            txn = env.begin()
+            # register abort() (idempotent) rather than the context-manager exit
+            # (which commits) so callers may abort a read txn early to release its
+            # snapshot without a later double-close crash.
+            stack.callback(txn.abort)
             assert path not in lmdbinfo
             lmdbinfo[path] = (env, txn)
 
@@ -160,18 +169,164 @@ def backup_lmdb(env: lmdb.Environment, dstdir: str, txn=None):
     tock = time.time()
     logger.info(f'backup of: {env.path()} took: {tock - tick:.2f} seconds')
 
-async def main(argv):
+def iterslabzip(lmdbinfo, srcdir, fileobj, arcbase='backup', skipdirs=None):
+    '''
+    Stream a consistent Synapse backup as a zip archive into ``fileobj`` using the
+    pinned lmdb read transactions in ``lmdbinfo``.
+
+    Each captured ``data.mdb`` is streamed via a compacting ``env.copyfd()`` into a
+    zip entry written with a data descriptor, so the member size need not be known
+    up front. Plain files are copied verbatim. The archive contains a single root
+    directory with all backup members below it.
+
+    Args:
+        lmdbinfo (dict): Maps slab dir path to ``(env, txn)`` (see ``capturelmdbs``).
+        srcdir (str): The service directory being backed up.
+        fileobj: A writable binary file object to receive the zip bytes.
+        arcbase (str): The archive root directory name.
+        skipdirs (list or None): Additional relative dir glob patterns to skip.
+
+    Returns:
+        int: The total uncompressed size of the archive members (the on-disk
+        footprint of the backup once extracted).
+    '''
+    srcdir = s_common.reqdir(srcdir)
+
+    if skipdirs is None:
+        skipdirs = []
+
+    # Always avoid backing up temporary and backup directories
+    skipdirs.append('**/tmp')
+    skipdirs.append('**/backups')
+
+    with zipfile.ZipFile(fileobj, mode='w', compression=zipfile.ZIP_DEFLATED, compresslevel=1) as zf:
+
+        for root, dnames, fnames in os.walk(srcdir, topdown=True):
+
+            relpath = os.path.relpath(root, start=srcdir)
+
+            for name in list(dnames):
+
+                srcpath = s_common.genpath(root, name)
+                # keep the './' form (os.path.join with a '.' relpath) so the
+                # '**/tmp' and '**/backups' globs match top-level dirs too.
+                relname = os.path.join(relpath, name)
+
+                if any(fnmatch.fnmatch(relname, pattern) for pattern in skipdirs):
+                    dnames.remove(name)
+                    continue
+
+                info = lmdbinfo.get(os.path.abspath(srcpath))
+                if info is not None:
+                    dnames.remove(name)
+                    env, txn = info
+                    # normpath collapses the leading './' for top-level entries so
+                    # the archive members are clean 'backup/<rel>'.
+                    arcname = os.path.normpath(os.path.join(arcbase, relname, 'data.mdb'))
+                    _copyslabzip(zf, env, txn, arcname)
+                    # release this snapshot now that its copy is complete so the
+                    # live writer can reclaim its freed pages.
+                    txn.abort()
+                    continue
+
+                if name.endswith('.lmdb'):
+                    logger.warning('lmdb file %s not copied', srcpath)
+                    dnames.remove(name)
+                    continue
+
+            for name in fnames:
+
+                srcpath = s_common.genpath(root, name)
+                # skip unix sockets etc...
+                if not os.path.isfile(srcpath):
+                    continue
+
+                relname = os.path.join(relpath, name)
+                zf.write(srcpath, arcname=os.path.normpath(os.path.join(arcbase, relname)))
+
+    return sum(zinfo.file_size for zinfo in zf.infolist())
+
+def _copyslabzip(zf, env, txn, arcname):
+
+    rfd, wfd = os.pipe()
+    exc = []
+
+    def _copy():
+        try:
+            env.copyfd(wfd, compact=True, txn=txn)
+        except BaseException as e:
+            exc.append(e)
+        finally:
+            os.close(wfd)
+
+    thread = threading.Thread(target=_copy, daemon=True)
+    thread.start()
+
+    zinfo = zipfile.ZipInfo(arcname)
+    zinfo.compress_type = zipfile.ZIP_DEFLATED
+
+    try:
+        with zf.open(zinfo, mode='w', force_zip64=True) as dest:
+            while True:
+                chunk = os.read(rfd, 1024 * 1024)
+                if not chunk:
+                    break
+
+                dest.write(chunk)
+
+        thread.join()
+        if exc:
+            raise exc[0]
+
+    finally:
+        os.close(rfd)
+        thread.join()
+
+async def _urlBackup(url, dstpath, outp):
+    sanitized = s_urlhelp.sanitizeUrl(url)
+    async with s_telepath.withTeleEnv():
+        async with await s_telepath.openurl(url) as cell:
+            outp.printf(f'Running backup of: {sanitized}')
+            with s_common.genfile(dstpath) as fd:
+                async for mtyp, minfo in cell.initBackupStream():
+                    if mtyp == 'data':
+                        fd.write(minfo)
+                        continue
+
+                    if mtyp == 'init':
+                        outp.printf(f'...backup nexus offset: {minfo.get("nexsoffs")}')
+                        continue
+
+                    if mtyp == 'fini':
+                        outp.printf(f'...backup created: {dstpath} '
+                                    f'(size={minfo.get("size")}, sha256={minfo.get("sha256")})')
+                        continue
+
+                    if mtyp == 'err':
+                        mesg = minfo.get('errmsg', 'backup stream error')
+                        outp.printf(f'ERROR: backup of {sanitized} failed: {mesg}')
+                        return 1
+
+    return 0
+
+async def main(argv, outp=s_output.stdout):
     args = parse_args(argv)
-    backup(args.srcdir, args.dstdir, args.skipdirs)
+
+    # a telepath URL contains a scheme separator; a filesystem path does not.
+    if '://' in args.source:
+        return await _urlBackup(args.source, args.dstdir, outp)
+
+    backup(args.source, args.dstdir, args.skipdirs)
     return 0
 
 def parse_args(argv):
-    desc = 'Create an optimized backup of a Synapse directory.'
+    desc = 'Create an optimized backup of a Synapse service, from a local directory or a running service URL.'
     parser = argparse.ArgumentParser('synapse.tools.service.backup', description=desc)
-    parser.add_argument('srcdir', help='Path to the Synapse directory to backup.')
-    parser.add_argument('dstdir', help='Path to the backup target directory.')
+    parser.add_argument('source', help='Path to a Synapse directory, or a telepath URL of a running Synapse service.')
+    parser.add_argument('dstdir', help='Backup target: a directory when backing up a local path, '
+                                       'or a .zip file path when backing up a service URL.')
     parser.add_argument('--skipdirs', nargs='+',
-                        help='Glob patterns of relative directory names to exclude from the backup.')
+                        help='Glob patterns of relative directory names to exclude from the backup (local path only).')
     args = parser.parse_args(argv)
     return args
 

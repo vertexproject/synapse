@@ -117,23 +117,6 @@ Name:       01.cell.synapse
 '''
                 self.stormIsInPrint(emsg, msgs, deguid=True)
 
-                # No item for pool00 yet..
-                msgs = await core00.stormlist('aha.svc.stat pool00...')
-                self.stormIsInPrint('No service found for: "pool00..."', msgs)
-
-                msgs = await core00.stormlist('aha.pool.add pool00...')
-                self.stormHasNoWarnErr(msgs)
-                msgs = await core00.stormlist('aha.pool.svc.add pool00... 00.cell...')
-                self.stormHasNoWarnErr(msgs)
-
-                msgs = await core00.stormlist('aha.svc.stat --nexus pool00...')
-                emsg = '''Resolved pool00... to an AHA Pool.
-
-The pool currently has 1 members.
-AHA Pool:   pool00.synapse
-Member:     00.cell.synapse'''
-                self.stormIsInPrint(emsg, msgs)
-
                 # Shut down a service
                 nevents = 2 if replay else 1
                 waiter = aha.waiter(nevents, 'aha:svc:down')
@@ -189,9 +172,6 @@ Connection information:
                 self.none(await core00.callStorm('return($lib.aha.get(00.newp...))'))
 
                 # Coverage for sad paths
-                with self.raises(s_exc.BadArg):
-                    await core00.callStorm('$lib.aha.del(pool00...)')
-
                 with self.raises(s_exc.NoSuchName):
                     await core00.callStorm('$lib.aha.del(axon...)')
 

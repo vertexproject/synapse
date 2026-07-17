@@ -6,6 +6,138 @@
 Synapse Changelog
 *****************
 
+v3.0.0b3 - 2026-07-17
+=====================
+
+Model Changes
+-------------
+- Removed the ``it:exec:proc:cmd:history`` property.
+- Renamed the ``it:cmd:history`` form to ``it:exec:command``, added the
+  ``it:host:activity`` interface, and removed the ``:time`` property.
+- Added the ``it:exec:command:output`` property to record the output of a
+  command.
+- Removed the ``pol:country:iso:3166:alpha3`` and
+  ``pol:country:iso:3166:numeric3`` properties in favor of
+  ``pol:country:codes``.
+- Added the ``it:os:posix:cron`` form to model cron job entries configured on a
+  host.
+- Removed the ``risk:attack:compromise``, ``risk:extortion:compromise``, and
+  ``risk:outage:attack`` properties.
+- Added the ``inet:http:request:fetch`` property to record the
+  ``it:exec:fetch`` event which caused the HTTP request.
+
+Features and Enhancements
+-------------------------
+- All Synapse services booting from 3.0.0b3 must use fresh storage. Booting
+  from v3.0.0b2 versions of service storage is not supported, and services will
+  fail to boot.
+- Added ``__slots__`` to the ``Node`` and ``Path`` runtime classes to reduce
+  per-instance memory overhead.
+- Added support for Storm package ``modules`` entries to load their Storm from
+  a Python package asset (via ``package`` and ``path``) or a file (via
+  ``path``), and removed the ``external_modules`` package definition section
+  which those keys replace. Modules loaded this way are no longer automatically
+  prefixed with the package name and must specify their fully qualified
+  ``name``.
+- Removed the cell drive spawn IO worker. The cell drive now always runs in-
+  process.
+- Storm package autodoc now renders a ``Dependencies`` section from the
+  package's ``dependencies``.
+- The ``Cell.initBackupStream()`` fini message now reports ``rawsize``, the
+  uncompressed size of the backup archive contents.
+- Reduced the maximum length of indexed UTF8 values in Cortex layers to 64
+  bytes.
+- ``Cell.initBackupStream()`` now generates the backup archive directly from
+  the live LMDB slabs and streams it as a zip, without staging a full copy of
+  the service on local disk. Removed the Cell ``backup:dir`` configuration
+  option.
+- Added the ``Cell.initBackupStream()`` API which takes a live backup and
+  streams it as typed ``(type, info)`` messages
+  (``init``/``data``/``fini``/``err``), and retooled
+  ``synapse.tools.service.backup`` to accept either a directory (offline copy)
+  or a telepath URL (live backup via ``initBackupStream()``).
+- Renamed ``promote()``'s ``graceful`` argument to ``force`` and flipped the
+  default so a bare ``promote()`` call performs a safe, coordinated leadership
+  handoff. Pass ``force=True`` (or ``service.promote --failure``) to
+  unilaterally promote without contacting the current leader; doing so while
+  the old leader is still reachable will very likely render it unusable and
+  require a restore from backup.
+- Added ``cmpr``, ``limit``, and ``type`` arguments to
+  ``$lib.view.getPropValues()`` and ``cmpr`` and ``type`` arguments to
+  ``getPropCount()`` for prefix (``^=``) listing and counting of property
+  values.
+- Removed the ``synapse_version`` pkgdef field. A package's Synapse version
+  requirement is now expressed as a reserved ``synapse`` entry in the new
+  ``dependencies`` dict. Added ``title`` and ``conflicts`` pkgdef fields. Unmet
+  non-optional dependencies now raise an error when a Storm package is loaded,
+  rather than only logging.
+- Added the ``$lib.vault.type`` Storm library for registering versioned vault
+  type schemas that validate vault data, with automatic migration on version
+  bumps.
+- Removed the AHA service pool and Storm query mirror pool features, including
+  the ``aha.pool.*`` and ``cortex.storm.pool.*`` Storm commands, the cron job
+  ``--pool`` option, and the ``pool`` flag from the Extended HTTP API
+  configuration.
+
+Bugfixes
+--------
+- ``SYN_PROVISION_FOLLOWER`` is now parsed with ``envbool``, so values of ``0``
+  or ``false`` disable follower provisioning instead of enabling it.
+- Converted the Storm ``auth:user`` type ``roles()`` method into a dynamically
+  generated ``roles`` property.
+- ``synapse.lib.logging.watch`` called with ``last=0`` now streams only new
+  records instead of replaying all previously stored logs.
+- Fixed ``rstorm.getCell()`` raising ``AttributeError`` for rstorm ctors that
+  are not real Cell subclasses (e.g. doc-only test doubles with a custom
+  ``anit()``).
+- Fixed several JSON Schema definitions in ``synapse.lib.schemas`` that used
+  non-standard keywords (``minLen``, ``minlen``, ``minval``) which were
+  silently ignored, so the intended length/range constraints were not enforced.
+  As a result, Extended HTTP API method handlers (``methods.get``,
+  ``methods.post``, etc.) must now be non-empty Storm queries.
+- Changed the AHA service to require the ``dns:name`` (``SYN_AHA_DNS_NAME``)
+  option and fail to start without it.
+- ``synapse.tools.axon.get`` no longer leaves an empty file behind when a file
+  fetch fails.
+- Fixed a confusing error message when lifting an array property with a bare
+  scalar value (e.g. ``syn:prop:type=ival``); the error now points to the array
+  element lift syntax (``syn:prop:type*[=ival]``) instead of an internal
+  implementation detail, and no longer leaks a raw Python TypeError for the ``~=``
+  and ``^=`` comparators.
+
+Notes
+-----
+- Removed the ``synapse.telepath.Client`` class; use
+  ``synapse.telepath.ClientV2``.
+- Feature-flag values advertised in a Cell's Telepath ``features`` dict (e.g.
+  ``stormservice``) are now PEP 440 version strings (e.g. ``'1.0.0'``) instead
+  of bare integers, and ``Proxy._hasTeleFeat()`` compares them via
+  ``synapse.lib.version.matches()`` instead of integer ``>=``.
+- Backups streamed via ``Cell.initBackupStream()`` are now zip archives rather
+  than gzipped tarballs.
+- Removed Telepath feature flags (``tellready``, ``dynmirror``, ``tasks``,
+  ``shutdowndrain``, ``getAhaSvcsByIden``, ``unpack``, ``callpeers``) that have
+  been unconditionally present on every 3.x Cell/Axon/AHA service since the
+  Synapse 3.x major-version handshake makes them unreachable by any older peer.
+  The corresponding feature-absent code paths were also removed, including the
+  ``feats`` gate on ``Cell.getAhaProxy()``/``callPeerApi()``/``callPeerGenr()``
+  and the pre-connect check in ``synapse.tools.aha.mirror``. Optic's cross-
+  mirror ``sendStoryMesg``/``sendUIMessage`` peer fan-out
+  (``synmods/optic/app.py``), which used the ``callpeers`` flag, is now
+  unconditional.
+- Removed the ``runBackup``, ``getBackups``, ``getBackupInfo``, ``delBackup``,
+  ``iterBackupArchive``, and ``iterNewBackupArchive`` Cell APIs, the
+  ``$lib.backup`` and ``$lib.cell.getBackupInfo()`` Storm APIs, and the
+  ``synapse.tools.service.livebackup`` tool in favor of ``initBackupStream()``.
+- Changed the AHA service to always start its provisioning listener now that
+  ``dns:name`` is required. As such, ``aha:name`` and ``aha:network`` are no
+  longer used to do implicit ``dns:name`` resolution.
+
+Improved documentation
+----------------------
+- Removed Synapse 2.x.x model updates section from Synapse docs.
+- Removed Python API section from Synapse docs.
+
 v3.0.0b2 - 2026-07-11
 =====================
 

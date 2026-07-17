@@ -56,43 +56,44 @@ Generating a Backup
     If you are a Synapse Enterprise customer you should deploy the Synapse-Enterprise-Backup_ Advanced Power-Up.
 
 It is strongly recommended that users schedule regular backups of all services deployed within their Synapse
-ecosystem. Each service must be backed up using either the **live** backup tool ``synapse.tools.service.livebackup`` or
-the offline backup tool ``synapse.tools.service.backup``.
+ecosystem. Each service can be backed up using the ``synapse.tools.service.backup`` tool, which accepts either a
+directory (an **offline** backup of a stopped service) or a telepath URL (a **live** backup of a running service).
 
 For a production deployment similar to the one described in the :ref:`deploymentguide` you can easily run
 the backup tool by executing a shell **inside** the docker container.  For example, if we were generating
-a backup of the Cortex we would::
+a live backup of the Cortex we would::
 
     cd /srv/syn/000.cortex
     docker compose exec 000.cortex /bin/bash
 
-And from the shell executed within the container::
+And from the shell executed within the container, point the tool at the running service's telepath URL and a
+destination archive path::
 
-    python -m synapse.tools.service.livebackup
+    python -m synapse.tools.service.backup cell:///vertex/storage /vertex/storage/backups/20220422094622.tar.gz
 
-This will generate a backup in a time stamp directory similar to::
+This streams a transactionally consistent, compressed backup archive to the specified path::
 
-    /vertex/storage/backups/20220422094622
+    /vertex/storage/backups/20220422094622.tar.gz
 
-Once the backup directory is generated you may exit the docker shell and the backup will be accessible from
+Once the backup archive is generated you may exit the docker shell and the backup will be accessible from
 the **host** file system as::
 
-    /srv/syn/000.cortex/storage/backups/20220422094622
+    /srv/syn/000.cortex/storage/backups/20220422094622.tar.gz
 
-At this point it is safe to use standard tools like ``mv``, ``tar``, and ``scp`` on the backup folder::
+At this point it is safe to use standard tools like ``mv`` and ``scp`` on the backup archive::
 
-    mv /srv/syn/000.cortex/storage/backups/20220422094622 /nfs/backups/000.cortex/
-
-.. note::
-
-    It is important that you use ``synapse.tools.service.livebackup`` to ensure a transactionally consistant backup.
+    mv /srv/syn/000.cortex/storage/backups/20220422094622.tar.gz /nfs/backups/000.cortex/
 
 .. note::
 
-    When taking a backup of a service, the backup is written by the service locally to disk. This may take
-    up storage space equal to the current size of the service. If the service does not have the ``backup:dir`` option
-    configured for a dedicated backup directory (or volume), this backup is made to ``/vertex/storage/backups`` by
-    default. If the volume backing ``/vertex/storage`` reaches a maximum capacity, the backup process will fail.
+    Passing a telepath URL to ``synapse.tools.service.backup`` streams a transactionally consistent backup
+    from the running service.
+
+.. note::
+
+    When taking a live backup of a service, the service stages a transient copy locally under its ``tmp``
+    directory while streaming the archive. This may take up storage space equal to the current size of the
+    service. If the volume backing ``/vertex/storage`` reaches a maximum capacity, the backup process will fail.
 
     To avoid this from being an issue, when using the default configuration, make sure services do not exceed 50% of
     their storage utilization. For example, a Cortex that has a size of 32GB of utilized space may take up 32GB
@@ -146,12 +147,17 @@ And from the shell executed within the container::
 
 Once completed, the previous leader will now be configured as a follower of the newly promoted leader.
 
-.. note::
+.. warning::
 
     If you are promoting the follower due to a catastrophic failure of the previous leader, you may use the
     command ``synapse.tools.service.promote --failure`` to force promotion despite not being able to carry out a graceful
-    handoff. It is **critical that you not bring the previous leader back online** once this has been done. To regain
-    redundancy, deploy a new mirror using the AHA provisioning process described in the :ref:`deploymentguide`.
+    handoff. This does **not** coordinate with the previous leader in any way. If the previous leader is
+    actually still alive and reachable, both services will now believe they are the leader ( a "split-brain" ),
+    and the old service **will very likely become unusable**: it will detect a leadership schism the next
+    time it tries to communicate and will require a full restore from backup to rejoin the cluster. Only use
+    ``--failure`` once you have confirmed the previous leader is offline, and it is **critical that you not
+    bring the previous leader back online** once this has been done. To regain redundancy, deploy a new mirror
+    using the AHA provisioning process described in the :ref:`deploymentguide`.
 
 .. _devops-task-update:
 
@@ -555,6 +561,14 @@ dictionary returned by ``getCellInfo()`` and persists across restarts.
 
     Though not encouraged, it is safe to shutdown a service during the optimization
     process. Progress on the LMDB database being optimized at the time of shutdown will be lost.
+
+.. note::
+
+    The optimization process runs before the service has bound its listeners, so healthcheck
+    probes will fail for the entire duration of the optimization. In orchestrated deployments
+    (e.g. Kubernetes), a liveness or readiness probe with too short a failure window can
+    terminate the service mid-optimization. See the Healthchecks guidance in
+    :ref:`orch-kubernetes-deployment` for recommended probe settings.
 
 .. _devops-task-users:
 
@@ -1152,7 +1166,7 @@ To enable provisioning using AHA you must specify an alternate listener such as:
 
 For the full list supported options, see the :ref:`autodoc-conf-aha`.
 
-**Using Aha with Custom Client Code**
+**Using AHA with Custom Client Code**
 
 .. highlight:: python3
 
@@ -1958,19 +1972,20 @@ inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment
     ``do-block-storage``. You may need to alter these examples to provide a ``storageClass`` that is appropriate
     for your environment.
 
-  Aha naming
-    In Kubernetes, we rely on the default naming behavior for services to find the Aha service via DNS. The Aha service
+  AHA naming
+    In Kubernetes, we rely on the default naming behavior for services to find the AHA service via DNS. The AHA service
     uses a naming convention starting with ``aha`` followed by a two-digit number (e.g., ``aha00``) to support multiple instances.
-    The service's DNS name is configured using the ``SYN_AHA_DNS_NAME`` environment variable, which follows the pattern
-    ``<service-name>.<namespace>.svc.cluster.local``. For example, with the default namespace, the DNS name would be
-    ``aha00.default.svc.cluster.local``. The Aha service will automatically bind on ``0.0.0.0`` since we cannot bind the
-    DNS label provided by Kubernetes prior to the Pod running Aha being available. The ``SYN_AHA_AHA_NETWORK`` value can be
-    set to any desired Certificate Authority name (e.g., ``dev.synapse``) and is used for SSL certificate validation between Synapse services.
+    The service's DNS name is configured using the required ``SYN_AHA_DNS_NAME`` environment variable, which follows the
+    pattern ``<service-name>.<namespace>.svc.cluster.local``. For example, with the default namespace, the DNS name would be
+    ``aha00.default.svc.cluster.local``. The AHA service will fail to start if ``SYN_AHA_DNS_NAME`` is not set. It will
+    automatically bind on ``0.0.0.0`` since we cannot bind the DNS label provided by Kubernetes prior to the Pod running
+    AHA being available. The ``SYN_AHA_AHA_NETWORK`` value can be set to any desired Certificate Authority name
+    (e.g., ``dev.synapse``) and is used for SSL certificate validation between Synapse services.
 
-Aha
+AHA
 ^^^
 
-The following ``aha.yaml`` can be used to deploy an Aha service.
+The following ``aha.yaml`` can be used to deploy an AHA service.
 
 .. literalinclude:: ./kubernetes/aha.yaml
     :language: yaml
@@ -2007,7 +2022,7 @@ You can see the startup logs as well:
     2025-03-12 20:30:50,657 [INFO] ...aha API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
 All services in this deployment share a single provisioning secret. When a service boots with this secret configured,
-it discovers the Aha service and provisions itself automatically. The
+it discovers the AHA service and provisions itself automatically. The
 secret is stored as a Kubernetes Secret named ``synapse-provision`` and referenced by each deployment. Create it once
 with the following command, using a strong shared secret of your choosing:
 
@@ -2017,10 +2032,10 @@ with the following command, using a strong shared secret of your choosing:
 
     $ kubectl create secret generic synapse-provision --from-literal=secret=<shared-secret>
 
-The same secret is configured on the Aha service and on every service via the ``SYN_PROVISION_SECRET`` environment
+The same secret is configured on the AHA service and on every service via the ``SYN_PROVISION_SECRET`` environment
 variable. Because Kubernetes pods cannot use multicast discovery, each service also sets the ``SYN_PROVISION_HOST``
-environment variable to the Aha service DNS name (``aha00.default.svc.cluster.local``) so that the discovery request
-is sent directly to the Aha service.
+environment variable to the AHA service DNS name (``aha00.default.svc.cluster.local``) so that the discovery request
+is sent directly to the AHA service.
 
 Axon
 ^^^^
@@ -2030,7 +2045,7 @@ The following ``axon.yaml`` can be used as the basis to deploy an Axon service.
 .. literalinclude:: ./kubernetes/axon.yaml
     :language: yaml
 
-The service auto-provisions against Aha on its first boot using the shared secret configured above; it registers as
+The service auto-provisions against AHA on its first boot using the shared secret configured above; it registers as
 ``000.axon.dev.synapse``.
 
 This can then be deployed via ``kubectl apply``:
@@ -2063,8 +2078,8 @@ You can see the Axon logs as well. These show provisioning and listening for tra
     2025-03-12 20:31:58,335 [INFO] ...axon API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
 The hostname ``000.axon.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
-internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
-name that it uses to register with the Aha service.
+internal label used by the service to resolve SSL certificates that it provisioned with the AHA service, and as the
+name that it uses to register with the AHA service.
 
 
 JSONStor
@@ -2075,7 +2090,7 @@ The following ``jsonstor.yaml`` can be used as the basis to deploy a JSONStor se
 .. literalinclude:: ./kubernetes/jsonstor.yaml
     :language: yaml
 
-The service auto-provisions against Aha on its first boot using the shared secret configured above; it registers as
+The service auto-provisions against AHA on its first boot using the shared secret configured above; it registers as
 ``000.jsonstor.dev.synapse``.
 
 This can then be deployed via ``kubectl apply``:
@@ -2108,8 +2123,8 @@ You can see the JSONStor logs as well. These show provisioning and listening for
     2025-03-12 20:32:30,635 [INFO] ...jsonstor API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
 The hostname ``000.jsonstor.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
-internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
-name that it uses to register with the Aha service.
+internal label used by the service to resolve SSL certificates that it provisioned with the AHA service, and as the
+name that it uses to register with the AHA service.
 
 Cortex
 ^^^^^^
@@ -2119,10 +2134,10 @@ The following ``cortex.yaml`` can be used as the basis to deploy the Cortex.
 .. literalinclude:: ./kubernetes/cortex.yaml
     :language: yaml
 
-The service auto-provisions against Aha on its first boot using the shared secret configured above; it registers as
+The service auto-provisions against AHA on its first boot using the shared secret configured above; it registers as
 ``000.cortex.dev.synapse``. The Cortex uses a fixed Telepath listening port of ``27492`` so that we can later use
 port-forwarding to access the Cortex service. This port is set via the ``SYN_CORTEX_TELEPATH_PORT`` environment
-variable in ``cortex.yaml``. The ``telepath:port`` option overrides the port Aha would otherwise assign during
+variable in ``cortex.yaml``. The ``telepath:port`` option overrides the port AHA would otherwise assign during
 provisioning while inheriting the provisioned hostname and CA, so the Cortex binds this static port.
 
 This can then be deployed via ``kubectl apply``:
@@ -2165,15 +2180,15 @@ made to the Axon and JSONStor services:
     2025-03-12 20:33:55,697 [DEBUG] Connected to remote jsonstor [cortex.py:onlink:MainThread:MainProcess]
 
 The hostname ``000.cortex.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
-internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
-name that it uses to register with the Aha service.
+internal label used by the service to resolve SSL certificates that it provisioned with the AHA service, and as the
+name that it uses to register with the AHA service.
 
 CLI Tooling Example
 ^^^^^^^^^^^^^^^^^^^
 
 Synapse services and tooling assumes that IP and Port combinations registered with the AHA service are reachable.
 This example shows a way to connect to the Cortex from **outside** of the Kubernetes cluster without resolving service
-information via Aha. Communication between services inside of the cluster does not need to go through these steps.
+information via AHA. Communication between services inside of the cluster does not need to go through these steps.
 This does assume that your local environment has the Python synapse package available.
 
 First add a user to the Cortex:
@@ -2203,7 +2218,7 @@ Port-forward the AHA provisioning service to your local environment:
 
     $ kubectl port-forward service/aha00 27272:provisioning
 
-Run the enroll tool to create a user certificate pair and have it signed by the Aha service. We replace the service DNS
+Run the enroll tool to create a user certificate pair and have it signed by the AHA service. We replace the service DNS
 name of ``aha00.default.svc.cluster.local`` with ``localhost`` in this example.
 
 .. highlight:: bash
@@ -2215,7 +2230,7 @@ name of ``aha00.default.svc.cluster.local`` with ``localhost`` in this example.
     Saved user certificate: /home/visi/.syn/certs/users/visi@dev.synapse.crt
     Updating known AHA servers
 
-The Aha service port-forward can be disabled, and replaced with a port-forward for the Cortex service:
+The AHA service port-forward can be disabled, and replaced with a port-forward for the Cortex service:
 
 .. highlight:: bash
 
@@ -2241,7 +2256,7 @@ Then connect to the Cortex via the Storm CLI, using the URL
     storm>
 
 The Storm CLI tool can now be used to run Storm commands. We can validate our work from earlier by running the Storm
-command ``aha.svc.list`` to list the services that are registered with the Aha service:
+command ``aha.svc.list`` to list the services that are registered with the AHA service:
 
 .. highlight:: bash
 
@@ -2275,7 +2290,7 @@ The following ``optic.yaml`` can be used as the basis to deploy Optic.
 .. literalinclude:: ./kubernetes/optic.yaml
     :language: yaml
 
-The service auto-provisions against Aha on its first boot using the shared secret configured above; it registers as
+The service auto-provisions against AHA on its first boot using the shared secret configured above; it registers as
 ``000.optic.dev.synapse``.
 
 This can then be deployed via ``kubectl apply``:
@@ -2346,15 +2361,17 @@ The following items should be considered for Kubernetes deployments intended for
 
   Healthchecks
     These examples use large ``startupProbe`` failure values. Vertex recommends these large values, since service
-    updates may have automatic data migrations which they perform at startup. These will be performed before a service
-    has enabled any listeners which would respond to healthcheck probes. The large value prevents a service from being
-    terminated prior to a long running data migration completing.
+    updates may have automatic data migrations which they perform at startup, and services booted with
+    ``onboot:optimize`` (see :ref:`devops-task-onboot-optimize`) will delay startup to optimize their databases.
+    Both of these will be performed before a service has enabled any listeners which would respond to healthcheck
+    probes. The large value prevents a service from being terminated prior to a long running data migration or
+    database optimization completing.
 
   Ingress and Load Balancing
     The use of ``kubectl port-forward`` may not be sustainable in a production environment. It is common to use a form
     of ingress controller or load balancer for external services to reach services such as the Cortex or Optic
     applications. It is common for the Optic UI or the Cortex HTTP API to be exposed to end users since that often has
-    a simpler networking configuration than exposing Telepath services on Aha and the Cortex.
+    a simpler networking configuration than exposing Telepath services on AHA and the Cortex.
 
   Log aggregation
     Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log

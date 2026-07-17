@@ -66,7 +66,7 @@ class AhaStormSvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'ahastormsvc',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0b2,<4.0.0',
+            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
             'commands': (
                 {
                     'name': 'ahastormsvc.hi',
@@ -86,7 +86,7 @@ class AhaStormSvc2Api(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'ahastormsvc2',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0b2,<4.0.0',
+            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
             'commands': (
                 {
                     'name': 'ahastormsvc2.hi',
@@ -165,7 +165,7 @@ class AhaTest(s_test.SynTest):
                     self.false(aha1.isactive)
 
                     async with aha1.getLocalProxy() as proxy:
-                        await proxy.promote(graceful=True)
+                        await proxy.promote()
 
                     self.false(aha0.isactive)
                     self.true(aha1.isactive)
@@ -419,15 +419,22 @@ class AhaTest(s_test.SynTest):
                         pass
                 self.isin('Invalid config for aha:servers', cm.exception.get('mesg'))
 
+                # dns:name is required for AhaCell. Use a fresh dirn (rather than
+                # the one shared by the TestCell00 boots above) so this cell
+                # bootstraps its own CA instead of reusing a certdir that only
+                # holds a trusted CA cert (no private key) from provisioning.
+                ahadirn = s_common.gendir(dirn, 'ahacell')
+                ahaconf = {'aha:network': 'synapse', 'dns:name': 'zz.aha.loop.vertex.link'}
+
                 with self.raises(s_exc.BadConfValu) as cm:
-                    s_common.yamlsave({'dmon:listen': 'tcp://newp'}, dirn, 'cell.mods.yaml')
-                    async with self.getTestCell(s_aha.AhaCell, conf=conf, dirn=dirn) as cell:
+                    s_common.yamlsave({'dmon:listen': 'tcp://newp'}, ahadirn, 'cell.mods.yaml')
+                    async with self.getTestCell(s_aha.AhaCell, conf=ahaconf, dirn=ahadirn) as cell:
                         pass
                 self.isin('AHA bind URLs must begin with ssl://', cm.exception.get('mesg'))
 
                 with self.raises(s_exc.BadConfValu) as cm:
-                    s_common.yamlsave({'provision:listen': 'tcp://newp'}, dirn, 'cell.mods.yaml')
-                    async with self.getTestCell(s_aha.AhaCell, conf=conf, dirn=dirn) as cell:
+                    s_common.yamlsave({'provision:listen': 'tcp://newp'}, ahadirn, 'cell.mods.yaml')
+                    async with self.getTestCell(s_aha.AhaCell, conf=ahaconf, dirn=ahadirn) as cell:
                         pass
                 self.isin('Invalid config for provision:listen', cm.exception.get('mesg'))
 
@@ -549,12 +556,6 @@ class AhaTest(s_test.SynTest):
                 mesg = stream.jsonlines()[0]
                 self.eq(mesg['service'], 'aha00.synapse')
 
-        # When neither 'aha:name' nor 'dns:name' is set the key is unset.
-        conf = {'dns:name': None}
-        async with self.getTestAha(conf=conf) as aha:
-            self.none(aha.ahasvcname)
-            self.none(aha.getSvcName())
-
     async def test_lib_aha_bootstrap(self):
 
         with self.getTestDir() as dirn:
@@ -582,27 +583,27 @@ class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_noconf(self):
 
-        conf = {'dns:name': None}
-        async with self.getTestAha(conf=conf) as aha:
-
+        # dns:name (SYN_AHA_DNS_NAME) is a required config option. Omitting it
+        # entirely fails at boot with NeedConfValu.
+        with self.getTestDir() as dirn:
             with self.raises(s_exc.NeedConfValu):
-                await aha.addAhaSvcProv('hehe')
+                async with await s_aha.AhaCell.anit(dirn, conf={'aha:network': 'synapse'}):
+                    pass
 
-            with self.raises(s_exc.NeedConfValu):
-                await aha.addAhaSvcProv('hehe')
-
-            with self.raises(s_exc.NeedConfValu):
-                await aha.addAhaUserEnroll('hehe')
-
-            with self.raises(s_exc.NeedConfValu):
-                await aha.addAhaUserEnroll('hehe')
+        # Explicitly setting it to None fails schema validation with BadConfValu.
+        with self.getTestDir() as dirn:
+            conf = {'aha:network': 'synapse', 'dns:name': None}
+            with self.raises(s_exc.BadConfValu):
+                async with await s_aha.AhaCell.anit(dirn, conf=conf):
+                    pass
 
     async def test_lib_aha_network_default(self):
 
         # the Aha cell defaults 'aha:network' to 'syn' when it is not configured
         # and bootstraps the network CA from that default.
         with self.getTestDir() as dirn:
-            async with await s_aha.AhaCell.anit(dirn, conf={'health:sysctl:checks': False}) as aha:
+            conf = {'health:sysctl:checks': False, 'dns:name': 'aha.syn'}
+            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
                 self.eq('syn', aha.conf.get('aha:network'))
                 self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'cas', 'syn.crt')))
 
@@ -910,6 +911,7 @@ class AhaTest(s_test.SynTest):
 
         secretenv = {'SYN_PROVISION_SECRET': secret}
         followerenv = {'SYN_PROVISION_SECRET': secret, 'SYN_PROVISION_FOLLOWER': '1'}
+        notfollowerenv = {'SYN_PROVISION_SECRET': secret, 'SYN_PROVISION_FOLLOWER': '0'}
 
         with mock.patch.object(s_provision, 'DEFAULT_MCAST_PORT', port), \
              mock.patch.object(s_provision, 'DEFAULT_MCAST_GROUP', group), \
@@ -938,6 +940,11 @@ class AhaTest(s_test.SynTest):
 
                 # without SYN_PROVISION_FOLLOWER no discovery is attempted
                 with mock.patch.dict(os.environ, secretenv):
+                    await aha._bootCloneMcast()
+                self.none(aha.conf.get('clone'))
+
+                # SYN_PROVISION_FOLLOWER=0 is envbool-false -> no discovery either
+                with mock.patch.dict(os.environ, notfollowerenv):
                     await aha._bootCloneMcast()
                 self.none(aha.conf.get('clone'))
 
@@ -1247,10 +1254,9 @@ class AhaTest(s_test.SynTest):
                         retn, outp = await self.execToolMain(s_a_list.main, ['--url', aha.getLocalUrl()])
                         self.eq(retn, 0)
                         outp.expect('Service Leader', whitespace=False)
-                        outp.expect('00.axon.synapse  true', whitespace=False)
-                        outp.expect('01.axon.synapse  false', whitespace=False)
-                        outp.expect('02.axon.synapse  false', whitespace=False)
-                        outp.expect('axon.synapse     true', whitespace=False)
+                        outp.expect('00.axon.synapse  True', whitespace=False)
+                        outp.expect('01.axon.synapse  False', whitespace=False)
+                        outp.expect('02.axon.synapse  False', whitespace=False)
 
                 # Ensure we can provision a service on a given listening ports
                 outp.clear()
@@ -1325,7 +1331,7 @@ class AhaTest(s_test.SynTest):
                     async with aha.getLocalProxy() as ahaproxy:
                         self.eq(None, await ahaproxy.getAhaSvcMirrors('99.bogus'))
                         self.len(1, await ahaproxy.getAhaSvcMirrors('00.cortex.synapse'))
-                        self.nn(await ahaproxy.getAhaServer(host=aha._getDnsName(), port=aha.sockaddr[1]))
+                        self.nn(await ahaproxy.getAhaServer(host=aha.conf.req('dns:name'), port=aha.sockaddr[1]))
 
                         todo = s_common.todo('getCellInfo')
                         res = await asyncio.wait_for(await aha.callAhaSvcApi('00.cortex.synapse', todo, timeout=3), 3)
@@ -1642,128 +1648,6 @@ class AhaTest(s_test.SynTest):
                     self.true(snfo.get('online'))
                     self.true(snfo['info']['ready'])
 
-    async def test_aha_service_pools(self):
-
-        async with self.getTestAha() as aha:
-
-            async with await s_base.Base.anit() as base:
-
-                with self.getTestDir() as dirn:
-
-                    dirn00 = s_common.genpath(dirn, 'cell00')
-                    dirn01 = s_common.genpath(dirn, 'cell01')
-                    dirn02 = s_common.genpath(dirn, 'cell02')
-
-                    # each service type is unique, so the two pool members use
-                    # distinct service types.
-                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00', s_test.TestCell00, dirn=dirn00))
-                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01', s_test.TestCell01, dirn=dirn01))
-
-                    core00 = await base.enter_context(self.addSvcToAha(aha, 'core', s_cortex.Cortex, dirn=dirn02))
-
-                    msgs = await core00.stormlist('aha.pool.list')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('0 pools', msgs)
-
-                    msgs = await core00.stormlist('aha.pool.add pool00...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Created AHA service pool: pool00.synapse', msgs)
-
-                    # Pool has no members....
-                    pool = await s_telepath.open('aha://pool00...')
-                    self.eq(0, pool.size())
-
-                    async with pool.waiter(1, 'svc:add', timeout=12):
-                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
-                        self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('AHA service (00...) added to service pool (pool00.synapse)', msgs)
-
-                    prox = await pool.proxy(timeout=12)
-                    info = await prox.getCellInfo()
-                    self.eq('00', info.get('cell').get('aha').get('name'))
-                    self.eq(1, pool.size())
-                    await pool.fini()
-                    self.eq(0, pool.size())
-                    self.true(prox.isfini)
-
-                    poolinfo = await aha.getAhaPool('pool00...')
-                    self.len(1, poolinfo['services'])
-
-                    msgs = await core00.stormlist('aha.pool.list')
-                    self.stormIsInPrint('Pool: pool00.synapse', msgs)
-                    self.stormIsInPrint('    00.synapse', msgs)
-                    self.stormIsInPrint('1 pools', msgs)
-
-                    msgs = await core00.stormlist('$lib.print($lib.aha.pool.get(pool00.synapse))')
-                    self.stormIsInPrint('aha:pool: pool00.synapse', msgs)
-
-                    pdef = await core00.callStorm('return($lib.aha.pool.get(pool00.synapse))')
-                    self.eq('pool00.synapse', pdef.get('name'))
-                    self.isin('00.synapse', pdef.get('services'))
-
-                    async with await s_telepath.open('aha://pool00...') as pool:
-
-                        replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
-                        nevents = 5 if replay else 3
-
-                        async with pool.waiter(nevents, 'svc:add', timeout=3):
-
-                            msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
-                            self.stormHasNoWarnErr(msgs)
-                            self.stormIsInPrint('AHA service (01...) added to service pool (pool00.synapse)', msgs)
-
-                            msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
-                            self.stormHasNoWarnErr(msgs)
-                            self.stormIsInPrint('AHA service (01...) added to service pool (pool00.synapse)', msgs)
-
-                        poolinfo = await aha.getAhaPool('pool00...')
-                        self.len(2, poolinfo['services'])
-
-                        self.nn(poolinfo['created'])
-                        self.nn(poolinfo['services']['00.synapse']['created'])
-                        self.nn(poolinfo['services']['01.synapse']['created'])
-
-                        self.eq(core00.auth.rootuser.iden, poolinfo['creator'])
-                        self.eq(core00.auth.rootuser.iden, poolinfo['services']['00.synapse']['creator'])
-                        self.eq(core00.auth.rootuser.iden, poolinfo['services']['01.synapse']['creator'])
-
-                        for client in pool.clients.values():
-                            await client.proxy(timeout=3)
-
-                        proxy00 = await pool.proxy(timeout=3)
-                        run00 = await (await pool.proxy(timeout=3)).getCellRunId()
-                        run01 = await (await pool.proxy(timeout=3)).getCellRunId()
-                        self.ne(run00, run01)
-
-                        async with pool.waiter(1, 'pool:reset', timeout=3):
-                            ahaproxy = await pool.aha.proxy()
-                            await ahaproxy.fini()
-
-                        # ensure we are reconnected before moving on...
-                        async with pool.waiter(1, 'svc:add', timeout=3):
-                            await pool.aha.proxy(timeout=3)
-
-                        # wait for the pool to be notified of the topology change
-                        async with pool.waiter(1, 'svc:del', timeout=10):
-
-                            msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
-                            self.stormHasNoWarnErr(msgs)
-                            self.stormIsInPrint('AHA service (00.synapse) removed from service pool (pool00.synapse)', msgs)
-
-                            msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
-                            self.stormHasNoWarnErr(msgs)
-                            self.stormIsInPrint('Did not remove (00...) from the service pool.', msgs)
-
-                        run00 = await (await pool.proxy(timeout=3)).getCellRunId()
-                        self.eq(run00, await (await pool.proxy(timeout=3)).getCellRunId())
-
-                        poolinfo = await aha.getAhaPool('pool00...')
-                        self.len(1, poolinfo['services'])
-
-                    msgs = await core00.stormlist('aha.pool.del pool00...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Removed AHA service pool: pool00.synapse', msgs)
-
     async def test_aha_svc_api_exception(self):
 
         async with self.getTestAha() as aha:
@@ -1858,15 +1742,16 @@ class AhaTest(s_test.SynTest):
                     # Add enough space to allow aha CA bootstraping.
                     basenet = 'loop.vertex.link'
                     networkname = f'{"x" * (64 - 7 - len(basenet))}.{basenet}'
+                    name = 'aha'
+                    netw = networkname
+                    dnsname = f'{name}.{netw}'
                     aconf = {
-                        'aha:name': 'aha',
-                        'aha:network': networkname,
+                        'aha:name': name,
+                        'aha:network': netw,
+                        'dns:name': dnsname,
                         'dmon:listen': f'ssl://aha.{networkname}:0',
                         'provision:listen': f'ssl://aha.{networkname}:0',
                     }
-                    name = aconf.get('aha:name')
-                    netw = aconf.get('aha:network')
-                    dnsname = f'{name}.{netw}'
 
                     aha = await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
                     await cm.enter_context(aha)
@@ -1934,7 +1819,7 @@ class AhaTest(s_test.SynTest):
                     axon00 = await base.enter_context(self.addSvcToAha(aha, '00.axon', s_axon.Axon, dirn=dirn00))
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn01))
                     # Svc to svc connections authenticate as the root user.
-                    prox = self.nn(await asyncio.wait_for(core00.axon.proxy(), timeout=12))
+                    prox = self.nn(await asyncio.wait_for(core00.getAxon(), timeout=12))
                     unfo = await prox.getCellUser()
                     self.eq(unfo.get('name'), 'root')
 
@@ -2102,7 +1987,6 @@ class AhaTest(s_test.SynTest):
             await cell01.sync()
 
             async with cell01.getLocalProxy() as proxy:
-                self.true(proxy._hasTeleFeat('dynmirror'))
                 self.true(proxy._hasTeleMeth('getNexsIndx'))
 
             nexsindx = await cell00.getNexsIndx()
@@ -2237,7 +2121,7 @@ class AhaTest(s_test.SynTest):
                 # registered before the cortex so the cortex discovers it from
                 # the initial AHA service listing.
                 svc = await base.enter_context(self.addSvcToAha(aha, '00.ahastormsvc', AhaStormSvcCell))
-                self.eq(1, svc.features.get('stormservice'))
+                self.eq('1.0.0', svc.features.get('stormservice'))
 
                 core = await base.enter_context(self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex))
 
@@ -2274,7 +2158,7 @@ class AhaTest(s_test.SynTest):
                 # re-discovery ( eg a reconnect / re-check-in ) is idempotent
                 # and does not add a duplicate service.
                 svccount = len(core.getStormSvcs())
-                entry = {'info': {'type': 'ahastormsvc', 'features': {'stormservice': 1}}}
+                entry = {'info': {'type': 'ahastormsvc', 'features': {'stormservice': '1.0.0'}}}
                 await core._addAhaStormSvc(entry)
                 await core._onAhaStormSvc(('svc:add', {'entry': entry}))
                 self.len(svccount, core.getStormSvcs())
@@ -2297,5 +2181,5 @@ class AhaTest(s_test.SynTest):
             # a manually added service using the type as its name blocks the
             # automatic add so we never clobber operator configuration.
             await core.addStormSvc({'name': 'manual', 'url': 'tcp://127.0.0.1:1/svc'})
-            await core._addAhaStormSvc({'info': {'type': 'manual', 'features': {'stormservice': 1}}})
+            await core._addAhaStormSvc({'info': {'type': 'manual', 'features': {'stormservice': '1.0.0'}}})
             self.none(core.svcsbyiden.get(s_common.guid(('aha', 'stormsvc', 'manual'))))

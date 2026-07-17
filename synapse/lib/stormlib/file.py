@@ -53,8 +53,7 @@ class LibFile(s_stormtypes.Lib):
         self.runt.confirm(('node', 'add', 'file:bytes'), gateiden=layriden)
         self.runt.confirm(('node', 'prop', 'set', 'file:bytes'), gateiden=layriden)
 
-        await self.runt.view.core.getAxon()
-        axon = self.runt.view.core.axon
+        axon = await self.runt.view.core.getAxon()
 
         size, sha256b = await axon.put(valu)
 

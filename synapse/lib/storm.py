@@ -789,8 +789,6 @@ stormcmds = (
         'cmdargs': (
             ('period', {'help': 'The recurrence period for the cron job.'}),
             ('query', {'help': 'Query for the cron job to execute.'}),
-            ('--pool', {'action': 'store_true', 'default': False,
-                'help': 'Allow the cron job to be run by a mirror from the query pool.'}),
             ('--affinity', {'default': None,
                 'help': 'AHA service name to preferentially run the cron job on.'}),
             ('--name', {'help': 'An optional name for the cron job.'}),
@@ -801,7 +799,6 @@ stormcmds = (
         'storm': '''
             $cron = $lib.cron.add($cmdopts.period,
                                   $cmdopts.query,
-                                  pool=$cmdopts.pool,
                                   affinity=$cmdopts.affinity,
                                   iden=$cmdopts.iden,
                                   view=$cmdopts.view,
@@ -861,7 +858,6 @@ stormcmds = (
             ('--user', {'help': 'New user for the cron job to run as.'}),
             ('--doc', {'help': 'New doc string for the cron job.', 'type': 'str'}),
             ('--name', {'help': 'New name for the cron job.', 'type': 'str'}),
-            ('--pool', {'help': 'True to enable offloading the job to the Storm pool, False to disable.'}),
             ('--enabled', {'help': 'True to enable the cron job, False to disable.'}),
             ('--loglevel', {'help': 'New logging level for the cron job.',
                             'choices': list(s_const.LOG_LEVEL_CHOICES.keys())}),
@@ -960,7 +956,6 @@ stormcmds = (
                 $lib.print(`creator:         {$job.creator}`)
                 $lib.print(`user:            {$job.user}`)
                 $lib.print(`enabled:         {$job.enabled}`)
-                $lib.print(`pool:            {$job.pool}`)
                 $lib.print(`affinity:        {$job.affinity}`)
                 $lib.print(`recurring:       {$job.isrecur}`)
                 $lib.print(`# starts:        {$job.startcount}`)
@@ -1366,6 +1361,16 @@ class StormDmon(s_base.Base):
             # bottom of the loop... wait it out
             await self.waitfini(timeout=1)
 
+class TagCaches(dict):
+    '''
+    A per-query collection of syn:tag caches keyed by View, each built on first
+    access (a key-aware defaultdict).
+    '''
+    def __missing__(self, view):
+        cache = view.getTagCache()
+        self[view] = cache
+        return cache
+
 class Runtime(s_base.Base):
     '''
     A Runtime represents the instance of a running query.
@@ -1401,6 +1406,9 @@ class Runtime(s_base.Base):
 
         self.readonly = opts.get('readonly', False)
         self.model = view.core.getDataModel()
+
+        # per-view syn:tag caches, built on first access.
+        self.tagcaches = TagCaches()
 
         self.task = asyncio.current_task()
         self.emitq = None
@@ -2992,7 +3000,7 @@ class HelpCmd(Cmd):
             path = libbase + child
             _, subs, cnfo = lnfo
             ctor = cnfo.get('ctor')
-            if ctor:
+            if ctor and not ctor._storm_lib_private:
                 data.append((path, ctor))
             for sub, lnfo in subs.items():
                 _sub = child + (sub,)
@@ -3601,7 +3609,8 @@ class MergeCmd(Cmd):
         meta = {'user': runt.user.iden}
 
         if doapply:
-            editor = s_editor.NodeEditor(runt.view.parent, user=runt.user, meta=meta)
+            tagcache = runt.tagcaches[runt.view.parent]
+            editor = s_editor.NodeEditor(runt.view.parent, user=runt.user, meta=meta, tagcache=tagcache)
 
         async for node, path in genr:
 
@@ -4824,8 +4833,7 @@ class DelNodeCmd(Cmd):
 
         if delbytes:
             runt.confirm(('axon', 'del'))
-            await runt.view.core.getAxon()
-            axon = runt.view.core.axon
+            axon = await runt.view.core.getAxon()
 
         async for node, path in genr:
 
@@ -4986,7 +4994,7 @@ class MoveTagCmd(Cmd):
 
             retag[tagstr] = newtag
             await node.set('isnow', newtag)
-            view.tagcache.pop(tagstr)
+            runt.tagcaches[view].pop(tagstr)
 
         # now we re-tag all the nodes...
         count = 0

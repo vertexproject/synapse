@@ -169,7 +169,7 @@ async def _getAhaSvc(urlinfo, timeout=None):
     for ahaurl, cnfo in list(aha_clients.items()):
         client = cnfo.get('client')
         if client is None:
-            client = await Client.anit(ahaurl)
+            client = await ClientV2.anit(ahaurl)
             client._fini_atexit = True
             cnfo['client'] = client
 
@@ -552,8 +552,11 @@ class Proxy(s_base.Base):
             except Exception:  # pragma: no cover
                 logger.exception('synapse.telepath.Proxy.linkLoopTask()')
 
-    def _hasTeleFeat(self, name, vers=1):
-        return self._features.get(name, 0) >= vers
+    def _hasTeleFeat(self, name, vers='1.0.0'):
+        valu = self._features.get(name)
+        if valu is None:
+            return False
+        return s_version.matches(valu, f'>={vers}')
 
     def _hasTeleMeth(self, name):
         return self.methinfo.get(name) is not None
@@ -839,10 +842,9 @@ class Proxy(s_base.Base):
 
 class ClientV2(s_base.Base):
     '''
-    A telepath client which:
-        * connects to multiple services
-        * distributes API calls across them
-        * receives topology updates from AHA
+    A telepath client which connects to a single service and reconnects
+    on link failure. It also receives topology updates from AHA via the
+    AhaClient subclass.
 
     NOTE: This must co-exist with Client until we eliminate uses that
           attempt to call telepath APIs directly from the Client rather
@@ -852,12 +854,7 @@ class ClientV2(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        self.aha = None
-
-        self.clients = {}
         self.proxies = set()
-
-        self.poolname = None
 
         self.onlink = onlink
 
@@ -868,13 +865,11 @@ class ClientV2(s_base.Base):
         self.ready = asyncio.Event()
         self.deque = collections.deque()
 
-        self.mesghands = {
-            'svc:add': self._onPoolSvcAdd,
-            'svc:del': self._onPoolSvcDel,
-        }
-
         async def fini():
-            await self._shutDownPool()
+            for proxy in list(self.proxies):
+                await proxy.fini()
+            self.deque.clear()
+            self.proxies.clear()
             # wake the sleepers
             self.ready.set()
 
@@ -906,21 +901,6 @@ class ClientV2(s_base.Base):
 
             try:
 
-                if urlinfo.get('scheme') == 'aha':
-
-                    self.aha, svcentry = await _getAhaSvc(urlinfo)
-
-                    # if the service is a pool, enter pool mode and fire
-                    # the topography sync task to manage pool members.
-                    services = svcentry.get('services')
-                    if services is not None:
-                        # we are an AHA pool!
-                        if self.poolname is None:
-                            self.poolname = svcentry.get('name')
-                            self.schedCoro(self._toposync())
-                        return
-
-                # regular telepath client behavior
                 proxy = await openinfo(urlinfo)
 
                 async def reconnect():
@@ -929,7 +909,7 @@ class ClientV2(s_base.Base):
 
                 proxy.onfini(reconnect)
 
-                await self._onPoolLink(proxy, urlinfo)
+                await self._onProxyLink(proxy, urlinfo)
                 return
 
             except Exception as e:
@@ -949,25 +929,7 @@ class ClientV2(s_base.Base):
     def size(self):
         return len(self.proxies)
 
-    async def _onPoolSvcAdd(self, mesg):
-        svcname = mesg[1].get('name')
-
-        if (oldc := self.clients.pop(svcname, None)) is not None:
-            await oldc.fini()
-
-        urlinfo = {'scheme': 'aha', 'host': svcname, 'path': ''}
-        self.clients[svcname] = await ClientV2.anit(urlinfo, onlink=self._onPoolLink)
-        await self.fire('svc:add', **mesg[1])
-
-    async def _onPoolSvcDel(self, mesg):
-        svcname = mesg[1].get('name')
-        client = self.clients.pop(svcname, None)
-        if client is not None:
-            await client.fini()
-        self.deque.clear()
-        await self.fire('svc:del', **mesg[1])
-
-    async def _onPoolLink(self, proxy, urlinfo):
+    async def _onProxyLink(self, proxy, urlinfo):
 
         async def onfini():
             if proxy in self.proxies:
@@ -986,46 +948,6 @@ class ClientV2(s_base.Base):
                 await self.onlink(proxy, urlinfo)
             except Exception as e:
                 logger.exception(f'onlink: {self.onlink}')
-
-    async def _shutDownPool(self):
-        # when we reconnect to our AHA service, we need to dump the current
-        # topology state and gather it again.
-        for client in list(self.clients.values()):
-            await client.fini()
-
-        for proxy in list(self.proxies):
-            await proxy.fini()
-
-        self.deque.clear()
-        self.ready.clear()
-        self.clients.clear()
-        self.proxies.clear()
-
-    async def _toposync(self):
-
-        async def reset():
-            self.ready.clear()
-            await self._shutDownPool()
-            await self.fire('pool:reset')
-
-        while not self.isfini:
-
-            try:
-                ahaproxy = await self.aha.proxy()
-
-                await reset()
-
-                async for mesg in ahaproxy.iterPoolTopo(self.poolname):
-                    hand = self.mesghands.get(mesg[0])
-                    if hand is None:  # pragma: no cover
-                        logger.warning(f'Unknown AHA pool topography message: {mesg}')
-                        continue
-
-                    await hand(mesg)
-
-            except Exception as e:
-                logger.warning(f'AHA pool topology task restarting: {e}')
-                await self.waitfini(timeout=1)
 
     async def proxy(self, timeout=None):
 
@@ -1147,206 +1069,6 @@ class AhaClient(ClientV2):
         if self.isfini:  # pragma: no cover
             raise s_exc.IsFini()
 
-class Client(s_base.Base):
-    '''
-    A Telepath client object which reconnects and allows waiting for link up.
-
-    Notes:
-
-        The conf data allows changing parameters such as timeouts, retry period, and link pool size. The default
-        conf data can be seen below::
-
-            conf = {
-                'timeout': 10,
-                'retrysleep': 0.2,
-                'link_poolsize': 4,
-            }
-
-    '''
-    async def __anit__(self, urlinfo, *, opts=None, conf=None, onlink=None):
-
-        await s_base.Base.__anit__(self)
-
-        if conf is None:
-            conf = {}
-
-        if opts is None:
-            opts = {}
-
-        self._t_urldeque = collections.deque()
-
-        self.setBootUrls(urlinfo)
-
-        self._t_opts = opts
-        self._t_conf = conf
-
-        self._t_proxy = None
-        self._t_ready = asyncio.Event()
-        self._t_onlinks = []
-        self._t_methinfo = None
-        self._t_named_meths = set()
-
-        if onlink is not None:
-            self._t_onlinks.append(onlink)
-
-        async def fini():
-            if self._t_proxy is not None:
-                await self._t_proxy.fini()
-            # Wake any waiters which may be waiting on waitready() calls so those
-            # without timeouts specified are not waiting forever.
-            self._t_ready.set()
-
-        self.onfini(fini)
-
-        await self._fireLinkLoop()
-
-    def setBootUrls(self, urlinfo):
-
-        if not isinstance(urlinfo, (list, tuple)):
-            urlinfo = (urlinfo,)
-
-        self._t_urlinfo = [chopurl(u) for u in urlinfo]
-
-        self._t_urldeque.clear()
-        self._t_urldeque.extend(self._t_urlinfo)
-
-    def _getNextUrl(self):
-        if not self._t_urldeque:
-            self._t_urldeque.extend(self._t_urlinfo)
-        return self._t_urldeque.popleft()
-
-    async def onlink(self, func):
-        self._t_onlinks.append(func)
-        if self._t_proxy:
-            await func(self._t_proxy)
-
-    async def offlink(self, func):
-        self._t_onlinks.remove(func)
-
-    async def _fireLinkLoop(self):
-        self._t_proxy = None
-        self._t_ready.clear()
-        await self.fire('tele:client:linkloop')
-        self.schedCoro(self._teleLinkLoop())
-
-    async def _teleLinkLoop(self):
-        lastlog = 0.0
-
-        while not self.isfini:
-
-            urlinfo = self._getNextUrl()
-
-            try:
-                await self._initTeleLink(urlinfo)
-                self._t_ready.set()
-                return
-
-            except Exception as e:
-                now = time.monotonic()
-                if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
-                    url = s_urlhelp.sanitizeUrl(zipurl(urlinfo))
-                    logger.warning(f'telepath client ({url}) encountered an error: {e}', exc_info=e)
-                    lastlog = now
-                await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
-
-    async def proxy(self, timeout=10):
-        await self.waitready(timeout=timeout)
-        ret = self._t_proxy
-        if ret is None or ret.isfini is True: # pragma: no cover
-            raise s_exc.IsFini(mesg='Telepath Client Proxy is not available.')
-        return ret
-
-    async def _initTeleLink(self, urlinfo):
-        info = urlinfo.copy()
-        info.update(self._t_opts)
-        self._t_proxy = await openinfo(info)
-        self._t_methinfo = self._t_proxy.methinfo
-
-        async def fini():
-            if self._t_named_meths:
-                for name in self._t_named_meths:
-                    delattr(self, name)
-                self._t_named_meths.clear()
-            if not self.isfini:
-                await self._fireLinkLoop()
-
-        self._t_proxy.onfini(fini)
-
-        for onlink in self._t_onlinks:
-            try:
-                await onlink(self._t_proxy)
-                # in case the callback fini()s the proxy
-                if self._t_proxy is None:
-                    break
-            except Exception as e:
-                logger.exception(f'onlink: {onlink}')
-
-    async def task(self, todo, name=None):
-        # implement the main workhorse method for a proxy to allow Method
-        # objects to use us as the proxy.
-        proxy = await self.proxy()
-        return await proxy.task(todo, name=name)
-
-    async def waitready(self, timeout=10):
-        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
-
-    def __getattr__(self, name):
-        if self._t_methinfo is None:
-            raise s_exc.NotReady(mesg='Must call waitready() on Client before first method call')
-
-        info = self._t_methinfo.get(name)
-        if info is not None and info.get('genr'):
-            meth = GenrMethod(self, name)
-            setattr(self, name, meth)
-            self._t_named_meths.add(name)
-            return meth
-
-        meth = Method(self, name)
-        self._t_named_meths.add(name)
-        setattr(self, name, meth)
-        return meth
-
-    def _getSynVers(self):
-        '''
-        Helper method to retrieve the remote Synapse version from Client
-        for the currently connected Proxy.
-
-        Notes:
-            This will return None if the synapse version was not supplied
-            during the Telepath handshake.
-
-        Returns:
-            tuple: A tuple of major, minor, patch information as integers.
-        '''
-        return self._t_proxy._getSynVers()
-
-    def _getSynCommit(self):
-        '''
-        Helper method to retrieve the remote Synapse commit hash from Proxy.
-
-        Notes:
-            This will return None if the synapse commit hash was not supplied
-            during the Telepath handshake.
-
-        Returns:
-            str: A string containing the commit hash. This may be a empty string.
-        '''
-        return self._t_proxy._getSynCommit()
-
-    def _getClasses(self):
-        '''
-        Helper method to retrieve the classes that comprise the remote object
-        for the currently connected Proxy.
-
-        Notes:
-            This will return None if the class version was not supplied
-            during the Telepath handshake.
-
-        Returns:
-            tuple: A tuple of strings containing the class paths for the remote object.
-        '''
-        return self._t_proxy._getClasses()
-
 def alias(name):
     '''
     Resolve a telepath alias via ~/.syn/aliases.yaml
@@ -1445,13 +1167,6 @@ def chopurl(url, **opts):
 
     return info
 
-class TeleSSLObject(ssl.SSLObject):
-
-    def do_handshake(self):
-        # steal a reference for later so we can get the cert
-        self.context.telessl = self
-        return ssl.SSLObject.do_handshake(self)
-
 async def openinfo(info):
 
     scheme = info.get('scheme')
@@ -1546,7 +1261,6 @@ async def openinfo(info):
                 sslctx = ssl.create_default_context()
                 sslctx.check_hostname = False
                 sslctx.verify_mode = ssl.CERT_NONE
-                sslctx.sslobject_class = TeleSSLObject
 
             # do hostname checking manually to avoid DNS lookups
             # ( to support dynamic IP addresses on services )

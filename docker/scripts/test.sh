@@ -38,10 +38,10 @@ docker run --rm --entrypoint python vertexproject/synapse:${TAG} -m synapse.serv
 
 # Spin up the service-variant containers.
 echo "Spinning up images"
-docker run -d --rm --name test-aha -e SYNDEV_CELL_DRIVE_NOSPAWN=1 -e "SYN_AHA_AHA_NETWORK=synapse.ci" vertexproject/synapse-aha:${TAG}
-docker run -d --rm --name test-axon -e SYNDEV_CELL_DRIVE_NOSPAWN=1 vertexproject/synapse-axon:${TAG}
-docker run -d --rm --name test-cortex -e SYNDEV_CELL_DRIVE_NOSPAWN=1 vertexproject/synapse-cortex:${TAG}
-docker run -d --rm --name test-jsonstor -e SYNDEV_CELL_DRIVE_NOSPAWN=1 vertexproject/synapse-jsonstor:${TAG}
+docker run -d --rm --name test-aha -e "SYN_AHA_AHA_NETWORK=synapse.ci" -e "SYN_AHA_DNS_NAME=aha.synapse.ci" vertexproject/synapse-aha:${TAG}
+docker run -d --rm --name test-axon vertexproject/synapse-axon:${TAG}
+docker run -d --rm --name test-cortex vertexproject/synapse-cortex:${TAG}
+docker run -d --rm --name test-jsonstor vertexproject/synapse-jsonstor:${TAG}
 
 # Poll each container until its health check reports a decisive status. Match
 # the pattern used by the per-project test scripts in projects/{name}/docker.

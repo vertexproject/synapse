@@ -878,11 +878,13 @@ class InetModelTest(s_t_utils.SynTest):
             respiden = s_common.guid()
             body = s_common.guid()
             sand = s_common.guid()
+            fetch = s_common.guid()
 
             props = {
                 'body': body,
                 'flow': flow,
                 'sess': sess,
+                'fetch': fetch,
                 'client:host': client,
                 'server:host': server,
                 'sandbox:file': sand,
@@ -928,6 +930,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :server="5.5.5.5:443"
                 :server:host=$p."server:host" as it:host
                 :session=$p.sess as inet:http:session
+                :fetch=$p.fetch as it:exec:fetch
                 :sandbox:file=$p."sandbox:file" as file:bytes
             ]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': iden, 'p': props}})
@@ -944,6 +947,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(node, 'header:referer', 'https://google.com?s=awesome')
             self.propeq(node, 'response', respiden)
             self.propeq(node, 'session', sess)
+            self.propeq(node, 'fetch', fetch)
             self.propeq(node, 'sandbox:file', sand)
             self.propeq(node, 'client', 'tcp://1.2.3.4')
             self.propeq(node, 'client:host', client)

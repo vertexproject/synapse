@@ -222,8 +222,7 @@ scripts, cron jobs, systemd units, container entrypoints, and Dockerfiles. CLI
 arguments are otherwise unchanged. The layout is:
 
 - ``synapse.tools.service.*`` -- ``apikey``, ``backup``, ``demote``, ``healthcheck``,
-  ``livebackup``, ``modrole``, ``moduser``, ``promote``, ``reload``, ``shutdown``,
-  ``snapshot``.
+  ``modrole``, ``moduser``, ``promote``, ``reload``, ``shutdown``, ``snapshot``.
 - ``synapse.tools.cortex.*`` -- ``csv`` (renamed from ``csvtool``), ``docmodel``,
   ``feed``, and the ``layer`` subpackage.
 - ``synapse.tools.axon.*`` -- ``copy``, ``dump``, ``get``, ``load``, ``put``.

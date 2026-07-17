@@ -10,8 +10,6 @@ import synapse.lib.config as s_config
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
-import synapse.lib.spawner as s_spawner
-import synapse.lib.lmdbslab as s_lmdbslab
 
 nameregex = regex.compile(s_schemas.re_drivename)
 def reqValidName(name):
@@ -605,10 +603,3 @@ class Drive(s_base.Base):
         return (await self._reqTypeValidator(typename))(item)
 
 CELLDRIVE = 'celldrive'
-
-class FileDrive(Drive, s_spawner.SpawnerMixin):
-
-    async def __anit__(self, path):
-        slab = await s_lmdbslab.Slab.anit(path)
-        await Drive.__anit__(self, slab, CELLDRIVE)
-        self.onfini(self.slab.fini)

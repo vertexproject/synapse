@@ -84,28 +84,3 @@ class DemoteToolTest(s_test.SynTest):
                     argv = ['--url', cell00.getLocalUrl(), '--timeout', '12']
                     self.eq(1, await s_tools_demote.main(argv, outp=outp))
                     await stream.expect('...no suitable services discovered.', timeout=1)
-
-    async def test_tool_demote_no_features(self):
-
-        async with self.getTestAha() as aha:
-            aha.features.pop('getAhaSvcsByIden')
-
-            with self.getTestDir() as dirn:
-
-                dirn00 = s_common.genpath(dirn, '00.cell')
-                dirn01 = s_common.genpath(dirn, '01.cell')
-
-                cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_test.TestCell00, dirn=dirn00))
-                cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_test.TestCell00, dirn=dirn01))
-                self.true(cell00.isactive)
-                self.false(cell01.isactive)
-
-                await cell01.sync()
-
-                outp = self.getTestOutp()
-                argv = ['--url', cell00.getLocalUrl()]
-                with self.getLoggerStream('synapse.daemon') as stream:
-                    self.eq(1, await s_tools_demote.main(argv, outp=outp))
-                    await stream.expect('AHA server does not support feature: getAhaSvcsByIden >= 1', timeout=1)
-
-                outp.expect('Error while demoting service')

@@ -3,10 +3,8 @@ import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.telepath as s_telepath
 
 import synapse.lib.json as s_json
-import synapse.lib.storm as s_storm
 import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.stormlib.auth as slib_auth
 
@@ -99,7 +97,6 @@ stormcmds = [
             $lib.print(`!View: No view found ({$err.info.iden})`)
         }
         $lib.print(`Readonly: {$api.readonly}`)
-        $lib.print(`Pool enabled: {$api.pool}`)
         $lib.print(`Authenticated: {$api.authenticated}`)
         $lib.print(`Name: {$api.name}`)
         $lib.print(`Description: {$api.desc}`)
@@ -235,9 +232,6 @@ class HttpApi(s_stormtypes.Prim):
         ''',
          'type': {'type': ['stor', 'gtor'], '_storfunc': '_storPath', '_gtorfunc': '_gtorPath',
                   'returns': {'type': 'str'}}},
-        {'name': 'pool', 'desc': 'Boolean value indicating if the handler responses may be executed as part of a Storm pool.',
-         'type': {'type': ['stor', 'gtor'], '_storfunc': '_storPool', '_gtorfunc': '_gtorPool',
-                  'returns': {'type': 'boolean'}}},
         {'name': 'vars', 'desc': 'The Storm runtime variables specific for the API instance.',
          'type': {'type': ['stor', 'ctor'], '_storfunc': '_storVars', '_ctorfunc': '_ctorVars',
                   'returns': {'type': 'http:api:vars'}}},
@@ -272,7 +266,6 @@ class HttpApi(s_stormtypes.Prim):
             'name': self._storName,
             'desc': self._storDesc,
             'path': self._storPath,
-            'pool': self._storPool,
             'vars': self._storVars,
             'view': self._storView,
             'runas': self._storRunas,
@@ -286,7 +279,6 @@ class HttpApi(s_stormtypes.Prim):
             'name': self._gtorName,
             'desc': self._gtorDesc,
             'path': self._gtorPath,
-            'pool': self._gtorPool,
             'view': self._gtorView,
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
@@ -317,10 +309,7 @@ class HttpApi(s_stormtypes.Prim):
         return f'{self._storm_typename}: {name} ({self.iden}), path={path}'
 
     def value(self):
-        # TODO: Remove this when we've migrated the HTTPAPI data to set this value.
-        ret = copy.deepcopy(self.valu)
-        ret.setdefault('pool', False)
-        return ret
+        return copy.deepcopy(self.valu)
 
     @s_stormtypes.stormfunc(readonly=True)
     def _ctorMethods(self, path=None):
@@ -336,17 +325,6 @@ class HttpApi(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorPath(self):
         return self.valu.get('path')
-
-    async def _storPool(self, pool):
-        s_stormtypes.confirm(('httpapi', 'set'))
-        pool = await s_stormtypes.tobool(pool)
-        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'pool', pool)
-        self.valu['pool'] = pool
-        self.valu['updated'] = adef.get('updated')
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _gtorPool(self):
-        return self.valu.get('pool')
 
     async def _storName(self, name):
         s_stormtypes.confirm(('httpapi', 'set'))
@@ -1231,91 +1209,6 @@ class CortexHttpApi(s_stormtypes.Lib):
         iden = await s_stormtypes.tostr(iden)
         index = await s_stormtypes.toint(index)
         return await self.runt.view.core.setHttpApiIndx(iden, index)
-
-class StormPoolSetCmd(s_storm.Cmd):
-    '''
-    Setup a Storm query offload mirror pool for the Cortex.
-    '''
-    name = 'cortex.storm.pool.set'
-    def getArgParser(self):
-        pars = s_storm.Cmd.getArgParser(self)
-        pars.add_argument('--connection-timeout', type='int', default=2,
-            help='The maximum amount of time to wait for a connection from the pool to become available.')
-        pars.add_argument('--sync-timeout', type='int', default=2,
-            help='The maximum amount of time to wait for the mirror to be in sync with the leader')
-        pars.add_argument('url', type='str', required=True, help='The telepath URL for the AHA service pool.')
-        return pars
-
-    async def execStormCmd(self, runt, genr):
-
-        if not self.runtsafe: # pragma: no cover
-            mesg = 'cortex.storm.pool.set arguments must be runtsafe.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
-
-        mesg = 'cortex.storm.pool.set command requires global admin permissions.'
-        self.runt.reqAdmin(mesg=mesg)
-
-        async for node, path in genr: # pragma: no cover
-            yield node, path
-
-        try:
-            s_telepath.chopurl(self.opts.url)
-        except s_exc.BadUrl as e:
-            raise s_exc.BadArg(mesg=f'Unable to set Storm pool URL from url={self.opts.url} : {e.get("mesg")}') from None
-
-        opts = {
-            'timeout:sync': self.opts.sync_timeout,
-            'timeout:connection': self.opts.connection_timeout,
-        }
-
-        await self.runt.view.core.setStormPool(self.opts.url, opts)
-        await self.runt.printf('Storm pool configuration set.')
-
-class StormPoolDelCmd(s_storm.Cmd):
-    '''
-    Remove a Storm query offload mirror pool configuration.
-
-    Notes:
-        This will result in tearing down any Storm queries currently being serviced by the Storm pool.
-        This may result in this command raising an exception if it was offloaded to a pool member. That would be an expected behavior.
-    '''
-    name = 'cortex.storm.pool.del'
-
-    async def execStormCmd(self, runt, genr):
-
-        mesg = 'cortex.storm.pool.del command requires global admin permissions.'
-        self.runt.reqAdmin(mesg=mesg)
-
-        async for node, path in genr: # pragma: no cover
-            yield node, path
-
-        await self.runt.view.core.delStormPool()
-        await self.runt.printf('Storm pool configuration removed.')
-
-class StormPoolGetCmd(s_storm.Cmd):
-    '''
-    Display the current Storm query offload mirror pool configuration.
-    '''
-    name = 'cortex.storm.pool.get'
-
-    async def execStormCmd(self, runt, genr):
-
-        mesg = 'cortex.storm.pool.get command requires global admin permissions.'
-        self.runt.reqAdmin(mesg=mesg)
-
-        async for node, path in genr: # pragma: no cover
-            yield node, path
-
-        item = await self.runt.view.core.getStormPool()
-        if item is None:
-            await self.runt.printf('No Storm pool configuration found.')
-            return
-
-        url, opts = item
-
-        await self.runt.printf(f'Storm Pool URL: {url}')
-        await self.runt.printf(f'Sync Timeout (secs): {opts.get("timeout:sync")}')
-        await self.runt.printf(f'Connection Timeout (secs): {opts.get("timeout:connection")}')
 
 @s_stormtypes.registry.registerLib
 class CortexApi(s_stormtypes.Lib):

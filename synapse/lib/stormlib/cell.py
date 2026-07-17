@@ -34,9 +34,6 @@ class CellLib(s_stormtypes.Lib):
         {'name': 'getCellInfo', 'desc': 'Return metadata specific for the Cortex.',
          'type': {'type': 'function', '_funcname': '_getCellInfo', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing metadata.', }}},
-        {'name': 'getBackupInfo', 'desc': 'Get information about recent backup activity.',
-         'type': {'type': 'function', '_funcname': '_getBackupInfo', 'args': (),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary containing backup information.', }}},
         {'name': 'getSystemInfo', 'desc': 'Get info about the system in which the Cortex is running.',
          'type': {'type': 'function', '_funcname': '_getSystemInfo', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing system information.', }}},
@@ -92,7 +89,6 @@ class CellLib(s_stormtypes.Lib):
     def getObjLocals(self):
         return {
             'getCellInfo': self._getCellInfo,
-            'getBackupInfo': self._getBackupInfo,
             'getSystemInfo': self._getSystemInfo,
             'getHealthCheck': self._getHealthCheck,
             'getMirrorUrls': self._getMirrorUrls,
@@ -183,13 +179,6 @@ class CellLib(s_stormtypes.Lib):
         return await self.runt.view.core.getSystemInfo()
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _getBackupInfo(self):
-        if not self.runt.isAdmin():
-            mesg = '$lib.cell.getBackupInfo() requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-        return await self.runt.view.core.getBackupInfo()
-
-    @s_stormtypes.stormfunc(readonly=True)
     async def _getHealthCheck(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getHealthCheck() requires admin privs.'
@@ -213,8 +202,8 @@ class CellLib(s_stormtypes.Lib):
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
 
-        await ssvc.proxy.waitready()
-        return await ssvc.proxy.getMirrorUrls()
+        proxy = await ssvc.proxy()
+        return await proxy.getMirrorUrls()
 
     async def _trimNexsLog(self, consumers=None, timeout=30):
         if not self.runt.isAdmin():
@@ -240,8 +229,8 @@ class CellLib(s_stormtypes.Lib):
             if ssvc is None:
                 mesg = f'No service with name/iden: {name}'
                 raise s_exc.NoSuchName(mesg=mesg)
-            await ssvc.proxy.waitready()
-            info = await ssvc.proxy.getSystemInfo()
+            proxy = await ssvc.proxy()
+            info = await proxy.getSystemInfo()
 
         return {
             'starttime': info['cellstarttime'],

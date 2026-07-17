@@ -1,3 +1,4 @@
+import weakref
 import collections
 
 import synapse.exc as s_exc
@@ -299,6 +300,45 @@ class NodeTest(s_t_utils.SynTest):
             http_pode = [n for n in https_nodes if n[0][0] == 'test:str'][0]
             http_pode2 = [n for n in https_nodes if n[0][0] == 'test:int'][0]
             _test_pode(strpode=http_pode, intpode=http_pode2)
+
+    async def test_node_slots(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[test:str=cool]')
+            self.len(1, nodes)
+            node = nodes[0]
+
+            # __slots__ removes the per-instance __dict__
+            self.false(hasattr(node, '__dict__'))
+
+            # the ndef property still resolves through the sodes
+            self.eq(node.ndef, ('test:str', 'cool'))
+
+            # arbitrary attributes may no longer be set
+            with self.raises(AttributeError):
+                node.newpnewp = 'newp'
+
+            # Node must remain weak-referenceable for the view livenodes cache
+            self.nn(weakref.ref(node)())
+
+            runt = (await core.nodes('syn:form=test:str'))[0]
+            self.isinstance(runt, s_node.RuntNode)
+            self.false(hasattr(runt, '__dict__'))
+
+            with self.raises(AttributeError):
+                runt.newpnewp = 'newp'
+
+            query = await core.getStormQuery('')
+            async with core.getStormRuntime(query) as srt:
+                pathnodes = await alist(node.storm(srt, '$path.vars.foo=bar'))
+
+            path = pathnodes[0][1]
+            self.isinstance(path, s_node.Path)
+            self.false(hasattr(path, '__dict__'))
+
+            with self.raises(AttributeError):
+                path.newpnewp = 'newp'
 
     async def test_storm(self):
 

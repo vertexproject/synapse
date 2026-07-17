@@ -1,5 +1,4 @@
 import http
-import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -439,7 +438,6 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             $api.name = 'the hehe/haha handler'
             $api.desc = 'beep boop zoop robot captain'
             $api.runas = user
-            $api.pool = (true)
             $api.perms = (
                 ({"perm": ["hehe", "haha"]}),
                 ({"perm": ["some", "thing"], "default": true}),
@@ -616,7 +614,6 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('Owner: root', msgs)
             self.stormIsInPrint('Runas: owner', msgs)
             self.stormIsInPrint('Readonly: false', msgs)
-            self.stormIsInPrint('Pool enabled: false', msgs)
             self.stormIsInPrint('Authenticated: true', msgs)
             self.stormIsInPrint('Name: the hehe wildcard handler', msgs)
             self.stormIsInPrint('Description: wildcard words', msgs)
@@ -651,7 +648,6 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('Owner: root', msgs)
             self.stormIsInPrint('Runas: user', msgs)
             self.stormIsInPrint('Readonly: false', msgs)
-            self.stormIsInPrint('Pool enabled: true', msgs)
             self.stormIsInPrint('Authenticated: true', msgs)
             self.stormIsInPrint('Name: the hehe/haha handler', msgs)
             self.stormIsInPrint('Description: beep boop zoop robot captain', msgs)
@@ -1277,9 +1273,16 @@ for $i in $values {
             addr, hport = await core.addHttpsPort(0)
             rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
 
+            # an empty method body is not a valid query
+            with self.raises(s_exc.SchemaViolation):
+                await core.callStorm('''
+                    $api = $lib.cortex.httpapi.add(mtbody)
+                    $api.methods.get = ${ }
+                ''')
+
             # nothing
             q = '''$api = $lib.cortex.httpapi.add(bad00)
-            $api.methods.get =  ${ }
+            $api.methods.get =  ${ $foo = (1) }
             return ( ($api.iden) )'''
             iden00 = await core.callStorm(q)
 
@@ -1459,55 +1462,6 @@ for $i in $values {
                 self.none(resp.headers.get('X-Content-Type-Options'))
                 # Server is still omitted though
                 self.none(resp.headers.get('Server'))
-
-    async def test_cortex_httpapi_pool(self):
-
-        # Test if we pass the mirror value in opts or not.
-        async with self.getTestCore(conf={'https:headers': {'Key1': 'Valu1'}}) as core:
-            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
-            addr, hport = await core.addHttpsPort(0)
-            rootkey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'test')
-
-            q = '''$api = $lib.cortex.httpapi.add(stuff)
-            $api.methods.get =  ${
-                $request.reply(200, headers=({"Weee": "valu"}) )
-            }
-            return ( ($api.iden) )'''
-            iden00 = await core.callStorm(q)
-            opts_iden00 = {'vars': {'iden': iden00}}
-
-            data = {}
-
-            oldstorm = core.storm
-            async def storm(self, text, opts=None):
-                data['opts'] = opts
-                async for mesg in oldstorm(text, opts=opts):
-                    yield mesg
-
-            with mock.patch('synapse.cortex.Cortex.storm', new=storm) as patch:
-                async with self.getHttpSess(port=hport, headers={'X-API-KEY': rootkey}) as sess:
-                    resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
-                    self.eq(resp.status, http.HTTPStatus.OK)
-                    self.false(data['opts'].get('mirror'))
-                    data.clear()
-
-                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (true) return ( $api ) '
-                    adef = await core.callStorm(q, opts=opts_iden00)
-                    self.true(adef.get('pool'))
-
-                    resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
-                    self.eq(resp.status, http.HTTPStatus.OK)
-                    self.true(data['opts'].get('mirror'))
-                    data.clear()
-
-                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (false) return ( $api ) '
-                    adef = await core.callStorm(q, opts=opts_iden00)
-                    self.false(adef.get('pool'))
-
-                    resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
-                    self.eq(resp.status, http.HTTPStatus.OK)
-                    self.false(data['opts'].get('mirror'))
-                    data.clear()
 
     async def test_libcortex_nids(self):
 

@@ -162,6 +162,7 @@ modeldefs = (
                     # resolves to ou:org/ps:person rather than meta:reported's {$self}.
                     ('entity:resolvable', {}),
                     ('meta:reported', {}),
+                    ('meta:observable', {}),
                     ('meta:discoverable', {}),
                     ('entity:actor', {}),
                     ('entity:contactable', {}),
@@ -230,9 +231,6 @@ modeldefs = (
 
                     ('success', ('bool', {}), {
                         'doc': 'Set if the attack was known to have succeeded or not.'}),
-
-                    ('compromise', ('risk:compromise', {}), {
-                        'doc': 'A compromise that this attack contributed to.'}),
 
                     ('severity', ('meta:score', {}), {
                         'doc': 'A severity rank for the attack.'}),
@@ -477,9 +475,6 @@ modeldefs = (
                     ('public:url', ('inet:url', {}), {
                         'doc': 'The URL where the attacker publicly announced the extortion.'}),
 
-                    ('compromise', ('risk:compromise', {}), {
-                        'doc': 'The compromise which allowed the attacker to extort the target.'}),
-
                     ('paid:price', ('econ:price', {}), {
                         'doc': 'The total price paid by the target of the extortion.'}),
                 ),
@@ -582,9 +577,6 @@ modeldefs = (
                     ('cause', ('risk:outage:cause:taxonomy', {}), {
                         'ex': 'nature.earthquake',
                         'doc': 'The outage cause type.'}),
-
-                    ('attack', ('risk:attack', {}), {
-                        'doc': 'An attack which caused the outage.'}),
 
                     ('provider', ('ou:org', {}), {
                         'doc': 'The organization which experienced the outage event.'}),

@@ -110,6 +110,11 @@ reqValidLdef = s_config.getJsValidator({
 WINDOW_MAXSIZE = 10_000
 MIGR_COMMIT_SIZE = 1_000
 
+# Number of bytes of a UTF8 value retained in its layer index. Values longer
+# than this keep this many bytes and get an appended 8 byte xxhash suffix to
+# keep the index value distinct for equality lifts.
+LAYER_UTF8_INDEX_SIZE = 64
+
 class LayerApi(s_cell.CellApi):
 
     async def __anit__(self, core, link, user, layr):
@@ -571,6 +576,16 @@ class IndxByPoly(IndxBy):
 
     def hasIndxNid(self, indx, nid):
         return self.layr.layrslab.hasdup(self.abrv[:8] + indx, nid, db=self.db)
+
+    async def countByPref(self, indx=b'', maxsize=None):
+        # each poly key is <propabrv><stortype><typeabrv><value>; self.abrv is <propabrv><stortype>,
+        # so count each member type's slice via the concrete <abrv><typeabrv><value> prefix.
+        # constructed with typenames (getPolyPropPrefCount), so self.typeabrvs is always a set here.
+        count = 0
+        for typeabrv in self.typeabrvs:
+            count += await self.layr.layrslab.countByPref(self.abrv + typeabrv + indx,
+                                                          db=self.db, maxsize=maxsize)
+        return count
 
     def __repr__(self):
         return f'IndxByPoly: {self.form}:{self.prop}'
@@ -1269,18 +1284,43 @@ class StorTypeUtf8(StorType):
             yield item
 
     async def _liftUtf8Prefix(self, liftby, valu, reverse=False):
-        indx = self._getIndxByts(valu)
-        async for item in liftby.keyNidsByPref(indx, reverse=reverse):
-            yield item
+
+        byts = self._encode(valu)
+
+        # a prefix which fits within the retained index base ( the bytes before
+        # the appended hash ) matches the index directly
+        if len(byts) <= LAYER_UTF8_INDEX_SIZE:
+            async for item in liftby.keyNidsByPref(byts, reverse=reverse):
+                yield item
+            return
+
+        # a longer prefix runs past the retained base so lift by the partial
+        # index and filter on the real value
+        ispoly = isinstance(liftby, IndxByPoly)
+        async for lkey, nid in liftby.keyNidsByPref(byts[:LAYER_UTF8_INDEX_SIZE], reverse=reverse):
+
+            if (storvalu := liftby.getNodeValu(nid, lkey=lkey)) is s_common.novalu:
+                await asyncio.sleep(0)
+                continue
+
+            if ispoly:
+                storvalu = storvalu[1]
+
+            if self._encode(storvalu).startswith(byts):
+                yield lkey, nid
+
+    def _encode(self, valu):
+        return valu.encode('utf8')
 
     def _getIndxByts(self, valu):
 
-        indx = valu.encode('utf8')
-        # cut down an index value to 256 bytes...
-        if len(indx) <= 256:
+        indx = self._encode(valu)
+        # keep up to LAYER_UTF8_INDEX_SIZE bytes of the value; longer values
+        # retain that many bytes and get an appended xxhash suffix...
+        if len(indx) <= LAYER_UTF8_INDEX_SIZE:
             return indx
 
-        base = indx[:248]
+        base = indx[:LAYER_UTF8_INDEX_SIZE]
         sufx = xxhash.xxh64(indx).digest()
         return base + sufx
 
@@ -1288,7 +1328,7 @@ class StorTypeUtf8(StorType):
         return (self._getIndxByts(valu), )
 
     def decodeIndx(self, bytz):
-        if len(bytz) >= 256:
+        if len(bytz) >= LAYER_UTF8_INDEX_SIZE:
             return s_common.novalu
         return bytz.decode('utf8')
 
@@ -1310,16 +1350,8 @@ class StorTypeText(StorTypeUtf8):
         '''
         return valu.lower()
 
-    def _getIndxByts(self, valu):
-
-        indx = valu.lower().encode('utf8')
-        # cut down an index value to 256 bytes...
-        if len(indx) <= 256:
-            return indx
-
-        base = indx[:248]
-        sufx = xxhash.xxh64(indx).digest()
-        return base + sufx
+    def _encode(self, valu):
+        return valu.lower().encode('utf8')
 
 class StorTypeHier(StorType):
 
@@ -1371,7 +1403,7 @@ class StorTypeFqdn(StorTypeUtf8):
         )
 
     def decodeIndx(self, bytz):
-        if len(bytz) >= 256:
+        if len(bytz) >= LAYER_UTF8_INDEX_SIZE:
             return s_common.novalu
         return bytz.decode('utf8')[::-1]
 
@@ -2725,7 +2757,7 @@ class Layer(s_nexus.Pusher):
         self.isdeleted = False
 
         self.iden = layrinfo.get('iden')
-        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=core.nexsroot)
+        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=core.nexsroot, readonly=core.readonly)
 
         self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
         self.readonly = False
@@ -3454,7 +3486,15 @@ class Layer(s_nexus.Pusher):
 
         slabopts = {
             'readahead': s_common.envbool('SYNDEV_CORTEX_LAYER_READAHEAD', 'true'),
+            # a nexuscommit Cortex commits its layer slabs after each nexus
+            # transaction (Slab.commitDirtyNow) rather than on the timed pulse;
+            # such slabs also do not fire the 'commit' event, so _storNodeEdits
+            # flushes the layer's buffered writers itself (see _saveDirty).
+            'commitpulse': not self.core.nexuscommit,
         }
+
+        if self.core.readonly:
+            slabopts['readonly'] = True
 
         if self.growsize is not None:
             slabopts['growsize'] = self.growsize
@@ -3470,7 +3510,9 @@ class Layer(s_nexus.Pusher):
         self.onfini(self.layrslab)
         self.onfini(self.dataslab)
 
-        self.layrslab.on('commit', self._onLayrSlabCommit)
+        # readonly layers never have dirty sodes to flush on commit.
+        if not self.core.readonly and self.layrslab.commitpulse:
+            self.layrslab.on('commit', self._onLayrSlabCommit)
 
         self.layrvers = self.meta.get('version', 11)
         if self.layrvers != 11:
@@ -3517,7 +3559,10 @@ class Layer(s_nexus.Pusher):
         else:
             self.layrinfo[name] = valu
 
-        self.core.layerdefs.set(self.iden, self.layrinfo)
+        # layerdefs is shared read-through on a readonly cortex (the leader
+        # already committed the change); keep the in-memory layrinfo update above.
+        if not self.core.readonly:
+            self.core.layerdefs.set(self.iden, self.layrinfo)
 
         await self.core.feedBeholder('layer:set', {'iden': self.iden, 'name': name, 'valu': valu}, gates=[self.iden])
         return valu
@@ -3673,6 +3718,70 @@ class Layer(s_nexus.Pusher):
         count = 0
         for indx in self.getStorIndx(stortype, valu):
             count += self.layrslab.count(abrv + indx, db=self.indxdb)
+
+        return count
+
+    async def getPropPrefCount(self, formname, propname, stortype, valu, maxsize=None):
+        '''
+        Return the number of property rows in the layer whose value has the given prefix, counted
+        directly from the property index via slab.countByPref (no node reads).
+        '''
+        # only the plain string stortypes have a ^= lift that scans keyNidsByPref(indx(valu)), so the
+        # prefix bytes are exactly indx(valu)[0]. types with bespoke ^= semantics (fqdn, ipaddr, ...)
+        # are not supported. array/polyarray stortypes are intentionally excluded as well: a prefix
+        # over an array as a whole is not meaningful (an array holds many values with no single value
+        # to match), so we reject it rather than guess at per-element semantics.
+        if stortype not in (STOR_TYPE_UTF8, STOR_TYPE_TEXT):
+            mesg = f'Prefix counting is not supported for stortype {stortype}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        try:
+            abrv = self.core.getIndxAbrv(INDX_PROP, formname, propname)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        # valu has already been through the type's getStorCmprs (normForLift), so index it directly
+        prefindx = self.stortypes[stortype].indx(valu)[0]
+        return await self.layrslab.countByPref(abrv + prefindx, db=self.indxdb, maxsize=maxsize)
+
+    async def getPolyPropPrefCount(self, formname, propname, stortype, typenames, valu, maxsize=None):
+        '''
+        Prefix row count for a polymorphic property, restricted to the given member type names and
+        the given (string) member stortype, summed over each member type via slab.countByPref.
+        '''
+        # as in getPropPrefCount, only plain string member stortypes support a prefix scan; poly
+        # members with bespoke ^= semantics and polyarray members (a prefix over an array as a whole
+        # is not meaningful) are intentionally rejected rather than guessed at.
+        if stortype not in (STOR_TYPE_UTF8, STOR_TYPE_TEXT):
+            mesg = f'Prefix counting is not supported for poly member stortype {stortype}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        try:
+            indxby = IndxByPoly(self, formname, propname, stortype, typenames=typenames)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        # valu has already been through the type's getStorCmprs (normForLift), so index it directly
+        prefindx = self.stortypes[stortype].indx(valu)[0]
+        return await indxby.countByPref(prefindx, maxsize=maxsize)
+
+    def getPolyPropTypeCount(self, formname, propname, stortype, typenames):
+        '''
+        Count the property rows of a polymorphic property whose value is one of the given member
+        type names, summed from the per-member-type row counts maintained on poly prop edits (see
+        _editPropSet / _editPropDel). `stortype` is the member type's stortype (the poly index keys
+        each member by its stortype).
+        '''
+        try:
+            indxby = IndxByPoly(self, formname, propname, stortype, typenames=typenames)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        # indxby.abrv is <propabrv><stortype>; add each requested member type's abrv to read the
+        # row count maintained for that (prop, member type) slice
+        count = 0
+        for typeabrv in indxby.typeabrvs:
+            count += self.indxcounts.get(indxby.abrv + typeabrv, 0)
 
         return count
 
@@ -4291,7 +4400,21 @@ class Layer(s_nexus.Pusher):
 
         return lnodeedits
 
-    async def saveNodeEdits(self, edits, meta, compat=False, waitiden=None):
+    async def _saveNodeEditsFollower(self, proxy, edits, meta, retnoffs=False):
+        '''
+        Forward node edits from a non-leader Cortex to the leader (the sole
+        writer) and return the applied result once this Cortex has observed it.
+
+        With retnoffs=True, return (saveindx, appliededits) where saveindx is
+        this (follower) Cortex's nexus offset for the applied edits.
+        '''
+        with self.core.nexsroot._getResponseFuture() as (iden, futu):
+            if (retn := await proxy.saveLayerNodeEdits(self.iden, edits, meta, waitiden=iden)) is not None:
+                return retn
+            saveindx, appliededits = await futu
+            return (saveindx, appliededits) if retnoffs else appliededits
+
+    async def saveNodeEdits(self, edits, meta, compat=False, waitiden=None, retnoffs=False):
         '''
         Save node edits to the layer and return the applied changes.
         '''
@@ -4310,10 +4433,7 @@ class Layer(s_nexus.Pusher):
             if waitiden is not None:
                 return await proxy.saveLayerNodeEdits(self.iden, edits, meta, waitiden=waitiden)
 
-            with self.core.nexsroot._getResponseFuture() as (iden, futu):
-                if (retn := await proxy.saveLayerNodeEdits(self.iden, edits, meta, waitiden=iden)) is not None:
-                    return retn
-                return (await futu)[1]
+            return await self._saveNodeEditsFollower(proxy, edits, meta, retnoffs=retnoffs)
 
         await self.core.nexsroot.cell.nexslock.acquire()
 
@@ -4324,7 +4444,7 @@ class Layer(s_nexus.Pusher):
 
             if (realedits := await self.calcEdits(edits, meta)):
                 if (retn := await self.saveToNexs('edits', realedits, meta, waitiden=waitiden)) is not None:
-                    return retn[1]
+                    return retn if retnoffs else retn[1]
                 return
 
         except:
@@ -4428,6 +4548,15 @@ class Layer(s_nexus.Pusher):
                 if self.windows:
                     for wind in tuple(self.windows):
                         await wind.put((nexsoffs, nodeedits, meta))
+
+        # a commitpulse=False layrslab does not fire 'commit', so flush the
+        # buffered writers this edit touched (sodes, edit:indx, indxcounts) now;
+        # the per-transaction commit in NexsRoot._eat then persists them. A
+        # pulsing slab keeps batching via the 'commit' event, unchanged.
+        if not self.layrslab.commitpulse:
+            await self._saveDirtySodes()
+            self.editindx.sync()
+            self.indxcounts.sync()
 
         await asyncio.sleep(0)
         return nodeedits
@@ -4990,6 +5119,8 @@ class Layer(s_nexus.Pusher):
                 for oldi in self.getStorIndx(oldt, oldv):
                     self.layrslab.delete(abrv + oldi, nid, db=self.indxdb)
                     self.indxcounts.inc(abrv, -1)
+                    if oldt & STOR_FLAG_POLY:
+                        self.indxcounts.inc(abrv + oldi[:10], -1)
 
                 if (oldt & STOR_MASK_POLY) == STOR_TYPE_IVAL:
                     oldival = oldv[1]
@@ -5043,6 +5174,11 @@ class Layer(s_nexus.Pusher):
             for indx in self.getStorIndx(stortype, valu):
                 kvpairs.append((abrv + indx, nid))
                 self.indxcounts.inc(abrv)
+                if stortype & STOR_FLAG_POLY:
+                    # maintain a per-member-type count keyed <propabrv><stortype><typeabrv> (the prop
+                    # abrv plus the first 10 bytes of the poly index value, which are the member
+                    # stortype and type abrv) so getPolyPropTypeCount can sum members without a scan
+                    self.indxcounts.inc(abrv + indx[:10])
 
             if (stortype & STOR_MASK_POLY) == STOR_TYPE_IVAL:
                 ival = valu[1]
@@ -5121,6 +5257,8 @@ class Layer(s_nexus.Pusher):
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
                 self.indxcounts.inc(abrv, -1)
+                if stortype & STOR_FLAG_POLY:
+                    self.indxcounts.inc(abrv + indx[:10], -1)
 
             if (stortype & STOR_MASK_POLY) == STOR_TYPE_IVAL:
                 maxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, form, prop)
@@ -6541,7 +6679,8 @@ class Layer(s_nexus.Pusher):
     @s_nexus.Pusher.onPush('layer:set:modelvers')
     async def _setModelVers(self, vers):
         self.layrinfo['model:version'] = vers
-        self.core.layerdefs.set(self.iden, self.layrinfo)
+        if not self.core.readonly:
+            self.core.layerdefs.set(self.iden, self.layrinfo)
 
     async def getStorNodes(self):
         '''
@@ -6606,4 +6745,8 @@ class Layer(s_nexus.Pusher):
         '''
         self.isdeleted = True
         await self.fini()
+
+        if self.core.readonly:
+            return
+
         shutil.rmtree(self.dirn, ignore_errors=True)

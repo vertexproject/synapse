@@ -433,7 +433,8 @@ class Trigger:
             await self.view.core.getStormQuery(valu)
 
         self.tdef[name] = valu
-        self.view.trigdict.set(self.iden, self.tdef)
+        if not self.view.core.readonly:
+            self.view.trigdict.set(self.iden, self.tdef)
 
     def get(self, name):
         return self.tdef.get(name)

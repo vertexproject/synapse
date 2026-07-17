@@ -17,7 +17,7 @@ The images provided include the following:
         This container contains Synapse, but does not start any services.
 
     vertexproject/synapse-aha
-        This container starts the Aha service.
+        This container starts the AHA service.
 
     vertexproject/synapse-axon
         This container starts the Axon service.

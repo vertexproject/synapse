@@ -30,7 +30,7 @@ class QuorumMergesLib(s_stormtypes.Lib):
     }
 
     function __canvote(roles) {
-        for $role in $lib.auth.users.get().roles() {
+        for $role in $lib.auth.users.get().roles {
             if $roles.has($role.iden) { return((true)) }
         }
         return((false))

@@ -81,6 +81,12 @@ class EntityModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVirt):
                 node.get('lifespan.min')
 
+            props = node.getProps(virts=True)
+            self.eq(props.get('lifespan.began'), 219628800000000)
+            self.eq(props.get('lifespan.ended'), 9223372036854775807)
+            self.eq(props.get('lifespan.duration'), 0xffffffffffffffff)
+            self.eq(props.get('lifespan.precision'), 30)
+
             # entity:singular interface props
             self.nn(node.get('org'))
             self.propeq(node, 'org:name', 'vertex')

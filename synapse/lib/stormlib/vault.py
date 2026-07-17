@@ -368,6 +368,18 @@ class LibVault(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_listVaults',
                   'args': (),
                   'returns': {'name': 'yields', 'type': 'vault', 'desc': 'Yields vaults.'}}},
+        {'name': 'update', 'desc': '''
+            Atomically replace a vault with the given definition.
+
+            Notes:
+                Requires edit permission on the vault, or admin to change its
+                permissions.
+         ''',
+         'type': {'type': 'function', '_funcname': '_updateVault',
+                  'args': (
+                      {'name': 'vdef', 'type': 'dict', 'desc': 'The full vault definition to write.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The updated vault definition.'}}},
         {'name': 'print', 'desc': 'Print the details of the specified vault.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -444,7 +456,22 @@ class LibVault(s_stormtypes.Lib):
             'byname': self._getByName,
             'bytype': self._getByType,
             'list': self._listVaults,
+            'update': self._updateVault,
         }
+
+    async def _updateVault(self, vdef):
+        vdef = await s_stormtypes.toprim(vdef)
+        cur = self.runt.view.core.reqVault(vdef.get('iden'))
+
+        # changing permissions requires admin; data/name changes require edit
+        if vdef.get('permissions') != cur.get('permissions'):
+            mesg = f'User requires admin permission on vault: {cur.get("iden")}.'
+            s_stormtypes.confirmEasyPerm(cur, s_cell.PERM_ADMIN, mesg=mesg)
+        else:
+            mesg = f'User requires edit permission on vault: {cur.get("iden")}.'
+            s_stormtypes.confirmEasyPerm(cur, s_cell.PERM_EDIT, mesg=mesg)
+
+        return await self.runt.view.core.updateVault(vdef)
 
     async def _addVault(self, name, vtype, scope, owner, secrets, configs):
         name = await s_stormtypes.tostr(name)
@@ -514,6 +541,100 @@ class LibVault(s_stormtypes.Lib):
                 continue
 
             yield Vault(self.runt, vault.get('iden'))
+
+@s_stormtypes.registry.registerLib
+class LibVaultType(s_stormtypes.Lib):
+    '''
+    A Storm Library for managing vault types.
+    '''
+    _storm_locals = (
+        {'name': 'add', 'desc': '''
+            Register (or version bump) a vault type and its data JSON schema.
+
+            Notes:
+                Vaults of this type are validated against the provided schema,
+                which is applied to the whole vault definition (its configs,
+                secrets, name, and so on). The version must increment on each
+                change; a version bump migrates existing vaults via the optional
+                migration callback, which is a Storm query that mutates the
+                $configs and $secrets variables in place. Requires admin.
+         ''',
+         'type': {'type': 'function', '_funcname': '_addType',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The vault type name.'},
+                      {'name': 'version', 'type': 'int', 'desc': 'The vault type version.'},
+                      {'name': 'schema', 'type': 'dict', 'default': None,
+                       'desc': 'JSON schema for the vault definition, or null.'},
+                      {'name': 'migration', 'type': 'str', 'default': None,
+                       'desc': 'Storm migration callback, or null.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The registered vault type.'}}},
+        {'name': 'get', 'desc': 'Get a registered vault type definition.',
+         'type': {'type': 'function', '_funcname': '_getType',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The vault type name.'},
+                      {'name': 'version', 'type': 'int', 'default': None,
+                       'desc': 'A specific version to get. Defaults to the latest version.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The vault type definition, or null.'}}},
+        {'name': 'list', 'desc': 'List all registered vault type definitions (latest version of each).',
+         'type': {'type': 'function', '_funcname': '_listTypes',
+                  'args': (),
+                  'returns': {'type': 'list', 'desc': 'A list of vault type definitions.'}}},
+        {'name': 'versions', 'desc': 'List all registered versions of a vault type, oldest first.',
+         'type': {'type': 'function', '_funcname': '_typeVersions',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The vault type name.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of vault type definitions, oldest version first.'}}},
+        {'name': 'del', 'desc': 'Remove a registered vault type. Requires admin.',
+         'type': {'type': 'function', '_funcname': '_delType',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The vault type name.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+    )
+    _storm_lib_path = ('vault', 'type')
+
+    def getObjLocals(self):
+        return {
+            'add': self._addType,
+            'get': self._getType,
+            'list': self._listTypes,
+            'versions': self._typeVersions,
+            'del': self._delType,
+        }
+
+    async def _addType(self, name, version, schema=None, migration=None):
+        self.runt.reqAdmin(mesg='$lib.vault.type.add() requires admin.')
+
+        name = await s_stormtypes.tostr(name)
+        version = await s_stormtypes.toint(version)
+        schema = await s_stormtypes.toprim(schema)
+        migration = await s_stormtypes.tostr(migration, noneok=True)
+
+        return await self.runt.view.core.addVaultType({
+            'name': name, 'version': version,
+            'schema': schema, 'migration': migration,
+        })
+
+    async def _getType(self, name, version=None):
+        name = await s_stormtypes.tostr(name)
+        version = await s_stormtypes.toint(version, noneok=True)
+        return self.runt.view.core.getVaultType(name, version=version)
+
+    async def _listTypes(self):
+        return self.runt.view.core.listVaultTypes()
+
+    async def _typeVersions(self, name):
+        name = await s_stormtypes.tostr(name)
+        return self.runt.view.core.getVaultTypeVersions(name)
+
+    async def _delType(self, name):
+        self.runt.reqAdmin(mesg='$lib.vault.type.del() requires admin.')
+
+        name = await s_stormtypes.tostr(name)
+        await self.runt.view.core.delVaultType(name)
 
 @s_stormtypes.registry.registerType
 class VaultConfigs(s_stormtypes.Dict):
@@ -643,6 +764,11 @@ class Vault(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_methDelete',
                   'args': (),
                   'returns': {'type': 'boolean', 'desc': '``(true)`` if the vault was deleted, ``(false)`` otherwise.', }}},
+
+        {'name': 'vdef', 'desc': 'Get the full vault definition dict. Secrets are omitted without edit permission.',
+         'type': {'type': 'function', '_funcname': '_methVdef',
+                  'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The vault definition.'}}},
     )
     _storm_typename = 'vault'
     _ismutable = False
@@ -677,10 +803,17 @@ class Vault(s_stormtypes.Prim):
         return {
             'setPerm': self._methSetPerm,
             'delete': self._methDelete,
+            'vdef': self._methVdef,
         }
 
     def __hash__(self):  # pragma: no cover
         return hash((self._storm_typename, self.valu))
+
+    async def _methVdef(self):
+        vault = self.runt.view.core.reqVault(self.valu)
+        if not self.runt.allowedEasyPerm(vault, s_cell.PERM_EDIT):
+            vault.pop('secrets')
+        return vault
 
     async def _storName(self, name):
         vault = self.runt.view.core.reqVault(self.valu)

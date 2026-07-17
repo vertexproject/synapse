@@ -58,13 +58,13 @@ async def _spawnerWait(sockpath, timeout=30):
 class SpawnerMixin:
 
     @classmethod
-    def spawner(cls, base=None, sockpath=None):
+    def spawner(cls, base=None, sockpath=None, quietclose=None, logconf=None, name=None):
         async def _spawn(*args, **kwargs):
-            return await cls._spawn(args, kwargs, base=base, sockpath=sockpath)
+            return await cls._spawn(args, kwargs, base=base, sockpath=sockpath, quietclose=quietclose, logconf=logconf, name=name)
         return _spawn
 
     @classmethod
-    async def _spawn(cls, args, kwargs, base=None, sockpath=None):
+    async def _spawn(cls, args, kwargs, base=None, sockpath=None, quietclose=None, logconf=None, name=None):
 
         todo = (cls.anit, args, kwargs)
 
@@ -79,7 +79,7 @@ class SpawnerMixin:
         if base is None:
             base = await s_base.Base.anit()
 
-        base.schedCoro(s_process.spawn((_ioWorkProc, (todo, sockpath), {})))
+        base.schedCoro(s_process.spawn((_ioWorkProc, (todo, sockpath), {}), logconf=logconf, name=name))
 
         await _spawnerWait(sockpath)
 
@@ -94,7 +94,11 @@ class SpawnerMixin:
                 # This can fail if the subprocess was terminated from outside...
                 pass
 
-            if not base.isfini:
+            # A closed socket while base.isfini is False normally means the
+            # worker died unexpectedly (worth an error). quietclose() lets the
+            # owner flag that the worker exited as part of a coordinated
+            # shutdown, so we do not log a spurious error.
+            if not base.isfini and (quietclose is None or not quietclose()):
                 logger.error(f'IO Worker Socket Closed: {sockpath}')
 
             await base.fini()

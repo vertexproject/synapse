@@ -14,7 +14,7 @@ class TestService(s_stormsvc.StormSvc):
         {
             'name': 'foo',
             'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0b2,<4.0.0',
+            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
             'commands': (
                 {
                     'name': 'foobar',
@@ -303,6 +303,31 @@ class SynModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.propeq(node, 'array', True)
             self.propeq(node, 'type', ['base:id'])
+
+            # Scalar-syntax operators on an array prop raise one clear, actionable
+            # error pointing at array element syntax, symmetric with the inverse
+            # mismatch (array syntax on a non-array prop). '=' additionally offers
+            # the whole-array-equality alternative (a complete list value); '~='/'^='
+            # do not, since a list value doesn't resolve those (regex needs a string
+            # pattern, and Array never registers a '^=' storlift at all).
+            with self.raises(s_exc.BadCmprType) as exc:
+                await core.nodes('syn:prop:type=test:int2030')
+            self.isin('use array element syntax', exc.exception.get('mesg'))
+            self.isin('or provide the complete list of values', exc.exception.get('mesg'))
+
+            for q in ('syn:prop:type~=int', 'syn:prop:type^=test:int'):
+                with self.raises(s_exc.BadCmprType) as exc:
+                    await core.nodes(q)
+                self.isin('use array element syntax', exc.exception.get('mesg'))
+                self.notin('provide the complete list', exc.exception.get('mesg'))
+
+            # The correct array element syntax still works.
+            nodes = await core.nodes('syn:prop:type*[=test:int2030]')
+            self.isin('test:type10:intprop', {n.ndef[1] for n in nodes})
+
+            # The safe/optional ?= comparator retains its quiet, non-raising
+            # contract on an array prop: no match, not an error.
+            self.len(0, await core.nodes('syn:prop:type?=test:int2030'))
 
             # Interface-backed Poly array props expand to the implementing forms.
             nodes = await core.nodes('syn:prop="edu:class:assistants"')
@@ -686,7 +711,7 @@ class SynModelTest(s_t_utils.SynTest):
                 stormpkg = {
                     'name': 'stormpkg',
                     'version': '1.2.3',
-                    'synapse_version': '>=3.0.0b2,<4.0.0',
+                    'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
                     'commands': (
                         {
                          'name': 'pkgcmd.old',

@@ -16,7 +16,7 @@ What changed
     were deprecation shims (warning since ``v2.225.0``) re-exporting from a
     subpackage -- are deleted in 3.0.0. Only the dotted subpackage paths work
     now. The 3.x layout is: ``synapse.tools.service.*`` holds ``apikey``,
-    ``backup``, ``demote``, ``healthcheck``, ``livebackup``, ``modrole``,
+    ``backup``, ``demote``, ``healthcheck``, ``modrole``,
     ``moduser``, ``promote``, ``reload``, ``shutdown``, and ``snapshot``;
     ``synapse.tools.cortex.*`` holds ``csv`` (the renamed ``csvtool``),
     ``docmodel``, ``feed``, and a ``layer`` subpackage;
@@ -39,8 +39,7 @@ What you need to do
     -> ``utils.rstorm``, ``autodoc`` -> ``utils.autodoc``, ``easycert`` ->
     ``utils.easycert``, ``guid`` -> ``utils.guid``, ``json2mpk`` ->
     ``utils.json2mpk``, ``apikey`` -> ``service.apikey``, ``backup`` ->
-    ``service.backup``, ``livebackup`` -> ``service.livebackup``,
-    ``snapshot`` -> ``service.snapshot``, ``reload`` -> ``service.reload``,
+    ``service.backup``, ``snapshot`` -> ``service.snapshot``, ``reload`` -> ``service.reload``,
     ``shutdown`` -> ``service.shutdown``, ``demote`` -> ``service.demote``,
     ``promote`` -> ``service.promote``, ``healthcheck`` ->
     ``service.healthcheck``, ``moduser`` -> ``service.moduser``, ``modrole``

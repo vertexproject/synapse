@@ -1,4 +1,6 @@
+import os
 import pathlib
+import tempfile
 
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -32,18 +34,28 @@ async def main(argv, outp=s_output.stdout):
 
             for h in exists:
 
-                try:
-                    outp.printf(f'Fetching {h} to file')
+                outp.printf(f'Fetching {h} to file')
 
-                    with open(outdir.joinpath(h), 'wb') as fd:
+                # Fetch into a temp file and atomically move it into place on
+                # success so a failed or partial fetch never leaves a file behind.
+                tmp = None
+                try:
+                    fd, tmp = tempfile.mkstemp(dir=outdir, prefix=f'{h}.', suffix='.tmp')
+                    with os.fdopen(fd, 'wb') as fobj:
                         async for b in axon.get(s_common.uhex(h)):
-                            fd.write(b)
+                            fobj.write(b)
+
+                    os.replace(tmp, outdir.joinpath(h))
+                    tmp = None
 
                     outp.printf(f'Fetched {h} to file')
 
                 except Exception as e:
                     outp.printf('Error: Hit Exception: %s' % (str(e),))
-                    continue
+
+                finally:
+                    if tmp is not None:
+                        os.unlink(tmp)
 
     return 0
 

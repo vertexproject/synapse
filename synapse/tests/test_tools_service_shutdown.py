@@ -75,27 +75,3 @@ class ShutdownToolTest(s_test.SynTest):
             self.eq(0, await s_t_shutdown.main(argv))
 
             self.true(await core.waitfini(timeout=5))
-
-    async def test_tool_shutdown_no_features(self):
-
-        async with self.getTestAha() as aha:
-            aha.features.pop('getAhaSvcsByIden')
-
-            with self.getTestDir() as dirn:
-
-                dirn00 = s_common.genpath(dirn, '00.cell')
-                dirn01 = s_common.genpath(dirn, '01.cell')
-
-                cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', s_test.TestCell00, dirn=dirn00))
-                cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', s_test.TestCell00, dirn=dirn01))
-                self.true(cell00.isactive)
-                self.false(cell01.isactive)
-
-                await cell01.sync()
-
-                # confirm that graceful shutdown with peers also demotes...
-                outp = self.getTestOutp()
-                argv = ['--url', cell00.getLocalUrl(), '--timeout', '12']
-                with self.getLoggerStream('synapse.daemon') as stream:
-                    self.eq(2, await s_t_shutdown.main(argv, outp=outp))
-                await stream.expect('AHA server does not support feature: getAhaSvcsByIden >= 1')

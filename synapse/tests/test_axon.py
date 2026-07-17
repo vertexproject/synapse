@@ -19,6 +19,7 @@ import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.certdir as s_certdir
@@ -446,7 +447,7 @@ bar baz",vv
         self.eq(rows, erows)
 
         info = await axon.getCellInfo()
-        if info.get('features', {}).get('byterange') and not isinstance(axon, (s_telepath.Proxy, s_telepath.Client)):
+        if info.get('features', {}).get('byterange') and not isinstance(axon, s_telepath.Proxy):
             logger.info(f'Running range test for {axon}')
             # hand insert a genr to control offset sizes
             def genr():
@@ -862,7 +863,87 @@ bar baz",vv
                 async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
                     self.eq(resp.status, http.HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
 
+class HasAxonCell(s_axon.HasAxon, s_cell.Cell):
+    # a minimal Cell which mixes in HasAxon to exercise the mixin directly.
+    confdefs = {
+        'http:proxy': {
+            'description': 'Proxy URL threaded into the embedded axon.',
+            'type': 'string',
+        },
+        'tls:ca:dir': {
+            'description': 'CA dir threaded into the embedded axon.',
+            'type': 'string',
+        },
+    }
+
+    axonlinked = False
+    embcalled = False
+
+    async def _initEmbeddedAxon(self, axon):
+        await super()._initEmbeddedAxon(axon)
+        self.embcalled = True
+
+    async def _onLinkAxon(self, proxy, urlinfo):
+        await super()._onLinkAxon(proxy, urlinfo)
+        self.axonlinked = True
+
 class AxonTest(s_t_utils.SynTest, AxonTestMixin):
+
+    async def test_axon_hasaxon_embedded(self):
+        # a standalone ( non-aha ) HasAxon cell boots an embedded axon, reaches it
+        # via a local client, and threads its http:proxy / tls:ca:dir conf.
+        with self.getTestDir() as dirn:
+
+            cadir = s_common.gendir(dirn, 'cas')
+            proxyurl = 'socks5://user:pass@127.0.0.1:1'
+            conf = {'http:proxy': proxyurl, 'tls:ca:dir': cadir}
+
+            async with await HasAxonCell.anit(dirn, conf=conf) as cell:
+
+                # getAxon() returns a proxy even for the embedded axon
+                axon = await cell.getAxon()
+                size, sha256 = await axon.put(b'asdf')
+                self.eq(4, size)
+                self.true(await axon.has(sha256))
+
+                # the _initEmbeddedAxon hook ran and the embedded axon got the conf
+                self.true(cell.embcalled)
+                self.eq(proxyurl, cell._has_axon.conf.get('http:proxy'))
+                self.eq(cadir, cell._has_axon.conf.get('tls:ca:dir'))
+
+                # the local client link fired _onLinkAxon ( populating cached info )
+                self.true(cell.axonlinked)
+                self.true(cell._has_axoninfo)
+                info = await cell.getAxonInfo()
+                self.isin('features', info)
+
+                # force the lazy getAxonInfo fetch path
+                cell._has_axoninfo = {}
+                self.isin('features', await cell.getAxonInfo())
+
+    async def test_axon_hasaxon_aha(self):
+        # an aha client HasAxon cell resolves the axon by cell type ( aha://axon... )
+        async with self.getTestAha() as aha:
+
+            async with self.addSvcToAha(aha, '00.axon', s_axon.Axon):
+
+                async with self.addSvcToAha(aha, '00.hasaxon', HasAxonCell) as cell:
+
+                    # remote: no embedded axon, resolved via aha
+                    self.none(cell._has_axon)
+                    self.false(cell.embcalled)
+
+                    axon = await asyncio.wait_for(cell.getAxon(), timeout=10)
+
+                    size, sha256 = await axon.put(b'asdf')
+                    self.eq(4, size)
+                    self.true(await axon.has(sha256))
+
+                    self.true(cell.axonlinked)
+
+                    # the remote onlink handler populates the cached info
+                    info = await cell.getAxonInfo()
+                    self.isin('features', info)
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
@@ -999,7 +1080,7 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
 
         async with self.getTestCore() as core:
 
-            axon = core.axon
+            axon = core._has_axon
             axon.addHttpApi('/api/v3/pushfile', HttpPushFile, {'cell': axon})
 
             async with await axon.upload() as fd:
@@ -1100,7 +1181,7 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
                         self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex) as core:
 
                     # wait for the cortex to resolve its axon by cell type via aha
-                    self.true(await asyncio.wait_for(core.axready.wait(), timeout=10))
+                    self.nn(await asyncio.wait_for(core.getAxon(), timeout=10))
 
                     q = '''
                     $resp = $lib.inet.http.post(`https://127.0.0.1:{$port}/api/v3/pushfile`,

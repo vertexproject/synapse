@@ -4,6 +4,7 @@ import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
@@ -595,3 +596,88 @@ class JsonStorCell(s_cell.Cell):
 
     # async def iterUserNotifsByTime(self, useriden, ival):
     # async def iterUserNotifsByType(self, useriden, mesgtype, ival=None):
+
+class HasJsonStor:
+    '''
+    Mixin for a Cell which uses a JsonStor. When the Cell is an AHA client the
+    JsonStor is resolved by service type ( aha://jsonstor... ); otherwise an
+    embedded JsonStorCell is created under the cell directory and reached via
+    its local url. Either way a telepath client is created and getJsonStor()
+    returns a live proxy, so embedded and remote deployments exercise the same
+    path. Use getJsonStor() / getJsonStorInfo() rather than the underlying
+    objects.
+    '''
+    # constructor for the embedded JsonStorCell. subclasses may override to boot
+    # an alternative embedded implementation.
+    _has_jsonstor_ctor = JsonStorCell.anit
+
+    async def initServiceStorage(self):
+
+        self._has_jsonstor = None
+        self._has_jsonstorinfo = {}
+
+        # NEVER reach for self._has_jsonstor* directly. getJsonStor() returns a
+        # proxy to the jsonstor ( embedded or remote ) via the telepath client.
+        if self.ahaclient is None and self.readonly:
+            # a readonly cell shares the writer's dirn and must not run its own
+            # embedded jsonstor. point the client at the leader's embedded
+            # jsonstor socket so consumers reach it without proxying through the
+            # leader.
+            jurl = f'cell://{os.path.join(self.dirn, "jsonstor")}'
+
+        elif self.ahaclient is None:
+            path = os.path.join(self.dirn, 'jsonstor')
+            # the embedded jsonstor does not run its own host sysctl checks. it
+            # makes no outbound http requests, so ( unlike axon/cortex ) no
+            # http:proxy / tls:ca:dir is threaded in.
+            conf = {'health:sysctl:checks': False}
+
+            conf.update(self._getEmbeddedJsonStorConf(path))
+
+            # parent=self makes the embedded jsonstor a nexus-sharing child so
+            # its writes ride the host cell's nexus and replicate to mirrors.
+            self._has_jsonstor = await self._has_jsonstor_ctor(path, conf=conf, parent=self)
+            self.onfini(self._has_jsonstor.fini)
+            self.dynitems['jsonstor'] = self._has_jsonstor
+
+            jurl = self._has_jsonstor.getLocalUrl()
+
+        else:
+            jurl = 'aha://jsonstor...'
+
+        self._has_jsonstor_client = await s_telepath.ClientV2.anit(jurl, onlink=self._onLinkJsonStor)
+        self.onfini(self._has_jsonstor_client)
+
+        # set up our jsonstor before delegating so the rest of the storage init
+        # chain ( or an updated pattern ) can rely on getJsonStor(). return the
+        # parent result in case the callback ever produces one.
+        return await super().initServiceStorage()
+
+    def _getEmbeddedJsonStorConf(self, path):
+        # hook to augment the embedded JsonStorCell conf before it is created
+        # ( e.g. to pin a deterministic cell:guid ). subclasses override to
+        # return extra conf keys.
+        return {}
+
+    async def _onLinkJsonStor(self, proxy, urlinfo):
+        # default onlink handler for the jsonstor client; refreshes the cached
+        # cell info on every (re)connect. subclasses may override to react to
+        # (re)connects and should call super()._onLinkJsonStor(...) to keep the
+        # cache.
+        logger.debug('Connected to jsonstor')
+        self._has_jsonstorinfo = await proxy.getCellInfo()
+
+    async def getJsonStor(self, timeout=None):
+        # returns a live proxy to the jsonstor ( embedded or remote ) so callers
+        # get a uniform, prod-equivalent method-call interface.
+        return await self._has_jsonstor_client.proxy(timeout=timeout)
+
+    async def getJsonStorInfo(self):
+        # lazily resolve and cache the jsonstor cell info. the onlink handler
+        # refreshes it on (re)connect; if it is not populated yet we await a
+        # proxy to fetch it here.
+        if not self._has_jsonstorinfo:
+            jsonstor = await self.getJsonStor()
+            self._has_jsonstorinfo = await jsonstor.getCellInfo()
+
+        return self._has_jsonstorinfo

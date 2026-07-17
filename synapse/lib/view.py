@@ -89,7 +89,7 @@ class View(s_nexus.Pusher):  # type: ignore
         self.dirn = s_common.gendir(core.dirn, 'views', self.iden)
 
         slabpath = s_common.genpath(self.dirn, 'viewstate.lmdb')
-        self.viewslab = await s_lmdbslab.Slab.anit(slabpath)
+        self.viewslab = await s_lmdbslab.Slab.anit(slabpath, readonly=self.core.readonly)
         self.viewslab.addResizeCallback(core.checkFreeSpace)
 
         self.trigqueue = self.viewslab.getSeqn('trigqueue')
@@ -104,7 +104,7 @@ class View(s_nexus.Pusher):  # type: ignore
             except Exception: # pragma: no cover
                 logger.exception(f'Failed to load trigger {tdef!r}')
 
-        await s_nexus.Pusher.__anit__(self, iden=self.iden, nexsroot=core.nexsroot)
+        await s_nexus.Pusher.__anit__(self, iden=self.iden, nexsroot=core.nexsroot, readonly=core.readonly)
 
         self.onfini(self.viewslab.fini)
 
@@ -124,13 +124,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.mergetask = None
 
-        self.tagcache = s_cache.FixedCache(self._getTagNode, size=self.tagcachesize)
-
         self.nodecache = collections.deque(maxlen=self.nodecachesize)
         self.livenodes = weakref.WeakValueDictionary()
 
     def clearCache(self):
-        self.tagcache.clear()
         self.nodecache.clear()
         self.livenodes.clear()
 
@@ -184,9 +181,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 etyp, parms = edit
 
                 if etyp == s_layer.EDIT_NODE_ADD:
-                    if node.ndef[1] != parms[0]:
-                        node.ndef = (node.ndef[0], parms[0])
-
                     callbacks.append((node.form.wasAdded, (node,)))
                     callbacks.append((self.runNodeAdd, (node, useriden)))
 
@@ -241,9 +235,11 @@ class View(s_nexus.Pusher):  # type: ignore
                             # TODO: Decision about (poly)arrays that have virts
                             # because right now this overrides virts if an array has >1 ival in it
                             # which we whistlye past for now because no base model elements exercise that
-                            if stype & s_layer.STOR_MASK_ARRAY == s_layer.STOR_TYPE_IVAL:  # pragma: no cover
+                            subtype = stype & s_layer.STOR_MASK_ARRAY
+                            if virtfunc := s_node.storvirts.get(subtype):  # pragma: no cover
                                 for v in valu:
-                                    virts.update(s_node.getIvalStorVirts(v[1], vprops, prop.modl.type(v[0].prec)))
+                                    ptyp = prop.modl.type(v[0])
+                                    virts.update(virtfunc(v[1], vprops, ptyp))
                         else:
                             virts['type'] = valu[0]
 
@@ -251,8 +247,9 @@ class View(s_nexus.Pusher):  # type: ignore
                                 for vname, vval in vprops.items():
                                     virts[vname] = vval[0]
 
-                            if stype == s_layer.STOR_TYPE_IVAL:
-                                virts.update(s_node.getIvalStorVirts(valu[1], vprops, prop.modl.type(valu[0]).prec))
+                            if virtfunc := s_node.storvirts.get(stype):
+                                ptyp = prop.modl.type(valu[0])
+                                virts.update(virtfunc(valu[1], vprops, ptyp))
 
                         editset.append((etyp, (name, valu, stype, virts)))
                     continue
@@ -403,8 +400,10 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None:
             user = self.core.auth.rootuser
 
+        tagcache = runt.tagcaches[self] if runt is not None else None
+
         errs = False
-        editor = s_editor.NodeEditor(self, user)
+        editor = s_editor.NodeEditor(self, user, tagcache=tagcache)
         protonode = editor.loadNode(node)
 
         try:
@@ -437,8 +436,10 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None:
             user = self.core.auth.rootuser
 
+        tagcache = runt.tagcaches[self] if runt is not None else None
+
         errs = False
-        editor = s_editor.NodeEditor(self, user)
+        editor = s_editor.NodeEditor(self, user, tagcache=tagcache)
 
         try:
             yield editor
@@ -527,7 +528,7 @@ class View(s_nexus.Pusher):  # type: ignore
     def hasKids(self):
         return bool(self._children)
 
-    @s_nexus.Pusher.onPush('merge:set')
+    @s_nexus.Pusher.onPush('merge:set', reader=False)
     async def _setMergeRequest(self, mergeinfo):
         self.reqParentQuorum()
 
@@ -540,7 +541,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def setMergeComment(self, comment):
         return await self._push('merge:set:comment', s_common.now(), comment)
 
-    @s_nexus.Pusher.onPush('merge:set:comment')
+    @s_nexus.Pusher.onPush('merge:set:comment', reader=False)
     async def _setMergeRequestComment(self, updated, comment):
         self.reqParentQuorum()
         merge = self.getMergeRequest()
@@ -561,7 +562,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def delMergeRequest(self):
         return await self._push('merge:del')
 
-    @s_nexus.Pusher.onPush('merge:del')
+    @s_nexus.Pusher.onPush('merge:del', reader=False)
     async def _delMergeRequest(self):
         self.reqParentQuorum()
         byts = self.core.slab.pop(self.bidn + b'merge:req', db='view:meta')
@@ -574,6 +575,9 @@ class View(s_nexus.Pusher):  # type: ignore
             return merge
 
     async def _delMergeMeta(self):
+        # merge metadata lives entirely on the shared slab (read-through).
+        if self.core.readonly:
+            return
         for lkey in self.core.slab.scanKeysByPref(self.bidn + b'merge:', db='view:meta'):
             await asyncio.sleep(0)
             self.core.slab.delete(lkey, db='view:meta')
@@ -626,11 +630,15 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.merging = True
         self.info['merging'] = True
-        self.core.viewdefs.set(self.iden, self.info)
 
         self.wlyr.readonly = True
         self.wlyr.layrinfo['readonly'] = True
-        self.core.layerdefs.set(self.wlyr.iden, self.wlyr.layrinfo)
+
+        # in-memory merging state is set above; the durable view/layer defs
+        # are shared read-through.
+        if not self.core.readonly:
+            self.core.viewdefs.set(self.iden, self.info)
+            self.core.layerdefs.set(self.wlyr.iden, self.wlyr.layrinfo)
 
         merge['merged'] = tick
 
@@ -639,11 +647,12 @@ class View(s_nexus.Pusher):  # type: ignore
         tick = s_common.int64en(tick)
         bidn = s_common.uhex(merge.get('iden'))
 
-        lkey = self.parent.bidn + b'hist:merge:iden' + bidn
-        await self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
+        if not self.core.readonly:
+            lkey = self.parent.bidn + b'hist:merge:iden' + bidn
+            await self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
 
-        lkey = self.parent.bidn + b'hist:merge:time' + tick + bidn
-        await self.core.slab.put(lkey, bidn, db='view:meta')
+            lkey = self.parent.bidn + b'hist:merge:time' + tick + bidn
+            await self.core.slab.put(lkey, bidn, db='view:meta')
 
         await self.core.feedBeholder('view:merge:init', {'view': self.iden, 'merge': merge, 'votes': votes})
 
@@ -664,7 +673,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if merge.get('creator') == useriden:
             raise s_exc.AuthDeny(mesg='A user may not vote for their own merge request.')
 
-    @s_nexus.Pusher.onPush('merge:vote:set')
+    @s_nexus.Pusher.onPush('merge:vote:set', reader=False)
     async def _setMergeVote(self, vote):
 
         self.reqParentQuorum()
@@ -688,7 +697,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def setMergeVoteComment(self, useriden, comment):
         return await self._push('merge:vote:set:comment', s_common.now(), useriden, comment)
 
-    @s_nexus.Pusher.onPush('merge:vote:set:comment')
+    @s_nexus.Pusher.onPush('merge:vote:set:comment', reader=False)
     async def _setMergeVoteComment(self, tick, useriden, comment):
         self.reqParentQuorum()
 
@@ -712,7 +721,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def delMergeVote(self, useriden):
         return await self._push('merge:vote:del', useriden, s_common.now())
 
-    @s_nexus.Pusher.onPush('merge:vote:del')
+    @s_nexus.Pusher.onPush('merge:vote:del', reader=False)
     async def _delMergeVote(self, useriden, tick):
 
         self.reqParentQuorum()
@@ -926,7 +935,8 @@ class View(s_nexus.Pusher):  # type: ignore
         oldparent = self.parent
         self.parent = None
         if self.info.pop('parent', None) is not None:
-            self.core.viewdefs.set(self.iden, self.info)
+            if not self.core.readonly:
+                self.core.viewdefs.set(self.iden, self.info)
             if oldparent is not None:
                 oldparent._children.remove(self)
 
@@ -1189,7 +1199,23 @@ class View(s_nexus.Pusher):  # type: ignore
                 counts[name] += valu
         return counts
 
-    async def getPropCount(self, propname, valu=s_common.novalu, norm=True):
+    async def getPropCount(self, propname, valu=s_common.novalu, norm=True, cmpr='=', type=None):
+
+        # only '=' (exact) and '^=' (prefix) are supported: each maps to a direct count from the
+        # index. ranges and '~=' have no cheap count primitive, so reject them rather than scan
+        if cmpr not in ('=', '^='):
+            mesg = f'getPropCount() only supports the = and ^= comparators, not {cmpr}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        # the type filter counts a single polymorphic member type from its index slice; a value
+        # comparison would need per-value machinery it does not implement, so reject that combo
+        if type is not None and valu is not s_common.novalu:
+            mesg = 'getPropCount() does not support a type filter together with a valu.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        styp = None
+        if type is not None:
+            styp = self.core.model.reqType(type).stortype
 
         props = self.core.model.reqPropList(propname)
         count = 0
@@ -1205,8 +1231,40 @@ class View(s_nexus.Pusher):  # type: ignore
                 propname = prop.name
 
             if valu is s_common.novalu:
+                if type is not None:
+                    if not prop.type.ispoly:
+                        mesg = f'The type filter is only supported for polymorphic properties, not {prop.full}.'
+                        raise s_exc.BadArg(mesg=mesg)
+
+                    for layr in self.layers:
+                        count += layr.getPolyPropTypeCount(formname, propname, styp, (type,))
+                    continue
+
                 for layr in self.layers:
                     count += layr.getPropCount(formname, propname)
+                continue
+
+            if cmpr == '^=':
+                if prop.type.ispoly:
+                    # sum a prefix count per poly member type (the index carries a per-type prefix).
+                    # getPolyPropPrefCount rejects member stortypes whose ^= is not a plain-string
+                    # index prefix (e.g. fqdn), so we do not silently undercount.
+                    # Poly.getStorCmprs always flags STOR_FLAG_POLY and (with no virt) yields a
+                    # (value, tnames) cval, so every entry is a poly member-type group here
+                    cmprvals = await prop.type.getStorCmprs(cmpr, valu)
+                    for _, (prefval, tnames), kind in cmprvals:
+                        styp = kind & s_layer.STOR_MASK_POLY
+                        for layr in self.layers:
+                            count += await layr.getPolyPropPrefCount(formname, propname, styp, tnames, prefval)
+
+                    continue
+
+                # route through getStorCmprs so string types apply their normForLift behaviour to
+                # the prefix value (lower/strip/replace/...) exactly as a lift would
+                cmprvals = await prop.type.getStorCmprs(cmpr, valu)
+                for _, prefval, kind in cmprvals:
+                    for layr in self.layers:
+                        count += await layr.getPropPrefCount(formname, propname, kind, prefval)
                 continue
 
             normv = valu
@@ -1340,7 +1398,7 @@ class View(s_nexus.Pusher):  # type: ignore
         async for indx, valu in self._mergeNodeValues(genrs):
             yield valu
 
-    async def iterPropValuesWithCmpr(self, propname, cmpr, valu, array=False):
+    async def iterPropValuesWithCmpr(self, propname, cmpr, valu, array=False, types=None, limit=None):
 
         props = self.core.model.reqPropList(propname)
 
@@ -1359,8 +1417,21 @@ class View(s_nexus.Pusher):  # type: ignore
             if array:
                 ptyp = ptyp.arraytype
 
+            # a member-type filter only makes sense for a polymorphic property; reject it for a
+            # homogeneous one rather than silently returning nothing
+            if types is not None and not ptyp.ispoly:
+                mesg = f'The type filter is only supported for polymorphic properties, not {propname}.'
+                raise s_exc.BadArg(mesg=mesg)
+
             if not (cmprvals := await ptyp.getStorCmprs(cmpr, valu)):
-                return
+                continue
+
+            # restrict a polymorphic property to specific member type(s); the tnames flow into the
+            # layer as IndxByPolyKeys(typenames=...) so the filter stays index-native
+            if types is not None:
+                cmprvals = self._filterCmprValsByType(cmprvals, types)
+                if not cmprvals:
+                    continue
 
             if prop.isform:
                 formname = prop.name
@@ -1373,8 +1444,32 @@ class View(s_nexus.Pusher):  # type: ignore
                 genr = layr.iterPropValuesWithCmpr(formname, propname, cmprvals, array=array)
                 genrs.append(wrapgenr(lidx, genr, formname, propname))
 
+        # the limit is applied to the merged, de-duplicated stream (never per-layer), since dedup and
+        # the higher-layer overwrite/tombstone checks in _mergeNodeValues change which values survive
+        count = 0
         async for item in self._mergeNodeValues(genrs, array=array):
             yield item
+
+            count += 1
+            if limit is not None and count >= limit:
+                return
+
+    @staticmethod
+    def _filterCmprValsByType(cmprvals, types):
+        typeset = set(types)
+        retn = []
+        for cmpr, cval, kind in cmprvals:
+            # only polymorphic cmprvals carry member type names (the (valu, tnames) shape); a member
+            # type filter is meaningless for a homogeneous property, so drop non-poly cmprvals
+            if not kind & s_layer.STOR_FLAG_POLY:
+                continue
+
+            fval, tnames = cval
+            keep = tuple(tname for tname in tnames if tname in typeset)
+            if keep:
+                retn.append((cmpr, (fval, keep), kind))
+
+        return retn
 
     async def _mergeNodeValues(self, genrs, array=False):
 
@@ -1821,7 +1916,9 @@ class View(s_nexus.Pusher):  # type: ignore
                     abstock = s_common.mononow()
                     abstook = abstock - abstick
                     tock = tick + abstook
-                    await chan.put(('fini', {'tock': tock, 'abstock': abstock, 'took': abstook, 'count': count, }))
+                    nexsoffs = await self.core.getNexsOffs()
+                    await chan.put(('fini', {'tock': tock, 'abstock': abstock, 'took': abstook,
+                                             'count': count, 'nexsoffs': nexsoffs}))
 
         with s_scope.enter({'user': user}):
 
@@ -1878,12 +1975,12 @@ class View(s_nexus.Pusher):  # type: ignore
                 async for pode in runt.iterStormPodes():
                     yield pode
 
-    @s_nexus.Pusher.onPushAuto('trig:q:add', passitem=True)
+    @s_nexus.Pusher.onPushAuto('trig:q:add', passitem=True, reader=False)
     async def addTrigQueue(self, triginfo, nexsitem):
         nexsoff, nexsmesg = nexsitem
         self.trigqueue.add(triginfo, indx=nexsoff)
 
-    @s_nexus.Pusher.onPushAuto('trig:q:del')
+    @s_nexus.Pusher.onPushAuto('trig:q:del', reader=False)
     async def delTrigQueue(self, offs):
         self.trigqueue.pop(offs)
 
@@ -1919,7 +2016,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
             self.parent = parent
             self.info[name] = valu
-            self.core.viewdefs.set(self.iden, self.info)
+            if not self.core.readonly:
+                self.core.viewdefs.set(self.iden, self.info)
             parent._children.append(self)
 
             await self._calcForkLayers()
@@ -1959,7 +2057,8 @@ class View(s_nexus.Pusher):  # type: ignore
             else:
                 self.info[name] = valu
 
-            self.core.viewdefs.set(self.iden, self.info)
+            if not self.core.readonly:
+                self.core.viewdefs.set(self.iden, self.info)
 
         await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu},
                                      gates=[self.iden, self.layers[0].iden])
@@ -1968,7 +2067,8 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _setLayerIdens(self, idens):
         # this may only be called from within a nexus handler...
         self.info['layers'] = idens
-        self.core.viewdefs.set(self.iden, self.info)
+        if not self.core.readonly:
+            self.core.viewdefs.set(self.iden, self.info)
         await self._initViewLayers()
         await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': 'layers', 'valu': idens},
                                      gates=[self.iden, self.layers[0].iden])
@@ -2004,7 +2104,8 @@ class View(s_nexus.Pusher):  # type: ignore
         self.wlyr = self.layers[0]
 
         self.info['layers'] = [lyr.iden for lyr in self.layers]
-        self.core.viewdefs.set(self.iden, self.info)
+        if not self.core.readonly:
+            self.core.viewdefs.set(self.iden, self.info)
 
         await self.core.feedBeholder('view:addlayer', {'iden': self.iden, 'layer': layriden, 'indx': indx}, gates=[self.iden, layriden])
         self.core._calcViewsByLayer()
@@ -2036,7 +2137,8 @@ class View(s_nexus.Pusher):  # type: ignore
         self.clearCache()
 
         self.info['layers'] = layers
-        self.core.viewdefs.set(self.iden, self.info)
+        if not self.core.readonly:
+            self.core.viewdefs.set(self.iden, self.info)
 
         await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layers}, gates=[self.iden, layers[0]])
 
@@ -2070,7 +2172,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 # convert layers to a list of idens...
                 lids = [layr.iden for layr in layers]
                 child.info['layers'] = lids
-                self.core.viewdefs.set(child.iden, child.info)
+                if not self.core.readonly:
+                    self.core.viewdefs.set(child.iden, child.info)
 
                 await self.core.feedBeholder('view:setlayers', {'iden': child.iden, 'layers': lids}, gates=[child.iden, lids[0]])
 
@@ -2136,7 +2239,8 @@ class View(s_nexus.Pusher):  # type: ignore
         oldparent = self.parent
         self.info['parent'] = forkiden
         self.parent = self.core.reqView(forkiden)
-        self.core.viewdefs.set(self.iden, self.info)
+        if not self.core.readonly:
+            self.core.viewdefs.set(self.iden, self.info)
         if oldparent is not None:
             oldparent._children.remove(self)
         self.parent._children.append(self)
@@ -2156,22 +2260,25 @@ class View(s_nexus.Pusher):  # type: ignore
         if authgate is None:  # pragma: no cover
             return await self.parent.pack()
 
-        for userinfo in authgate.get('users'):
-            useriden = userinfo.get('iden')
-            if (user := self.core.auth.user(useriden)) is None:  # pragma: no cover
-                logger.warning(f'View {self.iden} AuthGate refers to unknown user {useriden}')
-                continue
+        # copy the source view's gate perms onto the new fork's gate. These are
+        # durable auth writes.
+        if not self.core.readonly:
+            for userinfo in authgate.get('users'):
+                useriden = userinfo.get('iden')
+                if (user := self.core.auth.user(useriden)) is None:  # pragma: no cover
+                    logger.warning(f'View {self.iden} AuthGate refers to unknown user {useriden}')
+                    continue
 
-            await user.setRules(userinfo.get('rules'), gateiden=forkiden, nexs=False)
-            await user.setAdmin(userinfo.get('admin'), gateiden=forkiden, logged=False)
+                await user.setRules(userinfo.get('rules'), gateiden=forkiden, nexs=False)
+                await user.setAdmin(userinfo.get('admin'), gateiden=forkiden, logged=False)
 
-        for roleinfo in authgate.get('roles'):
-            roleiden = roleinfo.get('iden')
-            if (role := self.core.auth.role(roleiden)) is None:  # pragma: no cover
-                logger.warning(f'View {self.iden} AuthGate refers to unknown role {roleiden}')
-                continue
+            for roleinfo in authgate.get('roles'):
+                roleiden = roleinfo.get('iden')
+                if (role := self.core.auth.role(roleiden)) is None:  # pragma: no cover
+                    logger.warning(f'View {self.iden} AuthGate refers to unknown role {roleiden}')
+                    continue
 
-            await role.setRules(roleinfo.get('rules'), gateiden=forkiden, nexs=False)
+                await role.setRules(roleinfo.get('rules'), gateiden=forkiden, nexs=False)
 
         return await self.parent.pack()
 
@@ -2245,8 +2352,9 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.merging:
             return self.getMergeRequest()
 
-        lkey = self.bidn + b'merge:req'
-        await self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
+        if not self.core.readonly:
+            lkey = self.bidn + b'merge:req'
+            await self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
 
         await self._initMergeState(dict(mergeinfo), mergeinfo.get('created'))
 
@@ -2428,20 +2536,26 @@ class View(s_nexus.Pusher):  # type: ignore
 
         s_schemas.reqValidTriggerDef(tdef)
 
-        trig = self.trigdict.get(tdef['iden'])
-        if trig is not None:
-            return self.triggers.get(tdef['iden']).pack()
+        # guard on the in-memory triggers registry (what this handler builds), not
+        # the read-through trigdict.
+        if (trig := self.triggers.get(tdef['iden'])) is not None:
+            return trig.pack()
 
-        self.core.auth.reqNoAuthGate(tdef['iden'])
+        # reqNoAuthGate is a leader-side precondition; on a readonly cortex the gate
+        # already exists (shared read-through).
+        if not self.core.readonly:
+            self.core.auth.reqNoAuthGate(tdef['iden'])
 
         user = self.core.auth.user(tdef['user'])
         await self.core.getStormQuery(tdef['storm'])
 
         trig = await self.triggers.load(tdef)
 
-        self.trigdict.set(trig.iden, tdef)
-        await self.core.auth.addAuthGate(trig.iden, 'trigger')
-        await user.setAdmin(True, gateiden=tdef.get('iden'), logged=False)
+        # the trigger def, auth gate and admin grant are shared read-through.
+        if not self.core.readonly:
+            self.trigdict.set(trig.iden, tdef)
+            await self.core.auth.addAuthGate(trig.iden, 'trigger')
+            await user.setAdmin(True, gateiden=tdef.get('iden'), logged=False)
 
         await self.core.feedBeholder('trigger:add', trig.pack(), gates=[trig.iden])
 
@@ -2471,8 +2585,9 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         await self.core.feedBeholder('trigger:del', {'iden': trig.iden, 'view': trig.view.iden}, gates=[trig.iden])
-        self.trigdict.pop(trig.iden)
-        await self.core.auth.delAuthGate(trig.iden)
+        if not self.core.readonly:
+            self.trigdict.pop(trig.iden)
+            await self.core.auth.delAuthGate(trig.iden)
 
     @s_nexus.Pusher.onPushAuto('trigger:set')
     async def setTriggerInfo(self, iden, edits):
@@ -2500,6 +2615,13 @@ class View(s_nexus.Pusher):  # type: ignore
         Note: this does not delete any layer storage.
         '''
         await self.fini()
+
+        # a readonly cortex drops the view from its in-memory state (done by
+        # fini's onfini handler above), but it must NEVER delete the on-disk
+        # storage.
+        if self.core.readonly:
+            return
+
         await self.trigdict.truncate()
         await self._wipeViewMeta()
         shutil.rmtree(self.dirn, ignore_errors=True)
@@ -2709,13 +2831,18 @@ class View(s_nexus.Pusher):  # type: ignore
                 async for node in self.nodesByPropValu(prop.full, cmpr, valu, norm=norm, virt=virt):
                     yield node
 
-    async def getTagNode(self, name):
+    def getTagCache(self):
         '''
-        Retrieve a cached tag node. Requires name is normed. Does not add.
+        Create a new tag cache bound to this view's syn:tag resolution.
         '''
-        return await self.tagcache.aget(name)
+        return s_cache.FixedCache(self._getTagNode, size=self.tagcachesize)
 
     async def _getTagNode(self, tagnorm):
+        '''
+        Resolve a (normed) tag name to its syn:tag node, following any :isnow
+        redirects. Returns s_common.novalu when the tag does not exist. Does not
+        add. This is the (uncached) getter backing a tag cache (see getTagCache).
+        '''
 
         tagnode = await self.getNodeByNdef(('syn:tag', tagnorm))
         if tagnode is not None:
@@ -3382,7 +3509,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if not isinstance(prop.type, s_types.Array):
             mesg = f'Array syntax is invalid on non array type: {prop.type.name}.'
-            raise s_exc.BadTypeValu(mesg=mesg)
+            raise s_exc.BadCmprType(mesg=mesg)
 
         if norm or virt is not None:
             cmprvals = await prop.type.arraytype.getStorCmprs(cmpr, valu, virt=virt)

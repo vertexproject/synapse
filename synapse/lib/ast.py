@@ -1838,7 +1838,7 @@ class LiftByArray(LiftOper):
 
             if not props[0].type.isarray:
                 mesg = f'Array syntax is invalid on non array type: {props[0].type.name}.'
-                raise s_exc.BadTypeValu(mesg=mesg)
+                raise s_exc.BadCmprType(mesg=mesg)
 
             genrs = []
             for prop in props:
@@ -1901,7 +1901,7 @@ class LiftByArrayVirt(LiftOper):
 
             if not props[0].type.isarray:
                 mesg = f'Array syntax is invalid on non array type: {props[0].type.name}.'
-                raise s_exc.BadTypeValu(mesg=mesg)
+                raise s_exc.BadCmprType(mesg=mesg)
 
             genrs = []
             for prop in props:
@@ -5350,6 +5350,10 @@ class EditPropSet(Edit):
 
             propname = await self.kids[0].compute(runt, path)
             name = await tostr(propname)
+            virt = None
+            if '.' in name:
+                # $p = "seen.min" [$p=now]
+                name, virt = name.split('.', 1)
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -5424,12 +5428,15 @@ class EditPropSet(Edit):
                     await node.set(name, valu)
                 else:
                     async with runt.view.getNodeEditor(node, runt=runt) as protonode:
+                        if virt is not None:
+                            oldv, oldvirts = node.getWithVirts(name)
+                            valu, norminfo = await prop.type.normVirt(virt, oldv, valu, oldvirts=oldvirts)
                         await protonode.set(name, valu, norminfo=norminfo)
 
             except excignore:
                 pass
 
-            except s_exc.BadTypeValu as e:
+            except (s_exc.BadTypeValu, s_exc.NoSuchVirt) as e:
                 raise rval.addExcInfo(e)
 
             yield node, path

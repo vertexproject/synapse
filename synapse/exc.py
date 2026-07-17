@@ -95,10 +95,6 @@ class StormRaise(SynErr):
 
 class AuthDeny(SynErr): pass
 
-class BackupAlreadyRunning(SynErr):
-    '''
-    Only one backup may be running at a time
-    '''
 class StormPkgRequires(SynErr): pass
 class StormPkgConflicts(SynErr): pass
 

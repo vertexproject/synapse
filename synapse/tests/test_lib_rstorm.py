@@ -14,6 +14,26 @@ import synapse.tools.storm._cli as s_storm
 
 import synapse.tests.utils as s_test
 
+class NonCellMockCell:
+    def __init__(self, dirn, conf):
+        self.dirn = dirn
+        self.conf = conf
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+class NonCellMockCtor:
+    '''
+    A minimal rstorm ctor that is not a real Cell (e.g. a doc-only test double
+    with a custom anit()) and so has no initCellConf() to build a Config from.
+    '''
+    @classmethod
+    async def anit(cls, dirn, conf=None):
+        return NonCellMockCell(dirn, conf)
+
 rst_in = '''
 HI
 ##
@@ -939,3 +959,30 @@ hello world
             async with await s_rstorm.StormCliOutput.anit(item=core, outp=outp4) as cli4:
                 await cli4.runRstCmdLine('$lib.print(hello)', {})
                 self.isin('hello', str(outp4))
+
+    async def test_lib_rstorm_getcell_envars(self):
+
+        # SYN_CORTEX_STORM_LOG applies to a Cortex booted by rstorm.getCell(), matching
+        # the SYN_<CELL>_* environment behavior of a production boot (initFromArgv).
+        with self.setTstEnvars(SYN_CORTEX_STORM_LOG='true'):
+            async with s_rstorm.getCell('synapse.cortex.Cortex', {}) as core:
+                self.true(core.conf.get('storm:log'))
+
+        # An explicitly provided conf value takes precedence over the environment.
+        with self.setTstEnvars(SYN_CORTEX_STORM_LOG='true'):
+            async with s_rstorm.getCell('synapse.cortex.Cortex', {'storm:log': False}) as core:
+                self.false(core.conf.get('storm:log'))
+
+        # With no envar set, the schema default is used.
+        async with s_rstorm.getCell('synapse.cortex.Cortex', {}) as core:
+            self.false(core.conf.get('storm:log'))
+
+    async def test_lib_rstorm_getcell_noncell_ctor(self):
+
+        # A ctor with no initCellConf() (a doc-only test double with a custom
+        # anit(), not a real Cell) falls back to the bare conf dict rather than
+        # erroring, and env vars are not applied to it (it never supported them).
+        with self.setTstEnvars(SYN_CORTEX_STORM_LOG='true'):
+            async with s_rstorm.getCell('synapse.tests.test_lib_rstorm.NonCellMockCtor',
+                                         {'hehe': 'haha'}) as cell:
+                self.eq({'hehe': 'haha'}, cell.conf)

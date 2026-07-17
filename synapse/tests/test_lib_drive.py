@@ -317,29 +317,23 @@ class DriveTest(s_t_utils.SynTest):
                 s_config._JsValidators.clear()
                 await cell.drive.reqValidData('woot', data)
 
-        # Run the drive tests with and without a spawn worker
-        for valu in ('true', 'false'):
-            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
-                await tst_drive_basics(dirn)
+        with self.getTestDir() as dirn:
+            await tst_drive_basics(dirn)
 
     async def test_drive_backup_sync(self):
 
         async def tst_drive_sync(dirn):
-            backdirn = os.path.join(dirn, 'backups')
             celldirn = os.path.join(dirn, 'cell')
-
-            s_common.yamlsave({'backup:dir': backdirn}, celldirn, 'cell.yaml')
 
             async with self.getTestCell(s_cell.Cell, dirn=celldirn) as cell:
 
                 await cell.addDriveItem({'name': 'testitem'})
 
-                name = await cell.runBackup('drivetest')
+                bdir = os.path.join(dirn, 'backups', 'drivetest')
+                await s_t_utils.pullBackup(cell, bdir)
 
-            drivepath = os.path.join(backdirn, name, 'slabs', 'drive.lmdb', 'data.mdb')
+            drivepath = os.path.join(bdir, 'slabs', 'drive.lmdb', 'data.mdb')
             self.true(os.path.isfile(drivepath))
 
-        # Run the drive tests with and without a spawn worker
-        for valu in ('true', 'false'):
-            with self.getTestDir() as dirn, self.setTstEnvars(SYNDEV_CELL_DRIVE_NOSPAWN=valu):
-                await tst_drive_sync(dirn)
+        with self.getTestDir() as dirn:
+            await tst_drive_sync(dirn)

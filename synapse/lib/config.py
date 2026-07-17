@@ -54,6 +54,116 @@ local_ref_handlers = {
     'https': localSchemaRefHandler,
 }
 
+# Cache of the compiled draft-07 meta-schema validator, the exact-case set
+# of valid draft-07 keywords, and a lowercase-alias map used to catch both
+# miscased keywords (e.g. "minlength") and known truncated misspellings
+# (e.g. "minLen", "minval") that are not merely a casing difference from the
+# real keyword. Built on first use.
+_SchemaDefValidator = None  # type: ignore
+_ValidSchemaKeywords = None  # type: ignore
+_SchemaKeywordAliases = None  # type: ignore
+
+# Known truncated/renamed misspellings seen in the wild, mapped by their
+# lowercased form to the real draft-07 keyword they were meant to be.
+_schema_keyword_typos = {
+    'minlen': 'minLength', 'maxlen': 'maxLength',
+    'minval': 'minimum', 'maxval': 'maximum',
+    'minitem': 'minItems', 'maxitem': 'maxItems',
+}
+
+# Sub-schema-valued keywords, keyed by how their value composes sub-schemas,
+# used to walk a schema definition looking for miscased keywords.
+_schema_valued_keys = ('additionalItems', 'contains', 'else', 'if', 'not', 'propertyNames', 'then')
+_schema_list_valued_keys = ('allOf', 'anyOf', 'oneOf')
+_schema_dict_valued_keys = ('definitions', 'patternProperties', 'properties')
+
+def _ensureSchemaDefData():
+    '''
+    Compile (once) the draft-07 meta-schema validator and derive the set of
+    valid draft-07 keywords (and their known typo aliases) from it.
+    '''
+    global _SchemaDefValidator, _ValidSchemaKeywords, _SchemaKeywordAliases
+
+    if _SchemaDefValidator is not None:
+        return
+
+    with open(s_data.path('jsonschemas', 'json-schema.org', 'draft-07', 'schema'), 'r') as fp:
+        metaschema = s_json.load(fp)
+
+    _ValidSchemaKeywords = set(metaschema['properties'].keys())
+
+    _SchemaKeywordAliases = {key.lower(): key for key in _ValidSchemaKeywords}
+    _SchemaKeywordAliases.update(_schema_keyword_typos)
+
+    # Drop $id/$schema so fastjsonschema does not try to resolve them as refs
+    # and so this stricter variant is not confused with the real draft-07 uri.
+    metaschema.pop('$id', None)
+    metaschema.pop('$schema', None)
+
+    _SchemaDefValidator = fastjsonschema.compile(metaschema, handlers={}, use_default=False)
+
+def _checkSchemaKeywordCasing(node):
+    '''
+    Recursively walk a schema definition looking for keys which are a
+    case-insensitive match (or known truncated typo) for a valid draft-07
+    keyword but not an exact match (e.g. "minlength", "MinLength", or
+    "minLen" instead of "minLength"). These are silently ignored by
+    fastjsonschema, so the schema author's intended constraint would never
+    be enforced.
+    '''
+    if not isinstance(node, dict):
+        return
+
+    for key in node.keys():
+        if key in _ValidSchemaKeywords:
+            continue
+
+        correct = _SchemaKeywordAliases.get(key.lower())
+        if correct is not None:
+            mesg = f'JSON Schema keyword "{key}" should be "{correct}".'
+            raise s_exc.BadArg(mesg=mesg)
+
+    for key in _schema_valued_keys:
+        _checkSchemaKeywordCasing(node.get(key))
+
+    items = node.get('items')
+    if isinstance(items, list):
+        for item in items:
+            _checkSchemaKeywordCasing(item)
+    else:
+        _checkSchemaKeywordCasing(items)
+
+    addlprops = node.get('additionalProperties')
+    _checkSchemaKeywordCasing(addlprops)
+
+    for key in _schema_list_valued_keys:
+        for item in node.get(key) or ():
+            _checkSchemaKeywordCasing(item)
+
+    for key in _schema_dict_valued_keys:
+        for value in (node.get(key) or {}).values():
+            _checkSchemaKeywordCasing(value)
+
+    for value in (node.get('dependencies') or {}).values():
+        if isinstance(value, dict):
+            _checkSchemaKeywordCasing(value)
+
+def validateSchemaDef(schema):
+    '''
+    Check that schema is a valid draft-07 JSON Schema and does not contain
+    any miscased keywords which fastjsonschema would silently ignore.
+    Raises s_exc.BadArg if it does not.
+    '''
+    _ensureSchemaDefData()
+
+    try:
+        _SchemaDefValidator(schema)
+    except JsonSchemaValueException as e:
+        mesg = f'Invalid JSON Schema definition: {e.message}'
+        raise s_exc.BadArg(mesg=mesg) from None
+
+    _checkSchemaKeywordCasing(schema)
+
 def getJsSchema(confbase, confdefs):
     '''
     Generate a Synapse JSON Schema for a Cell using a pair of confbase and confdef values.
@@ -105,6 +215,9 @@ def getJsValidator(schema, use_default=True, handlers=local_ref_handlers):
     func = _JsValidators.get(key)
     if func:
         return func
+
+    if __debug__:
+        validateSchemaDef(schema)
 
     func = fastjsonschema.compile(schema, handlers=handlers, use_default=use_default)
 
