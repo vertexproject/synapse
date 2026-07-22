@@ -20,6 +20,9 @@ class Node:
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
+    __slots__ = ('snap', 'sode', 'buid', 'bylayer', 'ndef', 'form',
+                 'props', 'tags', 'tagprops', 'nodedata', 'isrunt', '__weakref__')
+
     def __init__(self, snap, sode, bylayer=None):
         self.snap = snap
         self.sode = sode
@@ -731,6 +734,9 @@ class Path:
     '''
     A path context tracked through the storm runtime.
     '''
+    __slots__ = ('node', 'nodes', 'links', 'vars', 'frames', 'ctors',
+                 'builtins', 'display', 'metadata')
+
     def __init__(self, vars, nodes, links=None):
 
         self.node = None
