@@ -1,8 +1,0 @@
----
-desc: Storm HTTP API calls using ``fields`` to send ``multipart/form-data`` must now
-  include the key ``name`` in each field. Previously this key could be omitted, which
-  lead to undefined behavior.
-desc:literal: false
-prs: []
-type: bug
-...

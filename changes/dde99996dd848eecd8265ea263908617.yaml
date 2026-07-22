@@ -1,9 +1,0 @@
----
-desc: Fix an issue where the ``Base.enter_context()`` method would hold onto the item
-  whose context was entered, even if the ``__enter__`` or ``__aenter__`` methods failed.
-  This could cause extraneous warnings on ``Base.fini()`` if the item was partially
-  constructed.
-desc:literal: false
-prs: []
-type: bug
-...

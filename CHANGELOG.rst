@@ -6,6 +6,56 @@
 Synapse Changelog
 *****************
 
+v2.248.0 - 2026-07-17
+=====================
+
+Model Changes
+-------------
+- Added the ``inet:http:request:fetch`` property to record the ``it:exec:url``
+  event which caused the HTTP request.
+  (`#4989 <https://github.com/vertexproject/synapse/pull/4989>`_)
+- Added the ``it:os:posix:cron`` form to model cron job entries configured on a
+  host.
+  (`#4990 <https://github.com/vertexproject/synapse/pull/4990>`_)
+- See :ref:`userguide_model_v2_248_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added a ``minutely`` recurrence period to the ``cron.add`` and ``cron.mod``
+  ``--period`` syntax for scheduling cron jobs that run every N minutes.
+  (`#4986 <https://github.com/vertexproject/synapse/pull/4986>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the ``Base.enter_context()`` method would hold onto the
+  item whose context was entered, even if the ``__enter__`` or ``__aenter__``
+  methods failed. This could cause extraneous warnings on ``Base.fini()`` if
+  the item was partially constructed.
+  (`#4987 <https://github.com/vertexproject/synapse/pull/4987>`_)
+- Storm HTTP API calls using ``fields`` to send ``multipart/form-data`` must
+  now include the key ``name`` in each field. Previously this key could be
+  omitted, which led to undefined behavior.
+  (`#4987 <https://github.com/vertexproject/synapse/pull/4987>`_)
+- Fixed an issue where closing a Storm query result obtained over a telepath
+  proxy (such as during MCP storm cursor teardown) could raise an
+  ``AttributeError``, causing error log spam.
+  (`#4988 <https://github.com/vertexproject/synapse/pull/4988>`_)
+- Fixed an issue where ``onboot:optimize`` could block the event loop during
+  LMDB compaction, delaying progress logs until the optimization pass completed
+  and making a long-running optimize look hung. Boot optimization now also logs
+  periodic per-slab progress so operators can confirm it is still running.
+  (`#4993 <https://github.com/vertexproject/synapse/pull/4993>`_)
+
+Notes
+-----
+- Updated the pinned version of the ``aiohttp`` library to
+  ``aiohttp>=3.14.1,<3.15.0``. Updated the pinned version of the ``aiohttp-
+  socks`` library to ``aiohttp-socks>=0.11.0,<0.12.0``. Updated the pinned
+  version of the ``vcrpy`` library to ``vcrpy>=8.3.0,<9.0.0``. Updated the
+  pinned version of the ``aiosmtplib`` library to ``aiosmtplib>=5.1.2,<6.0.0``.
+  (`#4987 <https://github.com/vertexproject/synapse/pull/4987>`_)
+  (`#4992 <https://github.com/vertexproject/synapse/pull/4992>`_)
+
 v2.247.0 - 2026-07-09
 =====================
 

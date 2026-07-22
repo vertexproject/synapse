@@ -1527,6 +1527,36 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 await self.asyncraises(s_exc.DataAlreadyExists, slab.copyslab(copypath))
 
+    async def test_lmdbbackup_saveto_yields(self):
+
+        with self.getTestDir() as dirn:
+
+            srcpath = os.path.join(dirn, 'src.lmdb')
+            dstpath = os.path.join(dirn, 'dst')
+
+            async with await s_lmdbslab.Slab.anit(srcpath) as slab:
+                foo = slab.initdb('foo')
+                slab.put(b'\x00', b'bar', db=foo)
+
+            os.makedirs(dstpath)
+
+            yielded = {'v': False}
+
+            async def marker():
+                yielded['v'] = True
+
+            async with await s_lmdbslab.LmdbBackup.anit(srcpath) as backup:
+                task = asyncio.get_running_loop().create_task(marker())
+                await backup.saveto(dstpath)
+
+                # a scheduled task only runs once the loop regains control; if
+                # saveto() yields to the loop (executor offload), marker() has
+                # already run by the time saveto() returns.
+                self.true(yielded['v'])
+                await task
+
+            self.true(os.path.isfile(os.path.join(dstpath, 'data.mdb')))
+
     async def test_lmdbslab_statinfo(self):
 
         with self.getTestDir() as dirn:
