@@ -2556,6 +2556,9 @@ class ItModule(s_module.CoreModule):
 
                     ('index', ('int', {}), {
                         'doc': 'Used to order the commands when times are not available.'}),
+
+                    ('output', ('str', {}), {
+                        'doc': 'The output of the command.'}),
                 )),
                 ('it:exec:proc', {}, (
                     ('host', ('it:host', {}), {
