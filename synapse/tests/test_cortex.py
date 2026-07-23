@@ -1114,6 +1114,18 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('media:news -(refs)> it:dev:str')
             self.len(0, nodes)
 
+            # iterEdgeVerbsN1 / iterEdgeVerbsN2 — unique verb iteration
+            await core.nodes('[ test:str=ev-n1 test:str=ev-n2a test:str=ev-n2b ]')
+            await core.nodes('test:str=ev-n1 [ +(refs)> { test:str=ev-n2a } +(refs)> { test:str=ev-n2b } +(seen)> { test:str=ev-n2a } ]')
+            await core.nodes('test:str=ev-n1 [ <(linked)+ { test:str=ev-n2a } ]')
+
+            evnode = (await core.nodes('test:str=ev-n1'))[0]
+            n1verbs = sorted([v async for v in evnode.iterEdgeVerbsN1()])
+            self.eq(['refs', 'seen'], n1verbs)
+
+            n2verbs = [v async for v in evnode.iterEdgeVerbsN2()]
+            self.eq(['linked'], n2verbs)
+
     async def test_cortex_callstorm(self):
 
         async with self.getTestCore(conf={'auth:passwd': 'root'}) as core:

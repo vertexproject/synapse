@@ -5,6 +5,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.types as s_types
 import synapse.lib.stormtypes as s_stormtypes
 
 RISK_HASVULN_VULNPROPS = (
@@ -772,6 +773,276 @@ class MigrationEditorMixin:
 
             await proto.set(name, valu)
 
+    async def _rewriteOne(self, editor, refnode, prop, oldv, newv, isarray, depth=0):
+        if prop.info.get('ro'):
+            await self._rewriteRoRef(editor, refnode, prop, oldv, newv, depth=depth)
+            return
+
+        self.runt.confirmPropSet(prop)
+        rproto = editor.loadNode(refnode)
+
+        if isarray:
+            curv = rproto.get(prop.name)
+            newlist = list(curv)
+            while oldv in newlist:
+                newlist.remove(oldv)
+
+            if newv not in newlist:
+                newlist.append(newv)
+
+            await rproto.set(prop.name, newlist)
+        else:
+            await rproto.set(prop.name, newv)
+
+    async def _rewriteRefs(self, editor, src, dst, depth=0):
+        snap = self.runt.snap
+        model = snap.core.model
+        formname = src.form.name
+        srcvalu = src.ndef[1]
+        dstvalu = dst.ndef[1]
+        srcndef = (formname, srcvalu)
+        dstndef = (formname, dstvalu)
+
+        count = 0
+
+        for prop in model.getPropsByType(formname):
+            async for refnode in snap.nodesByPropValu(prop.full, '=', srcvalu):
+                if refnode.buid == src.buid:
+                    continue
+
+                await self._rewriteOne(editor, refnode, prop, srcvalu, dstvalu, isarray=False, depth=depth)
+
+                count += 1
+                if count % 1000 == 0:  # pragma: no cover
+                    await editor.flushEdits()
+
+        for prop in model.getArrayPropsByType(formname):
+            async for refnode in snap.nodesByPropArray(prop.full, '=', srcvalu):
+                if refnode.buid == src.buid:  # pragma: no cover
+                    continue
+
+                await self._rewriteOne(editor, refnode, prop, srcvalu, dstvalu, isarray=True, depth=depth)
+
+                count += 1
+                if count % 1000 == 0:  # pragma: no cover
+                    await editor.flushEdits()
+
+        for prop in model.getPropsByType('ndef'):
+            ndeftype = prop.type
+            if ndeftype.formfilter is not None and ndeftype.formfilter(src.form):
+                continue
+
+            async for refnode in snap.nodesByPropValu(prop.full, '=', srcndef):
+                if refnode.buid == src.buid:  # pragma: no cover
+                    continue
+
+                await self._rewriteOne(editor, refnode, prop, srcndef, dstndef, isarray=False, depth=depth)
+
+                count += 1
+                if count % 1000 == 0:  # pragma: no cover
+                    await editor.flushEdits()
+
+        for prop in model.getArrayPropsByType('ndef'):
+            ndeftype = prop.type.arraytype
+            if ndeftype.formfilter is not None and ndeftype.formfilter(src.form):
+                continue
+
+            async for refnode in snap.nodesByPropArray(prop.full, '=', srcndef):
+                if refnode.buid == src.buid:  # pragma: no cover
+                    continue
+
+                await self._rewriteOne(editor, refnode, prop, srcndef, dstndef, isarray=True, depth=depth)
+
+                count += 1
+                if count % 1000 == 0:  # pragma: no cover
+                    await editor.flushEdits()
+
+    async def _rewriteRoRef(self, editor, refnode, prop, oldv, newv, depth=0):
+
+        if depth > 16:  # pragma: no cover
+            raise s_exc.RecursionLimitHit(
+                mesg='$lib.model.migration.fuseNodes() recursive comp rename exceeded maximum depth of 16.')
+
+        if not isinstance(refnode.form.type, s_types.Comp):
+            await self.runt.warn(
+                f'$lib.model.migration.fuseNodes() cannot rewrite read-only ref {prop.full!r} '
+                f'on {refnode.iden()}: form is not a comp type; skipping.')
+            return
+
+        snap = self.runt.snap
+
+        if refnode.bylayer['ndef'] != snap.wlyr.iden:
+            await self.runt.warn(
+                f'$lib.model.migration.fuseNodes() cannot rename comp form {refnode.form.name!r}: '
+                f'its ndef lives in layer {refnode.bylayer["ndef"]!r} which is not the current '
+                f'write layer {snap.wlyr.iden!r}. This inbound reference will not be rewritten.')
+            return
+
+        oldcompvalu = refnode.ndef[1]
+        newcomplist = list(oldcompvalu)
+        newcomplist[prop.compoffs] = newv
+
+        newcompvalu, _ = refnode.form.type.norm(tuple(newcomplist))
+
+        newcompnode = await snap.getNodeByNdef((refnode.form.name, newcompvalu))
+        if newcompnode is None:
+            newcompnode = await snap.addNode(refnode.form.name, newcompvalu)
+
+        await self._fuseNodes(refnode, newcompnode, depth=depth + 1)
+
+    async def _delOldN2Edges(self, editor, src):
+        async for (verb, n1iden) in src.iterEdgesN2():
+            n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
+            if n1proto is not None:
+                await n1proto.delEdge(verb, src.iden())
+
+    async def _preflightPerms(self, src, dst):
+        runt = self.runt
+        snap = runt.snap
+
+        # Admin of the write layer skips the full scan — avoids doubling fuse cost.
+        if runt.isAdmin(gateiden=snap.wlyr.iden):
+            return
+
+        # node.del — only when src lives in the write layer (mirrors _fuseNodes).
+        if src.bylayer['ndef'] == snap.wlyr.iden:
+            runt.layerConfirm(('node', 'del', src.form.name))
+
+        # All props (primary and ext) — mirrors _fuseProps filter/merge logic exactly.
+        form = src.form
+        for name, valu in src.props.items():
+            prop = form.props.get(name)
+            if prop.info.get('ro'):
+                continue
+
+            if name == '.seen':
+                dstv = dst.get('.seen')
+                if dstv is None:
+                    runt.confirmPropSet(prop)
+                else:
+                    merged = (min(valu[0], dstv[0]), max(valu[1], dstv[1]))
+                    if merged != dstv:
+                        runt.confirmPropSet(prop)
+
+                continue
+
+            runt.confirmPropSet(prop)
+
+        # Tag-add — mirrors copyTags.
+        for tagname in src.tags:
+            runt.layerConfirm(('node', 'tag', 'add', *tagname.split('.')))
+
+        # Edge-add — mirrors copyEdges; once per unique verb across N1 and N2.
+        verbs = set()
+        async for verb in src.iterEdgeVerbsN1():
+            runt.layerConfirm(('node', 'edge', 'add', verb))
+            verbs.add(verb)
+
+        async for verb in src.iterEdgeVerbsN2():
+            if verb not in verbs:
+                runt.layerConfirm(('node', 'edge', 'add', verb))
+                verbs.add(verb)
+
+        # Node-data set — mirrors copyData.
+        async for name in src.iterDataKeys():
+            runt.layerConfirm(('node', 'data', 'set', name))
+
+        # Inbound ref scan — once per prop type. Mirrors the four loops in
+        # _rewriteRefs. For each prop type, scan until the first non-self
+        # referrer, check the perm that _rewriteOne/_rewriteRoRef would check,
+        # then break — perms are per prop-type, not per referrer node.
+        model = snap.core.model
+        formname = src.form.name
+        srcvalu = src.ndef[1]
+        srcndef = (formname, srcvalu)
+
+        async def _checkRef(prop, lookup):
+            async for refnode in lookup:
+                if refnode.buid == src.buid:  # pragma: no cover
+                    continue
+
+                if prop.info.get('ro'):
+                    # _rewriteRoRef warns-and-skips non-comp refs and
+                    # parent-layer comps; only check delete perm when the
+                    # rename would actually fire.
+                    if (isinstance(refnode.form.type, s_types.Comp)
+                            and refnode.bylayer['ndef'] == snap.wlyr.iden):
+                        runt.layerConfirm(('node', 'del', refnode.form.name))
+                else:
+                    runt.confirmPropSet(prop)
+
+                break
+
+        for prop in model.getPropsByType(formname):
+            await _checkRef(prop, snap.nodesByPropValu(prop.full, '=', srcvalu))
+
+        for prop in model.getArrayPropsByType(formname):
+            await _checkRef(prop, snap.nodesByPropArray(prop.full, '=', srcvalu))
+
+        for prop in model.getPropsByType('ndef'):
+            ndeftype = prop.type
+            if ndeftype.formfilter is not None and ndeftype.formfilter(src.form):
+                continue
+
+            await _checkRef(prop, snap.nodesByPropValu(prop.full, '=', srcndef))
+
+        for prop in model.getArrayPropsByType('ndef'):
+            ndeftype = prop.type.arraytype
+            if ndeftype.formfilter is not None and ndeftype.formfilter(src.form):
+                continue
+
+            await _checkRef(prop, snap.nodesByPropArray(prop.full, '=', srcndef))
+
+    async def _fuseNodes(self, src, dst, depth=0):
+
+        snap = self.runt.snap
+
+        can_delete = src.bylayer['ndef'] == snap.wlyr.iden
+
+        if not can_delete:
+            await self.runt.warn(
+                f'$lib.model.migration.fuseNodes() cannot delete src node {src.iden()!r}: '
+                f'its ndef lives in layer {src.bylayer["ndef"]!r} which is not the current '
+                f'write layer {snap.wlyr.iden!r}. Content will be merged but src will not be deleted.')
+        else:
+            self.runt.layerConfirm(('node', 'del', src.form.name))
+
+        async with snap.getEditor() as editor:
+            proto = editor.loadNode(dst)
+            await self._fuseProps(src, proto)
+            await self.copyTags(src, proto, overwrite=True)
+            await self.copyEdges(editor, src, proto)
+            await self._delOldN2Edges(editor, src)
+            await self.copyData(src, proto, overwrite=True)
+            await self._rewriteRefs(editor, src, dst, depth=depth)
+
+        if can_delete:
+            await src.delete(force=True)
+
+    async def _fuseProps(self, src, proto):
+        form = src.form
+
+        for name, valu in src.props.items():
+            prop = form.props.get(name)
+            if prop.info.get('ro'):
+                continue
+
+            if name == '.seen':
+                dstv = proto.get('.seen')
+                if dstv is None:
+                    self.runt.confirmPropSet(prop)
+                    await proto.set(name, valu)
+                else:
+                    merged = (min(valu[0], dstv[0]), max(valu[1], dstv[1]))
+                    if merged != dstv:
+                        self.runt.confirmPropSet(prop)
+                        await proto.set(name, merged)
+
+                continue
+
+            self.runt.confirmPropSet(prop)
+            await proto.set(name, valu)
+
 @s_stormtypes.registry.registerLib
 class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
     '''
@@ -810,6 +1081,75 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                       {'name': 'dst', 'type': 'node', 'desc': 'The node to copy extended props to.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'fuseNodes', 'desc': '''
+            Merge one node into another node of the same form, then delete the source node.
+
+            The following are copied from src to dst:
+
+            - Secondary properties (src values overwrite conflicting dst values).
+            - Extended properties (src values overwrite conflicting dst values).
+            - Tags and tag timestamps (tag intervals are always unioned).
+            - Tag properties (src values overwrite conflicting dst values).
+            - Light edges (additive; both N1 and N2 edges are copied to dst).
+            - Node data (src values overwrite conflicting dst values).
+
+            The following special cases apply regardless of the conflict policy:
+
+            - The .created property on dst is always preserved.
+            - The .seen interval on both nodes is always unioned as (min(start), max(end)).
+            - Tag intervals are always unioned as (min(start), max(end)).
+            - Read-only secondary properties on dst are silently skipped.
+            - Inbound references (props in other nodes that point at src) are rewritten to point
+              at dst. This includes form-typed, ndef-typed, and array-typed properties. Read-only
+              comp-form sub-props that reference src trigger a recursive comp-form rename.
+
+            Requirements and restrictions:
+
+            - src and dst must be the same form.
+            - src and dst must be from the same view.
+
+            Layer behavior:
+
+            If src's ndef lives in a parent (read-only) layer, fuseNodes() emits a warning and
+            merges all content into dst but skips the src delete. The caller is responsible for
+            deleting src from the appropriate view. Similarly, if a read-only comp-form node that
+            references src lives in a parent layer, its reference is not rewritten and a warning
+            is emitted.
+
+            Recommended workflow for deduplication after $lib.layer.load:
+
+            Load the data into a write view (or fork the view with the loaded data as a write
+            layer), then run fuseNodes() there. This ensures src.delete() takes full effect,
+            nexus entries are recorded, and triggers fire. After deduplication, merge or promote
+            that view as needed.
+
+            2.x layer limitation:
+
+            Tags, props, edges, and node data on src that live in parent (read-only) layers
+            cannot be removed by this call; they will persist on src's buid in those layers even
+            after src is deleted from the write layer. The same root cause (no tombstones) means
+            that inbound light edges whose N1 node lives only in a parent layer will silently
+            fail to be rewritten. Place all of src's data in the same writable layer before
+            calling fuseNodes() to avoid these edge cases.
+
+            Permissions:
+
+            All required permissions are validated up-front before any writes occur, so a
+            caller missing node.del, node.prop.set.<form>:<prop>, node.tag.add.<tag>,
+            node.edge.add.<verb>, or node.data.set.<name> triggers AuthDeny with no
+            partial state. Admins of the write layer skip the pre-flight scan entirely.
+
+            Notes:
+
+            - Any triggers attached to the affected forms will fire for each edit.
+            - A light edge between src and dst becomes a self-edge on dst after the fuse.
+        ''',
+         'type': {'type': 'function', '_funcname': '_methFuseNodes',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to merge from (will be deleted).', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to merge into (will be kept).', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('model', 'migration')
 
@@ -819,6 +1159,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
             'copyExtProps': self._methCopyExtProps,
+            'fuseNodes': self._methFuseNodes,
         }
 
     async def _methCopyData(self, src, dst, overwrite=False):
@@ -874,6 +1215,32 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         async with snap.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyExtProps(src, proto)
+
+    async def _methFuseNodes(self, src, dst):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.fuseNodes() src argument must be a node.')
+
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.fuseNodes() dst argument must be a node.')
+
+        if src.snap is not dst.snap:  # pragma: no cover
+            raise s_exc.BadArg(mesg='$lib.model.migration.fuseNodes() requires src and dst from the same view.')
+
+        # TODO - 3.0.0: with form inheritance, relax to allow fusing compatible (parent/child) forms.
+        if src.form is not dst.form:
+            raise s_exc.BadArg(mesg='$lib.model.migration.fuseNodes() requires src and dst to share the same form.')
+
+        if src.form.isrunt:
+            raise s_exc.IsRuntForm(mesg='$lib.model.migration.fuseNodes() cannot fuse runt nodes.',
+                                   form=src.form.full)
+
+        if src.buid == dst.buid:
+            await self.runt.warn('$lib.model.migration.fuseNodes() src and dst are the same node, skipping.')
+            return
+
+        await self._preflightPerms(src, dst)
+        await self._fuseNodes(src, dst)
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
