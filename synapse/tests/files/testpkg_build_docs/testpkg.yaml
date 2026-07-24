@@ -3,7 +3,7 @@ version: 1.2.3
 
 dependencies:
   synapse:
-    version: ">=3.0.0b3,<4.0.0"
+    version: ">=3.0.0b4,<4.0.0"
 
 genopts:
   dotstorm: true
@@ -65,7 +65,7 @@ modules:
 
 commands:
   - name: testcmd
-    descr: |
+    desc: |
       A testcmd!
     cmdargs:
       - - --debug

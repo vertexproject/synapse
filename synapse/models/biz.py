@@ -41,11 +41,9 @@ modeldefs = (
                         'doc': 'The status of the RFP.'}),
 
                     ('due:questions', ('time', {}), {
-                        'prevnames': ('quesdue',),
                         'doc': 'The date/time that questions are due.'}),
 
                     ('due:proposal', ('time', {}), {
-                        'prevnames': ('propdue',),
                         'doc': 'The date/time that proposals are due.'}),
                 ),
                 'doc': 'An RFP (Request for Proposal) soliciting proposals.'}),
@@ -167,7 +165,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'prevnames': ('biz:dealtype',),
                 'props': (),
                 'doc': 'A hierarchical taxonomy of deal types.'}),
 
@@ -175,7 +172,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'prevnames': ('biz:prodtype',),
                 'props': (),
                 'doc': 'A hierarchical taxonomy of product types.'}),
         ),

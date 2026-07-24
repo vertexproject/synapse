@@ -66,7 +66,7 @@ class AhaStormSvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'ahastormsvc',
             'version': (0, 0, 1),
-            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
             'commands': (
                 {
                     'name': 'ahastormsvc.hi',
@@ -86,7 +86,7 @@ class AhaStormSvc2Api(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'ahastormsvc2',
             'version': (0, 0, 1),
-            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
             'commands': (
                 {
                     'name': 'ahastormsvc2.hi',
@@ -120,13 +120,24 @@ class AhaTest(s_test.SynTest):
 
                     purl = await proxy0.addAhaClone(zoinks, port=0)
 
-                conf1 = {'clone': purl}
+                # pass the clone's real dns:name so the test fixture's dmon cert
+                # matches it ( otherwise getTestAha defaults the dmon hostname and
+                # the promoted clone's self-registration self-connect hits a cert
+                # mismatch; in production the clone's dns:name and dmon hostname
+                # are consistent ).
+                conf1 = {'clone': purl, 'dns:name': zoinks}
                 async with self.getTestAha(conf=conf1, dirn=dir1) as aha1:
 
                     await aha1.sync()
 
                     self.eq(aha0.iden, aha1.iden)
                     self.nn(aha1.conf.get('parent'))
+
+                    # the clone is assigned the next sequential aha:name but is
+                    # not separately registered while it is following the leader.
+                    self.eq('001.aha', aha1.conf.get('aha:name'))
+                    self.false(aha1.isactive)
+                    self.none(await aha0.getAhaSvc('001.aha...'))
 
                     serv0 = await aha0.getAhaServers()
                     serv1 = await aha1.getAhaServers()
@@ -170,8 +181,18 @@ class AhaTest(s_test.SynTest):
                     self.false(aha0.isactive)
                     self.true(aha1.isactive)
 
+                    # the promoted clone now registers itself as the leader AHA.
+                    svc = await aha1._waitAhaSvcOnline('001.aha...', timeout=10)
+                    self.eq('001.aha.synapse', svc.get('name'))
+                    self.true(svc.get('leader'))
+
             # Remove 00.aha.loop.vertex.link since we're done with him + coverage
             async with self.getTestAha(conf={'dns:name': zoinks}, dirn=dir1) as aha1:
+
+                # on reboot the clone keeps its own 001.aha name rather than
+                # reverting to the leader's 000.aha inherited via the backup.
+                self.eq('001.aha', aha1.conf.get('aha:name'))
+
                 async with aha1.getLocalProxy() as proxy1:
                     srvs = await proxy1.getAhaServers()
                     self.len(2, srvs)
@@ -323,9 +344,9 @@ class AhaTest(s_test.SynTest):
                 async with aha.getLocalProxy() as ahaproxy:
 
                     svcs = [x async for x in ahaproxy.getAhaSvcs()]
-                    self.len(1, svcs)
+                    self.len(2, svcs)
                     names = [s['name'] for s in svcs]
-                    self.sorteq(('0.cell.synapse',), names)
+                    self.sorteq(('000.aha.synapse', '0.cell.synapse'), names)
 
                     self.nn(await ahaproxy.getCaCert())
 
@@ -343,8 +364,8 @@ class AhaTest(s_test.SynTest):
                     info = await resp.json()
                     self.eq(info.get('status'), 'ok')
                     result = info.get('result')
-                    self.len(1, result)
-                    self.eq({'0.cell.synapse'},
+                    self.len(2, result)
+                    self.eq({'000.aha.synapse', '0.cell.synapse'},
                             {svcentry.get('name') for svcentry in result})
 
                 async with sess.get(svcsurl) as resp:
@@ -352,8 +373,8 @@ class AhaTest(s_test.SynTest):
                     info = await resp.json()
                     self.eq(info.get('status'), 'ok')
                     result = info.get('result')
-                    self.len(1, result)
-                    self.eq({'0.cell.synapse'},
+                    self.len(2, result)
+                    self.eq({'000.aha.synapse', '0.cell.synapse'},
                             {svcentry.get('name') for svcentry in result})
 
                 # Sad path
@@ -374,7 +395,8 @@ class AhaTest(s_test.SynTest):
             async with aha.getLocalProxy() as ahaproxy:
                 await ahaproxy.delAhaSvc('0.cell.synapse')
                 self.none(await ahaproxy.getAhaSvc('0.cell.synapse'))
-                self.len(0, [s async for s in ahaproxy.getAhaSvcs()])
+                # the AHA service itself remains registered
+                self.eq(['000.aha.synapse'], [s['name'] async for s in ahaproxy.getAhaSvcs()])
 
             # test that services get updated aha server list
             with self.getTestDir() as dirn:
@@ -531,19 +553,19 @@ class AhaTest(s_test.SynTest):
 
         s_logging.setup()
 
-        # AHA service does not register as an AHA service so make sure
-        # it sets the 'service' log key directly. The default test AHA
-        # has 'aha:network' set to 'synapse' and 'dns:name' set but no
-        # 'aha:name', so the service log key falls back to 'dns:name'
-        # while 'ahasvcname' stays None.
+        # The default test AHA is an inaugural leader, so it mints its own
+        # 'aha:name' ( 000.aha ) and the 'service' log key uses the standard
+        # '{name}.{network}' form. ( The 'dns:name' fallback in getSvcName is
+        # still exercised earlier in boot, before the name is minted. )
         async with self.getTestAha() as aha:
-            self.none(aha.ahasvcname)
-            self.eq(aha.getSvcName(), '00.aha.loop.vertex.link')
+            self.eq(aha.conf.get('aha:name'), '000.aha')
+            self.eq(aha.ahasvcname, '000.aha.synapse')
+            self.eq(aha.getSvcName(), '000.aha.synapse')
 
             with self.getLoggerStream('synapse.lib.aha') as stream:
                 s_aha.logger.warning('aha test message')
                 mesg = stream.jsonlines()[0]
-                self.eq(mesg['service'], '00.aha.loop.vertex.link')
+                self.eq(mesg['service'], '000.aha.synapse')
 
         # An explicit 'aha:name' uses the standard '{name}.{network}' form.
         conf = {'aha:name': 'aha00'}
@@ -643,6 +665,58 @@ class AhaTest(s_test.SynTest):
                 await proxy.setAhaSvcTypeIndex('bartype', 5)
 
             self.eq(5, await aha.getSvcTypeIndex('bartype'))
+
+    async def test_lib_aha_selfreg(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestAha(dirn=dirn) as aha:
+
+                # an inaugural AHA leader mints its own 000.aha name and
+                # registers itself in its own registry.
+                self.true(aha.isactive)
+                self.true(aha.inaugural)
+                self.eq('000.aha', aha.conf.get('aha:name'))
+                self.eq('000.aha.synapse', aha.ahasvcname)
+
+                # the self-registration active coro registers us asynchronously.
+                svc = await aha._waitAhaSvcOnline('000.aha...', timeout=10)
+                self.nn(svc)
+                self.eq('000.aha.synapse', svc.get('name'))
+                self.true(svc.get('online'))
+                self.true(svc.get('leader'))
+                self.eq('aha', svc['info'].get('type'))
+                self.eq(aha.iden, svc['info'].get('iden'))
+
+                # the reachable host is stamped from the dns:name link
+                # ( loopback in tests, a routable address in production ).
+                self.nn(svc['info']['urlinfo'].get('host'))
+
+                # the AHA service is included in the service list.
+                names = [s['name'] async for s in aha.getAhaSvcs()]
+                self.isin('000.aha.synapse', names)
+
+                # the celltype leader-alias resolves to the leader AHA.
+                byt = await aha.getAhaSvcByType('aha')
+                self.eq('000.aha.synapse', byt.get('name'))
+
+                alias = await aha.getAhaSvc('aha...')
+                self.eq('000.aha.synapse', alias.get('name'))
+
+                # a legacy AHA with no minted aha:name does not self-register:
+                # inaugural-only naming leaves an already-deployed AHA out of the
+                # registry until it is redeployed. clearing the name in-memory and
+                # invoking the coro exercises that early-return guard.
+                aha.conf.pop('aha:name')
+                await aha._runAhaSelfReg()
+
+            # on reboot the minted name persists and the type index is not
+            # re-consumed ( the leader keeps 000.aha rather than taking 001.aha ).
+            async with self.getTestAha(dirn=dirn) as aha:
+                self.false(aha.inaugural)
+                self.eq('000.aha', aha.conf.get('aha:name'))
+                self.eq('000.aha.synapse', aha.ahasvcname)
+                self.eq(1, await aha.getSvcTypeIndex('aha'))
 
     async def test_lib_aha_lead_term(self):
 
@@ -1341,6 +1415,10 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAha() as aha:
 
+            # ensure the AHA's own self-registration has landed so it is a
+            # deterministic part of the topology snapshot below.
+            await aha._waitAhaSvcOnline('000.aha...', timeout=10)
+
             queue = asyncio.Queue()
 
             async def consume():
@@ -1358,11 +1436,14 @@ class AhaTest(s_test.SynTest):
                         return mesg
 
             # the snapshot begins with the aha:servers message ( current AHA
-            # urls ), then ( with no services registered ) the sync sentinel.
+            # urls ), then a svc:add for the AHA's own self-registration, then
+            # the sync sentinel.
             mesg = await asyncio.wait_for(queue.get(), timeout=6)
             self.eq('aha:servers', mesg[0])
             self.isinstance(mesg[1]['urls'], (list, tuple))
-            self.eq(('svc:sync', {}), await asyncio.wait_for(queue.get(), timeout=6))
+            mesg = await nextmatch(lambda m: m[0] == 'svc:add')
+            self.eq('000.aha.synapse', mesg[1]['entry']['name'])
+            await nextmatch(lambda m: m[0] == 'svc:sync')
             self.len(1, aha.topowindows)
 
             onln = s_common.guid()

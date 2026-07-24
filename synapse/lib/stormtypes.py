@@ -1479,7 +1479,7 @@ class LibBase(Lib):
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = await typeitem.norm(valu)
-        return await typeitem.tostorm(norm, virts=info.get('virts'))
+        return typeitem.tostorm(norm, virts=info.get('virts'))
 
     @stormfunc(readonly=True)
     async def trycast(self, name, valu):
@@ -1490,7 +1490,7 @@ class LibBase(Lib):
 
         try:
             norm, info = await typeitem.norm(valu)
-            return True, await typeitem.tostorm(norm, virts=info.get('virts'))
+            return True, typeitem.tostorm(norm, virts=info.get('virts'))
 
         except s_exc.BadTypeValu as exc:
             return False, s_common.excinfo(exc)
@@ -2357,7 +2357,8 @@ class LibAxon(Lib):
 
         # props = {'seen': now}
         props = {}
-        urlfile = await self.runt.view.addNode('inet:urlfile', (original_url, filenode.ndef[1]), props=props)
+        fileref = NodeRef((filenode.ndef, None))
+        urlfile = await self.runt.view.addNode('inet:urlfile', (original_url, fileref), props=props)
 
         history = resp.get('history')
         if history is not None:
@@ -5918,13 +5919,11 @@ class NodeProps(Dict):
         name = await tostr(name)
         prop = self.valu.form.reqProp(name)
 
-        if prop.type.ispoly:
-            valu, virts = self.valu.getWithVirts(name)
-            if valu is None:
-                return
-            return await prop.type.tostorm(valu, virts=virts)
+        valu, virts = self.valu.getWithVirts(name)
+        if valu is None:
+            return
 
-        return await prop.type.tostorm(self.valu.get(name))
+        return prop.type.tostorm(valu, virts=virts)
 
     async def setitem(self, name, valu):
         '''
@@ -6129,7 +6128,7 @@ class Valu(Prim):
          'type': 'str'},
         {'name': 'value', 'desc': 'Get the valu of the tuple.',
          'type': 'any'},
-        {'name': 'istype', 'desc': 'Check if the type in the tuple is a given type.',
+        {'name': 'is', 'desc': 'Check if the type in the tuple is a given type.',
          'type': {'type': 'function', '_funcname': '_methIsType',
                   'args': (
                       {'name': 'name', 'type': ['str', 'list'], 'desc': 'The type or types to compare the type in the tuple against.'},
@@ -6186,7 +6185,7 @@ class Valu(Prim):
         return {
             'type': self.valu[0],
             'value': self.valu[1],
-            'istype': self._methIsType,
+            'is': self._methIsType,
         }
 
     async def stormrepr(self):
@@ -6246,7 +6245,7 @@ class Valu(Prim):
             mesg = f'Invalid result for "{oper}" on {self.valu[0]} and {othername}: {e.get("mesg")}'
             raise s_exc.StormRuntimeError(mesg=mesg) from e
 
-        return await rtype.tostorm(norm, virts=info.get('virts'))
+        return rtype.tostorm(norm, virts=info.get('virts'))
 
     def value(self):
         return self.valu[1]
@@ -9726,10 +9725,24 @@ class LibCron(Lib):
 
         timepart = parts[1] if len(parts) > 1 else None
 
+        if period == 'minutely' and timepart is not None:
+            mesg = 'Minutely period does not support a time of day'
+            raise s_exc.BadConfValu(mesg=mesg)
+
         if timepart:
             reqs.update(self._parseTimePart(timepart))
 
-        if period == 'hourly':
+        if period == 'minutely':
+            incunit = 'minute'
+            if vals:
+                incvals = self._parseIncval(vals)
+                if incvals is None:
+                    mesg = f'Invalid increment value for minutely period: {vals}'
+                    raise s_exc.BadTime(mesg=mesg)
+            else:
+                incvals = 1
+
+        elif period == 'hourly':
             if timepart is None:
                 mesg = 'Hourly period requires explicit minute'
                 raise s_exc.BadTime(mesg=mesg)
@@ -9738,7 +9751,7 @@ class LibCron(Lib):
             if vals:
                 incvals = self._parseIncval(vals)
                 if incvals is None:
-                    mesg = 'Invalid increment value for hourly period: {vals}'
+                    mesg = f'Invalid increment value for hourly period: {vals}'
                     raise s_exc.BadTime(mesg=mesg)
             else:
                 incvals = 1

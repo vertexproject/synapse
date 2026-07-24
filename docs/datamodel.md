@@ -3701,7 +3701,7 @@ An HTTP request path query parameter.
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:name` | `str:lower` | The name of the HTTP query parameter. |
+| `:name` | `text` | The name of the HTTP query parameter. |
 | `:value` | `str` | The value of the HTTP query parameter. |
 
 ### `inet:http:request`
@@ -5897,13 +5897,35 @@ A library load event in a process.
 | `:exe` | `file:bytes` | The executable file which caused the library load event. |
 | `:file` | `file:bytes` | The library file that was loaded. |
 | `:host` | `it:host` | The host on which the library load event occurred. |
-| `:loaded` | `time` | The time the library was loaded. |
 | `:path` | `file:path` | The path that the library was loaded from. |
 | `:proc` | `it:exec:proc` | The process where the library was loaded. |
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:thread` | `it:exec:thread` | The thread which caused the library load event. |
 | `:time` | `time` | The time that the library load event occurred. |
-| `:unloaded` | `time` | The time the library was unloaded. |
+| `:va` | `int` | The base memory address where the library was loaded in the process. |
+
+### `it:exec:lib:unload`
+
+A library unload event in a process.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this library unload event. |
+| `:exe` | `file:bytes` | The executable file which caused the library unload event. |
+| `:file` | `file:bytes` | The library file that was unloaded. |
+| `:host` | `it:host` | The host on which the library unload event occurred. |
+| `:path` | `file:path` | The path that the library was unloaded from. |
+| `:proc` | `it:exec:proc` | The process where the library was unloaded. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:thread` | `it:exec:thread` | The thread which caused the library unload event. |
+| `:time` | `time` | The time that the library unload event occurred. |
 | `:va` | `int` | The base memory address where the library was loaded in the process. |
 
 ### `it:exec:mmap:add`
@@ -8845,7 +8867,6 @@ An election involving one or more races for office.
 | `:activity` | `base:activity` | A parent activity which includes this election. |
 | `:name` | `event:name` | The name of the election. |
 | `:period` | `activity` | The period over which the election occurred. |
-| `:time` | `time` | The date of the election. |
 
 ### `pol:immigration:status`
 
@@ -12020,6 +12041,7 @@ An event which occurred on a host.
 | `it:exec:file:read` |
 | `it:exec:file:write` |
 | `it:exec:lib:load` |
+| `it:exec:lib:unload` |
 | `it:exec:mmap:add` |
 | `it:exec:mutex:add` |
 | `it:exec:pipe:add` |

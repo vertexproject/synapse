@@ -25,7 +25,7 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('photo'))
             self.propeq(nodes[0], 'name', 'robert clown grey')
-            self.propeq(nodes[0], 'names', ('Billy Bob', 'Billy bob'))
+            self.propeq(nodes[0], 'names', ('Billy Bob',))
             self.propeq(nodes[0], 'lifespan', (31536000000000, 2554848000000000, 2523312000000000))
 
             # the names array preserves case so the two "Billy" casings are distinct

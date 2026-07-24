@@ -1,4 +1,3 @@
-import os
 import copy
 import http
 import time
@@ -40,23 +39,7 @@ logger = logging.getLogger(__name__)
 
 class HasCoreCell(s_cortex.HasCore, s_cell.Cell):
     # a minimal Cell which mixes in HasCore to exercise the mixin directly.
-    confdefs = {
-        'http:proxy': {
-            'description': 'Proxy URL threaded into the embedded cortex.',
-            'type': 'string',
-        },
-        'tls:ca:dir': {
-            'description': 'CA dir threaded into the embedded cortex.',
-            'type': 'string',
-        },
-    }
-
     corelinked = False
-    embcalled = False
-
-    async def _initEmbeddedCore(self, core):
-        await super()._initEmbeddedCore(core)
-        self.embcalled = True
 
     async def _onLinkCore(self, proxy, urlinfo):
         # exercise the overridable onlink hook ( and keep the cached info via super )
@@ -65,47 +48,13 @@ class HasCoreCell(s_cortex.HasCore, s_cell.Cell):
 
 class HasCoreTest(s_t_utils.SynTest):
 
-    async def test_cortex_hascore_embedded(self):
-        # a standalone ( non-aha ) HasCore cell boots an embedded cortex, reaches
-        # it via a local client, and threads its http:proxy / tls:ca:dir conf.
-        with self.getTestDir() as dirn:
-
-            cadir = s_common.gendir(dirn, 'cas')
-            proxyurl = 'socks5://user:pass@127.0.0.1:1'
-            conf = {'http:proxy': proxyurl, 'tls:ca:dir': cadir}
-
-            async with await HasCoreCell.anit(dirn, conf=conf) as cell:
-
-                # getCore() returns a proxy even for the embedded cortex
-                core = await cell.getCore()
-                self.eq(1, await core.callStorm('return((1))'))
-
-                # the _initEmbeddedCore hook ran and the embedded cortex got the conf
-                self.true(cell.embcalled)
-                self.eq(proxyurl, cell._has_core.conf.get('http:proxy'))
-                self.eq(cadir, cell._has_core.conf.get('tls:ca:dir'))
-
-                # the local client link fired _onLinkCore ( populating cached info )
-                self.true(cell.corelinked)
-                self.true(cell._has_coreinfo)
-                info = await cell.getCoreInfo()
-                self.isin('cell', info)
-
-                # force the lazy getCoreInfo fetch path
-                cell._has_coreinfo = {}
-                self.isin('cell', await cell.getCoreInfo())
-
     async def test_cortex_hascore_aha(self):
-        # an aha client HasCore cell resolves the cortex by cell type ( aha://cortex... )
+        # a HasCore cell resolves the cortex by cell type ( aha://cortex... )
         async with self.getTestAha() as aha:
 
             async with self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex):
 
                 async with self.addSvcToAha(aha, '00.hascore', HasCoreCell) as cell:
-
-                    # remote: no embedded cortex, resolved via aha
-                    self.none(cell._has_core)
-                    self.false(cell.embcalled)
 
                     core = await asyncio.wait_for(cell.getCore(), timeout=10)
                     self.eq(1, await core.callStorm('return((1))'))
@@ -116,83 +65,83 @@ class HasCoreTest(s_t_utils.SynTest):
                     info = await cell.getCoreInfo()
                     self.isin('cell', info)
 
+                    # force the lazy getCoreInfo fetch path
+                    cell._has_coreinfo = {}
+                    self.isin('cell', await cell.getCoreInfo())
+
 class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
     async def test_cortex_readonly(self):
         '''
-        A read-only Cortex with no AHA deployment connects directly to the
-        leader's embedded jsonstor and axon unix sockets rather than booting its
-        own. Its pkg:add handler
-        drops any copy it already loaded (tracked in the in-memory stormpkgs,
-        since pkgdefs reads through to the leader's current def) before
-        (re)loading, and makes no durable write.
+        A read-only Cortex opens a shared layer dirn read-only and resolves its
+        axon and jsonstor peers via AHA rather than booting its own. Its pkg:add
+        handler drops any copy it already loaded (tracked in the in-memory
+        stormpkgs, since pkgdefs reads through to the leader's current def)
+        before (re)loading, and makes no durable write.
         '''
-        with self.getTestDir() as dirn:
+        async with self.getTestAha() as aha:
 
-            # write with the leader, then release its slabs so the read-only
-            # Cortex can open the shared dirn in this same process.
-            svciden = s_common.guid()
-            async with self.getTestCore(dirn=dirn) as core:
-                await core.nodes('[ inet:ip=1.2.3.4 ]')
-                # seed a durable svcdef so the read-only cortex sees it read
-                # through to the leader's committed svcdefs. It has no ``url``,
-                # so the read-only cortex's boot-time _initStormSvcs logs a
-                # benign "initStormService ... failed: BadArg" warning when it
-                # tries to connect; a real sdef always carries a url.
-                core.svcdefs.set(svciden, {'iden': svciden, 'name': 'testsvc'})
+            # axon and jsonstor peers on the AHA network for the cortex to resolve
+            async with self.addSvcToAha(aha, '00.axon', s_axon.Axon), \
+                       self.addSvcToAha(aha, '00.jsonstor', s_jsonstor.JsonStorCell):
 
-            # stand the leader's embedded jsonstor / axon back up on their own
-            # sockets so the read-only Cortex has live services to connect to.
-            jsonpath = os.path.join(dirn, 'jsonstor')
-            axonpath = os.path.join(dirn, 'axon')
-            storconf = {'health:sysctl:checks': False}
+                with self.getTestDir() as dirn:
 
-            async with await s_jsonstor.JsonStorCell.anit(jsonpath, conf=storconf) as jsoncell, \
-                       await s_axon.Axon.anit(axonpath, conf=storconf) as axoncell:
+                    # write with the leader ( provisioned into dirn ), then release
+                    # its slabs so the read-only Cortex can open the shared dirn in
+                    # this same process. the persisted aha config lets the read-only
+                    # boot resolve its axon / jsonstor peers via AHA.
+                    svciden = s_common.guid()
+                    conf = self.getCellConf(conf={'aha:provision': await aha.addAhaSvcProv('00.cortex')})
+                    async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                        await core.nodes('[ inet:ip=1.2.3.4 ]')
+                        # seed a durable svcdef so the read-only cortex sees it read
+                        # through to the leader's committed svcdefs. It has no ``url``,
+                        # so the read-only cortex's boot-time _initStormSvcs logs a
+                        # benign "initStormService ... failed: BadArg" warning when it
+                        # tries to connect; a real sdef always carries a url.
+                        core.svcdefs.set(svciden, {'iden': svciden, 'name': 'testsvc'})
 
-                async with await s_cortex.Cortex.anit(dirn, readonly=True) as core:
+                    async with await s_cortex.Cortex.anit(dirn, readonly=True) as core:
 
-                    # the read-only cortex connects to the leader's jsonstor /
-                    # axon sockets via telepath clients rather than booting its
-                    # own embedded cells.
-                    self.none(core._has_jsonstor)
-                    self.none(core._has_axon)
-                    self.nn(await asyncio.wait_for(core.getJsonStor(), timeout=10))
-                    self.nn(await asyncio.wait_for(core.getAxon(), timeout=10))
-                    self.nn(await core.getAxonInfo())
+                        # the read-only cortex resolves its jsonstor / axon peers
+                        # via AHA rather than booting its own.
+                        self.nn(await asyncio.wait_for(core.getJsonStor(), timeout=10))
+                        self.nn(await asyncio.wait_for(core.getAxon(), timeout=10))
+                        self.nn(await core.getAxonInfo())
 
-                    pkgdef = {
-                        'name': 'testpkg',
-                        'version': (0, 0, 1),
-                        'commands': ({'name': 'testcmd', 'storm': 'inet:ip'},),
-                    }
+                        pkgdef = {
+                            'name': 'testpkg',
+                            'version': (0, 0, 1),
+                            'commands': ({'name': 'testcmd', 'storm': 'inet:ip'},),
+                        }
 
-                    # first replay: nothing loaded yet, so it just loads
-                    await core._addStormPkg(pkgdef)
-                    self.nn(core.stormpkgs.get('testpkg'))
-                    self.nn(core.getStormCmd('testcmd'))
+                        # first replay: nothing loaded yet, so it just loads
+                        await core._addStormPkg(pkgdef)
+                        self.nn(core.stormpkgs.get('testpkg'))
+                        self.nn(core.getStormCmd('testcmd'))
 
-                    # a second replay finds the loaded copy and drops it before
-                    # (re)loading to match the replayed event
-                    await core._addStormPkg(pkgdef)
-                    self.nn(core.stormpkgs.get('testpkg'))
-                    self.nn(core.getStormCmd('testcmd'))
+                        # a second replay finds the loaded copy and drops it before
+                        # (re)loading to match the replayed event
+                        await core._addStormPkg(pkgdef)
+                        self.nn(core.stormpkgs.get('testpkg'))
+                        self.nn(core.getStormCmd('testcmd'))
 
-                    # setStormSvcEvents / _runStormSvcAdd are called on the
-                    # read-only cortex when a storm service connects, but a
-                    # reader takes no part in service event tracking (only the
-                    # active leader runs the add/del hooks that consume evts).
-                    evts = {'add': {'storm': '$lib.print(hi)'}}
-                    sdef = await core.setStormSvcEvents(svciden, evts)
-                    self.notin('evts', sdef)
+                        # setStormSvcEvents / _runStormSvcAdd are called on the
+                        # read-only cortex when a storm service connects, but a
+                        # reader takes no part in service event tracking (only the
+                        # active leader runs the add/del hooks that consume evts).
+                        evts = {'add': {'storm': '$lib.print(hi)'}}
+                        sdef = await core.setStormSvcEvents(svciden, evts)
+                        self.notin('evts', sdef)
 
-                    self.none(await core._runStormSvcAdd(svciden))
+                        self.none(await core._runStormSvcAdd(svciden))
 
-                    stored = core.svcdefs.get(svciden)
-                    self.notin('evts', stored)
-                    self.notin('added', stored)
+                        stored = core.svcdefs.get(svciden)
+                        self.notin('evts', stored)
+                        self.notin('added', stored)
 
     async def test_cortex_nexuscommit(self):
         # the Cortex commits its slabs after each nexus transaction rather than
@@ -315,26 +264,6 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getTestCore(conf=conf) as core00:
             async with self.getTestCore(conf=conf) as core01:
                 self.eq(core00.iden, core01.iden)
-                self.eq(core00._has_jsonstor.iden, core01._has_jsonstor.iden)
-                self.eq(core00._has_jsonstor.auth.allrole.iden, core01._has_jsonstor.auth.allrole.iden)
-                self.eq(core00._has_jsonstor.auth.rootuser.iden, core01._has_jsonstor.auth.rootuser.iden)
-
-    async def test_cortex_jsonstor_iden_migration(self):
-        # a pre-existing embedded jsonstor whose cell.guid drifted from the
-        # deterministic iden ( derived from the cortex iden ) is migrated back
-        # on the next boot.
-        with self.getTestDir() as dirn:
-
-            async with self.getTestCore(dirn=dirn) as core:
-                self.eq(s_common.guid((core.iden, 'jsonstor')), core._has_jsonstor.iden)
-
-            # stamp the embedded jsonstor with a mismatched iden
-            idenpath = os.path.join(dirn, 'jsonstor', 'cell.guid')
-            with open(idenpath, 'w') as fd:
-                fd.write(s_common.guid())
-
-            async with self.getTestCore(dirn=dirn) as core:
-                self.eq(s_common.guid((core.iden, 'jsonstor')), core._has_jsonstor.iden)
 
     async def test_cortex_handoff(self):
 
@@ -459,13 +388,9 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(retn[0][1][0], root)
                 self.eq(retn[0][1][2], 'lolz')
 
-        # test a local jsonstor
-        async with self.getTestCore() as core:
-            await testUserNotifs(core)
-
-        # test with a remote jsonstor located by cell type via AHA
-        async with self.getTestCoreProv() as (core, axon, jsonstor):
-            await testUserNotifs(core)
+        # the cortex resolves its jsonstor peer by cell type via AHA
+        async with self.getTestCluster() as clus:
+            await testUserNotifs(clus.cortex)
 
     async def test_cortex_jsonstor(self):
 
@@ -490,58 +415,18 @@ class CortexTest(s_t_utils.SynTest):
             items = [x async for x in core.getJsonObjs(('foo'))]
             self.eq(items, ((('bar',), 'zoinks'),))
 
-        # test with a remote jsonstor located by cell type via AHA
-        async with self.getTestCoreProv() as (core, axon, jsonstor):
-            await testCoreJson(core)
+        # the cortex resolves its jsonstor peer by cell type via AHA
+        async with self.getTestCluster() as clus:
+            await testCoreJson(clus.cortex)
 
-        # test a local jsonstor
-        async with self.getTestCore() as core:
-            await testCoreJson(core)
-
-        # test a local jsonstor and mirror writeback
-        with self.getTestDir() as dirn:
-            path00 = os.path.join(dirn, 'core00')
-            path01 = os.path.join(dirn, 'core01')
-            conf00 = {'nexslog:en': True}
-            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
-                self.true(core00.isactive)
-
-            s_tools_backup.backup(path00, path01)
-            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
-                conf01 = {'nexslog:en': True, 'parent': core00.getLocalUrl()}
-                async with self.getTestCore(dirn=path01, conf=conf01) as core01:
-                    await testCoreJson(core01)
-                    self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
-                    self.eq(await core01.getJsonObj('foo/bar'), 'zoinks')
-
-        # test a local jsonstor and mirror sync
-        with self.getTestDir() as dirn:
-            path00 = os.path.join(dirn, 'core00')
-            path01 = os.path.join(dirn, 'core01')
-            conf00 = {'nexslog:en': True}
-            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
-                self.true(core00.isactive)
-
-            s_tools_backup.backup(path00, path01)
-            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
-                conf01 = {'nexslog:en': True, 'parent': core00.getLocalUrl()}
-                async with self.getTestCore(dirn=path01, conf=conf01) as core01:
-                    await testCoreJson(core00)
-                    await core01.sync()
-                    self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
-                    self.eq(await core01.getJsonObj('foo/bar'), 'zoinks')
-
-        # Test startup sequencing. We must create the child cells prior to
-        # the nexus recover() call from occuring :)
-        with self.getTestDir() as dirn:
-            async with self.getTestCore(dirn=dirn) as core:
-                await core.callStorm('$lib.jsonstor.set((path,), hehe)')
-
-            with self.getLoggerStream('synapse.lib.nexus') as stream:
-                async with self.getTestCore(dirn=dirn) as core:
-                    q = 'return( $lib.jsonstor.get((path,)) )'
-                    self.eq('hehe', await core.callStorm(q))
-            self.notin('Exception while replaying log', stream.getvalue())
+        # a leader and its mirror cortex share the same AHA jsonstor
+        async with self.getTestCluster({'cortex': {'conf': {'nexslog:en': True}, 'mirrors': 1}}) as clus:
+            core00 = clus.cortex
+            core01 = clus.svcs['01.cortex']
+            await core00.setJsonObj('foo/bar', 'zoinks')
+            await core01.sync()
+            self.eq('zoinks', await core00.getJsonObj('foo/bar'))
+            self.eq('zoinks', await core01.getJsonObj('foo/bar'))
 
     async def test_cortex_must_upgrade(self):
 
@@ -674,23 +559,9 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_axonapi(self):
 
-        # local axon...
-        async with self.getTestCore() as core:
-
-            async with core.getLocalProxy() as proxy:
-
-                async with await proxy.getAxonUpload() as upload:
-                    await upload.write(b'asdfasdf')
-                    size, sha256 = await upload.save()
-                    self.eq(8, size)
-
-                bytelist = []
-                async for byts in proxy.getAxonBytes(s_common.ehex(sha256)):
-                    bytelist.append(byts)
-                self.eq(b'asdfasdf', b''.join(bytelist))
-
-        # remote axon located by cell type via AHA
-        async with self.getTestCoreProv() as (core, axon, jsonstor):
+        # the cortex resolves its axon peer by cell type via AHA
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             async with core.getLocalProxy() as proxy:
 
@@ -922,7 +793,7 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[inet:ip=1.2.3.4] $ip=$node.value -> { [ inet:dns:a=(woot.com, $ip) ] }')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:dns:a', ('woot.com', (4, 0x01020304))))
+            self.eq(nodes[0].ndef, ('inet:dns:a', (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 0x01020304)))))
 
     async def test_cortex_edges(self):
 
@@ -1460,7 +1331,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(3, nodes)
 
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
-            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', (4, 0x01020304))))
+            self.eq(nodes[1].ndef, ('inet:dns:a', (('inet:fqdn', 'vertex.link'), ('inet:ipv4', (4, 0x01020304)))))
             self.eq(nodes[2].ndef, ('it:nic', guid))
 
     async def test_cortex_tagprop(self):
@@ -2392,7 +2263,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             # Seed new nodes via nodedefs
-            ndef = ('test:comp', (10, 'haha'))
+            ndef = ('test:comp', (('test:int', 10), ('test:lower', 'haha')))
             opts = {'ndefs': (ndef,)}
             # Seed nodes in the query with ndefs
             nodes = await core.nodes('[-#foo]', opts=opts)
@@ -2614,30 +2485,30 @@ class CortexTest(s_t_utils.SynTest):
             q = 'test:pivcomp=(foo,bar) :targ -+> test:pivtarg'
             nodes = await getPackNodes(core, q)
             self.len(2, nodes)
-            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[0][0], ('test:pivcomp', (('test:pivtarg', 'foo'), ('test:str', 'bar'))))
             self.eq(nodes[1][0], ('test:pivtarg', 'foo'))
 
             q = 'test:pivcomp=(foo,bar) :targ -+> *'
             nodes = await getPackNodes(core, q)
             self.len(2, nodes)
-            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[0][0], ('test:pivcomp', (('test:pivtarg', 'foo'), ('test:str', 'bar'))))
             self.eq(nodes[1][0], ('test:pivtarg', 'foo'))
 
             q = 'test:str=bar -> test:pivcomp:lulz'
             nodes = await getPackNodes(core, q)
             self.len(1, nodes)
-            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[0][0], ('test:pivcomp', (('test:pivtarg', 'foo'), ('test:str', 'bar'))))
 
             q = 'test:str=bar -+> test:pivcomp:lulz'
             nodes = await getPackNodes(core, q)
             self.len(2, nodes)
-            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[0][0], ('test:pivcomp', (('test:pivtarg', 'foo'), ('test:str', 'bar'))))
             self.eq(nodes[1][0], ('test:str', 'bar'))
 
             q = 'test:pivcomp=(foo,bar) -+> test:pivtarg'
             nodes = await getPackNodes(core, q)
             self.len(2, nodes)
-            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[0][0], ('test:pivcomp', (('test:pivtarg', 'foo'), ('test:str', 'bar'))))
             self.eq(nodes[1][0], ('test:pivtarg', 'foo'))
 
             q = 'test:pivcomp=(foo,bar) -> *'
@@ -2649,7 +2520,7 @@ class CortexTest(s_t_utils.SynTest):
             q = 'test:pivcomp=(foo,bar) -+> *'
             nodes = await getPackNodes(core, q)
             self.len(3, nodes)
-            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[0][0], ('test:pivcomp', (('test:pivtarg', 'foo'), ('test:str', 'bar'))))
             self.eq(nodes[1][0], ('test:pivtarg', 'foo'))
             self.eq(nodes[2][0], ('test:str', 'bar'))
 
@@ -2661,18 +2532,18 @@ class CortexTest(s_t_utils.SynTest):
             q = 'test:pivcomp=(foo,bar) :lulz -+> test:str'
             nodes = await getPackNodes(core, q)
             self.len(2, nodes)
-            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[0][0], ('test:pivcomp', (('test:pivtarg', 'foo'), ('test:str', 'bar'))))
             self.eq(nodes[1][0], ('test:str', 'bar'))
 
             q = 'test:str=bar <- *'
             nodes = await getPackNodes(core, q)
             self.len(1, nodes)
-            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[0][0], ('test:pivcomp', (('test:pivtarg', 'foo'), ('test:str', 'bar'))))
 
             q = 'test:str=bar <+- *'
             nodes = await getPackNodes(core, q)
             self.len(2, nodes)
-            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[0][0], ('test:pivcomp', (('test:pivtarg', 'foo'), ('test:str', 'bar'))))
             self.eq(nodes[1][0], ('test:str', 'bar'))
 
             # Add tag
@@ -2683,7 +2554,7 @@ class CortexTest(s_t_utils.SynTest):
             q = '#test.bar +test:str <- *'
             nodes = await getPackNodes(core, q)
             self.len(1, nodes)
-            self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
+            self.eq(nodes[0][0], ('test:pivcomp', (('test:pivtarg', 'foo'), ('test:str', 'bar'))))
 
             # Pivot tests with optimized lifts
             q = '#test.bar +test:str <+- *'
@@ -3709,7 +3580,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+                'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -3829,7 +3700,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'version': (0, 0, 1),
                 'commands': ({
                     'name': 'invalidCMD',
-                    'descr': 'test command',
+                    'desc': 'test command',
                     'storm': '',
                 },)
             }
@@ -4307,11 +4178,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.isin(('inet:fqdn', 'vertex.link'), seeds)
 
                 self.nn(alldefs.get(('syn:tag', 'yepr')))
-                self.nn(alldefs.get(('inet:dns:a', ('woot.com', (4, 0x01020304)))))
+                self.nn(alldefs.get(('inet:dns:a', (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 0x01020304))))))
 
                 self.none(alldefs.get(('inet:asn', 20)))
                 self.none(alldefs.get(('syn:tag', 'nope')))
-                self.none(alldefs.get(('inet:dns:a', ('vertex.link', (4, 0x05050505)))))
+                self.none(alldefs.get(('inet:dns:a', (('inet:fqdn', 'vertex.link'), ('inet:ipv4', (4, 0x05050505))))))
 
             seeds = []
             alldefs = {}
@@ -4446,7 +4317,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # previously omitted.
             self.len(4, seeds)
             self.len(8, alldefs)
-            self.isin(('inet:dns:a', ('vertex.link', (4, 84215045))), alldefs)
+            self.isin(('inet:dns:a', (('inet:fqdn', 'vertex.link'), ('inet:ipv4', (4, 84215045)))), alldefs)
 
             # refs
             rules = {
@@ -4466,7 +4337,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, seeds)
             self.len(5, alldefs)
             # We did make it automatically away 2 degrees with just model refs
-            self.eq({('inet:dns:a', ('woot.com', (4, 16909060))),
+            self.eq({('inet:dns:a', (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 16909060)))),
                      ('inet:fqdn', 'woot.com'),
                      ('inet:ip', (4, 16909060)),
                      ('inet:fqdn', 'com'),
@@ -5294,7 +5165,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Computed props are silently skipped by the typed path so a
             # round-tripped pode with computed values in the props dict
             # doesn't blow up.
-            data = [(('test:pivcomp', ('x', 'y')),
+            data = [(('test:pivcomp', (('test:pivtarg', 'x'), ('test:str', 'y'))),
                      {'props': {'targ': ('test:pivtarg', 'x'), 'tick': ('time', 1)}})]
             await dstcore.addFeedData(data)
             nodes = await dstcore.nodes('test:pivcomp=(x, y)')
@@ -5335,25 +5206,25 @@ class CortexBasicTest(s_t_utils.SynTest):
             # this should return the example node because the vertex node matches the filter and should be removed
             nodes = await core.nodes('inet:dns:a -{ :ip -> inet:ip +:place:loc=us }')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], ('example.com', (4, 67305985)))
+            self.eq(nodes[0].ndef[1], (('inet:fqdn', 'example.com'), ('inet:ipv4', (4, 67305985))))
 
             # lift all dns, pivot to ip where loc=us, add the results
             # this should return the vertex node because only the vertex node matches the filter
             nodes = await core.nodes('inet:dns:a +{ :ip -> inet:ip +:place:loc=us }')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], ('vertex.link', (4, 16909060)))
+            self.eq(nodes[0].ndef[1], (('inet:fqdn', 'vertex.link'), ('inet:ipv4', (4, 16909060))))
 
             # lift all dns, pivot to ip where cc!=us, remove the results
             # this should return the vertex node because the example node matches the filter and should be removed
             nodes = await core.nodes('inet:dns:a -{ :ip -> inet:ip -:place:loc=us }')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], ('vertex.link', (4, 16909060)))
+            self.eq(nodes[0].ndef[1], (('inet:fqdn', 'vertex.link'), ('inet:ipv4', (4, 16909060))))
 
             # lift all dns, pivot to ip where cc!=us, add the results
             # this should return the example node because only the example node matches the filter
             nodes = await core.nodes('inet:dns:a +{ :ip -> inet:ip -:place:loc=us }')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], ('example.com', (4, 67305985)))
+            self.eq(nodes[0].ndef[1], (('inet:fqdn', 'example.com'), ('inet:ipv4', (4, 67305985))))
 
             # lift all dns, pivot to ip where asn=1234, add the results
             # this should return nothing because no nodes have asn=1234
@@ -5626,7 +5497,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             opts = {'vars': {'dnsa': (('foo.com', '1.2.3.4'), ('bar.com', '5.6.7.8'))}}
 
             nodes = await core.nodes('for ($fqdn, $ip) in $dnsa { [ inet:dns:a=($fqdn,$ip) ] }', opts=opts)
-            self.eq((('foo.com', (4, 0x01020304)), ('bar.com', (4, 0x05060708))), [n.ndef[1] for n in nodes])
+            self.eq(((('inet:fqdn', 'foo.com'), ('inet:ipv4', (4, 0x01020304))), (('inet:fqdn', 'bar.com'), ('inet:ipv4', (4, 0x05060708)))), [n.ndef[1] for n in nodes])
 
             with self.raises(s_exc.StormVarListError):
                 await core.nodes('for ($fqdn,$ip,$boom) in $dnsa { [ inet:dns:a=($fqdn,$ip) ] }', opts=opts)
@@ -5748,7 +5619,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             for node in nodes:
                 self.eq(node.ndef[0], 'inet:dns:a')
-                self.eq(node.ndef[1], ('woot.com', (4, 0x01020304)))
+                self.eq(node.ndef[1], (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 0x01020304))))
 
     async def test_storm_formpivot(self):
 
@@ -5760,7 +5631,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:fqdn=woot.com -> inet:dns:a')
             self.len(1, nodes)
             for node in nodes:
-                self.eq(node.ndef, ('inet:dns:a', ('woot.com', (4, 0x01020304))))
+                self.eq(node.ndef, ('inet:dns:a', (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 0x01020304)))))
 
             # this tests getsrc()
             nodes = await core.nodes('inet:fqdn=woot.com -> inet:dns:a -> inet:ip')
@@ -6078,12 +5949,18 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
                     await core00.nodes('queue.add visi')
 
+                    # A comp node add replicates to the mirror, which populates
+                    # its nid->ndef mapping from the comp stortypes when applying
+                    # the edit (_editNodeAdd STOR_TYPE_COMP branch).
+                    await core00.nodes('[ test:comp=(1, foo) ]')
+
                     await core01.sync()
 
                     ip01 = await core01.nodes('inet:ip=3.3.3.3')
                     self.eq(ip00[0].get('.created'), ip01[0].get('.created'))
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
+                    self.len(1, await core01.nodes('test:comp=(1, foo)'))
 
                     q = 'for ($offs, $fqdn) in $lib.queue.byname(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
                     self.len(2, await core01.nodes(q))
@@ -6406,14 +6283,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, '1234')
             self.eq(info, {})
 
-            intt = core.model.type('test:int')
-            lowt = core.model.type('test:lower')
-            enfo = {'subs': {'hehe': (intt.typehash, 1234, {}),
-                             'haha': (lowt.typehash, '1234', {})},
+            comp = core.model.type('test:comp')
+            enfo = {'subs': {'hehe': (comp.fieldtypes['hehe'].typehash, ('test:int', 1234), {'adds': (('test:int', 1234, {}),)}),
+                             'haha': (comp.fieldtypes['haha'].typehash, ('test:lower', '1234'), {})},
                     'adds': (('test:int', 1234, {}),)}
 
             norm, info = await core.getPropNorm('test:comp', ('1234', '1234'))
-            self.eq(norm, (1234, '1234'))
+            self.eq(norm, (('test:int', 1234), ('test:lower', '1234')))
             self.eq(info, enfo)
 
             await self.asyncraises(s_exc.BadTypeValu, core.getPropNorm('test:int', 'newp'))
@@ -6424,7 +6300,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(info, {})
 
             norm, info = await prox.getPropNorm('test:comp', ('1234', '1234'))
-            self.eq(norm, (1234, '1234'))
+            self.eq(norm, (('test:int', 1234), ('test:lower', '1234')))
             self.eq(info, enfo)
 
             await self.asyncraises(s_exc.BadTypeValu, prox.getPropNorm('test:int', 'newp'))
@@ -6436,7 +6312,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(info, {})
 
             norm, info = await core.getTypeNorm('test:comp', ('1234', '1234'))
-            self.eq(norm, (1234, '1234'))
+            self.eq(norm, (('test:int', 1234), ('test:lower', '1234')))
             self.eq(info, enfo)
 
             await self.asyncraises(s_exc.BadTypeValu, core.getTypeNorm('test:int', 'newp'))
@@ -6447,7 +6323,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(info, {})
 
             norm, info = await prox.getTypeNorm('test:comp', ('1234', '1234'))
-            self.eq(norm, (1234, '1234'))
+            self.eq(norm, (('test:int', 1234), ('test:lower', '1234')))
             self.eq(info, enfo)
 
             await self.asyncraises(s_exc.BadTypeValu, prox.getTypeNorm('test:int', 'newp'))
@@ -6465,7 +6341,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, (('test:lower', 'pass'), ('test:lower', 'the'), ('test:lower', 'time')))
 
             norm, info = await prox.getPropNorm('test:comp', "1234:comedy", typeopts={'sepr': ':'})
-            self.eq(norm, (1234, "comedy"))
+            self.eq(norm, (("test:int", 1234), ("test:lower", "comedy")))
 
             # getTypeNorm can norm types which aren't defined as forms/props
             norm, info = await core.getTypeNorm('test:lower', 'ASDF')
@@ -7060,13 +6936,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(core01.model.edge(('_newmodel:type', '_foo', None)))
 
     async def test_cortex_axon(self):
-        async with self.getTestCore() as core:
-            # By default, a cortex has a local Axon instance available
-            await core.getAxon()
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
+            # the cortex resolves its axon as an AHA peer by cell type
             size, sha2 = await (await core.getAxon()).put(b'asdfasdf')
             self.eq(size, 8)
             self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
-        self.true(core._has_axon.isfini)
 
         with self.getTestDir() as dirn:
 
@@ -7368,7 +7243,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': (0, 0, 1),
-            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
             'modules': [
                 {
                     'name': 'boom.mod',
@@ -7523,7 +7398,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'name': 'depsynentnotprovided',
                 'version': (0, 0, 1),
                 'dependencies': {
-                    'synapse-enterprise': {'version': '>=3.0.0b3,<4.0.0'},
+                    'synapse-enterprise': {'version': '>=3.0.0b4,<4.0.0'},
                 },
             }
             with self.raises(s_exc.StormPkgRequires):
@@ -7543,8 +7418,19 @@ class CortexBasicTest(s_t_utils.SynTest):
             'conflicts': {
                 'legacy': {'version': '<1.0.0', 'desc': 'an old conflicting pkg'},
             },
+            'commands': (
+                {
+                    'name': 'schemapkg.cmd',
+                    'storm': '',
+                    'desc': 'a test command description',
+                },
+            ),
         }
         s_schemas.reqValidPkgdef(pkgdef)
+
+        pkgdef['commands'][0]['desc'] = 5150
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidPkgdef(pkgdef)
 
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
@@ -7593,7 +7479,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_export(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             visi = await core.auth.addUser('visi')
             await visi.setPasswd('secret')
@@ -7740,7 +7627,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 for x in (): yield x
                 raise s_exc.BadArg()
 
-            core._has_axon.iterMpkFile = boom
+            clus.axon.iterMpkFile = boom
             with self.raises(s_exc.BadArg):
                 await core.feedFromAxon(s_common.ehex(sha256b))
 
@@ -7763,7 +7650,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.isin('Invalid syn.nodes data.', cm.exception.get('mesg'))
 
     async def test_cortex_export_toaxon(self):
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
             await core.nodes('[inet:dns:a=(vertex.link, 1.2.3.4)]')
             size, sha256 = await core.exportStormToAxon('.created')
             byts = b''.join([b async for b in (await core.getAxon()).get(s_common.uhex(sha256))])
@@ -9484,8 +9372,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             '''
             valu = await core.callStorm(q)
             self.eq(valu, (
-                (1, 'foo'),
-                (1, 'foo'),
+                (('test:int', 1), ('test:lower', 'foo')),
+                (('test:int', 1), ('test:lower', 'foo')),
             ))
 
             # Make sure $node.props aren't modifiable either

@@ -537,7 +537,8 @@ class StormHttpTest(s_test.SynTest):
 
     async def test_storm_http_post_base(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
             addr, port = await core.addHttpsPort(0)
             root = await core.auth.getUserByName('root')
             await root.setPasswd('root')
@@ -629,7 +630,8 @@ class StormHttpTest(s_test.SynTest):
 
     async def test_storm_http_post_file(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             addr, port = await core.addHttpsPort(0)
             root = await core.auth.getUserByName('root')
@@ -666,7 +668,8 @@ class StormHttpTest(s_test.SynTest):
 
     async def test_storm_http_proxy(self):
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCluster({'cortex': {'conf': conf}, 'axon': {'conf': conf}}) as clus:
+            core = clus.cortex
             resp = await core.callStorm('return($lib.axon.wget("http://vertex.link"))')
             self.false(resp.get('ok'))
             self.ne(-1, resp['mesg'].find('connect to proxy 127.0.0.1:1'))
@@ -692,7 +695,8 @@ class StormHttpTest(s_test.SynTest):
 
             await self.asyncraises(s_exc.BadArg, core.nodes('$lib.inet.http.get("http://vertex.link", proxy=(1.1))'))
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('axon', 'get')))
@@ -735,7 +739,8 @@ class StormHttpTest(s_test.SynTest):
             self.false(resp.get('ok'))
             self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
 
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCluster({'cortex': {'conf': conf}, 'axon': {'conf': conf}}) as clus:
+            core = clus.cortex
             # Proxy permission tests in this section
 
             visi = await core.auth.addUser('visi')
@@ -895,7 +900,8 @@ class StormHttpTest(s_test.SynTest):
             user_fullchain_key = user_fullchain + user_pkey
 
             conf = {'tls:ca:dir': tlscadir}
-            async with self.getTestCore(dirn=dirn, conf=conf) as core:
+            async with self.getTestCluster({'cortex': {'conf': conf}}) as clus:
+                core = clus.cortex
 
                 sslctx = core.initSslCtx(certpath, pkeypath)
                 sslctx.load_verify_locations(cafile=cacertpath)
@@ -1007,7 +1013,8 @@ class StormHttpTest(s_test.SynTest):
                 await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
 
             # Provide a CA certificate directly
-            async with self.getTestCore(dirn=dirn) as core:
+            async with self.getTestCluster() as clus:
+                core = clus.cortex
 
                 sslctx = core.initSslCtx(certpath, pkeypath)
                 sslctx.load_verify_locations(cafile=cacertpath)

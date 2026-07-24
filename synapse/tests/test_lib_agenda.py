@@ -1717,6 +1717,26 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(reqdict['hour'], 9)
             self.eq(reqdict['minute'], 0)
 
+            # test minutely period (every minute)
+            msgs = await core.stormlist('cron.add minutely { $lib.print(minutely) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            minutely_cron = [c for c in crons if c['storm'] == '$lib.print(minutely)'][0]
+            reqdict, incunit, incval = minutely_cron['recs'][0]
+            self.eq(reqdict, {})
+            self.eq(incunit, 'minute')
+            self.eq(incval, 1)
+
+            # test minutely period with increment (every N minutes)
+            msgs = await core.stormlist('cron.add minutely/5 { $lib.print(every5min) }')
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            every5_cron = [c for c in crons if c['storm'] == '$lib.print(every5min)'][0]
+            reqdict, incunit, incval = every5_cron['recs'][0]
+            self.eq(reqdict, {})
+            self.eq(incunit, 'minute')
+            self.eq(incval, 5)
+
             # sad
 
             sadpaths = [
@@ -1746,6 +1766,10 @@ class AgendaTest(s_t_utils.SynTest):
                 ('cron.add yearly/13-01 { $lib.print(err) }', 'Failed to parse period'),
                 ('cron.add yearly/01-32 { $lib.print(err) }', 'Failed to parse period'),
                 ('cron.add yearly@blorp { $lib.print(err) }', 'Failed to parse period'),
+                ('cron.add minutely@:30 { $lib.print(err) }', 'Minutely period does not support a time of day'),
+                ('cron.add minutely@blorp { $lib.print(err) }', 'Minutely period does not support a time of day'),
+                ('cron.add minutely/newp { $lib.print(err) }', 'Invalid increment value for minutely period: newp'),
+                ('cron.add minutely/0 { $lib.print(err) }', 'Out of bounds incval'),
             ]
 
             for cmd, err in sadpaths:
@@ -1889,6 +1913,33 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(reqdict['dayofmonth'], 10)
             self.eq(reqdict['hour'], 0)
             self.eq(reqdict['minute'], 0)
+
+            # modify period to minutely with an increment
+            msgs = await core.stormlist('cron.mod $guid --period minutely/10', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.len(1, cron['recs'])
+            reqdict, incunit, incval = cron['recs'][0]
+            self.eq(reqdict, {})
+            self.eq(incunit, 'minute')
+            self.eq(incval, 10)
+
+            # a minutely job can be converted to a supported period and back
+            msgs = await core.stormlist('cron.mod $guid --period hourly@:00', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            self.eq(cron['recs'][0][1], 'hour')
+
+            msgs = await core.stormlist('cron.mod $guid --period minutely', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            crons = await core.listCronJobs()
+            cron = [c for c in crons if c['iden'] == guid][0]
+            reqdict, incunit, incval = cron['recs'][0]
+            self.eq(reqdict, {})
+            self.eq(incunit, 'minute')
+            self.eq(incval, 1)
 
             # sad
 

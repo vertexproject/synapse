@@ -561,7 +561,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             pnode = node.pack(dorepr=True)
-            self.eq(pnode[0], (t, (123, 'haha')))
+            self.eq(pnode[0], (t, (('test:int', 123), ('str:lower', 'haha'))))
             self.eq(pnode[1].get('repr'), ('123', 'haha'))
             self.eq(pnode[1].get('reprs').get('foo'), '123')
             self.notin('bar', pnode[1].get('reprs'))
@@ -1341,18 +1341,48 @@ class TypesTest(s_t_utils.SynTest):
             norm, info = await atyp.norm(5)
             self.eq(('test:int', 5), norm)
 
-            # a single guid member is excluded too; its default norming list is
-            # empty and a raw value cannot be normed.
+            # guid types are never kept as defaults, even when a poly allows a single
+            # guid member; a raw guid value cannot be normed through the default types.
             gstyp = core.model.type('test:guidsingle')
             self.eq((), gstyp.defaulttypes)
             with self.raises(s_exc.BadTypeValu):
                 await gstyp.norm(valu)
 
-            # a poly whose members are all guid types also ends up empty.
+            # a poly whose members are all guid types likewise has an empty default
+            # norming list and a raw value cannot be normed.
             gtyp = core.model.type('test:guidpoly')
             self.eq((), gtyp.defaulttypes)
             with self.raises(s_exc.BadTypeValu):
                 await gtyp.norm(valu)
+
+            # a node whose type is a parent of a declared poly type (e.g. an
+            # inet:ip node into the inet:ipv4 field of inet:dns:a) is accepted by
+            # re-norming the node's value through the more specific declared type.
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ] $ip=$node [ inet:dns:a=(foo.com, $ip) ]')
+            dnsa = [n for n in nodes if n.ndef[0] == 'inet:dns:a'][0]
+            self.eq(('inet:ipv4', (4, 0x01020304)), dnsa.ndef[1][1])
+
+            # a value that is not valid for the narrower declared type (an IPv6
+            # address into inet:ipv4) still raises.
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:ip="::1" ] $ip=$node [ inet:dns:a=(bar.com, $ip) ]')
+
+            # a raw comp value (name, value) whose field name collides with a
+            # type name (e.g. an inet:email:header named 'date', which is also the
+            # 'date' type) is normed as the declared comp default type, not
+            # mis-interpreted as a typed ('date', <value>) pair. The bare norm
+            # never trusts valu[0].
+            hdrtyp = core.model.prop('inet:email:message:headers').type.arraytype
+            self.true(hdrtyp.ispoly)
+            self.eq(('inet:email:header', (('inet:email:header:name', 'date'), ('str', 'Mon, 1 Jan 2024'))),
+                    (await hdrtyp.norm(('date', 'Mon, 1 Jan 2024')))[0])
+
+            # a comp field typed as one type feeding a secondary prop poly of a
+            # foreign type is coerced through the consuming poly: inet:http:param's
+            # str primary field feeds its text :name prop (case-insensitive).
+            pnodes = await core.nodes('[ inet:http:param=(Dvce, Val) ]')
+            self.eq(('inet:http:param', (('str', 'Dvce'), ('str', 'Val'))), pnodes[0].ndef)
+            self.len(1, await core.nodes('inet:http:param:name=dvce'))
 
     async def test_hex(self):
 
@@ -2708,15 +2738,16 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await core.nodes('test:comp +:haha*range=(grinch, meanone)')
-            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
+            self.eq({node.ndef[1] for node in nodes}, {(('test:int', 2048), ('test:lower', 'horton'))})
             nodes = await core.nodes('test:comp +test:comp*range=((1024, grinch), (4096, zemeanone))')
-            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton'), (4096, 'whoville')})
+            self.eq({node.ndef[1] for node in nodes},
+                    {(('test:int', 2048), ('test:lower', 'horton')), (('test:int', 4096), ('test:lower', 'whoville'))})
             guid0 = 'B' * 32
             guid1 = 'D' * 32
             nodes = await core.nodes(f'test:guid +test:guid*range=({guid0}, {guid1})')
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
             nodes = await core.nodes('test:int -> test:comp:hehe +test:comp*range=((1000, grinch), (4000, whoville))')
-            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
+            self.eq({node.ndef[1] for node in nodes}, {(('test:int', 2048), ('test:lower', 'horton'))})
 
             # The following tests show range working against a string
             self.len(2, await core.nodes('test:str*range=(b, m)'))
@@ -3430,6 +3461,58 @@ class TypesTest(s_t_utils.SynTest):
 
             await core.nodes('test:int=3 [ :_vers-=v1.2.3 ]')
             self.len(1, await core.nodes('test:int:_vers*[.semver=1.2.3]'))
+
+    async def test_types_array_text_fold(self):
+
+        async with self.getTestCore() as core:
+
+            # arrays of the case-insensitive, case-preserving text type
+            await core.addFormProp('test:str', '_txts', ('text', {}), {'array': {}})
+            await core.addFormProp('test:str', '_otxts', ('text', {}), {'array': {'sorted': False, 'uniq': False}})
+
+            nodes = await core.nodes('[ test:str=a :_txts=("Foo", "Bar") ]')
+            self.len(1, nodes)
+
+            # the stored value preserves original case, ordered by the folded form
+            self.eq((('text', 'Bar'), ('text', 'Foo')), nodes[0].get('_txts'))
+
+            # full-value equality lifts are case-insensitive
+            self.len(1, await core.nodes('test:str:_txts=("foo","bar")'))
+            self.len(1, await core.nodes('test:str:_txts=("FOO","BAR")'))
+            self.len(1, await core.nodes('test:str:_txts=("Foo","Bar")'))
+            self.len(0, await core.nodes('test:str:_txts=("foo","baz")'))
+
+            # full-value equality filters/comparisons fold the same way as lifts
+            self.len(1, await core.nodes('test:str=a +:_txts=("FOO","bar")'))
+            self.len(0, await core.nodes('test:str=a +:_txts=("foo","nope")'))
+            self.len(0, await core.nodes('test:str=a +:_txts!=("foo","bar")'))
+            self.len(1, await core.nodes('test:str=a +:_txts!=("foo","nope")'))
+            self.len(0, await core.nodes('test:str=a -:_txts=("foo","bar")'))
+
+            # sorted arrays order by the folded form, so a case-variant with a
+            # different raw sort order still matches (folded: apple < zebra)
+            nodes = await core.nodes('[ test:str=b :_txts=("Zebra", "apple") ]')
+            self.eq((('text', 'apple'), ('text', 'Zebra')), nodes[0].get('_txts'))
+            self.len(1, await core.nodes('test:str:_txts=("zebra","Apple")'))
+
+            # uniq de-duplicates case-insensitively, first occurrence wins
+            nodes = await core.nodes('[ test:str=c :_txts=("Foo", "foo", "BAR") ]')
+            self.eq((('text', 'BAR'), ('text', 'Foo')), nodes[0].get('_txts'))
+
+            # unsorted arrays stay order-sensitive for full-value equality
+            nodes = await core.nodes('[ test:str=d :_otxts=("b", "a") ]')
+            self.eq((('text', 'b'), ('text', 'a')), nodes[0].get('_otxts'))
+            self.len(1, await core.nodes('test:str:_otxts=("b","a")'))
+            self.len(0, await core.nodes('test:str:_otxts=("a","b")'))
+
+            # per-element membership lifts remain case-insensitive as well
+            # (nodes a and c both carry a "Foo" element)
+            self.len(2, await core.nodes('test:str:_txts*[=foo]'))
+
+            # pivots resolve through the folded index: node a's "Foo"/"Bar" elements
+            # reach node c (stored "Foo"/"BAR") by case-insensitive match
+            self.len(2, await core.nodes('test:str=a :_txts -> test:str:_txts'))
+            self.len(1, await core.nodes('test:str=a :_txts -> test:str:_txts +test:str=c'))
 
     async def test_types_array_cmprs(self):
         '''

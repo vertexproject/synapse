@@ -428,6 +428,74 @@ async def repoissuelabelmigr(migr, sode, edits, nodeedits):
         if (pval := props.get(name)) is not None:
             _emit(name, pval[0], pval[1])
 
+async def execloadlibmigr(migr, sode, edits, nodeedits):
+    # Migrate the 2.x it:exec:loadlib form to the 3.x it:exec:lib:load form. Most
+    # props are carried by the same name via the it:host:exec interface and are
+    # copied generically. The removed :loaded / :unloaded props are folded in
+    # explicitly: :loaded becomes the load event :time, and a set :unloaded
+    # becomes a separate it:exec:lib:unload event mirroring the load event props.
+    model = migr.model
+
+    if (valt := sode.get('valu')) is not None:
+        edits.append((s_layer.EDIT_NODE_ADD, (valt[0], s_layer.STOR_TYPE_GUID, {})))
+
+    props = sode.get('props', {})
+
+    # props handled explicitly below or intentionally dropped (universals are
+    # not carried by full migrations, matching the other FULL_MIGR forms).
+    skip = ('loaded', 'unloaded', 'time')
+
+    async def _mkedit(destform, name, valu, srcstor):
+        destprop = model.prop(f'{destform}:{name}')
+        if destprop is None:
+            return None
+
+        newvalu, stortype = getNewStorType(model, destprop.type, valu, srcstor)
+
+        # a poly member type with virts (e.g. file:path -> dir/base/ext) must be
+        # renormed so its virt indexes are populated; getNewStorType only wraps
+        # the stored value. norm() returns info['virts'] in the layer's shape.
+        # TODO SYN-11238: populate prop virts generically for all migrated forms.
+        virts = {}
+        if stortype & s_layer.STOR_FLAG_POLY:
+            membtype = model.type(newvalu[0])
+            if membtype is not None and membtype.virts:
+                virts = (await membtype.norm(newvalu[1]))[1].get('virts') or {}
+
+        return (s_layer.EDIT_PROP_SET, (name, newvalu, stortype, virts))
+
+    async def _carry(destform, into):
+        for name, (valu, srcstor) in props.items():
+            if name in skip or name.startswith('.'):
+                continue
+
+            if (edit := await _mkedit(destform, name, valu, srcstor)) is not None:
+                into.append(edit)
+
+    # carry the shared props onto the load node
+    await _carry('it:exec:lib:load', edits)
+
+    # the load event :time is the moment the library was loaded. Prefer the
+    # specific 2.x :loaded timestamp, falling back to the generic activity :time.
+    if (loadtime := props.get('loaded') or props.get('time')) is not None:
+        if (edit := await _mkedit('it:exec:lib:load', 'time', loadtime[0], loadtime[1])) is not None:
+            edits.append(edit)
+
+    # a set 2.x :unloaded timestamp becomes a separate it:exec:lib:unload event
+    # which mirrors the load event props and carries :unloaded as its :time.
+    if (unloaded := props.get('unloaded')) is not None:
+        unloadvalu = s_common.guid(('it:exec:lib:unload', valt[0]))
+        ndef = ('it:exec:lib:unload', unloadvalu)
+        unloadnid = migr._genIndxNid(s_common.buid(ndef), ndef)
+
+        subedits = [(s_layer.EDIT_NODE_ADD, (unloadvalu, s_layer.STOR_TYPE_GUID, {}))]
+        await _carry('it:exec:lib:unload', subedits)
+
+        if (edit := await _mkedit('it:exec:lib:unload', 'time', unloaded[0], unloaded[1])) is not None:
+            subedits.append(edit)
+
+        nodeedits.append((s_common.int64un(unloadnid), 'it:exec:lib:unload', tuple(subedits)))
+
 # ============================================================
 # Pure utilities
 # ============================================================
@@ -592,6 +660,10 @@ FORM_MIGR = {
 
     'it:cmd:history': (rename, {'name': 'it:exec:command'}),
 
+    # the loadlib form was renamed and its :unloaded prop split into a separate
+    # it:exec:lib:unload form (see execloadlibmigr in FULL_MIGR)
+    'it:exec:loadlib': (rename, {'name': 'it:exec:lib:load'}),
+
     'it:prod:hardwaretype': (rename, {'name': 'it:hardware:type:taxonomy'}),
 
     'media:news:taxonomy': (rename, {'name': 'doc:report:type:taxonomy'}),
@@ -696,6 +768,7 @@ PROP_MIGR = {
 }
 
 FULL_MIGR = {
+    'it:exec:loadlib': execloadlibmigr,
     'lang:translation': langtranslation,
     'it:dev:repo:issue:comment': repocommentmigr,
     'it:dev:repo:diff:comment': repocommentmigr,

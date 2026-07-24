@@ -108,8 +108,8 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 ```storm
 +#tag.name                        // keep nodes with tag
 -:prop=value                      // remove matching nodes
-+{ -> inet:ipv4 +:asn=1234 }      // subquery filter (keep)
--{ -> inet:ipv4 }                 // subquery filter (remove)
++{ -> inet:ip }        // subquery filter (keep)
+-{ -> inet:ip }                   // subquery filter (remove)
 +{ -> inet:dns:a } < 2            // subquery filter with count compare
 +(:asn=1234 or :asn=5678)         // compound: and, or, not
 +$(:client:txbytes >= 100)        // expression filter (keep)
@@ -121,12 +121,12 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 
 ```storm
 -> *                               // pivot to all referenced nodes
--> inet:ipv4                       // pivot to specific form
--> (inet:ipv4, inet:ipv6)          // pivot to multiple forms
+-> inet:ip                         // pivot to specific form
+-> (inet:fqdn, inet:ip)            // pivot to multiple forms
 <- *                               // reverse pivot (incoming refs)
 -+> *                              // join pivot (keep source + targets)
 -> { subquery }                    // raw pivot via subquery
-:ipv4 -> inet:ipv4                 // property-based pivot
+:fqdn -> inet:fqdn                 // property-based pivot
 
 // Light edge traversal
 -(refs)> *                         // walk N1 edges (outbound)
@@ -168,8 +168,8 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 [ +?#$tags ]                                  // add tags from variable
 
 // Light edge operations
-[ +(refs)> { inet:ipv4=1.2.3.4 } ]          // add edge via subquery
-[ -(refs)> { inet:ipv4=1.2.3.4 } ]          // remove edge via subquery
+[ +(refs)> { inet:ip=1.2.3.4 } ]            // add edge via subquery
+[ -(refs)> { inet:ip=1.2.3.4 } ]            // remove edge via subquery
 [ <(seen)+ $srcnode ]                         // add N2 edge to variable
 
 // Parenthesized edit context only edits nodes created in the same parens context
@@ -407,7 +407,7 @@ $lib.auth.easyperm.confirm($obj, $lvl)       // check easyperm
 
 // Model
 $lib.model.form($formname)                   // get form object
-$lib.gen._riskVulnByCve($cve, ...)           // generate risk:vuln
+$lib.gen._vulnByCve($cve, $reporter)         // generate risk:vuln (or use the gen.vuln command)
 
 // Vault
 $lib.vault.add($name, $type, $scope, $owner, $secrets, $configs)
@@ -432,7 +432,7 @@ $lib.lift.byPropsDict($form, $propsdict, errok=(false)) // lift by multiple prop
 $lib.lift.byNodeData($name)                  // lift nodes with a given nodedata key
 
 // Version
-$lib.version.synapse                         // synapse version tuple
+$lib.version.synapse                         // synapse version string
 ```
 
 ### Node Object Attributes / Methods
@@ -440,8 +440,7 @@ $lib.version.synapse                         // synapse version tuple
 ```storm
 $node.form                                   // form name string
 $node.ndef                                   // (form, value) tuple
-$node.iden                                   // node identity hash
-$node.nid                                    // node ID in the layer
+$node.nid                                    // node ID in the layer (replaces the removed .iden)
 $node.value                                  // primary value
 $node.repr()                                 // human representation
 $node.pack()                                 // pack node to dict
@@ -455,8 +454,6 @@ $node.globtags(pattern)                      // match tags by glob
 $node.edges()                                // iterate light edges
 $node.addEdge($verb, $n2iden)                // add a light edge
 $node.delEdge($verb, $n2iden)                // delete a light edge
-$node.protocol()                             // get protocol name
-$node.protocols()                            // get all protocols
 $node.getByLayer()                           // get node per layer
 $node.getStorNodes()                         // get storage nodes
 $node.data.set("key", $value)                // set node data

@@ -54,7 +54,7 @@ class QuorumMergesLib(s_stormtypes.Lib):
 stormcmds = (
     {
         'name': 'quorum.merge.list',
-        'descr': 'List all the views which currently have a pending merge request.',
+        'desc': 'List all the views which currently have a pending merge request.',
         'cmdargs': (
             ('--todo', {'help': 'Only return merges which need approval from the current user.',
                        'action': 'store_true'}),

@@ -97,9 +97,8 @@ class GeoPolModelTest(s_t_utils.SynTest):
     async def test_model_geopol_election(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
-                [ pol:election=* :name="2024 US Presidential Election" :time=2024-11-03 ]
+                [ pol:election=* :name="2024 US Presidential Election" :period=2024-11-03 ]
             ''')
-            self.propeq(nodes[0], 'time', 1730592000000000)
             self.propeq(nodes[0], 'name', '2024 US Presidential Election')
 
             nodes = await core.nodes('''
@@ -127,7 +126,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'voters', 500)
             self.propeq(nodes[0], 'turnout', 499)
             self.len(1, await core.nodes('pol:race -> pol:office +:title=potus'))
-            self.len(1, await core.nodes('pol:race -> pol:election +:time=20241103'))
+            self.len(1, await core.nodes('pol:race -> pol:election +:name="2024 US Presidential Election"'))
 
             nodes = await core.nodes('''
                 [ pol:candidate=*

@@ -146,8 +146,7 @@ modeldefs = (
                     ('fqdn', ('inet:fqdn', {}), {'computed': True,
                         'doc': 'The domain queried for its DNS A record.'}),
                     ('ip', ('inet:ip', {}), {'computed': True,
-                        'doc': 'The IPv4 address returned in the A record.',
-                        'prevnames': ('ipv4',)}),
+                        'doc': 'The IPv4 address returned in the A record.'}),
                 ),
                 'doc': 'The result of a DNS A record lookup.'}),
 
@@ -162,8 +161,7 @@ modeldefs = (
                     ('fqdn', ('inet:fqdn', {}), {'computed': True,
                         'doc': 'The domain queried for its DNS AAAA record.'}),
                     ('ip', ('inet:ip', {}), {'computed': True,
-                        'doc': 'The IPv6 address returned in the AAAA record.',
-                        'prevnames': ('ipv6',)}),
+                        'doc': 'The IPv6 address returned in the AAAA record.'}),
                 ),
                 'doc': 'The result of a DNS AAAA record lookup.'}),
 
@@ -174,11 +172,9 @@ modeldefs = (
                     ('inet:dns:record', {}),
                 ),
                 'ex': '(1.2.3.4,vertex.link)',
-                'prevnames': ('inet:dns:rev6',),
                 'props': (
                     ('ip', ('inet:ip', {}), {'computed': True,
-                        'doc': 'The IP address queried for its DNS PTR record.',
-                        'prevnames': ('ipv4', 'ipv6')}),
+                        'doc': 'The IP address queried for its DNS PTR record.'}),
 
                     ('fqdn', ('inet:fqdn', {}), {'computed': True,
                          'doc': 'The domain returned in the PTR record.'}),
@@ -347,8 +343,7 @@ modeldefs = (
                     ('fqdn', ('inet:fqdn', {}), {'computed': True,
                         'doc': 'The domain containing a wild card record.'}),
                     ('ip', ('inet:ip', {}), {'computed': True,
-                        'doc': 'The IPv4 address returned by wild card resolutions.',
-                        'prevnames': ('ipv4',)}),
+                        'doc': 'The IPv4 address returned by wild card resolutions.'}),
                 ),
                 'doc': 'A DNS A wild card record and the IPv4 it resolves to.'}),
 
@@ -361,8 +356,7 @@ modeldefs = (
                     ('fqdn', ('inet:fqdn', {}), {'computed': True,
                         'doc': 'The domain containing a wild card record.'}),
                     ('ip', ('inet:ip', {}), {'computed': True,
-                        'doc': 'The IPv6 address returned by wild card resolutions.',
-                        'prevnames': ('ipv6',)}),
+                        'doc': 'The IPv6 address returned by wild card resolutions.'}),
                 ),
                 'doc': 'A DNS AAAA wild card record and the IPv6 it resolves to.'}),
 

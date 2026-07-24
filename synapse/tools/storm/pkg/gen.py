@@ -66,15 +66,15 @@ def tryLoadPkgProto(fp, readonly=False):
     try:
         return loadPkgProto(fp, readonly=readonly)
     except s_exc.NoSuchFile:
-        return loadPkgProto(fp, no_docs=True, readonly=readonly)
+        return loadPkgProto(fp, docs=False, readonly=readonly)
 
-def loadPkgProto(path, no_docs=False, readonly=False):
+def loadPkgProto(path, docs=True, readonly=False):
     '''
     Get a Storm Package definition from disk.
 
     Args:
         path (str): Path to the package .yaml file on disk.
-        no_docs (bool): If true, omit inline documentation content if it is not present on disk.
+        docs (bool): If false, omit inline documentation content if it is not present on disk.
         readonly (bool): If set, open files in read-only mode. If files are missing, that will raise a NoSuchFile
                          exception.
 
@@ -125,7 +125,7 @@ def loadPkgProto(path, no_docs=False, readonly=False):
             mesg = 'Each entry in docs must have a title.'
             raise s_exc.BadPkgDef(mesg=mesg)
 
-        if no_docs:
+        if not docs:
             docdef['content'] = ''
             continue
 
@@ -239,7 +239,7 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(f'File {opts.pkgfile} is treated as already built (--no-build); incompatible with --save.')
             return 1
     else:
-        pkgdef = loadPkgProto(opts.pkgfile, no_docs=opts.no_docs)
+        pkgdef = loadPkgProto(opts.pkgfile, docs=not opts.no_docs)
 
     if opts.signas is not None:
 

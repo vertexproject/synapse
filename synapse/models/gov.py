@@ -31,19 +31,16 @@ modeldefs = (
                 'doc': 'An ISO Object Identifier string.'}),
 
             ('iso:3166:alpha2', ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}), {
-                'prevnames': ('pol:iso2', 'iso:3166:cc'),
                 'ex': 'us',
                 'props': (),
                 'doc': 'An ISO 3166 Alpha-2 country code.'}),
 
             ('iso:3166:alpha3', ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$'}), {
-                'prevnames': ('pol:iso3',),
                 'ex': 'usa',
                 'props': (),
                 'doc': 'An ISO 3166 Alpha-3 country code.'}),
 
             ('iso:3166:numeric3', ('str', {'regex': '^[0-9]{3}$'}), {
-                'prevnames': ('pol:isonum',),
                 'ex': '840',
                 'props': (),
                 'doc': 'An ISO 3166 Numeric-3 country code.'}),

@@ -21,7 +21,6 @@ modeldefs = (
                         'doc': 'The container in which the cargo was shipped.'}),
 
                     ('period', ('ival', {}), {
-                        'prevnames': ('loaded', 'unloaded'),
                         'doc': 'The period when the cargo was loaded in the vehicle.'}),
 
                     ('loaded:place', ('geo:place', {}), {
@@ -75,7 +74,6 @@ modeldefs = (
                         'doc': 'The seat which the occupant sat in. Likely in a vehicle specific format.'}),
 
                     ('period', None, {
-                        'prevnames': ('boarded', 'disembarked'),
                         'doc': 'The period when the occupant was aboard the vehicle.'}),
 
                     ('boarded:place', ('geo:place', {}), {

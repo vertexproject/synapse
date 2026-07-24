@@ -7,7 +7,7 @@ import synapse.lib.stormtypes as s_stormtypes
 stormcmds = [
     {
         'name': 'pkg.list',
-        'descr': 'List the storm packages loaded in the cortex.',
+        'desc': 'List the storm packages loaded in the cortex.',
         'cmdargs': (
             ('--verbose', {'default': False, 'action': 'store_true',
                 'help': 'Display build time for each package.'}),
@@ -58,7 +58,7 @@ stormcmds = [
     },
     {
         'name': 'pkg.perms.list',
-        'descr': 'List any permissions declared by the package.',
+        'desc': 'List any permissions declared by the package.',
         'cmdargs': (
             ('name', {'help': 'The name (or name prefix) of the package.', 'type': 'str'}),
         ),
@@ -92,7 +92,7 @@ stormcmds = [
     },
     {
         'name': 'pkg.del',
-        'descr': 'Remove a storm package from the cortex.',
+        'desc': 'Remove a storm package from the cortex.',
         'cmdargs': (
             ('name', {'help': 'The name (or name prefix) of the package to remove.'}),
         ),
@@ -125,7 +125,7 @@ stormcmds = [
     },
     {
         'name': 'pkg.docs',
-        'descr': 'Display documentation included in a storm package.',
+        'desc': 'Display documentation included in a storm package.',
         'cmdargs': (
             ('name', {'help': 'The name (or name prefix) of the package.'}),
         ),
@@ -153,7 +153,7 @@ stormcmds = [
     },
     {
         'name': 'pkg.load',
-        'descr': 'Load a storm package from an HTTP URL.',
+        'desc': 'Load a storm package from an HTTP URL.',
         'cmdargs': (
             ('url', {'help': 'The HTTP URL to load the package from.'}),
             ('--raw', {'default': False, 'action': 'store_true',

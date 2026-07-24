@@ -694,8 +694,7 @@ modeldefs = (
                         'doc': 'A free-form description of the host.'}),
 
                     ('ip', ('inet:ip', {}), {
-                        'doc': 'The last known IP address for the host.',
-                        'prevnames': ('ipv4',)}),
+                        'doc': 'The last known IP address for the host.'}),
 
                     ('os', ('it:software', {}), {
                         'doc': 'The operating system of the host.'}),
@@ -809,8 +808,7 @@ modeldefs = (
                         'doc': 'The period when the network existed.'}),
 
                     ('net', ('inet:net', {}), {
-                        'doc': 'The optional contiguous IP address range of this network.',
-                        'prevnames': ('net4', 'net6')}),
+                        'doc': 'The optional contiguous IP address range of this network.'}),
 
                     # TODO should this be in a DHCP config node?
                     ('dns:resolvers', ('inet:server', {}), {
@@ -827,7 +825,6 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of network types.'}),
 
             ('it:host:account', ('guid', {}), {
-                'prevnames': ('it:account',),
                 'props': (
                     ('id', ('base:id', {}), {
                         'doc': 'The unique OS specific identifier for the account.'}),
@@ -879,7 +876,6 @@ modeldefs = (
                 'doc': 'A Windows account on a host.'}),
 
             ('it:host:group', ('guid', {}), {
-                'prevnames': ('it:group',),
                 'props': (
                     ('id', ('base:id', {}), {
                         'doc': 'The unique OS specific identifier for the group.'}),
@@ -1270,7 +1266,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {}),
                 ),
-                'prevnames': ('it:dev:regkey',),
                 'ex': 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
                 'props': (
                     ('parent', ('it:os:windows:registry:key', {}), {
@@ -1283,7 +1278,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {}),
                 ),
-                'prevnames': ('it:dev:regval',),
                 'props': (
                     ('key', ('it:os:windows:registry:key', {}), {
                         'doc': 'The Windows registry key.'}),
@@ -1296,7 +1290,6 @@ modeldefs = (
                             ('it:dev:int', {}),
                             ('it:dev:str', {})
                         ), {
-                        'prevnames': ('str', 'int', 'bytes'),
                         'doc': 'The value assigned to the name within the key.'}),
                 ),
                 'doc': 'A Windows registry key, name, and value.'}),
@@ -1466,7 +1459,6 @@ modeldefs = (
                 'doc': 'An issue raised in a repository.'}),
 
             ('it:software', ('guid', {}), {
-                'prevnames': ('it:prod:soft', 'it:prod:softver', 'risk:tool:software'),
                 'template': {'title': 'software'},
                 'interfaces': (
                     ('meta:usable', {}),
@@ -1527,12 +1519,10 @@ modeldefs = (
                         {'cmpr': '^='}
                     ]
                 },
-                'prevnames': ('it:prod:softname',),
                 'props': (),
                 'doc': 'The name of a software product or tool.'}),
 
             ('it:software:type:taxonomy', ('taxonomy', {}), {
-                'prevnames': ('it:prod:soft:taxonomy',),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
@@ -1552,17 +1542,14 @@ modeldefs = (
                         'doc': 'The host which was issued the ID by the software.'}),
 
                     ('software', ('it:software', {}), {
-                        'prevnames': ('soft',),
                         'doc': 'The software which issued the ID to the host.'}),
 
                     ('software:name', ('it:softwarename', {}), {
-                        'prevnames': ('soft:name',),
                         'doc': 'The name of the software which issued the ID to the host.'}),
                 ),
                 'doc': 'An identifier issued to a given host by a specific software application.'}),
 
             ('it:hardware', ('guid', {}), {
-                'prevnames': ('it:prod:hardware',),
                 'template': {'title': 'hardware'},
                 'interfaces': (
                     ('meta:usable', {}),
@@ -1688,7 +1675,6 @@ modeldefs = (
                 'doc': 'A SIM card.'}),
 
             ('it:hardware:type:taxonomy', ('taxonomy', {}), {
-                'prevnames': ('it:prod:hardwaretype', 'it:hardwaretype'),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
@@ -2029,12 +2015,6 @@ modeldefs = (
                     ('va', ('int', {}), {
                         'doc': 'The base memory address where the library was loaded in the process.'}),
 
-                    ('loaded', ('time', {}), {
-                        'doc': 'The time the library was loaded.'}),
-
-                    ('unloaded', ('time', {}), {
-                        'doc': 'The time the library was unloaded.'}),
-
                     ('path', ('file:path', {}), {
                         'doc': 'The path that the library was loaded from.'}),
 
@@ -2045,6 +2025,29 @@ modeldefs = (
                         'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'A library load event in a process.'}),
+
+            ('it:exec:lib:unload', ('guid', {}), {
+                'template': {'title': 'library unload event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process where the library was unloaded.'}),
+
+                    ('va', ('int', {}), {
+                        'doc': 'The base memory address where the library was loaded in the process.'}),
+
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path that the library was unloaded from.'}),
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The library file that was unloaded.'}),
+
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+                ),
+                'doc': 'A library unload event in a process.'}),
 
             ('it:exec:mmap:add', ('guid', {}), {
                 'template': {'title': 'memory map event'},
@@ -2231,7 +2234,6 @@ modeldefs = (
                 'doc': 'A named pipe created by a process at runtime.'}),
 
             ('it:exec:fetch', ('guid', {}), {
-                'prevnames': ('it:hosturl',),
                 'template': {'title': 'fetch event'},
                 'interfaces': (
                     ('it:host:event', {}),
@@ -2408,7 +2410,6 @@ modeldefs = (
                 'doc': 'An instance of a host writing a file to a filesystem.'}),
 
             ('it:exec:windows:registry:get', ('guid', {}), {
-                'prevnames': ('it:exec:reg:get',),
                 'template': {'title': 'registry get event'},
                 'interfaces': (
                     ('it:host:event', {}),
@@ -2427,7 +2428,6 @@ modeldefs = (
                         'doc': 'The time the registry was read.'}),
 
                     ('entry', ('it:os:windows:registry:entry', {}), {
-                        'prevnames': ('reg',),
                         'doc': 'The registry key or value that was read.'}),
 
                     ('sandbox:file', ('file:bytes', {}), {
@@ -2436,7 +2436,6 @@ modeldefs = (
                 'doc': 'An instance of a host getting a registry key.', }),
 
             ('it:exec:windows:registry:set', ('guid', {}), {
-                'prevnames': ('it:exec:reg:set',),
                 'template': {'title': 'registry set event'},
                 'interfaces': (
                     ('it:host:event', {}),
@@ -2455,7 +2454,6 @@ modeldefs = (
                         'doc': 'The time the registry was written to.'}),
 
                     ('entry', ('it:os:windows:registry:entry', {}), {
-                        'prevnames': ('reg',),
                         'doc': 'The registry key or value that was written to.'}),
 
                     ('sandbox:file', ('file:bytes', {}), {
@@ -2464,7 +2462,6 @@ modeldefs = (
                 'doc': 'An instance of a host creating or setting a registry key.', }),
 
             ('it:exec:windows:registry:del', ('guid', {}), {
-                'prevnames': ('it:exec:reg:del',),
                 'template': {'title': 'registry delete event'},
                 'interfaces': (
                     ('it:host:event', {}),
@@ -2483,7 +2480,6 @@ modeldefs = (
                         'doc': 'The time the data from the registry was deleted.'}),
 
                     ('entry', ('it:os:windows:registry:entry', {}), {
-                        'prevnames': ('reg',),
                         'doc': 'The registry entry that was deleted.'}),
 
                     ('sandbox:file', ('file:bytes', {}), {
@@ -2575,7 +2571,6 @@ modeldefs = (
                 'doc': 'A snort rule.'}),
 
             ('it:app:snort:matched', ('guid', {}), {
-                'prevnames': ('it:app:snort:hit',),
                 'interfaces': (
                     ('base:matched', {'template': {'rule': 'Snort rule',
                                        'rule:type': 'it:app:snort:rule',

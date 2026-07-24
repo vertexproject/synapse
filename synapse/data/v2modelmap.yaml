@@ -1,0 +1,641 @@
+# Synapse v2 -> v3 model name map.
+#
+# Maps retired v2 form, property, interface, and type names to what they
+# became in v3 and/or how to model the concept now. Powers "Did you mean?"
+# lookups, migration, and is exposed to APIs under the model dict "v2map" key.
+#
+# Each entry under changes: is keyed by the retired v2 name and may declare:
+#   became:  the single current v3 name it became (omit if removed outright)
+#   goals:   list of ids referencing the shared strategic goals table below
+#   reason:  a specific reason for this change that does not fit the shared goals
+#   props:   changed properties of the (current) form, keyed by their
+#            relative v2 name; each has its own became (relative)/goals/reason.
+# An entry must provide at least one of became, reason, or props.
+#
+# This file replaces the legacy per-def prevnames key.
+
+goals:
+  ip-version-agnostic:
+    title: Unify IPv4 and IPv6
+    doc: Represent IPv4 and IPv6 with single version-agnostic forms, types, and properties.
+  taxonomy-convention:
+    title: Standardize taxonomy naming
+    doc: Apply the consistent v3 `type`/`type:taxonomy` naming convention to enumerated and taxonomy elements.
+  interval-consolidated:
+    title: Model time spans as intervals
+    doc: Replace paired begin/end (or first/last) time properties with a single interval (ival) `:period` property.
+  eitheror-removed:
+    title: Remove either/or properties
+    doc: Eliminate mutually exclusive (either/or) properties by merging the alternatives into a single property, including collapsing separate type-specific variants into one value property.
+  model-refinement:
+    title: Refine to match current understanding
+    doc: Update the model to reflect our current understanding of the true structure, analytical relevance, and use cases, correcting early over-simplifications or an expanded need for detail.
+  causal-ledto:
+    title: Unify causal relationships
+    doc: Represent causal relationships between any `meta:causal` forms with the `-(ledto)>` edge instead of form-specific properties.
+  renamed:
+    title: Clarify and standardize names
+    doc: Rename or relocate forms, properties, types, and interfaces for clarity and consistency.
+
+changes:
+  biz:deal:
+    props:
+      purchase:
+        goals: [causal-ledto]
+        reason: A resulting purchase is now modeled as `biz:deal -(ledto)> econ:purchase`.
+      rfp:
+        goals: [causal-ledto]
+        reason: The originating RFP is now modeled as `biz:rfp -(ledto)> biz:deal`.
+  biz:dealtype:
+    became: biz:deal:type:taxonomy
+    goals: [taxonomy-convention]
+  biz:prodtype:
+    became: biz:product:type:taxonomy
+    goals: [taxonomy-convention]
+  biz:rfp:
+    props:
+      propdue:
+        became: due:proposal
+        goals: [renamed]
+      quesdue:
+        became: due:questions
+        goals: [renamed]
+  crypto:x509:cert:
+    props:
+      identities:ipv4s:
+        became: identities:ips
+        goals: [ip-version-agnostic]
+      identities:ipv6s:
+        became: identities:ips
+        goals: [ip-version-agnostic]
+  econ:lineitem:
+    props:
+      product:
+        became: item
+        goals: [renamed]
+  econ:pay:iin:
+    props:
+      name:
+        became: issuer:name
+        goals: [renamed]
+      org:
+        became: issuer
+        goals: [renamed]
+  econ:payment:
+    props:
+      txnid:
+        became: id
+        goals: [renamed]
+  econ:purchase:
+    props:
+      from:contact:
+        became: seller
+        goals: [renamed]
+      listing:
+        goals: [causal-ledto]
+        reason: The listing a purchase was based on is now modeled as `biz:listing -(ledto)> econ:purchase`.
+  econ:receipt:item:
+    became: econ:lineitem
+    goals: [renamed]
+  econ:security:ochlv:
+    props:
+      ival:
+        became: period
+        goals: [interval-consolidated]
+  edu:class:
+    props:
+      date:first:
+        became: period
+        goals: [interval-consolidated]
+      date:last:
+        became: period
+        goals: [interval-consolidated]
+  edu:course:
+    props:
+      code:
+        became: id
+        goals: [renamed]
+  entity:campaign:
+    props:
+      camptype:
+        became: type
+        goals: [taxonomy-convention]
+  file:mime:gif:
+    props:
+      imageid:
+        became: id
+        goals: [renamed]
+  file:mime:jpg:
+    props:
+      imageid:
+        became: id
+        goals: [renamed]
+  file:mime:png:
+    props:
+      imageid:
+        became: id
+        goals: [renamed]
+  file:mime:tif:
+    props:
+      imageid:
+        became: id
+        goals: [renamed]
+  geo:place:taxonomy:
+    became: geo:place:type:taxonomy
+    goals: [taxonomy-convention]
+  inet:asnet:
+    props:
+      net4:
+        became: net
+        goals: [ip-version-agnostic]
+      net4:max:
+        became: net:max
+        goals: [ip-version-agnostic]
+      net4:min:
+        became: net:min
+        goals: [ip-version-agnostic]
+      net6:
+        became: net
+        goals: [ip-version-agnostic]
+      net6:max:
+        became: net:max
+        goals: [ip-version-agnostic]
+      net6:min:
+        became: net:min
+        goals: [ip-version-agnostic]
+  inet:asnet4:
+    became: inet:asnet
+    goals: [ip-version-agnostic]
+  inet:asnet6:
+    became: inet:asnet
+    goals: [ip-version-agnostic]
+  inet:cidr4:
+    became: inet:net
+    goals: [ip-version-agnostic]
+  inet:cidr6:
+    became: inet:net
+    goals: [ip-version-agnostic]
+  inet:dns:a:
+    props:
+      ipv4:
+        became: ip
+        goals: [ip-version-agnostic]
+  inet:dns:aaaa:
+    props:
+      ipv6:
+        became: ip
+        goals: [ip-version-agnostic]
+  inet:dns:rev:
+    props:
+      ipv4:
+        became: ip
+        goals: [ip-version-agnostic]
+      ipv6:
+        became: ip
+        goals: [ip-version-agnostic]
+  inet:dns:rev6:
+    became: inet:dns:rev
+    goals: [ip-version-agnostic]
+  inet:dns:wild:a:
+    props:
+      ipv4:
+        became: ip
+        goals: [ip-version-agnostic]
+  inet:dns:wild:aaaa:
+    props:
+      ipv6:
+        became: ip
+        goals: [ip-version-agnostic]
+  inet:email:message:
+    props:
+      received:from:ipv4:
+        became: received:from:ip
+        goals: [ip-version-agnostic]
+      received:from:ipv6:
+        became: received:from:ip
+        goals: [ip-version-agnostic]
+  inet:ipv4:
+    became: inet:ip
+    goals: [ip-version-agnostic]
+  inet:ipv6:
+    became: inet:ip
+    goals: [ip-version-agnostic]
+  inet:search:query:
+    props:
+      client:app:
+        became: client:software
+        goals: [model-refinement]
+  inet:service:access:
+    props:
+      client:app:
+        became: client:software
+        goals: [model-refinement]
+  inet:service:app:
+    became: inet:service:agent
+    goals: [renamed]
+  inet:service:emote:
+    props:
+      client:app:
+        became: client:software
+        goals: [model-refinement]
+  inet:service:login:
+    props:
+      client:app:
+        became: client:software
+        goals: [model-refinement]
+  inet:whois:ipquery:
+    props:
+      ipv4:
+        became: ip
+        goals: [ip-version-agnostic]
+      ipv6:
+        became: ip
+        goals: [ip-version-agnostic]
+  inet:whois:iprecord:
+    props:
+      net4:
+        became: net
+        goals: [ip-version-agnostic]
+      net6:
+        became: net
+        goals: [ip-version-agnostic]
+  inet:whois:rec:
+    became: inet:whois:record
+    goals: [renamed]
+  iso:3166:cc:
+    became: iso:3166:alpha2
+    goals: [renamed]
+  it:account:
+    became: it:host:account
+    goals: [renamed]
+    reason: v2 it:account was split into the base it:host:account with it:host:posix:account and it:host:windows:account subforms; use the platform-specific subform when known.
+  it:app:snort:hit:
+    became: it:app:snort:matched
+    goals: [renamed]
+  it:cloud:host:
+    props:
+      ipv4:
+        became: ip
+        goals: [ip-version-agnostic]
+  it:dev:regkey:
+    became: it:os:windows:registry:key
+    goals: [renamed]
+  it:dev:regval:
+    became: it:os:windows:registry:entry
+    goals: [renamed]
+  it:exec:loadlib:
+    became: it:exec:lib:load
+    goals: [renamed]
+    props:
+      loaded:
+        goals: [renamed]
+        reason: The load event time is now recorded on the `:time` property.
+      unloaded:
+        goals: [model-refinement]
+        reason: A library unload event is now modeled as a separate `it:exec:lib:unload` node with a `:time` property.
+  it:exec:proc:
+    props:
+      windows:service:
+        goals: [causal-ledto]
+        reason: The service that started the process is now modeled as `it:os:windows:service -(ledto)> it:exec:proc`.
+  it:exec:reg:del:
+    became: it:exec:windows:registry:del
+    goals: [renamed]
+  it:exec:reg:get:
+    became: it:exec:windows:registry:get
+    goals: [renamed]
+  it:exec:reg:set:
+    became: it:exec:windows:registry:set
+    goals: [renamed]
+  it:exec:windows:registry:del:
+    props:
+      reg:
+        became: entry
+        goals: [renamed]
+  it:exec:windows:registry:get:
+    props:
+      reg:
+        became: entry
+        goals: [renamed]
+  it:exec:windows:registry:set:
+    props:
+      reg:
+        became: entry
+        goals: [renamed]
+  it:group:
+    became: it:host:group
+    goals: [renamed]
+    reason: v2 it:group was split into the base it:host:group with it:host:posix:group and it:host:windows:group subforms; use the platform-specific subform when known.
+  it:hardwaretype:
+    became: it:hardware:type:taxonomy
+    goals: [taxonomy-convention]
+  it:host:
+    props:
+      ipv4:
+        became: ip
+        goals: [ip-version-agnostic]
+  it:hosturl:
+    became: it:exec:fetch
+    goals: [renamed]
+  it:network:
+    props:
+      net4:
+        became: net
+        goals: [ip-version-agnostic]
+      net6:
+        became: net
+        goals: [ip-version-agnostic]
+  it:os:windows:registry:entry:
+    props:
+      bytes:
+        became: value
+        goals: [eitheror-removed]
+      int:
+        became: value
+        goals: [eitheror-removed]
+      str:
+        became: value
+        goals: [eitheror-removed]
+  it:physical:host:
+    props:
+      ipv4:
+        became: ip
+        goals: [ip-version-agnostic]
+  it:prod:hardware:
+    became: it:hardware
+    goals: [renamed]
+  it:prod:hardwaretype:
+    became: it:hardware:type:taxonomy
+    goals: [taxonomy-convention]
+  it:prod:soft:
+    became: it:software
+    goals: [model-refinement]
+  it:prod:soft:taxonomy:
+    became: it:software:type:taxonomy
+    goals: [taxonomy-convention]
+  it:prod:softname:
+    became: it:softwarename
+    goals: [model-refinement]
+  it:prod:softver:
+    became: it:software
+    goals: [model-refinement]
+  it:softid:
+    props:
+      soft:
+        became: software
+        goals: [model-refinement]
+      soft:name:
+        became: software:name
+        goals: [model-refinement]
+  it:virtual:host:
+    props:
+      ipv4:
+        became: ip
+        goals: [ip-version-agnostic]
+  media:news:
+    became: doc:report
+    goals: [renamed]
+  meta:event:taxonomy:
+    became: meta:event:type:taxonomy
+    goals: [taxonomy-convention]
+  meta:timeline:taxonomy:
+    became: meta:timeline:type:taxonomy
+    goals: [taxonomy-convention]
+  ou:camptype:
+    became: entity:campaign:type:taxonomy
+    goals: [taxonomy-convention]
+  ou:conference:
+    props:
+      url:
+        became: website
+        goals: [renamed]
+  ou:conference:event:
+    became: ou:event
+    goals: [renamed]
+  ou:contest:
+    props:
+      url:
+        became: website
+        goals: [renamed]
+  ou:contract:
+    became: doc:contract
+    goals: [renamed]
+  ou:conttype:
+    became: doc:contract:type:taxonomy
+    goals: [taxonomy-convention]
+  ou:employment:
+    became: ou:employment:type:taxonomy
+    goals: [taxonomy-convention]
+  ou:event:
+    props:
+      url:
+        became: website
+        goals: [renamed]
+  ou:id:update:
+    became: ou:id:history
+    goals: [renamed]
+  ou:jobtitle:
+    became: entity:title
+    goals: [renamed]
+  ou:jobtype:
+    became: ou:job:type:taxonomy
+    goals: [taxonomy-convention]
+  ou:meet:
+    became: ou:meeting
+    goals: [renamed]
+  ou:opening:
+    props:
+      employment:
+        became: employment:type
+        goals: [taxonomy-convention]
+      jobtitle:
+        became: title
+        goals: [renamed]
+      jobtype:
+        became: job:type
+        goals: [taxonomy-convention]
+      posted:
+        became: period
+        goals: [interval-consolidated]
+      removed:
+        became: period
+        goals: [interval-consolidated]
+      yearlypay:
+        became: pay:min
+        goals: [renamed]
+  ou:org:
+    props:
+      orgtype:
+        became: type
+        goals: [taxonomy-convention]
+  ou:orgnet4:
+    became: ou:orgnet
+    goals: [ip-version-agnostic]
+  ou:orgnet6:
+    became: ou:orgnet
+    goals: [ip-version-agnostic]
+  ou:orgtype:
+    became: ou:org:type:taxonomy
+    goals: [taxonomy-convention]
+  ou:preso:
+    props:
+      url:
+        became: website
+        goals: [renamed]
+  ou:role:
+    became: entity:title
+    goals: [renamed]
+  ou:vitals:
+    props:
+      asof:
+        became: time
+        goals: [renamed]
+      orgfqdn:
+        became: org:fqdn
+        goals: [renamed]
+      orgname:
+        became: org:name
+        goals: [renamed]
+  pol:country:
+    props:
+      dissolved:
+        became: period
+        goals: [interval-consolidated]
+      founded:
+        became: period
+        goals: [interval-consolidated]
+      iso2:
+        became: code
+        goals: [renamed]
+  pol:immigration:status:
+    props:
+      began:
+        became: period
+        goals: [interval-consolidated]
+      ended:
+        became: period
+        goals: [interval-consolidated]
+  pol:iso2:
+    became: iso:3166:alpha2
+    goals: [renamed]
+  pol:iso3:
+    became: iso:3166:alpha3
+    goals: [renamed]
+  pol:isonum:
+    became: iso:3166:numeric3
+    goals: [renamed]
+  pol:vitals:
+    props:
+      asof:
+        became: time
+        goals: [renamed]
+  proj:ticket:
+    props:
+      ext:url:
+        became: url
+        goals: [renamed]
+  ps:vitals:
+    props:
+      asof:
+        became: time
+        goals: [renamed]
+      contact:
+        became: individual
+        goals: [renamed]
+      person:
+        became: individual
+        goals: [renamed]
+  ps:workhist:
+    props:
+      duration:
+        became: period
+        goals: [interval-consolidated]
+      employment:
+        became: employment:type
+        goals: [taxonomy-convention]
+      ended:
+        became: period
+        goals: [interval-consolidated]
+      jobtitle:
+        became: title
+        goals: [renamed]
+      jobtype:
+        became: job:type
+        goals: [taxonomy-convention]
+      orgfqdn:
+        became: org:fqdn
+        goals: [renamed]
+      orgname:
+        became: org:name
+        goals: [renamed]
+      started:
+        became: period
+        goals: [interval-consolidated]
+  risk:alert:taxonomy:
+    became: risk:alert:type:taxonomy
+    goals: [taxonomy-convention]
+  risk:attacktype:
+    became: risk:attack:type:taxonomy
+    goals: [taxonomy-convention]
+  risk:compromisetype:
+    became: risk:compromise:type:taxonomy
+    goals: [taxonomy-convention]
+  risk:leak:
+    props:
+      public:url:
+        became: urls
+        goals: [renamed]
+  risk:outage:
+    props:
+      attack:
+        goals: [causal-ledto]
+        reason: The attack that caused the outage is now modeled as `risk:attack -(ledto)> risk:outage`.
+  risk:tool:software:
+    became: it:software
+    goals: [model-refinement]
+  risk:vuln:
+    props:
+      timeline:exploited:
+        became: exploited
+        goals: [renamed]
+      timeline:published:
+        became: published
+        goals: [renamed]
+      timeline:vendor:fixed:
+        became: vendor:fixed
+        goals: [renamed]
+      timeline:vendor:notified:
+        became: vendor:notified
+        goals: [renamed]
+  sci:experiment:
+    props:
+      time:
+        became: period
+        goals: [interval-consolidated]
+      window:
+        became: period
+        goals: [interval-consolidated]
+  tel:call:
+    props:
+      dst:
+        became: recipient:phone
+        goals: [renamed]
+      src:
+        became: caller:phone
+        goals: [renamed]
+  transport:cargo:
+    props:
+      loaded:
+        became: period
+        goals: [interval-consolidated]
+      unloaded:
+        became: period
+        goals: [interval-consolidated]
+  transport:occupant:
+    props:
+      boarded:
+        became: period
+        goals: [interval-consolidated]
+      disembarked:
+        became: period
+        goals: [interval-consolidated]

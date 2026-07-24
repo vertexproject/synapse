@@ -486,14 +486,14 @@ Poly values are stored with `STOR_FLAG_POLY | form.type.stortype`. The `getStorI
 
 Poly comparisons (e.g., `:poly > 2`, `:poly = somestr`) fan out across all allowed types. Each type's comparator constructor is called with the value; types that raise `BadTypeValu` are silently skipped. A match on any type's comparator returns true. When comparing against a `NodeRef`, an exact ndef match is checked first.
 
-### Storm Representation: NodeRef (`synapse/lib/stormtypes.py`)
+### Storm Representation: Valu / NodeRef (`synapse/lib/stormtypes.py`)
 
-Poly values are exposed in Storm as `NodeRef` objects wrapping `(formname, formvalue)`. NodeRef provides:
+Poly values are exposed in Storm as `Valu` objects (a `(type, value)` tuple); a poly value that
+references a node is the `NodeRef` subtype (which adds `.exists`). A `Valu` provides:
 
-- `.form` -- the form name string
+- `.type` -- the type name (for a `NodeRef`, the form name)
 - `.value` -- the raw value
-- `.ndef` -- the `(form, value)` tuple
-- `.is(name)` -- returns true if the value is of the given form or implements the given interface (or a list of either); checks `form.formtypes` so inherited types match and `form.implements()` for interfaces
+- `.is(name)` -- returns true if the value's type is the given type name (or one in a list); checks the type's `types` hierarchy so inherited types match. (This is the same method name as the `node` object's `.is()`; they operate on different objects.)
 - Deref (`.propname`) -- resolves against virtual properties from the value's type, then falls back to primitive deref
 
 ### Polyprops Registration (`datamodel.py`)

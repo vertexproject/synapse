@@ -37,14 +37,14 @@ class TelcoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[tel:mob:imid=(490154203237518, 310150123456789)]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('tel:mob:imid', ('490154203237518', '310150123456789')))
+            self.eq(node.ndef, ('tel:mob:imid', (('tel:mob:imei', '490154203237518'), ('tel:mob:imsi', '310150123456789'))))
             self.propeq(node, 'imei', '490154203237518')
             self.propeq(node, 'imsi', '310150123456789')
 
             nodes = await core.nodes('[tel:mob:imsiphone=(310150123456789, "+7(495) 124-59-83")]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('tel:mob:imsiphone', ('310150123456789', '74951245983')))
+            self.eq(node.ndef, ('tel:mob:imsiphone', (('tel:mob:imsi', '310150123456789'), ('tel:phone', '74951245983'))))
             self.propeq(node, 'imsi', '310150123456789')
             self.propeq(node, 'phone', '74951245983')
 
@@ -57,7 +57,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes("[ tel:mob:carrier=('001', '02') ]")
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('tel:mob:carrier', ('001', '02')))
+            self.eq(node.ndef, ('tel:mob:carrier', (('tel:mob:mcc', '001'), ('tel:mob:mnc', '02'))))
             self.propeq(node, 'mcc', '001')
             self.propeq(node, 'mnc', '02')
 

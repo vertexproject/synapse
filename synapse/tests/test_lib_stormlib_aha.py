@@ -34,8 +34,10 @@ class AhaLibTest(s_test.SynTest):
 
                 self.len(nevents, await waiter.wait(timeout=12))
 
+                # the list now includes the AHA's own self-registered entry.
                 svcs = await core00.callStorm('$l=() for $i in $lib.aha.list() { $l.append($i) } fini { return ($l) }')
-                self.len(4, svcs)
+                self.len(5, svcs)
+                self.isin('000.aha.synapse', [s.get('name') for s in svcs])
 
                 svc = await core00.callStorm('return( $lib.aha.get(core...) )')
                 self.eq('core.synapse', svc.get('name'))

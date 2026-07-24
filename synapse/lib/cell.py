@@ -808,7 +808,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     # Required storage version in order to boot the cell; this is specified as a PEP440 vesrion identifier.
     # This must be updated during beta releases!
-    _reqSynStorVers = '==3.0.0b3'
+    _reqSynStorVers = '==3.0.0b4'
 
     # Subclasses may set this to an s_mcp.CellMcp subclass to mount an MCP endpoint.
     _mcp_ctor = None
@@ -2094,7 +2094,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.sockaddr is None:
             return None
 
-        turl = self.conf.get('dmon:listen')
+        turl = self._getDmonListen()
 
         # Dynamically generate the aha info based on config and runtime data.
         urlinfo = s_telepath.chopurl(turl)

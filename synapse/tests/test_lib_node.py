@@ -6,6 +6,7 @@ import synapse.common as s_common
 
 import synapse.lib.json as s_json
 import synapse.lib.node as s_node
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -139,6 +140,22 @@ class NodeTest(s_t_utils.SynTest):
                     if m[0] == 'node':
                         self.none(m[1][1].get('n1verbs'))
                         self.none(m[1][1].get('n2verbs'))
+
+            # the internal "_stortypes" virt a comp value carries for the layer
+            # must not leak into the packed (display) virts / props
+            nodes = await core.nodes('[ test:comp=(1234, haha) ]')
+            iden, info = nodes[0].pack(virts=True)
+            self.eq(iden, ('test:comp', (('test:int', 1234), ('test:lower', 'haha'))))
+            self.notin('_stortypes', info['virts'])
+            self.eq(info['virts'], {})
+
+            q = '''[ crypto:currency:transaction=(btc, abcd)
+                :block=(({"symbol": "btc", "id": "foo", "$as": "crypto:currency:chain"}), 12) ]'''
+            nodes = await core.nodes(q)
+            iden, info = nodes[0].pack(virts=True)
+            self.false(any('_stortypes' in name for name in info['props']))
+            # the real per-field virt still packs
+            self.eq(info['props']['block.type'], 'crypto:currency:block')
 
     async def test_get_has_pop_repr_set(self):
 
@@ -731,7 +748,7 @@ class NodeTest(s_t_utils.SynTest):
             self.len(1, nodes[0].getTags())
             self.nn(nodes[0].getTag('ping'))
 
-    async def test_noderefsprops(self):
+    async def test_stormprops(self):
 
         async with self.getTestCore() as core:
 
@@ -744,7 +761,7 @@ class NodeTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:str=refprop', opts={'view': fork})
             self.len(1, nodes)
-            refs = nodes[0].getNodeRefProps()
+            refs = nodes[0].getStormProps()
             self.none(refs.get('bar'))
 
             # test antivalu path (requires 3 layers: grandparent, parent with deletion, child with recreation)
@@ -754,11 +771,26 @@ class NodeTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:str=refprop', opts={'view': fork2})
             self.len(1, nodes)
-            refs = nodes[0].getNodeRefProps()
+            refs = nodes[0].getStormProps()
             self.nn(refs.get('bar'))
 
             nodes = await core.nodes('[test:str=arryprop :polyarry=(foo, bar)]')
             self.len(1, nodes)
-            refs = nodes[0].getNodeRefProps()
+            refs = nodes[0].getStormProps()
             self.nn(refs.get('polyarry'))
             self.isinstance(refs.get('polyarry'), tuple)
+
+            # a non-form typed prop resolves to a Valu (not a NodeRef), while a
+            # form-valued prop resolves to a NodeRef.
+            nodes = await core.nodes('[test:str=reftypes :hehe=woot :somestr=hello]')
+            self.len(1, nodes)
+            refs = nodes[0].getStormProps()
+
+            hehe = refs.get('hehe')
+            self.isinstance(hehe, s_stormtypes.Valu)
+            self.false(isinstance(hehe, s_stormtypes.NodeRef))
+            self.eq('woot', hehe.value())
+
+            somestr = refs.get('somestr')
+            self.isinstance(somestr, s_stormtypes.NodeRef)
+            self.eq('hello', somestr.value())

@@ -13,6 +13,7 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.time as s_time
+import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -1852,9 +1853,27 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org DATA', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org -(_bar)>', msgs)
 
+            offs = core.nexsroot.nexslog.index()
+
             nodes = await core.nodes('ou:org | movenodes --apply', opts=view2)
 
             self.len(0, await core.nodes('ou:org=(foo,)'))
+
+            # the relocated node value must be emitted as a well-formed
+            # (etyp, parms) EDIT_NODE_ADD.
+            addvalu = None
+            async for _, item in core.getNexusChanges(offs, wait=False):
+                if item[1] != 'edits':
+                    continue
+
+                for nid, form, edit in item[2][0]:
+                    for etyp, parms in edit:
+                        if etyp == s_layer.EDIT_NODE_ADD:
+                            addvalu = parms
+
+            # the EDIT_NODE_ADD parms are (valu, stortype, virts)
+            self.nn(addvalu)
+            self.len(3, addvalu)
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
             sode = sodes[0]
@@ -1982,6 +2001,45 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(tagmerge,) return($node.getStorNodes())', opts=view2)
             self.eq(sodes[0]['tags'], {'foo': (1577836800000000, 1577836800000001, 1)})
             self.none(sodes[1].get('tags'))
+
+            # moving ival props/tagprops must emit the stored (poly-wrapped)
+            # stortype and merged value.
+            await core.addTagProp('_dur', ('ival', {}), {})
+            await core.nodes('[ it:host=(ivalmove,) :seen=(2020, 2022) +#when:_dur=(2020, 2022) ]')
+            await core.nodes('[ it:host=(ivalmove,) :seen=(2021, 2023) +#when:_dur=(2021, 2023) ]', opts=view2)
+
+            offs = core.nexsroot.nexslog.index()
+
+            await core.nodes('it:host=(ivalmove,) | movenodes --apply', opts=view3)
+
+            propvalu = propstor = tpvalu = None
+            async for _, item in core.getNexusChanges(offs, wait=False):
+                if item[1] != 'edits':
+                    continue
+
+                for nid, form, edit in item[2][0]:
+                    if form != 'it:host':
+                        continue
+
+                    for etyp, parms in edit:
+                        if etyp == s_layer.EDIT_PROP_SET and parms[0] == 'seen':
+                            propvalu, propstor = parms[1], parms[2]
+
+                        elif etyp == s_layer.EDIT_TAGPROP_SET and parms[:2] == ('when', '_dur'):
+                            tpvalu = parms[2]
+
+            # the ival prop carries its stored poly stortype (STOR_FLAG_POLY set)
+            self.nn(propstor)
+            self.eq(propstor & s_layer.STOR_FLAG_POLY, s_layer.STOR_FLAG_POLY)
+            self.eq(propstor & s_layer.STOR_MASK_POLY, s_layer.STOR_TYPE_IVAL)
+            self.eq(propvalu[0], 'ival')
+            self.len(3, propvalu[1])
+            self.eq(propvalu[1][2], propvalu[1][1] - propvalu[1][0])
+
+            # the ival tagprop is merged into a (min, max, duration) triple
+            self.nn(tpvalu)
+            self.len(3, tpvalu)
+            self.eq(tpvalu[2], tpvalu[1] - tpvalu[0])
 
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('view', 'fork')))
@@ -2369,7 +2427,8 @@ class StormTest(s_t_utils.SynTest):
             resp = s_json.loads(buf)
             return resp
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
             addr, port = await core.addHttpsPort(0)
             root = await core.auth.getUserByName('root')
             await root.setPasswd('root')
@@ -3138,33 +3197,24 @@ class StormTest(s_t_utils.SynTest):
             base = {
                 'name': 'endptest',
                 'version': '0.0.1',
-                'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+                'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
             }
 
-            # a modconf endpoint with an unknown key is rejected
+            # a top-level endpoint with an unknown key is rejected
             pdef = dict(base)
-            pdef['modules'] = (
-                {'name': 'endptest.mod', 'storm': '', 'modconf': {
-                    'endpoints': {'bad': {'path': '/v1/x', 'newp': 1}}}},
-            )
+            pdef['endpoints'] = {'bad': {'path': '/v1/x', 'newp': 1}}
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(pdef)
 
-            # a modconf endpoint missing the required path is rejected
+            # a top-level endpoint missing the required path is rejected
             pdef = dict(base)
-            pdef['modules'] = (
-                {'name': 'endptest.mod', 'storm': '', 'modconf': {
-                    'endpoints': {'bad': {'desc': 'no path'}}}},
-            )
+            pdef['endpoints'] = {'bad': {'desc': 'no path'}}
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(pdef)
 
-            # a well-formed modconf endpoint validates
+            # a well-formed top-level endpoint validates
             pdef = dict(base)
-            pdef['modules'] = (
-                {'name': 'endptest.mod', 'storm': '', 'modconf': {
-                    'endpoints': {'ok': {'url': 'https://x', 'path': '/v1/x', 'desc': 'ok'}}}},
-            )
+            pdef['endpoints'] = {'ok': {'url': 'https://x', 'path': '/v1/x', 'desc': 'ok'}}
             await core.addStormPkg(pdef)
 
             # a command.endpoints entry with an unknown key is rejected
@@ -3803,7 +3853,7 @@ class StormTest(s_t_utils.SynTest):
             # scraped crypto currency addresses resolve their chain via the gutor
             nodes = await core.nodes('$foo="1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2" | scrape $foo --yield --forms crypto:currency:address')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('crypto:currency:address', ('673291fe74aaf588cb4f69f833330273', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')))
+            self.eq(nodes[0].ndef, ('crypto:currency:address', (('crypto:currency:chain', '673291fe74aaf588cb4f69f833330273'), ('str', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))))
             self.propeq(nodes[0], 'iden', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
             # the scraped address materializes its chain with the :symbol set via the gutor
             self.len(1, await core.nodes('crypto:currency:address -> crypto:currency:chain +:symbol=btc'))
@@ -4013,7 +4063,7 @@ class StormTest(s_t_utils.SynTest):
             exp = {
                 ('inet:ip', (4, 0x01020304)),
                 ('inet:fqdn', 'woot.com'),
-                ('inet:dns:a', ('woot.com', (4, 0x01020304))),
+                ('inet:dns:a', (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 0x01020304)))),
             }
             self.eq(exp, {n.ndef for n in nodes})
 
@@ -4060,7 +4110,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(4, nodes)
             exp = [
                 ('inet:asn', 1234),
-                ('inet:dns:a', ('woot.com', (4, 0x01020304))),
+                ('inet:dns:a', (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 0x01020304)))),
                 ('inet:ip', (4, 0x01020304)),
                 ('inet:fqdn', 'woot.com'),
             ]
@@ -4080,7 +4130,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq({node.ndef for node in nodes}, {
                 ('inet:fqdn', 'woot.com'),
                 ('inet:ip', (4, 16909060)),
-                ('inet:dns:a', ('woot.com', (4, 16909060))),
+                ('inet:dns:a', (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 16909060)))),
                 ('inet:fqdn', 'com'),
             })
 
@@ -4736,10 +4786,10 @@ class StormTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+                'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
                 'commands': ({
                                  'name': 'testcmd',
-                                 'descr': 'test command',
+                                 'desc': 'test command',
                                  'storm': '[ inet:ip=1.2.3.4 ]',
                              },),
                 'modules': (
@@ -4885,19 +4935,19 @@ class StormTest(s_t_utils.SynTest):
                 'commands': (
                     {
                         'name': 'deprmesg',
-                        'descr': 'deprecated command',
+                        'desc': 'deprecated command',
                         'deprecated': {'eolvers': 'v4.0.0', 'mesg': 'Please use something else.'},
                         'storm': '[ inet:ip=1.2.3.4 ]',
                     },
                     {
                         'name': 'deprnomesg',
-                        'descr': 'deprecated command',
+                        'desc': 'deprecated command',
                         'deprecated': {'eoldate': '2099-01-01'},
                         'storm': '[ inet:ip=1.2.3.4 ]',
                     },
                     {
                         'name': 'deprargs',
-                        'descr': 'deprecated command',
+                        'desc': 'deprecated command',
                         'storm': '[ inet:ip=1.2.3.4 ]',
                         'cmdargs': (
                             ('--start-time', {
@@ -6182,7 +6232,8 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('[ test:ro=bad :readable=foo ]', opts=opts)
 
     async def test_lib_storm_delnode(self):
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('node',)))

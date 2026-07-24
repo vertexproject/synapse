@@ -122,14 +122,12 @@ modeldefs = (
                         'doc': 'The entity which placed the call.'}),
 
                     ('caller:phone', ('tel:phone', {}), {
-                        'prevnames': ('src',),
                         'doc': 'The phone number the caller placed the call from.'}),
 
                     ('recipient', ('entity:actor', {}), {
                         'doc': 'The entity which received the call.'}),
 
                     ('recipient:phone', ('tel:phone', {}), {
-                        'prevnames': ('dst',),
                         'doc': 'The phone number at which the recipient received the call.'}),
 
                     ('period', None, {

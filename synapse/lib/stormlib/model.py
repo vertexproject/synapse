@@ -19,7 +19,7 @@ RISK_HASVULN_VULNPROPS = (
 stormcmds = [
     {
         'name': 'model.deprecated.lock',
-        'descr': 'Edit lock status of deprecated model elements.',
+        'desc': 'Edit lock status of deprecated model elements.',
         'cmdargs': (
             ('name', {'help': 'The deprecated form or property name to lock or * to lock all.'}),
             ('--unlock', {'help': 'Unlock rather than lock the deprecated property.', 'default': False, 'action': 'store_true'}),
@@ -45,7 +45,7 @@ stormcmds = [
     },
     {
         'name': 'model.deprecated.locks',
-        'descr': 'Display lock status of deprecated model elements.',
+        'desc': 'Display lock status of deprecated model elements.',
         'storm': '''
             $locks = $lib.model.deprecated.locks()
             if $locks {
@@ -60,7 +60,7 @@ stormcmds = [
     },
     {
         'name': 'model.deprecated.check',
-        'descr': 'Check for lock status and the existence of deprecated model elements',
+        'desc': 'Check for lock status and the existence of deprecated model elements',
         'storm': '''
             init {
 
@@ -655,7 +655,7 @@ class MigrationEditorMixin:
 
         form = src.form
 
-        for name, valu in src.getNodeRefProps().items():
+        for name, valu in src.getStormProps().items():
             prop = form.props.get(name)
             if not prop.isext:
                 continue

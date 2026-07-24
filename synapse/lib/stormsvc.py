@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 stormcmds = (
     {
         'name': 'service.add',
-        'descr': 'Add a storm service to the cortex.',
+        'desc': 'Add a storm service to the cortex.',
         'cmdargs': (
             ('name', {'help': 'The name of the service.'}),
             ('url', {'help': 'The telepath URL for the remote service.'}),
@@ -18,7 +18,7 @@ stormcmds = (
     },
     {
         'name': 'service.del',
-        'descr': 'Remove a storm service from the cortex.',
+        'desc': 'Remove a storm service from the cortex.',
         'cmdargs': (
             ('iden', {'help': 'The service identifier or prefix.'}),
         ),
@@ -47,7 +47,7 @@ stormcmds = (
     },
     {
         'name': 'service.list',
-        'descr': 'List the storm services configured in the cortex.',
+        'desc': 'List the storm services configured in the cortex.',
         'cmdconf': {},
         'storm': '''
             $lib.print("")

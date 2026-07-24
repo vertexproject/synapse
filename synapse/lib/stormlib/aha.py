@@ -223,7 +223,7 @@ class AhaLib(s_stormtypes.Lib):
 stormcmds = (
     {
         'name': 'aha.svc.stat',
-        'descr': '''Show all information for a specific AHA service.
+        'desc': '''Show all information for a specific AHA service.
 
 If the --nexus argument is given, the Cortex will attempt to connect the service and report the Nexus offset of the service.
 
@@ -302,7 +302,7 @@ The ready value indicates that a service has entered into the realtime change wi
     },
     {
         'name': 'aha.svc.list',
-        'descr': '''List AHA services.
+        'desc': '''List AHA services.
 
 If the --nexus argument is given, the Cortex will attempt to connect to each service and report the Nexus offset of the service.
 
@@ -409,7 +409,7 @@ The ready column indicates that a service has entered into the realtime change w
     },
     {
         'name': 'aha.svc.mirror',
-        'descr': textwrap.dedent('''\
+        'desc': textwrap.dedent('''\
             Query the AHA services and their mirror relationships.
 
             Note: non-mirror services are not displayed.

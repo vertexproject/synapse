@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '3.0.0b3'
+version = '3.0.0b4'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
@@ -88,6 +88,7 @@ include-package-data = true
 [tool.setuptools.package-data]
 'synapse' = [
     'data/*.mpk',
+    'data/*.yaml',
     'data/certs/**',
     'data/lark/*.lark',
     'data/attack-flow/**',

@@ -17,7 +17,6 @@ modeldefs = (
 
                     ('id', ('base:id', {}), {
                         'ex': 'chem101',
-                        'prevnames': ('code',),
                         'doc': 'The course catalog number or ID.'}),
 
                     ('institution', ('ou:org', {}), {
@@ -60,7 +59,6 @@ modeldefs = (
                         'doc': 'An array of assistant/co-instructor contacts.'}),
 
                     ('period', ('activity:day', {}), {
-                        'prevnames': ('date:first', 'date:last'),
                         'doc': 'The period over which the class was run.'}),
 
                     ('remote', ('percent', {}), {
@@ -118,30 +116,24 @@ modeldefs = (
                         'doc': 'The org that this work history orgname refers to.'}),
 
                     ('org:name', ('entity:name', {}), {
-                        'prevnames': ('orgname',),
                         'doc': 'The reported name of the org the contact worked for.'}),
 
                     ('org:fqdn', ('inet:fqdn', {}), {
-                        'prevnames': ('orgfqdn',),
                         'doc': 'The reported fqdn of the org the contact worked for.'}),
 
                     ('job:type', ('ou:job:type:taxonomy', {}), {
-                        'doc': 'The type of job.',
-                        'prevnames': ('jobtype',)}),
+                        'doc': 'The type of job.'}),
 
                     ('employment:type', ('ou:employment:type:taxonomy', {}), {
-                        'doc': 'The type of employment.',
-                        'prevnames': ('employment',)}),
+                        'doc': 'The type of employment.'}),
 
                     ('title', ('entity:title', {}), {
-                        'prevnames': ('jobtitle',),
                         'doc': 'The title held by the contact.'}),
 
                     ('pay', ('econ:price', {}), {
                         'doc': 'The average yearly income paid to the contact.'}),
 
                     ('period', ('ival', {}), {
-                        'prevnames': ('started', 'ended', 'duration'),
                         'doc': 'The period of time that the contact worked for the organization.'}),
 
                     ('desc', ('text', {}), {
@@ -157,11 +149,9 @@ modeldefs = (
                 'props': (
 
                     ('time', ('time', {}), {
-                        'prevnames': ('asof',),
                         'doc': 'The time the vitals were gathered or computed.'}),
 
                     ('individual', ('entity:individual', {}), {
-                        'prevnames': ('contact', 'person'),
                         'doc': 'The individual that the vitals are about.'}),
 
                     ('econ:net:worth', ('econ:price', {}), {

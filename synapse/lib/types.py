@@ -150,6 +150,7 @@ class Type:
 
             ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
             self.typehash = computeTypeHash(ctor, self.opts)
+            self.modl.typesbyhash[self.typehash] = self
 
     def _initType(self):
         inits = [self.postTypeInit]
@@ -165,6 +166,7 @@ class Type:
 
         ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
         self.typehash = computeTypeHash(ctor, self.opts)
+        self.modl.typesbyhash[self.typehash] = self
 
     def __hash__(self):
         return hash(self.typehash)
@@ -197,6 +199,22 @@ class Type:
 
     def getStorType(self, valu):
         return self.stortype
+
+    def getSortNorm(self, norm):
+        '''
+        Return the canonical form of a normed value for Array uniq/sort comparison.
+        Case-folding types (e.g. ``text``) override this to match how the layer
+        indexes them. Defaults to identity.
+        '''
+        return norm
+
+    def getStorVirts(self, valu):
+        '''
+        Return a dict of hidden ("_" prefixed) virts to carry alongside a normed
+        value so the storage layer can index it without resolving member types
+        against the model, or None if the type needs none. See Array/Poly/Comp.
+        '''
+        return None
 
     async def getStorCmprs(self, cmpr, valu, virt=None):
 
@@ -447,16 +465,18 @@ class Type:
 
     async def _ctorCmprEq(self, text):
         norm, info = await self.norm(text)
+        norm = self.getSortNorm(norm)
 
         async def cmpr(valu):
-            return norm == valu
+            return self.getSortNorm(valu) == norm
         return cmpr
 
     async def _ctorCmprNe(self, text):
         norm, info = await self.norm(text)
+        norm = self.getSortNorm(norm)
 
         async def cmpr(valu):
-            return norm != valu
+            return self.getSortNorm(valu) != norm
         return cmpr
 
     async def _ctorCmprPref(self, valu):
@@ -534,6 +554,16 @@ class Type:
             raise s_exc.BadTypeValu(name=self.name, mesg='no norm for type: %r.' % (type(valu),))
 
         return await func(valu, view=view)
+
+    async def normFromTypedValu(self, valu, view=None):
+        '''
+        Re-norm an already-typed value produced by Node.pack(). For a scalar type
+        the packed value is just its bare value, so this delegates to norm();
+        container types override this to re-norm their already-typed elements/fields
+        through the type each was normed as, so that the bare norm never has to
+        guess a type from valu[0].
+        '''
+        return await self.norm(valu, view=view)
 
     def repr(self, norm):
         '''
@@ -627,7 +657,7 @@ class Type:
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
 
-    async def tostorm(self, valu, virts=None):
+    def tostorm(self, valu, virts=None):
         '''
         Allows type-specific modifications to values to make them safe for use in the runtime.
 
@@ -764,6 +794,28 @@ class Array(Type):
         self.storlifts.pop('range=', None)
         self._cmpr_ctors.pop('range=', None)
 
+    def getStorVirts(self, valu):
+        # array members are poly types, so the layer needs each element's concrete
+        # stortype to index the array without resolving member types. A member
+        # that carries its own hidden virts (e.g. a comp) contributes a parallel
+        # _elemvirts entry so it too can be indexed without the model.
+        stortypes = []
+        elemvirts = []
+        for aval in valu:
+            stortypes.append(self.arraytype.getStorType(aval))
+            elemvirts.append(self.arraytype.getStorVirts(aval))
+
+        virts = {'_stortypes': tuple(stortypes)}
+        if any(ev is not None for ev in elemvirts):
+            virts['_elemvirts'] = tuple(elemvirts)
+
+        return virts
+
+    def getSortNorm(self, norm):
+        # fold each member so whole-array uniq/sort/compare are case-insensitive
+        # for case-folding members (e.g. text), matching the layer index.
+        return tuple(self.arraytype.getSortNorm(aval) for aval in norm)
+
     async def getStorCmprs(self, cmpr, valu, virt=None):
 
         if (virt is None and cmpr != '?=' and self.splitstr is None
@@ -840,7 +892,10 @@ class Array(Type):
                     norm = item
                 else:
                     typename = item[0]
-                    norm, info = await self.modl.type(typename).norm(item[1], view=view)
+                    # item is an existing, already-typed element; re-norm its value
+                    # through the typed path (bare norm would mis-read a wrapped comp
+                    # value as raw fields)
+                    norm, info = await self.modl.type(typename).normFromTypedValu(item[1], view=view)
                     norm = (typename, norm)
                     info['skipadd'] = True
             else:
@@ -889,16 +944,18 @@ class Array(Type):
             uniqs = []
             uniqhas = set()
 
+            # de-dup on the canonical form so case-variants collapse; first wins.
             for n in norms:
-                if n in uniqhas:
+                key = self.arraytype.getSortNorm(n)
+                if key in uniqhas:
                     continue
-                uniqhas.add(n)
+                uniqhas.add(key)
                 uniqs.append(n)
 
             norms = uniqs
 
         if self.issorted:
-            norms = sorted(norms)
+            norms = sorted(norms, key=self.arraytype.getSortNorm)
 
         norminfo = {
             'adds': adds,
@@ -913,12 +970,12 @@ class Array(Type):
             rval = self.splitstr.join(rval)
         return rval
 
-    async def tostorm(self, valu, virts=None):
-        return s_stormtypes.List([await self.arraytype.tostorm(v) for v in valu])
+    def tostorm(self, valu, virts=None):
+        return s_stormtypes.List([self.arraytype.tostorm(v) for v in valu])
 
 class Comp(Type):
 
-    stortype = s_layer.STOR_TYPE_MSGP
+    stortype = s_layer.STOR_TYPE_COMP
 
     _opt_defs = (
         ('sepr', None),   # type: ignore
@@ -937,23 +994,24 @@ class Comp(Type):
 
         self.fieldtypes = {}
         for fname, ftypename in self.opts.get('fields'):
-            if isinstance(ftypename, str):
-                _type = self.modl.type(ftypename)
-            else:
-                ftypename, opts = ftypename
-                _type = self.modl.type(ftypename).clone(opts)
 
-            if _type.deprecated and self.name.startswith('_'):
+            basename, typeopts = self.modl.convertTypedef((ftypename, {}))
+            _type = self.modl.type(basename).clone(typeopts)
+
+            membertype = self.modl.type(ftypename)
+            if membertype is not None and membertype.deprecated and self.name.startswith('_'):
                 mesg = f'The type {self.name} field {fname} uses a deprecated ' \
-                       f'type {_type.name} which will be removed in 4.0.0.'
+                       f'type {membertype.name} which will be removed in 4.0.0.'
                 logger.warning(mesg, extra={'synapse': {'type': self.name, 'field': fname}})
 
             self.fieldtypes[fname] = _type
 
     def _checkMutability(self):
         for fname, ftypename in self.opts.get('fields'):
-            if isinstance(ftypename, (list, tuple)):
-                ftypename = ftypename[0]
+            if not isinstance(ftypename, str):
+                mesg = f'Comp type {self.name} field {fname} must reference a named type; ' \
+                       f'inline type opts are not allowed.'
+                raise s_exc.BadTypeDef(valu=ftypename, mesg=mesg)
 
             if (ftype := self.modl.type(ftypename)) is None:
                 raise s_exc.BadTypeDef(valu=ftypename, mesg=f'Type {ftypename} is not present in datamodel.')
@@ -983,12 +1041,45 @@ class Comp(Type):
             norm, info = await _type.norm(valu[i], view=view)
             norms.append(norm)
 
-            if (typeform := self.modl.form(_type.name)) is not None:
-                adds.append((typeform.name, norm, info))
-                # TODO: potentially return a NodeRef to avoid a renorm?
-                subs[name] = (_type.typehash, norm, info)
-            else:
-                subs[name] = (_type.typehash, norm, info)
+            subs[name] = (_type.typehash, norm, info)
+
+            if (fsubs := info.get('subs')) is not None:
+                for k, v in fsubs.items():
+                    subs[f'{name}:{k}'] = v
+
+            adds.extend(info.get('adds', ()))
+
+        norm = tuple(norms)
+        return norm, {'subs': subs, 'adds': adds}
+
+    async def normFromTypedValu(self, valu, view=None):
+        '''
+        Re-norm an already-typed comp value (as produced by Node.pack()) whose
+        fields are each an already-typed (typename, value) value. Each field is
+        re-normed through its field type's normFromTypedValu so the field poly
+        resolves it by its known type rather than the bare norm guessing valu[0].
+        '''
+        if not isinstance(valu, (tuple, list)):
+            mesg = f'Comp value must be a list or tuple: {s_common.trimText(repr(valu))}'
+            raise s_exc.BadTypeValu(name=self.name, mesg=mesg)
+
+        fields = self.opts.get('fields')
+        if len(fields) != len(valu):
+            raise s_exc.BadTypeValu(name=self.name, fields=fields, numitems=len(valu),
+                                    mesg=f'invalid number of fields given for norming: {s_common.trimText(repr(valu))}')
+
+        subs = {}
+        adds = []
+        norms = []
+
+        for i, (name, _) in enumerate(fields):
+
+            _type = self.fieldtypes[name]
+
+            norm, info = await _type.normFromTypedValu(valu[i], view=view)
+            norms.append(norm)
+
+            subs[name] = (_type.typehash, norm, info)
 
             for k, v in info.get('subs', {}).items():
                 subs[f'{name}:{k}'] = v
@@ -997,6 +1088,29 @@ class Comp(Type):
 
         norm = tuple(norms)
         return norm, {'subs': subs, 'adds': adds}
+
+    def getStorTypes(self, valu):
+        '''
+        Return the per-field stortypes for a normed comp value as a tuple, with a
+        nested tuple in place of any field which is itself a comp.
+        '''
+        types = []
+        for typename, fieldnorm in valu:
+            tobj = self.modl.type(typename)
+            if tobj.stortype == s_layer.STOR_TYPE_COMP:
+                types.append(tobj.getStorTypes(fieldnorm))
+            else:
+                types.append(tobj.stortype)
+
+        return tuple(types)
+
+    def getStorVirts(self, valu):
+        return {'_stortypes': self.getStorTypes(valu)}
+
+    def getSortNorm(self, norm):
+        # fields are poly-wrapped, so each field type (a Poly) folds its member.
+        fields = self.opts.get('fields')
+        return tuple(self.fieldtypes[name].getSortNorm(fnorm) for fnorm, (name, _) in zip(norm, fields))
 
     async def _normPyStr(self, text, view=None):
         return await self._normPyTuple(text.split(self.sepr), view=view)
@@ -3234,7 +3348,7 @@ class Poly(Type):
     def typefilter(self, tobj):
         if not self.typeset:
             return False
-        return tobj.name in self.typeset
+        return any(name in self.typeset for name in tobj.types)
 
     def ifacefilter(self, form):
         if not self.ifaces:
@@ -3245,6 +3359,45 @@ class Poly(Type):
         if self.formtypes and any(f in self.formtypes for f in form.formtypes):
             return True
         return self.ifacefilter(form)
+
+    def acceptsType(self, typename):
+        if (tobj := self.modl.type(typename)) is None:
+            return False
+
+        if self.typefilter(tobj):
+            return True
+
+        form = self.modl.form(typename)
+        return form is not None and self.formfilter(form)
+
+    def _acceptedSubtypes(self, tobj):
+        # yield declared types that are a more specific version (subtype) of
+        # tobj so a broader-typed node value can be re-normed into the narrower
+        # declared type (e.g. an inet:ip node into an inet:ipv4 field).
+        for tname in self.typeset:
+            dtyp = self.modl.type(tname)
+            if dtyp.name != tobj.name and tobj.name in dtyp.types:
+                yield dtyp
+
+    def _canonType(self, typename, tobj, form):
+        '''
+        Canonicalize a typed value's type name to the declared poly type it
+        matches. A value accepted only via a subtype relationship (e.g. inet:ipv4
+        for a poly declaring inet:ip) is tagged with the declared ancestor, so it
+        is stored/indexed under a declared type and, when that ancestor is a form,
+        references the form node.
+        '''
+        if typename in self.typeset:
+            return typename
+
+        if form is not None and self.formfilter(form):
+            return typename
+
+        for ptyp in tobj.types:
+            if ptyp in self.typeset:
+                return ptyp
+
+        return typename  # pragma: no cover
 
     def getTypeSet(self):
         return self.modl.getTypeSet(types=self.typeset, interfaces=self.ifaces)
@@ -3385,6 +3538,18 @@ class Poly(Type):
         tobj = self.modl.reqType(valu[0])
         return s_layer.STOR_FLAG_POLY | tobj.stortype
 
+    def getSortNorm(self, norm):
+        typename, valu = norm
+        return (typename, self.modl.reqType(typename).getSortNorm(valu))
+
+    def getStorVirts(self, valu):
+        # a poly value is a (typename, membervalu) pair; a comp member needs its
+        # per-field stortypes carried so the layer can index it without the model.
+        tobj = self.modl.reqType(valu[0])
+        if tobj.stortype == s_layer.STOR_TYPE_COMP:
+            return {'_stortypes': tobj.getStorTypes(valu[1])}
+        return None
+
     async def getStorCmprs(self, cmpr, valu, virt=None):
 
         if virt is not None:
@@ -3484,31 +3649,30 @@ class Poly(Type):
         if vtyp is dict and (asname := valu.get('$as', s_common.novalu)) is not s_common.novalu:
             return await self._normDictAs(asname, valu, view=view)
 
-        if self.defaulttypes:
-            for typename in self.defaulttypes:
-                tobj = self.modl.type(typename)
-                form = self.modl.form(typename)
+        for typename in self.defaulttypes:
+            tobj = self.modl.type(typename)
+            form = self.modl.form(typename)
 
-                if form is not None and form.locked:
+            if form is not None and form.locked:
+                continue
+
+            if tobj.locked:
+                continue
+
+            try:
+                norm, typeinfo = await tobj.norm(valu, view=view)
+
+            except s_exc.BadTypeValu:
+                if len(self.defaulttypes) > 1:
                     continue
+                raise
 
-                if tobj.locked:
-                    continue
+            if view is None:
+                view = False
+                if (runt := s_scope.get('runt')) is not None:
+                    view = runt.view
 
-                try:
-                    norm, typeinfo = await tobj.norm(valu, view=view)
-
-                    if view is None:
-                        view = False
-                        if (runt := s_scope.get('runt')) is not None:
-                            view = runt.view
-
-                    return await self._packFormNorm(typename, norm, typeinfo, view)
-
-                except s_exc.BadTypeValu:
-                    if len(self.defaulttypes) > 1:
-                        continue
-                    raise
+            return await self._packFormNorm(typename, norm, typeinfo, view)
 
         if vtyp is dict:
             mesg = f'Dictionary guid constructor for {self.name} requires a "$as" key naming the form to construct.'
@@ -3561,14 +3725,28 @@ class Poly(Type):
 
     async def _normStormNode(self, valu, view=None):
 
-        if not self.formfilter(valu.form):
-            self._raiseBadTypeValu(valu.form.name)
+        if self.formfilter(valu.form):
 
-        if valu.form.locked or valu.form.type.locked:
-            formname = valu.form.name
-            raise s_exc.IsDeprLocked(mesg=f'Value of form {formname} is locked due to deprecation.', form=formname)
+            if valu.form.locked or valu.form.type.locked:
+                formname = valu.form.name
+                raise s_exc.IsDeprLocked(mesg=f'Value of form {formname} is locked due to deprecation.', form=formname)
 
-        return valu.ndef, {'skipadd': True, 'virts': valu.valuvirts()}
+            return valu.ndef, {'skipadd': True, 'virts': valu.valuvirts()}
+
+        # The node's form is not directly allowed, but an accepted type may be a
+        # more specific version of it (e.g. an inet:ip node for an inet:ipv4
+        # field). Re-norm the node's value through the narrower declared type so
+        # a value that is valid for it is accepted.
+        for subtype in self._acceptedSubtypes(valu.form.type):
+
+            try:
+                norm, typeinfo = await subtype.norm(valu.ndef[1], view=view)
+            except s_exc.BadTypeValu:
+                continue
+
+            return await self.packTypedNorm(subtype.name, norm, typeinfo, view=view)
+
+        self._raiseBadTypeValu(valu.form.name)
 
     async def _normStormValu(self, valu, view=None):
 
@@ -3591,18 +3769,17 @@ class Poly(Type):
 
         norm, typeinfo = await tobj.norm(valu.valu[1], view=view)
 
-        info = {}
-        if form is not None:
-            info['adds'] = ((typename, norm, typeinfo),)
-
-        if (virts := typeinfo.get('virts')) is not None:
-            info['virts'] = dict(virts)
-
-        return (typename, norm), info
+        tag = self._canonType(typename, tobj, form)
+        return await self.packTypedNorm(tag, norm, typeinfo, view=view)
 
     async def normFromTypedValu(self, valu, view=None):
         '''
         Normalize a (typename, value) pair as produced by Node.pack().
+
+        Here valu[0] is a trusted type name, unlike the bare norm() which never
+        interprets valu[0]. When the poly accepts that type (or an ancestor of
+        it) the value is re-normed through it idempotently; otherwise its inner
+        value is re-normed through the poly's declared default types.
         '''
         if not (type(valu) in (tuple, list) and len(valu) == 2 and isinstance(valu[0], str)):
             mesg = 'Value must be a (typename, value) tuple.'
@@ -3616,15 +3793,16 @@ class Poly(Type):
 
         form = self.modl.form(typename)
 
-        if not self.typefilter(tobj) and (form is None or not self.formfilter(form)):
+        if not self.acceptsType(typename):
             self._raiseBadTypeValu(typename)
 
         if tobj.locked or (form is not None and form.locked):
             raise s_exc.IsDeprLocked(mesg=f'Value of type {typename} is locked due to deprecation.', type=typename)
 
-        norm, typeinfo = await tobj.norm(pval, view=view)
+        norm, typeinfo = await tobj.normFromTypedValu(pval, view=view)
 
-        return await self.packTypedNorm(typename, norm, typeinfo, view=view)
+        tag = self._canonType(typename, tobj, form)
+        return await self.packTypedNorm(tag, norm, typeinfo, view=view)
 
     async def packTypedNorm(self, typename, norm, typeinfo, view=None):
         '''
@@ -3637,6 +3815,9 @@ class Poly(Type):
                 info['skipadd'] = True
             else:
                 info['adds'] = ((typename, norm, typeinfo),)
+
+        if (subs := typeinfo.get('subs')) is not None:
+            info['subs'] = subs
 
         if (virts := typeinfo.get('virts')) is not None:
             info['virts'] = dict(virts)
@@ -3669,7 +3850,7 @@ class Poly(Type):
 
         return tobj.reprWithVirts(valu, virts)
 
-    async def tostorm(self, valu, virts=None):
+    def tostorm(self, valu, virts=None):
         typename = valu[0]
         if self.modl.form(typename) is not None:
             return s_stormtypes.NodeRef((valu, virts))
@@ -3924,6 +4105,10 @@ class Text(Str):
         ('onespace', False),
         ('globsuffix', False),
     )
+
+    def getSortNorm(self, norm):
+        # text preserves case but matches case-insensitively; fold to lower.
+        return norm.lower()
 
     async def _ctorCmprEq(self, text):
         norm, info = await self.norm(text)

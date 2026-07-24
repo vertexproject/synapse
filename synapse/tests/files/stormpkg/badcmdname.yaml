@@ -3,4 +3,4 @@ version: [0, 0, 1]
 
 commands:
     - name: invalidCMD
-      descr: No capital letters in command names!
+      desc: No capital letters in command names!

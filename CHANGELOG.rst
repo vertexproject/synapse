@@ -6,6 +6,42 @@
 Synapse Changelog
 *****************
 
+v3.0.0b4 - 2026-07-24
+=====================
+
+Model Changes
+-------------
+- Removed the ``pol:election:time`` property in favor of the ``:period``
+  property from the ``base:activity`` interface.
+- Removed the ``:loaded`` and ``:unloaded`` properties from
+  ``it:exec:lib:load`` and added the ``it:exec:lib:unload`` form to model
+  library unload events.
+- Replaced the per-def ``prevnames`` model key with a bundled v2-to-v3 model
+  name map, exposed in the model dictionary as ``v2map``.
+- Comp type fields must reference a named type; inline ``(type, opts)`` field
+  definitions are no longer supported.
+- ``inet:http:param:name`` is now a ``text`` type (case-insensitive, case-
+  preserving) instead of ``str:lower``.
+
+Features and Enhancements
+-------------------------
+- The AHA service now registers itself in its own service registry and is
+  included in the AHA service lists.
+- Moved Storm package API endpoint definitions from a per-module
+  ``modconf.endpoints`` key to a schema'd top-level ``endpoints`` key on the
+  package definition.
+- Renamed the ``istype()`` method on Storm typed values to ``is()`` for
+  consistency with ``$node.is()``.
+- The type name in a Storm ``<value> as <type>`` cast may now be a format
+  string. For example::
+
+    $valu as `crypto:{$kind}`
+
+- The Storm ``<value> as <type>`` cast may now be applied to individual
+  elements inside a value list.
+- Added the ``SynTest.getTestCluster()`` test helper and ``TestCluster`` class
+  for booting a set of services on a single AHA network.
+
 v3.0.0b3 - 2026-07-17
 =====================
 

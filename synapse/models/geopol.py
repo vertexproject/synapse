@@ -13,7 +13,6 @@ modeldefs = (
 
                     ('code', ('pol:country:code', {}), {
                         'alts': ('codes',),
-                        'prevnames': ('iso2',),
                         'doc': 'The country code.'}),
 
                     ('codes', ('pol:country:code', {}), {
@@ -38,7 +37,6 @@ modeldefs = (
                         'doc': 'The geospatial properties of the country.'}),
 
                     ('period', ('ival', {}), {
-                        'prevnames': ('founded', 'dissolved'),
                         'doc': 'The period over which the country existed.'}),
 
                     ('vitals', ('pol:vitals', {}), {
@@ -75,7 +73,6 @@ modeldefs = (
                         'doc': 'The state of the immigration status.'}),
 
                     ('period', ('ival', {}), {
-                        'prevnames': ('began', 'ended'),
                         'doc': 'The time period when the contact was granted the status.'}),
 
                 ),
@@ -95,7 +92,6 @@ modeldefs = (
                         'doc': 'The country that the statistics are about.'}),
 
                     ('time', ('time', {}), {
-                        'prevnames': ('asof',),
                         'doc': 'The time that the vitals were measured.'}),
 
                     ('area', ('geo:area', {}), {
@@ -123,9 +119,6 @@ modeldefs = (
                     ('name', ('event:name', {}), {
                         'ex': '2022 united states congressional midterm election',
                         'doc': 'The name of the election.'}),
-
-                    ('time', ('time', {}), {
-                        'doc': 'The date of the election.'}),
                 ),
                 'doc': 'An election involving one or more races for office.'}),
 

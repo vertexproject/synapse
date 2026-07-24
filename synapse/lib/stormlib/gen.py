@@ -60,7 +60,7 @@ stormcmds = (
 
     {
         'name': 'gen.org',
-        'descr': 'Lift (or create) an ou:org node based on the organization name.',
+        'desc': 'Lift (or create) an ou:org node based on the organization name.',
         'cmdargs': (
             ('name', {'help': 'The name of the organization.'}),
             _tryarg,
@@ -69,7 +69,7 @@ stormcmds = (
     },
     {
         'name': 'gen.campaign',
-        'descr': 'Lift (or create) an entity:campaign based on the name and reporter.',
+        'desc': 'Lift (or create) an entity:campaign based on the name and reporter.',
         'cmdargs': (
             ('name', {'help': 'The name of the campaign.'}),
             ('reporter', {'help': 'The name of the reporting entity.'}),
@@ -79,7 +79,7 @@ stormcmds = (
     },
     {
         'name': 'gen.software',
-        'descr': 'Lift (or create) an it:software node based on the software name and reporter.',
+        'desc': 'Lift (or create) an it:software node based on the software name and reporter.',
         'cmdargs': (
             ('name', {'help': 'The name of the software.'}),
             ('reporter', {'help': 'The name of the reporting entity.'}),
@@ -89,7 +89,7 @@ stormcmds = (
     },
     {
         'name': 'gen.threat',
-        'descr': '''
+        'desc': '''
             Lift (or create) a risk:threat node based on the threat name and reporter name.
 
             Examples:
@@ -106,7 +106,7 @@ stormcmds = (
     },
     {
         'name': 'gen.vuln',
-        'descr': '''
+        'desc': '''
             Lift (or create) a risk:vuln node based on the CVE and reporter name.
 
             Examples:
@@ -123,7 +123,7 @@ stormcmds = (
     },
     {
         'name': 'gen.industry',
-        'descr': '''
+        'desc': '''
             Lift (or create) an ind:industry node based on the industry name and reporter name.
         ''',
         'cmdargs': (
@@ -135,7 +135,7 @@ stormcmds = (
     },
     {
         'name': 'gen.country',
-        'descr': '''
+        'desc': '''
             Lift (or create) a pol:country node based on the 2 letter ISO-3166 country code.
 
             Examples:
@@ -151,7 +151,7 @@ stormcmds = (
     },
     {
         'name': 'gen.government',
-        'descr': '''
+        'desc': '''
             Lift (or create) the ou:org node representing a country's government based on the 2 letter ISO-3166 country code.
 
             Examples:
@@ -167,7 +167,7 @@ stormcmds = (
     },
     {
         'name': 'gen.language',
-        'descr': 'Lift (or create) a lang:language node based on the name.',
+        'desc': 'Lift (or create) a lang:language node based on the name.',
         'cmdargs': (
             ('name', {'help': 'The name of the language.'}),
             _tryarg,
@@ -176,7 +176,7 @@ stormcmds = (
     },
     {
         'name': 'gen.place',
-        'descr': '''
+        'desc': '''
             Lift (or create) a geo:place node based on the name.
         ''',
         'cmdargs': (

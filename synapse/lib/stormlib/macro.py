@@ -32,7 +32,7 @@ List the macros set on the cortex.
 stormcmds = [
     {
         'name': 'macro.del',
-        'descr': macro_del_descr,
+        'desc': macro_del_descr,
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the macro to delete.'}),
         ),
@@ -43,7 +43,7 @@ stormcmds = [
     },
     {
         'name': 'macro.set',
-        'descr': macro_set_descr,
+        'desc': macro_set_descr,
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the macro to set.'}),
             ('storm', {'help': 'The storm command string or embedded query to set.'}),
@@ -55,7 +55,7 @@ stormcmds = [
     },
     {
         'name': 'macro.get',
-        'descr': macro_get_descr,
+        'desc': macro_get_descr,
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the macro to display.'}),
         ),
@@ -70,7 +70,7 @@ stormcmds = [
     },
     {
         'name': 'macro.list',
-        'descr': macro_list_descr,
+        'desc': macro_list_descr,
         'storm': '''
             $count = $(0)
             for ($name, $mdef) in $lib.macro.list() {

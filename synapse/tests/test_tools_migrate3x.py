@@ -1092,6 +1092,129 @@ class MigrationTest(s_t_utils.SynTest):
             await s_migr.repoissuelabelmigr(migr, sode, edits, [])
             self.eq(edits, [(s_layer.EDIT_NODE_ADD, (sode['valu'][0], s_layer.STOR_TYPE_GUID, {}))])
 
+    async def test_migr_execloadlib(self):
+        '''Cover execloadlibmigr: the 2.x it:exec:loadlib form migrates to
+        it:exec:lib:load, :loaded folds into the load event :time, and a set
+        :unloaded becomes a mirrored it:exec:lib:unload event.'''
+        async with self._getBareMigr(model=True, stors=True) as (migr, _, _):
+
+            proc = s_common.guid()
+            exe = s_common.guid()
+            file = s_common.guid()
+            host = s_common.guid()
+            thread = s_common.guid()
+            sandbox = s_common.guid()
+            loadvalu = s_common.guid()
+
+            sode = {
+                'valu': (loadvalu, s_layer.STOR_TYPE_GUID),
+                'props': {
+                    'proc': (proc, s_layer.STOR_TYPE_GUID),
+                    'exe': (exe, s_layer.STOR_TYPE_UTF8),
+                    'file': (file, s_layer.STOR_TYPE_UTF8),
+                    'host': (host, s_layer.STOR_TYPE_GUID),
+                    'thread': (thread, s_layer.STOR_TYPE_GUID),
+                    'sandbox:file': (sandbox, s_layer.STOR_TYPE_UTF8),
+                    'path': ('/home/invisigoth/rootkit.so', s_layer.STOR_TYPE_UTF8),
+                    'va': (0xa000, s_layer.STOR_TYPE_I64),
+                    'time': (1612137600000000, s_layer.STOR_TYPE_TIME),
+                    'loaded': (1612224000000000, s_layer.STOR_TYPE_TIME),
+                    'unloaded': (1612310400000000, s_layer.STOR_TYPE_TIME),
+                    '.created': (1600000000000000, s_layer.STOR_TYPE_MINTIME),
+                    '_score': (5, s_layer.STOR_TYPE_I64),
+                },
+            }
+            edits = []
+            nodeedits = []
+            await s_migr.execloadlibmigr(migr, sode, edits, nodeedits)
+
+            # the load node is created
+            self.eq(edits[0], (s_layer.EDIT_NODE_ADD, (loadvalu, s_layer.STOR_TYPE_GUID, {})))
+
+            sets = {e[1][0]: e[1][1] for e in edits if e[0] == s_layer.EDIT_PROP_SET}
+
+            # the shared it:host:exec props carry over as poly references
+            self.eq(sets['proc'], ('it:exec:proc', proc))
+            self.eq(sets['exe'], ('file:bytes', exe))
+            self.eq(sets['file'], ('file:bytes', file))
+            self.eq(sets['host'], ('it:host', host))
+            self.eq(sets['thread'], ('it:exec:thread', thread))
+            self.eq(sets['sandbox:file'], ('file:bytes', sandbox))
+            self.eq(sets['path'], ('file:path', '/home/invisigoth/rootkit.so'))
+            self.eq(sets['va'], ('int', 0xa000))
+
+            # the file:path prop is renormed so its dir/base/ext virts populate
+            pathvirts = {e[1][0]: e[1][3] for e in edits if e[0] == s_layer.EDIT_PROP_SET}['path']
+            self.eq(pathvirts['base'], ('rootkit.so', s_layer.STOR_TYPE_TEXT))
+            self.eq(pathvirts['ext'], ('so', s_layer.STOR_TYPE_TEXT))
+            self.eq(pathvirts['dir'], ('/home/invisigoth', s_layer.STOR_TYPE_TEXT))
+
+            # the specific :loaded timestamp wins as the load event :time
+            self.eq(sets['time'], ('time', 1612224000000000))
+
+            # the removed props are not carried, universals are dropped, and a
+            # stored prop with no it:exec:lib:load equivalent is dropped
+            self.notin('loaded', sets)
+            self.notin('unloaded', sets)
+            self.notin('.created', sets)
+            self.notin('_score', sets)
+
+            # the set :unloaded produces a mirrored it:exec:lib:unload event
+            self.len(1, nodeedits)
+            (_, unloadform, unloadedits) = nodeedits[0]
+            self.eq(unloadform, 'it:exec:lib:unload')
+
+            unloadvalu = s_common.guid(('it:exec:lib:unload', loadvalu))
+            self.eq(unloadedits[0], (s_layer.EDIT_NODE_ADD, (unloadvalu, s_layer.STOR_TYPE_GUID, {})))
+
+            usets = {e[1][0]: e[1][1] for e in unloadedits if e[0] == s_layer.EDIT_PROP_SET}
+            # the unload event mirrors the shared load event props
+            self.eq(usets['proc'], ('it:exec:proc', proc))
+            self.eq(usets['file'], ('file:bytes', file))
+            self.eq(usets['path'], ('file:path', '/home/invisigoth/rootkit.so'))
+            self.eq(usets['va'], ('int', 0xa000))
+            # the unload event :time comes from the 2.x :unloaded timestamp
+            self.eq(usets['time'], ('time', 1612310400000000))
+            # the unload event :path virts are populated too
+            upathvirts = {e[1][0]: e[1][3] for e in unloadedits if e[0] == s_layer.EDIT_PROP_SET}['path']
+            self.eq(upathvirts['base'], ('rootkit.so', s_layer.STOR_TYPE_TEXT))
+
+        # without :loaded the load event :time falls back to the generic 2.x
+        # :time, and without :unloaded no unload event is emitted
+        async with self._getBareMigr(model=True, stors=True) as (migr, _, _):
+            loadvalu = s_common.guid()
+            sode = {
+                'valu': (loadvalu, s_layer.STOR_TYPE_GUID),
+                'props': {
+                    'proc': (s_common.guid(), s_layer.STOR_TYPE_GUID),
+                    'time': (1612137600000000, s_layer.STOR_TYPE_TIME),
+                },
+            }
+            edits = []
+            nodeedits = []
+            await s_migr.execloadlibmigr(migr, sode, edits, nodeedits)
+
+            sets = {e[1][0]: e[1][1] for e in edits if e[0] == s_layer.EDIT_PROP_SET}
+            self.eq(sets['time'], ('time', 1612137600000000))
+            self.len(0, nodeedits)
+
+        # a loadlib with neither :loaded, :time, nor :unloaded emits only the
+        # renamed node with no :time and no unload event
+        async with self._getBareMigr(model=True, stors=True) as (migr, _, _):
+            loadvalu = s_common.guid()
+            sode = {
+                'valu': (loadvalu, s_layer.STOR_TYPE_GUID),
+                'props': {'va': (0xb000, s_layer.STOR_TYPE_I64)},
+            }
+            edits = []
+            nodeedits = []
+            await s_migr.execloadlibmigr(migr, sode, edits, nodeedits)
+
+            sets = {e[1][0]: e[1][1] for e in edits if e[0] == s_layer.EDIT_PROP_SET}
+            self.eq(sets['va'], ('int', 0xb000))
+            self.notin('time', sets)
+            self.len(0, nodeedits)
+
     async def test_migr_migrate_guards(self):
         '''Cover migrate() dirn-None guard and the _setupDest False short-circuit.'''
         async with self._getBareMigr() as (migr, _, dest):

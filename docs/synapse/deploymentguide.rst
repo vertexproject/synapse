@@ -232,6 +232,14 @@ and is named ``000.<type>`` (for example ``000.cortex``); additional instances o
 ``NNN.<type>`` (for example ``001.cortex``) and provisioned as mirrors of the leader. The AHA name
 ``<type>.<aha-network>`` always resolves to the current leader.
 
+.. note::
+
+    The AHA service registers itself in its own service registry using this same convention: the leader
+    is automatically named ``000.aha`` and each AHA clone is named ``001.aha``, ``002.aha``, and so on.
+    The AHA service therefore appears in ``getAhaSvcs`` and the service list like any other service, and
+    ``aha.<aha-network>`` resolves to the current leader AHA. This automatically assigned AHA *name* is
+    independent of the ``SYN_AHA_DNS_NAME`` you choose for reachability; the two may differ.
+
 Set ``SYN_PROVISION_SECRET`` to the same value on every service you deploy::
 
     environment:

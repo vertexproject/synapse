@@ -338,7 +338,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {}),
                 ),
-                'ex': '(1.2.3.4, (({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
+                'ex': '(1.2.3.4, (({"$as": "crypto:currency:chain", "symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"}), 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
                 'props': (
 
                     ('inetaddr', ('inet:client', {}), {
@@ -702,8 +702,7 @@ modeldefs = (
 
                     ('identities:ips', ('inet:ip', {}), {
                         'array': {},
-                        'doc': 'The fused list of IP addresses identified by the cert CN and SANs.',
-                        'prevnames': ('identities:ipv4s', 'identities:ipv6s')}),
+                        'doc': 'The fused list of IP addresses identified by the cert CN and SANs.'}),
 
                     ('identities:urls', ('inet:url', {}), {
                         'array': {},

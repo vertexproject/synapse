@@ -339,7 +339,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'prevnames': ('meta:timeline:taxonomy',),
                 'props': (),
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
@@ -381,7 +380,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'prevnames': ('meta:event:taxonomy',),
                 'props': (),
                 'doc': 'A hierarchical taxonomy of event types.'}),
 

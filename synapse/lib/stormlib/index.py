@@ -3,7 +3,7 @@ import synapse.lib.stormtypes as s_stormtypes
 stormcmds = (
     {
         'name': 'index.count.prop',
-        'descr': '''
+        'desc': '''
             Display the number of properties or property values in the view.
 
             Examples:

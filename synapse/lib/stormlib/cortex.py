@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 stormcmds = [
     {
         'name': 'cortex.httpapi.list',
-        'descr': 'List Extended HTTP API endpoints',
+        'desc': 'List Extended HTTP API endpoints',
         'cmdargs': (),
         'storm': '''
         $apis = $lib.cortex.httpapi.list()
@@ -50,7 +50,7 @@ stormcmds = [
     },
     {
         'name': 'cortex.httpapi.stat',
-        'descr': 'Get details for an Extended HTTP API endpoint.',
+        'desc': 'Get details for an Extended HTTP API endpoint.',
         'cmdargs': (
             ('iden', {'help': 'The iden of the endpoint to inspect. This will also match iden prefixes or name prefixes.',
                       'type': 'str'}),
@@ -138,7 +138,7 @@ stormcmds = [
     },
     {
         'name': 'cortex.httpapi.index',
-        'descr': '''Set the index of an Extended HTTP API endpoint.
+        'desc': '''Set the index of an Extended HTTP API endpoint.
 
 Examples:
 

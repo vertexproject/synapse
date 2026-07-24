@@ -748,6 +748,10 @@ _reqValidPkgdefSchema = {
             'type': ['array', 'null'],
             'items': {'$ref': '#/definitions/module'}
         },
+        'endpoints': {
+            'type': 'object',
+            'additionalProperties': {'$ref': '#/definitions/endpoint'},
+        },
         'docs': {
             'type': ['array', 'null'],
             'items': {'$ref': '#/definitions/doc'},
@@ -867,12 +871,6 @@ _reqValidPkgdefSchema = {
                 'storm': {'type': 'string'},
                 'modconf': {
                     'type': 'object',
-                    'properties': {
-                        'endpoints': {
-                            'type': 'object',
-                            'additionalProperties': {'$ref': '#/definitions/endpoint'},
-                        },
-                    },
                     'additionalProperties': True,
                 },
                 'apidefs': {
@@ -1025,6 +1023,7 @@ _reqValidPkgdefSchema = {
                     'additionalProperties': True,
                 },
                 'storm': {'type': 'string'},
+                'desc': {'type': 'string'},
                 'forms': {'$ref': '#/definitions/cmdformhints'},
                 'perms': {'type': 'array',
                     'items': {'type': 'array',
@@ -1373,3 +1372,68 @@ _QueueDefSchema = {
 }
 
 reqValidQueueDef = s_config.getJsValidator(_QueueDefSchema)
+
+_v2ModelMapSchema = {
+    'type': 'object',
+    'properties': {
+        # the shared strategic goals table, keyed by goal id.
+        'goals': {
+            'type': 'object',
+            'additionalProperties': {
+                'type': 'object',
+                'properties': {
+                    'title': {'type': 'string', 'minLength': 1},
+                    'doc': {'type': 'string', 'minLength': 1},
+                },
+                'required': ['title', 'doc'],
+                'additionalProperties': False,
+            },
+        },
+        # retired v2 names, keyed by the full name. A change entry may nest
+        # changed properties (keyed by relative prop name) under "props"; each
+        # nested prop entry has the same shape minus "props".
+        'changes': {
+            'type': 'object',
+            'additionalProperties': {
+                'type': 'object',
+                'properties': {
+                    'became': {'type': 'string', 'minLength': 1},
+                    'goals': {
+                        'type': 'array',
+                        'items': {'type': 'string', 'minLength': 1},
+                    },
+                    'reason': {'type': 'string', 'minLength': 1},
+                    'props': {
+                        'type': 'object',
+                        'additionalProperties': {
+                            'type': 'object',
+                            'properties': {
+                                'became': {'type': 'string', 'minLength': 1},
+                                'goals': {
+                                    'type': 'array',
+                                    'items': {'type': 'string', 'minLength': 1},
+                                },
+                                'reason': {'type': 'string', 'minLength': 1},
+                            },
+                            'anyOf': [
+                                {'required': ['became']},
+                                {'required': ['reason']},
+                            ],
+                            'additionalProperties': False,
+                        },
+                    },
+                },
+                'anyOf': [
+                    {'required': ['became']},
+                    {'required': ['reason']},
+                    {'required': ['props']},
+                ],
+                'additionalProperties': False,
+            },
+        },
+    },
+    'required': ['goals'],
+    'additionalProperties': False,
+}
+
+reqValidV2ModelMap = s_config.getJsValidator(_v2ModelMapSchema)

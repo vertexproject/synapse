@@ -48,7 +48,6 @@ info_ignores = (
     'deprecated',
     'props',
     'virts',
-    'prevnames',
     'interfaces',
 )
 
@@ -590,7 +589,7 @@ async def processStormCmds(rst, pkgname, commands):
     for cdef in commands:
 
         cname = cdef.get('name')
-        cdesc = cdef.get('descr')
+        cdesc = cdef.get('desc')
         cargs = cdef.get('cmdargs')
 
         # command names cannot have colons in them thankfully
@@ -796,37 +795,33 @@ def _renderEndpointTable(rows):
 
     return lines
 
-async def processModEndpoints(rst, pkgname, modules):
+async def processModEndpoints(rst, pkgname, endpoints):
     '''
-    Render the API endpoints declared in each module's modconf.endpoints,
-    grouped by resolved base URL, at the bottom of the package documentation.
+    Render the API endpoints declared in the package's top-level endpoints
+    key, grouped by resolved base URL, at the bottom of the package
+    documentation.
 
     Args:
         rst (RstHelp):
         pkgname (str):
-        modules (list):
+        endpoints (dict):
 
     Returns:
         None
     '''
     groups = collections.OrderedDict()
 
-    for mdef in sorted(modules, key=lambda x: x.get('name')):
+    if not endpoints:
+        return
 
-        modconf = mdef.get('modconf') or {}
-        endpoints = modconf.get('endpoints')
-        if not endpoints:
-            continue
+    for ename, edef in sorted(endpoints.items()):
 
-        for ename in sorted(endpoints.keys()):
+        path = edef.get('path')
 
-            edef = endpoints[ename]
-            path = edef.get('path')
+        desc = edef.get('desc')
+        base = edef.get('url') or _unconfigured_base
 
-            desc = edef.get('desc')
-            base = edef.get('url') or _unconfigured_base
-
-            groups.setdefault(base, []).append((path, desc))
+        groups.setdefault(base, []).append((path, desc))
 
     if not groups:
         return
@@ -1129,7 +1124,8 @@ async def docStormpkg(pkgpath):
 
     if modules := pkgdef.get('modules'):
         await processStormModules(rst, pkgname, modules)
-        await processModEndpoints(rst, pkgname, modules)
+
+    await processModEndpoints(rst, pkgname, pkgdef.get('endpoints'))
 
     return rst, pkgname
 

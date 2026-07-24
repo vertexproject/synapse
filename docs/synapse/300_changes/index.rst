@@ -50,6 +50,7 @@ syntax/operators, virtual properties, tag matching, and the cron/trigger APIs.
     storm-http-ssl-options
     storm-cron-and-trigger-api
     storm-macros
+    storm-package-command-desc
 
 Data Model
 ----------

@@ -245,7 +245,6 @@ modeldefs = (
                 'interfaces': (
                     ('risk:targetable', {}),
                 ),
-                'prevnames': ('ou:jobtitle', 'ou:role'),
                 'props': (),
                 'doc': 'A title or position name used by an entity.'}),
 
@@ -457,7 +456,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'prevnames': ('ou:camptype',),
                 'props': (),
                 'doc': 'A hierarchical taxonomy of campaign types.'}),
 
@@ -511,8 +509,7 @@ modeldefs = (
                         'doc': 'The assessed sophistication of the campaign.'}),
 
                     ('type', ('entity:campaign:type:taxonomy', {}), {
-                        'doc': 'A type taxonomy entry for the campaign.',
-                        'prevnames': ('camptype',)}),
+                        'doc': 'A type taxonomy entry for the campaign.'}),
 
                     ('cost', ('econ:price', {}), {
                         'doc': 'The actual cost of the campaign.'}),

@@ -3,7 +3,7 @@ version: 0.0.1
 
 dependencies:
   synapse:
-    version: ">=3.0.0b3,<4.0.0"
+    version: ">=3.0.0b4,<4.0.0"
   testpkg-optdep:
     version: ">=1.0.0,<2.0.0"
     desc: Optional dependency used to enrich testpkg nodes with additional metadata.
@@ -13,24 +13,22 @@ logo:
     mime: image/svg
     path: docs/foobar.svg
 
+endpoints:
+  noconf:
+    path: /v1/noconf
+    desc: An endpoint with no configured base.
+  search:
+    url: https://api.example.com
+    path: /v1/search
+    desc: Run a search.
+  enrich:
+    url: https://enrich.example.com
+    path: /v1/enrich/{iden}
+    desc: Enrich an item.
+
 modules:
     - name: testmod
-      modconf:
-        endpoints:
-          noconf:
-            path: /v1/noconf
-            desc: An endpoint with no configured base.
     - name: apimod
-      modconf:
-        endpoints:
-          search:
-            url: https://api.example.com
-            path: /v1/search
-            desc: Run a search.
-          enrich:
-            url: https://enrich.example.com
-            path: /v1/enrich/{iden}
-            desc: Enrich an item.
       apidefs:
         - name: search
           desc: |
@@ -168,7 +166,7 @@ vaults:
 
 commands:
     - name: testpkgcmd
-      descr: |
+      desc: |
         testpkgcmd does some stuff.
       cmdinputs:
         - form: test:str
@@ -192,7 +190,7 @@ commands:
         - [ power-ups, testpkg, admin ]
 
     - name: testpkg.baz
-      descr: |
+      desc: |
         testpkgcmd does some stuff.
       cmdargs:
         - - foo

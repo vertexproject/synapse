@@ -296,7 +296,7 @@ class EconTest(s_utils.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('econ:bank:account', (('econ:bank:aba:rtn', '123456789'), '1234')))
+            self.eq(nodes[0].ndef, ('econ:bank:account', (('econ:bank:aba:rtn', '123456789'), ('base:id', '1234'))))
             self.eq(nodes[0].repr(), '123456789:1234')
             self.nn(nodes[0].get('account'))
             self.len(1, await core.nodes('econ:bank:aba:rtn=123456789'))
@@ -323,7 +323,7 @@ class EconTest(s_utils.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('econ:bank:account', (('econ:bank:swift:bic', 'DEUTDEFF'), '987654321')))
+            self.eq(nodes[0].ndef, ('econ:bank:account', (('econ:bank:swift:bic', 'DEUTDEFF'), ('base:id', '987654321'))))
             self.eq(nodes[0].repr(), 'DEUTDEFF:987654321')
 
             # Paired (routing, number) alts via multiple instruments on one
@@ -353,7 +353,7 @@ class EconTest(s_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'econ:bank:account')
             self.eq(nodes[0].ndef[1][0], ('econ:bank:routing:id', '401234'))
-            self.eq(nodes[0].ndef[1][1], '12345')
+            self.eq(nodes[0].ndef[1][1], ('base:id', '12345'))
             routing = (await core.nodes('econ:bank:routing:id=401234'))[0]
             self.propeq(routing, 'type', 'sortcode.')
             self.true(core.model.form('econ:bank:routing:id').implements('entity:identifier'))

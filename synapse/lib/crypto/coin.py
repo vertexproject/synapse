@@ -41,9 +41,12 @@ caip2_chains = {
 def chain(key):
     '''
     Return a crypto:currency:chain guid constructor for a caip2_chains key.
+
+    The constructor dict carries an "$as" key to specify that it should be
+    normed as a crypto:currency:chain type.
     '''
     (symbol, chainid) = caip2_chains[key]
-    return {'symbol': symbol, 'id': chainid}
+    return {'$as': 'crypto:currency:chain', 'symbol': symbol, 'id': chainid}
 
 def btc_bech32_check(match):
     text = match.groupdict().get('valu')

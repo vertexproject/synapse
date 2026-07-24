@@ -496,127 +496,133 @@ class ImapTest(s_test.SynTest):
 
     async def test_storm_imap_basic(self):
 
-        async with self.getTestCoreAndImapPort() as (core, port):
-            user = 'user00@vertex.link'
-            opts = {'vars': {'port': port, 'user': user}}
+        coro = s_link.listen('127.0.0.1', 0, self._imapserv, linkcls=IMAPServer)
+        with contextlib.closing(await coro) as server:
 
-            # list mailboxes
-            scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
-                $server.login($user, "pass00")
-                return($server.list())
-            '''
-            retn = await core.callStorm(scmd, opts=opts)
-            mailboxes = sorted(
-                [
-                    k[0] for k in self.imap.mail[user]['mailboxes'].items()
-                    if k[1]['parent'] is None
-                ]
-            )
-            self.eq((True, mailboxes), retn)
+            port = server.sockets[0].getsockname()[1]
 
-            # search for UIDs
-            scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
-                $server.login($user, "pass00")
-                $server.select("INBOX")
-                return($server.search("SEEN", charset="utf-8"))
-            '''
-            retn = await core.callStorm(scmd, opts=opts)
-            seen = sorted(
-                [
-                    str(k[0]) for k in self.imap.mail[user]['messages'].items()
-                    if k[1]['mailbox'] == 'inbox' and '\\Seen' in k[1]['flags']
-                ]
-            )
-            self.eq((True, seen), retn)
+            async with self.getTestCluster() as clus:
+                core = clus.cortex
+                user = 'user00@vertex.link'
+                opts = {'vars': {'port': port, 'user': user}}
 
-            # mark seen
-            scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
-                $server.login($user, "pass00")
-                $server.select("INBOX")
-                return($server.markSeen("1:7"))
-            '''
-            retn = await core.callStorm(scmd, opts=opts)
-            self.eq((True, None), retn)
-            self.eq(
-                ['1', '6', '7'],
-                sorted(
+                # list mailboxes
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
+                    $server.login($user, "pass00")
+                    return($server.list())
+                '''
+                retn = await core.callStorm(scmd, opts=opts)
+                mailboxes = sorted(
+                    [
+                        k[0] for k in self.imap.mail[user]['mailboxes'].items()
+                        if k[1]['parent'] is None
+                    ]
+                )
+                self.eq((True, mailboxes), retn)
+
+                # search for UIDs
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
+                    $server.login($user, "pass00")
+                    $server.select("INBOX")
+                    return($server.search("SEEN", charset="utf-8"))
+                '''
+                retn = await core.callStorm(scmd, opts=opts)
+                seen = sorted(
                     [
                         str(k[0]) for k in self.imap.mail[user]['messages'].items()
                         if k[1]['mailbox'] == 'inbox' and '\\Seen' in k[1]['flags']
                     ]
                 )
-            )
+                self.eq((True, seen), retn)
 
-            # delete
-            scmd = '''
+                # mark seen
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
+                    $server.login($user, "pass00")
+                    $server.select("INBOX")
+                    return($server.markSeen("1:7"))
+                '''
+                retn = await core.callStorm(scmd, opts=opts)
+                self.eq((True, None), retn)
+                self.eq(
+                    ['1', '6', '7'],
+                    sorted(
+                        [
+                            str(k[0]) for k in self.imap.mail[user]['messages'].items()
+                            if k[1]['mailbox'] == 'inbox' and '\\Seen' in k[1]['flags']
+                        ]
+                    )
+                )
+
+                # delete
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
+                    $server.login($user, "pass00")
+                    $server.select("INBOX")
+                    return($server.delete("1:7"))
+                '''
+                retn = await core.callStorm(scmd, opts=opts)
+                messages = self.imap.mail[user]['messages']
+                self.notin(1, messages)
+                self.notin(6, messages)
+                self.notin(7, messages)
+                self.isin(2, messages)
+                self.isin(3, messages)
+                self.isin(4, messages)
+                self.isin(5, messages)
+                self.isin(8, messages)
+                self.eq((True, None), retn)
+
+                # fetch and save a message
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
+                    $server.login($user, "pass00")
+                    $server.select("INBOX")
+                    yield $server.fetch("1")
+                '''
+                nodes = await core.nodes(scmd, opts=opts)
+                self.len(1, nodes)
+                self.eq('file:bytes', nodes[0].ndef[0])
+                self.true(all(nodes[0].get(p) for p in ('sha512', 'sha256', 'sha1', 'md5', 'size')))
+                self.propeq(nodes[0], 'mime', 'message/rfc822')
+
+                byts = b''.join([byts async for byts in (await core.getAxon()).get(s_common.uhex(nodes[0].get('sha256')[1]))])
+                data = ''.join((email.get('headers'), email.get('body'))).encode()
+                self.eq(data, byts)
+
+                # fetch must only be for a single message
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
+                    $server.login($user, "pass00")
+                    $server.select("INBOX")
+                    $server.fetch("1:*")
+                '''
+                mesgs = await core.stormlist(scmd, opts=opts)
+                self.stormIsInErr('Failed to make an integer', mesgs)
+
+                scmd = '''
+                    $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
+                    $server.login($user, "pass00")
+                    $server.select("INBOX")
+                    return($server.fetch(10))
+                '''
+                ret = await core.callStorm(scmd, opts=opts)
+                self.eq(ret, (False, 'No data received from fetch request for uid 10.'))
+
+                # make sure we can pass around the server object
+                scmd = '''
+                function foo(s) {
+                    return($s.login($user, "pass00"))
+                }
                 $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
-                $server.login($user, "pass00")
-                $server.select("INBOX")
-                return($server.delete("1:7"))
-            '''
-            retn = await core.callStorm(scmd, opts=opts)
-            messages = self.imap.mail[user]['messages']
-            self.notin(1, messages)
-            self.notin(6, messages)
-            self.notin(7, messages)
-            self.isin(2, messages)
-            self.isin(3, messages)
-            self.isin(4, messages)
-            self.isin(5, messages)
-            self.isin(8, messages)
-            self.eq((True, None), retn)
-
-            # fetch and save a message
-            scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
-                $server.login($user, "pass00")
-                $server.select("INBOX")
-                yield $server.fetch("1")
-            '''
-            nodes = await core.nodes(scmd, opts=opts)
-            self.len(1, nodes)
-            self.eq('file:bytes', nodes[0].ndef[0])
-            self.true(all(nodes[0].get(p) for p in ('sha512', 'sha256', 'sha1', 'md5', 'size')))
-            self.propeq(nodes[0], 'mime', 'message/rfc822')
-
-            byts = b''.join([byts async for byts in (await core.getAxon()).get(s_common.uhex(nodes[0].get('sha256')[1]))])
-            data = ''.join((email.get('headers'), email.get('body'))).encode()
-            self.eq(data, byts)
-
-            # fetch must only be for a single message
-            scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
-                $server.login($user, "pass00")
-                $server.select("INBOX")
-                $server.fetch("1:*")
-            '''
-            mesgs = await core.stormlist(scmd, opts=opts)
-            self.stormIsInErr('Failed to make an integer', mesgs)
-
-            scmd = '''
-                $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
-                $server.login($user, "pass00")
-                $server.select("INBOX")
-                return($server.fetch(10))
-            '''
-            ret = await core.callStorm(scmd, opts=opts)
-            self.eq(ret, (False, 'No data received from fetch request for uid 10.'))
-
-            # make sure we can pass around the server object
-            scmd = '''
-            function foo(s) {
-                return($s.login($user, "pass00"))
-            }
-            $server = $lib.inet.imap.connect(127.0.0.1, port=$port)
-            $ret00 = $foo($server)
-            $ret01 = $server.list()
-            return(($ret00, $ret01))
-            '''
-            retn = await core.callStorm(scmd, opts=opts)
-            self.eq(((True, None), (True, ('deleted', 'drafts', 'inbox', 'sent'))), retn)
+                $ret00 = $foo($server)
+                $ret01 = $server.list()
+                return(($ret00, $ret01))
+                '''
+                retn = await core.callStorm(scmd, opts=opts)
+                self.eq(((True, None), (True, ('deleted', 'drafts', 'inbox', 'sent'))), retn)
 
     async def test_storm_imap_ssl_verify_false(self):
         async with self.getTestCoreAndImapPortSsl() as (core, port):

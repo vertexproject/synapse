@@ -14,7 +14,7 @@ modules:
 
 commands:
   - name: foocmd
-    descr: |
+    desc: |
       One line description on the first line.
       Followed by a more detailed description talking about what the command does and any
       useful additional information.

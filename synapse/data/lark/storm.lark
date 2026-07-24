@@ -367,8 +367,14 @@ _argvalu: _rootvalu | valulist | embedquery
 // Used for most instances of values
 _basevalu: _argvalu | baresubquery
 
-valueas: (_basevalu | NONQUOTEWORD) "as" (BASEPROP | _varvalu)
+valueas: (_basevalu | NONQUOTEWORD) "as" (BASEPROP | _varvalu | formatstring)
 _valu: _basevalu | NONQUOTEWORD | valueas
+
+// The valueas cast applied to a single element inside a value tuple. The left
+// hand forms are the cleanly delimited members of listvalu (a bare LISTTOKN is
+// excluded because it may contain interior spaces and would swallow the "as").
+listvalueas: (_exprvarvalu | valulist | baresubquery | embedquery
+    | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring) "as" (BASEPROP | _varvalu | formatstring) -> valueas
 
 evalvalu: _valu
 exprdict: "{" ((_jsonexprval | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_jsonexprval | VARTOKN) ("," (_jsonexprval | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_jsonexprval | VARTOKN))* ","? )? "}"
@@ -426,7 +432,7 @@ EXPRVARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 exprfunccall: _exprvarvaluatom _exprcallargs -> funccall
 _exprcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
 
-?listvalu: LISTTOKN | _exprvarvalu | exprrelpropvalue
+?listvalu: listvalueas | LISTTOKN | _exprvarvalu | exprrelpropvalue
     | exprtagvalu | exprtagvirtvalu | exprtagpropvalu
     | baresubquery | valulist | embedquery | TRIPLEQUOTEDSTRING
     | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs

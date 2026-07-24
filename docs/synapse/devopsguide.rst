@@ -842,9 +842,9 @@ When functionality in Synapse is deprecated, it is marked with a library functio
 deprecated. When the deprecated functionality is invoked, it will log a warning message that the deprecated function
 has been utilized.
 
-For example, if a HTTP caller uses the ``api/v3/storm/nodes`` API, it would log the following message::
+For example, if a HTTP caller uses the ``api/v3/example`` API, it would log the following message::
 
-    2025-11-18 10:31:33,100 [WARNING] "HTTP API /api/v3/storm/nodes" is deprecated in 2.110.0 and will be removed in 3.0.0 [common.py:deprecated:MainThread:MainProcess]
+    2025-11-18 10:31:33,100 [WARNING] "HTTP API /api/v3/example" is deprecated in 3.x and will be removed in 4.0.0 [common.py:deprecated:MainThread:MainProcess]
 
 Instances of these messages would indicate that there is a process or user that is utilizing this deprecated
 functionality. This may require updating Synapse components ( such as Rapid Power-Ups ) or working with users to

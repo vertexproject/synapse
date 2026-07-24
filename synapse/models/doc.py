@@ -196,7 +196,6 @@ modeldefs = (
                 'doc': 'A taxonomy of report types.'}),
 
             ('doc:report', ('guid', {}), {
-                'prevnames': ('media:news',),
                 'template': {'title': 'report', 'syntax': 'markdown'},
                 'interfaces': (
                     ('doc:document', {}),
@@ -206,7 +205,6 @@ modeldefs = (
                 'doc': 'A report.'}),
 
             ('doc:contract', ('guid', {}), {
-                'prevnames': ('ou:contract',),
                 'template': {'title': 'contract'},
                 'interfaces': (
                     ('doc:document', {}),
@@ -217,7 +215,6 @@ modeldefs = (
                 'doc': 'A contract between multiple entities.'}),
 
             ('doc:contract:type:taxonomy', ('taxonomy', {}), {
-                'prevnames': ('ou:conttype',),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),

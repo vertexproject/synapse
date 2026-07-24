@@ -59,7 +59,7 @@ that gets processed and loaded into your Cortex.
 
     commands:
       - name: acme.hello.sayhi
-        descr: Print the hello message.
+        desc: Print the hello message.
 
 The ``title`` field is a short, human-readable name for the package which is
 displayed in UIs such as **Optic**, as opposed to the ``name`` field which is
@@ -247,7 +247,7 @@ A more complex command declaration::
   commands:
 
     - name: acme.hello.omgopts
-      descr: |
+      desc: |
           This is a multi-line description containing usage examples.
 
           // Run the command with some nodes
@@ -374,7 +374,7 @@ To implement a command with a ``--yield`` option is typically accomplished via t
   commands:
 
     - name: acme.hello.mayyield
-      descr: |
+      desc: |
            Take in an FQDN and make DNS A records to demo --yield
 
            inet:fqdn=vertex.link | acme.hello.mayyield

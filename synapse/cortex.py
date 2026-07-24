@@ -1996,7 +1996,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         # TODO unify class ctors and func ctors vs briefs...
         def getCmdBrief():
-            return cdef.get('descr', 'No description').strip().split('\n')[0]
+            return cdef.get('desc', 'No description').strip().split('\n')[0]
 
         # TODO this is super ugly...
         ctor.getCmdBrief = getCmdBrief
@@ -2833,7 +2833,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         if 'CellApi' in names:
             cellinfo = await proxy.getCellInfo()
             cellvers = cellinfo['synapse']['version']
-            if not s_version.matches(cellvers, '>=3.0.0b3'):
+            if not s_version.matches(cellvers, '>=3.0.0b4'):
                 mesg = f'Service {ssvc.name} ({iden}) is running Synapse {cellvers} and must be updated to >= 3.0.0'
                 logger.error(mesg)
                 raise s_exc.BadVersion(mesg=mesg)
@@ -3917,24 +3917,6 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
             if prop is not None:
                 prop.locked = locked
-
-    def _getEmbeddedJsonStorConf(self, path):
-        # pin a deterministic cell:guid for the embedded jsonstor, derived from
-        # the cortex iden. ( bugfix for the first release where the cell was
-        # allowed to generate its own iden. )
-        jsoniden = s_common.guid((self.iden, 'jsonstor'))
-
-        idenpath = os.path.join(path, 'cell.guid')
-        if os.path.isfile(idenpath):
-
-            with open(idenpath, 'r') as fd:
-                existiden = fd.read()
-
-            if jsoniden != existiden:
-                with open(idenpath, 'w') as fd:
-                    fd.write(jsoniden)
-
-        return {'cell:guid': jsoniden}
 
     async def getJsonObj(self, path):
         jsonstor = await self.getJsonStor()
@@ -5586,7 +5568,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
 
-    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0b3,<4.0.0'):
+    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0b4,<4.0.0'):
         '''
         Validate an export storm meta dict for schema, version, and synapse version compatibility.
 
@@ -7180,60 +7162,26 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
 class HasCore:
     '''
-    Mixin for a Cell which uses a Cortex. When the Cell is an AHA client the
-    Cortex is resolved by service type ( aha://cortex... ); otherwise an
-    embedded Cortex is created under the cell directory and reached via its
-    local url. Either way a telepath client is created and getCore() returns a
-    live proxy, so embedded and remote deployments exercise the same path. Use
-    getCore() / getCoreInfo() rather than the underlying objects.
+    Mixin for a Cell which uses a Cortex. The Cortex is resolved as an AHA peer
+    by service type ( aha://cortex... ); a telepath client is created and
+    getCore() returns a live proxy. Use getCore() / getCoreInfo() rather than
+    the underlying objects.
     '''
-    # constructor for the embedded Cortex. subclasses may override to boot an
-    # alternative embedded implementation.
-    _has_core_ctor = Cortex.anit
-
     async def initServiceStorage(self):
 
-        self._has_core = None
         self._has_coreinfo = {}
 
-        # NEVER reach for self._has_core* directly. getCore() returns a proxy to
-        # the cortex ( embedded or remote ) via the telepath client.
-        if self.ahaclient is None:
-            path = os.path.join(self.dirn, 'cortex')
-            # the embedded cortex does not run its own host sysctl checks
-            conf = {'health:sysctl:checks': False}
-
-            proxyurl = self.conf.get('http:proxy')
-            if proxyurl is not None:
-                conf['http:proxy'] = proxyurl
-
-            cadir = self.conf.get('tls:ca:dir')
-            if cadir is not None:
-                conf['tls:ca:dir'] = cadir
-
-            self._has_core = await self._has_core_ctor(path, conf=conf)
-            self.onfini(self._has_core.fini)
-            self.dynitems['cortex'] = self._has_core
-
-            await self._initEmbeddedCore(self._has_core)
-
-            curl = self._has_core.getLocalUrl()
-
-        else:
-            curl = 'aha://cortex...'
-
-        self._has_core_client = await s_telepath.ClientV2.anit(curl, onlink=self._onLinkCore)
+        # the cortex is resolved as an AHA peer by service type. getCore()
+        # returns a live proxy via the telepath client; a cell configured
+        # without an AHA client fails to resolve the cortex only when it is
+        # actually used.
+        self._has_core_client = await s_telepath.ClientV2.anit('aha://cortex...', onlink=self._onLinkCore)
         self.onfini(self._has_core_client)
 
         # set up our cortex before delegating so the rest of the storage init
         # chain ( or an updated pattern ) can rely on getCore(). return the
         # parent result in case the callback ever produces one.
         return await super().initServiceStorage()
-
-    async def _initEmbeddedCore(self, core):
-        # hook invoked with the freshly created embedded Cortex. subclasses may
-        # override to run inaugural setup ( e.g. add themselves as a storm svc ).
-        pass
 
     async def _onLinkCore(self, proxy, urlinfo):
         # default onlink handler for the cortex client; refreshes the cached cell

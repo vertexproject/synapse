@@ -58,7 +58,8 @@ class StormCliTest(s_test.SynTest):
 
     async def test_tools_storm(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             await core.addTagProp('_foo', ('int', {}), {})
 

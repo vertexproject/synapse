@@ -208,6 +208,11 @@ Audit every Storm query, macro, trigger, cron, and package for the changes below
        // 3.x
        $resp = $lib.inet.http.get($url, ssl=({"verify": $verify}))
 
+10. **Package description fields.** Rename ``descr`` to ``desc`` on command definitions,
+    ``optic.actions`` entries, and ``optic.spotlight.extractors`` entries in your package
+    YAML -- a pkgdef still using ``descr`` in one of these spots fails schema validation. See
+    :ref:`vtx_300_storm-package-command-desc`.
+
 Port integrations
 -----------------
 

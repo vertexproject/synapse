@@ -9,7 +9,7 @@ import synapse.lib.stormtypes as s_stormtypes
 stormcmds = (
     {
         'name': 'vault.add',
-        'descr': '''
+        'desc': '''
             Add a vault.
 
             Examples:
@@ -80,7 +80,7 @@ stormcmds = (
     },
     {
         'name': 'vault.set.secrets',
-        'descr': '''
+        'desc': '''
             Set vault secret data.
 
             Examples:
@@ -124,7 +124,7 @@ stormcmds = (
     },
     {
         'name': 'vault.set.configs',
-        'descr': '''
+        'desc': '''
             Set vault config data.
 
             Examples:
@@ -168,7 +168,7 @@ stormcmds = (
     },
     {
         'name': 'vault.del',
-        'descr': '''
+        'desc': '''
             Delete a vault.
 
             Examples:
@@ -196,7 +196,7 @@ stormcmds = (
     },
     {
         'name': 'vault.list',
-        'descr': '''
+        'desc': '''
             List available vaults.
         ''',
         'cmdargs': (
@@ -228,7 +228,7 @@ stormcmds = (
     },
     {
         'name': 'vault.set.perm',
-        'descr': '''
+        'desc': '''
             Set permissions on a vault.
 
             Examples:

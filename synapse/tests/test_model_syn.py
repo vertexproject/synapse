@@ -14,11 +14,11 @@ class TestService(s_stormsvc.StormSvc):
         {
             'name': 'foo',
             'version': (0, 0, 1),
-            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
             'commands': (
                 {
                     'name': 'foobar',
-                    'descr': 'foobar is a great service',
+                    'desc': 'foobar is a great service',
                     'storm': '',
                 },
                 {
@@ -711,7 +711,7 @@ class SynModelTest(s_t_utils.SynTest):
                 stormpkg = {
                     'name': 'stormpkg',
                     'version': '1.2.3',
-                    'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+                    'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
                     'commands': (
                         {
                          'name': 'pkgcmd.old',

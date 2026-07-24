@@ -7,13 +7,13 @@ TRIGGER: When the user asks questions about the Synapse data model, needs help c
 1. Run `python -m synapse.tools.cortex.docmodel` to generate the current data model documentation from a temporary Cortex. This produces a markdown reference of all forms, their properties (with types and descriptions), light edges, tag properties, and interfaces.
 
    For focused lookups, use the targeted flag instead of loading the entire model:
-   - `--find <name>` — auto-detects whether the name is a form, interface, form property, interface property, or tag property, and outputs detailed docs for it. Form output includes base type, interfaces, properties table, Referenced Types, and Source/Target Edges (with Storm `-(verb)>` notation). Interface output includes properties, implementing forms, and Referenced Types. Property output includes the type, doc, and parent form/interface/tag context.
+   - `--find <name>` -- auto-detects whether the name is a form, interface, form property, interface property, or tag property, and outputs detailed docs for it. Form output includes base type, interfaces, properties table, Referenced Types, and Source/Target Edges (with Storm `-(verb)>` notation). Interface output includes properties, implementing forms, and Referenced Types. Property output includes the type, doc, and parent form/interface/tag context.
 
 2. Read the generated output thoroughly to understand the available forms, properties, types, and edges before answering the user's question.
 
 3. Use the data model output to:
    - **Answer data model questions**: Identify the correct forms, properties, and types for representing concepts. Explain what properties are available on a form and what types they expect.
-   - **Design Storm ingest logic**: Select the appropriate forms and properties for mapping external API data into the Synapse data model. Follow the standard power-up ingest patterns from the `storm-syntax` skill (meta:source tracking, try-add with `?=`, tag prefixing, edit parens for inline node creation).
+   - **Design Storm ingest logic**: Select the appropriate forms and properties for mapping external API data into the Synapse data model. Follow the standard power-up ingest patterns from the `synapse-storm` skill (meta:source tracking, try-add with `?=`, tag prefixing, edit parens for inline node creation).
    - **Author Storm queries**: Write correct lift, filter, pivot, and edit operations using actual form and property names from the model. Validate that forms and properties referenced in queries exist in the model.
    - **Suggest edges**: Identify relevant light edges for linking nodes together based on the edges section of the model output.
    - **Recommend modeling approaches**: When the user describes a real-world concept, recommend which forms and properties best represent it, and how to connect related nodes via properties and edges.

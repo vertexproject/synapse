@@ -967,6 +967,106 @@ class ViewTest(s_t_utils.SynTest):
                 self.len(0, await core2.nodes('test:str=chicken', opts={'view': puller_view}))
                 self.len(0, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
 
+    async def test_layer_pull_comp_unknown_type(self):
+
+        # A comp node replicated via layer pull to a cortex whose model lacks the
+        # comp's field type must still fold/index without the model, using the
+        # per-field stortypes carried in the "_stortypes" virt.
+
+        async def waitPushOffs(core_, iden_, offs_):
+            while True:
+                if core_.layeroffs.get(iden_, -1) >= offs_:
+                    return
+                await asyncio.sleep(0)
+
+        async with self.getTestCore() as core00:
+
+            with self.raises(s_exc.NoSuchType):
+                await alist(core00.getView().nodesByPropTypeNorm('newp:notype', 'foo'))
+
+            # sender-only custom comp form: a custom (unknown to the receiver)
+            # field type plus a text field (case-folded for node identity).
+            await core00.addType('_test:cfield', 'str', {'lower': True}, {})
+            await core00.addForm('_test:ccomp', 'comp',
+                                 {'fields': (('fld', '_test:cfield'), ('txt', 'text'))}, {})
+
+            nodes = await core00.nodes('[ _test:ccomp=(HeLLo, "Fancy Text") ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('_test:ccomp', (('_test:cfield', 'hello'), ('text', 'Fancy Text'))))
+            sndndef = core00.getNidNdef(nodes[0].nid)
+
+            # a case-variant of the text field dedups to the same node (folding)
+            self.len(1, await core00.nodes('[ _test:ccomp=(hello, "FANCY TEXT") ]'))
+            self.len(1, await core00.nodes('_test:ccomp'))
+
+            # full-value comp comparison folds too: a case-variant filter matches
+            self.len(1, await core00.nodes('_test:ccomp +_test:ccomp=(hello, "fancy text")'))
+            self.len(0, await core00.nodes('_test:ccomp +_test:ccomp=(hello, "other text")'))
+
+            # an array-of-comp prop exercises the array-element recursion, which
+            # must forward each comp member's stortypes (via _elemvirts) so the
+            # member folds without the model too.
+            await core00.addForm('_test:chost', 'guid', {}, {})
+            await core00.addFormProp('_test:chost', '_sans', ('_test:ccomp', {}), {'array': {}})
+            hnodes = await core00.nodes('[ _test:chost=(h1,) :_sans=({[_test:ccomp=(WORLD, "Big Text")]},) ]')
+            self.len(1, hnodes)
+            hostndef = core00.getNidNdef(hnodes[0].nid)
+
+            layr = core00.getLayer()
+
+            # the whole-array value index folds each comp member (its text field) the
+            # same way whether it resolves member types via the carried _stortypes/
+            # _elemvirts (the write/replication path) or via the model (query path),
+            # so the receiver below can reproduce the byte-identical index.
+            sanvalu, sanstor, sanvirts = layr.getStorNode(hnodes[0].nid)['props']['_sans']
+            self.eq(layr.arraytype.indx(sanvalu),
+                    layr.arraytype.indx(sanvalu, virts=sanvirts))
+
+            # and that fold is case-insensitive: a case-variant of the comp member's
+            # text field folds to the same whole-array index (via _elemvirts, no model).
+            sanvariant = (('_test:ccomp', (('_test:cfield', 'world'), ('text', 'BIG TEXT'))),)
+            self.eq(layr.arraytype.indx(sanvalu, virts=sanvirts),
+                    layr.arraytype.indx(sanvariant, virts=sanvirts))
+
+            baseoffs = layr.getEditIndx()
+
+            async with self.getTestCore() as core01:
+
+                # the receiver has neither the form nor the field type
+                self.none(core01.model.type('_test:cfield'))
+                self.none(core01.model.form('_test:ccomp'))
+
+                opts = {'vars': {'baseiden': layr.iden,
+                                 'baseurl': core00.getLocalUrl('*/layer')}}
+
+                with self.getLoggerStream('synapse.lib.cell') as stream:
+
+                    pull_iden, pull_layr = await core01.callStorm('''
+                        $lyr = $lib.layer.add()
+                        $view = $lib.view.add(($lyr.iden,))
+                        $pdef = $lyr.addPull(`{$baseurl}/{$baseiden}`)
+                        return(($pdef.iden, $lyr.iden))
+                    ''', opts=opts)
+
+                    # replication applies without erroring (previously a comp value
+                    # with an unknown field type raised in StorTypeComp.nidNorm, and
+                    # an array-of-comp raised in the array-element recursion).
+                    await asyncio.wait_for(waitPushOffs(core01, pull_iden, baseoffs), timeout=5)
+
+                self.notin('activeCoro Error', stream.getvalue())
+
+                # the receiver independently computed the same folded identity via
+                # the carried _stortypes despite lacking the type in its model.
+                self.nn(core01.getNidByNdef(sndndef))
+
+                # the array-of-comp host replicated too, with its :_sans array
+                # indexed -- the array-element recursion folded the comp members
+                # via the forwarded _elemvirts, without the model.
+                hnid = core01.getNidByNdef(hostndef)
+                self.nn(hnid)
+                hsode = core01.getLayer(iden=pull_layr).getStorNode(hnid)
+                self.nn(hsode['props'].get('_sans'))
+
     async def test_lib_view_merge_perms(self):
 
         async with self.getTestCore() as core:
@@ -1241,6 +1341,14 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(node2, node)
             self.nn(node2.get('hehe'))
 
+            # addNodes with an unknown form name logs and yields nothing.
+            ndefs = (
+                (('newp:noexist', 'hehe'), {}),
+            )
+            with self.getLoggerStream('synapse.lib.view') as stream:
+                self.len(0, await alist(view.addNodes(ndefs)))
+                await stream.expect('No form named newp:noexist', timeout=6)
+
             # addNodes with an invalid edge verb to an existing n2 node (covers edge error logging)
             await view.addNode('inet:fqdn', 'vertex.link')
             ndefs = (
@@ -1255,6 +1363,27 @@ class ViewTest(s_t_utils.SynTest):
             )
             result = await alist(view.addNodes(ndefs))
             self.len(1, result)
+
+            # addNodes with a valid edge into a multilayer view where the n1 node
+            # is absent but its nid is allocated (here in a sibling view) must not
+            # raise resolving the under-layer bound.
+            await core.callStorm('$lib.model.ext.addEdge(*, _mvedge, *, ({}))')
+            await view.addNode('ou:org', ('edgedst',))
+
+            dstiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            srciden = await core.callStorm('return($lib.view.get().fork().iden)')
+            dstview = core.getView(dstiden)
+
+            # allocate the n1 nid in the sibling source view only
+            await core.nodes('[ ou:org=(edgesrc,) ]', opts={'view': srciden})
+
+            ndefs = (
+                (('ou:org', ('edgesrc',)), {'edges': (('_mvedge', ('ou:org', ('edgedst',))),)}),
+            )
+            result = await alist(dstview.addNodes(ndefs))
+            self.len(1, result)
+
+            self.len(1, await core.nodes('ou:org=(edgesrc,) -(_mvedge)> ou:org=(edgedst,)', opts={'view': dstiden}))
 
     async def test_addNodesAuto(self):
         '''

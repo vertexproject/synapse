@@ -44,7 +44,6 @@ modeldefs = (
                         'doc': 'The type of experiment as a user defined taxonomy.'}),
 
                     ('period', None, {
-                        'prevnames': ('window', 'time'),
                         'doc': 'The time period when the experiment was run.'}),
 
                 ),

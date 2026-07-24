@@ -9,7 +9,7 @@ import synapse.lib.stormtypes as s_stormtypes
 stormcmds = (
     {
         'name': 'auth.user.add',
-        'descr': '''
+        'desc': '''
             Add a user.
 
             Examples:
@@ -28,7 +28,7 @@ stormcmds = (
     },
     {
         'name': 'auth.user.list',
-        'descr': '''
+        'desc': '''
             List all users.
 
             Examples:
@@ -58,7 +58,7 @@ stormcmds = (
     },
     {
         'name': 'auth.user.mod',
-        'descr': '''
+        'desc': '''
             Modify properties of a user.
 
             Examples:
@@ -124,7 +124,7 @@ stormcmds = (
     },
     {
         'name': 'auth.role.add',
-        'descr': '''
+        'desc': '''
             Add a role.
 
             Examples:
@@ -142,7 +142,7 @@ stormcmds = (
     },
     {
         'name': 'auth.role.list',
-        'descr': '''
+        'desc': '''
             List all roles.
 
             Examples:
@@ -164,7 +164,7 @@ stormcmds = (
     },
     {
         'name': 'auth.role.del',
-        'descr': '''
+        'desc': '''
             Delete a role.
 
             Examples:
@@ -187,7 +187,7 @@ stormcmds = (
     },
     {
         'name': 'auth.role.mod',
-        'descr': '''
+        'desc': '''
             Modify properties of a role.
 
             Examples:
@@ -213,7 +213,7 @@ stormcmds = (
     },
     {
         'name': 'auth.user.addrule',
-        'descr': '''
+        'desc': '''
             Add a rule to a user.
 
             Examples:
@@ -246,7 +246,7 @@ stormcmds = (
     },
     {
         'name': 'auth.user.delrule',
-        'descr': '''
+        'desc': '''
             Remove a rule from a user.
 
             Examples:
@@ -285,7 +285,7 @@ stormcmds = (
     },
     {
         'name': 'auth.role.addrule',
-        'descr': '''
+        'desc': '''
             Add a rule to a role.
 
             Examples:
@@ -318,7 +318,7 @@ stormcmds = (
     },
     {
         'name': 'auth.role.delrule',
-        'descr': '''
+        'desc': '''
             Remove a rule from a role.
 
             Examples:
@@ -357,7 +357,7 @@ stormcmds = (
     },
     {
         'name': 'auth.user.grant',
-        'descr': '''
+        'desc': '''
             Grant a role to a user.
 
             Examples:
@@ -387,7 +387,7 @@ stormcmds = (
     },
     {
         'name': 'auth.user.revoke',
-        'descr': '''
+        'desc': '''
             Revoke a role from a user.
 
             Examples:
@@ -417,7 +417,7 @@ stormcmds = (
     },
     {
         'name': 'auth.user.show',
-        'descr': '''
+        'desc': '''
             Display details for a given user by name.
 
             Examples:
@@ -469,7 +469,7 @@ stormcmds = (
     },
     {
         'name': 'auth.user.allowed',
-        'descr': '''
+        'desc': '''
             Show whether the user is allowed the given permission and why.
 
             Examples:
@@ -491,7 +491,7 @@ stormcmds = (
     },
     {
         'name': 'auth.role.show',
-        'descr': '''
+        'desc': '''
 
             Display details for a given role by name.
 
@@ -532,7 +532,7 @@ stormcmds = (
     },
     {
         'name': 'auth.gate.show',
-        'descr': '''
+        'desc': '''
 
             Display users, roles, and permissions for an auth gate.
 
@@ -583,7 +583,7 @@ stormcmds = (
     },
     {
         'name': 'auth.perms.list',
-        'descr': 'Display a list of the current permissions defined within the Cortex.',
+        'desc': 'Display a list of the current permissions defined within the Cortex.',
         'cmdargs': (
             ('--find', {'type': 'str', 'help': 'A search string for permissions.'}),
         ),

@@ -397,6 +397,67 @@ class DataModelTest(s_t_utils.SynTest):
         modl2 = s_datamodel.getBaseModel()
         modl2.addModelDefs([mdef])
 
+    async def test_datamodel_v2map(self):
+
+        # the shipped v2 -> v3 model map validates against its schema
+        v2map = s_datamodel.getV2ModelMap()
+        s_schemas.reqValidV2ModelMap(v2map)
+
+        # the loader caches and returns the same object
+        self.eq(id(v2map), id(s_datamodel.getV2ModelMap()))
+
+        self.isin('goals', v2map)
+        self.isin('changes', v2map)
+
+        # every goal referenced by an entry (including nested props) exists in
+        # the goals table, and every entry offers a became, reason, and/or props.
+        goals = set(v2map['goals'])
+
+        def checkentry(entry, allowprops):
+            for goal in entry.get('goals', ()):
+                self.isin(goal, goals)
+
+            self.true(entry.get('became') is not None or
+                      entry.get('reason') is not None or
+                      (allowprops and entry.get('props')))
+
+        for name, entry in v2map['changes'].items():
+            checkentry(entry, True)
+            for prel, propentry in entry.get('props', {}).items():
+                checkentry(propentry, False)
+
+        async with self.getTestCore() as core:
+            model = core.model
+
+            # every became target resolves to a real name in the current model
+            for name, entry in v2map['changes'].items():
+                if (became := entry.get('became')) is not None:
+                    self.true(became in model.forms or became in model.types)
+
+                # nested prop entries are keyed by relative name; became is relative
+                for prel, propentry in entry.get('props', {}).items():
+                    if (pbecame := propentry.get('became')) is not None:
+                        self.nn(model.prop(f'{name}:{pbecame}'))
+
+            # the reverse-lookup maps are populated from the v2 model map
+            self.eq('ou:orgnet', model.formprevnames.get('ou:orgnet4'))
+            self.eq('inet:dns:a:ip', model.propprevnames.get('inet:dns:a:ipv4'))
+
+            # v2map is exposed in the model dict for API consumers
+            mdict = model.getModelDict()
+            self.isin('v2map', mdict)
+            self.eq(mdict['v2map']['changes']['ou:orgnet4']['became'], 'ou:orgnet')
+            self.eq(mdict['v2map']['changes']['inet:dns:a']['props']['ipv4']['became'], 'ip')
+
+            # the legacy prevnames key no longer appears in any packed def
+            for fdef in mdict['forms'].values():
+                self.notin('prevnames', fdef)
+                for pdef in fdef.get('props', {}).values():
+                    self.notin('prevnames', pdef)
+
+            for tdef in mdict['types'].values():
+                self.notin('prevnames', tdef['info'])
+
     async def test_model_comp_readonly_props(self):
         async with self.getTestCore() as core:
             q = '''
@@ -807,6 +868,18 @@ class DataModelTest(s_t_utils.SynTest):
             s_datamodel.getBaseModel().addModelDefs([badmodel])
         self.notin('uses a deprecated type', stream.getvalue())
 
+        # Comp fields must reference a named type; inline (type, opts) is rejected.
+        typeopts = {
+            'fields': (
+                ('hehe', ('str', {'lower': True})),
+                ('haha', 'int'),
+            )
+        }
+
+        with self.raises(s_exc.BadTypeDef) as cm:
+            s_datamodel.getBaseModel().addType('_bad:comp', 'comp', typeopts, {})
+        self.isin('field hehe must reference a named type', cm.exception.get('mesg'))
+
     async def test_datamodel_comp_iface(self):
         # Comp field types may be interface names; the field is treated as a
         # poly that filters by the interface. The caller must pass a node or
@@ -836,12 +909,21 @@ class DataModelTest(s_t_utils.SynTest):
             await core.nodes(q)
             nodes = await core.nodes('test:str=bcomp')
             self.eq(nodes[0].get('_ifacecomp'),
-                    ('_test:ifacecomp', (('test:hasiface2', 'routing1'), 11)))
+                    ('_test:ifacecomp', (('test:hasiface2', 'routing1'), ('int', 11))))
 
             # Raw-string assignment to an interface-typed comp field is
             # rejected.
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ test:str=acomp :_ifacecomp=(routing0, 7) ]')
+
+            # Comp.normFromTypedValu rejects a non-sequence value and a value
+            # with the wrong number of fields.
+            comptype = core.model.type('test:comp')
+            with self.raises(s_exc.BadTypeValu):
+                await comptype.normFromTypedValu(3)
+
+            with self.raises(s_exc.BadTypeValu):
+                await comptype.normFromTypedValu(((('test:int', 1),),))
 
     async def test_datamodel_edges(self):
 
@@ -1493,12 +1575,12 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(2, await core.callStorm(q))
 
             await core.nodes('[ test:str=if1 :poly={[ test:str2=inh ]} ]')
-            self.true(await core.callStorm('test:str=if1 return((:poly).istype(test:str))'))
-            self.true(await core.callStorm('test:str=if1 return((:poly).istype(test:str2))'))
+            self.true(await core.callStorm('test:str=if1 return((:poly).is(test:str))'))
+            self.true(await core.callStorm('test:str=if1 return((:poly).is(test:str2))'))
 
             await core.nodes('[ test:str=if2 :poly={[ test:str=base ]} ]')
-            self.true(await core.callStorm('test:str=if2 return((:poly).istype(test:str))'))
-            self.false(await core.callStorm('test:str=if2 return((:poly).istype(test:str2))'))
+            self.true(await core.callStorm('test:str=if2 return((:poly).is(test:str))'))
+            self.false(await core.callStorm('test:str=if2 return((:poly).is(test:str2))'))
 
             self.len(2, await core.nodes('test:str +:polyarry*[=p10]'))
             self.len(2, await core.nodes('test:str +:polyarry*[.type=test:str]'))
@@ -1702,6 +1784,11 @@ class DataModelTest(s_t_utils.SynTest):
             self.eq(norm[0], 'inet:server')
             self.nn(info.get('virts'))
 
+            # Inner-type subs propagate too: packTypedNorm carries the normed
+            # value's subs onto the poly norminfo (consistent with _packFormNorm).
+            self.nn(info.get('subs'))
+            self.isin('proto', info['subs'])
+
             # Sad paths: non-tuple value, unknown typename, known type not in
             # the poly's allowed set.
             with self.raises(s_exc.BadTypeValu):
@@ -1719,6 +1806,28 @@ class DataModelTest(s_t_utils.SynTest):
             try:
                 with self.raises(s_exc.IsDeprLocked):
                     await polytype.normFromTypedValu(('test:int', 3))
+            finally:
+                inttype.locked = False
+
+            # A form accepted via interface (not a declared type) keeps its own
+            # type name through _canonType rather than being canonicalized.
+            self.false('test:hasiface' in polytype.typeset)
+            norm, info = await polytype.normFromTypedValu(('test:hasiface', 'foo'))
+            self.eq(norm, ('test:hasiface', 'foo'))
+            self.len(1, info.get('adds'))
+            self.eq(info['adds'][0][:2], ('test:hasiface', 'foo'))
+
+            # acceptsType returns False for a type name the model does not know.
+            self.false(polytype.acceptsType('not:a:type'))
+
+            # A bare value skips a locked (but not form-locked) default type and
+            # norms through the next accepting default type. test:int would norm
+            # 5 directly, so landing on test:str proves the locked type was skipped.
+            self.false(inttype.locked)
+            inttype.locked = True
+            try:
+                norm, info = await polytype.norm(5, view=core.view)
+                self.eq(norm, ('test:str', '5'))
             finally:
                 inttype.locked = False
 

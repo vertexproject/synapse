@@ -800,7 +800,13 @@ Queries = [
     ':hehe as test:str -> test:str',
     '[test:str=foo :hehe = 5 as test:str]',
     '[test:str=foo :hehe = 5 as $t]',
-    'test:str +:poly as test:str=foo'
+    'test:str +:poly as test:str=foo',
+    '[inet:tls:clientcert=(tcp://5.6.7.8:5678, $client as crypto:x509:cert)]',
+    '[inet:tls:clientcert=(tcp://5.6.7.8:5678, $client as $t)]',
+    '[test:comp=((foo,) as test:comp, $x as test:int)]',
+    '[test:str=foo :bar=("hehe" as test:str, $x as test:int)]',
+    '[test:str=foo :hehe = 5 as `test:{$t}`]',
+    '[inet:tls:clientcert=(tcp://5.6.7.8:5678, $client as `crypto:{$kind}`)]',
 ]
 
 # Generated with print_parse_list below
@@ -1501,7 +1507,13 @@ _ParseResults = [
     'Query: [PropPivot: [RelPropValue: [RelProp: [Const: hehe], Const: test:str], PivotTarget: [Const: test:str]], isjoin=False]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSet: [RelProp: [Const: hehe], Const: =, ValueAs: [Const: 5, Const: test:str]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSet: [RelProp: [Const: hehe], Const: =, ValueAs: [Const: 5, VarValue: [Const: t]]]]',
-    'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: poly], Const: test:str], Const: =, Const: foo]]]'
+    'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: poly], Const: test:str], Const: =, Const: foo]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: inet:tls:clientcert], Const: =, List: [Const: tcp://5.6.7.8:5678, ValueAs: [VarValue: [Const: client], Const: crypto:x509:cert]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: inet:tls:clientcert], Const: =, List: [Const: tcp://5.6.7.8:5678, ValueAs: [VarValue: [Const: client], VarValue: [Const: t]]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:comp], Const: =, List: [ValueAs: [List: [Const: foo], Const: test:comp], ValueAs: [VarValue: [Const: x], Const: test:int]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSet: [RelProp: [Const: bar], Const: =, List: [ValueAs: [Const: hehe, Const: test:str], ValueAs: [VarValue: [Const: x], Const: test:int]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSet: [RelProp: [Const: hehe], Const: =, ValueAs: [Const: 5, FormatString: [Const: test:, VarValue: [Const: t]]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: inet:tls:clientcert], Const: =, List: [Const: tcp://5.6.7.8:5678, ValueAs: [VarValue: [Const: client], FormatString: [Const: crypto:, VarValue: [Const: kind]]]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

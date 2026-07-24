@@ -986,3 +986,19 @@ hello world
             async with s_rstorm.getCell('synapse.tests.test_lib_rstorm.NonCellMockCtor',
                                          {'hehe': 'haha'}) as cell:
                 self.eq({'hehe': 'haha'}, cell.conf)
+
+    async def test_lib_rstorm_cortex_subclass(self):
+
+        # a storm-cortex directive naming a Cortex subclass ( here the base Cortex
+        # itself ) boots via getDocsCore() with AHA-resolved axon/jsonstor peers.
+        rst = '''
+.. storm-cortex:: synapse.cortex.Cortex
+.. storm:: [ inet:asn=1 ]
+'''
+        with self.getTestDir() as dirn:
+            path = s_common.genpath(dirn, 'cortex_subclass.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(rst.encode())
+
+            text = await get_rst_text(path)
+            self.isin('inet:asn=1', text)

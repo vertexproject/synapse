@@ -986,7 +986,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(resp.status, http.HTTPStatus.OK)
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
-                    self.eq([3, 'foobar'], retn['result']['norm'])
+                    self.eq([['test:int', 3], ['test:lower', 'foobar']], retn['result']['norm'])
 
                 # Norm via POST
                 body = {'prop': 'inet:ip', 'value': '1.2.3.4'}
@@ -1062,7 +1062,7 @@ class HttpApiTest(s_tests.SynTest):
                 spkg = {
                     'name': 'testy',
                     'version': (0, 0, 1),
-                    'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+                    'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
                     'modules': (
                         {'name': 'testy.ingest', 'storm': 'function punch(x, y) { return (($x + $y)) }'},
                     ),
@@ -2071,8 +2071,9 @@ class HttpApiTest(s_tests.SynTest):
                 self.isin('200 POST /api/v3/auth/adduser', mesg.get('message'))
 
     async def test_core_local_axon_http(self):
-        async with self.getTestCore() as core:
-            await s_t_axon.AxonTest.runAxonTestHttp(self, core, realaxon=(await core.getAxon()), apikey=True)
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
+            await s_t_axon.AxonTest.runAxonTestHttp(self, core, realaxon=clus.axon, apikey=True)
 
     async def test_core_remote_axon_http(self):
         timeout = aiohttp.ClientTimeout(total=1)

@@ -602,8 +602,8 @@ $hashes = $lib.axon.hashset($sha256)         // get hash set
 $lib.auth.users.get().iden                   // current user iden
 $lib.auth.users.get().vars.$key              // per-user variable
 $lib.auth.users.get().allowed($perm)         // check permission
-$lib.globals.get($key)                       // get a global variable
-$lib.globals.set($key, $valu)                // set a global variable
+$lib.globals.$key                            // get a global variable (deref)
+$lib.globals.$key = $valu                    // set a global variable
 $lib.auth.users.get($iden)                   // get user by iden
 $lib.auth.users.byname($name)               // get user by name
 $lib.auth.roles.byname($name)               // get role by name
@@ -632,7 +632,7 @@ $lib.json.save($data)                        // serialize to JSON string
 $lib.lift.byNodeData($name)                  // lift nodes with a given nodedata key
 
 // Version
-$lib.version.synapse                         // synapse version tuple (property, no parens)
+$lib.version.synapse                         // synapse version string (property, no parens)
 ```
 
 ### Node Object Attributes / Methods
@@ -646,7 +646,7 @@ $node.repr()                                 // human representation
 $node.pack()                                 // pack node to dict
 $node.props                                  // property dict access
 $node.props.propname                         // specific property
-$node.isform(inet:fqdn)                      // check form type
+$node.is(inet:fqdn)                          // check form or interface
 $node.tags()                                 // get tags dict
 $node.difftags($tags)                        // diff tags vs current
 $node.globtags(pattern)                      // match tags by glob

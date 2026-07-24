@@ -1893,69 +1893,25 @@ class Axon(s_cell.Cell):
 
 class HasAxon:
     '''
-    Mixin for a Cell which uses an Axon. When the Cell is an AHA client the
-    Axon is resolved by service type ( aha://axon... ); otherwise an embedded
-    Axon is created under the cell directory and reached via its local url.
-    Either way a telepath client is created and getAxon() returns a live proxy,
-    so embedded and remote deployments exercise the same path. Use getAxon() /
-    getAxonInfo() rather than the underlying objects.
+    Mixin for a Cell which uses an Axon. The Axon is resolved as an AHA peer by
+    service type ( aha://axon... ); a telepath client is created and getAxon()
+    returns a live proxy. Use getAxon() / getAxonInfo() rather than the
+    underlying objects.
     '''
-    # constructor for the embedded Axon. subclasses may override to boot an
-    # alternative embedded implementation ( eg an enterprise Axon ).
-    _has_axon_ctor = Axon.anit
-
     async def initServiceStorage(self):
 
-        self._has_axon = None
         self._has_axoninfo = {}
 
-        # NEVER reach for self._has_axon* directly. getAxon() returns a proxy to
-        # the axon ( embedded or remote ) via the telepath client.
-        if self.ahaclient is None and self.readonly:
-            # a readonly cell shares the writer's dirn and must not run its own
-            # embedded axon. point the client at the leader's embedded axon
-            # socket so consumers reach the axon without proxying through the
-            # leader.
-            aurl = f'cell://{os.path.join(self.dirn, "axon")}'
-
-        elif self.ahaclient is None:
-            path = os.path.join(self.dirn, 'axon')
-            # the embedded axon does not run its own host sysctl checks
-            conf = {'health:sysctl:checks': False}
-
-            proxyurl = self.conf.get('http:proxy')
-            if proxyurl is not None:
-                conf['http:proxy'] = proxyurl
-
-            cadir = self.conf.get('tls:ca:dir')
-            if cadir is not None:
-                conf['tls:ca:dir'] = cadir
-
-            # parent=self makes the embedded axon a nexus-sharing child so its
-            # writes ride the host cell's nexus and replicate to mirrors.
-            self._has_axon = await self._has_axon_ctor(path, conf=conf, parent=self)
-            self.onfini(self._has_axon.fini)
-            self.dynitems['axon'] = self._has_axon
-
-            await self._initEmbeddedAxon(self._has_axon)
-
-            aurl = self._has_axon.getLocalUrl()
-
-        else:
-            aurl = 'aha://axon...'
-
-        self._has_axon_client = await s_telepath.ClientV2.anit(aurl, onlink=self._onLinkAxon)
+        # the axon is resolved as an AHA peer by service type. getAxon() returns
+        # a live proxy via the telepath client; a cell configured without an AHA
+        # client fails to resolve the axon only when it is actually used.
+        self._has_axon_client = await s_telepath.ClientV2.anit('aha://axon...', onlink=self._onLinkAxon)
         self.onfini(self._has_axon_client)
 
         # set up our axon before delegating so the rest of the storage init
         # chain ( or an updated pattern ) can rely on getAxon(). return the
         # parent result in case the callback ever produces one.
         return await super().initServiceStorage()
-
-    async def _initEmbeddedAxon(self, axon):
-        # hook invoked with the freshly created embedded Axon. subclasses may
-        # override to run inaugural-style setup.
-        pass
 
     async def _onLinkAxon(self, proxy, urlinfo):
         # default onlink handler for the axon client; refreshes the cached cell

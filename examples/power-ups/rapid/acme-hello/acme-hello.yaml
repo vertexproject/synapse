@@ -3,7 +3,7 @@ version: 0.0.1
 
 dependencies:
   synapse:
-    version: '>=3.0.0b3,<4.0.0'
+    version: '>=3.0.0b4,<4.0.0'
 
 genopts:
     dotstorm: true # Specify that storm command/module files end with ".storm"
@@ -36,10 +36,10 @@ modules:
 commands:
 
   - name: acme.hello.sayhi
-    descr: Print the hello message.
+    desc: Print the hello message.
 
   - name: acme.hello.omgopts
-    descr: |
+    desc: |
         This is a multi-line description containing usage examples.
   
         // Run the command with some nodes
@@ -65,7 +65,7 @@ commands:
           help: A mandatory / positional command line argument.
 
   - name: acme.hello.mayyield
-    descr: |
+    desc: |
          Take in an FQDN and make DNS A records to demo --yield
 
          inet:fqdn=vertex.link | acme.hello.mayyield

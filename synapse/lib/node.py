@@ -418,6 +418,9 @@ class Node(NodeBase):
 
                     if vprops is not None:
                         for vname, vval in vprops.items():
+                            if vname[0] == '_':
+                                continue
+
                             vvals[vname] = vval[0]
                     break
 
@@ -1012,6 +1015,9 @@ class Node(NodeBase):
                 else:
                     if vprops is not None:
                         for vname, vval in vprops.items():
+                            if vname[0] == '_':
+                                continue
+
                             retn[f'{name}.{vname}'] = vval[0]
 
                     retn[f'{name}.type'] = valu[0]
@@ -1023,7 +1029,7 @@ class Node(NodeBase):
 
         return retn
 
-    def getNodeRefProps(self, virts=False):
+    def getStormProps(self):
         retn = {}
 
         for sode in reversed(self.sodes):
@@ -1044,7 +1050,7 @@ class Node(NodeBase):
             if styp & s_layer.STOR_FLAG_ARRAY:
                 refs[name] = valu
             else:
-                refs[name] = s_stormtypes.NodeRef((valu, virts))
+                refs[name] = self.form.prop(name).type.tostorm(valu, virts=virts)
 
         return refs
 
@@ -1339,7 +1345,9 @@ class Node(NodeBase):
                     mesg = 'Nodes still have this tag.'
                     raise s_exc.CantDelNode(mesg=mesg, form=formname, ndef=self.ndef)
 
-            async for refr in self.view.nodesByPropTypeValu(self.form.formtypes[0], formvalu):
+            # formvalu is already normalized (it is our stored primary value), so
+            # search referencing props by the normed value without re-norming.
+            async for refr in self.view.nodesByPropTypeNorm(self.form.formtypes[0], formvalu, virts=self.valuvirts()):
 
                 if refr.nid == self.nid:
                     continue

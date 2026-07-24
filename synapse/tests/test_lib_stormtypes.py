@@ -328,7 +328,8 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_stormtypes_jsonstor(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
             self.none(await core.callStorm('return($lib.jsonstor.get(foo))'))
             self.false(await core.callStorm('return($lib.jsonstor.has(foo))'))
             self.none(await core.callStorm('return($lib.jsonstor.get(foo, prop=bar))'))
@@ -404,7 +405,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'bam': 3}, await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, baz, asof="-1day"))'))
 
             path = ('cells', core.iden, 'foo', 'bar')
-            items = sorted(await alist(core._has_jsonstor.getPathObjs(path)), key=lambda x: x[1]['asof'])
+            items = sorted(await alist(clus.jsonstor.getPathObjs(path)), key=lambda x: x[1]['asof'])
             self.len(2, items)
             self.true(all(len(item[0]) == 1 and s_common.isguid(item[0][0]) for item in items))
             [item[1].pop('asof') for item in items]
@@ -414,7 +415,7 @@ class StormTypesTest(s_test.SynTest):
             self.true(await core.callStorm('return($lib.jsonstor.cachedel(newp/newp, nah))'))
             self.true(await core.callStorm('return($lib.jsonstor.cachedel(foo/bar, baz))'))
             self.true(await core.callStorm('return($lib.jsonstor.cachedel((foo, bar), (baz, true)))'))
-            await self.agenlen(0, core._has_jsonstor.getPathObjs(path))
+            await self.agenlen(0, clus.jsonstor.getPathObjs(path))
 
             with self.raises(s_exc.NoSuchType):
                 await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, $lib.queue, (1)))')
@@ -685,7 +686,7 @@ class StormTypesTest(s_test.SynTest):
             'name': 'foo',
             'desc': 'test',
             'version': (0, 0, 1),
-            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
             'modules': [
                 {
                     'name': 'test',
@@ -2215,7 +2216,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(1, await core.callStorm(q))
 
             # Python Tuples can be treated like a List object for accessing via data inside of.
-            q = '[ test:comp=(10,lol) ] $x=$node.ndef.index(1).index(1) [ test:str=$x ]'
+            q = '[ test:comp=(10,lol) ] $x=$node.ndef.index(1).index(1).index(1) [ test:str=$x ]'
             nodes = await core.nodes(q)
             self.eq(nodes[0].ndef, ('test:str', 'lol'))
 
@@ -4305,7 +4306,8 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_bytes_base(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             opts = {'vars': {'bytes': 10}}
 
@@ -4445,7 +4447,8 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_base64(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             await core.getAxon()
 
@@ -6594,6 +6597,9 @@ class StormTypesTest(s_test.SynTest):
             props = await core.callStorm('inet:ip=1.2.3.4 return($node.props)')
             self.eq(('inet:asn', 20), props.get('asn'))
 
+            # a valid but unset prop derefs to None
+            self.none(await core.callStorm('inet:ip=1.2.3.4 return($node.props."dns:rev")'))
+
             fakeuser = await core.auth.addUser('fakeuser')
             opts = {'user': fakeuser.iden}
             with self.raises(s_exc.NoSuchProp):
@@ -7339,7 +7345,8 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_axon(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             visi = await core.auth.addUser('visi')
             await visi.setPasswd('secret')
@@ -7561,7 +7568,8 @@ words\tword\twrd'''
 
     async def test_storm_lib_axon_perms(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             mainview = await core.callStorm('return($lib.view.get().iden)')
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
@@ -7691,7 +7699,8 @@ words\tword\twrd'''
 
     async def test_storm_lib_export(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
             await core.nodes('[inet:dns:a=(vertex.link, 1.2.3.4)]')
             size, sha256 = await core.callStorm('return( $lib.export.toaxon(${.created}) )')
             byts = b''.join([b async for b in (await core.getAxon()).get(s_common.uhex(sha256))])
@@ -8402,7 +8411,8 @@ words\tword\twrd'''
 
     async def test_storm_lib_axon_read_unpack(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             visi = await core.auth.addUser('visi')
 

@@ -173,7 +173,7 @@ class StormScrapeTest(s_test.SynTest):
             fini { return ( $tally ) }
             '''
             result = await core.callStorm(query, opts={'vars': {'text': cointext}})
-            self.eq(result, {"crypto:currency:address=('673291fe74aaf588cb4f69f833330273', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')": 1})
+            self.eq(result, {"crypto:currency:address=(('crypto:currency:chain', '673291fe74aaf588cb4f69f833330273'), ('str', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))": 1})
 
             # $lib.scrape.context() - this is currently just wrapping s_scrape.contextscrape
             query = '''$list = () for $info in $lib.scrape.context($text)
@@ -197,3 +197,29 @@ class StormScrapeTest(s_test.SynTest):
             varz = {'text': text, 'unique': False}
             results = await core.callStorm(query, opts={'vars': varz})
             self.len(5, results)
+
+    async def test_storm_lib_scrape_context_rawvalu(self):
+        # $lib.scrape.context() stashes the raw (pre-norm) valu in info["valu"] so
+        # a caller can re-create the scraped node (and its sub-nodes) -- a normed
+        # guid comp valu (just a guid) cannot be re-normed to create the node.
+        async with self.getTestCore() as core:
+            text = '0x52cBb6Be7Ad204904486f89E264029c94525966d'
+
+            info = await core.callStorm('''
+                for ($form, $valu, $info) in $lib.scrape.context($text) { return($info) }
+            ''', opts={'vars': {'text': text}})
+
+            # the raw valu is a guid constructor dict for the chain, plus the address
+            self.eq(info['valu'][0]['$as'], 'crypto:currency:chain')
+            self.eq(info['valu'][0]['symbol'], 'eth')
+            self.eq(info['valu'][1], text)
+
+            # creating from the raw valu makes the address node and its chain sub-node
+            q = '''
+                for ($form, $valu, $info) in $lib.scrape.context($text) {
+                    [ ( *$form ?= $info.valu ) ]
+                }
+            '''
+            await core.nodes(q, opts={'vars': {'text': text}})
+            self.len(1, await core.nodes('crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:currency:chain'))

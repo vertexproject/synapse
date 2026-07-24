@@ -62,6 +62,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
@@ -303,6 +304,9 @@ class ThreeType(s_types.Type):
     def repr(self, valu):
         return '3'
 
+# deterministic iden for the built-in 'user' account created by getTestCluster
+testuseriden = s_common.guid('user')
+
 testmodel = (
     {
 
@@ -538,7 +542,7 @@ testmodel = (
             }),
             ('test:complexcomp', ('comp', {'fields': (
                 ('foo', 'test:int'),
-                ('bar', ('str:lower', {}),),
+                ('bar', 'str:lower'),
             )}), {
                 'props': (
                     ('foo', ('test:int', {}), {'computed': True}),
@@ -1047,6 +1051,211 @@ class ReloadCell(s_cell.Cell):
 
         self.addReloadableSystem('badreload', func)
 
+class TestCluster(s_base.Base):
+    '''
+    Holds the set of services booted by SynTest.getTestCluster().
+
+    A Base which owns the fini() teardown of the booted services. Exposes one
+    attribute per service type ( the leader instance, eg ``clus.cortex`` /
+    ``clus.axon`` / ``clus.search`` ) and a ``svcs`` dict keyed by AHA short
+    name ( eg ``00.cortex`` / ``01.cortex`` ) for reaching individual instances
+    such as mirrors.
+
+    Additional services can be booted onto the same AHA network after creation
+    with addSvc(), which awaits their discovery so a test may immediately use or
+    watch them. Each service lives in a predictable directory under the cluster
+    dir ( see getSvcDirn() ), so a caller may pre-populate a service dir before
+    boot, and restart() can fini and re-boot a service from the same directory.
+    '''
+    async def __anit__(self, test, dirn):
+        await s_base.Base.__anit__(self)
+        self.test = test    # the SynTest which booted us
+        self.dirn = dirn    # the cluster storage directory
+        self.aha = None
+        self.svcs = {}      # aha short name -> cell
+        self.bytype = {}    # celltype -> leader cell
+        self.counts = {}    # celltype -> number of instances booted
+        self.svcinfo = {}   # aha short name -> boot info for restart()
+
+    def __getattr__(self, name):
+        bytype = self.__dict__.get('bytype')
+        if bytype is not None and name in bytype:
+            return bytype[name]
+
+        raise AttributeError(name)
+
+    def get(self, celltype):
+        return self.bytype.get(celltype)
+
+    def getLocalUrl(self, celltype='cortex'):
+        return self.bytype[celltype].getLocalUrl()
+
+    def getSvcDirn(self, svcname):
+        '''
+        Return the on-disk directory for a service by its AHA short name ( eg
+        ``00.cortex`` / ``01.search`` ). The convention is stable, so a caller
+        which passed an explicit ``dirn`` to getTestCluster() may pre-populate a
+        service directory ( eg restore a backup ) before the service boots.
+        '''
+        return s_common.genpath(self.dirn, svcname)
+
+    @contextlib.asynccontextmanager
+    async def proxy(self, celltype='cortex'):
+        async with self.bytype[celltype].getLocalProxy() as prox:
+            yield prox
+
+    async def _waitSvcReady(self, svcname, celltype, cell, leader, wait):
+        if not wait:
+            return
+
+        if not leader:
+            # a same-type mirror follows the leader of its cell type
+            await asyncio.wait_for(cell.nexsroot.ready.wait(), timeout=12)
+            return
+
+        # a booted Storm service is auto-discovered by an active Cortex via AHA;
+        # wait for the Cortex to add it so the cluster is ready to use.
+        core = self.bytype.get('cortex')
+        if core is not None and cell is not core and cell.features.get('stormservice'):
+            self.test.nn(await self.test.waitCoreStormSvc(core, celltype))
+
+    async def _addSvcToAha(self, svcname, ctor, conf=None, provinfo=None):
+        '''
+        Provision and boot a service ( in its getSvcDirn() ) into the cluster's
+        AHA network and return the booted cell. The cluster owns the cell's
+        teardown. Replaces SynTest.addSvcToAha() so TestCluster does not depend
+        on it.
+        '''
+        aha = self.aha
+        onetime = await aha.addAhaSvcProv(svcname, provinfo=provinfo)
+
+        conf = self.test.getCellConf(conf=conf)
+        conf['aha:provision'] = onetime
+
+        dirn = self.getSvcDirn(svcname)
+        s_common.yamlsave(conf, dirn, 'cell.yaml')
+
+        cell = await self.enter_context(await ctor.anit(dirn))
+        await aha._waitAhaSvcOnline(f'{svcname}...', timeout=10)
+
+        return cell
+
+    async def addSvc(self, ctor, conf=None, wait=True, model=True):
+        '''
+        Boot a service onto the cluster's AHA network and return the booted cell.
+        The service type is taken from ``ctor.getCellType()``. The first instance
+        of a type is its leader ( reachable as ``clus.<celltype>`` ); each
+        subsequent same-type instance follows it as a mirror ( reachable by AHA
+        short name in ``svcs`` ).
+
+        Note:
+            This is for tests that must add a service dynamically ( eg after
+            manipulating the cluster, or to observe discovery ). Most tests
+            should instead declare the whole service topology up front in the
+            getTestCluster() ``svcs`` argument.
+
+        When wait is True ( the default ) the boot is not considered complete
+        until the service is usable: a Storm service leader is awaited until the
+        Cortex has auto-discovered it via AHA, and a mirror is awaited until its
+        nexus is caught up. Pass wait=False to return as soon as the cell boots.
+
+        Args:
+            ctor: The cell class to boot.
+            conf (dict): Optional service config.
+            wait (bool): Await discovery / nexus sync before returning.
+            model (bool): Load the synapse test model when booting a Cortex.
+        '''
+        celltype = ctor.getCellType()
+
+        indx = self.counts.get(celltype, 0)
+        self.counts[celltype] = indx + 1
+
+        svcname = f'0{indx}.{celltype}'
+        leader = indx == 0
+
+        cell = await self._addSvcToAha(svcname, ctor, conf=conf)
+
+        self.svcs[svcname] = cell
+        self.svcinfo[svcname] = {'celltype': celltype, 'ctor': ctor, 'leader': leader}
+
+        if leader:
+            self.bytype[celltype] = cell
+
+            if celltype == 'cortex':
+                # every test Cortex gets known credentials: the root password is
+                # set to 'secret' and a 'user' account ( user@example.com /
+                # 'secret' ) is created ( see the getTestCluster docstring ).
+                await cell.auth.rootuser.setPasswd('secret')
+                user = await cell.auth.addUser('user', iden=testuseriden, email='user@example.com')
+                await user.setPasswd('secret')
+
+                if model:
+                    # load the synapse test model into the Cortex after boot.
+                    await cell._addModelDefs(testmodel)
+
+        await self._waitSvcReady(svcname, celltype, cell, leader, wait)
+
+        return cell
+
+    def _reqSvcInfo(self, svcname):
+        info = self.svcinfo.get(svcname)
+        if info is None:
+            mesg = f'getTestCluster() has no such service: {svcname}'
+            raise s_exc.BadArg(mesg=mesg, svcname=svcname)
+
+        return info
+
+    async def shutdown(self, svcname):
+        '''
+        Fini the named service instance, leaving its storage directory intact so
+        a test may inspect or manipulate it by hand before a startup()/restart().
+
+        Args:
+            svcname (str): The AHA short name of the service ( eg ``00.search`` ).
+        '''
+        self._reqSvcInfo(svcname)
+
+        cell = self.svcs.get(svcname)
+        if cell is not None and not cell.isfini:
+            await cell.fini()
+
+    async def startup(self, svcname, wait=True):
+        '''
+        Boot a fresh instance of a previously added service from its storage
+        directory ( which keeps its persisted iden and AHA config ), awaiting its
+        return to the AHA network. Returns the new cell.
+
+        Args:
+            svcname (str): The AHA short name of the service ( eg ``00.search`` ).
+            wait (bool): Await AHA re-registration / discovery before returning.
+        '''
+        info = self._reqSvcInfo(svcname)
+
+        cell = await self.enter_context(await info['ctor'].anit(self.getSvcDirn(svcname)))
+
+        self.svcs[svcname] = cell
+        if info['leader']:
+            self.bytype[info['celltype']] = cell
+
+        if wait:
+            await self.aha._waitAhaSvcOnline(f'{svcname}...', timeout=10)
+            await self._waitSvcReady(svcname, info['celltype'], cell, info['leader'], wait)
+
+        return cell
+
+    async def restart(self, svcname, wait=True):
+        '''
+        Fini the named service and boot a fresh instance from the same storage
+        directory, awaiting its return to the AHA network. Equivalent to a
+        shutdown() followed by a startup(). Returns the new cell.
+
+        Args:
+            svcname (str): The AHA short name of the service ( eg ``00.search`` ).
+            wait (bool): Await AHA re-registration / discovery before returning.
+        '''
+        await self.shutdown(svcname)
+        return await self.startup(svcname, wait=wait)
+
 class SynTest(unittest.IsolatedAsyncioTestCase):
     '''
     Synapse test base class.
@@ -1107,7 +1316,9 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
-        self.eq(node.ndef, ex_ndef)
+        model = node.view.core.model
+        self.eq(node.ndef[0], ex_ndef[0])
+        self.eq(self._striptypes(model, node.form.type, node.ndef[1]), ex_ndef[1])
         [self.propeq(node, k, v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
 
         diff = {prop for prop in (set(node.getProps()) - set(ex_props)) if not prop.startswith('.')}
@@ -1116,7 +1327,10 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
     async def checkNodes(self, core, ndefs):
         for ndef in ndefs:
-            node = await core.nodes('', opts={'ndefs': (ndef,)})
+            # normalize the ndef value so callers may pass untyped comp/poly values
+            # (norm is idempotent, so already-normalized values are accepted too)
+            norm, _ = await core.model.type(ndef[0]).norm(ndef[1])
+            node = await core.nodes('', opts={'ndefs': ((ndef[0], norm),)})
             self.len(1, node)
 
     def printed(self, msgs, text):
@@ -1656,6 +1870,14 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
                     if mods:
                         aha.modCellConf(mods)
 
+                    # an active AHA leader self-registers 000.aha ( over a dns:name
+                    # link ) via an active coro; wait for it before yielding so tests
+                    # that count aha:svc:add events or list services are not racing
+                    # the leader's own registration. followers/clones do not
+                    # self-register and are skipped.
+                    if aha.isactive and (ahaname := aha.conf.get('aha:name')) is not None:
+                        await aha._waitAhaSvcOnline(f'{ahaname}...', timeout=12)
+
                     yield aha
 
     def getCellConf(self, conf=None):
@@ -1772,6 +1994,115 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
                 await core._addModelDefs(testmodel)
 
             yield core, axoncell, jsoncell
+
+    # maps a service type to the ctor used to boot it in getTestCluster(). values
+    # may be dotted-path strings ( resolved lazily to avoid eager imports ) or
+    # ctors. Subclasses ( eg the enterprise TstBase ) override for their types.
+    testsvc_ctors = {
+        'aha': 'synapse.lib.aha.AhaCell',
+        'axon': 'synapse.axon.Axon',
+        'cortex': 'synapse.cortex.Cortex',
+        'jsonstor': 'synapse.lib.jsonstor.JsonStorCell',
+    }
+
+    def getTestSvcCtor(self, celltype):
+        ctor = self.testsvc_ctors.get(celltype)
+        if ctor is None:
+            mesg = f'No test service ctor registered for service type: {celltype}'
+            raise s_exc.BadArg(mesg=mesg, celltype=celltype)
+
+        if isinstance(ctor, str):
+            ctor = s_dyndeps.getDynLocal(ctor)
+
+        return ctor
+
+    @contextlib.asynccontextmanager
+    async def getTestCluster(self, svcs=None, dirn=None):
+        '''
+        Boot a set of services on a single AHA network under one temp dir.
+
+        Args:
+            svcs (dict): Maps a service type ( eg 'cortex', 'axon', 'search' ) to
+                an envelope dict with keys ``conf`` ( the service config dict ),
+                ``ctor`` ( an explicit cell ctor override ), ``mirrors`` ( the
+                number of mirrors to boot alongside the leader; defaults to 0,
+                ie leader only ), and ``model`` ( for a 'cortex', whether to load
+                the synapse test model; defaults to True ). The special key
+                ``aha`` configures the AHA cell via a ``conf`` envelope; an AHA
+                network is always created.
+            dirn (str): Optional base directory for all services.
+
+        Notes:
+            Services locate their peers by cell type via AHA. Requesting a
+            'cortex' implicitly also boots an 'axon' and 'jsonstor'. Any deployed
+            Storm service is auto-discovered by the Cortex via AHA. Additional
+            services may be booted onto the same network afterwards with the
+            returned cluster's addSvc() method.
+
+            Every booted Cortex is given known test credentials: the ``root``
+            password is set to ``secret`` and a ``user`` account is created with
+            email ``user@example.com`` and password ``secret``. Tests should use
+            these built-in credentials rather than creating their own.
+
+        Yields:
+            TestCluster: An object exposing the booted services ( one attribute
+            per service type for the leader, plus a ``svcs`` dict keyed by AHA
+            name ).
+        '''
+        if svcs is None:
+            svcs = {'cortex': {}}
+
+        svcs = {celltype: (dict(env) if env is not None else None)
+                for (celltype, env) in svcs.items()}
+
+        # getTestCluster() always boots an AHA network; it cannot be disabled.
+        ahaenv = svcs.pop('aha', {})
+        if ahaenv is None:
+            mesg = 'getTestCluster() always uses AHA; the network cannot be disabled.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        ahaconf = ahaenv.get('conf')
+
+        # a cortex locates its axon and jsonstor peers by cell type via AHA
+        if 'cortex' in svcs:
+            svcs.setdefault('axon', {})
+            svcs.setdefault('jsonstor', {})
+
+        # boot peers before the services which discover them
+        order = ('axon', 'jsonstor', 'cortex')
+        celltypes = [t for t in order if t in svcs]
+        celltypes.extend([t for t in svcs if t not in order])
+
+        with self.mayTestDir(dirn) as dirn:
+
+            async with await TestCluster.anit(self, dirn) as clus:
+
+                clus.aha = await clus.enter_context(
+                    self.getTestAha(conf=ahaconf, dirn=s_common.genpath(dirn, '00.aha')))
+
+                for celltype in celltypes:
+
+                    env = svcs[celltype] or {}
+
+                    extra = set(env) - {'conf', 'ctor', 'mirrors', 'model'}
+                    if extra:
+                        mesg = f'getTestCluster() service {celltype} has invalid envelope keys: {sorted(extra)}'
+                        raise s_exc.BadArg(mesg=mesg)
+
+                    conf = env.get('conf') or {}
+                    mirrors = env.get('mirrors', 0)
+                    model = env.get('model', True)
+                    ctor = env.get('ctor')
+                    if ctor is None:
+                        ctor = self.getTestSvcCtor(celltype)
+
+                    # boot the leader ( first instance ) plus ``mirrors`` mirrors;
+                    # addSvc() promotes the first to leader and follows it with
+                    # each subsequent same-type instance as a mirror.
+                    for _ in range(1 + mirrors):
+                        await clus.addSvc(ctor, conf=conf, model=model)
+
+                yield clus
 
     def getTestUrl(self, dmon, name, **opts):
 
@@ -2085,9 +2416,32 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             with mock.patch('synapse.lib.certdir.certdir', certdir):
                 yield certdir
 
+    def _striptypes(self, model, ptyp, valu):
+        '''
+        Unwrap a stored, fully-typed value (as produced by Node.get()/pack()) to
+        its bare value, dropping type names, so it can be compared against a bare
+        expected value.
+        '''
+        if ptyp.ispoly:
+            typename, subvalu = valu
+            return self._striptypes(model, model.type(typename), subvalu)
+
+        if ptyp.isarray:
+            return tuple(self._striptypes(model, ptyp.arraytype, item) for item in valu)
+
+        if isinstance(ptyp, s_types.Comp):
+            return tuple(self._striptypes(model, model.type(ftypename), fvalu)
+                         for ftypename, fvalu in valu)
+
+        return valu
+
     def propeq(self, n, prop, valu, type=None, repr=False, msg=None):
         '''
         Assert a node property is equal to valu.
+
+        For poly/array/comp props the comparison is by value: the stored value's
+        type names are dropped (recursively) so the expected value may be given
+        bare (e.g. a plain comp tuple).
         '''
         pval = n.repr(prop) if repr else n.get(prop)
         parts = prop.split('.')
@@ -2103,23 +2457,20 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
             else:
                 ptyp = ptyp.getVirtType(parts[1])
 
-        if valu is not None and pval is not None:
-            if ptyp.ispoly:
-                if type is not None:
-                    self.eq(pval, (type, valu), msg=msg)
-                    return
+        model = n.view.core.model
 
-                if not repr:
-                    pval = pval[1]
-
-                self.eq(pval, valu, msg=msg)
+        if valu is not None and pval is not None and not repr:
+            if ptyp.ispoly and type is not None:
+                self.eq(pval[0], type, msg=msg)
+                mtyp = model.type(type)
+                self.eq(valu, self._striptypes(model, mtyp, pval[1]), msg=msg)
                 return
 
-            if ptyp.isarray:
-                if type is None:
-                    pval = [aval[1] for aval in pval]
-                    self.sorteq(pval, valu, msg=msg)
-                    return
+            if ptyp.ispoly or ptyp.isarray or isinstance(ptyp, s_types.Comp):
+                pval = self._striptypes(model, ptyp, pval)
+                ft = self.sorteq if ptyp.isarray else self.eq
+                ft(valu, pval, msg=msg)
+                return
 
         ft = self.sorteq if ptyp.isarray else self.eq
         ft(valu, pval, msg=msg)
@@ -2439,7 +2790,7 @@ class StormPkgTest(SynTest):
 
             for pkgproto in self.pkgprotos:
 
-                pkgdef = s_genpkg.loadPkgProto(pkgproto, no_docs=True, readonly=True)
+                pkgdef = s_genpkg.loadPkgProto(pkgproto, docs=False, readonly=True)
                 pkgname = pkgdef.get('name')
 
                 load_event = asyncio.Event()

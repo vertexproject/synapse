@@ -117,6 +117,9 @@ class ProtoNode(s_node.NodeBase):
         edits = []
 
         if not self.node or self.setvalu or not self.node.hasvalu():
+            if (svirts := self.form.type.getStorVirts(self.valu)) is not None:
+                self.virts = self.virts | svirts if self.virts is not None else svirts
+
             edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype, self.virts)))
 
         for name, valu in self.meta.items():
@@ -124,10 +127,11 @@ class ProtoNode(s_node.NodeBase):
 
         for name, valu in self.props.items():
             ptyp = self.form.props.get(name).type
+            stortype = ptyp.getStorType(valu[0])
 
-            if (stortype := ptyp.getStorType(valu[0])) == s_layer.STOR_TYPE_POLYARRAY:
-                ptyp = ptyp.arraytype
-                valu[1]['_stortypes'] = tuple(ptyp.getStorType(vval) for vval in valu[0])
+            if (svirts := ptyp.getStorVirts(valu[0])) is not None:
+                virts = valu[1] | svirts if valu[1] is not None else svirts
+                valu = (valu[0], virts)
 
             edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], stortype, valu[1])))
 
@@ -264,7 +268,8 @@ class ProtoNode(s_node.NodeBase):
             if len(self.edgetombdels) >= 1000:
                 await self.flushEdits()
 
-        for layr in self.editor.view.layers[1:self.node.lastlayr()]:
+        lastlayr = self.node.lastlayr() if self.node is not None else None
+        for layr in self.editor.view.layers[1:lastlayr]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
                 if undr is True:
                     # we have a value underneath, if write layer wasn't a tombstone we didn't do anything
@@ -317,7 +322,8 @@ class ProtoNode(s_node.NodeBase):
             if len(self.edgedels) >= 1000:
                 await self.flushEdits()
 
-        for layr in self.editor.view.layers[1:self.node.lastlayr()]:
+        lastlayr = self.node.lastlayr() if self.node is not None else None
+        for layr in self.editor.view.layers[1:lastlayr]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
                 if undr:
                     self.edgetombs.add(tupl)
@@ -878,12 +884,22 @@ class ProtoNode(s_node.NodeBase):
         '''
         Resolve the (valu, norminfo) to set a child prop from a parent norminfo sub.
 
-        The sub was normed as its own type (subhash). If the consuming prop's type
-        matches, reuse the normed value and info directly. If the consuming prop is a
-        poly that allows the sub's type (e.g. a comp field whose form-typed value
-        feeds a poly secondary prop), pack the already-normed sub as an explicit typed
-        value so it is not re-normed through the poly default norming, otherwise fall
-        back to re-norming the raw value.
+        The sub was normed as its own type (subhash). Resolution order:
+
+        1. If the consuming prop's type matches the sub type exactly, reuse the
+           already-normed value and info directly (the common case for a comp field
+           whose poly type is identical to its secondary prop's poly type).
+        2. If the consuming prop is a poly and the sub is a bare value normed as one
+           of the poly's concrete member types, pack it as an explicit typed value so
+           it is not re-normed via default norming.
+        3. If the consuming prop is a poly and the sub was itself normed as a poly, the
+           sub value is an authoritative (typename, value) pair. When the consuming poly
+           accepts that type (or a subtype/ancestor of it, e.g. an inet:ipv4 field value
+           feeding an inet:ip poly prop) it re-norms through it via normFromTypedValu;
+           a foreign type has its inner value coerced through the consuming poly.
+
+        The sub's own type is resolved from its typehash (subhash) so poly-ness is known
+        authoritatively rather than inferred from the value shape.
         '''
         if subp.type.typehash is subhash:
             return subvalu, subinfo
@@ -893,6 +909,13 @@ class ProtoNode(s_node.NodeBase):
                 mtyp = self.model.type(tname)
                 if mtyp is not None and mtyp.typehash is subhash:
                     return await subp.type.packTypedNorm(tname, subvalu, subinfo, view=self.editor.view)
+
+            substype = self.model.typesbyhash.get(subhash)
+            if substype is not None and substype.ispoly:
+                if subp.type.acceptsType(subvalu[0]):
+                    return await subp.type.normFromTypedValu(subvalu, view=self.editor.view)
+
+                return await subp.type.norm(subvalu[1], view=self.editor.view)
 
         return subvalu, None
 

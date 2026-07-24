@@ -9,12 +9,14 @@ import collections
 import regex
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
+import synapse.lib.schemas as s_schemas
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 
@@ -26,6 +28,24 @@ PREFIX_CACHE_SIZE = 1000
 TYPESET_CACHE_SIZE = 1000
 CHILDFORM_CACHE_SIZE = 1000
 CHILDPROP_CACHE_SIZE = 1000
+
+_v2modelmap = None
+
+def getV2ModelMap():
+    '''
+    Return the (cached) v2 -> v3 model name map loaded from synapse/data/v2modelmap.yaml.
+
+    The map suggests the current v3 form, property, interface, or type name for a
+    retired v2 name and explains the reason for the change. It is exposed to APIs
+    under the model dict "v2map" key.
+    '''
+    global _v2modelmap
+    if _v2modelmap is None:
+        v2map = s_common.yamlload(s_data.path('v2modelmap.yaml'))
+        s_schemas.reqValidV2ModelMap(v2map)
+        _v2modelmap = v2map
+
+    return _v2modelmap
 
 class TagProp:
 
@@ -584,6 +604,7 @@ class Model:
 
         self.core = core
         self.types = {}  # name: Type()
+        self.typesbyhash = {}
         self.forms = {}  # name: Form()
         self.props = {}  # (form,name): Prop() and full: Prop()
         self.edges = {}  # (n1form, verb, n2form): Edge()
@@ -595,8 +616,25 @@ class Model:
         self.modeldefs = []
 
         self.forminfos = {}
+
+        # reverse-lookup maps from retired v2 names to their current v3 names,
+        # populated from the v2 model map (see getV2ModelMap). These drive the
+        # "Did you mean?" errors and v2 -> v3 migration.
         self.formprevnames = {}
         self.propprevnames = {}
+
+        self.v2modelmap = getV2ModelMap()
+        for prevname, entry in self.v2modelmap.get('changes', {}).items():
+
+            # a retired form/type/interface maps its old name to its v3 name.
+            if (became := entry.get('became')) is not None:
+                self.formprevnames[prevname] = became
+
+            # changed properties are nested under their (current) form record,
+            # keyed by the relative prop name, and expanded to full names here.
+            for prevprop, propentry in entry.get('props', {}).items():
+                if (became := propentry.get('became')) is not None:
+                    self.propprevnames[f'{prevname}:{prevprop}'] = f'{prevname}:{became}'
 
         self.metatypes = {}  # name: Type()
 
@@ -959,7 +997,8 @@ class Model:
             'forms': {},
             'edges': [],
             'tagprops': {},
-            'interfaces': self._getResolvedIfaces()
+            'interfaces': self._getResolvedIfaces(),
+            'v2map': self.v2modelmap,
         }
 
         for tobj in self.types.values():
@@ -1476,14 +1515,6 @@ class Model:
         self.forms[formname] = form
         self.props[formname] = form
 
-        if (prevnames := forminfo.get('prevnames')) is not None:
-            for prevname in prevnames:
-                self.formprevnames[prevname] = formname
-
-        if (prevnames := form.type.info.get('prevnames')) is not None:
-            for prevname in prevnames:
-                self.formprevnames[prevname] = formname
-
         template = {}
         for ifname, ifinfo in form.type.info.get('interfaces', ()):
             iface = self._reqIface(ifname)
@@ -1755,11 +1786,6 @@ class Model:
             prop = Prop(self, form, name, tdef, info)
 
             self.props[prop.full] = prop
-
-            if (prevnames := info.get('prevnames')) is not None:
-                for prevname in prevnames:
-                    prevfull = f'{form.name}:{prevname}'
-                    self.propprevnames[prevfull] = prop.full
 
         self.childpropcache.clear()
         self._lookup_hints = None

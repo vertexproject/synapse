@@ -49,8 +49,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 it:exec:lib:load=*
                     :proc=* as it:exec:proc
                     :va=0x00a000
-                    :loaded=20210202
-                    :unloaded=20210203
+                    :time=20210202
                     :path=/home/invisigoth/rootkit.so
                     :file=* as file:bytes
                     :sandbox:file=* as file:bytes
@@ -59,12 +58,30 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].ndef[1])
             self.nn(nodes[0].get('proc'))
             self.propeq(nodes[0], 'va', 0x00a000)
-            self.propeq(nodes[0], 'loaded', 1612224000000000)
-            self.propeq(nodes[0], 'unloaded', 1612310400000000)
+            self.propeq(nodes[0], 'time', 1612224000000000)
             self.len(1, await core.nodes('it:exec:lib:load :file -> file:bytes'))
             self.len(1, await core.nodes('it:exec:lib:load :proc -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:lib:load -> file:path +file:path=/home/invisigoth/rootkit.so'))
             self.len(1, await core.nodes('it:exec:lib:load :sandbox:file -> file:bytes'))
+
+            nodes = await core.nodes('''[
+                it:exec:lib:unload=*
+                    :proc=* as it:exec:proc
+                    :va=0x00a000
+                    :time=20210203
+                    :path=/home/invisigoth/rootkit.so
+                    :file=* as file:bytes
+                    :sandbox:file=* as file:bytes
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].ndef[1])
+            self.nn(nodes[0].get('proc'))
+            self.propeq(nodes[0], 'va', 0x00a000)
+            self.propeq(nodes[0], 'time', 1612310400000000)
+            self.len(1, await core.nodes('it:exec:lib:unload :file -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:lib:unload :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:lib:unload -> file:path +file:path=/home/invisigoth/rootkit.so'))
+            self.len(1, await core.nodes('it:exec:lib:unload :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
                 it:exec:mmap:add=*
@@ -242,27 +259,28 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('it:os:android:intent', 'Foo Intent'))
 
             softver = s_common.guid()
-            valu = (softver, 'Listen Test')
-            nodes = await core.nodes('[it:os:android:ilisten=$valu]', opts={'vars': {'valu': valu}})
+            opts = {'vars': {'softver': softver}}
+
+            # guid-form comp fields (app -> it:software) must be supplied as a node
+            # reference; a bare guid is no longer normed via the poly default types.
+            nodes = await core.nodes('[it:os:android:ilisten=({[it:software=$softver]}, "Listen Test")]', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:os:android:ilisten', (softver, 'Listen Test')))
+            self.eq(node.ndef, ('it:os:android:ilisten', (('it:software', softver), ('it:os:android:intent', 'Listen Test'))))
             self.propeq(node, 'app', softver)
             self.propeq(node, 'intent', 'Listen Test')
 
-            valu = (softver, 'Broadcast Test')
-            nodes = await core.nodes('[it:os:android:ibroadcast=$valu]', opts={'vars': {'valu': valu}})
+            nodes = await core.nodes('[it:os:android:ibroadcast=({[it:software=$softver]}, "Broadcast Test")]', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:os:android:ibroadcast', (softver, 'Broadcast Test')))
+            self.eq(node.ndef, ('it:os:android:ibroadcast', (('it:software', softver), ('it:os:android:intent', 'Broadcast Test'))))
             self.propeq(node, 'app', softver)
             self.propeq(node, 'intent', 'Broadcast Test')
 
-            valu = (softver, 'Test Perm')
-            nodes = await core.nodes('[it:os:android:reqperm=$valu]', opts={'vars': {'valu': valu}})
+            nodes = await core.nodes('[it:os:android:reqperm=({[it:software=$softver]}, "Test Perm")]', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('it:os:android:reqperm', (softver, 'Test Perm')))
+            self.eq(node.ndef, ('it:os:android:reqperm', (('it:software', softver), ('it:os:android:perm', 'Test Perm'))))
             self.propeq(node, 'app', softver)
             self.propeq(node, 'perm', 'Test Perm')
 

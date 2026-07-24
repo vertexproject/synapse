@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 stormcmds = [
     {
         'name': 'task.list',
-        'descr': 'List running tasks on the Cortex and any mirrors.',
+        'desc': 'List running tasks on the Cortex and any mirrors.',
         'cmdargs': (
             ('--verbose', {'default': False, 'action': 'store_true', 'help': 'Enable verbose output.'}),
         ),
@@ -38,7 +38,7 @@ stormcmds = [
     },
     {
         'name': 'task.kill',
-        'descr': 'Kill a running task on the Cortex or a mirror.',
+        'desc': 'Kill a running task on the Cortex or a mirror.',
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid task iden is accepted.'}),
         ),

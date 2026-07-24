@@ -517,7 +517,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'prevnames': ('geo:place:taxonomy',),
                 'props': (),
                 'doc': 'A hierarchical taxonomy of place types.',
             }),

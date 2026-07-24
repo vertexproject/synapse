@@ -19,7 +19,6 @@ modeldefs = (
                 'props': (
 
                     ('url', ('inet:url', {}), {
-                        'prevnames': ('ext:url',),
                         'doc': 'A URL which contains details about the task.'}),
 
                     ('name', ('base:name', {}), {

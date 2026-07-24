@@ -178,7 +178,6 @@ modeldefs = (
                 'props': (
 
                     ('id', ('base:id', {}), {
-                        'prevnames': ('imageid',),
                         'doc': 'MIME specific unique identifier extracted from metadata.'}),
 
                     ('desc', ('text', {}), {

@@ -93,6 +93,7 @@ Notes:
         <periodicity>[/<value>...][@<time>]
 
     Periodicity:
+        - minutely: Every minute
         - hourly: Every hour (defaults to minute 0)
         - daily: Every day (defaults to 00:00 UTC)
         - weekly: Every week (defaults to Monday at 00:00 UTC)
@@ -100,6 +101,7 @@ Notes:
         - yearly: Every year (defaults to January 1 at 00:00 UTC)
 
     Value:
+        - minutely/N: Every N minutes
         - hourly/N: Every N hours
         - daily/N: Every N days
         - weekly/day1,day2: Specific weekdays (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
@@ -112,6 +114,12 @@ Notes:
         - :MM,MM,... (comma-separated minutes, e.g., :15,45 runs at minute 15 and 45)
 
 Examples:
+    # Run every minute
+    cron.add minutely { $lib.print(minutely) }
+
+    # Run every 5 minutes
+    cron.add minutely/5 { $lib.print(minutely) }
+
     # Run every day at midnight UTC
     cron.add daily { $lib.print(daily) }
 
@@ -178,6 +186,9 @@ Examples:
 
     # Change to hourly period at minute 25 and enable the cron job
     cron.mod <iden> --period hourly@:25 --enabled true
+
+    # Change to run every 5 minutes
+    cron.mod <iden> --period minutely/5
 '''
 
 atcrondescr = '''
@@ -232,7 +243,7 @@ Examples:
 stormcmds = (
     {
         'name': 'queue.add',
-        'descr': 'Add a queue to the cortex.',
+        'desc': 'Add a queue to the cortex.',
         'cmdargs': (
             ('name', {'help': 'The name of the new queue.'}),
         ),
@@ -243,7 +254,7 @@ stormcmds = (
     },
     {
         'name': 'queue.del',
-        'descr': 'Remove a queue from the cortex.',
+        'desc': 'Remove a queue from the cortex.',
         'cmdargs': (
             ('iden', {'help': 'The iden of the queue to remove.'}),
         ),
@@ -254,7 +265,7 @@ stormcmds = (
     },
     {
         'name': 'queue.list',
-        'descr': 'List the queues in the cortex.',
+        'desc': 'List the queues in the cortex.',
         'storm': '''
             init {
                 $conf = ({
@@ -294,7 +305,7 @@ stormcmds = (
     },
     {
         'name': 'dmon.list',
-        'descr': 'List the storm daemon queries running in the cortex.',
+        'desc': 'List the storm daemon queries running in the cortex.',
         'cmdargs': (),
         'storm': '''
             $lib.print('Storm daemon list:')
@@ -308,7 +319,7 @@ stormcmds = (
     },
     {
         'name': 'layer.add',
-        'descr': 'Add a layer to the cortex.',
+        'desc': 'Add a layer to the cortex.',
         'cmdargs': (
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
@@ -325,7 +336,7 @@ stormcmds = (
     },
     {
         'name': 'layer.set',
-        'descr': 'Set a layer option.',
+        'desc': 'Set a layer option.',
         'cmdargs': (
             ('iden', {'help': 'Iden of the layer to modify.'}),
             ('name', {'help': 'The name of the layer property to set.'}),
@@ -340,7 +351,7 @@ stormcmds = (
     },
     {
         'name': 'layer.del',
-        'descr': 'Delete a layer from the cortex.',
+        'desc': 'Delete a layer from the cortex.',
         'cmdargs': (
             ('iden', {'help': 'Iden of the layer to delete.'}),
         ),
@@ -351,7 +362,7 @@ stormcmds = (
     },
     {
         'name': 'layer.get',
-        'descr': 'Get a layer from the cortex.',
+        'desc': 'Get a layer from the cortex.',
         'cmdargs': (
             ('iden', {'nargs': '?',
                       'help': 'Iden of the layer to get. If no iden is provided, the main layer will be returned.'}),
@@ -363,7 +374,7 @@ stormcmds = (
     },
     {
         'name': 'layer.list',
-        'descr': 'List the layers in the cortex.',
+        'desc': 'List the layers in the cortex.',
         'cmdargs': (),
         'storm': '''
             $lib.print('Layers:')
@@ -374,7 +385,7 @@ stormcmds = (
     },
     {
         'name': 'layer.pull.add',
-        'descr': 'Add a pull configuration to a layer.',
+        'desc': 'Add a pull configuration to a layer.',
         'cmdargs': (
             ('layr', {'help': 'Iden of the layer to pull to.'}),
             ('src', {'help': 'Telepath url of the source layer to pull from.'}),
@@ -392,7 +403,7 @@ stormcmds = (
     },
     {
         'name': 'layer.pull.del',
-        'descr': 'Delete a pull configuration from a layer.',
+        'desc': 'Delete a pull configuration from a layer.',
         'cmdargs': (
             ('layr', {'help': 'Iden of the layer to modify.'}),
             ('iden', {'help': 'Iden of the pull configuration to delete.'}),
@@ -405,7 +416,7 @@ stormcmds = (
     },
     {
         'name': 'layer.pull.list',
-        'descr': 'Get a list of the pull configurations for a layer.',
+        'desc': 'Get a list of the pull configurations for a layer.',
         'cmdargs': (
             ('layr', {'help': 'Iden of the layer to retrieve pull configurations for.'}),
         ),
@@ -453,7 +464,7 @@ stormcmds = (
     },
     {
         'name': 'layer.push.add',
-        'descr': 'Add a push configuration to a layer.',
+        'desc': 'Add a push configuration to a layer.',
         'cmdargs': (
             ('layr', {'help': 'Iden of the layer to push from.'}),
             ('dest', {'help': 'Telepath url of the layer to push to.'}),
@@ -471,7 +482,7 @@ stormcmds = (
     },
     {
         'name': 'layer.push.del',
-        'descr': 'Delete a push configuration from a layer.',
+        'desc': 'Delete a push configuration from a layer.',
         'cmdargs': (
             ('layr', {'help': 'Iden of the layer to modify.'}),
             ('iden', {'help': 'Iden of the push configuration to delete.'}),
@@ -484,7 +495,7 @@ stormcmds = (
     },
     {
         'name': 'layer.push.list',
-        'descr': 'Get a list of the push configurations for a layer.',
+        'desc': 'Get a list of the push configurations for a layer.',
         'cmdargs': (
             ('layr', {'help': 'Iden of the layer to retrieve push configurations for.'}),
         ),
@@ -532,7 +543,7 @@ stormcmds = (
     },
     {
         'name': 'version',
-        'descr': 'Show version metadata relating to Synapse.',
+        'desc': 'Show version metadata relating to Synapse.',
         'storm': '''
             $comm = $lib.version.commit
             $synv = $lib.version.synapse
@@ -547,7 +558,7 @@ stormcmds = (
     },
     {
         'name': 'view.add',
-        'descr': 'Add a view to the cortex.',
+        'desc': 'Add a view to the cortex.',
         'cmdargs': (
             ('--name', {'default': None, 'help': 'The name of the new view.'}),
             ('--worldreadable', {'type': 'bool', 'default': False, 'help': 'Grant read access to the `all` role.'}),
@@ -561,7 +572,7 @@ stormcmds = (
     },
     {
         'name': 'view.del',
-        'descr': viewdeldescr,
+        'desc': viewdeldescr,
         'cmdargs': (
             ('iden', {'help': 'Iden of the view to delete.'}),
         ),
@@ -572,7 +583,7 @@ stormcmds = (
     },
     {
         'name': 'view.set',
-        'descr': 'Set a view option.',
+        'desc': 'Set a view option.',
         'cmdargs': (
             ('iden', {'help': 'Iden of the view to modify.'}),
             ('name', {'help': 'The name of the view property to set.'}),
@@ -587,7 +598,7 @@ stormcmds = (
     },
     {
         'name': 'view.fork',
-        'descr': 'Fork a view in the cortex.',
+        'desc': 'Fork a view in the cortex.',
         'cmdargs': (
             ('iden', {'help': 'Iden of the view to fork.'}),
             ('--name', {'default': None, 'help': 'Name for the newly forked view.'}),
@@ -600,7 +611,7 @@ stormcmds = (
     },
     {
         'name': 'view.get',
-        'descr': 'Get a view from the cortex.',
+        'desc': 'Get a view from the cortex.',
         'cmdargs': (
             ('iden', {'nargs': '?',
                       'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
@@ -612,7 +623,7 @@ stormcmds = (
     },
     {
         'name': 'view.list',
-        'descr': 'List the views in the cortex.',
+        'desc': 'List the views in the cortex.',
         'cmdargs': (),
         'storm': '''
             $lib.print("")
@@ -624,7 +635,7 @@ stormcmds = (
     },
     {
         'name': 'view.merge',
-        'descr': '''
+        'desc': '''
             Merge a forked view into its parent view.
 
             The merge runs as a background task that ends by removing the
@@ -641,7 +652,7 @@ stormcmds = (
     },
     {
         'name': 'trigger.add',
-        'descr': addtriggerdescr,
+        'desc': addtriggerdescr,
         'cmdargs': (
             ('condition', {'help': 'Condition for the trigger.'}),
             ('storm', {'help': 'Storm query for the trigger to execute.'}),
@@ -669,7 +680,7 @@ stormcmds = (
     },
     {
         'name': 'trigger.del',
-        'descr': 'Delete a trigger from the cortex.',
+        'desc': 'Delete a trigger from the cortex.',
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
         ),
@@ -680,7 +691,7 @@ stormcmds = (
     },
     {
         'name': 'trigger.mod',
-        'descr': "Modify an existing trigger.",
+        'desc': "Modify an existing trigger.",
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
             ('--view', {'help': 'View to move the trigger to.'}),
@@ -701,7 +712,7 @@ stormcmds = (
     },
     {
         'name': 'trigger.list',
-        'descr': "List existing triggers in the cortex.",
+        'desc': "List existing triggers in the cortex.",
         'cmdargs': (
             ('--all', {'help': 'List every trigger in every readable view, rather than just the current view.', 'action': 'store_true'}),
         ),
@@ -785,7 +796,7 @@ stormcmds = (
     },
     {
         'name': 'cron.add',
-        'descr': addcrondescr,
+        'desc': addcrondescr,
         'cmdargs': (
             ('period', {'help': 'The recurrence period for the cron job.'}),
             ('query', {'help': 'Query for the cron job to execute.'}),
@@ -810,7 +821,7 @@ stormcmds = (
     },
     {
         'name': 'cron.at',
-        'descr': atcrondescr,
+        'desc': atcrondescr,
         'cmdargs': (
             ('query', {'help': 'Query for the cron job to execute.'}),
             ('--minute', {'help': 'Minute(s) to execute at.'}),
@@ -839,7 +850,7 @@ stormcmds = (
     },
     {
         'name': 'cron.del',
-        'descr': 'Delete a cron job from the cortex.',
+        'desc': 'Delete a cron job from the cortex.',
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
         ),
@@ -850,7 +861,7 @@ stormcmds = (
     },
     {
         'name': 'cron.mod',
-        'descr': modcrondescr,
+        'desc': modcrondescr,
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
             ('--view', {'help': 'View to move the cron job to.'}),
@@ -874,7 +885,7 @@ stormcmds = (
     },
     {
         'name': 'cron.cleanup',
-        'descr': "Delete all completed at jobs",
+        'desc': "Delete all completed at jobs",
         'cmdargs': (),
         'storm': '''
             $crons = $lib.cron.list()
@@ -894,7 +905,7 @@ stormcmds = (
 
     {
         'name': 'cron.list',
-        'descr': "List existing cron jobs in the cortex.",
+        'desc': "List existing cron jobs in the cortex.",
         'cmdargs': (),
         'storm': '''
             init {
@@ -942,7 +953,7 @@ stormcmds = (
     },
     {
         'name': 'cron.stat',
-        'descr': "Gives detailed information about a cron job.",
+        'desc': "Gives detailed information about a cron job.",
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
         ),
@@ -989,7 +1000,7 @@ stormcmds = (
     },
     {
         'name': 'wget',
-        'descr': wgetdescr,
+        'desc': wgetdescr,
         'cmdargs': (
             ('urls', {'nargs': '*', 'help': 'URLs to download.'}),
             ('--no-ssl-verify', {'default': False, 'action': 'store_true', 'help': 'Ignore SSL certificate validation errors.'}),
@@ -1042,7 +1053,7 @@ stormcmds = (
     },
     {
         'name': 'nodes.import',
-        'descr': 'Import a nodes file hosted at a URL into the cortex. Yields created nodes.',
+        'desc': 'Import a nodes file hosted at a URL into the cortex. Yields created nodes.',
         'cmdargs': (
             ('urls', {'nargs': '*', 'help': 'URL(s) to fetch nodes file from'}),
             ('--no-ssl-verify', {'default': False, 'action': 'store_true', 'help': 'Ignore SSL certificate validation errors.'}),
@@ -1089,7 +1100,7 @@ stormcmds = (
     },
     {
         'name': 'note.add',
-        'descr': 'Add a new meta:note node and link it to the inbound nodes using an -(about)> edge.',
+        'desc': 'Add a new meta:note node and link it to the inbound nodes using an -(about)> edge.',
         'cmdargs': (
             ('text', {'type': 'str', 'help': 'The note text to add to the nodes.'}),
             ('--type', {'type': 'str', 'help': 'The note type.'}),
@@ -1121,7 +1132,7 @@ stormcmds = (
     },
     {
         'name': 'uptime',
-        'descr': 'Print the uptime for the Cortex or a connected service.',
+        'desc': 'Print the uptime for the Cortex or a connected service.',
         'cmdargs': (
             ('name', {'type': 'str', 'nargs': '?',
                       'help': 'The name, or iden, of the service (if not provided defaults to the Cortex).'}),
@@ -2551,7 +2562,7 @@ class PureCmd(Cmd):
         Cmd.__init__(self, runt, runtsafe)
 
     def getDescr(self):
-        return self.cdef.get('descr', 'no documentation provided')
+        return self.cdef.get('desc', 'no documentation provided')
 
     def getName(self):
         return self.cdef.get('name')
@@ -3274,19 +3285,17 @@ class CopyToCmd(Cmd):
 
             async with view.getEditor() as editor:
 
-                proto = await editor.addNode(node.ndef[0], node.ndef[1])
+                nval, norminfo = await node.form.type.normFromTypedValu(node.ndef[1], view=view)
+                proto = await editor.addNode(node.ndef[0], nval, norminfo=norminfo)
 
                 await proto.setMeta('created', node.getMeta('created'))
 
-                for name, valu in node.getProps().items():
+                for name, valu in node.getStormProps().items():
 
                     prop = node.form.prop(name)
                     if prop.info.get('computed'):
                         # re-derived by destination ctor; never copy directly
                         continue
-
-                    if prop.type.ispoly:
-                        valu = s_stormtypes.NodeRef(node.getWithVirts(name))
 
                     await proto.set(name, valu)
 
@@ -3700,7 +3709,8 @@ class MergeCmd(Cmd):
                         delnode = True
                         try:
                             nval = valu[0]
-                            protonode = await editor.addNode(form, nval)
+                            norm, norminfo = await node.form.type.normFromTypedValu(nval, view=editor.view)
+                            protonode = await editor.addNode(form, norm, norminfo=norminfo)
                             if protonode.node is not None and protonode.node.valu() != nval:
                                 await protonode.setValue(nval)
 
@@ -3738,7 +3748,7 @@ class MergeCmd(Cmd):
                         await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                     else:
                         if prop.type.ispoly:
-                            valu = s_stormtypes.NodeRef((valu, virts))
+                            valu = prop.type.tostorm(valu, virts=virts)
 
                         await protonode.set(name, valu)
                         if not self.opts.wipe:
@@ -4085,7 +4095,7 @@ class MoveNodesCmd(Cmd):
                             await runt.printf(f'{layr} delete {nodeiden} {node.form.name} = {valurepr}')
                         else:
                             if not addnode and not delnode:
-                                self.adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
+                                self.adds.append((s_layer.EDIT_NODE_ADD, valu))
                             delnodes.append((layr, valu))
 
                     if not delnode:
@@ -4209,6 +4219,7 @@ class MoveNodesCmd(Cmd):
 
         movevals = {}
         virtvals = {}
+        stortypes = {}
         form = node.form.name
 
         for layr, sode in sodes.items():
@@ -4216,20 +4227,13 @@ class MoveNodesCmd(Cmd):
             for name, (valu, stortype, virts) in sode.get('props', {}).items():
 
                 virtvals[name] = virts
+                stortypes[name] = stortype
 
                 if (oldv := movevals.get(name)) is not s_common.novalu:
                     if oldv is None:
                         movevals[name] = valu
-
-                    elif stortype == s_layer.STOR_TYPE_IVAL:
-                        allv = oldv + valu
-                        movevals[name] = (min(allv), max(allv))
-
-                    elif stortype == s_layer.STOR_TYPE_MINTIME:
-                        movevals[name] = min(valu, oldv)
-
-                    elif stortype == s_layer.STOR_TYPE_MAXTIME:
-                        movevals[name] = max(valu, oldv)
+                    else:
+                        movevals[name] = node.form.prop(name).type.merge(valu, oldv)
 
                 if not layr == self.destlayr:
                     if not self.opts.apply:
@@ -4258,7 +4262,7 @@ class MoveNodesCmd(Cmd):
                         valurepr = node.form.prop(name).type.repr(valu)
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
                     else:
-                        stortype = node.form.prop(name).type.stortype
+                        stortype = stortypes.get(name)
                         self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, stortype, virtvals.get(name))))
                 else:
                     if destprops is not None and (destvalu := destprops.get(name)) is not None:
@@ -4350,6 +4354,7 @@ class MoveNodesCmd(Cmd):
 
         movevals = {}
         virtvals = {}
+        stortypes = {}
         form = node.form.name
 
         for layr, sode in sodes.items():
@@ -4359,20 +4364,13 @@ class MoveNodesCmd(Cmd):
 
                     name = (tag, prop)
                     virtvals[name] = virts
+                    stortypes[name] = stortype
 
                     if (oldv := movevals.get(name)) is not s_common.novalu:
                         if oldv is None:
                             movevals[name] = valu
-
-                        elif stortype == s_layer.STOR_TYPE_IVAL:
-                            allv = oldv + valu
-                            movevals[name] = (min(allv), max(allv))
-
-                        elif stortype == s_layer.STOR_TYPE_MINTIME:
-                            movevals[name] = min(valu, oldv)
-
-                        elif stortype == s_layer.STOR_TYPE_MAXTIME:
-                            movevals[name] = max(valu, oldv)
+                        else:
+                            movevals[name] = self.core.model.tagprop(prop).type.merge(valu, oldv)
 
                     if not layr == self.destlayr:
                         if not self.opts.apply:
@@ -4407,7 +4405,7 @@ class MoveNodesCmd(Cmd):
                         mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
                         await self.runt.printf(mesg)
                     else:
-                        edit = (tag, prop, valu, tptype.stortype, virtvals.get((tag, prop)))
+                        edit = (tag, prop, valu, stortypes.get((tag, prop)), virtvals.get((tag, prop)))
                         self.adds.append((s_layer.EDIT_TAGPROP_SET, edit))
 
                 else:
@@ -4963,6 +4961,11 @@ class MoveTagCmd(Cmd):
 
         # first we set all the syn:tag:isnow props
         oldtag = self.opts.oldtag.strip('#')
+
+        doctype = newt.form.prop('doc').type
+        docurltype = newt.form.prop('doc:url').type
+        titletype = newt.form.prop('title').type
+
         async for node in view.nodesByPropValu('syn:tag', '^=', oldtag):
 
             tagstr = node.ndef[1]
@@ -4977,15 +4980,15 @@ class MoveTagCmd(Cmd):
 
             olddoc = node.getWithVirts('doc')
             if olddoc[0] is not None:
-                await newnode.set('doc', s_stormtypes.NodeRef(olddoc))
+                await newnode.set('doc', doctype.tostorm(*olddoc))
 
             olddocurl = node.getWithVirts('doc:url')
             if olddocurl[0] is not None:
-                await newnode.set('doc:url', s_stormtypes.NodeRef(olddocurl))
+                await newnode.set('doc:url', docurltype.tostorm(*olddocurl))
 
             oldtitle = node.getWithVirts('title')
             if oldtitle[0] is not None:
-                await newnode.set('title', s_stormtypes.NodeRef(oldtitle))
+                await newnode.set('title', titletype.tostorm(*oldtitle))
 
             # Copy any tags over to the newnode if any are present.
             for k, v in node.getTags():
@@ -5707,7 +5710,7 @@ class ScrapeCmd(Cmd):
 
                 text = str(text)
 
-                async for (form, valu, norminfo, _) in self.runt.view.scrapeIface(text, refang=refang):
+                async for (form, valu, norminfo, _, _) in self.runt.view.scrapeIface(text, refang=refang):
                     if forms and form not in forms:
                         continue
 
@@ -5740,7 +5743,7 @@ class ScrapeCmd(Cmd):
             for item in self.opts.values:
                 text = str(await s_stormtypes.toprim(item))
 
-                async for (form, valu, norminfo, _) in self.runt.view.scrapeIface(text, refang=refang):
+                async for (form, valu, norminfo, _, _) in self.runt.view.scrapeIface(text, refang=refang):
                     if forms and form not in forms:
                         continue
 

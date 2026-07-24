@@ -22,7 +22,7 @@ class InetModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ inet:serverfile=(1.2.3.4:22, *) ]')
+            nodes = await core.nodes('[ inet:serverfile=(1.2.3.4:22, {[file:bytes=*]}) ]')
             self.len(1, nodes)
             self.propeq(nodes[0], 'server', 'tcp://1.2.3.4:22')
             self.len(1, await core.nodes('inet:serverfile -> file:bytes'))
@@ -73,7 +73,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.propeq(nodes[0], 'server', 'tcp://1.2.3.4:443')
             self.propeq(nodes[0], 'jarmhash', '07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
-            self.eq(('tcp://1.2.3.4:443', '07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1'), nodes[0].ndef[1])
+            self.eq((('inet:server', 'tcp://1.2.3.4:443'), ('inet:tls:jarmhash', '07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')), nodes[0].ndef[1])
 
             nodes = await core.nodes('inet:tls:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
             self.len(1, nodes)
@@ -238,7 +238,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:asnet=(54959, (1.2.3.4, 5.6.7.8)) :seen=2022 ]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:asnet', (54959, ((4, 0x01020304), (4, 0x05060708)))))
+            self.eq(node.ndef, ('inet:asnet', (('inet:asn', 54959), ('inet:net', ((4, 0x01020304), (4, 0x05060708))))))
             self.propeq(node, 'asn', 54959)
             self.propeq(node, 'net', ((4, 0x01020304), (4, 0x05060708)))
             self.propeq(node, 'net:min', (4, 0x01020304))
@@ -252,7 +252,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:asnet=(99, (ff::00, ff::0100)) ]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:asnet', (99, (minv, maxv))))
+            self.eq(node.ndef, ('inet:asnet', (('inet:asn', 99), ('inet:net', (minv, maxv)))))
             self.propeq(node, 'asn', 99)
             self.propeq(node, 'net', (minv, maxv))
             self.propeq(node, 'net:min', minv)
@@ -842,7 +842,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[inet:http:request:header=(Cool, Cooler) :seen=2022]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:http:request:header', ('cool', 'Cooler')))
+            self.eq(node.ndef, ('inet:http:request:header', (('inet:http:header:name', 'cool'), ('str', 'Cooler'))))
             self.propeq(node, 'name', 'cool')
             self.propeq(node, 'value', 'Cooler')
             self.nn(node.get('seen'))
@@ -852,7 +852,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[inet:http:response:header=(Cool, Cooler) :seen=2022]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:http:response:header', ('cool', 'Cooler')))
+            self.eq(node.ndef, ('inet:http:response:header', (('inet:http:header:name', 'cool'), ('str', 'Cooler'))))
             self.propeq(node, 'name', 'cool')
             self.propeq(node, 'value', 'Cooler')
             self.nn(node.get('seen'))
@@ -863,9 +863,17 @@ class InetModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[inet:http:param=(Cool, Cooler)]')
                 self.len(1, nodes)
                 node = nodes[0]
-                self.eq(node.ndef, ('inet:http:param', ('Cool', 'Cooler')))
-                self.propeq(node, 'name', 'cool')
+                # the primary value uses str (case-sensitive identity); the :name
+                # prop is text so it can be searched case-insensitively.
+                self.eq(node.ndef, ('inet:http:param', (('str', 'Cool'), ('str', 'Cooler'))))
+                self.propeq(node, 'name', 'Cool')
                 self.propeq(node, 'value', 'Cooler')
+
+                # a different-case name is a distinct node (case-sensitive primary)...
+                other = (await core.nodes('[inet:http:param=(COOL, Cooler)]'))[0]
+                self.ne(other.nid, node.nid)
+                # ...but the text :name prop lifts case-insensitively.
+                self.len(2, await core.nodes('inet:http:param:name=cool'))
 
     async def test_http_request(self):
 
@@ -2408,11 +2416,13 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_urlfile(self):
         async with self.getTestCore() as core:
             file = s_common.guid()
-            valu = ('https://vertex.link/a_cool_program.exe', file)
-            nodes = await core.nodes('[inet:urlfile=$valu]', opts={'vars': {'valu': valu}})
+            url = 'https://vertex.link/a_cool_program.exe'
+            opts = {'vars': {'url': url, 'file': file}}
+            # the file:bytes field must be supplied as a node reference.
+            nodes = await core.nodes('[inet:urlfile=($url, {[file:bytes=$file]})]', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:urlfile', (valu[0], file)))
+            self.eq(node.ndef, ('inet:urlfile', (('inet:url', url), ('file:bytes', file))))
             self.propeq(node, 'url', 'https://vertex.link/a_cool_program.exe')
             self.propeq(node, 'file', file)
 
@@ -2434,7 +2444,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:url:mirror=($url0, $url1) ]', opts=opts)
 
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:url:mirror', (url0, url1)))
+            self.eq(nodes[0].ndef, ('inet:url:mirror', (('inet:url', url0), ('inet:url', url1))))
             self.propeq(nodes[0], 'at', 'http://vtx.lk')
             self.propeq(nodes[0], 'of', 'http://vertex.link')
 
@@ -2450,7 +2460,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[inet:url:redir=$valu]', opts={'vars': {'valu': valu}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:url:redir', valu))
+            self.eq(node.ndef, ('inet:url:redir', (('inet:url', valu[0]), ('inet:url', valu[1]))))
             self.propeq(node, 'source', 'https://vertex.link/idk')
             self.propeq(node, 'target', 'https://cool.vertex.newp:443/something_else')
             self.len(1, await core.nodes('inet:fqdn=vertex.link'))
@@ -3045,12 +3055,13 @@ class InetModelTest(s_t_utils.SynTest):
 
             server = 'e4f6db65dbaa7a4598f7379f75dcd5f5'
             client = 'df8d1f7e04f7c4a322e04b0b252e2851'
-            nodes = await core.nodes('[inet:tls:servercert=(tcp://1.2.3.4:1234, $server)]', opts={'vars': {'server': server}})
+            # the crypto:x509:cert field must be supplied as a node reference.
+            nodes = await core.nodes('[inet:tls:servercert=(tcp://1.2.3.4:1234, {[crypto:x509:cert=$server]})]', opts={'vars': {'server': server}})
             self.len(1, nodes)
             self.propeq(nodes[0], 'server', 'tcp://1.2.3.4:1234')
             self.propeq(nodes[0], 'cert', server)
 
-            nodes = await core.nodes('[inet:tls:clientcert=(tcp://5.6.7.8:5678, $client)]', opts={'vars': {'client': client}})
+            nodes = await core.nodes('[inet:tls:clientcert=(tcp://5.6.7.8:5678, {[crypto:x509:cert=$client]})]', opts={'vars': {'client': client}})
             self.len(1, nodes)
             self.propeq(nodes[0], 'client', 'tcp://5.6.7.8:5678')
             self.propeq(nodes[0], 'cert', client)

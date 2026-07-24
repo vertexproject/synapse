@@ -166,49 +166,49 @@ class DnsModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[inet:dns:a=$valu]', opts={'vars': {'valu': ('hehe.com', '1.2.3.4')}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], ('hehe.com', (4, 0x01020304)))
+            self.eq(node.ndef[1], (('inet:fqdn', 'hehe.com'), ('inet:ipv4', (4, 0x01020304))))
             self.propeq(node, 'fqdn', 'hehe.com')
             self.propeq(node, 'ip', (4, 0x01020304))
             nodes = await core.nodes('[inet:dns:a=$valu]',
                                      opts={'vars': {'valu': ('www.\u0915\u0949\u092e.com', '1.2.3.4')}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], ('www.xn--11b4c3d.com', (4, 0x01020304)))
+            self.eq(node.ndef[1], (('inet:fqdn', 'www.xn--11b4c3d.com'), ('inet:ipv4', (4, 0x01020304))))
             self.propeq(node, 'fqdn', 'www.xn--11b4c3d.com')
             self.propeq(node, 'ip', (4, 0x01020304))
             # inet:dns:aaaa
             nodes = await core.nodes('[inet:dns:aaaa=$valu]', opts={'vars': {'valu': ('localhost', '::1')}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], ('localhost', (6, 1)))
+            self.eq(node.ndef[1], (('inet:fqdn', 'localhost'), ('inet:ipv6', (6, 1))))
             self.propeq(node, 'fqdn', 'localhost')
             self.propeq(node, 'ip', (6, 1))
             nodes = await core.nodes('[inet:dns:aaaa=$valu]',
                                      opts={'vars': {'valu': ('hehe.com', '2001:0db8:85a3:0000:0000:8a2e:0370:7334')}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], ('hehe.com', (6, 0x20010db885a3000000008a2e03707334)))
+            self.eq(node.ndef[1], (('inet:fqdn', 'hehe.com'), ('inet:ipv6', (6, 0x20010db885a3000000008a2e03707334))))
             self.propeq(node, 'fqdn', 'hehe.com')
             self.propeq(node, 'ip', (6, 0x20010db885a3000000008a2e03707334))
             # inet:dns:rev
             nodes = await core.nodes('[inet:dns:rev=$valu]', opts={'vars': {'valu': ('1.2.3.4', 'bebe.com')}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], ((4, 0x01020304), 'bebe.com'))
+            self.eq(node.ndef[1], (('inet:ip', (4, 0x01020304)), ('inet:fqdn', 'bebe.com')))
             self.propeq(node, 'ip', (4, 0x01020304))
             self.propeq(node, 'fqdn', 'bebe.com')
             # inet:dns:rev - ipv6
             nodes = await core.nodes('[inet:dns:rev=$valu]', opts={'vars': {'valu': ('FF::56', 'bebe.com')}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], ((6, 0xff0000000000000000000000000056), 'bebe.com'))
+            self.eq(node.ndef[1], (('inet:ip', (6, 0xff0000000000000000000000000056)), ('inet:fqdn', 'bebe.com')))
             self.propeq(node, 'ip', (6, 0xff0000000000000000000000000056))
             self.propeq(node, 'fqdn', 'bebe.com')
             # inet:dns:ns
             nodes = await core.nodes('[inet:dns:ns=$valu]', opts={'vars': {'valu': ('haha.com', 'ns1.haha.com')}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], ('haha.com', 'ns1.haha.com'))
+            self.eq(node.ndef[1], (('inet:fqdn', 'haha.com'), ('inet:fqdn', 'ns1.haha.com')))
             self.propeq(node, 'zone', 'haha.com')
             self.propeq(node, 'ns', 'ns1.haha.com')
             # inet:dns:cname
@@ -216,7 +216,7 @@ class DnsModelTest(s_t_utils.SynTest):
                                      opts={'vars': {'valu': ('HAHA.vertex.link', 'vertex.link')}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], ('haha.vertex.link', 'vertex.link'))
+            self.eq(node.ndef[1], (('inet:fqdn', 'haha.vertex.link'), ('inet:fqdn', 'vertex.link')))
             self.propeq(node, 'fqdn', 'haha.vertex.link')
             self.propeq(node, 'cname', 'vertex.link')
             # inet:dns:mx
@@ -224,7 +224,7 @@ class DnsModelTest(s_t_utils.SynTest):
                                      opts={'vars': {'valu': ('vertex.link', 'mail.vertex.link')}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], ('vertex.link', 'mail.vertex.link'))
+            self.eq(node.ndef[1], (('inet:fqdn', 'vertex.link'), ('inet:fqdn', 'mail.vertex.link')))
             self.propeq(node, 'fqdn', 'vertex.link')
             self.propeq(node, 'mx', 'mail.vertex.link')
             # inet:dns:soa
@@ -250,9 +250,19 @@ class DnsModelTest(s_t_utils.SynTest):
                                      opts={'vars': {'valu': ('clowns.vertex.link', 'we all float down here')}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], ('clowns.vertex.link', 'we all float down here'))
+            self.eq(node.ndef[1], (('inet:fqdn', 'clowns.vertex.link'), ('text', 'we all float down here')))
             self.propeq(node, 'fqdn', 'clowns.vertex.link')
             self.propeq(node, 'text', 'we all float down here')
+
+            # the text comp field folds case for identity/index (case-preserving value):
+            # re-adding with different case deconflicts to the same node and keeps the
+            # original case, and the comp lifts case-insensitively.
+            renode = (await core.nodes('[inet:dns:txt=(clowns.vertex.link, "WE ALL FLOAT DOWN HERE")]'))[0]
+            self.eq(renode.nid, node.nid)
+            self.eq(renode.ndef[1], (('inet:fqdn', 'clowns.vertex.link'), ('text', 'we all float down here')))
+            lifted = await core.nodes('inet:dns:txt=(clowns.vertex.link, "We All Float Down Here")')
+            self.len(1, lifted)
+            self.eq(lifted[0].nid, node.nid)
 
             with self.raises(s_exc.BadTypeValu) as cm:
                 await core.nodes('[inet:dns:a=(foo.com, "::")]')
@@ -339,14 +349,14 @@ class DnsModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[inet:dns:wild:a=(vertex.link, 1.2.3.4)]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:dns:wild:a', ('vertex.link', (4, 0x01020304))))
+            self.eq(node.ndef, ('inet:dns:wild:a', (('inet:fqdn', 'vertex.link'), ('inet:ip', (4, 0x01020304)))))
             self.propeq(node, 'ip', (4, 0x01020304))
             self.propeq(node, 'fqdn', 'vertex.link')
 
             nodes = await core.nodes('[inet:dns:wild:aaaa=(vertex.link, "2001:db8:85a3::8a2e:370:7334")]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:dns:wild:aaaa', ('vertex.link', (6, 0x20010db885a3000000008a2e03707334))))
+            self.eq(node.ndef, ('inet:dns:wild:aaaa', (('inet:fqdn', 'vertex.link'), ('inet:ip', (6, 0x20010db885a3000000008a2e03707334)))))
             self.propeq(node, 'ip', (6, 0x20010db885a3000000008a2e03707334))
             self.propeq(node, 'fqdn', 'vertex.link')
 

@@ -1,7 +1,6 @@
 import asyncio
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
 import synapse.lib.jsonstor as s_jsonstor
@@ -13,14 +12,6 @@ class HasJsonStorCell(s_jsonstor.HasJsonStor, s_cell.Cell):
     # a minimal Cell which mixes in HasJsonStor to exercise the mixin directly.
 
     jsonlinked = False
-    confcalled = False
-
-    def _getEmbeddedJsonStorConf(self, path):
-        self.confcalled = True
-        conf = super()._getEmbeddedJsonStorConf(path)
-        # exercise the conf hook by pinning a deterministic embedded cell:guid
-        conf['cell:guid'] = s_common.guid('hasjsonstortest')
-        return conf
 
     async def _onLinkJsonStor(self, proxy, urlinfo):
         await super()._onLinkJsonStor(proxy, urlinfo)
@@ -28,43 +19,13 @@ class HasJsonStorCell(s_jsonstor.HasJsonStor, s_cell.Cell):
 
 class HasJsonStorTest(s_test.SynTest):
 
-    async def test_jsonstor_hasjsonstor_embedded(self):
-        # a standalone ( non-aha ) HasJsonStor cell boots an embedded jsonstor
-        # and reaches it via a local client.
-        with self.getTestDir() as dirn:
-
-            async with await HasJsonStorCell.anit(dirn) as cell:
-
-                # getJsonStor() returns a proxy even for the embedded jsonstor
-                js = await cell.getJsonStor()
-                await js.setPathObj('foo/bar', {'a': 1})
-                self.eq({'a': 1}, await js.getPathObj('foo/bar'))
-
-                # the conf hook ran and pinned the embedded jsonstor cell:guid
-                self.true(cell.confcalled)
-                self.eq(s_common.guid('hasjsonstortest'), cell._has_jsonstor.iden)
-
-                # the local client link fired _onLinkJsonStor ( populating cached info )
-                self.true(cell.jsonlinked)
-                self.true(cell._has_jsonstorinfo)
-                info = await cell.getJsonStorInfo()
-                self.isin('cell', info)
-
-                # force the lazy getJsonStorInfo fetch path
-                cell._has_jsonstorinfo = {}
-                self.isin('cell', await cell.getJsonStorInfo())
-
     async def test_jsonstor_hasjsonstor_aha(self):
-        # an aha client HasJsonStor cell resolves the jsonstor by cell type
+        # a HasJsonStor cell resolves the jsonstor by cell type ( aha://jsonstor... )
         async with self.getTestAha() as aha:
 
             async with self.addSvcToAha(aha, '00.jsonstor', s_jsonstor.JsonStorCell):
 
                 async with self.addSvcToAha(aha, '00.hasjsonstor', HasJsonStorCell) as cell:
-
-                    # remote: no embedded jsonstor, resolved via aha
-                    self.none(cell._has_jsonstor)
-                    self.false(cell.confcalled)
 
                     js = await asyncio.wait_for(cell.getJsonStor(), timeout=10)
                     await js.setPathObj('foo/bar', {'a': 1})
@@ -74,6 +35,10 @@ class HasJsonStorTest(s_test.SynTest):
 
                     info = await cell.getJsonStorInfo()
                     self.isin('cell', info)
+
+                    # force the lazy getJsonStorInfo fetch path
+                    cell._has_jsonstorinfo = {}
+                    self.isin('cell', await cell.getJsonStorInfo())
 
 class JsonStorTest(s_test.SynTest):
 

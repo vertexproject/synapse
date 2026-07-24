@@ -192,7 +192,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('This package depends on the following packages.', s)
             self.isin('| Name', s)
             self.isin('synapse', s)
-            self.isin('>=3.0.0b3,<4.0.0', s)
+            self.isin('>=3.0.0b4,<4.0.0', s)
             self.isin('testpkg-optdep', s)
             self.isin('>=1.0.0,<2.0.0', s)
             self.isin('Optional dependency used to enrich testpkg nodes with', s)
@@ -219,9 +219,10 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             self.notin('testmod', s)
 
-            # modconf.endpoints, grouped by resolved base URL, at the bottom of the
-            # doc, rendered as an rst grid table (which survives rst -> md
-            # conversion as a proper table, rather than a literal code block)
+            # top-level pkgdef endpoints, grouped by resolved base URL, at the
+            # bottom of the doc, rendered as an rst grid table (which survives
+            # rst -> md conversion as a proper table, rather than a literal
+            # code block)
 
             self.isin('Endpoints', s)
             self.isin('This package communicates with the following API endpoints.', s)
@@ -244,21 +245,17 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             # coverage for no endpoints
             rst = s_l_autodoc.RstHelp()
-            await s_autodoc.processModEndpoints(rst, 'foo', [])
+            await s_autodoc.processModEndpoints(rst, 'foo', {})
             self.eq('', rst.getRstText())
 
             # coverage for an endpoint with no desc, and a desc long enough to
             # wrap across multiple output lines
             longdesc = ' '.join(f'word{i}' for i in range(20))
             rst = s_l_autodoc.RstHelp()
-            await s_autodoc.processModEndpoints(rst, 'foo', [
-                {'name': 'covmod', 'modconf': {
-                    'endpoints': {
-                        'nodesc': {'path': '/v1/nodesc'},
-                        'wrapped': {'path': '/v1/wrapped', 'desc': longdesc},
-                    },
-                }},
-            ])
+            await s_autodoc.processModEndpoints(rst, 'foo', {
+                'nodesc': {'path': '/v1/nodesc'},
+                'wrapped': {'path': '/v1/wrapped', 'desc': longdesc},
+            })
             rsttext = rst.getRstText()
             self.isin('| /v1/nodesc ', rsttext)
             self.isin('| /v1/wrapped | word0', rsttext)

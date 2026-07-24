@@ -570,7 +570,8 @@ class StormLibAuthTest(s_test.SynTest):
 
     async def test_stormlib_auth_userjson(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
             # unset key returns None
             self.none(await core.callStorm('return($lib.auth.users.get().json.foo)'))
 

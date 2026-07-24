@@ -222,8 +222,8 @@ class StatsTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             nodes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(2, nodes)
-            self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
-            self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
+            self.eq(nodes[0][0], ('test:comp', (('test:int', 2), ('test:lower', 'foo'))))
+            self.eq(nodes[1][0], ('test:comp', (('test:int', 4), ('test:lower', 'bar'))))
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
             self.stormIsInPrint('tally.len()=2', mesgs)
 

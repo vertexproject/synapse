@@ -1302,7 +1302,6 @@ modeldefs = (
                     ('version', ('inet:ipversion', {}), {
                         'doc': 'The IP version of the address.'}),
                 ),
-                'prevnames': ('inet:ipv4', 'inet:ipv6'),
                 'doc': 'An IPv4 or IPv6 address.'}),
 
             ('inet:net', (None, {'ctor': 'synapse.models.inet.IPRange'}), {
@@ -1325,7 +1324,6 @@ modeldefs = (
                         'computed': True,
                         'doc': 'The last IP address in the network range.'}),
                 ),
-                'prevnames': ('inet:cidr4', 'inet:cidr6'),
                 'doc': 'An IPv4 or IPv6 address range.'}),
 
             ('inet:cidr', ('inet:net', {'cidr': True}), {
@@ -1525,20 +1523,16 @@ modeldefs = (
                     }),
                     ('net', ('inet:net', {}), {
                         'computed': True,
-                        'doc': 'The IP address range assigned to the ASN.',
-                        'prevnames': ('net4', 'net6')}),
+                        'doc': 'The IP address range assigned to the ASN.'}),
 
                     ('net:min', ('inet:ip', {}), {
                         'computed': True,
-                        'doc': 'The first IP in the range assigned to the ASN.',
-                        'prevnames': ('net4:min', 'net6:min')}),
+                        'doc': 'The first IP in the range assigned to the ASN.'}),
 
                     ('net:max', ('inet:ip', {}), {
                         'computed': True,
-                        'doc': 'The last IP in the range assigned to the ASN.',
-                        'prevnames': ('net4:max', 'net6:max')}),
+                        'doc': 'The last IP in the range assigned to the ASN.'}),
                 ),
-                'prevnames': ('inet:asnet4', 'inet:asnet6'),
                 'doc': 'An Autonomous System Number (ASN) and its associated IP address range.'}),
 
             ('inet:client', ('inet:sockaddr', {}), {
@@ -1760,7 +1754,7 @@ modeldefs = (
 
             ('inet:http:param', ('comp', {'fields': (('name', 'str'), ('value', 'str'))}), {
                 'props': (
-                    ('name', ('str:lower', {}), {'computed': True,
+                    ('name', ('text', {}), {'computed': True,
                         'doc': 'The name of the HTTP query parameter.'}),
 
                     ('value', ('str', {}), {'computed': True,
@@ -2028,7 +2022,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {}),
                 ),
-                'prevnames': ('inet:whois:rec',),
                 'props': (
                     ('fqdn', ('inet:fqdn', {}), {
                         'doc': 'The domain associated with the whois record.'}),
@@ -2079,8 +2072,7 @@ modeldefs = (
                         'doc': 'The FQDN of the host server when using the legacy WHOIS Protocol.'}),
 
                     ('ip', ('inet:ip', {}), {
-                        'doc': 'The IP address queried.',
-                        'prevnames': ('ipv4', 'ipv6')}),
+                        'doc': 'The IP address queried.'}),
 
                     ('success', ('bool', {}), {
                         'doc': 'Set to true if the host returned a valid response for the query.'}),
@@ -2097,7 +2089,6 @@ modeldefs = (
                 ),
                 'props': (
                     ('net', ('inet:net', {}), {
-                        'prevnames': ('net4', 'net6'),
                         'doc': 'The IP address range assigned.'}),
 
                     ('desc', ('text', {}), {
@@ -2261,8 +2252,7 @@ modeldefs = (
                         'doc': 'An array of email headers from the message.'}),
 
                     ('received:from:ip', ('inet:ip', {}), {
-                        'doc': 'The sending SMTP server IP, potentially from the Received: header.',
-                        'prevnames': ('received:from:ipv4', 'received:from:ipv6')}),
+                        'doc': 'The sending SMTP server IP, potentially from the Received: header.'}),
 
                     ('received:from:fqdn', ('inet:fqdn', {}), {
                         'doc': 'The sending server FQDN, potentially from the Received: header.'}),
@@ -2420,7 +2410,6 @@ modeldefs = (
                 ),
                 'template': {'service:base': 'agent'},
                 'doc': 'An instance of a deployed agent or software integration which is part of the service architecture.',
-                'prevnames': ('inet:service:app',),
                 'props': (
                     ('name', ('base:name', {}), {
                         'alts': ('names',),
@@ -3064,7 +3053,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {}),
                 ),
-                'ex': '(1.2.3.4:443, c7437790af01ae1bb2f8f3b684c70bf8)',
+                'ex': '(1.2.3.4:443, ({"$as": "crypto:x509:cert", "sha256": "0dc8e08cc5811311726a3313904a94747fbff36b6a2bde642dc4a1d9b28b26cf"}))',
                 'props': (
                     ('server', ('inet:server', {}), {
                         'computed': True,
@@ -3081,7 +3070,7 @@ modeldefs = (
                 'interfaces': (
                     ('meta:observable', {}),
                 ),
-                'ex': '(1.2.3.4:443, 3fdf364e081c14997b291852d1f23868)',
+                'ex': '(1.2.3.4:443, ({"$as": "crypto:x509:cert", "sha256": "0dc8e08cc5811311726a3313904a94747fbff36b6a2bde642dc4a1d9b28b26cf"}))',
                 'props': (
                     ('client', ('inet:client', {}), {
                         'computed': True,
@@ -3323,8 +3312,7 @@ modeldefs = (
                         'doc': 'The network address of the client which initiated the action.'}),
 
                     ('client:software', ('it:software', {}), {
-                        'doc': 'The client software used to initiate the action.',
-                        'prevnames': ('client:app',)}),
+                        'doc': 'The client software used to initiate the action.'}),
 
                     ('client:host', ('it:host', {}), {
                         'doc': 'The client host which initiated the action.'}),

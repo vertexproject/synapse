@@ -96,11 +96,9 @@ modeldefs = (
                 'props': (
 
                     ('issuer', ('ou:org', {}), {
-                        'prevnames': ('org',),
                         'doc': 'The issuer organization.'}),
 
                     ('issuer:name', ('entity:name', {}), {
-                        'prevnames': ('name',),
                         'doc': 'The registered name of the issuer.'}),
                 ),
                 'doc': 'An Issuer Id Number (IIN).'}),
@@ -165,7 +163,6 @@ modeldefs = (
                 'props': (
 
                     ('seller', ('entity:actor', {}), {
-                        'prevnames': ('from:contact',),
                         'doc': 'The actor who sold the items.'}),
 
                     ('seller:name', ('entity:name', {}), {
@@ -180,7 +177,6 @@ modeldefs = (
                 'doc': 'An event where an actor made a purchase.'}),
 
             ('econ:lineitem', ('guid', {}), {
-                'prevnames': ('econ:receipt:item',),
                 'props': (
 
                     ('count', ('size', {}), {
@@ -193,7 +189,6 @@ modeldefs = (
                             ('biz:service', {}),
                             ('meta:havable', {}),
                         ), {
-                        'prevnames': ('product',),
                         'doc': 'The product or service.'}),
                 ),
                 'doc': 'A line item included as part of a purchase.'}),
@@ -207,7 +202,6 @@ modeldefs = (
                 'props': (
 
                     ('id', ('base:id', {}), {
-                        'prevnames': ('txnid',),
                         'doc': 'A payment processor specific transaction ID.'}),
 
                     ('time', ('time', {}), {
@@ -427,7 +421,6 @@ modeldefs = (
                         'doc': 'The exchange on which the security was traded during the period.'}),
 
                     ('period', ('ival', {}), {
-                        'prevnames': ('ival',),
                         'doc': 'The interval of measurement.'}),
 
                     ('change', ('econ:pricechange', {}), {

@@ -75,7 +75,6 @@ modeldefs = (
                         'doc': 'The earliest known time when a mitigation/fix became available for the vulnerability.'}),
 
                     ('published', ('time', {}), {
-                        'prevnames': ('timeline:published',),
                         'doc': 'The earliest known time the vulnerability was published.'}),
 
                     ('vendor', ('entity:actor', {}), {
@@ -85,15 +84,12 @@ modeldefs = (
                         'doc': 'The name of the vendor whose product contains the vulnerability.'}),
 
                     ('vendor:fixed', ('time', {}), {
-                        'prevnames': ('timeline:vendor:fixed',),
                         'doc': 'The earliest known time the vendor issued a fix for the vulnerability.'}),
 
                     ('vendor:notified', ('time', {}), {
-                        'prevnames': ('timeline:vendor:notified',),
                         'doc': 'The earliest known vendor notification time for the vulnerability.'}),
 
                     ('exploited', ('time', {}), {
-                        'prevnames': ('timeline:exploited',),
                         'doc': 'The earliest known time when the vulnerability was exploited in the wild.'}),
 
                     ('tag', ('syn:tag', {}), {
@@ -248,7 +244,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'prevnames': ('risk:alert:taxonomy',),
                 'props': (),
                 'doc': 'A hierarchical taxonomy of alert types.'}),
 
@@ -364,7 +359,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'prevnames': ('risk:attacktype',),
                 'props': (),
                 'doc': 'A hierarchical taxonomy of attack types.'}),
 
@@ -373,7 +367,6 @@ modeldefs = (
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
-                'prevnames': ('risk:compromisetype',),
                 'props': (),
                 'doc': 'A hierarchical taxonomy of compromise types.'}),
 
@@ -420,7 +413,6 @@ modeldefs = (
 
                     ('urls', ('inet:url', {}), {
                         'array': {},
-                        'prevnames': ('public:url',),
                         'doc': 'URLs where the leaked information was made available.'}),
 
                     ('size:bytes', ('size', {}), {

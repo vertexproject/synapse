@@ -17,7 +17,6 @@ modeldefs = (
                         'doc': 'An array of alternate names for the {title}.'}),
 
                     ('website', ('inet:url', {}), {
-                        'prevnames': ('url',),
                         'doc': 'The website of the {title}.'}),
 
                     ('social:accounts', ('inet:service:account', {}), {
@@ -58,8 +57,7 @@ modeldefs = (
                         'doc': 'The motto used by the organization.'}),
 
                     ('type', ('ou:org:type:taxonomy', {}), {
-                        'doc': 'The type of organization.',
-                        'prevnames': ('orgtype',)}),
+                        'doc': 'The type of organization.'}),
 
                     ('vitals', ('ou:vitals', {}), {
                         'doc': 'The most recent/accurate ou:vitals for the org.'}),
@@ -113,7 +111,6 @@ modeldefs = (
                 }}),
 
             ('ou:org:type:taxonomy', ('taxonomy', {}), {
-                'prevnames': ('ou:orgtype',),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
@@ -185,7 +182,6 @@ modeldefs = (
                 }}),
 
             ('ou:orgnet', ('guid', {}), {
-                'prevnames': ('ou:orgnet4', 'ou:orgnet6'),
                 'props': (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org guid which owns the netblock.'}),
@@ -219,7 +215,6 @@ modeldefs = (
                 'doc': 'A position within an org which can be organized into an org chart with replaceable contacts.'}),
 
             ('ou:meeting', ('guid', {}), {
-                'prevnames': ('ou:meet',),
                 'template': {'title': 'meeting'},
                 'interfaces': (
                     ('geo:locatable', {}),
@@ -298,7 +293,6 @@ modeldefs = (
 
             ('ou:event', ('guid', {}), {
                 'template': {'title': 'event'},
-                'prevnames': ('ou:conference:event',),
                 'interfaces': (
                     ('econ:budgetable', {}),
                     ('ou:promotable', {}),
@@ -416,7 +410,6 @@ modeldefs = (
 
 
             ('ou:id:history', ('guid', {}), {
-                'prevnames': ('ou:id:update',),
                 'props': (
                     ('id', ('ou:id', {}), {
                         'doc': 'The current ID information.'}),
@@ -432,18 +425,15 @@ modeldefs = (
             ('ou:vitals', ('guid', {}), {
                 'props': (
                     ('time', ('time', {}), {
-                        'prevnames': ('asof',),
                         'doc': 'The time that the vitals represent.'}),
 
                     ('org', ('ou:org', {}), {
                         'doc': 'The resolved org.'}),
 
                     ('org:name', ('entity:name', {}), {
-                        'prevnames': ('orgname',),
                         'doc': 'The org name as reported by the source of the vitals.'}),
 
                     ('org:fqdn', ('inet:fqdn', {}), {
-                        'prevnames': ('orgfqdn',),
                         'doc': 'The org FQDN as reported by the source of the vitals.'}),
 
                     ('costs', ('econ:price', {}), {
@@ -500,7 +490,6 @@ modeldefs = (
                         'doc': 'The FQDN of the organization as listed in the opening.'}),
 
                     ('period', ('ival', {}), {
-                        'prevnames': ('posted', 'removed'),
                         'doc': 'The time period when the opening existed.'}),
 
                     ('postings', ('inet:url', {}), {
@@ -511,22 +500,18 @@ modeldefs = (
                         'doc': 'The contact details to inquire about the opening.'}),
 
                     ('job:type', ('ou:job:type:taxonomy', {}), {
-                        'doc': 'The job type taxonomy.',
-                        'prevnames': ('jobtype',)}),
+                        'doc': 'The job type taxonomy.'}),
 
                     ('employment:type', ('ou:employment:type:taxonomy', {}), {
-                        'doc': 'The type of employment.',
-                        'prevnames': ('employment',)}),
+                        'doc': 'The type of employment.'}),
 
                     ('title', ('entity:title', {}), {
-                        'prevnames': ('jobtitle',),
                         'doc': 'The title of the opening.'}),
 
                     ('remote', ('percent', {}), {
                         'doc': 'The percentage of the role which may be performed remotely.'}),
 
                     ('pay:min', ('econ:price', {}), {
-                        'prevnames': ('yearlypay',),
                         'doc': 'The minimum pay for the job.'}),
 
                     ('pay:max', ('econ:price', {}), {
@@ -540,7 +525,6 @@ modeldefs = (
 
             ('ou:job:type:taxonomy', ('taxonomy', {}), {
                 'ex': 'it.dev.python',
-                'prevnames': ('ou:jobtype',),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),
@@ -626,7 +610,6 @@ modeldefs = (
 
             ('ou:employment:type:taxonomy', ('taxonomy', {}), {
                 'ex': 'fulltime.salary',
-                'prevnames': ('ou:employment',),
                 'interfaces': (
                     ('meta:taxonomy', {}),
                 ),

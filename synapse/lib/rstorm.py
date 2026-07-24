@@ -14,13 +14,17 @@ import regex
 from unittest import mock
 
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 
+import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
+import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.stormhttp as s_stormhttp
 
 import synapse.tools.storm._cli as s_storm
@@ -194,6 +198,65 @@ async def getCell(ctor, conf):
     with s_common.getTempDir() as dirn:
         async with await loc.anit(dirn, conf=cellconf) as cell:
             yield cell
+
+@contextlib.asynccontextmanager
+async def getDocsCore(ctor=None):
+    '''
+    Boot a Cortex for executing documentation Storm, with its axon and jsonstor
+    peers resolved by cell type via an ephemeral AHA network. Yields ONLY the
+    Cortex; the AHA network and the axon / jsonstor / Cortex services are all
+    torn down when the yielded Cortex is fini()d.
+
+    Args:
+        ctor: The Cortex class to boot. Defaults to the base synapse Cortex.
+
+    Notes:
+        The Cortex no longer boots embedded axon / jsonstor cells, so doc Storm
+        that uses ``$lib.axon`` / ``$lib.bytes`` / ``$lib.jsonstor`` ( or a
+        package onload that does ) needs real peers to resolve. The AHA host
+        name resolves to loopback so provisioning can connect over TLS.
+    '''
+    if ctor is None:
+        ctor = s_cortex.Cortex
+
+    with s_common.getTempDir() as dirn:
+
+        async with await s_base.Base.anit() as base:
+
+            netw = 'synapse'
+            host = '00.aha.loop.vertex.link'
+            ahaconf = {
+                'aha:network': netw,
+                'dns:name': host,
+                'provision:listen': f'ssl://0.0.0.0:0?hostname={host}',
+                'dmon:listen': f'ssl://0.0.0.0:0?hostname={host}&ca={netw}',
+                'health:sysctl:checks': False,
+            }
+            aha = await base.enter_context(await s_aha.AhaCell.anit(os.path.join(dirn, 'aha'), conf=ahaconf))
+
+            async def _boot(name, cellctor, conf=None):
+                # pass any conf through the provisioning bundle so it survives the
+                # provisioning boot ( conf handed only to anit() is discarded when
+                # the cell rebuilds its config from the provisioning data ).
+                provinfo = {'conf': dict(conf)} if conf else None
+                onetime = await aha.addAhaSvcProv(name, provinfo=provinfo)
+                cellconf = {'aha:provision': onetime, 'health:sysctl:checks': False}
+                return await base.enter_context(await cellctor.anit(os.path.join(dirn, name), conf=cellconf))
+
+            # boot the peers before the Cortex which resolves them by cell type
+            await _boot('00.axon', s_axon.Axon)
+            await _boot('00.jsonstor', s_jsonstor.JsonStorCell)
+
+            # a Cortex subclass may declare conf overrides for doc rendering via
+            # a docsconf class attr.
+            coreconf = dict(getattr(ctor, 'docsconf', None) or {})
+
+            core = await _boot('00.cortex', ctor, conf=coreconf)
+
+            # tearing down the Cortex tears down its peers and the AHA network
+            core.onfini(base.fini)
+
+            yield core
 
 class StormRst(s_base.Base):
 
@@ -472,9 +535,18 @@ class StormRst(s_base.Base):
             await self.core.fini()
             self.core = None
 
-        ctor = 'synapse.cortex.Cortex' if text == 'default' else text
-
-        self.core = await self._getCell(ctor)
+        if text == 'default':
+            # the default doc Cortex needs axon / jsonstor peers ( resolved via
+            # AHA ) so doc Storm using $lib.axon / $lib.jsonstor works.
+            self.core = await self.enter_context(getDocsCore())
+        else:
+            loc = s_dyndeps.getDynLocal(text)
+            if isinstance(loc, type) and issubclass(loc, s_cortex.Cortex):
+                # a Cortex needs its axon / jsonstor peers resolved via AHA,
+                # same as the default doc Cortex.
+                self.core = await self.enter_context(getDocsCore(ctor=loc))
+            else:
+                self.core = await self._getCell(text)
 
     async def _handleStormEnvVar(self, text):
         name, valu = text.split('=', 1)

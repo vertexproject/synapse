@@ -599,65 +599,26 @@ class JsonStorCell(s_cell.Cell):
 
 class HasJsonStor:
     '''
-    Mixin for a Cell which uses a JsonStor. When the Cell is an AHA client the
-    JsonStor is resolved by service type ( aha://jsonstor... ); otherwise an
-    embedded JsonStorCell is created under the cell directory and reached via
-    its local url. Either way a telepath client is created and getJsonStor()
-    returns a live proxy, so embedded and remote deployments exercise the same
-    path. Use getJsonStor() / getJsonStorInfo() rather than the underlying
-    objects.
+    Mixin for a Cell which uses a JsonStor. The JsonStor is resolved as an AHA
+    peer by service type ( aha://jsonstor... ); a telepath client is created and
+    getJsonStor() returns a live proxy. Use getJsonStor() / getJsonStorInfo()
+    rather than the underlying objects.
     '''
-    # constructor for the embedded JsonStorCell. subclasses may override to boot
-    # an alternative embedded implementation.
-    _has_jsonstor_ctor = JsonStorCell.anit
-
     async def initServiceStorage(self):
 
-        self._has_jsonstor = None
         self._has_jsonstorinfo = {}
 
-        # NEVER reach for self._has_jsonstor* directly. getJsonStor() returns a
-        # proxy to the jsonstor ( embedded or remote ) via the telepath client.
-        if self.ahaclient is None and self.readonly:
-            # a readonly cell shares the writer's dirn and must not run its own
-            # embedded jsonstor. point the client at the leader's embedded
-            # jsonstor socket so consumers reach it without proxying through the
-            # leader.
-            jurl = f'cell://{os.path.join(self.dirn, "jsonstor")}'
-
-        elif self.ahaclient is None:
-            path = os.path.join(self.dirn, 'jsonstor')
-            # the embedded jsonstor does not run its own host sysctl checks. it
-            # makes no outbound http requests, so ( unlike axon/cortex ) no
-            # http:proxy / tls:ca:dir is threaded in.
-            conf = {'health:sysctl:checks': False}
-
-            conf.update(self._getEmbeddedJsonStorConf(path))
-
-            # parent=self makes the embedded jsonstor a nexus-sharing child so
-            # its writes ride the host cell's nexus and replicate to mirrors.
-            self._has_jsonstor = await self._has_jsonstor_ctor(path, conf=conf, parent=self)
-            self.onfini(self._has_jsonstor.fini)
-            self.dynitems['jsonstor'] = self._has_jsonstor
-
-            jurl = self._has_jsonstor.getLocalUrl()
-
-        else:
-            jurl = 'aha://jsonstor...'
-
-        self._has_jsonstor_client = await s_telepath.ClientV2.anit(jurl, onlink=self._onLinkJsonStor)
+        # the jsonstor is resolved as an AHA peer by service type. getJsonStor()
+        # returns a live proxy via the telepath client; a cell configured
+        # without an AHA client fails to resolve the jsonstor only when it is
+        # actually used.
+        self._has_jsonstor_client = await s_telepath.ClientV2.anit('aha://jsonstor...', onlink=self._onLinkJsonStor)
         self.onfini(self._has_jsonstor_client)
 
         # set up our jsonstor before delegating so the rest of the storage init
         # chain ( or an updated pattern ) can rely on getJsonStor(). return the
         # parent result in case the callback ever produces one.
         return await super().initServiceStorage()
-
-    def _getEmbeddedJsonStorConf(self, path):
-        # hook to augment the embedded JsonStorCell conf before it is created
-        # ( e.g. to pin a deterministic cell:guid ). subclasses override to
-        # return extra conf keys.
-        return {}
 
     async def _onLinkJsonStor(self, proxy, urlinfo):
         # default onlink handler for the jsonstor client; refreshes the cached

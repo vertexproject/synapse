@@ -2688,7 +2688,12 @@ class View(s_nexus.Pusher):  # type: ignore
         async with self.getEditor(user=user) as editor:
 
             try:
-                protonode = await editor.addNode(formname, formvalu)
+                form = self.core.model.form(formname)
+                if form is None:
+                    raise s_exc.NoSuchForm(mesg=f'No form named {formname} for valu={formvalu}.')
+
+                norm, norminfo = await form.type.normFromTypedValu(formvalu, view=self)
+                protonode = await editor.addNode(formname, norm, norminfo=norminfo)
             except Exception as e:
                 if runt is not None:
                     await runt.warn(str(e))
@@ -2993,19 +2998,24 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def scrapeIface(self, text, unique=False, refang=True):
 
-        # Yields (form, normed valu, norminfo, info) tuples. norminfo is the
-        # result of norming the scraped value; node creation paths reuse it via
+        # Yields (form, normed valu, norminfo, info, raw valu) tuples. norminfo is
+        # the result of norming the scraped value; node creation paths reuse it via
         # addNode(norminfo=...) to avoid a lossy re-norm (e.g. a guid constructor
-        # sub-node would lose its deconf props). info is the match context.
+        # sub-node would lose its deconf props). info is the match context. raw valu
+        # is the scraped value prior to norming; callers that must re-norm it later
+        # (e.g. after a round trip that drops norminfo) use it instead of the normed
+        # valu, which a guid comp cannot re-norm from (its raw sub-fields are gone).
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
             async for item in s_scrape.contextScrapeAsync(text, refang=refang, first=False):
                 form = item.pop('form')
-                valu = item.pop('valu')
+                rawvalu = item.pop('valu')
 
                 try:
                     tobj = self.core.model.type(form)
-                    valu, norminfo = await tobj.norm(valu, view=self)
+                    # norming a guid constructor dict mutates it in place;
+                    # norm a copy so we can still yield the raw value.
+                    valu, norminfo = await tobj.norm(s_msgpack.deepcopy(rawvalu, use_list=True), view=self)
                 except s_exc.BadTypeValu:
                     await asyncio.sleep(0)
                     continue
@@ -3019,8 +3029,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         continue
                     await matches.add(key)
 
-                # Yield a tuple of <form, normed valu, norminfo, info>
-                yield form, valu, norminfo, item
+                yield form, valu, norminfo, item, rawvalu
 
             # Return early if the scrape interface is disabled
             if not self.core.stormiface_scrape:
@@ -3040,11 +3049,13 @@ class View(s_nexus.Pusher):  # type: ignore
             # to them.
             todo = s_common.todo('scrape', text)
             async for results in self.callStormIface('scrape', todo):
-                for (form, valu, info) in results:
+                for (form, rawvalu, info) in results:
 
                     try:
                         tobj = self.core.model.type(form)
-                        valu, norminfo = await tobj.norm(valu, view=self)
+                        # norming a guid constructor dict mutates it in place;
+                        # norm a copy so we can still yield the raw value.
+                        valu, norminfo = await tobj.norm(s_msgpack.deepcopy(rawvalu, use_list=True), view=self)
                     except AttributeError:  # pragma: no cover
                         logger.exception(f'Scrape interface yielded unknown form {form}')
                         await asyncio.sleep(0)
@@ -3062,8 +3073,7 @@ class View(s_nexus.Pusher):  # type: ignore
                             continue
                         await matches.add(key)
 
-                    # Yield a tuple of <form, normed valu, norminfo, info>
-                    yield form, valu, norminfo, info
+                    yield form, valu, norminfo, info, rawvalu
                     await asyncio.sleep(0)
 
     async def getRuntPodes(self, prop, cmprvalu=None):
@@ -3474,6 +3484,21 @@ class View(s_nexus.Pusher):  # type: ignore
 
         norm, info = await _type.norm(valu)
 
+        async for node in self.nodesByPropTypeNorm(name, norm, cmpr=cmpr, virts=info.get('virts')):
+            yield node
+
+    async def nodesByPropTypeNorm(self, name, norm, cmpr='=', virts=None):
+        '''
+        Find nodes whose props reference an already-normalized value of the given
+        type. Unlike nodesByPropTypeValu, this takes a normalized value directly
+        (e.g. a node's stored primary value) and does not re-normalize it.
+        '''
+        _type = self.core.model.types.get(name)
+        if _type is None:
+            raise s_exc.NoSuchType(name=name)
+
+        info = {'virts': virts}
+
         if (form := self.core.model.form(name)) is not None:
             ftyps = form.formtypes[::-1]
             nrefs = [s_stormtypes.NodeRef(((ftyp, norm), info.get('virts'))) for ftyp in ftyps]
@@ -3490,7 +3515,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         async for node in self.nodesByPropArray(prop.full, cmpr, nref):
                             yield node
         else:
-            nref = s_stormtypes.NodeRef(((name, norm), info.get('virts')))
+            nref = _type.tostorm(norm, virts=info.get('virts'))
 
             for prop in self.core.model.getPropsByType(name):
                 async for node in self.nodesByPropValu(prop.full, cmpr, nref):

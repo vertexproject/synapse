@@ -18,6 +18,7 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
 import synapse.lib.config as s_config
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.provision as s_provision
@@ -526,16 +527,35 @@ class AhaCell(s_cell.Cell):
         return ('SYN_AHA', f'SYN_{cls.__name__.upper()}', )
 
     def getSvcName(self):
-        # The AHA service does not register itself with AHA, so the
-        # default cell logic that derives the log service name from
-        # 'aha:name' + 'aha:network' will not produce a value when
-        # 'aha:name' is not configured. Fall back to 'dns:name' so
-        # the 'service' log key is still populated.
+        # An AHA leader mints its own 'aha:name' during _initInauguralConfig and
+        # then self-registers, but getSvcName is first read earlier in boot ( at
+        # setup logging time ) while 'aha:name' is still None. Fall back to
+        # 'dns:name' so the 'service' log key is populated during that window
+        # ( and for legacy deployments which never minted an 'aha:name' ).
         name = super().getSvcName()
         if name is not None:
             return name
 
         return self.conf.get('dns:name')
+
+    async def _initInauguralConfig(self):
+
+        await s_cell.Cell._initInauguralConfig(self)
+
+        # A fresh, active AHA leader mints its own sequential aha:name ( 000.aha
+        # for the first leader ) so it registers in its own service registry.
+        # Persisted to cell.mods.yaml so the type index is not re-consumed on
+        # reboot. Clones/followers boot non-inaugural ( they clone the leader's
+        # cell.guid ) and/or with a parent set, so they never mint here.
+        if self.inaugural and self.isactive and self.conf.get('aha:name') is None:
+            celltype = self.getCellType()
+            indx = await self.getSvcTypeIndex(celltype)
+            self.modCellConf({'aha:name': f'{indx:03d}.{celltype}'})
+            self.ahasvcname = self._getAhaSvcName()
+
+            # refresh the 'service' log key: it was set from the dns:name fallback
+            # earlier in boot ( before this mint ) so update it to our aha:name.
+            s_logging.setLogInfo('service', self.ahasvcname)
 
     async def _initCellBoot(self):
 
@@ -562,7 +582,16 @@ class AhaCell(s_cell.Cell):
         if conf is None:
             conf = {}
 
-        conf.update(clone.get('conf', {}))
+        if (cloneconf := clone.get('conf')) is not None:
+            conf.update(cloneconf)
+
+            # the cloned cell.mods.yaml carries the leader's overrides ( including
+            # its own minted aha:name ) which force-override cell.yaml on the next
+            # boot. Pop any key the clone conf sets so the clone's own values ( e.g.
+            # its 001.aha name ) win rather than reverting to the leader's.
+            mods_path = s_common.genpath(self.dirn, 'cell.mods.yaml')
+            for key in cloneconf:
+                s_common.yamlpop(key, mods_path)
 
         s_common.yamlsave(conf, self.dirn, 'cell.yaml')
 
@@ -877,6 +906,11 @@ class AhaCell(s_cell.Cell):
 
         self.addActiveCoro(self._clearInactiveSessions)
 
+        # the current leader registers itself in its own registry ( see
+        # _runAhaSelfReg ). as an active coro this follows leadership: a promoted
+        # clone registers under its own name and a demoted leader is dropped.
+        self.addActiveCoro(self._runAhaSelfReg)
+
         if self.isactive:
 
             # bootstrap a CA for our aha:network
@@ -948,6 +982,48 @@ class AhaCell(s_cell.Cell):
         secret = os.environ.get('SYN_PROVISION_SECRET')
         if secret is not None:
             await self._initProvMcast(secret)
+
+    async def _runAhaSelfReg(self):
+
+        # Register the current AHA leader in its own service registry.
+        #
+        # This runs as an ACTIVE coro, so it starts only once we are the leader
+        # and is cancelled on demotion ( which drops the link below and marks the
+        # entry offline ). Crucially we do NOT set self.ahaclient: the generic
+        # promote/handoff machinery ( _tellAhaReady, _takeLeadTerm,
+        # _waitAhaRegOnline, _runAhaRegLoop ) keys off self.ahaclient and would
+        # route registry writes through a peer AHA that is holding its nexus lock
+        # while coordinating a handoff, deadlocking the promotion. Keeping
+        # self.ahaclient None preserves AHA's bespoke parent-based failover.
+
+        if self.conf.get('aha:name') is None:
+            return
+
+        # wait for our dmon listener so getMyUrl()/getAhaInfo() have a port.
+        await self.netready.wait()
+
+        ahaname = self.conf.get('aha:name')
+        self.ahasvcname = self._getAhaSvcName()
+
+        # record our leadership term locally ( we are the writer ) so our entry is
+        # flagged leader and the celltype alias ( aha.<network> ) resolves to us.
+        await self.setLeadTerm(self.getCellType(), self.ahasvcname, await self.getNexsIndx())
+
+        while not self.isfini:
+
+            try:
+                # connect to ourself via dns:name ( getMyUrl ) rather than
+                # loopback so the AHA-side getpeername() stamps a routable host on
+                # our service entry. hold the link open so we stay marked online
+                # until we are demoted ( this coro is cancelled ) or it drops.
+                async with await s_telepath.openurl(self.getMyUrl()) as proxy:
+                    info = await self.getAhaInfo()
+                    await proxy.addAhaSvc(f'{ahaname}...', info)
+                    await proxy.waitfini()
+
+            except Exception as e:
+                logger.exception(f'Error registering AHA service {self.ahasvcname} with itself: {e}')
+                await self.waitfini(1)
 
     async def _initProvMcast(self, secret):
 
@@ -1855,6 +1931,14 @@ class AhaCell(s_cell.Cell):
         conf['dns:name'] = host
         conf['aha:network'] = network
         conf['dmon:listen'] = f'ssl://0.0.0.0:{port}?hostname={host}&ca={network}'
+
+        # assign the clone the next sequential aha:name ( 001.aha, 002.aha, ... ).
+        # a clone registers itself in the registry ( via _runAhaSelfReg ) if and
+        # when it is promoted to leader; while following it is not separately
+        # registered. we do NOT set aha:servers here: an AHA never registers via a
+        # peer ahaclient ( that would deadlock its own failover, see _runAhaSelfReg ).
+        celltype = self.getCellType()
+        conf['aha:name'] = f'{await self.getSvcTypeIndex(celltype):03d}.{celltype}'
 
         iden = s_common.guid()
         clone = {

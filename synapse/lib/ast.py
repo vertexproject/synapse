@@ -266,7 +266,7 @@ class Lookup(Query):
             text = ' '.join(tokns)
 
             rawscrapes = []
-            async for form, valu, _, info in view.scrapeIface(text):
+            async for form, valu, _, info, _ in view.scrapeIface(text):
                 rawscrapes.append((form, valu, info))
 
             # filter to non-overlapping matches, preferring longer (more specific) matches
@@ -863,6 +863,10 @@ class InitBlock(AstNode):
                 async for innr in subq.run(runt, s_common.agen()):
                     yield innr
 
+                # update the first node's path vars to catch any runt var updates
+                # made during init so we're consistent with how subsequent nodes
+                # will pull those values off the runt when constructing their path.
+                item[1].vars |= runt.vars
                 once = True
 
             yield item
@@ -4268,7 +4272,7 @@ class PropValue(Value):
         ptyp, valu, virts, _ = await self._getTypeValuVirts(runt, path)
 
         if ptyp:
-            valu = await ptyp.tostorm(valu, virts=virts)
+            valu = ptyp.tostorm(valu, virts=virts)
 
         return valu
 
@@ -4294,10 +4298,7 @@ class ValueAs(Value):
         except s_exc.BadTypeValu:
             return undef
 
-        virts = info.get('virts')
-        if ptyp.ispoly:
-            return s_stormtypes.NodeRef((norm, virts))
-        return s_stormtypes.NodeRef(((ptyp.name, norm), virts))
+        return ptyp.tostorm(norm, virts=info.get('virts'))
 
 class VirtPropValue(PropValue):
 
@@ -4325,7 +4326,7 @@ class VirtPropValue(PropValue):
         ptyp, valu = await self.getTypeValu(runt, path)
 
         if ptyp:
-            valu = await ptyp.tostorm(valu)
+            valu = ptyp.tostorm(valu)
 
         return valu
 
@@ -4344,7 +4345,7 @@ class TagValue(Value):
         if (valu := path.node.getTag(name)) is None or valu == (None, None, None):
             return None
 
-        return await runt.model.type('ival').tostorm(valu)
+        return runt.model.type('ival').tostorm(valu)
 
 class TagVirtValue(Value):
 

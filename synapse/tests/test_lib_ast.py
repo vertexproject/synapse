@@ -20,7 +20,7 @@ foo_stormpkg = {
     'name': 'foo',
     'desc': 'The Foo Module',
     'version': (0, 0, 1),
-    'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+    'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
     'modules': [
         {
             'name': 'hehe.haha',
@@ -614,7 +614,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[ inet:ip=1.2.3.4 ]  [ (inet:dns:a=(vertex.link, $node.value) +#foo ) ]')
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
             self.none(nodes[0].getTag('foo'))
-            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', (4, 0x01020304))))
+            self.eq(nodes[1].ndef, ('inet:dns:a', (('inet:fqdn', 'vertex.link'), ('inet:ipv4', (4, 0x01020304)))))
             self.nn(nodes[1].getTag('foo'))
 
             # test nested
@@ -1141,6 +1141,45 @@ class AstTest(s_test.SynTest):
             await core.nodes('[test:str=bare]')
             self.len(0, await core.nodes('test:str=bare :inhstrarry -> *'))
             self.len(0, await core.nodes('test:str=bare +:inhstrarry*[=foo]'))
+
+            # the value cast may be applied to a single element inside a value
+            # tuple; casting to a field's type matches the bare form. The left
+            # side must be a delimited value ($var/quoted), not a bare word (a
+            # bare word would swallow the "as" as literal text).
+            bybare = await core.nodes('[test:comp=(10, foo)]')
+            bycast = await core.nodes('$v=foo [test:comp=(10, $v as test:lower)]')
+            self.len(1, bycast)
+            self.eq(bybare[0].nid, bycast[0].nid)
+
+            # in-tuple cast with the type name supplied via a variable
+            nodes = await core.nodes('$b=bar $t=test:lower [test:comp=(11, $b as $t)]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'haha', 'bar')
+
+            # the cast type may also be a format string (top level and in-tuple)
+            nodes = await core.nodes('$t=str [test:str=fmt :poly=(5) as `test:{$t}`]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'poly', '5', type='test:str')
+
+            nodes = await core.nodes('$b=baz $t=lower [test:comp=(12, $b as `test:{$t}`)]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'haha', 'baz')
+
+            # a per-element cast lets a guid-form comp field take a reference and
+            # materializes the referenced node; identity matches a subquery ref.
+            iden = 'a' * 32
+            opts = {'vars': {'cert': iden}}
+            cast = await core.nodes('[inet:tls:servercert=(tcp://1.2.3.4:443, $cert as crypto:x509:cert)]', opts=opts)
+            self.len(1, cast)
+            self.eq(cast[0].get('cert'), ('crypto:x509:cert', iden))
+            ref = await core.nodes('inet:tls:servercert=(tcp://1.2.3.4:443, {[crypto:x509:cert=$cert]})', opts=opts)
+            self.len(1, ref)
+            self.eq(ref[0].nid, cast[0].nid)
+            self.len(1, await core.nodes('crypto:x509:cert', opts=opts))
+
+            # a bad cast value inside a tuple raises like the top-level cast
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('$x=notanint [test:comp=($x as test:int, foo)]')
 
     async def test_ast_lift(self):
 
@@ -1682,13 +1721,13 @@ class AstTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': '0.0.1',
-            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
         }
 
         stormpkg = {
             'name': 'stormpkg',
             'version': '1.2.3',
-            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
             'commands': (
                 {
                  'name': 'pkgcmd.old',
@@ -1700,7 +1739,7 @@ class AstTest(s_test.SynTest):
         stormpkgnew = {
             'name': 'stormpkg',
             'version': '1.2.4',
-            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
             'commands': (
                 {
                  'name': 'pkgcmd.new',
@@ -1712,7 +1751,7 @@ class AstTest(s_test.SynTest):
         jsonpkg = {
             'name': 'jsonpkg',
             'version': '1.2.3',
-            'dependencies': {'synapse': {'version': '>=3.0.0b3,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
             'docs': (
                 {
                  'title': 'User Guide',
@@ -2472,6 +2511,17 @@ class AstTest(s_test.SynTest):
             self.len(1, firs)
             evnt = firs[0]
             self.eq(evnt[1].get('data'), {'total': 3})
+
+            q = '''
+            [ test:str=1 test:str=2 ]
+            init { $count = 0 }
+            for $x in (["one", "two", "three"]) {
+                $count = ($count + 1)
+            }
+            $lib.print($count)
+            '''
+            msgs = await core.stormlist(q)
+            self.eq(['1', '1', '1', '2', '2', '2'], [m[1]['mesg'] for m in msgs if m[0] == 'print'])
 
     async def test_ast_emptyblock(self):
 
@@ -3474,7 +3524,8 @@ class AstTest(s_test.SynTest):
             self.eq(beforecount, len(evtl._asyncgens))
 
     async def test_ast_condeval(self):
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
             self.len(1, await core.nodes('[ inet:ip=1.2.3.4 :asn=20 +#foo ] +$((true))'))
             self.len(0, await core.nodes('inet:ip=1.2.3.4  +(#foo and not #foo)'))
             self.len(0, await core.nodes('inet:ip=1.2.3.4  +$(:asn + 20 >= 42)'))

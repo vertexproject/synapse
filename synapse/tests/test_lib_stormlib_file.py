@@ -21,7 +21,8 @@ class FileTest(s_test.SynTest):
         sha256b = hashes.get('sha256')
         sha256 = s_common.ehex(sha256b)
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
             # Create a file:bytes node from bytes
 
             self.false(await (await core.getAxon()).has(sha256b))
@@ -45,7 +46,8 @@ class FileTest(s_test.SynTest):
 
             self.eq(valu, data)
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
             # Update/link a file:bytes node with bytes
 
             opts = {'vars': {'sha256': sha256}}
@@ -65,7 +67,8 @@ class FileTest(s_test.SynTest):
             self.propeq(nodes[0], 'md5', s_common.ehex(hashes.get('md5')))
             self.eq(nodes[0].nid, nid)
 
-        async with self.getTestCore() as core:
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
             # Type checking
             with self.raises(s_exc.BadArg) as exc:
                 await core.nodes('yield $lib.file.frombytes(newpstring)')

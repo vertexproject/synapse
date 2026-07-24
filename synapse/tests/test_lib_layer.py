@@ -2460,6 +2460,83 @@ class LayerTest(s_t_utils.SynTest):
                 self.len(3, nodes)
                 self.eq(nodes[::-1], rnodes)
 
+    async def test_layer_prop_virt_overrides(self):
+
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+
+            # A time precision virt is stored on the node but not indexed:
+            # StorTypeTime opts out of the generic virtual index.
+            await core.nodes('[ biz:deal=(d,) :updated=2020 ]')
+            await core.nodes('biz:deal=(d,) [ :updated.precision=year ]')
+
+            nid = (await core.nodes('biz:deal=(d,)'))[0].nid
+            valu, stortype, virts = layr._getStorNode(nid)['props']['updated']
+
+            self.isin('precision', virts)
+            with self.raises(s_exc.NoSuchAbrv):
+                core.getIndxAbrv(s_layer.INDX_VIRTUAL, 'biz:deal', 'updated', 'precision')
+
+            # an ival precision virt is likewise not indexed (StorTypeIval opts
+            # out; ival ordering is served by dedicated side indexes).
+            await core.nodes('[ entity:campaign=(foo,) :period=(2020, 2021) ]')
+            await core.nodes('entity:campaign=(foo,) [ :period.precision=year ]')
+
+            nid = (await core.nodes('entity:campaign=(foo,)'))[0].nid
+            valu, stortype, virts = layr._getStorNode(nid)['props']['period']
+
+            self.isin('precision', virts)
+            with self.raises(s_exc.NoSuchAbrv):
+                core.getIndxAbrv(s_layer.INDX_VIRTUAL, 'entity:campaign', 'period', 'precision')
+
+            # ival ordering virts are lifted via their side indexes
+            self.len(1, await core.nodes('entity:campaign:period.began=2020'))
+
+            # a pricechange currency virt is liftable, so it is indexed in the
+            # generic virtual index.
+            await core.nodes('[ econ:balance=(b,) :change=(100, 200) :change.currency=usd ]')
+            self.len(1, await core.nodes('econ:balance:change.currency=usd'))
+
+            # deleting the property removes its currency virt index
+            await core.nodes('econ:balance=(b,) [ -:change ]')
+            self.len(0, await core.nodes('econ:balance:change.currency=usd'))
+
+            # a tagprop virt added on a value-unchanged edit is indexed
+            await core.addTagProp('_cur', ('econ:pricechange', {}), {})
+            await core.nodes('[ econ:balance=(b2,) :amount=100 +#foo:_cur=(1, 2) ]')
+
+            await core.nodes('econ:balance=(b2,) [ +#foo:_cur.currency=usd ]')
+            self.len(1, await core.nodes('econ:balance#foo:_cur.currency=usd'))
+
+            # changing the currency re-indexes: only the new value matches
+            await core.nodes('econ:balance=(b2,) [ +#foo:_cur.currency=eur ]')
+            self.len(0, await core.nodes('econ:balance#foo:_cur.currency=usd'))
+            self.len(1, await core.nodes('econ:balance#foo:_cur.currency=eur'))
+
+            # a poly property's virts are indexed with a 2-byte member stortype prefix
+            await core.nodes('[ test:str=serv :poly={[ inet:server=1.2.3.4:80 ]} ]')
+
+            self.len(1, await core.nodes('test:str:poly.port=80'))
+
+            abrv = core.getIndxAbrv(s_layer.INDX_VIRTUAL, 'test:str', 'poly', 'port')
+            rows = list(layr.layrslab.scanByPref(abrv, db=layr.indxdb))
+            self.len(1, rows)
+
+            # the key carries the member stortype prefix (STOR_TYPE_I64 for port)
+            self.eq(rows[0][0][len(abrv):len(abrv) + 2], s_layer.STOR_TYPE_I64.to_bytes(2, 'big'))
+            self.eq(1, layr.indxcounts.get(abrv))
+
+            # poly-array virts are also prefixed and remain liftable
+            await core.nodes('[ test:arrayprop=(3,) :vers=(v1.2.3, v4.5.6) ]')
+            self.len(1, await core.nodes('test:arrayprop:vers*[.semver=4.5.6]'))
+
+            # deleting the poly property removes the virtual index row and its count
+            await core.nodes('test:str=serv [ -:poly ]')
+            self.len(0, list(layr.layrslab.scanByPref(abrv, db=layr.indxdb)))
+            self.eq(0, layr.indxcounts.get(abrv))
+            self.len(0, await core.nodes('test:str:poly.port=80'))
+
     async def test_layer_poly_indexes(self):
 
         async with self.getTestCore() as core:
