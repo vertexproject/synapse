@@ -443,6 +443,10 @@ class CryptoModelTest(s_t_utils.SynTest):
                  '6:' + 'A' * 64 + ':' + 'B' * 32),
                 ('6:' + 'A' * 64 + ':' + 'B' * 64,
                  '6:' + 'A' * 64 + ':' + 'B' * 64),
+                # Empty hash segments are valid (SYN-11217); the empty file's ssdeep is 3::
+                ('3::', '3::'),
+                ('3:A:', '3:A:'),
+                ('3::A', '3::A'),
             ]
 
             for valu, expected in testvectors:
@@ -456,10 +460,6 @@ class CryptoModelTest(s_t_utils.SynTest):
                 '98304:hash1',
                 '0:PYZd:iglL',
                 '2:PYZd:iglL',
-                # Empty hash segments
-                '3::',
-                '3:A:',
-                '3::A',
                 # Invalid characters in hash segments
                 '98304:PYZd!VAlXLL:iglL',
                 # hash1 exceeds SPAMSUM_LENGTH (64)
