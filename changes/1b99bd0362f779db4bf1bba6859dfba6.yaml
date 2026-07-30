@@ -1,0 +1,7 @@
+---
+desc: Allow the ``hash:ssdeep`` type to accept empty hash segments, such as the empty-file
+  hash ``3::``.
+desc:literal: false
+prs: []
+type: bug
+...
