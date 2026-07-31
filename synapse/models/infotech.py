@@ -3248,14 +3248,19 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:app:suricata:matched', {}, (
+
                     ('rule', ('it:app:suricata:rule', {}), {
                         'doc': 'The suricata rule that matched the file.'}),
+
                     ('target', ('inet:flow', {}), {
                         'doc': 'The inet:flow that matched the suricata rule.'}),
+
                     ('time', ('time', {}), {
                         'doc': 'The time of the network flow that caused the hit.'}),
+
                     ('sensor', ('it:host', {}), {
                         'doc': 'The sensor host node that produced the hit.'}),
+
                     ('version', ('it:semver', {}), {
                         'doc': 'The version of the rule at the time of match.'}),
 
