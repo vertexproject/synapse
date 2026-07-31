@@ -1661,6 +1661,135 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.triggers.runEdgeDel(n1, edge, n2, useriden)
 
+    def _filterNodeEdits(self, node, buid, edits, added):
+        '''
+        Return the subset of edits which are observable in this view.
+
+        An edit applied to one of this view's layers is not necessarily visible in the
+        view, since a lower layer may shadow it. Firing consequences for a shadowed edit
+        would tell a trigger the node changed in a way the view cannot actually see.
+
+        Args:
+            node (Node): The node as it currently resolves in this view, or None.
+            buid (bytes): The buid the edits were applied to.
+            edits (list): The edits which were applied.
+            added (set): buids which did not resolve in this view before the edits.
+
+        Returns:
+            list: The observable subset of edits.
+        '''
+        retn = []
+
+        for edit in edits:
+
+            etyp, parms = edit[0], edit[1]
+
+            if etyp == s_layer.EDIT_NODE_ADD:
+                # only observable if the node did not already resolve in this view
+                if buid in added:
+                    retn.append(edit)
+                continue
+
+            if etyp == s_layer.EDIT_NODE_DEL:
+                # only observable once the node is gone from every layer in this view
+                if node is None:
+                    retn.append(edit)
+                continue
+
+            if etyp == s_layer.EDIT_PROP_SET:
+                (name, valu) = parms[0], parms[1]
+                if node is not None and node.get(name) == valu:
+                    retn.append(edit)
+                continue
+
+            if etyp == s_layer.EDIT_PROP_DEL:
+                name = parms[0]
+                if node is None or node.get(name) is None:
+                    retn.append(edit)
+                continue
+
+            if etyp == s_layer.EDIT_TAG_SET:
+                (tag, valu) = parms[0], parms[1]
+                if node is not None and node.tags.get(tag) == valu:
+                    retn.append(edit)
+                continue
+
+            if etyp == s_layer.EDIT_TAG_DEL:
+                tag = parms[0]
+                if node is None or tag not in node.tags:
+                    retn.append(edit)
+                continue
+
+            # light edges have no shadowing semantics, and tagprop/nodedata edits
+            # produce no consequences of their own.
+            retn.append(edit)
+
+        return retn
+
+    async def runNodeEdits(self, flatedits, useriden, added=(), sodecache=None):
+        '''
+        Fire the consequences of edits which were applied directly to this view's layers.
+
+        This is used when edits are written to specific layers rather than through a
+        view's write layer, so the usual Snap() write path did not run the callbacks.
+        Each buid is re-resolved against this view and only the edits which are actually
+        observable here are fired. See _filterNodeEdits().
+
+        Args:
+            flatedits (list): A list of (buid, formname, edits) tuples which were applied.
+            useriden (str): The iden of the user which made the edits.
+            added (set): buids which did not resolve in this view before the edits.
+            sodecache (dict): A buid to {layriden: sode} mapping captured *before* the edits
+                              were applied. This is used to rebuild a Node() for buids which
+                              no longer resolve here, such as a node which was deleted.
+
+        Returns:
+            None
+        '''
+        if self.core.safemode:
+            return
+
+        if self.layers[0].readonly:
+            # running trigger storm would raise IsReadOnly
+            return
+
+        user = self.core.auth.user(useriden)
+        if user is None:  # pragma: no cover
+            user = await self.core.auth.reqUserByName('root')
+
+        if sodecache is None:
+            sodecache = {}
+
+        async with await self.snap(user) as snap:
+
+            callbacks = []
+
+            for (buid, formname, edits) in flatedits:
+
+                node = await snap.getNodeByBuid(buid)
+
+                fire = self._filterNodeEdits(node, buid, edits, added)
+                if not fire:
+                    continue
+
+                if node is None:
+
+                    # the node no longer resolves here, so rebuild it from the state it
+                    # had before the edits were applied. snap.layers is ordered lowest
+                    # precedence first, which is the order _joinSodes() expects.
+                    sodes = sodecache.get(buid)
+                    if sodes is None:
+                        continue
+
+                    node = await snap._joinSodes(buid, [(lyr.iden, sodes.get(lyr.iden, {})) for lyr in snap.layers])
+                    if node is None:  # pragma: no cover
+                        continue
+
+                callbacks.extend(await snap._getEditCallbacks(node, fire, useriden))
+
+            for func, args in callbacks:
+                await func(*args)
+
     async def addTrigger(self, tdef):
         '''
         Adds a trigger to the view.

@@ -959,6 +959,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if __debug__:
             self._migration_evnt = asyncio.Event()
 
+        self._fuse_lock = asyncio.Lock()
+
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_lmdbslab.SafeKeyVal
@@ -7229,6 +7231,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.migration = True
             yield
             self.migration = False
+
+    def getFuseLock(self):
+        '''
+        Return the lock which serializes cortex wide node fuse operations.
+
+        Node fusion writes to arbitrary layers rather than a single view's write layer,
+        so two concurrent fuses which touch the same nodes could interleave their edits.
+        This does not serialize a fuse against ordinary queries.
+        '''
+        return self._fuse_lock
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''

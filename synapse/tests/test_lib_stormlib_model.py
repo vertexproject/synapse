@@ -1,10 +1,15 @@
+import collections
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.nodefuse as s_nodefuse
 
 import synapse.tests.utils as s_test
+
+from unittest import mock
 
 class StormlibModelTest(s_test.SynTest):
 
@@ -737,7 +742,7 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(ndata[0].get('client'), 'tcp://2.3.4.5')
             self.eq(await ndata[0].getData('migration:inet:service:message:client:address'), 'tcp://1.2.3.4')
 
-    async def test_stormlib_model_migration_fuse_nodes(self):
+    async def test_stormlib_model_migration_fuse(self):
 
         async with self.getTestCore() as core:
 
@@ -747,27 +752,27 @@ class StormlibModelTest(s_test.SynTest):
 
             # src must be a node
             await self.asyncraises(s_exc.BadArg,
-                core.nodes('test:str=fuse-src00 $lib.model.migration.fuseNodes($node, newp)'))
+                core.nodes('test:str=fuse-src00 $lib.model.migration.fuse($node, newp)'))
 
             # dst must be a node
             await self.asyncraises(s_exc.BadArg,
-                core.nodes('test:str=fuse-src00 $lib.model.migration.fuseNodes(newp, $node)'))
+                core.nodes('test:str=fuse-src00 $lib.model.migration.fuse(newp, $node)'))
 
             # src and dst must be the same form
             guidval = s_common.guid()
             opts = {'vars': {'guidval': guidval}}
             await core.nodes('[ test:guid=$guidval ]', opts=opts)
             await self.asyncraises(s_exc.BadArg,
-                core.nodes('test:str=fuse-src00 $n=$node -> { test:guid=$guidval $lib.model.migration.fuseNodes($n, $node) }',
+                core.nodes('test:str=fuse-src00 $n=$node -> { test:guid=$guidval $lib.model.migration.fuse($n, $node) }',
                            opts=opts))
 
             # src runt form raises IsRuntForm
             await self.asyncraises(s_exc.IsRuntForm,
-                core.nodes('test:runt=beep $n=$node -> { test:runt=boop $lib.model.migration.fuseNodes($n, $node) }'))
+                core.nodes('test:runt=beep $n=$node -> { test:runt=boop $lib.model.migration.fuse($n, $node) }'))
 
             # self-fuse warns and no-ops
             mesgs = await core.stormlist(
-                'test:str=fuse-src00 $lib.model.migration.fuseNodes($node, $node)')
+                'test:str=fuse-src00 $lib.model.migration.fuse($node, $node)')
             self.stormIsInWarn('src and dst are the same node', mesgs)
             self.len(1, await core.nodes('test:str=fuse-src00'))
 
@@ -813,9 +818,8 @@ class StormlibModelTest(s_test.SynTest):
             await core.nodes('test:str=$hsrc [ +(refs)> { test:str=hp-edge-other } ]', opts=opts)
             await core.nodes('test:str=hp-edge-other [ +(seen)> { test:str=$hsrc } ]', opts=opts)
 
-            # fuse src into dst
-            await core.nodes('test:str=$hsrc $n=$node -> { test:str=$hdst $lib.model.migration.fuseNodes($n, $node) }',
-                              opts=opts)
+            await core.nodes('test:str=$hsrc $n=$node -> { test:str=$hdst $lib.model.migration.fuse($n, $node) }',
+                             opts=opts)
 
             # src is deleted
             self.len(0, await core.nodes('test:str=$hsrc', opts=opts))
@@ -828,10 +832,10 @@ class StormlibModelTest(s_test.SynTest):
             self.eq('srcval', dst.get('hehe'))
             self.eq(s_time.parse('2020'), dst.get('tick'))
 
-            # .created is preserved from dst
+            # .created is preserved from dst, since it is read only
             self.eq(dstcreated, dst.get('.created'))
 
-            # .seen is unioned: (min(2010,2015), max(2020,2025)) = (2010, 2025)
+            # .seen is unioned by the storage layer: (min(2010,2015), max(2020,2025))
             self.eq((s_time.parse('2010'), s_time.parse('2025')), dst.get('.seen'))
 
             # tags: both sets present
@@ -839,7 +843,7 @@ class StormlibModelTest(s_test.SynTest):
             self.isin('dst.only', dst.tags)
             self.isin('src.only', dst.tags)
 
-            # tag ival: union (min(2015,2018), max(2016,2022)) = (2015, 2022)
+            # tag ival: union (min(2015,2018), max(2016,2022))
             self.eq((s_time.parse('2015'), s_time.parse('2022')), dst.tags.get('foo.bar'))
 
             # tagprop: src wins
@@ -853,21 +857,21 @@ class StormlibModelTest(s_test.SynTest):
             # ext prop
             self.eq('srcext', dst.get('_efoo'))
 
-            # N1 edge (src was N1: src -(refs)> other) → dst -(refs)> other
+            # N1 edge (src -(refs)> other) becomes dst -(refs)> other
             edgeother = (await core.nodes('test:str=hp-edge-other'))[0]
             n1edges = [e async for e in dst.iterEdgesN1()]
             self.isin(('refs', edgeother.iden()), n1edges)
 
-            # N2 edge (src was N2: other -(seen)> src) → other -(seen)> dst
+            # N2 edge (other -(seen)> src) becomes other -(seen)> dst
             n2edges = [e async for e in dst.iterEdgesN2()]
             self.isin(('seen', edgeother.iden()), n2edges)
 
-            # --- .seen union: src has .seen but dst does not ---
+            # --- .seen when src has it and dst does not ---
 
             opts = {'vars': {'ssrc': 'seen-src', 'sdst': 'seen-dst'}}
             await core.nodes('[ test:str=$ssrc .seen=(2020, 2021) test:str=$sdst ]', opts=opts)
 
-            await core.nodes('test:str=$ssrc $n=$node -> { test:str=$sdst $lib.model.migration.fuseNodes($n, $node) }',
+            await core.nodes('test:str=$ssrc $n=$node -> { test:str=$sdst $lib.model.migration.fuse($n, $node) }',
                              opts=opts)
 
             self.len(0, await core.nodes('test:str=$ssrc', opts=opts))
@@ -876,14 +880,13 @@ class StormlibModelTest(s_test.SynTest):
             self.eq((s_time.parse('2020'), s_time.parse('2021')), nodes[0].get('.seen'))
 
             # --- Form-typed scalar ref rewrite ---
-            # test:guid:name is test:str-typed; should be rewritten from src to dst
 
             opts = {'vars': {'r1src': 'ref-scalar-src', 'r1dst': 'ref-scalar-dst',
                              'r1guid': s_common.guid()}}
             await core.nodes('[ test:str=$r1src test:str=$r1dst ]', opts=opts)
             await core.nodes('[ test:guid=$r1guid :name=$r1src ]', opts=opts)
 
-            await core.nodes('test:str=$r1src $n=$node -> { test:str=$r1dst $lib.model.migration.fuseNodes($n, $node) }',
+            await core.nodes('test:str=$r1src $n=$node -> { test:str=$r1dst $lib.model.migration.fuse($n, $node) }',
                              opts=opts)
 
             self.len(0, await core.nodes('test:str=$r1src', opts=opts))
@@ -892,13 +895,12 @@ class StormlibModelTest(s_test.SynTest):
             self.eq('ref-scalar-dst', nodes[0].get('name'))
 
             # --- Form-typed array ref rewrite + dedup ---
-            # test:arrayprop:strsnosplit is array(test:str); contains both src and dst → dedup to just dst
 
             opts = {'vars': {'r2src': 'arr-src', 'r2dst': 'arr-dst', 'r2ap': s_common.guid()}}
             await core.nodes('[ test:str=$r2src test:str=$r2dst ]', opts=opts)
             await core.nodes('[ test:arrayprop=$r2ap :strsnosplit=($r2src, $r2dst) ]', opts=opts)
 
-            await core.nodes('test:str=$r2src $n=$node -> { test:str=$r2dst $lib.model.migration.fuseNodes($n, $node) }',
+            await core.nodes('test:str=$r2src $n=$node -> { test:str=$r2dst $lib.model.migration.fuse($n, $node) }',
                              opts=opts)
 
             self.len(0, await core.nodes('test:str=$r2src', opts=opts))
@@ -908,14 +910,13 @@ class StormlibModelTest(s_test.SynTest):
             self.notin('arr-src', arrv)
             self.isin('arr-dst', arrv)
 
-            # --- Form-typed array ref rewrite (src only, no dedup) ---
-            # When only src is in the array (dst not present), dst is appended after src is removed.
+            # --- Form-typed array ref rewrite (src only, dst appended) ---
 
             opts = {'vars': {'r2bsrc': 'arr2-src', 'r2bdst': 'arr2-dst', 'r2bap': s_common.guid()}}
             await core.nodes('[ test:str=$r2bsrc test:str=$r2bdst ]', opts=opts)
             await core.nodes('[ test:arrayprop=$r2bap :strsnosplit=($r2bsrc,) ]', opts=opts)
 
-            await core.nodes('test:str=$r2bsrc $n=$node -> { test:str=$r2bdst $lib.model.migration.fuseNodes($n, $node) }',
+            await core.nodes('test:str=$r2bsrc $n=$node -> { test:str=$r2bdst $lib.model.migration.fuse($n, $node) }',
                              opts=opts)
 
             self.len(0, await core.nodes('test:str=$r2bsrc', opts=opts))
@@ -925,14 +926,13 @@ class StormlibModelTest(s_test.SynTest):
             self.notin('arr2-src', arrv)
             self.isin('arr2-dst', arrv)
 
-            # --- Ndef scalar ref rewrite ---
-            # test:str:bar is ndef-typed; points at (test:str, src) → rewrites to (test:str, dst)
+            # --- Ndef scalar ref rewrite (via the byndef reverse index) ---
 
             opts = {'vars': {'r3src': 'ndef-src', 'r3dst': 'ndef-dst', 'r3ref': 'ndef-ref'}}
             await core.nodes('[ test:str=$r3src test:str=$r3dst ]', opts=opts)
             await core.nodes('[ test:str=$r3ref :bar=(test:str, $r3src) ]', opts=opts)
 
-            await core.nodes('test:str=$r3src $n=$node -> { test:str=$r3dst $lib.model.migration.fuseNodes($n, $node) }',
+            await core.nodes('test:str=$r3src $n=$node -> { test:str=$r3dst $lib.model.migration.fuse($n, $node) }',
                              opts=opts)
 
             self.len(0, await core.nodes('test:str=$r3src', opts=opts))
@@ -941,13 +941,12 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(('test:str', 'ndef-dst'), nodes[0].get('bar'))
 
             # --- Ndef array ref rewrite + dedup ---
-            # test:str:ndefs is array(ndef); contains both (test:str, src) and (test:str, dst) → dedup to just dst
 
             opts = {'vars': {'r4src': 'ndefa-src', 'r4dst': 'ndefa-dst', 'r4ref': 'ndefa-ref'}}
             await core.nodes('[ test:str=$r4src test:str=$r4dst ]', opts=opts)
             await core.nodes('[ test:str=$r4ref :ndefs=((test:str, $r4src), (test:str, $r4dst)) ]', opts=opts)
 
-            await core.nodes('test:str=$r4src $n=$node -> { test:str=$r4dst $lib.model.migration.fuseNodes($n, $node) }',
+            await core.nodes('test:str=$r4src $n=$node -> { test:str=$r4dst $lib.model.migration.fuse($n, $node) }',
                              opts=opts)
 
             self.len(0, await core.nodes('test:str=$r4src', opts=opts))
@@ -957,36 +956,35 @@ class StormlibModelTest(s_test.SynTest):
             self.notin(('test:str', 'ndefa-src'), ndefs)
             self.isin(('test:str', 'ndefa-dst'), ndefs)
 
-            # --- Non-comp RO ref: warn and skip ---
-            # test:rostr:strref is test:str-typed and read-only but NOT a comp sub-prop.
-            # fuseNodes() warns and skips it; the prop on the referrer is left unchanged.
+            # --- Non-comp read-only ref is rewritten with a warning ---
+            # test:rostr:strref is test:str-typed and read-only but not a comp sub-prop.
+            # There is no read-only enforcement in the storage layer, so it is rewritten
+            # rather than left dangling at a deleted node.
 
             opts = {'vars': {'nc1src': 'ncomp-src', 'nc1dst': 'ncomp-dst', 'nc1guid': s_common.guid()}}
             await core.nodes('[ test:str=$nc1src test:str=$nc1dst ]', opts=opts)
             await core.nodes('[ test:rostr=$nc1guid :strref=$nc1src ]', opts=opts)
 
             mesgs = await core.stormlist(
-                'test:str=$nc1src $n=$node -> { test:str=$nc1dst $lib.model.migration.fuseNodes($n, $node) }',
+                'test:str=$nc1src $n=$node -> { test:str=$nc1dst $lib.model.migration.fuse($n, $node) }',
                 opts=opts)
-            self.stormIsInWarn('cannot rewrite read-only ref', mesgs)
+            self.stormIsInWarn('rewrote read-only property', mesgs)
 
-            # src is deleted (force=True; remaining refs become dangling)
             self.len(0, await core.nodes('test:str=$nc1src', opts=opts))
 
-            # referrer prop is unchanged (skipped, not rewritten)
             nodes = await core.nodes('test:rostr=$nc1guid', opts=opts)
             self.len(1, nodes)
-            self.eq('ncomp-src', nodes[0].get('strref'))
+            self.eq('ncomp-dst', nodes[0].get('strref'))
 
-            # --- Comp-form RO ref rename ---
-            # test:pivcomp:lulz is test:str-typed and read-only (comp sub-prop).
-            # Fusing the lulz value triggers recursive comp rename.
+            # --- Comp-form read-only ref causes a comp rename ---
+            # test:pivcomp:lulz is test:str-typed and read-only, so the comp's primary
+            # value changes and the old comp node is fused into the renamed one.
 
             opts = {'vars': {'c1src': 'comp-src', 'c1dst': 'comp-dst', 'c1targ': 'comp-pivtarg'}}
             await core.nodes('[ test:str=$c1src test:str=$c1dst ]', opts=opts)
-            await core.nodes('[ test:pivcomp=($c1targ, $c1src) ]', opts=opts)
+            await core.nodes('[ test:pivcomp=($c1targ, $c1src) +#comptag ]', opts=opts)
 
-            await core.nodes('test:str=$c1src $n=$node -> { test:str=$c1dst $lib.model.migration.fuseNodes($n, $node) }',
+            await core.nodes('test:str=$c1src $n=$node -> { test:str=$c1dst $lib.model.migration.fuse($n, $node) }',
                              opts=opts)
 
             self.len(0, await core.nodes('test:str=$c1src', opts=opts))
@@ -995,12 +993,15 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('comp-dst', nodes[0].get('lulz'))
 
-            # --- Cycle: src.ref = dst (primary prop copy produces self-ref on dst) ---
+            # the renamed comp carried the old comp's tags over
+            self.isin('comptag', nodes[0].tags)
+
+            # --- Cycle: src references dst ---
 
             opts = {'vars': {'cy1src': 'cycle1-src', 'cy1dst': 'cycle1-dst'}}
             await core.nodes('[ test:str=$cy1src :somestr=$cy1dst test:str=$cy1dst ]', opts=opts)
 
-            await core.nodes('test:str=$cy1src $n=$node -> { test:str=$cy1dst $lib.model.migration.fuseNodes($n, $node) }',
+            await core.nodes('test:str=$cy1src $n=$node -> { test:str=$cy1dst $lib.model.migration.fuse($n, $node) }',
                              opts=opts)
 
             self.len(0, await core.nodes('test:str=$cy1src', opts=opts))
@@ -1008,12 +1009,12 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('cycle1-dst', nodes[0].get('somestr'))
 
-            # --- Cycle: dst.ref = src (_rewriteRefs rewrites dst's prop to self-ref) ---
+            # --- Cycle: dst references src, becoming a self reference ---
 
             opts = {'vars': {'cy2src': 'cycle2-src', 'cy2dst': 'cycle2-dst'}}
             await core.nodes('[ test:str=$cy2src test:str=$cy2dst :somestr=$cy2src ]', opts=opts)
 
-            await core.nodes('test:str=$cy2src $n=$node -> { test:str=$cy2dst $lib.model.migration.fuseNodes($n, $node) }',
+            await core.nodes('test:str=$cy2src $n=$node -> { test:str=$cy2dst $lib.model.migration.fuse($n, $node) }',
                              opts=opts)
 
             self.len(0, await core.nodes('test:str=$cy2src', opts=opts))
@@ -1021,288 +1022,440 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('cycle2-dst', nodes[0].get('somestr'))
 
-            # --- Permissions: node.del on src form denied for low-privilege user ---
+            # --- Cycle: src references itself, which is not a ref to rewrite ---
 
-            await core.addFormProp('test:str', '_pfext', ('str', {}), {})
+            opts = {'vars': {'cy3src': 'cycle3-src', 'cy3dst': 'cycle3-dst'}}
+            await core.nodes(
+                '[ test:str=$cy3src :somestr=$cy3src :bar=(test:str, $cy3src) test:str=$cy3dst ]', opts=opts)
 
-            await core.nodes('[ test:str=p-src test:str=p-dst ]')
+            await core.nodes('test:str=$cy3src $n=$node -> { test:str=$cy3dst $lib.model.migration.fuse($n, $node) }',
+                             opts=opts)
 
-            lowuser = await core.auth.addUser('lowuser')
-            aslow = {'user': lowuser.iden}
-
-            await self.asyncraises(s_exc.AuthDeny,
-                core.nodes('test:str=p-src $n=$node -> { test:str=p-dst $lib.model.migration.fuseNodes($n, $node) }',
-                           opts=aslow))
-
-            # src unchanged after failed fuse (no partial edits)
-            self.len(1, await core.nodes('test:str=p-src'))
-
-            # --- Preflight: missing node.prop.set on src primary prop ---
-
-            await core.nodes('[ test:str=p-prop-src :hehe=42 test:str=p-prop-dst ]')
-
-            lowprop = await core.auth.addUser('lowprop')
-            await lowprop.addRule((True, ('node', 'del')))
-            aslowprop = {'user': lowprop.iden}
-
-            with self.raises(s_exc.AuthDeny) as ectx:
-                await core.nodes(
-                    'test:str=p-prop-src $n=$node -> { test:str=p-prop-dst $lib.model.migration.fuseNodes($n, $node) }',
-                    opts=aslowprop)
-
-            self.isin('node.prop.set', ectx.exception.errinfo['perm'])
-            # src unchanged (preflight raised before any writes)
-            nodes = await core.nodes('test:str=p-prop-src')
+            self.len(0, await core.nodes('test:str=$cy3src', opts=opts))
+            nodes = await core.nodes('test:str=$cy3dst', opts=opts)
             self.len(1, nodes)
-            self.eq('42', nodes[0].get('hehe'))
 
-            # --- Preflight: missing node.prop.set on src ext prop ---
+            # src's own :somestr was copied across as-is
+            self.eq('cycle3-src', nodes[0].get('somestr'))
 
-            await core.nodes('[ test:str=p-ext-src test:str=p-ext-dst ]')
-            await core.nodes('test:str=p-ext-src [ :_pfext=hello ]')
+            # --- A comp form which cannot be re-normalized is warned about ---
 
-            lowext = await core.auth.addUser('lowext')
-            await lowext.addRule((True, ('node', 'del')))
-            aslowext = {'user': lowext.iden}
+            opts = {'vars': {'bnsrc': 'badnorm-src', 'bndst': 'badnorm-dst', 'bntarg': 'badnorm-targ'}}
+            await core.nodes('[ test:str=$bnsrc test:str=$bndst ]', opts=opts)
+            await core.nodes('[ test:pivcomp=($bntarg, $bnsrc) ]', opts=opts)
 
-            with self.raises(s_exc.AuthDeny) as ectx:
-                await core.nodes(
-                    'test:str=p-ext-src $n=$node -> { test:str=p-ext-dst $lib.model.migration.fuseNodes($n, $node) }',
-                    opts=aslowext)
+            comptype = core.model.form('test:pivcomp').type
 
-            self.isin('node.prop.set', ectx.exception.errinfo['perm'])
-            self.len(1, await core.nodes('test:str=p-ext-src'))
-            nodes = await core.nodes('test:str=p-ext-src')
-            self.eq('hello', nodes[0].get('_pfext'))
+            def badnorm(valu):
+                raise s_exc.BadTypeValu(mesg='comp norm go boom')
 
-            # --- Preflight: missing node.tag.add when src has tags ---
+            with mock.patch.object(comptype, 'norm', badnorm):
+                mesgs = await core.stormlist(
+                    'test:str=$bnsrc $n=$node -> { test:str=$bndst $lib.model.migration.fuse($n, $node) }',
+                    opts=opts)
 
-            await core.nodes('[ test:str=p-tag-src +#preflight.tag test:str=p-tag-dst ]')
+            self.stormIsInWarn('cannot re-normalize comp form', mesgs)
 
-            lowtag = await core.auth.addUser('lowtag')
-            await lowtag.addRule((True, ('node', 'del')))
-            await lowtag.addRule((True, ('node', 'prop', 'set')))
-            aslowtag = {'user': lowtag.iden}
+            # the old comp is left alone rather than being half renamed
+            self.len(1, await core.nodes('test:pivcomp=($bntarg, $bnsrc)', opts=opts))
 
-            with self.raises(s_exc.AuthDeny) as ectx:
-                await core.nodes(
-                    'test:str=p-tag-src $n=$node -> { test:str=p-tag-dst $lib.model.migration.fuseNodes($n, $node) }',
-                    opts=aslowtag)
+    async def test_stormlib_model_migration_fuse_multilayer(self):
 
-            self.isin('node.tag.add', ectx.exception.errinfo['perm'])
-            self.len(1, await core.nodes('test:str=p-tag-src'))
+        async with self.getTestCore() as core:
 
-            # --- Preflight: missing node.edge.add when src has a light edge ---
+            # two layers which each independently hold src, and a view over both of them.
+            # The fuse emits the same node delete to each layer, but the view can only
+            # observe it once, so its node:del trigger must only fire once.
+            layr0 = await core.callStorm('return($lib.layer.add().iden)')
+            layr1 = await core.callStorm('return($lib.layer.add().iden)')
 
-            await core.nodes('[ test:str=p-edge-n2 test:str=p-edge-src test:str=p-edge-dst ]')
-            await core.nodes('test:str=p-edge-src [ <(refs)+ { test:str=p-edge-n2 } ]')
+            opts = {'vars': {'layr0': layr0, 'layr1': layr1}}
+            view0 = await core.callStorm('return($lib.view.add(($layr0,)).iden)', opts=opts)
+            view1 = await core.callStorm('return($lib.view.add(($layr1,)).iden)', opts=opts)
+            both = await core.callStorm('return($lib.view.add(($layr1, $layr0)).iden)', opts=opts)
 
-            lowedge = await core.auth.addUser('lowedge')
-            await lowedge.addRule((True, ('node', 'del')))
-            await lowedge.addRule((True, ('node', 'prop', 'set')))
-            await lowedge.addRule((True, ('node', 'tag', 'add')))
-            aslowedge = {'user': lowedge.iden}
+            await core.nodes('[ test:str=ml-src test:str=ml-dst ]', opts={'view': view0})
+            await core.nodes('[ test:str=ml-src test:str=ml-dst ]', opts={'view': view1})
 
-            with self.raises(s_exc.AuthDeny) as ectx:
-                await core.nodes(
-                    'test:str=p-edge-src $n=$node -> { test:str=p-edge-dst $lib.model.migration.fuseNodes($n, $node) }',
-                    opts=aslowedge)
-
-            self.isin('node.edge.add', ectx.exception.errinfo['perm'])
-            self.len(1, await core.nodes('test:str=p-edge-src'))
-
-            # --- Preflight: missing confirmPropSet for inbound ref prop ---
-            # Grant all direct perms; withhold node.prop.set on the referrer's prop.
-
-            await core.nodes('[ test:str=p-ref-src test:str=p-ref-dst ]')
-            await core.nodes('[ test:guid=(p-ref-guid,) :name=p-ref-src ]')
-
-            lowref = await core.auth.addUser('lowref')
-            await lowref.addRule((True, ('node', 'del')))
-            await lowref.addRule((True, ('node', 'prop', 'set', 'test:str')))
-            await lowref.addRule((True, ('node', 'tag', 'add')))
-            await lowref.addRule((True, ('node', 'edge', 'add')))
-            await lowref.addRule((True, ('node', 'data', 'set')))
-            aslowref = {'user': lowref.iden}
-
-            with self.raises(s_exc.AuthDeny) as ectx:
-                await core.nodes(
-                    'test:str=p-ref-src $n=$node -> { test:str=p-ref-dst $lib.model.migration.fuseNodes($n, $node) }',
-                    opts=aslowref)
-
-            self.isin('node.prop.set', ectx.exception.errinfo['perm'])
-            # src not deleted; referrer still points at src
-            self.len(1, await core.nodes('test:str=p-ref-src'))
-            ref_nodes = await core.nodes('test:guid=(p-ref-guid,)')
-            self.len(1, ref_nodes)
-            self.eq('p-ref-src', ref_nodes[0].get('name'))
-
-            # --- Preflight: admin short-circuit --- admin bypasses perm scan ---
-            # Admin of the write layer skips the entire preflight scan; fuse succeeds
-            # even with no explicit perms granted.
-
-            await core.nodes('[ test:str=p-admin-src :hehe=99 +#admin.tag test:str=p-admin-dst ]')
-            await core.nodes('[ test:guid=(p-admin-ref,) :name=p-admin-src ]')
-
-            adminuser = await core.auth.addUser('adminuser')
-            await adminuser.setAdmin(True)
-            asadmin = {'user': adminuser.iden}
-
-            await core.nodes(
-                'test:str=p-admin-src $n=$node -> { test:str=p-admin-dst $lib.model.migration.fuseNodes($n, $node) }',
-                opts=asadmin)
-
-            self.len(0, await core.nodes('test:str=p-admin-src'))
-            nodes = await core.nodes('test:str=p-admin-dst')
+            # src really is in both of the view's layers
+            nodes = await core.nodes('test:str=ml-src', opts={'view': both})
             self.len(1, nodes)
-            self.eq('99', nodes[0].get('hehe'))
-            # referrer rewritten to dst
-            ref_nodes = await core.nodes('test:guid=(p-admin-ref,)')
-            self.len(1, ref_nodes)
-            self.eq('p-admin-dst', ref_nodes[0].get('name'))
+            self.len(2, [sode for sode in await nodes[0].getStorNodes() if sode.get('valu')])
 
-            # --- Preflight: non-admin, .seen with dstv is None (first-set .seen path) ---
-            # Exercises the confirmPropSet branch when dst has no .seen (dstv is None).
-
-            fullperm = await core.auth.addUser('fullperm')
-            await fullperm.addRule((True, ('node',)))
-            asfull = {'user': fullperm.iden}
-
-            opts_pfa = {'vars': {'pfasrc': 'pfa-src', 'pfadst': 'pfa-dst'}}
-            await core.nodes('[ test:str=$pfasrc .seen=(2020, 2021) test:str=$pfadst ]', opts=opts_pfa)
+            tdef = {'cond': 'node:del', 'form': 'test:str', 'storm': '$lib.queue.gen(mlq).put(deleted)'}
+            await core.callStorm('return($lib.trigger.add($tdef))',
+                                 opts={'vars': {'tdef': tdef}, 'view': both})
 
             await core.nodes(
-                'test:str=$pfasrc $n=$node -> { test:str=$pfadst $lib.model.migration.fuseNodes($n, $node) }',
-                opts=opts_pfa | asfull)
+                'test:str=ml-src $n=$node -> { test:str=ml-dst $lib.model.migration.fuse($n, $node) }',
+                opts={'view': both})
 
-            self.len(0, await core.nodes('test:str=$pfasrc', opts=opts_pfa))
+            self.len(0, await core.nodes('test:str=ml-src', opts={'view': both}))
+            self.len(0, await core.nodes('test:str=ml-src', opts={'view': view0}))
+            self.len(0, await core.nodes('test:str=ml-src', opts={'view': view1}))
 
-            # --- Preflight: non-admin full-perm fuse — exercises all preflight scan loops ---
-            # src has .seen (merge path, merged != dstv), a tag, N1 and N2 edges (distinct
-            # verbs so the N2 verbs.add line is reached), nodedata, an inbound scalar form ref
-            # (non-RO prop, hits confirmPropSet + break), and an inbound comp ref (RO comp prop,
-            # hits layerConfirm node.del + break). Also drives the array and ndef scan loops.
+            # exactly one node:del consequence, not one per layer
+            self.eq(1, await core.callStorm('return($lib.queue.gen(mlq).size())'))
 
-            opts_pfb = {'vars': {
-                'pfbsrc': 'pfb-src', 'pfbdst': 'pfb-dst',
-                'pfbn1tgt': 'pfb-n1tgt', 'pfbn2src': 'pfb-n2src',
-                'pfbtarg': 'pfb-targ',
-            }}
-            # src: .seen=(2019, 2021), tag, dst: .seen=(2020, 2020)
-            # merged=(2019,2021) != dstv=(2020,2020) → lines 926-928 covered.
-            await core.nodes(
-                '[ test:str=$pfbsrc .seen=(2019, 2021) +#pfb.tag '
-                '  test:str=$pfbdst .seen=(2020, 2020) '
-                '  test:str=$pfbn1tgt test:str=$pfbn2src ]',
-                opts=opts_pfb)
-            # N1 edge from src (verb=refs) and N2 edge on src (verb=linked, distinct from refs).
-            await core.nodes('test:str=$pfbsrc [ +(refs)> { test:str=$pfbn1tgt } ]', opts=opts_pfb)
-            await core.nodes('test:str=$pfbsrc [ <(linked)+ { test:str=$pfbn2src } ]', opts=opts_pfb)
-            # Nodedata on src.
-            await core.nodes('test:str=$pfbsrc $node.data.set(pfbkey, pfbdata)', opts=opts_pfb)
-            # Inbound scalar form ref (test:guid.name is non-RO, type test:str).
-            await core.nodes('[ test:guid=(pfb-fuse-guid,) :name=$pfbsrc ]', opts=opts_pfb)
-            # Inbound RO comp ref (test:pivcomp.lulz is RO, type test:str).
-            await core.nodes('[ test:pivcomp=($pfbtarg, $pfbsrc) ]', opts=opts_pfb)
+    async def test_stormlib_model_migration_fuse_shared_comp(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=sc-src test:str=sc-dst ]')
+
+            # the same comp node written into two different fork layers. Both layers hold
+            # the comp's read-only :lulz prop, so the rename is discovered twice and the
+            # second one must be skipped.
+            vdef = await core.view.fork()
+            forka = vdef.get('iden')
+            vdef = await core.view.fork()
+            forkb = vdef.get('iden')
+
+            await core.nodes('[ test:pivcomp=(sc-targ, sc-src) ]', opts={'view': forka})
+            await core.nodes('[ test:pivcomp=(sc-targ, sc-src) ]', opts={'view': forkb})
 
             await core.nodes(
-                'test:str=$pfbsrc $n=$node -> { test:str=$pfbdst $lib.model.migration.fuseNodes($n, $node) }',
-                opts=opts_pfb | asfull)
+                'test:str=sc-src $n=$node -> { test:str=sc-dst $lib.model.migration.fuse($n, $node) }')
 
-            self.len(0, await core.nodes('test:str=$pfbsrc', opts=opts_pfb))
-            nodes = await core.nodes('test:str=$pfbdst', opts=opts_pfb)
-            self.len(1, nodes)
-            # .seen was merged: min(2019, 2020) / max(2021, 2020) → (2019, 2021)
-            pfb_seen = nodes[0].get('.seen')
-            self.true(pfb_seen[0] <= pfb_seen[1])
+            for viewiden in (forka, forkb):
+                self.len(0, await core.nodes('test:str=sc-src', opts={'view': viewiden}))
+                self.len(0, await core.nodes('test:pivcomp=(sc-targ, sc-src)', opts={'view': viewiden}))
+                nodes = await core.nodes('test:pivcomp=(sc-targ, sc-dst)', opts={'view': viewiden})
+                self.len(1, nodes)
+                self.eq('sc-dst', nodes[0].get('lulz'))
 
-            # --- Forked view: all nodes created in the fork's write layer ---
-            # This is the recommended workflow: create a fork whose write layer holds src,
-            # dst, and any inbound referrers; fuse there; parent view is unaffected.
+    async def test_stormlib_model_migration_fuse_degraded(self):
 
-            opts = {'vars': {'fvsrc': 'fv-src', 'fvdst': 'fv-dst', 'fvguid': s_common.guid()}}
+        async with self.getTestCore() as core:
 
-            # Fork first so the parent view stays clean.
-            vdef2 = await core.view.fork()
-            view2iden = vdef2.get('iden')
-            view2opts = {'view': view2iden}
+            await core.nodes('[ test:str=deg-src :hehe=srcval +#degtag test:str=deg-dst ]')
 
-            # Create src, dst, and a referrer all in the fork's write layer.
-            # :name is test:str-typed, so this auto-creates test:str=fv-src in the fork's wlyr.
-            await core.nodes('[ test:str=$fvsrc :hehe=srcval ]', opts=opts | view2opts)
-            await core.nodes('[ test:str=$fvdst ]', opts=opts | view2opts)
-            await core.nodes('[ test:guid=$fvguid :name=$fvsrc ]', opts=opts | view2opts)
+            # force the edit ceiling low enough that the batch must flush early, which
+            # gives up per-layer atomicity and must say so
+            with mock.patch.object(s_nodefuse, 'maxlayeredits', 1):
+                mesgs = await core.stormlist(
+                    'test:str=deg-src $n=$node -> { test:str=deg-dst $lib.model.migration.fuse($n, $node) }')
 
-            # Fuse in the fork.
-            await core.nodes(
-                'test:str=$fvsrc $n=$node -> { test:str=$fvdst $lib.model.migration.fuseNodes($n, $node) }',
-                opts=opts | view2opts)
+            self.stormIsInWarn('no longer atomic per layer', mesgs)
 
-            # src is gone from the fork.
-            self.len(0, await core.nodes('test:str=$fvsrc', opts=opts | view2opts))
-            # dst is present and carries merged content from src.
-            nodes = await core.nodes('test:str=$fvdst', opts=opts | view2opts)
+            # the fuse still completed correctly
+            self.len(0, await core.nodes('test:str=deg-src'))
+            nodes = await core.nodes('test:str=deg-dst')
             self.len(1, nodes)
             self.eq('srcval', nodes[0].get('hehe'))
-            # referrer's name is rewritten to dst.
-            nodes = await core.nodes('test:guid=$fvguid', opts=opts | view2opts)
+            self.isin('degtag', nodes[0].tags)
+
+    async def test_stormlib_model_migration_fuse_admin(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=perm-src :hehe=srcval test:str=perm-dst ]')
+
+            user = await core.auth.addUser('fuser')
+
+            # every node rule in the book is still not enough, fuse() writes to layers
+            # well outside the scope of any single view
+            await user.addRule((True, ('node',)))
+            await user.addRule((True, ('view',)))
+
+            opts = {'user': user.iden}
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes(
+                    'test:str=perm-src $n=$node -> { test:str=perm-dst $lib.model.migration.fuse($n, $node) }',
+                    opts=opts)
+
+            self.isin('requires global admin', cm.exception.get('mesg'))
+
+            # nothing was changed
+            self.len(1, await core.nodes('test:str=perm-src'))
+
+            # an admin can do it
+            await user.setAdmin(True)
+            await core.nodes(
+                'test:str=perm-src $n=$node -> { test:str=perm-dst $lib.model.migration.fuse($n, $node) }',
+                opts=opts)
+
+            self.len(0, await core.nodes('test:str=perm-src'))
+            self.eq('srcval', (await core.nodes('test:str=perm-dst'))[0].get('hehe'))
+
+    async def test_stormlib_model_migration_fuse_layers(self):
+
+        async with self.getTestCore() as core:
+
+            baselayr = core.getView().layers[0]
+
+            await core.nodes('[ test:str=lyr-src :hehe=basehehe test:str=lyr-dst ]')
+
+            vdef = await core.view.fork()
+            forkiden = vdef.get('iden')
+            forkopts = {'view': forkiden}
+            forklayr = core.getView(forkiden).layers[0]
+
+            # :tick, node data and an N1 light edge on src are written to the fork's write
+            # layer, while src's primary property stays in the base layer. That leaves the
+            # fork layer holding state for src without holding src itself.
+            await core.nodes('[ test:str=lyr-other ]')
+            await core.nodes('''
+                test:str=lyr-src [ :tick=2020 +(refs)> { test:str=lyr-other } ]
+                $node.data.set(forkkey, forkval)
+            ''', opts=forkopts)
+
+            await core.nodes(
+                'test:str=lyr-src $n=$node -> { test:str=lyr-dst $lib.model.migration.fuse($n, $node) }',
+                opts=forkopts)
+
+            # --- Cortex wide: src is gone from the fork AND from the parent view ---
+            self.len(0, await core.nodes('test:str=lyr-src', opts=forkopts))
+            self.len(0, await core.nodes('test:str=lyr-src'))
+
+            # --- Per layer placement: each prop stays in the layer it was stored in ---
+            nodes = await core.nodes('test:str=lyr-dst', opts=forkopts)
             self.len(1, nodes)
-            self.eq('fv-dst', nodes[0].get('name'))
+            self.eq('basehehe', nodes[0].get('hehe'))
+            self.eq(s_time.parse('2020'), nodes[0].get('tick'))
+            self.eq(baselayr.iden, nodes[0].bylayer['props']['hehe'])
+            self.eq(forklayr.iden, nodes[0].bylayer['props']['tick'])
 
-            # Parent view is unaffected: src, dst, and referrer were only in the fork.
-            self.len(0, await core.nodes('test:str=$fvsrc', opts=opts))
-            self.len(0, await core.nodes('test:str=$fvdst', opts=opts))
-            self.len(0, await core.nodes('test:guid=$fvguid', opts=opts))
+            # the node data and light edge which lived in the fork layer moved to dst, and
+            # were cleaned off src even though src's primary property was in another layer
+            self.eq('forkval', await nodes[0].getData('forkkey'))
+            self.len(1, await core.nodes('test:str=lyr-dst -(refs)> test:str', opts=forkopts))
 
-            # --- Forked view: src in parent layer → warn, content merged, src not deleted ---
-            # When src's ndef lives in a parent layer, fuseNodes warns and merges content
-            # into dst but skips the delete. The caller is responsible for deleting src
-            # from the appropriate view.
+            # the parent view only sees the prop which lives in the base layer
+            nodes = await core.nodes('test:str=lyr-dst')
+            self.len(1, nodes)
+            self.eq('basehehe', nodes[0].get('hehe'))
+            self.none(nodes[0].get('tick'))
+            self.none(await nodes[0].getData('forkkey'))
 
-            opts = {'vars': {'fv2src': 'fv2-src', 'fv2dst': 'fv2-dst'}}
-            await core.nodes('[ test:str=$fv2src :hehe=fv2srcval test:str=$fv2dst ]', opts=opts)
+    async def test_stormlib_model_migration_fuse_shared_layer(self):
 
-            vdef3 = await core.view.fork()
-            view3opts = {'view': vdef3.get('iden')}
+        async with self.getTestCore() as core:
+
+            baselayr = core.getView().layers[0]
+
+            await core.nodes('[ test:str=shr-src :hehe=woot test:str=shr-dst ]')
+
+            # three forks all sharing the one base layer
+            for _ in range(3):
+                await core.view.fork()
+
+            self.len(3, core.viewsbylayer[baselayr.iden][1:])
+
+            counts = collections.defaultdict(int)
+            realsave = s_layer.Layer.saveNodeEdits
+
+            async def saveNodeEdits(self, edits, meta):
+                counts[self.iden] += 1
+                return await realsave(self, edits, meta)
+
+            with mock.patch.object(s_layer.Layer, 'saveNodeEdits', saveNodeEdits):
+                await core.nodes(
+                    'test:str=shr-src $n=$node -> { test:str=shr-dst $lib.model.migration.fuse($n, $node) }')
+
+            # the shared base layer is written exactly once, not once per view
+            self.eq(1, counts[baselayr.iden])
+
+            self.len(0, await core.nodes('test:str=shr-src'))
+
+    async def test_stormlib_model_migration_fuse_readonly(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=ro-src :hehe=basehehe test:str=ro-dst ]')
+
+            vdef = await core.view.fork()
+            forkiden = vdef.get('iden')
+            forkopts = {'view': forkiden}
+            forklayr = core.getView(forkiden).layers[0]
+
+            await core.nodes('test:str=ro-src [ :tick=2020 ]', opts=forkopts)
+
+            baselayr = core.getView().layers[0]
+            await baselayr.setLayerInfo('readonly', True)
 
             mesgs = await core.stormlist(
-                'test:str=$fv2src $n=$node -> { test:str=$fv2dst $lib.model.migration.fuseNodes($n, $node) }',
-                opts=opts | view3opts)
-            self.stormIsInWarn('cannot delete src node', mesgs)
+                'test:str=ro-src $n=$node -> { test:str=ro-dst $lib.model.migration.fuse($n, $node) }',
+                opts=forkopts)
 
-            # content is merged: dst now has src's hehe prop
-            nodes = await core.nodes('test:str=$fv2dst', opts=opts | view3opts)
+            self.stormIsInWarn('because it is read only', mesgs)
+            self.stormIsInWarn('will still be visible', mesgs)
+
+            # the read only layer was not touched, so src survives there
+            self.len(1, await core.nodes('test:str=ro-src'))
+            self.eq('basehehe', (await core.nodes('test:str=ro-src'))[0].get('hehe'))
+
+            # but the writable fork layer was fused, so src lost its fork-layer prop
+            # and dst gained it
+            nodes = await core.nodes('test:str=ro-dst', opts=forkopts)
             self.len(1, nodes)
-            self.eq('fv2srcval', nodes[0].get('hehe'))
+            self.eq(s_time.parse('2020'), nodes[0].get('tick'))
+            self.eq(forklayr.iden, nodes[0].bylayer['props']['tick'])
 
-            # src is NOT deleted (it lives in the parent layer)
-            self.len(1, await core.nodes('test:str=$fv2src', opts=opts | view3opts))
+            await baselayr.setLayerInfo('readonly', False)
 
-            # --- Forked view: src and comp both in parent layer → both warn ---
-            # Creating test:pivcomp=(fv3targ, fv3src) in the parent auto-creates test:str=fv3src
-            # in the parent layer. Both src and the comp referrer therefore live in the parent;
-            # fuseNodes warns for both: src is not deleted, comp is not renamed.
+    async def test_stormlib_model_migration_fuse_mirror(self):
 
-            opts = {'vars': {'fv3src': 'fv3-src', 'fv3dst': 'fv3-dst', 'fv3targ': 'fv3-targ'}}
-            await core.nodes('[ test:str=$fv3dst ]', opts=opts)
-            await core.nodes('[ test:pivcomp=($fv3targ, $fv3src) ]', opts=opts)
+        async with self.getTestCore() as core:
 
-            vdef4 = await core.view.fork()
-            view4opts = {'view': vdef4.get('iden')}
+            await core.nodes('[ test:str=mir-src :hehe=woot test:str=mir-dst ]')
 
-            mesgs = await core.stormlist(
-                'test:str=$fv3src $n=$node -> { test:str=$fv3dst $lib.model.migration.fuseNodes($n, $node) }',
-                opts=opts | view4opts)
+            baselayr = core.getView().layers[0]
 
-            # two warnings: src not deleted (in parent), comp not renamed (also in parent)
-            self.stormIsInWarn('cannot delete src node', mesgs)
-            self.stormIsInWarn('cannot rename comp form', mesgs)
+            # a mirrored layer would forward our edits upstream, so it is skipped
+            baselayr.ismirror = True
+            try:
+                mesgs = await core.stormlist(
+                    'test:str=mir-src $n=$node -> { test:str=mir-dst $lib.model.migration.fuse($n, $node) }')
 
-            # src persists (in parent layer, not deleted)
-            self.len(1, await core.nodes('test:str=$fv3src', opts=opts | view4opts))
+                self.stormIsInWarn('because it is a mirror', mesgs)
+                self.stormIsInWarn('will still be visible', mesgs)
 
-            # old comp persists (unrewritten; also in parent layer)
-            self.len(1, await core.nodes('test:pivcomp=($fv3targ, $fv3src)', opts=opts | view4opts))
+            finally:
+                baselayr.ismirror = False
 
-            # new comp was never created
-            self.len(0, await core.nodes('test:pivcomp=($fv3targ, $fv3dst)', opts=opts | view4opts))
+            # nothing was changed
+            self.len(1, await core.nodes('test:str=mir-src'))
+            self.none((await core.nodes('test:str=mir-dst'))[0].get('hehe'))
+
+    async def test_stormlib_model_migration_fuse_triggers(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=trig-src :hehe=srcval test:str=trig-dst ]')
+
+            vdef = await core.view.fork()
+            forkiden = vdef.get('iden')
+            forkopts = {'view': forkiden}
+
+            # a prop:set trigger in each view, writing to a different form
+            tdef = {'cond': 'prop:set', 'prop': 'test:str:hehe', 'storm': '[ test:int=1000 ]'}
+            await core.callStorm('return($lib.trigger.add($tdef))', opts={'vars': {'tdef': tdef}})
+
+            tdef = {'cond': 'prop:set', 'prop': 'test:str:hehe', 'storm': '[ test:int=2000 ]'}
+            await core.callStorm('return($lib.trigger.add($tdef))',
+                                 opts={'vars': {'tdef': tdef}, 'view': forkiden})
+
+            # a node:del trigger in the fork
+            tdef = {'cond': 'node:del', 'form': 'test:str', 'storm': '[ test:int=3000 ]'}
+            await core.callStorm('return($lib.trigger.add($tdef))',
+                                 opts={'vars': {'tdef': tdef}, 'view': forkiden})
+
+            await core.nodes(
+                'test:str=trig-src $n=$node -> { test:str=trig-dst $lib.model.migration.fuse($n, $node) }')
+
+            # each view's prop:set trigger fired, in its own view
+            self.len(1, await core.nodes('test:int=1000'))
+            self.len(0, await core.nodes('test:int=2000'))
+            self.len(1, await core.nodes('test:int=2000', opts=forkopts))
+
+            # the fork saw src disappear too, so its node:del trigger fired
+            self.len(1, await core.nodes('test:int=3000', opts=forkopts))
+
+    async def test_stormlib_model_migration_fuse_trigger_shadowed(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=shad-src :hehe=srcval test:str=shad-dst ]')
+
+            vdef = await core.view.fork()
+            forkiden = vdef.get('iden')
+            forkopts = {'view': forkiden}
+
+            # the fork's write layer already has its own :hehe on dst, which shadows
+            # whatever the base layer holds
+            await core.nodes('test:str=shad-dst [ :hehe=forkval ]', opts=forkopts)
+
+            # NOTE: the triggers filter to dst. Deleting src also emits a prop del for its
+            # :hehe, and a prop del fires prop:set handlers just as a delnode does, so an
+            # unfiltered trigger would fire for src's teardown in every view.
+            tdef = {'cond': 'prop:set', 'prop': 'test:str:hehe',
+                    'storm': 'if ($node.value() = "shad-dst") { [ test:int=1000 ] }'}
+            await core.callStorm('return($lib.trigger.add($tdef))', opts={'vars': {'tdef': tdef}})
+
+            tdef = {'cond': 'prop:set', 'prop': 'test:str:hehe',
+                    'storm': 'if ($node.value() = "shad-dst") { [ test:int=2000 ] }'}
+            await core.callStorm('return($lib.trigger.add($tdef))',
+                                 opts={'vars': {'tdef': tdef}, 'view': forkiden})
+
+            await core.nodes(
+                'test:str=shad-src $n=$node -> { test:str=shad-dst $lib.model.migration.fuse($n, $node) }')
+
+            # src's :hehe was written to the base layer, so the base view observes dst
+            # gaining it and its trigger fires
+            self.len(1, await core.nodes('test:int=1000'))
+            self.eq('srcval', (await core.nodes('test:str=shad-dst'))[0].get('hehe'))
+
+            # the fork's own write layer still shadows that value, so from the fork dst
+            # did not change and its trigger must not fire
+            self.eq('forkval', (await core.nodes('test:str=shad-dst', opts=forkopts))[0].get('hehe'))
+            self.len(0, await core.nodes('test:int=2000', opts=forkopts))
+
+    async def test_stormlib_model_migration_fuse_trigger_nodeadd(self):
+
+        async with self.getTestCore() as core:
+
+            vdef = await core.view.fork()
+            forkiden = vdef.get('iden')
+            forkopts = {'view': forkiden}
+
+            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': '[ test:int=1000 ]'}
+            await core.callStorm('return($lib.trigger.add($tdef))', opts={'vars': {'tdef': tdef}})
+
+            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': '[ test:int=2000 ]'}
+            await core.callStorm('return($lib.trigger.add($tdef))',
+                                 opts={'vars': {'tdef': tdef}, 'view': forkiden})
+
+            # dst already exists in the base layer, so it is visible in both views and
+            # no node:add is observable anywhere
+            await core.nodes('[ test:str=na-src :hehe=woot test:str=na-dst ]')
+
+            await core.nodes('test:int | delnode')
+            await core.nodes('test:int | delnode', opts=forkopts)
+
+            await core.nodes(
+                'test:str=na-src $n=$node -> { test:str=na-dst $lib.model.migration.fuse($n, $node) }')
+
+            self.len(0, await core.nodes('test:int=1000'))
+            self.len(0, await core.nodes('test:int=2000', opts=forkopts))
+
+    async def test_stormlib_model_migration_fuse_recovery(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=rec-src :hehe=srcval +#rectag test:str=rec-dst ]')
+
+            q = 'test:str=rec-src $n=$node -> { test:str=rec-dst $lib.model.migration.fuse($n, $node) }'
+
+            # --- a layer which fails is warned about and then raises ---
+            realsave = s_layer.Layer.saveNodeEdits
+
+            async def badsave(self, edits, meta):
+                raise s_exc.SynErr(mesg='layer go boom')
+
+            with mock.patch.object(s_layer.Layer, 'saveNodeEdits', badsave):
+                mesgs = await core.stormlist(q)
+
+            self.stormIsInWarn('failed to apply edits to layer', mesgs)
+            self.stormIsInErr('failed to apply edits to some layers', mesgs)
+
+            # nothing was applied
+            self.len(1, await core.nodes('test:str=rec-src'))
+            self.none((await core.nodes('test:str=rec-dst'))[0].get('hehe'))
+
+            # --- re-running completes it ---
+            await core.nodes(q)
+
+            self.len(0, await core.nodes('test:str=rec-src'))
+            nodes = await core.nodes('test:str=rec-dst')
+            self.len(1, nodes)
+            self.eq('srcval', nodes[0].get('hehe'))
+            self.isin('rectag', nodes[0].tags)
+
+            # --- running it again is a clean no-op ---
+            mesgs = await core.stormlist(q)
+            self.stormNotInWarn('failed to apply edits', mesgs)
+
+            self.len(0, await core.nodes('test:str=rec-src'))
+            self.eq('srcval', (await core.nodes('test:str=rec-dst'))[0].get('hehe'))

@@ -1254,8 +1254,7 @@ class ModelMigrationBase:
 
         self.meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
-        self.editcount = 0
-        self.nodeedits = {}
+        self.editbatch = s_layer.LayerEditBatch(self.core, self.meta, chunk=1000, nolift=True)
 
         self.nodes = await s_spooled.Dict.anit(dirn=self.core.dirn)
         self.todos = await s_spooled.Set.anit(dirn=self.core.dirn)
@@ -1272,25 +1271,10 @@ class ModelMigrationBase:
         return self
 
     async def _queueEdit(self, layriden, edit):
-        self.nodeedits.setdefault(layriden, {})
-        buid, formname, edits = edit
-        self.nodeedits[layriden].setdefault(buid, (buid, formname, []))
-        self.nodeedits[layriden][buid][2].extend(edits)
-        self.editcount += 1
-
-        if self.editcount >= 1000: # pragma: no cover
-            await self._flushEdits()
+        await self.editbatch.addNodeEdit(layriden, edit)
 
     async def _flushEdits(self):
-        async for layriden, layredits in s_coro.pause(self.nodeedits.items()):
-            layer = self.core.getLayer(layriden)
-            if layer is None: # pragma: no cover
-                continue
-
-            await layer.storNodeEditsNoLift(list(layredits.values()), self.meta)
-
-        self.editcount = 0
-        self.nodeedits = {}
+        await self.editbatch.flush()
 
     # NOTE: For the edit* functions below, we only need precise state tracking for nodes and properties. Don't precisely
     # track the rest.

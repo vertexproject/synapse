@@ -1,0 +1,9 @@
+---
+desc: Added the ``$lib.model.migration.fuse()`` Storm API to merge one node into another
+  node of the same form and delete the source node. Properties, tags, tag properties,
+  light edges, and node data are transferred to the destination node, and inbound
+  references to the source node are rewritten to point at the destination node.
+desc:literal: false
+prs: []
+type: feat
+...
