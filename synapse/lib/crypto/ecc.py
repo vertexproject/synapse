@@ -1,6 +1,5 @@
 
 import hashlib
-import logging
 
 import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.kdf.hkdf as c_hkdf
@@ -11,8 +10,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 
 import synapse.exc as s_exc
-
-logger = logging.getLogger(__name__)
+import synapse.lib.crypto.utils as s_crypto
 
 
 class PriKey:
@@ -32,17 +30,18 @@ class PriKey:
         '''
         return self.publ.iden()
 
-    def sign(self, byts):
+    def sign(self, byts, hashalgo='sha256'):
         '''
         Compute the ECC signature for the given bytestream.
 
         Args:
             byts (bytes): The bytes to sign.
+            hashalgo (str): The hash algorithm to use (sha256, sha384, or sha512).
 
         Returns:
-            bytes: The RSA Signature bytes.
+            bytes: The DER encoded ECDSA signature bytes.
         '''
-        chosen_hash = c_hashes.SHA256()
+        chosen_hash = s_crypto.getHashByName(hashalgo)
         hasher = c_hashes.Hash(chosen_hash, default_backend())
         hasher.update(byts)
         digest = hasher.finalize()
@@ -76,45 +75,57 @@ class PriKey:
         return PubKey(self.priv.public_key())
 
     @staticmethod
-    def generate():
+    def generate(curve='SECP384R1'):
         '''
         Generate a new ECC PriKey instance.
+
+        Args:
+            curve (str): The named curve to use. Defaults to SECP384R1.
 
         Returns:
             PriKey: A new PriKey instance.
         '''
+        curveobj = s_crypto.getCurveByName(curve)
+
         return PriKey(c_ec.generate_private_key(
-            c_ec.SECP384R1(),
+            curveobj,
             default_backend()
         ))
 
-    def dump(self):
+    def dump(self, fmt='der'):
         '''
-        Get the private key bytes in DER/PKCS8 format.
+        Get the private key bytes in PKCS8 format.
+
+        Args:
+            fmt (str): The encoding format, "der" (default) or "pem".
 
         Returns:
-            bytes: The DER/PKCS8 encoded private key.
+            bytes: The encoded PKCS8 private key.
         '''
         return self.priv.private_bytes(
-            encoding=c_ser.Encoding.DER,
+            encoding=s_crypto.getEncodingByName(fmt),
             format=c_ser.PrivateFormat.PKCS8,
             encryption_algorithm=c_ser.NoEncryption())
 
     @staticmethod
-    def load(byts):
+    def load(byts, fmt='der'):
         '''
-        Create a PriKey instance from DER/PKCS8 encoded bytes.
+        Create a PriKey instance from PKCS8 encoded bytes.
 
         Args:
-            byts (bytes): Bytes to load
+            byts (bytes): Bytes to load.
+            fmt (str): The encoding format, "der" (default) or "pem".
 
         Returns:
-            PriKey: A new PubKey instance.
+            PriKey: A new PriKey instance.
         '''
-        return PriKey(c_ser.load_der_private_key(
-                byts,
-                password=None,
-                backend=default_backend()))
+        s_crypto.getEncodingByName(fmt)
+        if fmt.lower() == 'pem':
+            priv = c_ser.load_pem_private_key(byts, password=None, backend=default_backend())
+        else:
+            priv = c_ser.load_der_private_key(byts, password=None, backend=default_backend())
+
+        return PriKey(priv)
 
 class PubKey:
     '''
@@ -124,31 +135,35 @@ class PubKey:
     def __init__(self, publ):
         self.publ = publ  # type: c_ec.EllipticCurvePublicKey
 
-    def dump(self):
+    def dump(self, fmt='der'):
         '''
-        Get the public key bytes in DER/SubjectPublicKeyInfo format.
+        Get the public key bytes in SubjectPublicKeyInfo format.
+
+        Args:
+            fmt (str): The encoding format, "der" (default) or "pem".
 
         Returns:
-            bytes: The DER/SubjectPublicKeyInfo encoded public key.
+            bytes: The encoded SubjectPublicKeyInfo public key.
         '''
         return self.publ.public_bytes(
-            encoding=c_ser.Encoding.DER,
+            encoding=s_crypto.getEncodingByName(fmt),
             format=c_ser.PublicFormat.SubjectPublicKeyInfo)
 
-    def verify(self, byts, sign):
+    def verify(self, byts, sign, hashalgo='sha256'):
         '''
         Verify the signature for the given bytes using the ECC
         public key.
 
         Args:
             byts (bytes): The data bytes.
-            sign (bytes): The signature bytes.
+            sign (bytes): The DER encoded signature bytes.
+            hashalgo (str): The hash algorithm to use (sha256, sha384, or sha512).
 
         Returns:
             bool: True if the data was verified, False otherwise.
         '''
         try:
-            chosen_hash = c_hashes.SHA256()
+            chosen_hash = s_crypto.getHashByName(hashalgo)
             hasher = c_hashes.Hash(chosen_hash, default_backend())
             hasher.update(byts)
             digest = hasher.finalize()
@@ -158,7 +173,6 @@ class PubKey:
                              )
             return True
         except InvalidSignature:
-            logger.exception('Error in publ.verify')
             return False
 
     def iden(self):
@@ -171,19 +185,47 @@ class PubKey:
         return hashlib.sha256(self.dump()).hexdigest()
 
     @staticmethod
-    def load(byts):
+    def load(byts, fmt='der'):
         '''
-        Create a PubKey instance from DER/PKCS8 encoded bytes.
+        Create a PubKey instance from SubjectPublicKeyInfo encoded bytes.
 
         Args:
-            byts (bytes): Bytes to load
+            byts (bytes): Bytes to load.
+            fmt (str): The encoding format, "der" (default) or "pem".
 
         Returns:
             PubKey: A new PubKey instance.
         '''
-        return PubKey(c_ser.load_der_public_key(
-                byts,
-                backend=default_backend()))
+        s_crypto.getEncodingByName(fmt)
+        if fmt.lower() == 'pem':
+            publ = c_ser.load_pem_public_key(byts, backend=default_backend())
+        else:
+            publ = c_ser.load_der_public_key(byts, backend=default_backend())
+
+        return PubKey(publ)
+
+def loadKey(byts):
+    '''
+    Load a single ECC public or private key, auto-detecting the PEM vs DER
+    encoding and whether the key is public or private.
+
+    Args:
+        byts (bytes): The DER or PEM encoded ECC key bytes.
+
+    Returns:
+        PriKey or PubKey: The loaded key wrapper.
+    '''
+    isprivate, key = s_crypto.loadKey(byts)
+    if isprivate:
+        if not isinstance(key, c_ec.EllipticCurvePrivateKey):
+            raise s_exc.BadArg(mesg='Key is not an ECC private key.')
+
+        return PriKey(key)
+
+    if not isinstance(key, c_ec.EllipticCurvePublicKey):
+        raise s_exc.BadArg(mesg='Key is not an ECC public key.')
+
+    return PubKey(key)
 
 def doECDHE(statprv_u, statpub_v, ephmprv_u, ephmpub_v,
             length=64,

@@ -11,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.lib.const as s_const
 import synapse.tests.utils as s_t_utils
 import synapse.lib.crypto.ecc as s_ecc
+import synapse.lib.crypto.utils as s_crypto
 
 class EccTest(s_t_utils.SynTest):
 
@@ -48,6 +49,50 @@ class EccTest(s_t_utils.SynTest):
         sign = prikey.sign(byts)
         self.true(pubkey.verify(byts, sign))
 
+    def test_lib_crypto_ecc_curves_algs_pem(self):
+
+        # default curve is SECP384R1 (backward compatible)
+        prikey = s_ecc.PriKey.generate()
+        self.eq(prikey.priv.curve.name, 'secp384r1')
+
+        for curve, name, hashalgo in (('P-256', 'secp256r1', 'sha256'),
+                                 ('secp256r1', 'secp256r1', 'sha256'),
+                                 ('P-384', 'secp384r1', 'sha384'),
+                                 ('P-521', 'secp521r1', 'sha512')):
+
+            prikey = s_ecc.PriKey.generate(curve=curve)
+            self.eq(prikey.priv.curve.name, name)
+
+            pubkey = prikey.public()
+
+            # sign / verify round trip with a selectable hash
+            sign = prikey.sign(b'haha', hashalgo=hashalgo)
+            self.true(pubkey.verify(b'haha', sign, hashalgo=hashalgo))
+            self.false(pubkey.verify(b'nope', sign, hashalgo=hashalgo))
+
+            # PEM round trip
+            pemprv = prikey.dump(fmt='pem')
+            pempub = pubkey.dump(fmt='pem')
+            self.true(pemprv.startswith(b'-----BEGIN'))
+            self.true(pempub.startswith(b'-----BEGIN'))
+
+            newpri = s_ecc.PriKey.load(pemprv, fmt='pem')
+            newpub = s_ecc.PubKey.load(pempub, fmt='pem')
+            self.eq(newpri.priv.curve.name, name)
+            self.true(newpub.verify(b'haha', sign, hashalgo=hashalgo))
+
+        # unknown curve / hash / encoding format raise BadArg
+        self.raises(s_exc.BadArg, s_ecc.PriKey.generate, curve='newp')
+        self.raises(s_exc.BadArg, s_crypto.getCurveByName, 'newp')
+        self.raises(s_exc.BadArg, s_crypto.getHashByName, 'newp')
+        self.raises(s_exc.BadArg, s_crypto.getEncodingByName, 'newp')
+        self.raises(s_exc.BadArg, prikey.dump, fmt='newp')
+        self.raises(s_exc.BadArg, s_ecc.PriKey.load, pemprv, fmt='newp')
+
+        # the fmt argument is case insensitive
+        self.eq(prikey.dump(fmt='pem'), prikey.dump(fmt='PEM'))
+        self.nn(s_ecc.PriKey.load(prikey.dump(fmt='PEM'), fmt='Pem'))
+
     def test_lib_crypto_ecc_break(self):
         pvk1 = s_ecc.PriKey.generate()
         pbk1 = pvk1.public()
@@ -64,6 +109,35 @@ class EccTest(s_t_utils.SynTest):
         # Tampered messages fail to validate
         self.false(pbk1.verify(mesg, sig1[:-10] + os.urandom(10)))
         self.false(pbk1.verify(mesg, os.urandom(10) + sig1[:10]))
+
+    def test_lib_crypto_ecc_loadkey(self):
+
+        import synapse.lib.crypto.rsa as s_rsa
+
+        prikey = s_ecc.PriKey.generate(curve='P-256')
+        pubkey = prikey.public()
+
+        # PEM/DER and public/private are auto-detected
+        self.isinstance(s_ecc.loadKey(prikey.dump(fmt='pem')), s_ecc.PriKey)
+        self.isinstance(s_ecc.loadKey(pubkey.dump(fmt='pem')), s_ecc.PubKey)
+        self.isinstance(s_ecc.loadKey(prikey.dump(fmt='der')), s_ecc.PriKey)
+        self.isinstance(s_ecc.loadKey(pubkey.dump(fmt='der')), s_ecc.PubKey)
+
+        # a blob containing more than one key is rejected
+        with self.raises(s_exc.BadArg):
+            s_ecc.loadKey(prikey.dump(fmt='pem') + pubkey.dump(fmt='pem'))
+
+        # an RSA key (public or private) is not an ECC key
+        rsak = s_rsa.PriKey.generate(bits=1024)
+        with self.raises(s_exc.BadArg):
+            s_ecc.loadKey(rsak.dump(fmt='pem'))
+
+        with self.raises(s_exc.BadArg):
+            s_ecc.loadKey(rsak.public().dump(fmt='pem'))
+
+        # garbage bytes are rejected
+        with self.raises(ValueError):
+            s_ecc.loadKey(b'not a key')
 
     def test_lib_crypto_ecc_exchange(self):
         spvk1 = s_ecc.PriKey.generate()
