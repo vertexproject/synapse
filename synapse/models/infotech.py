@@ -3245,32 +3245,13 @@ class ItModule(s_module.CoreModule):
 
                     ('enabled', ('bool', {}), {
                         'doc': 'The rule enabled status to be used for suricata evaluation engines.'}),
-
-                    ('family', ('it:prod:softname', {}), {
-                        'doc': 'The name of the software family the rule is designed to detect.'}),
                 )),
 
                 ('it:app:suricata:matched', {}, (
                     ('rule', ('it:app:suricata:rule', {}), {
                         'doc': 'The suricata rule that matched the file.'}),
-                    ('flow', ('inet:flow', {}), {
+                    ('target', ('inet:flow', {}), {
                         'doc': 'The inet:flow that matched the suricata rule.'}),
-                    ('src', ('inet:addr', {}), {
-                        'doc': 'The source address of flow that caused the hit.'}),
-                    ('src:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The source IPv4 address of the flow that caused the hit.'}),
-                    ('src:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The source IPv6 address of the flow that caused the hit.'}),
-                    ('src:port', ('inet:port', {}), {
-                        'doc': 'The source port of the flow that caused the hit.'}),
-                    ('dst', ('inet:addr', {}), {
-                        'doc': 'The destination address of the trigger.'}),
-                    ('dst:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
-                    ('dst:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
-                    ('dst:port', ('inet:port', {}), {
-                        'doc': 'The destination port of the flow that caused the hit.'}),
                     ('time', ('time', {}), {
                         'doc': 'The time of the network flow that caused the hit.'}),
                     ('sensor', ('it:host', {}), {
