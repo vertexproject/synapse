@@ -3238,7 +3238,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Contact info for the author of the rule.'}),
 
                     ('created', ('time', {}), {
-                        'doc': 'The time the rule was initially created.'}),
+                        'doc': 'The time the rule was created.'}),
 
                     ('updated', ('time', {}), {
                         'doc': 'The time the rule was most recently modified.'}),
