@@ -58,12 +58,15 @@ import synapse.lib.stormwhois as s_stormwhois  # noqa: F401
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.aha as s_stormlib_aha  # noqa: F401
+import synapse.lib.stormlib.ecc as s_stormlib_ecc  # noqa: F401
 import synapse.lib.stormlib.env as s_stormlib_env  # noqa: F401
 import synapse.lib.stormlib.gen as s_stormlib_gen  # noqa: F401
 import synapse.lib.stormlib.gis as s_stormlib_gis  # noqa: F401
 import synapse.lib.stormlib.hex as s_stormlib_hex  # noqa: F401
+import synapse.lib.stormlib.jwt as s_stormlib_jwt  # noqa: F401
 import synapse.lib.stormlib.log as s_stormlib_log  # noqa: F401
 import synapse.lib.stormlib.pkg as s_stormlib_pkg  # noqa: F401
+import synapse.lib.stormlib.rsa as s_stormlib_rsa  # noqa: F401
 import synapse.lib.stormlib.xml as s_stormlib_xml  # noqa: F401
 import synapse.lib.stormlib.auth as s_stormlib_auth  # noqa: F401
 import synapse.lib.stormlib.cell as s_stormlib_cell  # noqa: F401
@@ -977,6 +980,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
+
+        # $lib.crypto.jwt JWKS caches: jwks_uri -> (expiry_epoch_seconds, jwkset) and
+        # jwks_uri -> asyncio.Lock for per-uri single-flight fetching.
+        self.jwkscache = {}
+        self.jwkslocks = {}
 
         self.stormpool = None
         self.stormpoolurl = None

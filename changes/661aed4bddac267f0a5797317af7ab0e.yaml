@@ -1,0 +1,10 @@
+---
+desc: Added the ``$lib.crypto.jwt`` Storm library and ``crypto:jwt`` object for constructing,
+  signing, and verifying JSON Web Tokens (JWTs). Supports the ``HS*``, ``RS*``, ``PS*``,
+  and ``ES*`` algorithms, compact and flattened-JSON serialization, registered-claim
+  validation (``exp`` / ``nbf`` / ``aud`` / ``iss`` / ``sub``), and JWK / JWKS keys
+  including fetching a ``jwks_uri`` over HTTPS.
+desc:literal: false
+prs: []
+type: feat
+...
