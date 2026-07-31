@@ -3256,7 +3256,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The inet:flow that matched the suricata rule.'}),
 
                     ('time', ('time', {}), {
-                        'doc': 'The time of the network flow that caused the hit.'}),
+                        'doc': 'The time that the rule matched the network flow.'}),
 
                     ('sensor', ('it:host', {}), {
                         'doc': 'The sensor host node that produced the hit.'}),
