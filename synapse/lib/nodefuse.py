@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 # atomicity, so it is warned about rather than done silently.
 maxlayeredits = 100000
 
+# stortypes which _editPropSet/_editTagPropSet union with the existing value rather than
+# overwrite it. Those are always transferred so the storage layer can merge them; every
+# other stortype is a plain overwrite, so dst's existing value wins on conflict.
+mergetypes = (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
+
 class NodeFuser:
     '''
     Fuse a source node into a destination node across every layer in a Cortex.
@@ -307,6 +312,7 @@ class NodeFuser:
             layriden = layer.iden
 
             srcsode = srcsodes.get(layriden, {})
+            dstsode = dstsodes.get(layriden, {})
 
             nodedata = [item async for item in layer.iterNodeData(srcbuid)]
             n1edges = [item async for item in layer.iterNodeEdgesN1(srcbuid)]
@@ -347,7 +353,12 @@ class NodeFuser:
                             (s_layer.EDIT_PROP_SET, ('.created', created[0], None, created[1]), ()),
                         ))
 
-            # 2. transfer props, tags, tagprops and node data
+            # 2. transfer props, tags, tagprops and node data. dst is the survivor, so its
+            #    existing value wins wherever both nodes hold a conflicting value in this
+            #    layer. ival/mintime/maxtime values are unioned by the storage layer rather
+            #    than overwritten, so those are always transferred regardless of conflict.
+            dstprops = dstsode.get('props', {})
+
             for name, (valu, stype) in srcsode.get('props', {}).items():
 
                 prop = form.props.get(name)
@@ -359,6 +370,9 @@ class NodeFuser:
                 if prop.info.get('ro'):
                     continue
 
+                if stype not in mergetypes and name in dstprops:
+                    continue
+
                 batch.addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_PROP_SET, (name, valu, None, stype), ()),
                 ))
@@ -368,16 +382,32 @@ class NodeFuser:
                     (s_layer.EDIT_TAG_SET, (tag, valu, None), ()),
                 ))
 
+            dsttagprops = dstsode.get('tagprops', {})
+
             for tag, propdict in srcsode.get('tagprops', {}).items():
+
+                dstpropdict = dsttagprops.get(tag, {})
+
                 for name, (valu, stype) in propdict.items():
+
+                    if stype not in mergetypes and name in dstpropdict:
+                        continue
+
                     batch.addEdit(layriden, dstbuid, formname, (
                         (s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, stype), ()),
                     ))
 
-            for name, valu in nodedata:
-                batch.addEdit(layriden, dstbuid, formname, (
-                    (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
-                ))
+            if nodedata:
+                dstdata = {name async for name in layer.iterNodeDataKeys(dstbuid)}
+
+                for name, valu in nodedata:
+
+                    if name in dstdata:
+                        continue
+
+                    batch.addEdit(layriden, dstbuid, formname, (
+                        (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
+                    ))
 
             # 3. transfer light edges. N1 edges move to dst, and for N2 edges the edge is
             #    stored under the n1 node, so it is re-pointed there.

@@ -805,6 +805,7 @@ class StormlibModelTest(s_test.SynTest):
                     +#foo.bar=(2018, 2022)
                     +#foo.bar:tp=dst-tp
                     +#dst.only
+                    :_efoo=dstext
                 ]
                 $node.data.set(k1, dst-k1)
                 $node.data.set(k3, dst-k3)
@@ -828,14 +829,15 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, nodes)
             dst = nodes[0]
 
-            # primary props: src wins on conflict
-            self.eq('srcval', dst.get('hehe'))
-            self.eq(s_time.parse('2020'), dst.get('tick'))
+            # primary props: dst wins on conflict, since dst is the survivor
+            self.eq('dstval', dst.get('hehe'))
+            self.eq(s_time.parse('2019'), dst.get('tick'))
 
             # .created is preserved from dst, since it is read only
             self.eq(dstcreated, dst.get('.created'))
 
-            # .seen is unioned by the storage layer: (min(2010,2015), max(2020,2025))
+            # .seen is unioned by the storage layer regardless of conflict policy:
+            # (min(2010,2015), max(2020,2025))
             self.eq((s_time.parse('2010'), s_time.parse('2025')), dst.get('.seen'))
 
             # tags: both sets present
@@ -846,16 +848,16 @@ class StormlibModelTest(s_test.SynTest):
             # tag ival: union (min(2015,2018), max(2016,2022))
             self.eq((s_time.parse('2015'), s_time.parse('2022')), dst.tags.get('foo.bar'))
 
-            # tagprop: src wins
-            self.eq('src-tp', dst.getTagProp('foo.bar', 'tp'))
+            # tagprop: dst wins on conflict
+            self.eq('dst-tp', dst.getTagProp('foo.bar', 'tp'))
 
-            # nodedata: src wins k1, additive k2 and k3
-            self.eq('src-k1', await dst.getData('k1'))
+            # nodedata: dst wins k1 on conflict, additive k2 and k3
+            self.eq('dst-k1', await dst.getData('k1'))
             self.eq('src-k2', await dst.getData('k2'))
             self.eq('dst-k3', await dst.getData('k3'))
 
-            # ext prop
-            self.eq('srcext', dst.get('_efoo'))
+            # ext prop: dst wins on conflict
+            self.eq('dstext', dst.get('_efoo'))
 
             # N1 edge (src -(refs)> other) becomes dst -(refs)> other
             edgeother = (await core.nodes('test:str=hp-edge-other'))[0]
@@ -1058,6 +1060,36 @@ class StormlibModelTest(s_test.SynTest):
 
             # the old comp is left alone rather than being half renamed
             self.len(1, await core.nodes('test:pivcomp=($bntarg, $bnsrc)', opts=opts))
+
+    async def test_stormlib_model_migration_fuse_ival_merge(self):
+
+        # Interval typed properties and tag properties are unioned by the storage layer
+        # rather than one side winning, and this generalizes beyond the special-cased
+        # .seen property to any ival-typed prop or tagprop.
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('ivaltp', ('ival', {}), {})
+
+            opts = {'vars': {'isrc': (100, 200), 'idst': (300, 400)}}
+
+            await core.nodes('''
+                [ test:ival=$isrc :interval=(2020, 2021) +#foo:ivaltp=(2020, 2021) ]
+            ''', opts=opts)
+
+            await core.nodes('''
+                [ test:ival=$idst :interval=(2022, 2023) +#foo:ivaltp=(2022, 2023) ]
+            ''', opts=opts)
+
+            await core.nodes(
+                'test:ival=$isrc $n=$node -> { test:ival=$idst $lib.model.migration.fuse($n, $node) }',
+                opts=opts)
+
+            self.len(0, await core.nodes('test:ival=$isrc', opts=opts))
+            nodes = await core.nodes('test:ival=$idst', opts=opts)
+            self.len(1, nodes)
+
+            self.eq((s_time.parse('2020'), s_time.parse('2023')), nodes[0].get('interval'))
+            self.eq((s_time.parse('2020'), s_time.parse('2023')), nodes[0].getTagProp('foo', 'ivaltp'))
 
     async def test_stormlib_model_migration_fuse_multilayer(self):
 

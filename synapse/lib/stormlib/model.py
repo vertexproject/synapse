@@ -817,19 +817,21 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             This operates on the whole Cortex rather than the current view. Every layer is
             processed, so after the fuse the source node no longer exists in any view.
 
-            The following are transferred from src to dst:
+            The following are transferred from src to dst. dst is the survivor, so its
+            existing value wins wherever both nodes hold a conflicting value:
 
-            - Secondary properties (src values overwrite conflicting dst values).
-            - Extended properties (src values overwrite conflicting dst values).
-            - Tags and tag timestamps (tag intervals are always unioned).
-            - Tag properties (src values overwrite conflicting dst values).
+            - Secondary properties (dst values win on conflict).
+            - Extended properties (dst values win on conflict).
+            - Tags (additive; tag intervals are always unioned).
+            - Tag properties (dst values win on conflict).
             - Light edges (additive; both N1 and N2 edges are moved to dst).
-            - Node data (src values overwrite conflicting dst values).
+            - Node data (dst values win on conflict).
 
             The following special cases apply regardless of the conflict policy:
 
             - The .created property on dst is always preserved.
-            - Tag intervals and the .seen interval are unioned as (min(start), max(end)).
+            - Interval-typed properties and tag properties, and the .seen interval, are
+              always unioned as (min(start), max(end)) rather than one value winning.
             - Read-only secondary properties on dst are skipped, since they are derived from
               dst's own primary property.
             - Inbound references (props on other nodes which point at src) are rewritten to
