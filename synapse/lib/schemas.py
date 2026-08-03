@@ -1219,3 +1219,31 @@ _httpLoginV1Schema = {
     'required': ['user', 'passwd'],
 }
 reqValidHttpLoginV1 = s_config.getJsValidator(_httpLoginV1Schema)
+
+# RFC 7519 2 StringOrURI: an arbitrary string, but any value containing a ':' MUST be an
+# RFC 3986 URI (a valid scheme followed by URI-legal characters). An empty string has no ':'
+# and stays valid. '$' is a legal sub-delim but is omitted from the class because
+# fastjsonschema rewrites a literal '$' in a pattern to '\Z' (it can be percent-encoded as %24).
+_jwtStringOrUri = r"^(?:[^:]*|[A-Za-z][A-Za-z0-9+.\-]*:[A-Za-z0-9\-._~:/?#\[\]@!&'()*+,;=%]*)$"
+
+# JSON Schema for the RFC 7519 4.1 registered claims. additionalProperties is True so
+# callers may set custom claims; there is no "required" list because every registered
+# claim is optional. iss/sub/aud are StringOrURI (see above); jti is a plain string
+# (RFC 7519 4.1.7). exp/nbf/iat are NumericDate values (epoch seconds), so they
+# are numbers rather than strings.
+_jwtclaimschema = {
+    'type': 'object',
+    'additionalProperties': True,
+    'properties': {
+        'iss': {'type': 'string', 'pattern': _jwtStringOrUri},
+        'sub': {'type': 'string', 'pattern': _jwtStringOrUri},
+        'aud': {'oneOf': [{'type': 'string', 'pattern': _jwtStringOrUri},
+                          {'type': 'array', 'items': {'type': 'string', 'pattern': _jwtStringOrUri}}]},
+        'exp': {'type': 'number', 'minimum': 0},
+        'nbf': {'type': 'number', 'minimum': 0},
+        'iat': {'type': 'number', 'minimum': 0},
+        'jti': {'type': 'string'},
+    },
+}
+reqValidJwtClaims = s_config.getJsValidator(_jwtclaimschema)
+jwtRegisteredClaims = frozenset(_jwtclaimschema['properties'])
