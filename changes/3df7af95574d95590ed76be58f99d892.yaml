@@ -1,7 +1,0 @@
----
-desc: Added the ``$lib.crypto.ecc`` library to generate and load ECC keys as ``crypto:ecc:key``
-  objects which sign and verify bytes.
-desc:literal: false
-prs: []
-type: feat
-...
