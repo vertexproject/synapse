@@ -48,6 +48,6 @@ Light Edges
 ***********
 
 ``detects``
-    When used with a ``it:app:suricata:rule`` node, the edge indicates The
+    When used with a ``it:app:suricata:rule`` node, the edge indicates the
     suricata rule is intended for use in detecting the target node.
 

@@ -37,7 +37,7 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Allow the ``hash:ssdeep`` type to accept empty hash segments, such as the
+- Allowed the ``hash:ssdeep`` type to accept empty hash segments, such as the
   empty-file hash ``3::``.
   (`#4995 <https://github.com/vertexproject/synapse/pull/4995>`_)
 
