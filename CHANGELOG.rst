@@ -6,6 +6,46 @@
 Synapse Changelog
 *****************
 
+v2.249.0 - 2026-08-04
+=====================
+
+Model Changes
+-------------
+- Added the ``it:cmd:history:output`` property to record the output of a
+  command.
+  (`#4991 <https://github.com/vertexproject/synapse/pull/4991>`_)
+- Added ``it:app:suricata:rule`` and ``it:app:suricata:matched`` forms.
+  (`#4997 <https://github.com/vertexproject/synapse/pull/4997>`_)
+- See :ref:`userguide_model_v2_249_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added the ``$lib.crypto.rsa`` library to generate and load RSA keys as
+  ``crypto:rsa:key`` objects which sign and verify bytes (``pkcs1v15`` and
+  ``pss`` padding).
+  (`#4996 <https://github.com/vertexproject/synapse/pull/4996>`_)
+- Added the ``$lib.crypto.ecc`` library to generate and load ECC keys as
+  ``crypto:ecc:key`` objects which sign and verify bytes.
+  (`#4996 <https://github.com/vertexproject/synapse/pull/4996>`_)
+- Added the ``$lib.crypto.jwt`` Storm library and ``crypto:jwt`` object for
+  constructing, signing, and verifying JSON Web Tokens (JWTs). Supports the
+  ``HS*``, ``RS*``, ``PS*``, and ``ES*`` algorithms, compact and flattened-JSON
+  serialization, registered-claim validation (``exp`` / ``nbf`` / ``aud`` /
+  ``iss`` / ``sub``), and JWK / JWKS keys including fetching a ``jwks_uri``
+  over HTTPS.
+  (`#4996 <https://github.com/vertexproject/synapse/pull/4996>`_)
+
+Bugfixes
+--------
+- Allowed the ``hash:ssdeep`` type to accept empty hash segments, such as the
+  empty-file hash ``3::``.
+  (`#4995 <https://github.com/vertexproject/synapse/pull/4995>`_)
+
+Notes
+-----
+- Updated the allowed versions of the ``cryptography`` library.
+  (`#4998 <https://github.com/vertexproject/synapse/pull/4998>`_)
+
 v2.248.0 - 2026-07-17
 =====================
 
