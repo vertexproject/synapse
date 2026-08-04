@@ -1,0 +1,6 @@
+---
+desc: Added ``it:app:suricata:rule`` and ``it:app:suricata:matched`` forms.
+desc:literal: false
+prs: []
+type: model
+...
