@@ -1,0 +1,5 @@
+---
+desc: Deprecated ``synapse.glob.sync()`` and ``synapse.glob.synchelp()`` APIs.
+prs: []
+type: deprecation
+...

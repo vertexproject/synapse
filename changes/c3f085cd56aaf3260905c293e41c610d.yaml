@@ -1,0 +1,6 @@
+---
+desc: Deprecated ``$lib.user``.
+desc:literal: false
+prs: []
+type: deprecation
+...
