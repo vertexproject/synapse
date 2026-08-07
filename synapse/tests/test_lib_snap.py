@@ -1,6 +1,7 @@
 import gc
 import random
 import asyncio
+import weakref
 import contextlib
 import collections
 
@@ -67,10 +68,11 @@ class SnapTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 nodebuid = None
+                noderef = None
                 snap.buidcache = collections.deque(maxlen=10)
 
                 async def doit():
-                    nonlocal nodebuid
+                    nonlocal nodebuid, noderef
                     # Reduce the buid cache so we don't have to make 100K nodes
 
                     node0 = await snap.addNode('test:int', 0)
@@ -90,7 +92,10 @@ class SnapTest(s_t_utils.SynTest):
 
                     self.eq(nodes[0].buid, node0.buid)
                     self.eq(id(nodes[0]), id(node0))
-                    node._test = True
+
+                    # Hold a weak reference so we can prove the original node
+                    # object is released once it falls out of the coherency cache.
+                    noderef = weakref.ref(node)
 
                 await doit()  # run in separate function so that objects are gc'd
 
@@ -103,8 +108,9 @@ class SnapTest(s_t_utils.SynTest):
                 self.eq(nodebuid, node.buid)
                 # Ensure that the node is not the same object as we encountered earlier.
                 # We cannot check via id() since it is possible for a pyobject to be
-                # allocated at the same location as the old object.
-                self.false(hasattr(node, '_test'))
+                # allocated at the same location as the old object. Instead, confirm the
+                # original object was released from the coherency cache and collected.
+                self.none(noderef())
 
     async def test_addNodes(self):
         async with self.getTestCore() as core:
