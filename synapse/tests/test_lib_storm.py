@@ -3220,7 +3220,7 @@ class StormTest(s_t_utils.SynTest):
             base = {
                 'name': 'endptest',
                 'version': '0.0.1',
-                'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
+                'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
             }
 
             # a top-level endpoint with an unknown key is rejected
@@ -4906,7 +4906,7 @@ class StormTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
+                'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
                 'commands': ({
                                  'name': 'testcmd',
                                  'desc': 'test command',

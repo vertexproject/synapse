@@ -1148,7 +1148,7 @@ class HttpApiTest(s_tests.SynTest):
                 spkg = {
                     'name': 'testy',
                     'version': '0.0.1',
-                    'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
+                    'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
                     'modules': (
                         {'name': 'testy.ingest', 'storm': 'function punch(x, y) { return (($x + $y)) }'},
                     ),

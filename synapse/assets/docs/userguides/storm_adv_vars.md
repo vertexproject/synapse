@@ -251,7 +251,7 @@ inet:service:account=7ab324ea3fc562ab820ff1e93dc9f4b7
 
 ```stormdoc
 storm> inet:fqdn=mail.mydomain.com $fqdn=$node $lib.print($fqdn)
-Node{(('inet:fqdn', 'mail.mydomain.com'), {'nid': 30, 'meta': {'created': 1786244017083565, 'updated': 1786244017086928}, 'tags': {}, 'props': {'host': ('str:lower', 'mail'), 'domain': ('inet:fqdn', 'mydomain.com'), 'issuffix': ('bool', 0), 'iszone': ('bool', 0), 'zone': ('inet:fqdn', 'mydomain.com')}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
+Node{(('inet:fqdn', 'mail.mydomain.com'), {'nid': 30, 'meta': {'created': 1786476699389090, 'updated': 1786476699390819}, 'tags': {}, 'props': {'host': ('mail', {'t': 'str:lower'}), 'domain': ('mydomain.com', {'t': 'inet:fqdn'}), 'issuffix': (0, {'t': 'bool'}), 'iszone': (0, {'t': 'bool'}), 'zone': ('mydomain.com', {'t': 'inet:fqdn'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
 inet:fqdn=mail.mydomain.com
         :domain = mydomain.com
         :host = mail
@@ -392,14 +392,14 @@ Assign the current time to the variable `$now` using `$lib.time.now()`:
 
 ```stormdoc
 storm> $now=$lib.time.now() $lib.print($now)
-1786244017244028
+1786476699474107
 ```
 
 Convert an epoch microseconds integer into a human-readable date/time string using `$lib.repr()`:
 
 ```stormdoc
 storm> $now=$lib.time.now() $lib.print($lib.repr(time,$now))
-2026-08-09T02:53:37.250276Z
+2026-08-11T19:31:39.479205Z
 ```
 
 **Expressions**
@@ -437,5 +437,5 @@ Assign an `ou:org` node to the variable `$org` by lifting the org node using its
 
 ```stormdoc
 storm> $org={ ou:org:name=vertex } $lib.print($org)
-Node{(('ou:org', '7918de6a997e984dbf966f8002df95ad'), {'nid': 57, 'meta': {'created': 1786244017292049, 'updated': 1786244017293683}, 'tags': {}, 'props': {'place:loc': ('loc', 'us.va'), 'name': ('entity:name', 'vertex'), 'names': (('entity:name', 'the vertex project'),)}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
+Node{(('ou:org', '7918de6a997e984dbf966f8002df95ad'), {'nid': 57, 'meta': {'created': 1786476699507945, 'updated': 1786476699508632}, 'tags': {}, 'props': {'place:loc': ('us.va', {'t': 'loc'}), 'name': ('vertex', {'t': 'entity:name'}), 'names': ((('the vertex project', {'t': 'entity:name'}),), {})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
 ```

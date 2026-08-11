@@ -3,6 +3,347 @@
 
 # Synapse Changelog
 
+## v3.0.0b6 - 2026-08-11
+
+### Improved documentation
+
+- Rebuilt the Synapse documentation bundle so it includes the ``v3.0.0b5``
+  changelog.
+
+## v3.0.0b5 - 2026-08-11
+
+### Model Changes
+
+- A property ``became`` in the ``v2map`` model dictionary is now relative to
+  the entry form only when it is prefixed with ``:``, and may otherwise be a
+  full property path.
+- Added the ``:domain`` property to ``it:host`` to record the authentication
+  domain as an ``inet:service:platform``.
+- Added the ``inet:service:message -(about)> *`` light edge.
+- The ``file:subfile:entry`` form no longer extends ``file:stored:entry`` and
+  no longer has the ``:added``, ``:created``, ``:modified``, and ``:accessed``
+  properties. The ``file:archive:entry`` form now extends ``file:stored:entry``
+  directly and retains them.
+- Added the ``file:subfile`` interface, implemented by the
+  ``file:subfile:entry``, ``file:archive:entry``, ``file:mime:rar:entry``, and
+  ``file:mime:zip:entry`` forms.
+- Added the ``doc:published`` interface to the ``meta:story`` form.
+- Added ``it:app:suricata:rule`` and ``it:app:suricata:matched`` forms.
+- Added ``:extmodel`` to the ``syn:form``, ``syn:type``, and ``syn:tagprop``
+  runt nodes.
+
+### Features and Enhancements
+
+- Added an ``advanced`` boolean to the Storm package definition, marking a
+  package which is delivered by a deployed Storm service rather than installed.
+  ``synapse.tools.storm.pkg.gen.reqSvcPkgProto()`` loads the package a service
+  delivers and requires the flag.
+- Added the ``hide`` Storm opt, which removes the message types it names from
+  the output message stream. It is the inverse of ``show``, and setting both
+  raises a ``BadArg``.
+- Added the ``meta`` Storm opt. The Cortex does not interpret it; it is echoed
+  back verbatim as the ``meta`` key of the ``init`` message so a caller can
+  correlate a message stream with its own state, and it is recorded on the
+  Storm query log entry when ``storm:log`` is enabled. It is omitted from
+  ``init`` when the opt is not set.
+- The Storm query ``opts`` dictionary is now validated against a JSON schema.
+  Only documented opts are accepted; an unknown or wrongly typed opt raises
+  ``SchemaViolation`` rather than being silently ignored. The same schema now
+  validates the ``stormopts`` of a Storm dmon definition.
+- The ``min`` and ``max`` commands now order values using the ordering defined
+  by their type, allowing string properties to be ordered lexically and
+  ``it:version`` properties to be ordered by version rather than raising
+  ``BadCast``.
+- Updated the allowed versions of the ``cryptography`` library.
+- A Cortex leader now retrieves and registers Storm service packages and
+  replicates them through the Nexus, so a mirror loads and persists a service
+  package without connecting to the service.
+- Added the ``getStormSvcPkgFile()`` Storm service API. A Cortex retrieves the
+  files shipped by a service delivered Storm package into its Axon, by path,
+  before the package ``onload`` runs.
+- Added support for connecting ``synapse.tools.storm`` to a Cortex over the
+  HTTP API using an ``https://<apikey>@host:port/`` URL. Added the ``--https-
+  ca-dir``, ``--https-noverify``, and ``--https-proxy`` options.
+- Added ``synapse.tools.storm.pkg.publish``, which builds the documentation and
+  the Storm package from a YAML prototype, uploads any files it declares, and
+  publishes it to the Vertex Hub.
+- Added a ``files`` section to the Storm package format, which ships data files
+  alongside a package by SHA256. ``synapse.tools.storm.pkg.gen`` generates the
+  section from the ``files`` directory beside the package YAML file, walked
+  recursively, keyed by each file's path relative to that directory, with each
+  entry carrying the ``sha256`` of its contents. An entry may be declared in
+  the package YAML file to carry additional fields for the file it names. The
+  files are uploaded when pushing to a Cortex, and installing the package
+  downloads them into the Cortex Axon.
+- Added support for specifying a permission as either a dotted string or a list
+  of permission parts to ``$user.allowed()``, ``$user.getAllowedReason()`` and
+  the ``auth.user.allowed`` command.
+- Improved the performance of array property lifts on views with multiple
+  layers.
+- Added ``$lib.vertex.packages.get()`` for retrieving package definitions from
+  the Vertex Hub without installing them.
+- The ``synapse.tools.storm.pkg.gen`` tool now allows ``--save`` together with
+  ``--no-build``, which allows re-signing an already built Storm package with
+  ``--signas``.
+- ``synapse.tools.storm.pkg.doc`` now builds package docs natively from
+  Markdown/mdstorm sources instead of RST/pandoc, dropping the pandoc
+  dependency for building package docs.
+- Added per-deployment Storm package encryption via the
+  ``metadata.encryption.deploy`` key, built with the ``--encrypt-pubkey``
+  option of ``synapse.tools.storm.pkg.gen`` using a deployment's RSA public
+  key. A registered Cortex decrypts the package seed with its deployment RSA
+  private key on install.
+- ``mdstorm`` gained an ``mdinclude`` directive (replacing RST
+  ``include::``/``literalinclude::``) and per-fence ``--mock-http`` on
+  ``mdstorm`` (for documents with more than one HTTP cassette).
+- Added ``synapse.tools.storm.pkg.doc``, a Sphinx-free Markdown documentation
+  builder which renders a Storm package's ``docs/`` source tree into
+  ``files/docs`` next to its pkgdef: ``mdtoc`` fence resolution into a nav tree
+  + ``metadata.json``, and link/anchor/orphan-page validation.
+- Added the ``$lib.crypto.jwt`` Storm library and ``crypto:jwt`` object for
+  constructing, signing, and verifying JSON Web Tokens (JWTs). Supports the
+  ``HS*``, ``RS*``, ``PS*``, and ``ES*`` algorithms, compact and flattened-JSON
+  serialization, registered-claim validation (``exp`` / ``nbf`` / ``aud`` /
+  ``iss`` / ``sub``), and JWK / JWKS keys including fetching a ``jwks_uri``
+  over HTTPS.
+- Added the ``$lib.crypto.ecc`` library to generate and load ECC keys as
+  ``crypto:ecc:key`` objects which sign and verify bytes.
+- Added the ``$lib.crypto.rsa`` library to generate and load RSA keys as
+  ``crypto:rsa:key`` objects which sign and verify bytes (``pkcs1v15`` and
+  ``pss`` padding).
+- HTTP APIs now accept a user API key as the HTTP Basic auth username.
+- Added encryption for the Storm queries within package modules and commands
+  via a new ``metadata.encryption`` key. ``synapse.tools.storm.pkg.gen``
+  enables this with the ``--encrypt`` option. The package ``codesign`` key has
+  moved under a new top-level ``metadata`` key.
+- The Synapse version parser now accepts an optional PEP 440 epoch prefix (for
+  example ``3!1.2.3``) in version strings, including Storm package ``version``
+  fields.
+- Added the ``$lib.vertex`` Storm library and the ``vertex.register``,
+  ``vertex.packages.list``, ``vertex.packages.versions``, and
+  ``vertex.packages.install`` commands for registering a deployment with the
+  Vertex Hub and installing subscription authorized packages.
+- Added ``synapse.tools.utils.mdstorm``, a Markdown-native Storm-directive
+  processor.
+
+### Bugfixes
+
+- Fixed the Storm library documentation handling of argument defaults. A list
+  of scalar values may now be declared as an argument default, and string
+  defaults are now quoted, so values such as ``=`` no longer render as
+  ``cmpr==``.
+- Fixed an issue where vault secrets could not be read from a Storm package
+  module using ``asroot:perms`` on behalf of a user who only holds read
+  permission on the vault.
+- Fixed AHA hostname resolution for services which advertise a DNS name. AHA
+  connected to a service using the name it was registered under rather than the
+  hostname the service advertises, causing a TLS hostname mismatch, and a
+  service could not resolve its user certificate when connecting to a service
+  whose AHA registered hostname is a DNS name outside of the AHA network, such
+  as the AHA service itself via ``aha://aha...``.
+- All services now commit their dirty slabs after each nexus transaction rather
+  than on the periodic slab sync loop, so an unclean shutdown can only leave
+  the nexus log one entry ahead of the applied state.
+- Set an explicit ``websocket_ping_timeout`` for the Cell HTTP API to avoid
+  Tornado closing slow-but-alive websocket connections under load.
+- Fixed heading levels in generated Storm package documentation
+  (``docStormpkgMd``) so the Dependencies, Storm Commands, Storm Modules, and
+  Endpoints sections nest directly under the page title, allowing the docs
+  viewer to generate a table of contents for the page.
+- Fixed ``mdstorm`` adding an extra blank line and unneeded 4-space indentation
+  inside rendered fenced code blocks.
+- Fixed an issue where a Storm query which raised an exception inside an edit
+  block could cause the exception to be logged twice.
+- Fixed an issue where a ``Daemon`` shutdown could log errors for telepath
+  calls which were in flight on client link pools.
+- Fixed ``$user.allowed()``, ``$user.getAllowedReason()`` and the
+  ``auth.user.allowed`` command reporting an incorrect result when no
+  ``gateiden`` was specified.
+- Fixed a bug where a reverse array property lift on a view with multiple
+  layers returned nodes in the wrong order.
+- Enabled caching of parsed private keys in ``CertDir`` instead of re-parsing
+  the CA key PEM on every certificate signature, and stopped blocking the event
+  loop during ``AhaCell``/``ProvApi``/``EnrollApi`` CSR signing.
+- Fixed several issues with graph projections in a view where nodes have been
+  deleted. A projection could include light edges from the layers below the
+  layer which deleted the node they belong to, and could raise an
+  ``AttributeError`` when one of the existing nodes had been deleted in the
+  view.
+- Fixed an issue where node data belonging to a node which was deleted in a
+  lower layer could be returned by ``$node.data.list()`` and
+  ``$node.data.pop()``.
+- Fixed a race in ``Cell`` teardown where the slab could close before the dmon,
+  causing a still-streaming generator (eg ``AhaCell.getAhaTopo()``) to log an
+  unhandled error.
+- Fixed ndef references to runt nodes not resolving for wildcard and array
+  pivots, such as ``syn:form=inet:flow :interfaces -> *``.
+- Fixed ``CertDir`` CRL loading to treat an empty ``.crl`` envelope as a CA
+  with no revocations, and to raise ``BadCertBytes`` naming the file when a
+  ``.crl`` cannot be loaded.
+- Fixed an issue where a nodedata or light edge tombstone edit did not remove
+  the live rows in the same layer, causing ``$node.data.get()`` and
+  ``$node.data.list()`` to disagree.
+- Fixed an issue where lifting a tagprop by value could raise a ``KeyError``
+  when a different tagprop of the same tag was deleted in an upper layer.
+- Fixed an issue where a nodedata lift in a view with multiple layers could
+  return a node deleted in an upper layer.
+- An explicit pivot from a property to a form now normalizes the source value
+  as the destination type when the property does not reference that form, which
+  allows pivoting between disparate types which share values. Previously such a
+  pivot returned no nodes.
+- Fixed an issue where an edge deleted in a forked view could still be returned
+  by edge walks, ``getEdges()`` and node exports.
+- Fixed several errors logged during teardown when a caller bails out early on
+  an Axon ``readlines()`` or ``csvrows()`` generator.
+- Fixed mdstorm's mdstorm-setup Cortex boot to resolve axon/jsonstor peers via
+  an ephemeral AHA network (matching rstorm), instead of a bare cell with no
+  peers, so package onload hooks using ``$lib.axon``/``$lib.jsonstor`` complete
+  correctly.
+- Fixed ``docStormpkg``/``docStormpkgMd``/mdstorm's ``--load-pkg`` requiring a
+  package's declared doc build artifacts to exist on disk when they are
+  unrelated to the operation being performed.
+- Fixed storm command argument parsing where some values would incorrectly be
+  parsed as multiple arguments or terminate the argument list.
+- Allowed the ``crypto:hash:ssdeep`` type to accept empty hash segments, such
+  as the empty-file hash ``3::``.
+- The ``it:version`` type now supports version-aware ordering and range
+  comparisons (>=, <=, >, <, and range=) that follow PEP 440 and SemVer 2.0.0
+  precedence, including pre-release, epoch, and dev/post handling (e.g.
+  1.0.0-alpha sorts below 1.0.0). The ``it:semver`` type now retains pre-
+  release information for ordering instead of discarding it, so pre-releases
+  sort correctly (1.0.0-alpha < 1.0.0-beta < 1.0.0).
+
+### Notes
+
+- Removed the internal ``_loginfo`` Storm opt. The cron and extended HTTP API
+  identifiers it carried now ride in the ``meta`` opt, recorded as a nested key
+  rather than merged, so a caller cannot supply a field which reads as the
+  Cortex own.
+- Each value within a packed node ``props``, ``tags`` and ``tagprops`` is now a
+  two element envelope, ``[<valu>, <info>]``, where the info dict may carry a
+  ``t`` type name, an ``r`` repr and a ``v`` dict of virtual property
+  envelopes. The ``reprs`` and ``tagpropreprs`` dictionaries and the flattened
+  ``<name>.type``, ``<name>.<virt>`` and ``<name>.size`` keys are removed. An
+  array property value is a list of member envelopes. A ``.nodes`` file
+  exported by an earlier build carries the old shape and must be re-exported.
+- The ``show`` Storm opt now filters every message type, including ``init``,
+  ``fini`` and ``err`` which were previously sent regardless. An empty list now
+  sends no messages rather than disabling filtering. A ``show`` list which
+  omits ``err`` will silently discard query errors.
+- The ``task`` Storm opt is now honored or rejected rather than silently
+  dropped. Asking for an iden already in use by a running task, or asking for
+  one from a runtime which is already promoted under a different iden, now
+  raises ``BadArg`` as documented.
+- A Storm service is now identified by its cell type. It must be added under
+  the cell type name it reports, that name is unique for a Cortex, and
+  ``service.del`` takes it. The service iden is removed, along with the
+  ``svciden`` key in the Storm package definition schema and
+  ``commands[].cmdconf``, the ``syn:cmd:svciden`` property, and the
+  ``$modconf.svciden`` and ``$cmdconf.svciden`` variables. ``$lib.pkg.get()``
+  and ``$lib.pkg.list()`` report the providing service as ``svcname``.
+- A Storm service now delivers exactly one Storm package. ``_storm_svc_pkgs``
+  is replaced by ``_storm_svc_pkg``, and ``getStormSvcInfo()``,
+  ``_storm_svc_name`` and ``_storm_svc_vers`` are removed in favor of the cell
+  type and the cell ``VERSION``.
+- The HTTP API error codes now match the ``synapse.exc`` classes raised by the
+  equivalent Telepath and Storm APIs. ``DupUser`` is now ``DupUserName``,
+  ``DupRole`` is now ``DupRoleName``, ``NotAuthenticated`` is now ``AuthDeny``,
+  ``MissingField`` is now ``SchemaViolation``, and ``BadHttpParam`` is now
+  ``BadArg``. The ``NotAuthenticated``, ``BadHttpParam``, and ``MissingField``
+  exceptions have been removed from ``synapse.exc``.
+- ``$user.allowed()`` and ``$user.getAllowedReason()`` now use the permission's
+  registered default when no ``default`` is specified, matching permission
+  enforcement.
+- The ``--push`` option of ``storm.pkg.gen`` no longer accepts a PkgRepo URL.
+  Storm packages are published to the Vertex Hub over HTTP.
+- Updated the Vertex Project CA certificates shipped in ``synapse/data/certs``
+  for 3.0.0. Storm packages signed by the retired ``The Vertex Project
+  Intermediate CA 00`` no longer verify.
+- Node exports now emit the edges of each node, and the edge metadata, in a
+  deterministic order.
+- The Storm package definition schema now rejects unknown keys. A typo or stray
+  key raises a ``SchemaViolation`` at ``reqValidPkgdef`` time rather than being
+  silently ignored. The ``modconf``, ``cmdconf``, ``queryopts``, vault
+  ``schema``, and ``optic`` values continue to allow arbitrary keys.
+- Storm command argument lists are now terminated only by ``|``, ``}``, or end
+  of query.
+
+### Improved documentation
+
+- Updated the Synapse glossary to reflect the 3.x data model and Storm
+  behavior, and added a ``NID`` entry.
+- Documented the ``it:domain`` removal and the ``file:bytes`` executable
+  metadata move to ``file:mime:exe`` in the 3.0.0 changes.
+- Corrected the Storm API guide: removed the ``mirror`` opt which no longer
+  exists, documented the ``readpool`` opt, the ``nexsoffs`` key of the ``fini``
+  message and the ``time`` key of the ``edits`` message, and fixed a ``show``
+  opt example which named a message type that does not exist.
+- Built the ``synapse`` docs bundle via the new ``synapse.tools.utils.doc``
+  tool, and moved its docroot from ``docs/`` to ``docs/synapse/``. Absolute
+  cross-bundle doc links to ``synapse`` drop the redundant ``synapse/`` path
+  segment.
+- Added a single-file ``docker compose`` orchestration example to the Synapse
+  deployment guide, and documented creating a Cortex user, generating a user
+  API key, and connecting the Storm CLI over HTTPS.
+- Switched mdstorm's rendered Storm output to the ``stormdoc`` fenced code
+  block language (not ``text``), keeping ``storm`` free for future Storm syntax
+  highlighting.
+- Rewrote ``docs/Makefile`` to build the docs bundle via
+  ``synapse.tools.utils.doc`` instead of Sphinx.
+- Converted all Synapse OSS documentation (``docs/``, ``README``) from
+  reStructuredText to Markdown, replacing the Sphinx build.
+
+### Deprecations
+
+- Removed the ``synapse.tools.utils.autodoc`` documentation tool. Use
+  ``synapse.tools.utils.mdstorm``, ``synapse.tools.storm.pkg.doc``, and
+  ``synapse.tools.utils.doc``.
+- Renamed the ``node:edits`` Storm message type to ``edits``. The message
+  payload is unchanged.
+- Renamed the ``show:storage`` sub-key of the ``node:opts`` Storm opt to
+  ``storage``, matching the packed node key it populates.
+- Removed the ``verbs`` sub-key of the ``node:opts`` Storm opt. A packed node
+  now always carries the ``n1verbs`` and ``n2verbs`` light edge verb counts.
+- Removed the ``editformat`` Storm opt and the ``node:edits:count`` message
+  type it produced. Use the ``show`` opt to omit ``edits`` messages from the
+  message stream.
+- Removed the ``count`` key from the ``edits`` message. It counted the edits
+  the layer returned rather than the edits carried by the message, and its only
+  consumer was the removed ``editformat`` opt. Sum the per node edit lists to
+  count them.
+- Moved the ``nexsoffs`` and ``nexstimeout`` Storm opts under a single
+  ``nexus`` opt as ``offset`` and ``timeout``.
+- Removed the deprecated ``forms`` key from Storm package command definitions,
+  along with the ``cmdformhints`` schema definition it referenced. Use
+  ``cmdinputs`` instead.
+- Removed the unused modules ``synapse.lib.encoding``, ``synapse.lib.ingest``,
+  ``synapse.lib.interval``, ``synapse.lib.ratelimit``,
+  ``synapse.lib.slaboffs``, ``synapse.lookup.iso3166``, and
+  ``synapse.mindmeld``. Removed ten exceptions which were never raised from
+  ``synapse.exc``: ``BadCtorType``, ``DupIndx``, ``ModAlreadyLoaded``,
+  ``NoSuchAct``, ``NoSuchDecoder``, ``NoSuchEncoder``, ``NoSuchLift``,
+  ``NoSuchOpt``, ``PathExists``, and ``StepTimeout``. Removed the ignored
+  ``outp`` argument from ``Cell.initFromArgv()`` and ``Cell.execmain()``.
+- Removed ``$lib.cell.hotFixesApply()``, ``$lib.cell.hotFixesCheck()``, and the
+  Storm hotfix ladder they ran. The ``cortex:runtime:stormfixes`` global is no
+  longer set on a new Cortex.
+- Removed the Storm ``reindex`` command. It was a no-op reserved for future use
+  that only emitted a warning, and has no replacement.
+- Removed the ``aha:svcinfo`` Cell configuration option.
+- The ``/api/v3/storm`` HTTP API now always streams newline delimited JSON and
+  the ``stream`` option has been removed.
+- Removed the Storm package definition schema ``docs`` key. A Storm package no
+  longer carries inline ``docs`` in its package definition; its documentation
+  is published to the Vertex Hub documentation viewer instead.
+- Removed the Storm service ``add`` and ``del`` event hooks (
+  ``_storm_svc_evts`` ). Use the Storm package ``onload`` and ``inits``
+  sections.
+- Removed the ``rstorm`` RST documentation pre-processor
+  (``synapse.lib.rstorm`` and ``synapse.tools.utils.rstorm``) and the Sphinx
+  build dependencies. Use ``synapse.tools.utils.mdstorm``,
+  ``synapse.tools.storm.pkg.doc``, and ``synapse.tools.utils.doc``.
+- Removed the ``inaugural`` Cell configuration option.
+
 ## v3.0.0b4 - 2026-07-24
 
 ### Model Changes

@@ -3,6 +3,13 @@
 
 # Synapse Changelog
 
+## v3.0.0b6 - 2026-08-11
+
+### Improved documentation
+
+- Rebuilt the Synapse documentation bundle so it includes the ``v3.0.0b5``
+  changelog.
+
 ## v3.0.0b5 - 2026-08-11
 
 ### Model Changes

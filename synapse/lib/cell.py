@@ -823,7 +823,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     # Required storage version in order to boot the cell; this is specified as a PEP440 vesrion identifier.
     # This must be updated during beta releases!
-    _reqSynStorVers = '==3.0.0b5'
+    _reqSynStorVers = '==3.0.0b6'
 
     # Subclasses may set this to an s_mcp.CellMcp subclass to mount an MCP endpoint.
     _mcp_ctor = None

@@ -109,7 +109,7 @@ storm> syn:form | limit 3
 syn:form=auth:passwd
         :doc = A password string.
         :extmodel = false
-        :interfaces = ('auth:credential', 'crypto:hashable', 'meta:observable')
+        :interfaces = ['auth:credential', 'crypto:hashable', 'meta:observable']
         :runt = false
         :type = auth:passwd
 syn:form=syn:tag
@@ -120,7 +120,7 @@ syn:form=syn:tag
 syn:form=meta:topic
         :doc = A topic string.
         :extmodel = false
-        :interfaces = ('risk:targetable',)
+        :interfaces = ['risk:targetable']
         :runt = false
         :type = meta:topic
 ```
@@ -132,7 +132,7 @@ storm> syn:form=inet:ip
 syn:form=inet:ip
         :doc = An IPv4 or IPv6 address.
         :extmodel = false
-        :interfaces = ('meta:usable', 'meta:observable', 'geo:locatable')
+        :interfaces = ['meta:usable', 'meta:observable', 'geo:locatable']
         :runt = false
         :type = inet:ip
 ```
@@ -146,7 +146,7 @@ syn:prop=inet:ip
         :doc = An IPv4 or IPv6 address.
         :extmodel = false
         :form = inet:ip
-        :type = ('inet:ip',)
+        :type = ['inet:ip']
 syn:prop=inet:ip:asn
         :array = false
         :base = asn
@@ -155,7 +155,7 @@ syn:prop=inet:ip:asn
         :extmodel = false
         :form = inet:ip
         :relname = asn
-        :type = ('inet:asn',)
+        :type = ['inet:asn']
 syn:prop=inet:ip:type
         :array = false
         :base = type
@@ -164,7 +164,7 @@ syn:prop=inet:ip:type
         :extmodel = false
         :form = inet:ip
         :relname = type
-        :type = ('str:lower',)
+        :type = ['str:lower']
 ```
 
 > [!TIP]
@@ -182,7 +182,7 @@ syn:prop=inet:ip:place:loc
         :extmodel = false
         :form = inet:ip
         :relname = place:loc
-        :type = ('loc',)
+        :type = ['loc']
 ```
 
 Display all of the forms that are tagged `#cno.threat.sparkling_unicorn`:
@@ -192,19 +192,19 @@ storm> #cno.threat.sparkling_unicorn $form=$node.form -> { syn:form=$form } | un
 syn:form=inet:fqdn
         :doc = A Fully Qualified Domain Name (FQDN).
         :extmodel = false
-        :interfaces = ('meta:usable', 'meta:observable')
+        :interfaces = ['meta:usable', 'meta:observable']
         :runt = false
         :type = inet:fqdn
 syn:form=inet:ip
         :doc = An IPv4 or IPv6 address.
         :extmodel = false
-        :interfaces = ('meta:usable', 'meta:observable', 'geo:locatable')
+        :interfaces = ['meta:usable', 'meta:observable', 'geo:locatable']
         :runt = false
         :type = inet:ip
 syn:form=crypto:hash:sha256
         :doc = A hex encoded SHA256 hash.
         :extmodel = false
-        :interfaces = ('crypto:hash', 'meta:observable')
+        :interfaces = ['crypto:hash', 'meta:observable']
         :runt = false
         :type = crypto:hash:sha256
 ```
@@ -222,7 +222,7 @@ syn:prop=auth:passwd
         :doc = A password string.
         :extmodel = false
         :form = auth:passwd
-        :type = ('auth:passwd',)
+        :type = ['auth:passwd']
 syn:prop=auth:passwd:md5
         :array = false
         :base = md5
@@ -231,7 +231,7 @@ syn:prop=auth:passwd:md5
         :extmodel = false
         :form = auth:passwd
         :relname = md5
-        :type = ('crypto:hash:md5',)
+        :type = ['crypto:hash:md5']
 syn:prop=auth:passwd:sha1
         :array = false
         :base = sha1
@@ -240,7 +240,7 @@ syn:prop=auth:passwd:sha1
         :extmodel = false
         :form = auth:passwd
         :relname = sha1
-        :type = ('crypto:hash:sha1',)
+        :type = ['crypto:hash:sha1']
 ```
 
 Display all properties that are **computed** by Synapse:
@@ -255,7 +255,7 @@ syn:prop=auth:passwd:md5
         :extmodel = false
         :form = auth:passwd
         :relname = md5
-        :type = ('crypto:hash:md5',)
+        :type = ['crypto:hash:md5']
 syn:prop=auth:passwd:sha1
         :array = false
         :base = sha1
@@ -264,7 +264,7 @@ syn:prop=auth:passwd:sha1
         :extmodel = false
         :form = auth:passwd
         :relname = sha1
-        :type = ('crypto:hash:sha1',)
+        :type = ['crypto:hash:sha1']
 syn:prop=auth:passwd:sha256
         :array = false
         :base = sha256
@@ -273,7 +273,7 @@ syn:prop=auth:passwd:sha256
         :extmodel = false
         :form = auth:passwd
         :relname = sha256
-        :type = ('crypto:hash:sha256',)
+        :type = ['crypto:hash:sha256']
 ```
 
 > [!TIP]
@@ -291,7 +291,7 @@ syn:prop=meta:story:ids
         :extmodel = false
         :form = meta:story
         :relname = ids
-        :type = ('base:id',)
+        :type = ['base:id']
 syn:prop=meta:story:supersedes
         :array = true
         :base = supersedes
@@ -300,7 +300,7 @@ syn:prop=meta:story:supersedes
         :extmodel = false
         :form = meta:story
         :relname = supersedes
-        :type = ('meta:story',)
+        :type = ['meta:story']
 syn:prop=meta:story:topics
         :array = true
         :base = topics
@@ -309,7 +309,7 @@ syn:prop=meta:story:topics
         :extmodel = false
         :form = meta:story
         :relname = topics
-        :type = ('meta:topic',)
+        :type = ['meta:topic']
 ```
 
 Display all properties that can be of a specific type (e.g., an IP address / `inet:ip`):
@@ -324,7 +324,7 @@ syn:prop=crypto:x509:cert:identities:ips
         :extmodel = false
         :form = crypto:x509:cert
         :relname = identities:ips
-        :type = ('inet:ip',)
+        :type = ['inet:ip']
 syn:prop=inet:dns:a:ip
         :array = false
         :base = ip
@@ -333,7 +333,7 @@ syn:prop=inet:dns:a:ip
         :extmodel = false
         :form = inet:dns:a
         :relname = ip
-        :type = ('inet:ip',)
+        :type = ['inet:ip']
 syn:prop=inet:dns:aaaa:ip
         :array = false
         :base = ip
@@ -342,7 +342,7 @@ syn:prop=inet:dns:aaaa:ip
         :extmodel = false
         :form = inet:dns:aaaa
         :relname = ip
-        :type = ('inet:ip',)
+        :type = ['inet:ip']
 ```
 
 > [!TIP]
@@ -377,19 +377,19 @@ storm> syn:form:interfaces*[=inet:proto:request] | limit 3
 syn:form=inet:dns:request
         :doc = A DNS protocol request.
         :extmodel = false
-        :interfaces = ('inet:proto:request', 'base:event', 'meta:causal', 'inet:proto:link')
+        :interfaces = ['inet:proto:request', 'base:event', 'meta:causal', 'inet:proto:link']
         :runt = false
         :type = inet:dns:request
 syn:form=inet:http:request
         :doc = A single HTTP request.
         :extmodel = false
-        :interfaces = ('inet:proto:request', 'base:event', 'meta:causal', 'inet:proto:link')
+        :interfaces = ['inet:proto:request', 'base:event', 'meta:causal', 'inet:proto:link']
         :runt = false
         :type = inet:http:request
 syn:form=inet:wifi:login
         :doc = An authentication event for a Wi-Fi network.
         :extmodel = false
-        :interfaces = ('inet:proto:login', 'inet:proto:request', 'base:event', 'meta:causal', 'inet:proto:link')
+        :interfaces = ['inet:proto:login', 'inet:proto:request', 'base:event', 'meta:causal', 'inet:proto:link']
         :runt = false
         :type = inet:wifi:login
 ```
@@ -400,13 +400,13 @@ Display all **interfaces** that implement a specific interface (e.g., `base:acti
 storm> syn:interface:interfaces*[=base:activity] | limit 3
 syn:interface=meta:schedulable
         :doc = An interface implemented by activities which may be scheduled.
-        :interfaces = ('base:activity',)
+        :interfaces = ['base:activity']
 syn:interface=entity:activity
         :doc = Properties common to activity carried out by an actor.
-        :interfaces = ('base:activity', 'entity:action')
+        :interfaces = ['base:activity', 'entity:action']
 syn:interface=entity:participable
         :doc = An interface implemented by activities which an actor may participate in.
-        :interfaces = ('base:activity',)
+        :interfaces = ['base:activity']
 ```
 
 > [!TIP]
@@ -419,19 +419,19 @@ storm> syn:prop:form=file:bytes :type -> syn:type -> syn:form | limit 3
 syn:form=file:bytes
         :doc = A file.
         :extmodel = false
-        :interfaces = ('meta:usable', 'meta:observable')
+        :interfaces = ['meta:usable', 'meta:observable']
         :runt = false
         :type = file:bytes
 syn:form=crypto:hash:md5
         :doc = A hex encoded MD5 hash.
         :extmodel = false
-        :interfaces = ('crypto:hash', 'meta:observable')
+        :interfaces = ['crypto:hash', 'meta:observable']
         :runt = false
         :type = crypto:hash:md5
 syn:form=crypto:hash:sha1
         :doc = A hex encoded SHA1 hash.
         :extmodel = false
-        :interfaces = ('crypto:hash', 'meta:observable')
+        :interfaces = ['crypto:hash', 'meta:observable']
         :runt = false
         :type = crypto:hash:sha1
 ```
@@ -448,7 +448,7 @@ syn:prop=meta:story:file
         :extmodel = false
         :form = meta:story
         :relname = file
-        :type = ('file:bytes',)
+        :type = ['file:bytes']
 syn:prop=biz:rfp:file
         :array = false
         :base = file
@@ -457,7 +457,7 @@ syn:prop=biz:rfp:file
         :extmodel = false
         :form = biz:rfp
         :relname = file
-        :type = ('file:bytes',)
+        :type = ['file:bytes']
 syn:prop=crypto:currency:transaction:contract:input
         :array = false
         :base = input
@@ -466,7 +466,7 @@ syn:prop=crypto:currency:transaction:contract:input
         :extmodel = false
         :form = crypto:currency:transaction
         :relname = contract:input
-        :type = ('file:bytes',)
+        :type = ['file:bytes']
 ```
 
 #### Extended Model
@@ -511,7 +511,7 @@ syn:prop=_visi:place
         :doc = A place Visi has been.
         :extmodel = true
         :form = _visi:place
-        :type = ('_visi:place',)
+        :type = ['_visi:place']
 syn:prop=inet:fqdn:_visi:seen
         :array = false
         :base = seen
@@ -520,7 +520,7 @@ syn:prop=inet:fqdn:_visi:seen
         :extmodel = true
         :form = inet:fqdn
         :relname = _visi:seen
-        :type = ('bool',)
+        :type = ['bool']
 ```
 
 Display all extended tag properties:

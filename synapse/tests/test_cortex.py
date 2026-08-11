@@ -3549,7 +3549,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
+                'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -7366,7 +7366,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': '0.0.1',
-            'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
             'modules': [
                 {
                     'name': 'boom.mod',
@@ -7521,7 +7521,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'name': 'depsynentnotprovided',
                 'version': '0.0.1',
                 'dependencies': {
-                    'synapse-enterprise': {'version': '>=3.0.0b5,<4.0.0'},
+                    'synapse-enterprise': {'version': '>=3.0.0b6,<4.0.0'},
                 },
             }
             with self.raises(s_exc.StormPkgRequires):

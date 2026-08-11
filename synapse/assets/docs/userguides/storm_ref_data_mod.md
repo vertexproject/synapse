@@ -290,9 +290,9 @@ Use a subquery to assign one or more industries (`ind:industry`) to an organizat
 ```stormdoc
 storm> ou:org:name=apple [ :industries+={ ind:industry:name~=manufacturing ind:industry:name~=telecommunications } ]
 ou:org=a4c02b3a2e26188ef27fb571faf14ca1
-        :industries = ('2e1de12c9509d165195b3975e1171bc9', '9c3957ec70bd75335f01d80125c03b39')
+        :industries = ['2e1de12c9509d165195b3975e1171bc9', '9c3957ec70bd75335f01d80125c03b39']
         :name = apple
-        :names = ('apple, inc.',)
+        :names = ['apple, inc.']
 ```
 
 In the example above, the subquery is used to lift the specified industry nodes (`ind:industry`) and assign both nodes to the `ou:org:industries` property for Apple's organization node.

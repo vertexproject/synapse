@@ -198,7 +198,7 @@ The smallest argument. The return type is `int`.
 
 <a id="stormlibs-lib-pprint"></a>
 
-### $lib.pprint(item, prefix=, clamp=(null))
+### $lib.pprint(item, prefix='', clamp=(null))
 
 The pprint API should not be considered a stable interface.
 
@@ -937,7 +937,7 @@ For APIs that accept a proxy argument, the following values are supported::
 
 <a id="stormlibs-lib-axon-csvrows"></a>
 
-### $lib.axon.csvrows(sha256, dialect=excel, errors=ignore, **fmtparams)
+### $lib.axon.csvrows(sha256, dialect='excel', errors='ignore', **fmtparams)
 
 Yields CSV rows from a CSV file stored in the Axon.
 
@@ -1060,7 +1060,7 @@ A dictionary of additional hashes. The return type is [`dict`](stormtypes_prims.
 
 <a id="stormlibs-lib-axon-jsonlines"></a>
 
-### $lib.axon.jsonlines(sha256, errors=ignore)
+### $lib.axon.jsonlines(sha256, errors='ignore')
 
 Yields JSON objects from a JSON-lines file stored in the Axon.
 
@@ -1177,7 +1177,7 @@ The requested bytes from the file. The return type is [`bytes`](stormtypes_prims
 
 <a id="stormlibs-lib-axon-readlines"></a>
 
-### $lib.axon.readlines(sha256, errors=ignore)
+### $lib.axon.readlines(sha256, errors='ignore')
 
 Yields lines of text from a plain-text file stored in the Axon.
 
@@ -1285,7 +1285,7 @@ The ``inet:urlfile`` node on success,  ``null`` on error. The return type may be
 
 <a id="stormlibs-lib-axon-wget"></a>
 
-### $lib.axon.wget(url, headers=(null), params=(null), method=GET, json=(null), body=(null), ssl=(null), timeout=(null), proxy=(true))
+### $lib.axon.wget(url, headers=(null), params=(null), method='GET', json=(null), body=(null), ssl=(null), timeout=(null), proxy=(true))
 
 A method to download an HTTP(S) resource into the Cortex's Axon.
 
@@ -1321,7 +1321,7 @@ A status dictionary of metadata. The return type is [`dict`](stormtypes_prims.md
 
 <a id="stormlibs-lib-axon-wput"></a>
 
-### $lib.axon.wput(sha256, url, headers=(null), params=(null), method=PUT, ssl=(null), timeout=(null), proxy=(true))
+### $lib.axon.wput(sha256, url, headers=(null), params=(null), method='PUT', ssl=(null), timeout=(null), proxy=(true))
 
 A method to upload a blob from the axon to an HTTP(S) endpoint.
 
@@ -1795,7 +1795,7 @@ Library for interacting with the Extended HTTP API.
 
 <a id="stormlibs-lib-cortex-httpapi-add"></a>
 
-### $lib.cortex.httpapi.add(path, name=, desc=, runas=owner, authenticated=(true), readonly=(false), iden=(null))
+### $lib.cortex.httpapi.add(path, name='', desc='', runas='owner', authenticated=(true), readonly=(false), iden=(null))
 
 Add an Extended HTTP API endpoint to the Cortex.
 
@@ -2049,7 +2049,7 @@ A Storm library for generating and loading ECC keys.
 
 <a id="stormlibs-lib-crypto-ecc-generate"></a>
 
-### $lib.crypto.ecc.generate(curve=P-256)
+### $lib.crypto.ecc.generate(curve='P-256')
 
 Generate a new ECC private key.
 
@@ -2163,7 +2163,7 @@ A Storm library for computing RFC2104 HMAC values.
 
 <a id="stormlibs-lib-crypto-hmac-digest"></a>
 
-### $lib.crypto.hmac.digest(key, mesg, alg=sha256)
+### $lib.crypto.hmac.digest(key, mesg, alg='sha256')
 
 Compute the digest value of a message using RFC2104 HMAC.
 
@@ -2463,7 +2463,7 @@ A Storm Library for interacting with StormDmons.
 
 <a id="stormlibs-lib-dmon-add"></a>
 
-### $lib.dmon.add(text, name=noname, ddef=(null))
+### $lib.dmon.add(text, name='noname', ddef=(null))
 
 Add a Storm Dmon to the Cortex.
 
@@ -3170,7 +3170,7 @@ A Storm library to handle OAuth v1 authentication.
 
 <a id="stormlibs-lib-inet-http-oauth-v1-client"></a>
 
-### $lib.inet.http.oauth.v1.client(ckey, csecret, atoken, asecret, sigtype=QUERY)
+### $lib.inet.http.oauth.v1.client(ckey, csecret, atoken, asecret, sigtype='QUERY')
 
 Initialize an OAuthV1 Client to use for signing/authentication.
 
@@ -3729,7 +3729,7 @@ True if the del operation was successful. The return type is [`boolean`](stormty
 
 <a id="stormlibs-lib-jsonstor-cacheget"></a>
 
-### $lib.jsonstor.cacheget(path, key, asof=now, envl=(false))
+### $lib.jsonstor.cacheget(path, key, asof='now', envl=(false))
 
 Retrieve data stored with cacheset() if it was stored more recently than the asof argument.
 
@@ -3901,7 +3901,7 @@ Yields nodes with the given nodedata name. The return type is [`node`](stormtype
 
 <a id="stormlibs-lib-lift-byPropAlts"></a>
 
-### $lib.lift.byPropAlts(name, valu, cmpr==)
+### $lib.lift.byPropAlts(name, valu, cmpr='=')
 
 Lift nodes by a property value, including alternate property values.
 
@@ -3917,7 +3917,7 @@ Yields nodes. The return type is [`node`](stormtypes_prims.md#stormprims-node-f5
 
 <a id="stormlibs-lib-lift-byPropRefs"></a>
 
-### $lib.lift.byPropRefs(props, valu=(null), cmpr==)
+### $lib.lift.byPropRefs(props, valu=(null), cmpr='=')
 
 Lift nodes which are referenced by properties of other nodes.
 
@@ -3949,7 +3949,7 @@ Yields nodes. The return type is [`node`](stormtypes_prims.md#stormprims-node-f5
 
 <a id="stormlibs-lib-lift-byTypeValue"></a>
 
-### $lib.lift.byTypeValue(name, valu, cmpr==)
+### $lib.lift.byTypeValue(name, valu, cmpr='=')
 
 Lift nodes which have a property with a specific type and value.
 
@@ -4227,8 +4227,7 @@ A Storm library for manipulating HTML text.
 
 <a id="stormlibs-lib-mime-html-totext"></a>
 
-### $lib.mime.html.totext(html, separator=
-, strip=(true))
+### $lib.mime.html.totext(html, separator="\n", strip=(true))
 
 Return inner text from all tags within an HTML document.
 

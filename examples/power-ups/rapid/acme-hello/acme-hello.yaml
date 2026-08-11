@@ -3,7 +3,7 @@ version: 0.0.1
 
 dependencies:
   synapse:
-    version: '>=3.0.0b5,<4.0.0'
+    version: '>=3.0.0b6,<4.0.0'
 
 genopts:
     dotstorm: true # Specify that storm command/module files end with ".storm"

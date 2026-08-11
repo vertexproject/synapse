@@ -674,7 +674,7 @@ The bzip2 compressed bytes. The return type is [`bytes`](#stormprims-bytes-f527)
 
 <a id="stormprims-bytes-decode"></a>
 
-### decode(encoding=utf8, strict=(false))
+### decode(encoding='utf8', strict=(false))
 
 Decode bytes to a string.
 
@@ -1009,7 +1009,7 @@ A Storm object representing an ECC public or private key.
 
 <a id="stormprims-crypto-ecc-key-encode"></a>
 
-### encode(fmt=pem)
+### encode(fmt='pem')
 
 Encode the key as PEM or DER.
 
@@ -1044,7 +1044,7 @@ A new ``crypto:ecc:key`` containing only the public key. The return type is [`cr
 
 <a id="stormprims-crypto-ecc-key-sign"></a>
 
-### sign(byts, hashalgo=sha256)
+### sign(byts, hashalgo='sha256')
 
 Compute the ECDSA signature for the given bytes.
 
@@ -1062,7 +1062,7 @@ The DER encoded ECDSA signature bytes. The return type is [`bytes`](#stormprims-
 
 <a id="stormprims-crypto-ecc-key-verify"></a>
 
-### verify(byts, signature, hashalgo=sha256)
+### verify(byts, signature, hashalgo='sha256')
 
 Verify the ECDSA signature for the given bytes.
 
@@ -1113,7 +1113,7 @@ The JWT claims payload. The return type is [`crypto:jwt:dict`](#stormprims-crypt
 
 <a id="stormprims-crypto-jwt-sign"></a>
 
-### sign(key, alg, fmt=compact)
+### sign(key, alg, fmt='compact')
 
 Sign the current payload and return a JWT string.
 
@@ -1156,7 +1156,7 @@ A Storm object representing an RSA public or private key.
 
 <a id="stormprims-crypto-rsa-key-encode"></a>
 
-### encode(fmt=pem)
+### encode(fmt='pem')
 
 Encode the key as PEM or DER.
 
@@ -1191,7 +1191,7 @@ A new ``crypto:rsa:key`` containing only the public key. The return type is [`cr
 
 <a id="stormprims-crypto-rsa-key-sign"></a>
 
-### sign(byts, padding=pss, hashalgo=sha256)
+### sign(byts, padding='pss', hashalgo='sha256')
 
 Compute the RSA signature for the given bytes.
 
@@ -1210,7 +1210,7 @@ The RSA signature bytes. The return type is [`bytes`](#stormprims-bytes-f527).
 
 <a id="stormprims-crypto-rsa-key-verify"></a>
 
-### verify(byts, signature, padding=pss, hashalgo=sha256)
+### verify(byts, signature, padding='pss', hashalgo='sha256')
 
 Verify the RSA signature for the given bytes.
 
@@ -1869,7 +1869,7 @@ A client for doing OAuth V1 Authentication from Storm.
 
 <a id="stormprims-inet-http-oauth-v1-client-sign"></a>
 
-### sign(baseurl, method=GET, headers=(null), params=(null), body=(null))
+### sign(baseurl, method='GET', headers=(null), params=(null), body=(null))
 
 Sign an OAuth request to a particular URL.
 
@@ -2096,7 +2096,7 @@ The file:bytes node representing the message. The return type is [`node`](#storm
 
 <a id="stormprims-inet-imap-server-list"></a>
 
-### list(reference_name="", pattern=*)
+### list(reference_name='""', pattern='*')
 
 List mailbox names.
 
@@ -2156,7 +2156,7 @@ An ($ok, $valu) tuple. The return type is [`list`](#stormprims-list-f527).
 
 <a id="stormprims-inet-imap-server-search"></a>
 
-### search(*args, charset=utf-8)
+### search(*args, charset='utf-8')
 
 Search for messages using RFC2060 syntax.
 
@@ -2185,7 +2185,7 @@ An ($ok, $valu) tuple, where $valu is a list of UIDs if $ok=True. The return typ
 
 <a id="stormprims-inet-imap-server-select"></a>
 
-### select(mailbox=INBOX)
+### select(mailbox='INBOX')
 
 Select a mailbox to use in subsequent commands.
 
@@ -2699,7 +2699,7 @@ Tuple of nid, sode values. The return type is [`list`](#stormprims-list-f527).
 
 <a id="stormprims-layer-getStorNodesByProp"></a>
 
-### getStorNodesByProp(propname, propvalu=(null), propcmpr==)
+### getStorNodesByProp(propname, propvalu=(null), propcmpr='=')
 
 Get nid, sode tuples representing the data stored in the layer for a given property.
 
@@ -2814,7 +2814,7 @@ Yields nodes. The return type is [`node`](#stormprims-node-f527).
 
 <a id="stormprims-layer-liftByProp"></a>
 
-### liftByProp(propname, propvalu=(null), propcmpr==)
+### liftByProp(propname, propvalu=(null), propcmpr='=')
 
 Lift and yield nodes with the property and optional value set within the layer.
 
@@ -3583,7 +3583,7 @@ A Storm Primitive representing the NodeData stored for a Node.
 
 <a id="stormprims-node-data-cacheget"></a>
 
-### cacheget(name, asof=now)
+### cacheget(name, asof='now')
 
 Retrieve data stored with cacheset() if it was stored more recently than the asof argument.
 
@@ -4660,7 +4660,7 @@ Implements the Storm API for a String object.
 
 <a id="stormprims-str-encode"></a>
 
-### encode(encoding=utf8)
+### encode(encoding='utf8')
 
 Encoding a string value to bytes.
 
@@ -4768,7 +4768,7 @@ The JSON deserialized object. The return type is `prim`.
 
 <a id="stormprims-str-ljust"></a>
 
-### ljust(size, fillchar= )
+### ljust(size, fillchar=' ')
 
 Left justify the string.
 
@@ -4854,7 +4854,7 @@ The reversed string. The return type is [`str`](#stormprims-str-f527).
 
 <a id="stormprims-str-rjust"></a>
 
-### rjust(size, fillchar= )
+### rjust(size, fillchar=' ')
 
 Right justify the string.
 
@@ -5646,7 +5646,7 @@ The count of nodes. The return type is `int`.
 
 <a id="stormprims-view-getPropCount"></a>
 
-### getPropCount(propname, valu=$lib.undef, cmpr==, type=$lib.undef)
+### getPropCount(propname, valu=$lib.undef, cmpr='=', type=$lib.undef)
 
 Get the number of nodes in the View with a specific property and optional value.
 
@@ -5671,7 +5671,7 @@ The count of nodes. The return type is `int`.
 
 <a id="stormprims-view-getPropValues"></a>
 
-### getPropValues(propname, valu=$lib.undef, cmpr==, limit=$lib.undef, type=$lib.undef)
+### getPropValues(propname, valu=$lib.undef, cmpr='=', limit=$lib.undef, type=$lib.undef)
 
 Yield unique property values in the view for the given form or property name.
 
