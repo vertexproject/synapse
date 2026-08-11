@@ -821,8 +821,9 @@ class Axon(s_cell.Cell):
     async def initServiceStorage(self):  # type: ignore
 
         path = s_common.gendir(self.dirn, 'axon_v2.lmdb')
-        self.axonslab = await s_lmdbslab.Slab.anit(path)
-        self.onfini(self.axonslab.fini)
+
+        # holds what the axon:file:add / axon:file:del handlers write
+        self.axonslab = await self._initSlabFile(path)
         await self._migrateAxonHistory()
         self.sizes = self.axonslab.initdb('sizes')
 
@@ -836,7 +837,8 @@ class Axon(s_cell.Cell):
         if self.inaugural:
             self.axonmetrics.set('size:bytes', 0)
             self.axonmetrics.set('file:count', 0)
-            self.cellvers.set('axon:metrics', 1)
+
+        await self.initCellVers('axon:metrics')
 
         self.maxbytes = self.conf.get('max:bytes')
         self.maxcount = self.conf.get('max:count')
@@ -940,11 +942,10 @@ class Axon(s_cell.Cell):
 
         path = s_common.gendir(self.dirn, 'blob.lmdb')
 
-        self.blobslab = await s_lmdbslab.Slab.anit(path)
+        self.blobslab = await self._initSlabFile(path)
         self.blobs = self.blobslab.initdb('blobs')
         self.offsets = self.blobslab.initdb('offsets')
         self.metadata = self.blobslab.initdb('metadata')
-        self.onfini(self.blobslab.fini)
 
         if self.inaugural:
             self._setStorVers(1)
@@ -1297,6 +1298,7 @@ class Axon(s_cell.Cell):
         self.axonmetrics.inc('size:bytes', valu=size)
 
         await self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
+
         return True
 
     async def _saveFileGenr(self, sha256, genr, size):
@@ -1409,6 +1411,7 @@ class Axon(s_cell.Cell):
             self.axonmetrics.inc('size:bytes', valu=-size)
 
             await self._delBlobByts(sha256)
+
             return True
 
     async def _delBlobByts(self, sha256):
@@ -1455,6 +1458,14 @@ class Axon(s_cell.Cell):
             async for byts in self.get(sha256):
                 await link.send(byts)
                 await asyncio.sleep(0)
+
+        except asyncio.CancelledError:
+            # the reader bailed out early ( or we are shutting down ) so leave a
+            # trace of the partial read without logging it as an error.
+            fhash = s_common.ehex(sha256)
+            logger.debug(f'Stopped feeding blob [{fhash}].', extra=self.getLogExtra(sha256=fhash))
+            raise
+
         finally:
             link.txfini()
 
@@ -1489,7 +1500,10 @@ class Axon(s_cell.Cell):
         finally:
             sock00.close()
             await link00.fini()
-            if feedtask is not None:
+
+            # exiting the scope above cancels the feed task, so only await it
+            # when it ran to completion in order to re-raise any feed error.
+            if feedtask is not None and not feedtask.cancelled():
                 await feedtask
 
     async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
@@ -1523,7 +1537,10 @@ class Axon(s_cell.Cell):
         finally:
             sock00.close()
             await link00.fini()
-            if feedtask is not None:
+
+            # exiting the scope above cancels the feed task, so only await it
+            # when it ran to completion in order to re-raise any feed error.
+            if feedtask is not None and not feedtask.cancelled():
                 await feedtask
 
     async def jsonlines(self, sha256, errors='ignore'):
@@ -1935,6 +1952,14 @@ class HasAxon:
 
         return self._has_axoninfo
 
+def _spawn_senderr(sock, exc): # pragma: no cover
+    # send an error message to the parent process. if the reader bailed out
+    # early we may be unable to, which is not an error worth raising.
+    try:
+        sock.sendall(s_msgpack.en(s_common.retnexc(exc)))
+    except (BrokenPipeError, ConnectionResetError):
+        pass
+
 def _spawn_readlines(sock, errors='ignore'): # pragma: no cover
     try:
         with sock.makefile('r', errors=errors) as fd:
@@ -1949,9 +1974,12 @@ def _spawn_readlines(sock, errors='ignore'): # pragma: no cover
             except UnicodeDecodeError as e:
                 raise s_exc.BadDataValu(mesg=str(e))
 
+    except (BrokenPipeError, ConnectionResetError):
+        # the reader bailed out early, so there is nobody left to tell.
+        return
+
     except Exception as e:
-        mesg = s_common.retnexc(e)
-        sock.sendall(s_msgpack.en(mesg))
+        _spawn_senderr(sock, e)
 
 def _spawn_readrows(sock, dialect, fmtparams, errors='ignore'): # pragma: no cover
     try:
@@ -1976,6 +2004,9 @@ def _spawn_readrows(sock, dialect, fmtparams, errors='ignore'): # pragma: no cov
                 mesg = f'CSV error: {str(e)}'
                 raise s_exc.BadDataValu(mesg=mesg)
 
+    except (BrokenPipeError, ConnectionResetError):
+        # the reader bailed out early, so there is nobody left to tell.
+        return
+
     except Exception as e:
-        mesg = s_common.retnexc(e)
-        sock.sendall(s_msgpack.en(mesg))
+        _spawn_senderr(sock, e)

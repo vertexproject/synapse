@@ -420,7 +420,11 @@ class ProtoNode(s_node.NodeBase):
         if tomb:
             return None
 
-        valu = await self.editor.view.getNodeDataFromLayers(self.nid, name, strt=1, defv=s_common.novalu)
+        # the data belongs to the node, so it stops at the layer which deleted it.
+        lastlayr = self.node.lastlayr() if self.node is not None else None
+
+        valu = await self.editor.view.getNodeDataFromLayers(self.nid, name, strt=1, stop=lastlayr,
+                                                            defv=s_common.novalu)
         if valu is not s_common.novalu:
             self.nodedatatombs.add(name)
             return valu

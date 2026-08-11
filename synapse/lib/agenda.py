@@ -322,7 +322,6 @@ class _Appt:
 
     def pack(self):
         return {
-            'ver': 2,
             'doc': self.doc,
             'name': self.name,
             'affinity': self.affinity,
@@ -349,8 +348,6 @@ class _Appt:
 
     @classmethod
     def unpack(cls, stor, val):
-        if val['ver'] != 2:
-            raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
         # TODO: MOAR INSANITY
         loglevel = val.get('loglevel', 'WARNING')
@@ -471,7 +468,7 @@ class Agenda(s_base.Base):
                     raise s_exc.InconsistentStorage(mesg='iden inconsistency')
                 self._addappt(iden, appt)
                 self._next_indx = max(self._next_indx, appt.indx + 1)
-            except (s_exc.InconsistentStorage, s_exc.BadStorageVersion, s_exc.BadTime, TypeError, KeyError,
+            except (s_exc.InconsistentStorage, s_exc.BadTime, TypeError, KeyError,
                     UnicodeDecodeError) as e:
                 logger.warning('Invalid appointment %r found in storage: %r. This appointment will be removed.', iden, e)
 
@@ -489,7 +486,7 @@ class Agenda(s_base.Base):
                 if appt.iden != iden:
                     raise s_exc.InconsistentStorage(mesg='iden inconsistency')
 
-            except (s_exc.InconsistentStorage, s_exc.BadStorageVersion, s_exc.BadTime, TypeError, KeyError,
+            except (s_exc.InconsistentStorage, s_exc.BadTime, TypeError, KeyError,
                     UnicodeDecodeError) as e:
                 logger.warning('Removing invalid appointment %r.', iden)
                 to_delete.append(iden)
@@ -987,7 +984,7 @@ class Agenda(s_base.Base):
                 'user': user.iden,
                 'view': appt.view,
                 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}},
-                '_loginfo': {
+                'meta': {
                     'cron': appt.iden
                 }
             }
@@ -1013,8 +1010,10 @@ class Agenda(s_base.Base):
                         excname, errinfo = mesg[1]
                         errinfo.pop('eline', None)
                         errinfo.pop('efile', None)
-                        excctor = getattr(s_exc, excname, s_exc.SynErr)
-                        raise excctor(**errinfo)
+
+                        # with affinity set, the err message is wire data from a
+                        # remote cortex rather than a locally raised exception
+                        raise s_exc.getSynErrCtor(excname)(**errinfo)
 
         except asyncio.CancelledError:
             result = 'cancelled'

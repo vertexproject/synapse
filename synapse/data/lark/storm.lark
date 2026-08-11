@@ -30,8 +30,16 @@ CPPCOMMENT.2: /\/\/[^\n]*/
 query: "|"? _querystart?
 lookup: looklist [ "|" query ]
 
-_querystart: _querystart "|"? (stormcmd | _oper | _editblock)
-    | stormcmd | _oper | _editblock
+// Pipes are optional between operations and before a storm command, but are
+// required after a storm command so that only | } <EOF> may terminate its
+// argument list.
+_querystart: _qoper | _qcmd
+_qoper: _oper | _editblock
+    | _qoper "|"? (_oper | _editblock)
+    | _qcmd "|" (_oper | _editblock)
+_qcmd: stormcmd
+    | _qoper "|"? stormcmd
+    | _qcmd "|" stormcmd
 
 // Edit block: zero or more edit operations inside a single set of square brackets
 _editblock: "[" _editoper* "]"
@@ -286,22 +294,69 @@ funcargs: "(" (_funcarg ("," _funcarg)* )? ")"
 stormfunc: "function" VARTOKN funcargs "{" query "}"
 
 stormcmd: CMDNAME stormcmdargs?
-stormcmdargs: _stormcmdarg
-_stormcmdarg: _stormcmdarg? ((CMDOPT (EQNOSPACE (argvquery | _argvalu | wordtokn))?) | argvquery | _argvalu | wordtokn)
+stormcmdargs: _stormcmdarg+
+_stormcmdarg: CMDOPT (EQNOSPACE (argvquery | _cmdvalu | CMDARGV))?
+            | argvquery
+            | _cmdvalu
+            | CMDARGV
+
+// Command-argument copies of the structured value spine. Every rule which can
+// shift the FINAL token of a command argument must be command-arg-specific so
+// the LALR state after that token is not core-merged with non-command
+// contexts (the same trick as the expr* rule copies). Rule aliases keep the
+// AST identical, so the AST converters are unchanged.
+_cmdvalu: _argvarvalu | argrelpropvalue | argvirtpropvalue | argtagvalu | argtagvirtvalu | argtagpropvalu
+    | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | argformatstring | _argdollarexprs
+    | argvalulist | argembedquery
+
+_argvarvalu: "$" _argvarvaluatom
+_argvarvaluatom: argvarvalue | argvarderef | argfunccall
+argvarvalue: VARTOKN -> varvalue
+!argvarderef: _argvarvaluatom _DOTNOSPACE (VARTOKN | "$" VARTOKN | argformatstring | _argderefexpr) -> varderef
+argfunccall: _argvarvaluatom _argcallargs -> funccall
+_argcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
+
+argrelpropvalue: argrelprop argvirtprop? -> relpropvalue
+argrelprop: RELNAME -> relprop
+    | _COLONDOLLAR _argvarvaluatom -> relprop
+    | _COLONPAREN _argvarvalu ")" -> relprop
+argvirtprop: _DOTNOSPACE (VIRTNAME | _argvarvalu) -> virtprop
+argbarevirtprop: _DOTSPACE VIRTNAME -> virtprop
+argvirtpropvalue: (argvirtprop | argbarevirtprop) -> virtpropvalue
+
+argtagvalu: argtagname -> tagvalu
+argtagname: (_HASH | _HASHSPACE) (_argvarvalu | _argtagsegs) -> tagname
+argtagnamevirt: (_HASH | _HASHSPACE) "(" (_argvarvalu | _argtagsegs) ")" -> tagname
+_argtagsegs: (TAGSEGNOVAR | argformatstring) (_DOTNOSPACE (TAGSEGNOVAR | "$" argvarvalue | argformatstring))*
+argtagvirtvalu: argtagnamevirt argvirtprop -> tagvirtvalu
+argtagprop: argtagname _COLONNOSPACE (BASEPROP | _argvarvalu) -> tagprop
+argtagpropvalu: argtagprop argvirtprop? -> tagpropvalu
+
+argformatstring: _BACKTICK (_formatexpr | FORMATTEXT)* _BACKTICK -> formatstring
+
+_argdollarexprs: "$"? argdollaroper
+?!argdollaroper: argdollarexpr
+    | argdollaroper _argcallargs -> funccall
+    | argdollaroper _DOTNOSPACE (VARTOKN | "$" VARTOKN | argformatstring | _argderefexpr) -> varderef
+argdollarexpr: "(" expror ")" -> dollarexpr
+_argderefexpr: "$"? argdollarexpr
+
+argvalulist: "(" [listvalu ((",")|("," listvalu)+ ","?)] ")" -> valulist
+argembedquery: _EMBEDQUERYSTART query "}" -> embedquery
+
+// An opaque storm command argument word. Priority -1 (like CMDTOKN) so it can
+// never shadow another terminal anywhere. The duplicated spine above keeps
+// every command-arg lexer state free of foreign terminals, so CMDARGV matches
+// any word they do not. The leading char excludes the structured-arg starters
+// so they still win at the start of an argument. Like NONQUOTEWORD, the word
+// then runs until whitespace, |, }, or the end of the query.
+CMDARGV.-1: /(?![|{}$="'`#(:.\s])[^\s|}]+/
 
 // The name of a storm command
 CMDNAME.2: /(?!(init|empty|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as|reverse)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
 
 CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_><-])/
 
-// An unquoted string within a storm command argument list
-!wordtokn: wordtokn (COMMANOSPACE | EQNOSPACE | RSQBNOSPACE) (NONQUOTEWORD | PROPS | CMDNAME | (EXPRPLUS | EXPRMINUS | CMPR | "[" | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | COMMASPACE)?)
-    | (EXPRPLUS | EXPRMINUS | CMPR | "[" | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | COMMASPACE)?
-    | NONQUOTEWORD COMMASPACE? | CMDNAME | PROPS
-
-COMMASPACE: ", "
-COMMANOSPACE: /(?<!\s),(?!\s)/
-RSQBNOSPACE: /(?<!\s)\](?!\s)/
 EQNOSPACE: /(?<!\s)=(?!\s)/
 
 // an argv parser for commands which may contain embedded queries

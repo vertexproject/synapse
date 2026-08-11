@@ -76,6 +76,7 @@ class _allowedReason:
     default: bool = False
     isadmin: bool = False
     islocked: bool = False
+    deepdeny: bool = False
     gateiden: Union[str | None] = None
     roleiden: Union[str | None] = None
     rolename: Union[str | None] = None
@@ -85,16 +86,20 @@ class _allowedReason:
     def mesg(self):
         if self.islocked:
             return 'The user is locked.'
+
         if self.default:
-            return 'No matching rule found.'
+            return f'No matching rule found. (default: {str(self.value).lower()})'
 
         if self.isadmin:
             if self.gateiden:
                 return f'The user is an admin of auth gate {self.gateiden}.'
+
             return 'The user is a global admin.'
 
         if self.rule:
+
             rt = textFromRule((self.value, self.rule))
+
             if self.gateiden:
                 if self.roleiden:
                     m = f'Matched role rule ({rt}) for role {self.rolename} on gate {self.gateiden}.'
@@ -105,6 +110,7 @@ class _allowedReason:
                     m = f'Matched role rule ({rt}) for role {self.rolename}.'
                 else:
                     m = f'Matched user rule ({rt}).'
+
             return m
 
         return 'No matching rule found.'
@@ -1181,8 +1187,7 @@ class User(Ruler):
         self.vars = auth.stor.getSubKeyVal(f'user:{self.iden}:vars:')
         self.profile = auth.stor.getSubKeyVal(f'user:{self.iden}:profile:')
 
-        self.permcache = s_cache.FixedCache(self._allowed)
-        self.allowedcache = s_cache.FixedCache(self._getAllowedReason)
+        self.permcache = s_cache.FixedCache(self._getAllowedReason)
 
     def pack(self, packroles=False):
 
@@ -1260,79 +1265,29 @@ class User(Ruler):
             The allowed value of the permission.
         '''
         perm = tuple(perm)
-        return self.permcache.get((perm, default, gateiden, deepdeny))
+        return self.permcache.get((perm, default, gateiden, deepdeny)).value
 
-    def _allowed(self, pkey):
+    def getAllowedReason(self, perm, default=None, gateiden=None, deepdeny=False):
         '''
-        NOTE: This must remain in sync with any changes to _getAllowedReason()!
-        '''
-        perm, default, gateiden, deepdeny = pkey
-
-        if self.info.get('locked'):
-            return False
-
-        if self.info.get('admin'):
-            return True
-
-        if deepdeny and self._hasDeepDeny(perm, gateiden):
-            return False
-
-        # 1. check authgate user rules
-        if gateiden is not None:
-
-            info = self.authgates.get(gateiden)
-            if info is not None:
-
-                if info.get('admin'):
-                    return True
-
-                for allow, path in info.get('rules', ()):
-                    if perm[:len(path)] == path:
-                        return allow
-
-        # 2. check user rules
-        for allow, path in self.info.get('rules', ()):
-            if perm[:len(path)] == path:
-                return allow
-
-        # 3. check authgate role rules
-        if gateiden is not None:
-
-            for role in self.getRoles():
-
-                info = role.authgates.get(gateiden)
-                if info is None:
-                    continue
-
-                for allow, path in info.get('rules', ()):
-                    if perm[:len(path)] == path:
-                        return allow
-
-        # 4. check role rules
-        for role in self.getRoles():
-            for allow, path in role.info.get('rules', ()):
-                if perm[:len(path)] == path:
-                    return allow
-
-        return default
-
-    def getAllowedReason(self, perm, default=None, gateiden=None):
-        '''
-        A routine which will return a tuple of (allowed, info).
+        A routine which will return the _allowedReason which decided the given perm.
         '''
         perm = tuple(perm)
-        return self.allowedcache.get((perm, default, gateiden))
+        return self.permcache.get((perm, default, gateiden, deepdeny))
 
     def _getAllowedReason(self, pkey):
-        '''
-        NOTE: This must remain in sync with any changes to _allowed()!
-        '''
-        perm, default, gateiden = pkey
+
+        perm, default, gateiden, deepdeny = pkey
+
         if self.info.get('locked'):
             return _allowedReason(False, islocked=True)
 
         if self.info.get('admin'):
             return _allowedReason(True, isadmin=True)
+
+        if deepdeny:
+            reason = self._getDeepDenyReason(perm, gateiden)
+            if reason is not None:
+                return reason
 
         # 1. check authgate user rules
         if gateiden is not None:
@@ -1374,8 +1329,10 @@ class User(Ruler):
 
         return _allowedReason(default, default=True)
 
-    def _hasDeepDeny(self, perm, gateiden):
-
+    def _getDeepDenyReason(self, perm, gateiden):
+        '''
+        Return the _allowedReason for a deny rule which is more specific than perm, or None.
+        '''
         permlen = len(perm)
 
         # 1. check authgate user rules
@@ -1385,13 +1342,14 @@ class User(Ruler):
             if info is not None:
 
                 if info.get('admin'):
-                    return False
+                    return None
 
                 for allow, path in info.get('rules', ()):
                     if allow:
                         continue
+
                     if path[:permlen] == perm and len(path) > permlen:
-                        return True
+                        return _allowedReason(False, deepdeny=True, gateiden=gateiden, rule=path)
 
         # 2. check user rules
         for allow, path in self.info.get('rules', ()):
@@ -1399,7 +1357,7 @@ class User(Ruler):
                 continue
 
             if path[:permlen] == perm and len(path) > permlen:
-                return True
+                return _allowedReason(False, deepdeny=True, rule=path)
 
         # 3. check authgate role rules
         if gateiden is not None:
@@ -1413,22 +1371,24 @@ class User(Ruler):
                 for allow, path in info.get('rules', ()):
                     if allow:
                         continue
+
                     if path[:permlen] == perm and len(path) > permlen:
-                        return True
+                        return _allowedReason(False, deepdeny=True, gateiden=gateiden, roleiden=role.iden,
+                                              rolename=role.name, rule=path)
 
         # 4. check role rules
         for role in self.getRoles():
             for allow, path in role.info.get('rules', ()):
                 if allow:
                     continue
-                if path[:permlen] == perm and len(path) > permlen:
-                    return True
 
-        return False
+                if path[:permlen] == perm and len(path) > permlen:
+                    return _allowedReason(False, deepdeny=True, roleiden=role.iden, rolename=role.name, rule=path)
+
+        return None
 
     def clearAuthCache(self):
         self.permcache.clear()
-        self.allowedcache.clear()
 
     def genGateInfo(self, gateiden):
         info = self.authgates.get(gateiden)

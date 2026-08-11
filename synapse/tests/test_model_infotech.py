@@ -5,6 +5,7 @@ import synapse.common as s_common
 import synapse.lib.json as s_json
 import synapse.lib.const as s_const
 import synapse.lib.scrape as s_scrape
+import synapse.lib.version as s_version
 
 
 import synapse.tests.files as s_t_files
@@ -128,7 +129,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:exec:proc:path.base=rundll32.exe'))
             self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :sandbox:file -> file:bytes'))
 
-            # FIXME host:activity interface?
             nodes = await core.nodes('''[
                 it:av:scan:result=*
                     :time=20231117
@@ -448,7 +448,6 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 init {
-                    $org = $lib.guid()
                     $host = $lib.guid()
                     $acct = $lib.guid()
                 }
@@ -458,8 +457,6 @@ class InfotechModelTest(s_t_utils.SynTest):
                         :username=visi
                         :profile={[ entity:contact=* :email=visi@vertex.link ]}
                         :period=(2024, *)
-                        // FIXME
-                        //:domain={[ it:domain=* :org=$org :name=vertex :desc="the vertex project domain" ]}
 
                     (it:host:session=*
                         :period=(20210314,202103140201)
@@ -471,8 +468,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'username', 'visi')
             self.nn(nodes[0].get('host'))
             self.propeq(nodes[0], 'period', (1704067200000000, 9223372036854775806, 18446744073709551614))
-            # FIXME :domain
-            # self.nn(nodes[0].get('domain'))
             self.nn(nodes[0].get('profile'))
 
             self.nn(nodes[1].get('server:host'))
@@ -550,13 +545,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'server', 'tcp://5.6.7.8:443')
             self.nn(nodes[0].get('server:host'))
 
-            # FIXME :domain
-            # nodes = await core.nodes('it:host:account -> it:domain')
-            # self.len(1, nodes)
-            # self.nn(nodes[0].get('org'))
-            # self.propeq(nodes[0], 'name', 'vertex')
-            # self.propeq(nodes[0], 'desc', 'the vertex project domain')
-
             nodes = await core.nodes('''[
                 it:log:event=*
                     :mesg=foobar
@@ -583,6 +571,25 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('keyboard:language'))
             self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))
             self.len(1, await core.nodes('lang:language:code=en-US -> it:host'))
+
+            nodes = await core.nodes('''
+                it:host | limit 1 |
+                [ :domain={[ inet:service:platform=*
+                    :name=vertex
+                    :type=microsoft.activedirectory
+                    :desc="the vertex project domain"
+                    :provider={[ ou:org=* ]} ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('domain'))
+
+            nodes = await core.nodes('it:host :domain -> inet:service:platform')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('provider'))
+            self.propeq(nodes[0], 'name', 'vertex')
+            self.propeq(nodes[0], 'desc', 'the vertex project domain')
+            self.propeq(nodes[0], 'type', 'microsoft.activedirectory.')
 
     async def test_it_host_account_subforms(self):
 
@@ -929,25 +936,27 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes := await core.nodes('[ it:software=({"name": "clowns inc"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
 
-            # Test 'vers' semver brute forcing
+            # Test 'vers' semver brute forcing. version.semver is now a single
+            # sortable int (packVersionCore); these are all brute-forced
+            # (non-semver) strings, so they carry no pre-release rank.
             testvectors = [
-                ('1', 0x000010000000000),
-                ('2.0A1', 0x000020000000000),
-                ('2016-03-01', 0x007e00000300001),
-                ('1.2.windows-RC1', 0x000010000200000),
-                ('3.4', 0x000030000400000),
-                ('1.3a2.dev12', 0x000010000000000),
-                ('v2.4.0.0-1', 0x000020000400000),
-                ('v2.4.1.0-0.3.rc1', 0x000020000400001),
-                ('0.18rc2', 0),
-                ('OpenSSL_1_0_2l', 0x000010000000000),
+                ('1', (1, 0, 0)),
+                ('2.0A1', (2, 0, 0)),
+                ('2016-03-01', (2016, 3, 1)),
+                ('1.2.windows-RC1', (1, 2, 0)),
+                ('3.4', (3, 4, 0)),
+                ('1.3a2.dev12', (1, 0, 0)),
+                ('v2.4.0.0-1', (2, 4, 0)),
+                ('v2.4.1.0-0.3.rc1', (2, 4, 1)),
+                ('0.18rc2', (0, 0, 0)),
+                ('OpenSSL_1_0_2l', (1, 0, 0)),
             ]
 
-            for tv, te in testvectors:
+            for tv, (major, minor, patch) in testvectors:
                 nodes = await core.nodes('[it:software=* :version=$valu]', opts={'vars': {'valu': tv}})
                 self.len(1, nodes)
                 node = nodes[0]
-                self.propeq(node, 'version.semver', te)
+                self.propeq(node, 'version.semver', s_version.packVersionCore(major, minor, patch))
 
             nodes = await core.nodes('[it:software=* :version=$valu]', opts={'vars': {'valu': ''}})
             self.len(1, nodes)
@@ -964,97 +973,233 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_it_semvertype(self):
         async with self.getTestCore() as core:
             t = core.model.type('it:semver')
+
+            RANK_DEV = s_version.RANK_DEV
+            RANK_PRE_NUMERIC = s_version.RANK_PRE_NUMERIC
+            RANK_ALPHA = s_version.RANK_ALPHA
+            RANK_BETA = s_version.RANK_BETA
+            RANK_RC = s_version.RANK_RC
+            RANK_PRE_OTHER = s_version.RANK_PRE_OTHER
+            RANK_RELEASE = s_version.RANK_RELEASE
+
+            # it:semver normalizes to a single sortable int:
+            # packVersionCore(major, minor, patch, rank). A purely-numeric
+            # pre-release identifier buckets at RANK_PRE_NUMERIC (below alpha);
+            # any other unrecognized tier buckets at RANK_PRE_OTHER (above rc,
+            # below release); a missing pre-release is RANK_RELEASE.
             testvectors = (
-                # Strings
-                ('1.2.3', (0x000010000200003,
-                           {'major': 1, 'minor': 2, 'patch': 3, })),
-                ('0.0.1', (0x000000000000001,
-                           {'major': 0, 'minor': 0, 'patch': 1, })),
-                ('1.2.3-alpha', (0x000010000200003,
-                                 {'major': 1, 'minor': 2, 'patch': 3,
-                                  'pre': 'alpha', })),
-                ('1.2.3-alpha.1', (0x000010000200003,
-                                   {'major': 1, 'minor': 2, 'patch': 3,
-                                    'pre': 'alpha.1', })),
-                ('1.2.3-0.3.7', (0x000010000200003,
-                                 {'major': 1, 'minor': 2, 'patch': 3,
-                                  'pre': '0.3.7', })),
-                ('1.2.3-x.7.z.92', (0x000010000200003,
-                                    {'major': 1, 'minor': 2, 'patch': 3,
-                                     'pre': 'x.7.z.92', })),
-                ('1.2.3-alpha+001', (0x000010000200003,
-                                     {'major': 1, 'minor': 2, 'patch': 3,
-                                      'pre': 'alpha', 'build': '001'})),
-                ('1.2.3+20130313144700', (0x000010000200003,
-                                          {'major': 1, 'minor': 2, 'patch': 3,
-                                           'build': '20130313144700'})),
-                ('1.2.3-beta+exp.sha.5114f85', (0x000010000200003,
-                                                {'major': 1, 'minor': 2, 'patch': 3,
-                                                 'pre': 'beta',
-                                                 'build': 'exp.sha.5114f85'})),
+                # (input, major, minor, patch, rank)
+                ('1.2.3', 1, 2, 3, RANK_RELEASE),
+                ('0.0.1', 0, 0, 1, RANK_RELEASE),
+                ('1.2.3-alpha', 1, 2, 3, RANK_ALPHA),
+                ('1.2.3-alpha.1', 1, 2, 3, RANK_ALPHA),
+                ('1.2.3-0.3.7', 1, 2, 3, RANK_PRE_NUMERIC),
+                ('1.2.3-x.7.z.92', 1, 2, 3, RANK_PRE_OTHER),
+                ('1.2.3-alpha+001', 1, 2, 3, RANK_ALPHA),
+                ('1.2.3+20130313144700', 1, 2, 3, RANK_RELEASE),
+                ('1.2.3-beta+exp.sha.5114f85', 1, 2, 3, RANK_BETA),
                 # Real world examples
-                ('1.2.3-B5CD5743F', (0x000010000200003,
-                                     {'major': 1, 'minor': 2, 'patch': 3,
-                                      'pre': 'B5CD5743F', })),
-                ('V1.2.3', (0x000010000200003,
-                            {'major': 1, 'minor': 2, 'patch': 3, })),
-                ('V1.4.0-RC0', (0x000010000400000,
-                                {'major': 1, 'minor': 4, 'patch': 0,
-                                 'pre': 'RC0', })),
-                ('v2.4.1-0.3.rc1', (0x000020000400001,
-                                    {'major': 2, 'minor': 4, 'patch': 1,
-                                     'pre': '0.3.rc1'})),
-                ('0.18.1', (0x000000001200001,
-                            {'major': 0, 'minor': 18, 'patch': 1, })),
-                # Integer values
-                (0, (0, {'major': 0, 'minor': 0, 'patch': 0})),
-                (1, (1, {'major': 0, 'minor': 0, 'patch': 1})),
-                (2, (2, {'major': 0, 'minor': 0, 'patch': 2})),
-                (0xFFFFF, (0xFFFFF, {'major': 0, 'minor': 0, 'patch': 0xFFFFF})),
-                (0xFFFFF + 1, (0xFFFFF + 1, {'major': 0, 'minor': 1, 'patch': 0})),
-                (0xdeadb33f1337133, (0xdeadb33f1337133, {'major': 0xdeadb, 'minor': 0x33f13, 'patch': 0x37133})),
-                (0xFFFFFFFFFFFFFFF, (0xFFFFFFFFFFFFFFF, {'major': 0xFFFFF, 'minor': 0xFFFFF, 'patch': 0xFFFFF})),
-                # Brute forced strings
-                ('1', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
-                ('1.2', (1099513724928, {'major': 1, 'minor': 2, 'patch': 0})),
-                ('2.0A1', (2199023255552, {'major': 2, 'minor': 0, 'patch': 0})),
-                ('0.18rc2', (0, {'major': 0, 'minor': 0, 'patch': 0})),
-                ('0.0.00001', (1, {'major': 0, 'minor': 0, 'patch': 1})),
-                ('2016-03-01', (2216615444742145, {'major': 2016, 'minor': 3, 'patch': 1})),
-                ('v2.4.0.0-1', (2199027449856, {'major': 2, 'minor': 4, 'patch': 0})),
-                ('1.3a2.dev12', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
-                ('OpenSSL_1_0_2l', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
-                ('1.2.windows-RC1', (1099513724928, {'major': 1, 'minor': 2, 'patch': 0})),
-                ('v2.4.1.0-0.3.rc1', (2199027449857, {'major': 2, 'minor': 4, 'patch': 1})),
-                ('1.2.3-alpha.foo..+001', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
-                ('1.2.3-alpha.foo.001+001', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
-                ('1.2.3-alpha+001.blahblahblah...', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
-                ('1.2.3-alpha+001.blahblahblah.*iggy', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3}))
+                ('1.2.3-B5CD5743F', 1, 2, 3, RANK_PRE_OTHER),
+                ('V1.2.3', 1, 2, 3, RANK_RELEASE),
+                ('V1.4.0-RC0', 1, 4, 0, RANK_RC),
+                ('v2.4.1-0.3.rc1', 2, 4, 1, RANK_PRE_NUMERIC),
+                ('0.18.1', 0, 18, 1, RANK_RELEASE),
+                ('3.0.0a20260617', 3, 0, 0, RANK_ALPHA),
+                ('3.0.0b2', 3, 0, 0, RANK_BETA),
+                # Brute forced strings (no parseable pre-release -> release)
+                ('1', 1, 0, 0, RANK_RELEASE),
+                ('1.2', 1, 2, 0, RANK_RELEASE),
+                ('2.0A1', 2, 0, 0, RANK_RELEASE),
+                ('0.18rc2', 0, 0, 0, RANK_RELEASE),
+                ('0.0.00001', 0, 0, 1, RANK_RELEASE),
+                ('2016-03-01', 2016, 3, 1, RANK_RELEASE),
+                ('v2.4.0.0-1', 2, 4, 0, RANK_RELEASE),
+                ('1.3a2.dev12', 1, 0, 0, RANK_RELEASE),
+                ('OpenSSL_1_0_2l', 1, 0, 0, RANK_RELEASE),
+                ('1.2.windows-RC1', 1, 2, 0, RANK_RELEASE),
+                ('v2.4.1.0-0.3.rc1', 2, 4, 1, RANK_RELEASE),
             )
 
-            for v, e in testvectors:
-                ev, es = e
+            for v, major, minor, patch, rank in testvectors:
                 valu, rdict = await t.norm(v)
-                self.eq(valu, ev)
+                self.eq(valu, s_version.packVersionCore(major, minor, patch, rank))
+
+            # Integer inputs are treated as a legacy packVersion() triple and
+            # re-encoded into the new sortable core int.
+            intvectors = (0, 1, 2, 0xFFFFF, 0xFFFFF + 1, 0xdeadb33f1337133, 0xFFFFFFFFFFFFFFF)
+            for i in intvectors:
+                valu, rdict = await t.norm(i)
+                self.eq(valu, s_version.packVersionCore(*s_version.unpackVersion(i)))
 
             testvectors_bad = (
                 # invalid ints
                 -1,
-                0xFFFFFFFFFFFFFFFFFFFFFFFF + 1,
+                s_version.mask60 + 1,
                 # Just bad input
                 '   ',
                 ' alpha ',
+                # A PEP 440 epoch is not valid SemVer; it:semver rejects it (use it:version).
+                '3!1.2.3',
+                '3!3.0.0b2',
             )
             for v in testvectors_bad:
                 await self.asyncraises(s_exc.BadTypeValu, t.norm(v))
 
+            # repr reconstructs major.minor.patch plus a coarse pre-release tier
+            # tag (exact pre-release/build text is intentionally not retained by
+            # it:semver -- the full string lives on it:version).
             testvectors_repr = (
-                (0, '0.0.0'),
-                (1, '0.0.1'),
-                (0x000010000200003, '1.2.3'),
+                ('0.0.0', '0.0.0'),
+                ('0.0.1', '0.0.1'),
+                ('1.2.3', '1.2.3'),
+                ('1.2.3-alpha', '1.2.3-alpha'),
+                ('1.2.3-alpha.1', '1.2.3-alpha'),
+                ('1.2.3-beta+exp.sha.5114f85', '1.2.3-beta'),
+                ('V1.4.0-RC0', '1.4.0-rc'),
+                ('3.0.0a20260617', '3.0.0-alpha'),
+                ('1.2.3-z', '1.2.3-other'),
             )
             for v, e in testvectors_repr:
-                self.eq(t.repr(v), e)
+                norm, info = await t.norm(v)
+                self.eq(t.repr(norm), e)
+
+            # Ordering is now true SemVer 2.0.0 precedence: a pre-release sorts
+            # BELOW its base release, alpha < beta < rc.
+            alpha, _ = await t.norm('1.0.0-alpha')
+            beta, _ = await t.norm('1.0.0-beta')
+            rc, _ = await t.norm('1.0.0-rc1')
+            base, _ = await t.norm('1.0.0')
+            self.true(alpha < beta < rc < base)
+
+            # An unrecognized pre-release tag ranks above rc (closer to
+            # release) rather than colliding with alpha -- so it no longer
+            # sorts below an earlier recognized tier like beta.
+            unk, _ = await t.norm('1.0.0-z')
+            self.true(rc < unk < base)
+            self.true(unk > beta)
+
+            # A purely-numeric pre-release identifier sorts below alpha (and so
+            # below every alphanumeric pre-release), per SemVer precedence.
+            num, _ = await t.norm('1.0.0-0.3.7')
+            self.true(num < alpha)
+            self.true(num < base)
+
+            eqfunc = await t.getCmprCtor('=')('1.0.0')
+            self.false(await eqfunc(alpha))
+            self.true(await eqfunc(base))
+
+            gefunc = await t.getCmprCtor('>=')('1.0.0')
+            self.false(await gefunc(alpha))
+            self.true(await gefunc(base))
+
+            nefunc = await t.getCmprCtor('!=')('1.0.0')
+            self.true(await nefunc(alpha))
+
+            lefunc = await t.getCmprCtor('<=')('1.0.0')
+            self.true(await lefunc(alpha))
+
+            gtfunc = await t.getCmprCtor('>')('0.9.0')
+            self.true(await gtfunc(alpha))
+
+            ltfunc = await t.getCmprCtor('<')('1.0.0')
+            self.true(await ltfunc(alpha))
+
+            infunc = await t.getCmprCtor('in=')(['1.0.0', '2.0.0'])
+            self.false(await infunc(alpha))
+            self.true(await infunc(base))
+
+            rangefunc = await t.getCmprCtor('range=')(('1.0.0-alpha', '1.5.0'))
+            self.true(await rangefunc(alpha))
+            self.false(await rangefunc((await t.norm('2.0.0'))[0]))
+
+            await self.asyncraises(s_exc.BadTypeValu, t.getCmprCtor('range=')('1.0.0'))
+
+            rangecmprs = await t.getStorCmprs('range=', ('1.0.0', '1.5.0'))
+            self.eq(rangecmprs, (('range=', (base, (await t.norm('1.5.0'))[0]), t.stortype),))
+
+    async def test_it_version_compare(self):
+        async with self.getTestCore() as core:
+
+            versions = (
+                '1.0.0-alpha', '1.0.0a1', '1.0.0a2', '1.0.0-rc1', '1.0.0',
+                '1.0.0.post1', '2.0.0', '1!0.5.0', 'notaversion',
+            )
+            for i, ver in enumerate(versions):
+                await core.nodes(f'[ it:hardware=(hw, {i}) :version=$v ]', opts={'vars': {'v': ver}})
+
+            async def vers(query):
+                nodes = await core.nodes(query)
+                return sorted(n.get('version')[1] for n in nodes)
+
+            # ordered/range comparisons on the bare it:version value follow PEP 440
+            self.eq(['1!0.5.0', '1.0.0', '1.0.0.post1', '2.0.0'],
+                    await vers('it:hardware:version >= "1.0.0"'))
+            self.eq(['1.0.0', '1.0.0-alpha', '1.0.0-rc1', '1.0.0a1', '1.0.0a2'],
+                    await vers('it:hardware:version <= "1.0.0"'))
+            # the coarse index bands 1.0.0a1 and 1.0.0a2 together; the refine pass
+            # drops the false positive so '> 1.0.0a1' excludes 1.0.0a1 but keeps a2.
+            self.eq(['1!0.5.0', '1.0.0', '1.0.0-rc1', '1.0.0.post1', '1.0.0a2', '2.0.0'],
+                    await vers('it:hardware:version > "1.0.0a1"'))
+            self.eq(['1.0.0-alpha', '1.0.0-rc1', '1.0.0a1', '1.0.0a2'],
+                    await vers('it:hardware:version*range=("1.0.0-alpha", "1.0.0-rc1")'))
+            # the PEP 440 epoch dominates ordering: only epoch >= 1 matches
+            self.eq(['1!0.5.0'], await vers('it:hardware:version >= "1!0.0.0"'))
+            # a non-version string is absent from the index (never matches a range lift)
+            self.notin('notaversion', await vers('it:hardware:version >= "0.0.0"'))
+
+            # the StorTypeVers side index is lifted in reverse too; these four
+            # match values occupy distinct coarse bands, so reverse order is the
+            # exact descending coarse order.
+            self.eq(['1!0.5.0', '2.0.0', '1.0.0.post1', '1.0.0'],
+                    [n.get('version')[1] for n in await core.nodes('reverse(it:hardware:version >= "1.0.0")')])
+            # a reverse range lift returns the same membership (intra-band order
+            # among the alpha-tier matches is nid-dependent, so compare as a set)
+            self.eq(['1.0.0-alpha', '1.0.0-rc1', '1.0.0a1', '1.0.0a2'],
+                    sorted(n.get('version')[1] for n in await core.nodes('reverse(it:hardware:version*range=("1.0.0-alpha", "1.0.0-rc1"))')))
+
+            # equality/regex/prefix on the bare value remain plain string ops
+            self.eq(['1.0.0'], await vers('it:hardware:version = "1.0.0"'))
+            self.eq(['1.0.0', '1.0.0-alpha', '1.0.0-rc1', '1.0.0.post1', '1.0.0a1', '1.0.0a2'],
+                    await vers('it:hardware:version ^= "1.0.0"'))
+
+            # re-setting a node's :version updates the side index (old coarse
+            # bound no longer matches, new one does); this exercises the
+            # StorTypeVers old-value cleanup path in _editPropSet.
+            await core.nodes('it:hardware=(hw, 4) [ :version="3.0.0" ]')
+            self.eq(['1!0.5.0', '2.0.0', '3.0.0'], await vers('it:hardware:version >= "2.0.0"'))
+            self.notin('1.0.0', await vers('it:hardware:version <= "1.5.0"'))
+
+            # deleting the prop removes the side-index row (exercises _editPropDel)
+            await core.nodes('it:hardware=(hw, 6) [ -:version ]')
+            self.eq(['1!0.5.0', '3.0.0'], await vers('it:hardware:version >= "2.0.0"'))
+
+            t = core.model.type('it:version')
+
+            # a comparison against a non-version value is a bad type
+            for cmpr in ('>=', '<=', '>', '<'):
+                await self.asyncraises(s_exc.BadTypeValu, t.getCmprCtor(cmpr)('notaversion'))
+            await self.asyncraises(s_exc.BadTypeValu, t.getCmprCtor('range=')(('notaversion', '1.0.0')))
+            # range= requires a 2-tuple
+            await self.asyncraises(s_exc.BadTypeValu, t.getCmprCtor('range=')('1.0.0'))
+            # getStorCmprs also raises on a bad ordered/range RHS (lift path)
+            await self.asyncraises(s_exc.BadTypeValu, t.getStorCmprs('>=', 'notaversion'))
+            await self.asyncraises(s_exc.BadTypeValu, t.getStorCmprs('range=', ('1.0.0', 'notaversion')))
+
+            # getSortKey supplies the ordering used by the min and max commands
+            norm, info = await t.norm('1.0.0')
+            indx = s_version.packVersionFull(0, 1, 0, 0, s_version.RANK_RELEASE)
+            self.eq(indx, t.getSortKey(norm, virts=info.get('virts')))
+
+            # the '_index' virt fast path and the parse fallback agree
+            self.eq(indx, t.getSortKey(norm))
+
+            # a version which does not parse has no ordering
+            self.eq(s_common.novalu, t.getSortKey('notaversion'))
+
+            # a non-str value (such as an unnormalized packVersion int) is already
+            # sortable and is used as-is
+            packed = s_version.packVersion(1, 0, 0)
+            self.eq(packed, t.getSortKey(packed))
 
     async def test_it_forms_screenshot(self):
         async with self.getTestCore() as core:
@@ -1156,7 +1301,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'model', 'XPS13')
             self.propeq(nodes[0], 'version', '1.2.3')
             self.nn(nodes[0].get('seen'))
-            self.propeq(nodes[0], 'version.semver', 1099513724931)
+            self.propeq(nodes[0], 'version.semver', s_version.packVersionCore(1, 2, 3))
             self.propeq(nodes[0], 'cpe', 'cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*')
             self.propeq(nodes[0], 'released', 1643760000000000)
             self.len(1, await core.nodes('it:hardware :type -> it:hardware:type:taxonomy'))
@@ -1166,10 +1311,19 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:hardware:version +:version.semver >= 1.0.0'))
             self.len(1, await core.nodes('it:hardware -> ou:org +:name=dell'))
 
+            # version-aware ordered/range comparisons on the bare it:version value
+            self.len(1, await core.nodes('it:hardware:version >= "1.0.0"'))
+            self.len(0, await core.nodes('it:hardware:version >= "2.0.0"'))
+            self.len(1, await core.nodes('it:hardware:version < "2.0.0"'))
+            self.len(1, await core.nodes('it:hardware:version*range=("1.0.0", "1.5.0")'))
+            self.len(1, await core.nodes('it:hardware +:version > "1.2.0"'))
+
             # coverage for :version.semver accessors
             await core.nodes('it:hardware:version [ :version=woot ]')
             self.len(0, await core.nodes('it:hardware:version.semver >= 1.0.0'))
             self.len(0, await core.nodes('it:hardware:version +:version.semver >= 1.0.0'))
+            # a non-version string is absent from the version index too
+            self.len(0, await core.nodes('it:hardware:version >= "1.0.0"'))
 
             nodes = await core.nodes('''[
                 it:host:component=*
@@ -1733,7 +1887,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'updated', 1648771200000000)
             self.propeq(nodes[0], 'text', 'gronk')
             self.propeq(nodes[0], 'version', '1.2.3')
-            self.propeq(nodes[0], 'version.semver', 0x10000200003)
+            self.propeq(nodes[0], 'version.semver', s_version.packVersionCore(1, 2, 3))
 
             self.len(1, await core.nodes('it:app:yara:rule -> entity:contact'))
             self.len(1, await core.nodes('it:app:yara:rule -(detects)> it:softwarename'))
@@ -1803,6 +1957,55 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'rule:version', '1.2.3')
             self.propeq(nodes[0], 'time', 1420070400000000)
 
+    async def test_it_app_suricata(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+            [ it:app:suricata:rule=*
+                :id=999
+                :text=gronk
+                :name=foo
+                :creator = {[ entity:contact=* :name=visi ]}
+                :created = 20120101
+                :updated = 20220101
+                :enabled=1
+                :version=1.2.3
+                +(detects)> {[ it:softwarename=woot ]}
+            ]
+            ''')
+
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', '999')
+            self.propeq(nodes[0], 'name', 'foo')
+            self.propeq(nodes[0], 'text', 'gronk')
+            self.propeq(nodes[0], 'enabled', True)
+            self.propeq(nodes[0], 'version', '1.2.3')
+            self.propeq(nodes[0], 'created', 1325376000000000)
+            self.propeq(nodes[0], 'updated', 1640995200000000)
+            self.nn(nodes[0].get('creator'))
+
+            self.len(1, await core.nodes('it:app:suricata:rule -(detects)> it:softwarename'))
+
+            rule = nodes[0].ndef[1]
+
+            nodes = await core.nodes('''[
+                it:app:suricata:matched=*
+                    :rule={[ it:app:suricata:rule=({"id": 999}) ]}
+                    :time=2015
+                    :target={[ inet:flow=* ]}
+                    :sensor={[ it:host=* ]}
+                    :rule:version=1.2.3
+                    :dropped=true
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('target'))
+            self.nn(nodes[0].get('sensor'))
+            self.propeq(nodes[0], 'dropped', 1)
+            self.propeq(nodes[0], 'rule', rule)
+            self.propeq(nodes[0], 'rule:version', '1.2.3')
+            self.propeq(nodes[0], 'time', 1420070400000000)
+
     async def test_it_function(self):
 
         async with self.getTestCore() as core:
@@ -1828,8 +2031,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'impcalls', ('bar', 'foo'))
             self.len(1, await core.nodes('it:dev:function :name -> it:dev:str'))
             self.len(2, await core.nodes('it:dev:function :strings -> it:dev:str'))
-            # impcalls uses str:lower type (not it:dev:str form) so form pivot is not supported
-            self.len(0, await core.nodes('it:dev:function :impcalls -> it:dev:str'))
+            # impcalls uses the str:lower type rather than the it:dev:str form, but an
+            # explicit pivot norms the values as the destination type. (SYN-10900)
+            self.len(2, await core.nodes('it:dev:function :impcalls -> it:dev:str'))
 
             q = '''[
                 it:dev:function:sample=*

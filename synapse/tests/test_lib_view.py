@@ -635,47 +635,143 @@ class ViewTest(s_t_utils.SynTest):
             # Trigger runs on merged nodes in main view
             self.len(1, await core.view.nodes('test:str=mainhit'))
 
-    async def test_storm_editformat(self):
+    async def test_storm_opts_show(self):
+        '''
+        show filters every message type, and an empty list filters all of them.
+        '''
         async with self.getTestCore() as core:
-            mesgs = await core.stormlist('[test:str=foo1 :hehe=bar]', opts={'editformat': 'nodeedits'})
+
+            query = '[test:str=$v] $lib.warn(w) $lib.print(p)'
+
+            # unset means no filtering
+            msgs = await core.stormlist(query, opts={'vars': {'v': 'one'}})
+            self.eq({'init', 'node', 'edits', 'print', 'warn', 'fini'},
+                    {m[0] for m in msgs})
+
+            # ...including the message types which used to be unfilterable
+            for show in (('init',), ('fini',), ('node', 'print')):
+                opts = {'show': show, 'vars': {'v': f'v{show[0]}'}}
+                msgs = await core.stormlist(query, opts=opts)
+                self.eq(set(show), {m[0] for m in msgs})
+
+            # an empty list filters everything, and does not wedge the pump
+            opts = {'show': (), 'vars': {'v': 'none'}}
+            self.len(0, await core.stormlist(query, opts=opts))
+
+            # err is filtered like any other type
+            msgs = await core.stormlist('| | |', opts={'show': ('err',)})
+            self.len(1, msgs)
+            self.eq('err', msgs[0][0])
+
+            self.len(0, await core.stormlist('| | |', opts={'show': ()}))
+
+    async def test_storm_opts_hide(self):
+        '''
+        hide is the inverse of show, and the two may not be combined.
+        '''
+        async with self.getTestCore() as core:
+
+            query = '[test:str=$v] $lib.warn(w) $lib.print(p)'
+            everything = {'init', 'node', 'edits', 'print', 'warn', 'fini'}
+
+            # an empty list hides nothing, unlike an empty show
+            opts = {'hide': (), 'vars': {'v': 'none'}}
+            self.eq(everything, {m[0] for m in await core.stormlist(query, opts=opts)})
+
+            # any type may be hidden, including the ones which are not bus events
+            for hide in (('init',), ('fini',), ('node',), ('edits',), ('print', 'warn')):
+                opts = {'hide': hide, 'vars': {'v': f'v{hide[0]}'}}
+                msgs = await core.stormlist(query, opts=opts)
+                self.eq(everything - set(hide), {m[0] for m in msgs})
+
+            # hiding every type does not wedge the pump
+            opts = {'hide': tuple(everything), 'vars': {'v': 'all'}}
+            self.len(0, await core.stormlist(query, opts=opts))
+
+            # err is hidden like any other type
+            msgs = await core.stormlist('| | |', opts={'hide': ('init', 'fini')})
+            self.len(1, msgs)
+            self.eq('err', msgs[0][0])
+
+            self.len(0, await core.stormlist('| | |', opts={'hide': ('init', 'err', 'fini')}))
+
+            with self.raises(s_exc.BadArg):
+                await core.stormlist(query, opts={'show': ('node',), 'hide': ('warn',)})
+
+    async def test_storm_opts_meta(self):
+        '''
+        The meta opt is echoed back verbatim in the init message.
+        '''
+        async with self.getTestCore() as core:
+
+            meta = {'ws': 'hehe', 'qbar': True, 'nested': {'foo': (1, 2)}}
+            msgs = await core.stormlist('$lib.print(hi)', opts={'meta': meta})
+            init = [m[1] for m in msgs if m[0] == 'init'][0]
+            self.eq(meta, init.get('meta'))
+
+            # the key is omitted entirely rather than defaulted when unset
+            msgs = await core.stormlist('$lib.print(hi)')
+            init = [m[1] for m in msgs if m[0] == 'init'][0]
+            self.notin('meta', init)
+
+    async def test_storm_opts_task(self):
+        '''
+        A caller gets the task iden it asked for, or a BadArg. Never a different one.
+        '''
+        async with self.getTestCore() as core:
+
+            taskiden = s_common.guid()
+            msgs = await core.stormlist('$lib.print(hi)', opts={'task': taskiden})
+            init = [m[1] for m in msgs if m[0] == 'init'][0]
+            self.eq(taskiden, init.get('task'))
+
+            # a nested runtime runs inside the runstorm worker task, which carries its
+            # own iden, so a task opt there can never match and is now rejected rather
+            # than silently reporting a different iden in the nested init message.
+            msgs = await core.stormlist('''
+                $opts = ({"task": $iden})
+                for $mesg in $lib.storm.run('$lib.print(nested)', opts=$opts) {}
+            ''', opts={'vars': {'iden': s_common.guid()}})
+            self.stormIsInErr('is already promoted as', msgs)
+
+            # an iden already in use by a running task is rejected
+            iden = s_common.guid()
+            evnt = asyncio.Event()
+
+            async def longrun():
+                async for mesg in core.storm('$lib.time.sleep(10)', opts={'task': iden}):
+                    if mesg[0] == 'init':
+                        evnt.set()
+
+            task = core.schedCoro(longrun())
+            self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.print(hi)', opts={'task': iden})
+
+            task.cancel()
+
+    async def test_storm_nodeedits(self):
+        async with self.getTestCore() as core:
+            mesgs = await core.stormlist('[test:str=foo1 :hehe=bar]')
             count = collections.Counter(m[0] for m in mesgs)
             self.eq(1, count['init'])
             self.eq(1, count['fini'])
             self.eq(1, count['node'])
-            self.eq(2, count['node:edits'])
+            self.eq(2, count['edits'])
             self.eq(0, count['node:add'])
 
-            mesgs = await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'count'})
-            count = collections.Counter(m[0] for m in mesgs)
-            self.eq(1, count['init'])
-            self.eq(1, count['node'])
-            self.eq(1, count['fini'])
-            self.eq(2, count['node:edits:count'])
-            self.eq(0, count['node:edits'])
-            self.eq(0, count['node:add'])
-            cmsgs = [m[1] for m in mesgs if m[0] == 'node:edits:count']
-            self.eq([{'count': 1}, {'count': 1}], cmsgs)
-
-            mesgs = await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'none'})
-            count = collections.Counter(m[0] for m in mesgs)
-            self.eq(1, count['init'])
-            self.eq(0, count['node:edits:count'])
-            self.eq(0, count['node:edits'])
-            self.eq(0, count['node:add'])
-            self.eq(1, count['node'])
-            self.eq(1, count['fini'])
-
-            with self.raises(s_exc.BadConfValu):
-                await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'jsonl'})
+            # pre-create foo3 so the subquery below makes no edits of its own
+            self.len(1, await core.nodes('[test:str=foo3 :hehe=bar]'))
 
             msgs = await core.stormlist('[test:str=virts :seen=2020 :polyarry={[test:str=foo1 test:str=foo3]}]')
-            cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
+            cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'edits']
             self.eq(cmsgs[1][0][2][0][1][3], {'type': 'ival', 'min': 1577836800000000, 'max': 1577836800000001, 'duration': 1, 'precision': 30})
             virts = cmsgs[2][0][2][0][1][3]
             self.eq(virts['size'], 2)
 
             msgs = await core.stormlist('[test:guid=* :server=1.2.3.4:80]')
-            cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'node:edits']
+            cmsgs = [m[1]['edits'] for m in msgs if m[0] == 'edits']
             self.eq(cmsgs[1][0][2][0][1][3], {'ip': (4, 16909060), 'port': 80, 'type': 'inet:server'})
 
     async def test_lib_view_addNodeEdits(self):
@@ -1322,7 +1418,8 @@ class ViewTest(s_t_utils.SynTest):
 
             ndefs = (
                 (('test:str', 'hehe'),
-                 {'props': {'.created': 5, 'tick': ('test:time', 3)}, 'tags': {'cool': (1, 2)}}, ),
+                 {'props': {'.created': (5, {'t': 'time'}), 'tick': (3, {'t': 'test:time'})},
+                  'tags': {'cool': ((1, 2), {})}}, ),
             )
             result = await alist(view.addNodes(ndefs))
             self.len(1, result)
@@ -1340,6 +1437,71 @@ class ViewTest(s_t_utils.SynTest):
             node2 = await view.addNode('test:str', 'hehe', props={'hehe': 'neato'})
             self.eq(node2, node)
             self.nn(node2.get('hehe'))
+
+            # a scalar property envelope has to name its type; a malformed one warns
+            # and is skipped rather than aborting the node
+            ndefs = (
+                (('test:str', 'envltest'), {'props': {'tick': (3, {})}}),
+            )
+            with self.getLoggerStream('synapse.lib.view') as stream:
+                result = await alist(view.addNodes(ndefs))
+                await stream.expect('envelope is missing a type name', timeout=6)
+
+            self.len(1, result)
+            self.none(result[0].get('tick'))
+
+            # ... and so does a value which is not an envelope at all
+            ndefs = (
+                (('test:str', 'envltest'), {'props': {'tick': 3}}),
+            )
+            with self.getLoggerStream('synapse.lib.view') as stream:
+                self.len(1, await alist(view.addNodes(ndefs)))
+                await stream.expect('is not a packed node property envelope', timeout=6)
+
+            # envelope nesting is bounded at one level, so an array member which
+            # carries no type name of its own is rejected rather than recursed into
+            ndefs = (
+                (('test:str', 'envltest'), {'props': {'polyarry': ((('foo', {}),), {})}}),
+            )
+            with self.getLoggerStream('synapse.lib.view') as stream:
+                self.len(1, await alist(view.addNodes(ndefs)))
+                await stream.expect('envelope is missing a type name', timeout=6)
+
+            # an array container whose value is not a sequence raises rather than
+            # failing on iteration
+            ndefs = (
+                (('test:str', 'envltest'), {'props': {'polyarry': (3, {})}}),
+            )
+            with self.getLoggerStream('synapse.lib.view') as stream:
+                self.len(1, await alist(view.addNodes(ndefs)))
+                await stream.expect('array container value is not a sequence', timeout=6)
+
+            # a malformed tag property warns and skips rather than aborting the
+            # batch, so the nodes behind it in the feed still land.
+            await core.addTagProp('_score', ('int', {}), {})
+
+            ndefs = (
+                (('test:int', 1), {'tagprops': {'foo': {'_score': (1, {})}}}),
+                (('test:int', 2), {'tagprops': {'foo': {'_score': 10}}}),
+                (('test:int', 3), {'tagprops': {'foo': {'_score': (3, {})}}}),
+            )
+            with self.getLoggerStream('synapse.lib.view') as stream:
+                self.len(3, await alist(view.addNodes(ndefs)))
+                await stream.expect('is not a packed node property envelope', timeout=6)
+
+            # ... and a two element sequence which is not an envelope is rejected
+            # rather than unpacking into a silently wrong value.
+            await core.addTagProp('_note', ('str', {}), {})
+
+            ndefs = (
+                (('test:int', 4), {'tagprops': {'foo': {'_note': 'ab'}}}),
+            )
+            with self.getLoggerStream('synapse.lib.view') as stream:
+                nodes = await alist(view.addNodes(ndefs))
+                await stream.expect('is not a packed node property envelope', timeout=6)
+
+            self.len(1, nodes)
+            self.none(nodes[0].getTagProp('foo', '_note'))
 
             # addNodes with an unknown form name logs and yields nothing.
             ndefs = (
@@ -1588,6 +1750,57 @@ class ViewTest(s_t_utils.SynTest):
 
             self.len(1, await view0.nodes('#woot:_score=20'))
             self.len(0, await view1.nodes('#woot:_score=20'))
+
+    async def test_cortex_lift_layers_nodedata(self):
+        '''
+        Test that a nodedata lift resolves each node against its own sodes, and
+        that a node deleted in an upper layer is not lifted.
+        '''
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+
+            # node0 has the nodedata in both layers, so it puts a sode for the
+            # upper layer into the lift state. node1 only has it below.
+            self.len(1, await view0.nodes('[ test:str=node0 ] $node.data.set(foo, bar)'))
+            self.len(1, await view0.nodes('[ test:str=node1 ] $node.data.set(foo, bar)'))
+            self.len(1, await view1.nodes('test:str=node0 $node.data.set(foo, baz)'))
+
+            nodes = await view1.nodes('yield $lib.lift.byNodeData(foo)')
+            self.sorteq(('node0', 'node1'), [node.valu() for node in nodes])
+
+            for node in nodes:
+                self.eq(node.ndef[1], node.valu())
+
+            # a node whose nodedata lives only in the upper layer must not leak its
+            # sode into the next node of the lift, which would give that node the
+            # wrong ndef.
+            self.len(1, await view1.nodes('[ test:str=node2 ] $node.data.set(baz, hehe)'))
+            self.len(1, await view0.nodes('[ test:str=node3 ] $node.data.set(baz, hehe)'))
+
+            nodes = await view1.nodes('yield $lib.lift.byNodeData(baz)')
+            self.sorteq(('node2', 'node3'), [node.valu() for node in nodes])
+
+            # a node deleted in the upper layer must not come back
+            self.len(0, await view1.nodes('test:str=node1 | delnode'))
+
+            nodes = await view1.nodes('yield $lib.lift.byNodeData(foo)')
+            self.eq(('node0',), tuple([node.valu() for node in nodes]))
+
+    async def test_cortex_lift_layers_antitagprop(self):
+        '''
+        Test that a tagprop tombstoned in an upper layer does not break a lift by
+        value of a different tagprop on the same tag.
+        '''
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+            await view0.core.addTagProp('_score', ('int', {}), {'doc': 'hi there'})
+            await view0.core.addTagProp('_note', ('str', {}), {'doc': 'hi there'})
+
+            self.len(1, await view0.nodes('[ test:int=10 +#woot:_score=20 +#woot:_note=hehe ]'))
+
+            # tombstone a different tagprop of the same tag in the upper layer
+            self.len(1, await view1.nodes('test:int=10 [ -#woot:_note ]'))
+
+            self.len(1, await view1.nodes('#woot:_score=20'))
+            self.len(0, await view1.nodes('#woot:_note=hehe'))
 
     async def test_cortex_lift_layers_dup_tagprop(self):
         '''
@@ -2438,6 +2651,61 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('vertex.link', nodes[0].ndef[1])
             self.eq(('inet:fqdn', 'link'), nodes[0].get('domain'))
+
+    async def test_view_edge_tombstone_merge(self):
+        '''
+        An edge deleted in an upper layer must stay deleted even when the same
+        node has a live edge which sorts ahead of it in the layer.
+        '''
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:int=1 test:int=2 ]')
+            (keepnid, dropnid) = [node.nid for node in nodes]
+            self.lt(s_common.int64un(keepnid), s_common.int64un(dropnid))
+
+            nodes = await core.nodes('[ test:str=hub +(refs)> { test:int=2 } +(test)> { test:int=2 } ]')
+            hubnid = nodes[0].nid
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkopts = {'view': fork}
+            forkview = core.getView(fork)
+
+            await core.nodes('test:str=hub [ +(refs)> { test:int=1 } ]', opts=forkopts)
+            await core.nodes('test:str=hub [ -(refs)> { test:int=2 } ]', opts=forkopts)
+
+            # the deleted (refs) edge must not survive the layer merge, even though
+            # the live one it hides behind sorts ahead of it.
+            edges = await alist(forkview.iterNodeEdgesN1(hubnid))
+            self.sorteq((('refs', keepnid), ('test', dropnid)), edges)
+
+            self.eq(('test',), tuple(await alist(forkview.iterEdgeVerbs(hubnid, dropnid))))
+            self.eq(('refs',), tuple(await alist(forkview.iterEdgeVerbs(hubnid, keepnid))))
+
+            nodes = await core.nodes('test:str=hub -(refs)> *', opts=forkopts)
+            self.eq((keepnid,), tuple([node.nid for node in nodes]))
+
+            # and the same from the n2 side of the deleted edge
+            self.len(0, await alist(forkview.iterNodeEdgesN2(dropnid, verb='refs')))
+            self.len(0, await core.nodes('test:int=2 <(refs)- *', opts=forkopts))
+
+            # a full layer scan must not resurrect it either
+            edges = [(n1, n2) async for (n1, _, n2) in forkview.getEdges(verb='refs')]
+            self.eq(((hubnid, keepnid),), tuple(edges))
+
+            # the verbs of the node come from the live edge rows, so (refs) is
+            # reported even though the fork also has a tombstone row for it.
+            self.sorteq(('refs', 'test'), await forkview.getNodeEdgeVerbsN1(hubnid))
+
+            # tombstoning the only (test) edge in the fork leaves the live row in
+            # the parent, so the verb is still a candidate there.
+            await core.nodes('test:str=hub [ -(test)> { test:int=2 } ]', opts=forkopts)
+            self.sorteq(('refs', 'test'), await forkview.getNodeEdgeVerbsN1(hubnid))
+
+            # deleting it in the parent as well removes the last live row, so the
+            # verb cannot have a live edge and drops out.
+            await core.nodes('test:str=hub [ -(test)> { test:int=2 } ]')
+            self.eq(('refs',), tuple(await forkview.getNodeEdgeVerbsN1(hubnid)))
+            self.eq((('refs', keepnid),), tuple(await alist(forkview.iterNodeEdgesN1(hubnid))))
 
     async def test_view_runt_bad_cmpr(self):
         async with self.getTestCore() as core:

@@ -118,6 +118,13 @@ class SpooledTest(s_test.SynTest):
             self.eq(list(x.keys()), (10, 20, 30))
             self.true(x.has(20))
             self.false(x.has(99))
+            # callers such as Cortex.exportStorm() scan the keys while they are
+            # iterating the items, which must work in fallback mode as well.
+            pairs = [(k, k2) for (k, valu) in x.items() for k2 in x.keys()]
+            self.len(9, pairs)
+            self.eq((10, 10), pairs[0])
+            self.eq((30, 30), pairs[-1])
+
             self.eq('haha', x.pop(20))
             self.len(2, x)
             self.eq(None, x.pop(20))

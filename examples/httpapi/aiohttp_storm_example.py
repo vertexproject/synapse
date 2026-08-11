@@ -9,43 +9,31 @@ import aiohttp
 # For more information about these APIs, refer to the following documentation.
 # https://synapse.docs.vertex.link/en/latest/synapse/httpapi.html#
 
-# Fill in your url, user, and password.
+# Fill in your url and API key. The Storm and model HTTP endpoints accept
+# X-API-KEY authentication only. Generate an API key for your user with the
+# Storm $lib.auth.users.byname($name).genApiKey() API.
 
 base_url = 'https://yourcortex.yourdomain.com'
-username = 'XXXX'
-password = 'XXXX'
+apikey = 'XXXX'
 
 async def main(argv):
 
-    async with aiohttp.ClientSession() as sess:
-
-        # Login to setup a session cookie with the UI. This sets the sess cookie.
-        # aiohttp.ClientSession automatically handles the Set-Cookie header to
-        # store and reuse the session cookie. Refer to the documentation for
-        # other HTTPAPI clients and tools for how they handle cookies.
-
-        url = f'{base_url}/api/v3/login'
-        data = {'user': username, 'passwd': password}
-
-        async with await sess.post(url, json=data) as resp:
-            assert resp.status == 200, f'Failed to login resp.status={resp.status}'
-            print(resp.headers)
+    # The X-API-KEY header authenticates every request.
+    headers = {'X-API-KEY': apikey}
+    async with aiohttp.ClientSession(headers=headers) as sess:
 
         # api/v3/storm - This streams Storm messages back to the user,
         # much like the telepath storm() API. The example shows some
-        # node and print messages being sent back.
+        # node and print messages being sent back. The messages are
+        # newline delimited JSON, so each line is one message.
 
         query = '.created $lib.print($node.repr(".created")) | limit 3'
-        data = {'query': query, 'opts': {'repr': True}}
+        data = {'query': query, 'opts': {'node:opts': {'repr': True}}}
         url = f'{base_url}/api/v3/storm'
 
         async with sess.get(url, json=data) as resp:
-            async for byts, x in resp.content.iter_chunks():
-
-                if not byts:
-                    break
-
-                mesg = json.loads(byts)
+            async for line in resp.content:
+                mesg = json.loads(line)
                 pprint.pprint(mesg)
 
         # storm/call - this is intended for use with the Storm return() syntax

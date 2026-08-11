@@ -3599,6 +3599,13 @@ class InetModelTest(s_t_utils.SynTest):
             '''))
             self.len(1, await core.nodes('inet:service:message:replyto -> inet:service:message +:title="woot woot"'))
 
+            self.true(core.model.edgeIsValid('inet:service:message', 'about', 'file:bytes'))
+            self.len(1, await core.nodes('''
+                inet:service:message:title="hehe haha"
+                [ +(about)> {[ file:bytes=* ]} ]
+            '''))
+            self.len(1, await core.nodes('inet:service:message:title="hehe haha" -(about)> file:bytes'))
+
             nodes = await core.nodes('''
                 [ inet:service:relationship=*
                     :source={ inet:service:account:username=visi }

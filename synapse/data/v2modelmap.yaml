@@ -9,8 +9,15 @@
 #   goals:   list of ids referencing the shared strategic goals table below
 #   reason:  a specific reason for this change that does not fit the shared goals
 #   props:   changed properties of the (current) form, keyed by their
-#            relative v2 name; each has its own became (relative)/goals/reason.
+#            relative v2 name; each has its own became/goals/reason.
 # An entry must provide at least one of became, reason, or props.
+#
+# A property became: may be written either way:
+#   :<relprop>       relative to the form the entry is keyed by (":ip")
+#   <form>:<relprop> a full property path, for a property that moved to a
+#                    different form ("it:host:domain")
+# A relative value MUST carry the leading colon. Both spellings may contain
+# colons, so the leading colon is the only thing that tells them apart.
 #
 # This file replaces the legacy per-def prevnames key.
 
@@ -55,41 +62,41 @@ changes:
   biz:rfp:
     props:
       propdue:
-        became: due:proposal
+        became: :due:proposal
         goals: [renamed]
       quesdue:
-        became: due:questions
+        became: :due:questions
         goals: [renamed]
   crypto:x509:cert:
     props:
       identities:ipv4s:
-        became: identities:ips
+        became: :identities:ips
         goals: [ip-version-agnostic]
       identities:ipv6s:
-        became: identities:ips
+        became: :identities:ips
         goals: [ip-version-agnostic]
   econ:lineitem:
     props:
       product:
-        became: item
+        became: :item
         goals: [renamed]
   econ:pay:iin:
     props:
       name:
-        became: issuer:name
+        became: :issuer:name
         goals: [renamed]
       org:
-        became: issuer
+        became: :issuer
         goals: [renamed]
   econ:payment:
     props:
       txnid:
-        became: id
+        became: :id
         goals: [renamed]
   econ:purchase:
     props:
       from:contact:
-        became: seller
+        became: :seller
         goals: [renamed]
       listing:
         goals: [causal-ledto]
@@ -100,45 +107,77 @@ changes:
   econ:security:ochlv:
     props:
       ival:
-        became: period
+        became: :period
         goals: [interval-consolidated]
   edu:class:
     props:
       date:first:
-        became: period
+        became: :period
         goals: [interval-consolidated]
       date:last:
-        became: period
+        became: :period
         goals: [interval-consolidated]
   edu:course:
     props:
       code:
-        became: id
+        became: :id
         goals: [renamed]
   entity:campaign:
     props:
       camptype:
-        became: type
+        became: :type
         goals: [taxonomy-convention]
+  file:bytes:
+    props:
+      exe:compiler:
+        goals: [model-refinement]
+        reason: Executable metadata moved off `file:bytes` onto the `file:mime:exe` interface; the compiler is now `file:mime:pe:compiler`, `file:mime:elf:compiler`, or `file:mime:macho:compiler`, retyped from `it:prod:softver` to `it:software`.
+      exe:packer:
+        goals: [model-refinement]
+        reason: Executable metadata moved off `file:bytes` onto the `file:mime:exe` interface; the packer is now `file:mime:pe:packer`, `file:mime:elf:packer`, or `file:mime:macho:packer`, retyped from `it:prod:softver` to `it:software`.
+      mime:pe:compiled:
+        goals: [model-refinement]
+        reason: PE metadata moved off `file:bytes` onto the `file:mime:pe` form; use `file:mime:pe:compiled`.
+      mime:pe:exports:libname:
+        goals: [model-refinement]
+        reason: PE metadata moved off `file:bytes` onto the `file:mime:pe` form; use `file:mime:pe:exports:libname`.
+      mime:pe:exports:time:
+        goals: [model-refinement]
+        reason: PE metadata moved off `file:bytes` onto the `file:mime:pe` form; use `file:mime:pe:exports:time`.
+      mime:pe:imphash:
+        goals: [model-refinement]
+        reason: PE metadata moved off `file:bytes` onto the `file:mime:pe` form; use `file:mime:pe:imphash`.
+      mime:pe:pdbpath:
+        goals: [model-refinement]
+        reason: PE metadata moved off `file:bytes` onto the `file:mime:pe` form; use `file:mime:pe:pdbpath`.
+      mime:pe:richhdr:
+        goals: [model-refinement, renamed]
+        reason: PE metadata moved off `file:bytes` onto the `file:mime:pe` form; use `file:mime:pe:richheader`.
+      mime:pe:size:
+        goals: [model-refinement]
+        reason: PE metadata moved off `file:bytes` onto the `file:mime:pe` form; use `file:mime:pe:size`.
+      mime:x509:cn:
+        goals: [model-refinement]
+        reason: The x509 subject common name is modeled on the certificate itself; use `crypto:x509:cert:subject`.
   file:mime:gif:
     props:
       imageid:
-        became: id
+        became: :id
         goals: [renamed]
   file:mime:jpg:
     props:
       imageid:
-        became: id
+        became: :id
         goals: [renamed]
   file:mime:png:
     props:
       imageid:
-        became: id
+        became: :id
         goals: [renamed]
   file:mime:tif:
     props:
       imageid:
-        became: id
+        became: :id
         goals: [renamed]
   geo:place:taxonomy:
     became: geo:place:type:taxonomy
@@ -146,22 +185,22 @@ changes:
   inet:asnet:
     props:
       net4:
-        became: net
+        became: :net
         goals: [ip-version-agnostic]
       net4:max:
-        became: net:max
+        became: :net:max
         goals: [ip-version-agnostic]
       net4:min:
-        became: net:min
+        became: :net:min
         goals: [ip-version-agnostic]
       net6:
-        became: net
+        became: :net
         goals: [ip-version-agnostic]
       net6:max:
-        became: net:max
+        became: :net:max
         goals: [ip-version-agnostic]
       net6:min:
-        became: net:min
+        became: :net:min
         goals: [ip-version-agnostic]
   inet:asnet4:
     became: inet:asnet
@@ -178,20 +217,20 @@ changes:
   inet:dns:a:
     props:
       ipv4:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
   inet:dns:aaaa:
     props:
       ipv6:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
   inet:dns:rev:
     props:
       ipv4:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
       ipv6:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
   inet:dns:rev6:
     became: inet:dns:rev
@@ -199,20 +238,20 @@ changes:
   inet:dns:wild:a:
     props:
       ipv4:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
   inet:dns:wild:aaaa:
     props:
       ipv6:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
   inet:email:message:
     props:
       received:from:ipv4:
-        became: received:from:ip
+        became: :received:from:ip
         goals: [ip-version-agnostic]
       received:from:ipv6:
-        became: received:from:ip
+        became: :received:from:ip
         goals: [ip-version-agnostic]
   inet:ipv4:
     became: inet:ip
@@ -223,12 +262,12 @@ changes:
   inet:search:query:
     props:
       client:app:
-        became: client:software
+        became: :client:software
         goals: [model-refinement]
   inet:service:access:
     props:
       client:app:
-        became: client:software
+        became: :client:software
         goals: [model-refinement]
   inet:service:app:
     became: inet:service:agent
@@ -236,28 +275,28 @@ changes:
   inet:service:emote:
     props:
       client:app:
-        became: client:software
+        became: :client:software
         goals: [model-refinement]
   inet:service:login:
     props:
       client:app:
-        became: client:software
+        became: :client:software
         goals: [model-refinement]
   inet:whois:ipquery:
     props:
       ipv4:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
       ipv6:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
   inet:whois:iprecord:
     props:
       net4:
-        became: net
+        became: :net
         goals: [ip-version-agnostic]
       net6:
-        became: net
+        became: :net
         goals: [ip-version-agnostic]
   inet:whois:rec:
     became: inet:whois:record
@@ -275,7 +314,7 @@ changes:
   it:cloud:host:
     props:
       ipv4:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
   it:dev:regkey:
     became: it:os:windows:registry:key
@@ -283,6 +322,10 @@ changes:
   it:dev:regval:
     became: it:os:windows:registry:entry
     goals: [renamed]
+  it:domain:
+    became: inet:service:platform
+    goals: [model-refinement]
+    reason: An authentication and configuration boundary such as a windows domain is now modeled as an `inet:service:platform`, which also carries the platform type, provider org, and DNS zones. A host reaches it in one hop via `it:host:domain`. The 2.x `it:account:domain` and `it:group:domain` properties have no direct replacement; reach the domain through the account or group `:host`.
   it:exec:loadlib:
     became: it:exec:lib:load
     goals: [renamed]
@@ -310,17 +353,17 @@ changes:
   it:exec:windows:registry:del:
     props:
       reg:
-        became: entry
+        became: :entry
         goals: [renamed]
   it:exec:windows:registry:get:
     props:
       reg:
-        became: entry
+        became: :entry
         goals: [renamed]
   it:exec:windows:registry:set:
     props:
       reg:
-        became: entry
+        became: :entry
         goals: [renamed]
   it:group:
     became: it:host:group
@@ -332,7 +375,7 @@ changes:
   it:host:
     props:
       ipv4:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
   it:hosturl:
     became: it:exec:fetch
@@ -340,26 +383,26 @@ changes:
   it:network:
     props:
       net4:
-        became: net
+        became: :net
         goals: [ip-version-agnostic]
       net6:
-        became: net
+        became: :net
         goals: [ip-version-agnostic]
   it:os:windows:registry:entry:
     props:
       bytes:
-        became: value
+        became: :value
         goals: [eitheror-removed]
       int:
-        became: value
+        became: :value
         goals: [eitheror-removed]
       str:
-        became: value
+        became: :value
         goals: [eitheror-removed]
   it:physical:host:
     props:
       ipv4:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
   it:prod:hardware:
     became: it:hardware
@@ -382,15 +425,15 @@ changes:
   it:softid:
     props:
       soft:
-        became: software
+        became: :software
         goals: [model-refinement]
       soft:name:
-        became: software:name
+        became: :software:name
         goals: [model-refinement]
   it:virtual:host:
     props:
       ipv4:
-        became: ip
+        became: :ip
         goals: [ip-version-agnostic]
   media:news:
     became: doc:report
@@ -407,7 +450,7 @@ changes:
   ou:conference:
     props:
       url:
-        became: website
+        became: :website
         goals: [renamed]
   ou:conference:event:
     became: ou:event
@@ -415,7 +458,7 @@ changes:
   ou:contest:
     props:
       url:
-        became: website
+        became: :website
         goals: [renamed]
   ou:contract:
     became: doc:contract
@@ -429,7 +472,7 @@ changes:
   ou:event:
     props:
       url:
-        became: website
+        became: :website
         goals: [renamed]
   ou:id:update:
     became: ou:id:history
@@ -446,27 +489,27 @@ changes:
   ou:opening:
     props:
       employment:
-        became: employment:type
+        became: :employment:type
         goals: [taxonomy-convention]
       jobtitle:
-        became: title
+        became: :title
         goals: [renamed]
       jobtype:
-        became: job:type
+        became: :job:type
         goals: [taxonomy-convention]
       posted:
-        became: period
+        became: :period
         goals: [interval-consolidated]
       removed:
-        became: period
+        became: :period
         goals: [interval-consolidated]
       yearlypay:
-        became: pay:min
+        became: :pay:min
         goals: [renamed]
   ou:org:
     props:
       orgtype:
-        became: type
+        became: :type
         goals: [taxonomy-convention]
   ou:orgnet4:
     became: ou:orgnet
@@ -480,7 +523,7 @@ changes:
   ou:preso:
     props:
       url:
-        became: website
+        became: :website
         goals: [renamed]
   ou:role:
     became: entity:title
@@ -488,32 +531,32 @@ changes:
   ou:vitals:
     props:
       asof:
-        became: time
+        became: :time
         goals: [renamed]
       orgfqdn:
-        became: org:fqdn
+        became: :org:fqdn
         goals: [renamed]
       orgname:
-        became: org:name
+        became: :org:name
         goals: [renamed]
   pol:country:
     props:
       dissolved:
-        became: period
+        became: :period
         goals: [interval-consolidated]
       founded:
-        became: period
+        became: :period
         goals: [interval-consolidated]
       iso2:
-        became: code
+        became: :code
         goals: [renamed]
   pol:immigration:status:
     props:
       began:
-        became: period
+        became: :period
         goals: [interval-consolidated]
       ended:
-        became: period
+        became: :period
         goals: [interval-consolidated]
   pol:iso2:
     became: iso:3166:alpha2
@@ -527,49 +570,49 @@ changes:
   pol:vitals:
     props:
       asof:
-        became: time
+        became: :time
         goals: [renamed]
   proj:ticket:
     props:
       ext:url:
-        became: url
+        became: :url
         goals: [renamed]
   ps:vitals:
     props:
       asof:
-        became: time
+        became: :time
         goals: [renamed]
       contact:
-        became: individual
+        became: :individual
         goals: [renamed]
       person:
-        became: individual
+        became: :individual
         goals: [renamed]
   ps:workhist:
     props:
       duration:
-        became: period
+        became: :period
         goals: [interval-consolidated]
       employment:
-        became: employment:type
+        became: :employment:type
         goals: [taxonomy-convention]
       ended:
-        became: period
+        became: :period
         goals: [interval-consolidated]
       jobtitle:
-        became: title
+        became: :title
         goals: [renamed]
       jobtype:
-        became: job:type
+        became: :job:type
         goals: [taxonomy-convention]
       orgfqdn:
-        became: org:fqdn
+        became: :org:fqdn
         goals: [renamed]
       orgname:
-        became: org:name
+        became: :org:name
         goals: [renamed]
       started:
-        became: period
+        became: :period
         goals: [interval-consolidated]
   risk:alert:taxonomy:
     became: risk:alert:type:taxonomy
@@ -583,7 +626,7 @@ changes:
   risk:leak:
     props:
       public:url:
-        became: urls
+        became: :urls
         goals: [renamed]
   risk:outage:
     props:
@@ -596,46 +639,46 @@ changes:
   risk:vuln:
     props:
       timeline:exploited:
-        became: exploited
+        became: :exploited
         goals: [renamed]
       timeline:published:
-        became: published
+        became: :published
         goals: [renamed]
       timeline:vendor:fixed:
-        became: vendor:fixed
+        became: :vendor:fixed
         goals: [renamed]
       timeline:vendor:notified:
-        became: vendor:notified
+        became: :vendor:notified
         goals: [renamed]
   sci:experiment:
     props:
       time:
-        became: period
+        became: :period
         goals: [interval-consolidated]
       window:
-        became: period
+        became: :period
         goals: [interval-consolidated]
   tel:call:
     props:
       dst:
-        became: recipient:phone
+        became: :recipient:phone
         goals: [renamed]
       src:
-        became: caller:phone
+        became: :caller:phone
         goals: [renamed]
   transport:cargo:
     props:
       loaded:
-        became: period
+        became: :period
         goals: [interval-consolidated]
       unloaded:
-        became: period
+        became: :period
         goals: [interval-consolidated]
   transport:occupant:
     props:
       boarded:
-        became: period
+        became: :period
         goals: [interval-consolidated]
       disembarked:
-        became: period
+        became: :period
         goals: [interval-consolidated]

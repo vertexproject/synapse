@@ -472,13 +472,17 @@ stormcmds = (
         'desc': '''
             Show whether the user is allowed the given permission and why.
 
+            The permission may be specified as either a dotted string or a list of permission parts.
+
             Examples:
 
                 auth.user.allowed visi foo.bar
+
+                auth.user.allowed visi (foo, bar)
         ''',
         'cmdargs': (
             ('username', {'type': 'str', 'help': 'The name of the user.'}),
-            ('permname', {'type': 'str', 'help': 'The permission string.'}),
+            ('permname', {'help': 'The permission, as a dotted string or a list of permission parts.'}),
             ('--gate', {'type': 'str', 'help': 'An auth gate to test the perms against.'}),
         ),
         'storm': '''
@@ -632,6 +636,27 @@ def ruleFromText(text):
         allow = False
 
     return (allow, tuple(text.split('.')))
+
+async def permFromValu(valu):
+    '''
+    Get a permission tuple from either a dotted string or a sequence of permission parts.
+
+    Args:
+        valu: A dotted permission string or a list/tuple of permission parts.
+
+    Returns:
+        tuple: The permission parts.
+    '''
+    valu = await s_stormtypes.toprim(valu)
+
+    if isinstance(valu, str):
+        return tuple(valu.split('.'))
+
+    if isinstance(valu, (list, tuple)):
+        return tuple([await s_stormtypes.tostr(part) for part in valu])
+
+    mesg = f'Permission must be a dotted string or a list of permission parts, got: {s_common.trimText(repr(valu))}'
+    raise s_exc.BadArg(mesg=mesg)
 
 @s_stormtypes.registry.registerType
 class UserProfile(s_stormtypes.Dict):
@@ -805,20 +830,46 @@ class User(s_stormtypes.Prim):
          'type': {'type': 'gtor', '_gtorfunc': '_gtorUserRoles',
                   'returns': {'type': 'list',
                               'desc': 'A list of ``auth:roles`` which the user is a member of.', }}},
-        {'name': 'allowed', 'desc': 'Check if the user has a given permission.',
+        {'name': 'allowed', 'desc': '''
+        Check if the user has a given permission.
+
+        Notes:
+            The permission may be specified as either a dotted string (foo.bar.baz) or a list of
+            permission parts (foo, bar, baz).
+
+            When no default is specified, the permission's registered default value is used. This is
+            the same value used when the permission is enforced, so this API always agrees with
+            enforcement.
+        ''',
          'type': {'type': 'function', '_funcname': '_methUserAllowed',
                   'args': (
-                      {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
+                      {'name': 'permname', 'type': ['str', 'list'],
+                       'desc': 'The permission to check, as either a dotted string or a list of permission parts.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
-                      {'name': 'default', 'type': 'boolean', 'desc': 'The default value.', 'default': False, },
+                      {'name': 'default', 'type': 'boolean',
+                       'desc': 'The value to use when no rule matches. Defaults to the registered default for '
+                               'the permission.', 'default': None, },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the rule is allowed, False otherwise.', }}},
-        {'name': 'getAllowedReason', 'desc': 'Return an allowed status and reason for the given perm.',
+        {'name': 'getAllowedReason', 'desc': '''
+        Return an allowed status and reason for the given perm.
+
+        Notes:
+            The permission may be specified as either a dotted string (foo.bar.baz) or a list of
+            permission parts (foo, bar, baz).
+
+            When no default is specified, the permission's registered default value is used. This is
+            the same value used when the permission is enforced, so this API always agrees with
+            enforcement.
+        ''',
          'type': {'type': 'function', '_funcname': '_methGetAllowedReason',
                   'args': (
-                      {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
+                      {'name': 'permname', 'type': ['str', 'list'],
+                       'desc': 'The permission to check, as either a dotted string or a list of permission parts.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
-                      {'name': 'default', 'type': 'boolean', 'desc': 'The default value.', 'default': False, },
+                      {'name': 'default', 'type': 'boolean',
+                       'desc': 'The value to use when no rule matches. Defaults to the registered default for '
+                               'the permission.', 'default': None, },
                   ),
                   'returns': {'type': 'list', 'desc': 'An (allowed, reason) tuple.', }}},
         {'name': 'grant', 'desc': 'Grant a Role to the User.',
@@ -1124,22 +1175,26 @@ class User(s_stormtypes.Prim):
         return [Role(self.runt, role.iden) async for role in self.runt.view.core.getUserRoles(self.valu)]
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methUserAllowed(self, permname, gateiden=None, default=False):
-        permname = await s_stormtypes.tostr(permname)
-        gateiden = await s_stormtypes.tostr(gateiden)
-        default = await s_stormtypes.tobool(default)
+    async def _methUserAllowed(self, permname, gateiden=None, default=None):
+        perm = await permFromValu(permname)
+        gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
+        default = await s_stormtypes.tobool(default, noneok=True)
 
-        perm = tuple(permname.split('.'))
+        if default is None:
+            default = self.runt.view.core.getPermDefault(perm)
+
         user = await self.runt.view.core.auth.reqUser(self.valu)
         return user.allowed(perm, gateiden=gateiden, default=default)
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methGetAllowedReason(self, permname, gateiden=None, default=False):
-        permname = await s_stormtypes.tostr(permname)
-        gateiden = await s_stormtypes.tostr(gateiden)
-        default = await s_stormtypes.tobool(default)
+    async def _methGetAllowedReason(self, permname, gateiden=None, default=None):
+        perm = await permFromValu(permname)
+        gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
+        default = await s_stormtypes.tobool(default, noneok=True)
 
-        perm = tuple(permname.split('.'))
+        if default is None:
+            default = self.runt.view.core.getPermDefault(perm)
+
         user = await self.runt.view.core.auth.reqUser(self.valu)
         reason = user.getAllowedReason(perm, gateiden=gateiden, default=default)
         return reason.value, reason.mesg

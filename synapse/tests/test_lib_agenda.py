@@ -413,7 +413,7 @@ class AgendaTest(s_t_utils.SynTest):
                 msgs = [m for m in msgs if m['params']['text'] == '$lib.queue.gen(visi).put(bar)']
                 self.gt(len(msgs), 0)
                 for m in msgs:
-                    self.eq(m['params'].get('cron'), appt.iden)
+                    self.eq(m['params']['meta'].get('cron'), appt.iden)
 
                 self.eq(1, appt.startcount)
 
@@ -516,10 +516,10 @@ class AgendaTest(s_t_utils.SynTest):
                 await core.editCronJob(guid3, {'storm': '#bahhumbug'})
                 self.eq(indx + 1, await core.getNexsIndx())
 
-                # Add a job with invalid storage version
+                # Add a corrupt job which is missing a required key
                 cdef = (await core.listCronJobs())[0]
                 guid = s_common.guid()
-                cdef['ver'] = 0
+                cdef.pop('storm')
                 cdef['iden'] = guid
                 core.agenda.apptdefs.set(guid, cdef)
 
@@ -531,34 +531,6 @@ class AgendaTest(s_t_utils.SynTest):
 
                 last_appt = [appt for appt in appts if appt.get('iden') == guid3][0]
                 self.eq(last_appt.get('storm'), '#bahhumbug')
-
-    async def test_agenda_rejects_old_version(self):
-        ''' Un-migrated ver 1 appointments are rejected on load; the migration tool upgrades them to ver 2 '''
-
-        with self.getTestDir() as dirn:
-
-            async with self.getTestCore(dirn=dirn) as core:
-
-                cdef = {'user': core.auth.rootuser.iden,
-                        'creator': core.auth.rootuser.iden,
-                        'storm': '[test:str=bar]',
-                        'reqs': {'hour': 10, 'minute': 15},
-                        'incunit': 'dayofweek',
-                        'incvals': (2, 4)}
-                adef = await core.addCronJob(cdef)
-                iden = adef.get('iden')
-
-                # Downgrade the stored record to the legacy (pre-migration) ver 1 format
-                stor = core.agenda.apptdefs.get(iden)
-                stor['ver'] = 1
-                core.agenda.apptdefs.set(iden, stor)
-
-            async with self.getTestCore(dirn=dirn) as core:
-
-                # The un-migrated ver 1 record is rejected and not loaded
-                self.len(0, await core.listCronJobs())
-                with self.raises(s_exc.NoSuchIden):
-                    await core.agenda.get(iden)
 
     async def test_agenda_custom_view(self):
 
@@ -2038,6 +2010,37 @@ class AgendaTest(s_t_utils.SynTest):
             valu = await asyncio.wait_for(core.callStorm(q), timeout=12)
             self.nn(valu)
 
+    async def test_cron_affinity_err_ctor(self):
+
+        async with self.getTestCore() as core:
+
+            # with affinity set, the err message is wire data from the remote cortex,
+            # so a name resolving to a non-exception must not be called
+            class FakeProxy:
+
+                async def fini(self):
+                    pass
+
+                async def storm(self, text, opts=None):
+                    yield ('err', ('sys', {'mesg': 'boom'}))
+
+            async def getAffinityProxy(appt, timeout=10):
+                return FakeProxy()
+
+            core.agenda._getAffinityProxy = getAffinityProxy
+
+            cdef = {
+                'user': core.auth.rootuser.iden,
+                'creator': core.auth.rootuser.iden,
+                'storm': '$lib.print(hehe)',
+                'reqs': {'now': True},
+                'affinity': 'remote.cortex...',
+            }
+
+            with self.getLoggerStream('synapse.lib.agenda') as stream:
+                await core.addCronJob(cdef)
+                await stream.expect("raised exception SynErr: mesg='boom'", timeout=12)
+
     async def test_cron_affinity_execution(self):
 
         async with self.getTestAha() as aha:
@@ -2081,7 +2084,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                     self.true(await asyncio.wait_for(evt.wait(), timeout=12))
 
-                    opts = {'vars': {'iden': guid}, 'mirror': False}
+                    opts = {'vars': {'iden': guid}}
                     get_cron = 'return($lib.cron.get($iden))'
                     cdef00 = await core00.callStorm(get_cron, opts=opts)
                     self.eq(cdef00.get('affinity'), '01.cortex...')

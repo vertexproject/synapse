@@ -258,11 +258,15 @@ class Daemon(s_base.Base):
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
 
-        finis = [sess.fini() for sess in list(self.sessions.values())]
+        # each session is bound to the link which created it, so tear down the
+        # links first and let them fini their sessions once no link remains to
+        # deliver calls against them. any session without a link is cleaned up
+        # by the pass below.
+        finis = [link.fini() for link in list(self.links)]
         if finis:
             await asyncio.gather(*finis, return_exceptions=True)
 
-        finis = [link.fini() for link in self.links]
+        finis = [sess.fini() for sess in list(self.sessions.values())]
         if finis:
             await asyncio.gather(*finis, return_exceptions=True)
 
@@ -436,7 +440,14 @@ class Daemon(s_base.Base):
                 sess.onfini(sessitem)
 
         except (asyncio.CancelledError, Exception) as e:
-            logger.exception(f'Error on t2:init: {s_common.trimText(repr(mesg), n=80)} link={link.getAddrInfo()}')
+
+            if self.isfini:
+                # we are shutting down, so failures here are expected
+                logger.debug(f'Daemon isfini, aborting t2:init: {s_common.trimText(repr(mesg), n=80)} '
+                             f'link={link.getAddrInfo()}')
+            else:
+                logger.exception(f'Error on t2:init: {s_common.trimText(repr(mesg), n=80)} link={link.getAddrInfo()}')
+
             if not link.isfini:
                 retn = s_common.retnexc(e)
                 await link.tx(('t2:fini', {'retn': retn}))

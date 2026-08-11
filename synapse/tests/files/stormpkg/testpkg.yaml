@@ -3,7 +3,7 @@ version: 0.0.1
 
 dependencies:
   synapse:
-    version: ">=3.0.0b4,<4.0.0"
+    version: ">=3.0.0b5,<4.0.0"
   testpkg-optdep:
     version: ">=1.0.0,<2.0.0"
     desc: Optional dependency used to enrich testpkg nodes with additional metadata.
@@ -76,7 +76,6 @@ onload: |
   $lib.globals.testpkg = testpkg-done
 
 inits:
-  key: testpkg:version
   versions:
     - name: first
       version: 0
@@ -105,10 +104,6 @@ graphs:
 
         "*":
           pivots: ['-> #']
-
-docs:
-    - title: Foo Bar
-      path: docs/foobar.md
 
 perms:
     - perm: [ power-ups, testpkg, user ]
@@ -197,7 +192,7 @@ commands:
           - help: Help on foo opt
         - - --baz
           - help: Help on baz opt
-            time: ival
+            type: ival
             default: ["-7days", "now"]
 
 optic:

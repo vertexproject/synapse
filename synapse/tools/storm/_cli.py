@@ -16,6 +16,7 @@ import synapse.lib.output as s_output
 import synapse.lib.parser as s_parser
 import synapse.lib.msgpack as s_msgpack
 
+import synapse.tools.storm._http as s_http
 import synapse.tools.storm._printer as s_printer
 
 logger = logging.getLogger(__name__)
@@ -485,7 +486,7 @@ class StormCli(s_cli.Cli, s_printer.StormPrinter):
             if mtyp in self._print_skips:
                 continue
 
-            if mtyp == 'node:edits':
+            if mtyp == 'edits':
                 edit = mesg[1]
                 count = sum(len(e[2]) for e in edit.get('edits', ()))
                 s_cli.Cli.printf(self, '.' * count, addnl=False, color=s_printer.NODEEDIT_COLOR)
@@ -502,11 +503,33 @@ class StormCli(s_cli.Cli, s_printer.StormPrinter):
 
 def getArgParser(outp):
     pars = s_cmd.Parser(prog='synapse.tools.storm', outp=outp)
-    pars.add_argument('cortex', help='A telepath URL for the Cortex.')
+    pars.add_argument('cortex', help='A telepath URL for the Cortex, or an https:// URL for the Cortex HTTP API.')
     pars.add_argument('onecmd', nargs='?', help='A single storm command to run and exit.')
     pars.add_argument('--view', default=None, help='The view iden to work in.')
     pars.add_argument('--optsfile', default=None, help='A JSON/YAML file which contains storm runtime options.')
+    pars.add_argument('--https-proxy', default=None,
+                      help='An aiohttp-socks compatible proxy URL to use for https:// URLs.')
+    pars.add_argument('--https-ca-dir', default=None,
+                      help='A directory of CAs which are added to the TLS CA chain for https:// URLs.')
+    pars.add_argument('--https-noverify', default=False, action='store_true',
+                      help='Ignore SSL certificate validation errors for https:// URLs.')
     return pars
+
+def reqTeleOpts(opts):
+    '''
+    Require that the https only options are not used with a telepath URL.
+    '''
+    httponly = (
+        ('--https-proxy', opts.https_proxy),
+        ('--https-ca-dir', opts.https_ca_dir),
+        ('--https-noverify', opts.https_noverify or None),
+    )
+
+    for name, valu in httponly:
+
+        if valu is not None:
+            mesg = f'The {name} option may only be used with an https:// Cortex URL.'
+            raise s_exc.BadArg(mesg=mesg, arg=name)
 
 async def runItemStorm(prox, outp=None, color=True, opts=None):
 
@@ -522,23 +545,36 @@ async def runItemStorm(prox, outp=None, color=True, opts=None):
         await cli.addSignalHandlers()
         await cli.runCmdLoop()
 
+async def runStormOpts(prox, opts, outp=s_output.stdout):
+
+    if opts.onecmd:
+        async with await StormCli.anit(prox, outp=outp, opts=opts) as cli:
+            if await cli.runCmdLine(opts.onecmd) is False:
+                return 1
+            return 0
+
+    else:
+        await runItemStorm(prox, outp=outp, opts=opts)
+
 async def main(argv, outp=s_output.stdout):
 
     pars = getArgParser(outp=outp)
     opts = pars.parse_args(argv)
 
+    if s_http.isHttpsUrl(opts.cortex):
+
+        async with await s_http.openurl(opts.cortex, cadir=opts.https_ca_dir,
+                                        proxy=opts.https_proxy, verify=not opts.https_noverify) as prox:
+
+            return await runStormOpts(prox, opts, outp=outp)
+
+    reqTeleOpts(opts)
+
     async with s_telepath.withTeleEnv():
 
-        async with await s_telepath.openurl(opts.cortex) as proxy:
+        async with await s_telepath.openurl(opts.cortex) as prox:
 
-            if opts.onecmd:
-                async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
-                    if await cli.runCmdLine(opts.onecmd) is False:
-                        return 1
-                    return 0
-
-            else:  # pragma: no cover
-                await runItemStorm(proxy, outp=outp, opts=opts)
+            return await runStormOpts(prox, opts, outp=outp)
 
 if __name__ == '__main__':  # pragma: no cover
     s_cmd.exitmain(main)

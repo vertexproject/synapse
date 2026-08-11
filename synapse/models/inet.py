@@ -1274,6 +1274,9 @@ modeldefs = (
 
             (('inet:url', 'uses', 'meta:technique'), {
                 'doc': 'The source URL was created using the target technique.'}),
+
+            (('inet:service:message', 'about', None), {
+                'doc': 'The message is about the target node.'}),
         ),
 
         'types': (

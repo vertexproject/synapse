@@ -12,7 +12,7 @@ import synapse.lib.version as s_version
 
 import synapse.tools.storm._cli as s_t_storm
 
-reqver = '>=3.0.0b4,<4.0.0'
+reqver = '>=3.0.0b5,<4.0.0'
 desc = '''Command line tool for ingesting csv files into a cortex
 
 The storm file is run with the CSV rows specified in the variable "rows" so most
@@ -88,9 +88,6 @@ async def runCsvExport(opts, outp, text, stormopts):
                     wcsv.writerow(info['row'])
                     continue
 
-                if name in ('init', 'fini'):
-                    continue
-
                 outp.printf('%s: %r' % (name, info))
 
             outp.printf(f'exported {count} csv rows.')
@@ -125,8 +122,6 @@ async def runCsvImport(opts, outp, text, stormopts):
     async def addCsvData(core):
 
         nodecount = 0
-
-        stormopts['editformat'] = 'nodeedits'
 
         vars = stormopts.setdefault('vars', {})
 

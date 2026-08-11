@@ -4,45 +4,42 @@ import synapse.cortex as s_cortex
 
 import synapse.lib.time as s_time
 import synapse.lib.version as s_version
-import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tests.utils as s_t_utils
 
-class TestService(s_stormsvc.StormSvc):
-    _storm_svc_name = 'test'
-    _storm_svc_pkgs = (
-        {
-            'name': 'foo',
-            'version': (0, 0, 1),
-            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
-            'commands': (
-                {
-                    'name': 'foobar',
-                    'desc': 'foobar is a great service',
-                    'storm': '',
-                },
-                {
-                    'name': 'ohhai',
-                    'storm': '',
-                },
-                {
-                    'name': 'deprvers',
-                    'storm': '',
-                    'deprecated': {'eolvers': 'v3.0.0'},
-                },
-                {
-                    'name': 'deprdate',
-                    'storm': '',
-                    'deprecated': {'eoldate': '2099-01-01'},
-                },
-                {
-                    'name': 'deprmesg',
-                    'storm': '',
-                    'deprecated': {'eoldate': '2099-01-01', 'mesg': 'Please use ``ohhai``.'},
-                },
-            )
-        },
-    )
+class TestService(s_t_utils.StubStormSvc):
+    celltype = 'test'
+    _storm_svc_pkg = {
+        'name': 'foo',
+        'version': '0.0.1',
+        'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
+        'commands': (
+            {
+                'name': 'foobar',
+                'desc': 'foobar is a great service',
+                'storm': '',
+            },
+            {
+                'name': 'ohhai',
+                'storm': '',
+            },
+            {
+                'name': 'deprvers',
+                'storm': '',
+                'deprecated': {'eolvers': 'v3.0.0'},
+            },
+            {
+                'name': 'deprdate',
+                'storm': '',
+                'deprecated': {'eoldate': '2099-01-01'},
+            },
+            {
+                'name': 'deprmesg',
+                'storm': '',
+                'deprecated': {'eoldate': '2099-01-01', 'mesg': 'Please use ``ohhai``.'},
+            },
+        )
+    }
 
 class SynModelTest(s_t_utils.SynTest):
 
@@ -123,7 +120,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.stormHasNoWarnErr(msgs)
 
                 q = 'proj:project=(p1,)'
-                msgs = await core.stormlist(q, opts={'view': viewiden, 'repr': True})
+                msgs = await core.stormlist(q, opts={'view': viewiden, 'node:opts': {'repr': True}})
                 self.stormHasNoWarnErr(msgs)
 
             # populate two forks up-front so both have the syn:user reference
@@ -137,7 +134,7 @@ class SynModelTest(s_t_utils.SynTest):
             await core.delUser(visi.get('iden'))
 
             q = 'proj:project=(p1,)'
-            msgs = await core.stormlist(q, opts={'view': forkiden, 'repr': True})
+            msgs = await core.stormlist(q, opts={'view': forkiden, 'node:opts': {'repr': True}})
             self.stormHasNoWarnErr(msgs)
 
             # $lib.view.get().merge() schedules a background merge that
@@ -154,7 +151,7 @@ class SynModelTest(s_t_utils.SynTest):
             # MergeCmd (merge --apply) is a separate, synchronous, pipeline
             # driven merge; verify it also handles the deleted-user case.
             q = 'proj:project | merge --apply'
-            msgs = await core.stormlist(q, opts={'view': forkiden2, 'repr': True})
+            msgs = await core.stormlist(q, opts={'view': forkiden2, 'node:opts': {'repr': True}})
             self.stormHasNoWarnErr(msgs)
 
             self.len(1, await core.nodes('proj:project=(p1,)'))
@@ -181,10 +178,14 @@ class SynModelTest(s_t_utils.SynTest):
 
         async def addExtModelConfigs(cortex):
             await cortex.addTagProp('_beep', ('int', {}), {'doc': 'words'})
+            await cortex.addType('_test:type', 'int', {}, {'doc': 'an extended type'})
+            await cortex.addForm('_test:form', 'str', {}, {'doc': 'an extended form'})
             await cortex.addFormProp('test:str', '_twiddle', ('bool', {}), {'doc': 'hehe', 'computed': True})
 
         async def delExtModelConfigs(cortex):
             await cortex.delTagProp('_beep')
+            await cortex.delForm('_test:form')
+            await cortex.delType('_test:type')
             await cortex.delFormProp('test:str', '_twiddle')
 
         async with self.getTestCore() as core:
@@ -218,6 +219,16 @@ class SynModelTest(s_t_utils.SynTest):
             self.propeq(node, 'parent', 'comp')
             self.propeq(node, 'ctor', 'synapse.lib.types.Comp')
             self.propeq(node, 'doc', 'A fake comp type.')
+            self.propeq(node, 'extmodel', False)
+
+            # Extended model types are marked with :extmodel
+            nodes = await core.nodes('syn:type=_test:type')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'extmodel', True)
+
+            # An extended form also registers an extended type
+            nodes = await core.nodes('syn:type:extmodel=true')
+            self.eq({'_test:type', '_test:form'}, {n.ndef[1] for n in nodes})
 
             nodes = await core.nodes('syn:type:ctor="synapse.lib.types.Int"')
             self.gt(len(nodes), 1)
@@ -239,8 +250,15 @@ class SynModelTest(s_t_utils.SynTest):
             self.propeq(node, 'runt', False)
             self.propeq(node, 'type', 'test:comp')
             self.propeq(node, 'doc', 'A fake comp type.')
+            self.propeq(node, 'extmodel', False)
             # A form which implements no interfaces has no :interfaces value
             self.none(node.get('interfaces'))
+
+            # Extended model forms are marked with :extmodel
+            nodes = await core.nodes('syn:form:extmodel=true')
+            self.len(1, nodes)
+            self.eq(('syn:form', '_test:form'), nodes[0].ndef)
+            self.propeq(nodes[0], 'doc', 'an extended form')
 
             nodes = await core.nodes('syn:form=syn:form')
             self.len(1, nodes)
@@ -362,6 +380,16 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(('syn:tagprop', '_beep'), node.ndef)
             self.propeq(node, 'doc', 'words')
             self.propeq(node, 'type', 'int')
+            self.propeq(node, 'extmodel', True)
+
+            # Built-in tagprops are not extended model tagprops
+            nodes = await core.nodes('syn:tagprop=tlp')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'extmodel', False)
+
+            nodes = await core.nodes('syn:tagprop:extmodel=true')
+            self.len(1, nodes)
+            self.eq(('syn:tagprop', '_beep'), nodes[0].ndef)
 
             # Interfaces are represented as runt nodes
             nodes = await core.nodes('syn:interface')
@@ -461,6 +489,51 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(8, await core.nodes('syn:prop=test:str:poly :type -> syn:type'))
             self.len(1, await core.nodes('syn:form=test:str :type -> syn:type'))
 
+            # A :type value is a syn:type reference, but an explicit pivot to
+            # syn:form norms the value as a form name so the types which are
+            # also forms resolve. (SYN-10900)
+            nodes = await core.nodes('syn:prop=test:guid:comp :type -> syn:form')
+            self.eq([('syn:form', 'test:comp')], [n.ndef for n in nodes])
+
+            nodes = await core.nodes('syn:form=test:str :type -> syn:form')
+            self.eq([('syn:form', 'test:str')], [n.ndef for n in nodes])
+
+            # types which are not forms simply resolve nothing
+            self.len(0, await core.nodes('syn:prop=test:int:loc :type -> syn:form'))
+
+            # every type allowed by test:str:poly is also a form
+            forms = sorted(n.ndef[1] for n in await core.nodes('syn:prop=test:str:poly :type -> syn:form'))
+            self.eq(['inet:fqdn', 'inet:server', 'test:hasiface', 'test:hasiface2',
+                     'test:int', 'test:lowstr', 'test:str', 'test:str2'], forms)
+
+            # the same join expressed against the syn:form:type property
+            self.eq(forms, sorted(n.ndef[1] for n in
+                                  await core.nodes('syn:prop=test:str:poly :type -> syn:form:type')))
+
+            # a runt ndef reference resolves for wildcard and array pivots
+            nodes = await core.nodes('syn:form=test:str :type -> *')
+            self.eq([('syn:type', 'test:str')], [n.ndef for n in nodes])
+
+            nodes = await core.nodes('syn:form=it:physical:host :parent -> *')
+            self.eq([('syn:form', 'it:host')], [n.ndef for n in nodes])
+
+            nodes = await core.nodes('syn:form=inet:flow :interfaces -> *')
+            self.gt(len(nodes), 1)
+            self.true(all(n.ndef[0] == 'syn:interface' for n in nodes))
+
+            self.eq(sorted(n.ndef for n in nodes),
+                    sorted(n.ndef for n in await core.nodes('syn:form=inet:flow -> syn:interface')))
+
+            nodes = await core.nodes('syn:form=test:str -> syn:type')
+            self.eq([('syn:type', 'test:str')], [n.ndef for n in nodes])
+
+            # runt ndefs are only resolved when the caller asks for them
+            self.none(await core.view.getNodeByNdef(('syn:form', 'test:str')))
+            self.none(await core.view.getNodeByNdef(('syn:form', 'newp:newp'), runts=True))
+
+            node = await core.view.getNodeByNdef(('syn:form', 'test:str'), runts=True)
+            self.eq(('syn:form', 'test:str'), node.ndef)
+
             # We can uniq runt nodes
             self.len(9, await core.nodes('syn:type=test:guid <-- * | uniq'))
 
@@ -513,6 +586,10 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:tagprop')
                 self.len(2, nodes)
 
+                self.len(0, await core.nodes('syn:form:extmodel=true'))
+                self.len(0, await core.nodes('syn:type:extmodel=true'))
+                self.len(0, await core.nodes('syn:tagprop:extmodel=true'))
+
                 await addExtModelConfigs(core)
 
                 nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
@@ -521,10 +598,19 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:tagprop')
                 self.len(3, nodes)
 
+                self.len(1, await core.nodes('syn:form:extmodel=true'))
+                self.len(2, await core.nodes('syn:type:extmodel=true'))
+                self.len(1, await core.nodes('syn:tagprop:extmodel=true'))
+
                 await delExtModelConfigs(core)
 
                 nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
                 self.len(0, nodes)
+
+                self.len(0, await core.nodes('syn:form:extmodel=true'))
+                self.len(0, await core.nodes('syn:type:extmodel=true'))
+                self.len(0, await core.nodes('syn:tagprop:extmodel=true'))
+
                 # Back to 2 built-in only
                 nodes = await core.nodes('syn:tagprop')
                 self.len(2, nodes)
@@ -633,14 +719,11 @@ class SynModelTest(s_t_utils.SynTest):
                                              ' brief descriptions of different items.')
 
                 self.none(nodes[0].get('package'))
-                self.none(nodes[0].get('svciden'))
 
                 nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
 
                 await core.nodes(f'service.add test {url}')
-                iden = core.getStormSvcs()[0].iden
-
                 await core.nodes('$lib.service.wait(test)')
 
                 # check that runt nodes for new commands are created
@@ -650,13 +733,11 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].ndef, ('syn:cmd', 'foobar'))
                 self.propeq(nodes[0], 'doc', 'foobar is a great service')
                 self.propeq(nodes[0], 'package', 'foo')
-                self.propeq(nodes[0], 'svciden', iden)
                 self.none(nodes[0].get('deprecated'))
 
                 self.eq(nodes[1].ndef, ('syn:cmd', 'ohhai'))
                 self.propeq(nodes[1], 'doc', 'No description')
                 self.propeq(nodes[1], 'package', 'foo')
-                self.propeq(nodes[1], 'svciden', iden)
                 self.none(nodes[1].get('deprecated'))
 
                 self.eq(nodes[2].ndef, ('syn:cmd', 'deprvers'))
@@ -697,7 +778,7 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:cmd~="foo"')
                 self.len(1, nodes)
 
-                await core.nodes(f'service.del {iden}')
+                await core.nodes('service.del test')
 
                 # Check that runt nodes for the commands are gone
                 nodes = await core.nodes('syn:cmd +:package')
@@ -711,7 +792,7 @@ class SynModelTest(s_t_utils.SynTest):
                 stormpkg = {
                     'name': 'stormpkg',
                     'version': '1.2.3',
-                    'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
+                    'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
                     'commands': (
                         {
                          'name': 'pkgcmd.old',

@@ -61,40 +61,34 @@ class PathAwareCell(s_cell.Cell):
         return await SpecialPathApi.anit(self, link, user, path)
 
 class AhaStormSvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
-    _storm_svc_name = 'aha-storm-svc'
-    _storm_svc_pkgs = (
-        {  # type: ignore
-            'name': 'ahastormsvc',
-            'version': (0, 0, 1),
-            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
-            'commands': (
-                {
-                    'name': 'ahastormsvc.hi',
-                    'storm': '$lib.print(hello)',
-                },
-            ),
-        },
-    )
+    _storm_svc_pkg = {  # type: ignore
+        'name': 'ahastormsvc',
+        'version': '0.0.1',
+        'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
+        'commands': (
+            {
+                'name': 'ahastormsvc.hi',
+                'storm': '$lib.print(hello)',
+            },
+        ),
+    }
 
 class AhaStormSvcCell(s_cell.Cell):
     celltype = 'ahastormsvc'
     cellapi = AhaStormSvcApi
 
 class AhaStormSvc2Api(s_cell.CellApi, s_stormsvc.StormSvc):
-    _storm_svc_name = 'aha-storm-svc2'
-    _storm_svc_pkgs = (
-        {  # type: ignore
-            'name': 'ahastormsvc2',
-            'version': (0, 0, 1),
-            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
-            'commands': (
-                {
-                    'name': 'ahastormsvc2.hi',
-                    'storm': '$lib.print(hello2)',
-                },
-            ),
-        },
-    )
+    _storm_svc_pkg = {  # type: ignore
+        'name': 'ahastormsvc2',
+        'version': '0.0.1',
+        'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
+        'commands': (
+            {
+                'name': 'ahastormsvc2.hi',
+                'storm': '$lib.print(hello2)',
+            },
+        ),
+    }
 
 class AhaStormSvc2Cell(s_cell.Cell):
     celltype = 'ahastormsvc2'
@@ -186,7 +180,14 @@ class AhaTest(s_test.SynTest):
                     self.eq('001.aha.synapse', svc.get('name'))
                     self.true(svc.get('leader'))
 
-            # Remove 00.aha.loop.vertex.link since we're done with him + coverage
+                    # we connect to the promoted clone using the dns:name it
+                    # advertises rather than the 001.aha.synapse name we filed it
+                    # under, which is the only name it presents a cert for.
+                    proxy = await aha1.getAhaSvcProxy(svc)
+                    cellinfo = await proxy.getCellInfo()
+                    self.eq(aha1.iden, cellinfo['cell']['iden'])
+
+            # Remove 000.aha.loop.vertex.link since we're done with him + coverage
             async with self.getTestAha(conf={'dns:name': zoinks}, dirn=dir1) as aha1:
 
                 # on reboot the clone keeps its own 001.aha name rather than
@@ -196,7 +197,7 @@ class AhaTest(s_test.SynTest):
                 async with aha1.getLocalProxy() as proxy1:
                     srvs = await proxy1.getAhaServers()
                     self.len(2, srvs)
-                    aha00 = [info for info in srvs if info.get('host') == '00.aha.loop.vertex.link'][0]
+                    aha00 = [info for info in srvs if info.get('host') == '000.aha.loop.vertex.link'][0]
                     data = await proxy1.delAhaServer(aha00.get('host'), aha00.get('port'))
                     self.eq(data.get('host'), aha00.get('host'))
                     self.eq(data.get('port'), aha00.get('port'))
@@ -413,15 +414,18 @@ class AhaTest(s_test.SynTest):
 
                 self.len(ahacount + 1, await aha.getAhaServers())
 
+                # the refreshed server list arrives on the topology sync stream
+                # ( ahead of the svc:sync sentinel ) rather than with the proxy,
+                # so wait for the sync before reading the updated conf.
                 async with self.getTestCell(s_test.TestCell00, conf=conf, dirn=dirn) as cell:
-                    await cell.ahaclient.proxy()
+                    await cell.ahaclient.waitTopoReady(timeout=10)
                     self.len(ahacount + 1, cell.conf.get('aha:servers'))
 
                 self.nn(await aha.delAhaServer('zoinks.aha.loop.vertex.link', 27492))
                 self.len(ahacount, await aha.getAhaServers())
 
                 async with self.getTestCell(s_test.TestCell00, conf=conf, dirn=dirn) as cell:
-                    await cell.ahaclient.proxy()
+                    await cell.ahaclient.waitTopoReady(timeout=10)
                     self.len(ahacount, cell.conf.get('aha:servers'))
                     s_common.yamlsave({'aha:servers': [cell.conf.get('aha:servers')[0]]}, dirn, 'cell.mods.yaml')
 
@@ -591,16 +595,23 @@ class AhaTest(s_test.SynTest):
                 }
 
                 async with self.getTestAha(dirn=dirn, conf=conf) as aha:
+
+                    dnsname = aha.conf.req('dns:name')
+
                     self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'cas', 'do.vertex.link.crt')))
                     self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'cas', 'do.vertex.link.key')))
-                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'hosts', 'aha.do.vertex.link.crt')))
-                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'hosts', 'aha.do.vertex.link.key')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'hosts', f'{dnsname}.crt')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'hosts', f'{dnsname}.key')))
                     self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'users', 'root@do.vertex.link.crt')))
                     self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'users', 'root@do.vertex.link.key')))
 
-                    host, port = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.do.vertex.link&ca=do.vertex.link')
+                    # we mint host certs for our dns:name only
+                    self.none(aha.certdir.getHostCertPath('aha.do.vertex.link'))
 
-                    async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=aha.do.vertex.link') as proxy:
+                    host, port = await aha.dmon.listen(f'ssl://127.0.0.1:0?hostname={dnsname}&ca=do.vertex.link')
+
+                    url = f'ssl://root@127.0.0.1:{port}?hostname={dnsname}&certname=root@do.vertex.link'
+                    async with await s_telepath.openurl(url) as proxy:
                         await proxy.getCellInfo()
 
     async def test_lib_aha_noconf(self):
@@ -702,6 +713,57 @@ class AhaTest(s_test.SynTest):
 
                 alias = await aha.getAhaSvc('aha...')
                 self.eq('000.aha.synapse', alias.get('name'))
+
+                # we advertise our dns:name, which is the name we present a host
+                # cert for. our AHA service name is never a TLS identity.
+                self.eq('000.aha.loop.vertex.link', alias['info']['urlinfo'].get('hostname'))
+
+                # a client cannot resolve its user cert by walking up that name, so
+                # we hand it the network to resolve from instead. the hint is added
+                # for the calling user at read time, so it is not in the stored
+                # entry the cell method returns above.
+                async with aha.getLocalProxy() as proxy:
+
+                    svc = await proxy.getAhaSvc('aha...')
+                    self.eq('synapse', svc['info']['urlinfo'].get('certhost'))
+                    self.eq('root', svc['info']['urlinfo'].get('user'))
+
+                    byt = await proxy.getAhaSvcByType('aha')
+                    self.eq('synapse', byt['info']['urlinfo'].get('certhost'))
+
+                # ...so a service may resolve and connect to the AHA service.
+                core = await aha.enter_context(self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex))
+
+                opts = {'vars': {'url': 'aha://aha...'}}
+                q = '$prox = $lib.telepath.open($url) return($prox.getCellInfo().cell.iden)'
+                self.eq(aha.iden, await core.callStorm(q, opts=opts))
+
+                opts = {'vars': {'url': 'aha://000.aha...'}}
+                self.eq(aha.iden, await core.callStorm(q, opts=opts))
+
+                # the hint is added even for an entry we did not build the urlinfo
+                # for, such as a statically configured aha:svcinfo or one which was
+                # registered by hand.
+                info = {'iden': s_common.guid(), 'type': 'newp',
+                        'urlinfo': {'scheme': 'ssl', 'host': '127.0.0.1', 'port': 27492,
+                                    'hostname': 'newp.vertex.link'}}
+                await aha.addAhaSvc('00.newp...', info)
+
+                async with aha.getLocalProxy() as proxy:
+                    svc = await proxy.getAhaSvc('00.newp...')
+                    self.eq('newp.vertex.link', svc['info']['urlinfo'].get('hostname'))
+                    self.eq('synapse', svc['info']['urlinfo'].get('certhost'))
+
+                # we build our peer connections against the hostname a service
+                # advertises rather than the name we filed it under, since the CN
+                # check is exact. an entry with no advertised hostname falls back.
+                svcurl = aha.getAhaSvcUrl(alias)
+                self.isin('hostname=000.aha.loop.vertex.link', svcurl)
+                self.isin('certname=root@synapse', svcurl)
+
+                nohost = {'name': '00.nohost.synapse',
+                          'info': {'urlinfo': {'host': '127.0.0.1', 'port': 27492}}}
+                self.isin('hostname=00.nohost.synapse', aha.getAhaSvcUrl(nohost))
 
                 # a legacy AHA with no minted aha:name does not self-register:
                 # inaugural-only naming leaves an already-deployed AHA out of the
@@ -1717,17 +1779,47 @@ class AhaTest(s_test.SynTest):
 
                     self.true(snfo.get('online'))
 
-                # Restart aha
-                async with self.getTestAha(dirn=ahadirn) as aha:
+                    linkiden = aha._getSvcSess(snfo.get('name'))
 
-                    snfo = await aha._waitAhaSvcDown('01.svc...', timeout=10)
-                    self.false(snfo.get('online'))
-                    self.false(snfo['info']['ready'])
+                # capture each entry as the sweep marks it down. _fireTopoMod is
+                # called from within the compare-and-set branch of _setAhaSvcDown,
+                # so this records the state that was actually written rather than
+                # re-reading it afterwards ( by which point the service may have
+                # reconnected ). record only the flags, so a later re-registration
+                # cannot mutate what we captured.
+                downs = []
 
-                    # svc01 has reconnected and the ready state has been re-registered
-                    snfo = await aha._waitAhaSvcOnline('01.svc...', timeout=10)
-                    self.true(snfo.get('online'))
-                    self.true(snfo['info']['ready'])
+                class RestartAha(s_aha.AhaCell):
+
+                    async def _fireTopoMod(self, svcentry):
+                        downs.append((svcentry.get('name'), svcentry.get('online'),
+                                      svcentry['info'].get('ready')))
+                        await s_aha.AhaCell._fireTopoMod(self, svcentry)
+
+                # Restart aha. the boot time sweep marks the stale service entries
+                # down and the services reconnect as soon as the listener is back,
+                # both of which may complete before the fixture hands back control
+                # ( it waits for the AHA leader to self-register ). observe the
+                # sweep from the log rather than racing it with _waitAhaSvcDown().
+                with self.getLoggerStream('synapse.lib.aha') as stream:
+
+                    async with self.getTestAha(dirn=ahadirn, ctor=RestartAha.anit) as aha:
+
+                        await stream.expect('Set [01.svc.synapse] offline.', timeout=10)
+
+                        # the sweep cleared both flags. the log line above is emitted
+                        # even when the compare-and-set matched nothing, so assert on
+                        # the entry the sweep wrote rather than on the log alone.
+                        self.isin(('01.svc.synapse', False, False), downs)
+
+                        # svc01 has reconnected and the ready state has been re-registered
+                        snfo = await aha._waitAhaSvcOnline('01.svc...', timeout=10)
+                        self.true(snfo.get('online'))
+                        self.true(snfo['info']['ready'])
+
+                        # the stale session was cleared by the sweep, so the entry is
+                        # online under the session from svc01's reconnect.
+                        self.ne(linkiden, aha._getSvcSess(snfo.get('name')))
 
     async def test_aha_svc_api_exception(self):
 
@@ -2217,7 +2309,9 @@ class AhaTest(s_test.SynTest):
                 self.nn(ssvc)
                 self.eq('ahastormsvc', ssvc.sdef.get('name'))
                 self.eq('aha://ahastormsvc...', ssvc.sdef.get('url'))
-                self.eq(s_common.guid(('aha', 'stormsvc', 'ahastormsvc')), ssvc.sdef.get('iden'))
+
+                # a service is identified by its cell type, so it has no iden
+                self.none(ssvc.sdef.get('iden'))
 
                 # the auto added aha://<type>... url resolves to the running
                 # service and its packages / commands are usable.
@@ -2263,4 +2357,5 @@ class AhaTest(s_test.SynTest):
             # automatic add so we never clobber operator configuration.
             await core.addStormSvc({'name': 'manual', 'url': 'tcp://127.0.0.1:1/svc'})
             await core._addAhaStormSvc({'info': {'type': 'manual', 'features': {'stormservice': '1.0.0'}}})
-            self.none(core.svcsbyiden.get(s_common.guid(('aha', 'stormsvc', 'manual'))))
+            self.notin('manual', core.ahastormsvcs)
+            self.len(1, core.getStormSvcs())

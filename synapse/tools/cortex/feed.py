@@ -12,13 +12,12 @@ import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
-import synapse.lib.encoding as s_encoding
 
 import synapse.tools.storm._cli as s_t_storm
 
 logger = logging.getLogger(__name__)
 
-reqver = '>=3.0.0b4,<4.0.0'
+reqver = '>=3.0.0b5,<4.0.0'
 
 def getItems(*paths):
     items = []
@@ -30,7 +29,7 @@ def getItems(*paths):
             items.append((path, item))
         elif path.endswith('.jsonl'):
             with s_common.genfile(path) as fd:
-                item = list(s_encoding.iterdata(fd, False, format='jsonl'))
+                item = [s_json.loads(line) for line in fd]
                 items.append((path, item))
         elif path.endswith(('.yaml', '.yml')):
             item = s_common.yamlload(path)

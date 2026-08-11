@@ -5,22 +5,6 @@ import synapse.tests.utils as s_t_utils
 
 class FileTest(s_t_utils.SynTest):
 
-    # FIXME decide about exe:packer et al
-    # async def test_model_filebytes(self):
-
-    #     async with self.getTestCore() as core:
-
-    #         nodes = await core.nodes('''
-    #             [ file:bytes=*
-    #                 :exe:packer = {[ it:software=* :name="Visi Packer 31337" ]}
-    #                 :exe:compiler = {[ it:software=* :name="Visi Studio 31337" ]}
-    #             ]
-    #         ''')
-    #         self.nn(nodes[0].get('exe:packer'))
-    #         self.nn(nodes[0].get('exe:compiler'))
-    #         self.len(1, await core.nodes('file:bytes :exe:packer -> it:software +:name="Visi Packer 31337"'))
-    #         self.len(1, await core.nodes('file:bytes :exe:compiler -> it:software +:name="Visi Studio 31337"'))
-
     async def test_model_file_entry(self):
 
         async with self.getTestCore() as core:
@@ -31,6 +15,13 @@ class FileTest(s_t_utils.SynTest):
             self.eq({'file', 'path'}, propnames)
             ifnames = {n for (n, _) in iface.get('interfaces', ())}
             self.notin('meta:observable', ifnames)
+
+            iface = core.model.ifaces.get('file:subfile')
+            self.nn(iface)
+            propnames = {p[0] for p in iface['props']}
+            self.eq({'file', 'parent', 'offset'}, propnames)
+            ifnames = {n for (n, _) in iface.get('interfaces', ())}
+            self.isin('meta:observable', ifnames)
 
             nodes = await core.nodes('[ file:exemplar:entry=* :path=foo/001.exe :file=* as file:bytes :seen=2022 ]')
             self.len(1, nodes)
@@ -86,19 +77,15 @@ class FileTest(s_t_utils.SynTest):
                     :parent={file:bytes}
                     :file={file:bytes}
                     :path=foo/004.exe
-                    :added=20260126
-                    :created=20260126
-                    :modified=20260126
-                    :accessed=20260126
+                    :offset=1024
+                    :seen=2022
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('parent'))
+            self.nn(nodes[0].get('seen'))
             self.propeq(nodes[0], 'path', 'foo/004.exe')
-            self.propeq(nodes[0], 'added', 1769385600000000)
-            self.propeq(nodes[0], 'created', 1769385600000000)
-            self.propeq(nodes[0], 'modified', 1769385600000000)
-            self.propeq(nodes[0], 'accessed', 1769385600000000)
+            self.propeq(nodes[0], 'offset', 1024)
             self.len(1, await core.nodes('file:subfile:entry :path -> file:path'))
             self.len(1, await core.nodes('file:subfile:entry :file -> file:bytes'))
             self.len(1, await core.nodes('file:subfile:entry :parent -> file:bytes'))
@@ -184,6 +171,21 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('file:mime:rar:entry :parent -> file:bytes'))
 
             self.len(6, await core.nodes('file:bytes -> file:entry:file :path -> file:path | uniq'))
+
+            # the subfile entry forms implement the file:subfile interface
+            self.len(4, await core.nodes('file:subfile'))
+            self.len(1, await core.nodes('file:subfile:offset=1024'))
+            self.len(4, await core.nodes('file:bytes -> file:subfile | uniq'))
+            self.len(1, await core.nodes('file:subfile:parent -> file:bytes | uniq'))
+
+            # the archive entry forms are no longer subtypes of file:subfile:entry
+            self.len(1, await core.nodes('file:subfile:entry'))
+            self.len(3, await core.nodes('file:archive:entry'))
+
+            # only file:subfile:entry lost the file:stored:entry MAC times
+            for prop in ('added', 'created', 'modified', 'accessed'):
+                with self.raises(s_exc.NoSuchProp):
+                    await core.nodes(f'file:subfile:entry:{prop}=20260126')
 
     async def test_model_filebytes_ssdeeps(self):
 
@@ -538,10 +540,13 @@ class FileTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             self.len(1, await core.nodes('[ file:path="c:/www/woah/really" ]'))
-            # FIXME virts need to autoadd
-            # self.len(1, await core.nodes('file:path="c:/www"'))
-            # self.len(1, await core.nodes('file:path=""'))
-            # self.len(1, await core.nodes('file:base="sup.exe"'))
+            self.len(1, await core.nodes('file:path="c:/www/woah"'))
+            self.len(1, await core.nodes('file:path="c:/www"'))
+            self.len(1, await core.nodes('file:path="c:"'))
+            self.len(1, await core.nodes('file:base="really"'))
+            self.len(1, await core.nodes('file:base="c:"'))
+            # A single component path has no dir virt, so the auto-add chain
+            # terminates at "c:" and never creates an empty root path node.
 
     async def test_model_file_mime_msoffice(self):
 
@@ -722,6 +727,7 @@ class FileTest(s_t_utils.SynTest):
                     :parent=* as file:bytes
                     :file=* as file:bytes
                     :path=foo/bar.exe
+                    :offset=512
                     :added=20230630
                     :created=20230629
                     :accessed=20230629
@@ -733,6 +739,8 @@ class FileTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('file'))
             self.nn(nodes[0].get('parent'))
 
+            self.propeq(nodes[0], 'offset', 512)
+            self.propeq(nodes[0], 'archived:size', 999)
             self.propeq(nodes[0], 'added', 1688083200000000)
             self.propeq(nodes[0], 'created', 1687996800000000)
             self.propeq(nodes[0], 'accessed', 1687996800000000)

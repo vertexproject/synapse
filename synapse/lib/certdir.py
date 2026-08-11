@@ -11,6 +11,7 @@ from typing import List, Tuple, Union
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.output as s_output
 import synapse.lib.crypto.rsa as s_rsa
@@ -37,6 +38,9 @@ NSCERTTYPE_OBJSIGN = b'\x03\x02\x04\x10'  # objsign
 
 TEN_YEARS = 10 * s_const.year  # 10 years in microseconds
 TEN_YEARS_TD = datetime.timedelta(microseconds=TEN_YEARS)
+
+CRL_PEM_HEAD = b'-----BEGIN X509 CRL-----'
+CRL_PEM_TAIL = b'-----END X509 CRL-----'
 
 StrOrNone = Union[str | None]
 BytesOrNone = Union[bytes | None]
@@ -91,6 +95,47 @@ def _verifyCertSignature(cert, cacert):
         raise s_exc.BadCertVerify(mesg=f'Unsupported CA key type: {type(pubkey).__name__}')
     cert.verify_directly_issued_by(cacert)
 
+def _isEmptyCrlPem(byts: bytes) -> bool:
+    '''
+    Check for a PEM CRL envelope which contains no DER body.
+
+    A CA which has never revoked a certificate may be published as an empty
+    envelope. There is nothing to parse and nothing is revoked, so callers
+    treat it the same as a CA with no CRL at all rather than as corruption.
+
+    Args:
+        byts: The contents of a .crl file.
+
+    Returns:
+        True if the bytes are an empty CRL envelope.
+    '''
+    lines = [line.strip() for line in byts.split(b'\n')]
+    return [line for line in lines if line] == [CRL_PEM_HEAD, CRL_PEM_TAIL]
+
+def _loadCrlPath(path: str) -> Union[c_x509.CertificateRevocationList | None]:
+    '''
+    Load a CRL from a file path.
+
+    Args:
+        path: The path to the .crl file.
+
+    Raises:
+        s_exc.BadCertBytes if the file is not a loadable CRL.
+
+    Returns:
+        The CRL, or None if the file is an empty CRL envelope.
+    '''
+    with io.open(path, 'rb') as fd:
+        byts = fd.read()
+
+    if _isEmptyCrlPem(byts):
+        return None
+
+    try:
+        return c_x509.load_pem_x509_crl(byts)
+    except Exception as e:
+        raise s_exc.BadCertBytes(mesg=f'Unable to load CRL {path}: {e}') from None
+
 class Crl:
 
     def __init__(self, cdir, name):
@@ -104,8 +149,8 @@ class Crl:
         ]))
 
         if os.path.isfile(self.path):
-            with io.open(self.path, 'rb') as fd:
-                crl = c_x509.load_pem_x509_crl(fd.read())
+            crl = _loadCrlPath(self.path)
+            if crl is not None:
                 for revc in crl:
                     self.crlbuilder = self.crlbuilder.add_revoked_certificate(revc)
 
@@ -197,17 +242,28 @@ class CertDir:
     Notes:
         * All certificates will be loaded from and written to ~/.syn/certs by default. Set the environment variable
           SYN_CERT_DIR to override.
-        * All certificate generation methods create 4096 bit RSA keypairs.
+        * All certificate generation methods create RSA keypairs of ``_rsa_key_size`` bits (4096 by default).
         * All certificate signing methods use sha256 as the signature algorithm.
         * CertDir does not currently support signing CA CSRs.
     '''
 
+    # Default RSA key size for all generated keypairs. A class attribute (rather than set in
+    # __init__) so it can be lowered wholesale, including for the module-level ``certdir``
+    # singleton below, before any instance is constructed. Test runs lower this value because
+    # 4096-bit keygen dominates test setup time and tests do not depend on key strength; see
+    # the repo-root conftest.py.
+    _rsa_key_size = 4096
+
+    # Cap on the number of parsed private keys _loadKeyPath keeps cached. Bounds memory use on
+    # a long-lived CertDir (e.g. the module singleton in a running service).
+    _keycache_max = 128
+
     def __init__(self, path: StrOrNone = None):
-        self.crypto_numbits = 4096
         self.signing_digest = c_hashes.SHA256
 
         self.certdirs = []
         self.pathrefs = collections.defaultdict(int)
+        self._keycache = s_cache.LruDict(size=self._keycache_max)
 
         if path is None:
             path = (defdir,)
@@ -596,10 +652,11 @@ class CertDir:
                 if not name.endswith('.crl'):  # pragma: no cover
                     continue
 
-                fullpath = os.path.join(crlpath, name)
-                with io.open(fullpath, 'rb') as fd:
-                    crl = c_x509.load_pem_x509_crl(fd.read())
-                    crls.append(crl)
+                crl = _loadCrlPath(os.path.join(crlpath, name))
+                if crl is None:
+                    continue
+
+                crls.append(crl)
 
         return crls
 
@@ -1590,7 +1647,7 @@ class CertDir:
             raise s_exc.DupFileName(mesg=f'Duplicate file {path}', path=path)
 
     def _genPrivKey(self) -> c_rsa.RSAPrivateKey:
-        return c_rsa.generate_private_key(65537, self.crypto_numbits)
+        return c_rsa.generate_private_key(65537, self._rsa_key_size)
 
     def _genCertBuilder(self, name: str, pubkey: c_types.PublicKeyTypes) -> c_x509.CertificateBuilder:
 
@@ -1689,13 +1746,37 @@ class CertDir:
         return c_x509.load_pem_x509_csr(byts)
 
     def _loadKeyPath(self, path: str) -> PkeyOrNone:
+
+        if path is None:
+            return None
+
+        try:
+            stat = os.stat(path)
+        except OSError:
+            return None
+
+        # Parsing a private key runs RSA consistency checks and is expensive at 4096 bits.
+        # Every load of a given CA key resolves to the same bytes, so cache on (path, mtime,
+        # size) and skip the reparse; the mtime/size guard still picks up a key regenerated
+        # in place at the same path.
+        ckey = (path, stat.st_mtime_ns, stat.st_size)
+
+        pkey = self._keycache.get(ckey)
+        if pkey is not None:
+            return pkey
+
         byts = self._getPathBytes(path)
-        if byts:
-            pkey = c_serialization.load_pem_private_key(byts, password=None)
-            if isinstance(pkey, (c_rsa.RSAPrivateKey, c_dsa.DSAPrivateKey)):
-                return pkey
+        if not byts:
+            return None
+
+        pkey = c_serialization.load_pem_private_key(byts, password=None)
+        if not isinstance(pkey, (c_rsa.RSAPrivateKey, c_dsa.DSAPrivateKey)):
             raise s_exc.BadCertBytes(mesg=f'Key is {pkey.__class__.__name__}, expected a DSA or RSA key, {path=}',
                                      path=path)
+
+        self._keycache[ckey] = pkey
+
+        return pkey
 
     def _loadP12Path(self, path: str) -> Pkcs12OrNone:
         byts = self._getPathBytes(path)

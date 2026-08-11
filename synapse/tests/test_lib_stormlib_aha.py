@@ -77,6 +77,7 @@ Connection information:
     ca:         synapse
 '''
                 self.stormIsInPrint(emsg, msgs, deguid=True)
+                self.stormIsInPrint('    certhost:   synapse', msgs)
                 self.stormIsInPrint('    hostname:   00.cell.synapse', msgs)
                 self.stormIsInPrint('    scheme:     ssl', msgs)
                 self.stormIsInPrint('    user:       root', msgs)
@@ -163,6 +164,7 @@ Cell iden:  null
 Leader:     No leadership term for this service type.
 Nexus:      Failed to connect to Telepath service: "aha://00.newp.synapse/" error: [Errno 111] Connect call failed ('0.0.0.0', 3030)
 Connection information:
+    certhost:   synapse
     host:       0.0.0.0
     port:       3030
     scheme:     tcp

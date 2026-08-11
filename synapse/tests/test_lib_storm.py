@@ -780,7 +780,7 @@ class StormTest(s_t_utils.SynTest):
 
             pkg0 = {
                 'name': 'foopkg',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'modules': (
                     {
                         'name': 'foo.bar',
@@ -813,7 +813,7 @@ class StormTest(s_t_utils.SynTest):
 
             strverpkg = {
                 'name': 'strvers',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'modules': ({'name': 'strvers', 'storm': ''},),
                 'configvars': (
                     {
@@ -876,7 +876,7 @@ class StormTest(s_t_utils.SynTest):
             # check that the feed API uses toprim
             email = await core.callStorm('''
                 $iden = $lib.guid()
-                $props = ({"email": ["inet:email", "visi@vertex.link"]})
+                $props = ({"email": ["visi@vertex.link", {"t": "inet:email"}]})
                 $lib.feed.ingest((
                     ( (entity:contact, $iden), ({"props": $props})),
                 ))
@@ -887,7 +887,7 @@ class StormTest(s_t_utils.SynTest):
 
             email = await core.callStorm('''
                 $iden = $lib.guid()
-                $props = ({"email": ["inet:email", "visi@vertex.link"]})
+                $props = ({"email": ["visi@vertex.link", {"t": "inet:email"}]})
                 yield $lib.feed.genr((
                     ( (entity:contact, $iden), ({"props": $props})),
                 ))
@@ -1052,9 +1052,9 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint(f'{fqdnnid} inet:fqdn:zone = mvmnasde.com', msgs)
 
             # Ensure the layer is in a steady state to avoid getting data from
-            # dirty sodes in the merge --diff tests. Under a nexuscommit Cortex the
-            # layrslab commits after each nexus transaction and _storNodeEdits
-            # flushes dirty sodes itself, so nothing remains buffered here.
+            # dirty sodes in the merge --diff tests. The layrslab commits after each
+            # nexus transaction and _storNodeEdits saves the dirty sodes itself, so
+            # nothing remains buffered here.
             self.false(real_layer.dirty)
 
             # test that a user without perms can diff but not apply
@@ -1256,7 +1256,7 @@ class StormTest(s_t_utils.SynTest):
             await core.stormlist('[ inet:fqdn=vertex.link ]')
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 
-            opts = {'view': fork, 'node:opts': {'show:storage': True}}
+            opts = {'view': fork, 'node:opts': {'storage': True}}
             msgs = await core.stormlist('inet:fqdn=vertex.link [ +#foo ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
             self.len(1, nodes)
@@ -1274,43 +1274,53 @@ class StormTest(s_t_utils.SynTest):
             ]'''
             msgs = await core.stormlist(q, opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
-            self.eq(nodes[0][1]['props']['time.precision'], 8)
+            self.eq(nodes[0][1]['props']['time'][1]['v']['precision'], (8, {}))
 
-            self.eq(nodes[1][1]['props']['bar'], ('test:str', 'bar'))
-            self.eq(nodes[1][1]['props']['bar.type'], 'test:str')
-            self.eq(nodes[1][1]['props']['seen'], ('ival', (1577836800000000, 1577836800000001, 1)))
-            self.eq(nodes[1][1]['props']['seen.min'], 1577836800000000)
-            self.eq(nodes[1][1]['props']['seen.max'], 1577836800000001)
-            self.eq(nodes[1][1]['props']['seen.duration'], 1)
+            # a scalar poly hoists its concrete type onto the envelope
+            self.eq(nodes[1][1]['props']['bar'], ('bar', {'t': 'test:str'}))
 
-            self.eq(nodes[2][1]['props']['seen'], ('ival', (1577836800000000, 0x7fffffffffffffff, 0xffffffffffffffff)))
-            self.eq(nodes[2][1]['props']['seen.min'], 1577836800000000)
-            self.eq(nodes[2][1]['props']['seen.max'], 0x7fffffffffffffff)
-            self.eq(nodes[2][1]['props']['seen.duration'], 0xffffffffffffffff)
-            self.eq(nodes[2][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
-            self.eq(nodes[2][1]['props']['polyarry.size'], 2)
+            valu, info = nodes[1][1]['props']['seen']
+            self.eq(valu, (1577836800000000, 1577836800000001, 1))
+            self.eq(info['t'], 'ival')
+            self.eq(info['v']['min'], (1577836800000000, {}))
+            self.eq(info['v']['max'], (1577836800000001, {}))
+            self.eq(info['v']['duration'], (1, {}))
 
-            self.eq(nodes[3][1]['props']['seen'], ('ival', (1577836800000000, 0x7ffffffffffffffe, 0xfffffffffffffffe)))
-            self.eq(nodes[3][1]['props']['seen.min'], 1577836800000000)
-            self.eq(nodes[3][1]['props']['seen.max'], 0x7ffffffffffffffe)
-            self.eq(nodes[3][1]['props']['seen.duration'], 0xfffffffffffffffe)
+            valu, info = nodes[2][1]['props']['seen']
+            self.eq(valu, (1577836800000000, 0x7fffffffffffffff, 0xffffffffffffffff))
+            self.eq(info['v']['min'], (1577836800000000, {}))
+            self.eq(info['v']['max'], (0x7fffffffffffffff, {}))
+            self.eq(info['v']['duration'], (0xffffffffffffffff, {}))
 
-            self.eq(nodes[4][1]['props']['poly.type'], 'test:int')
+            # an array container carries no type of its own, its members do
+            valu, info = nodes[2][1]['props']['polyarry']
+            self.eq(valu, (('1', {'t': 'test:str'}), ('2', {'t': 'test:str'})))
+            self.none(info.get('t'))
+            self.eq(info['v']['size'], (2, {}))
 
-            self.eq(nodes[5][1]['props']['polyarry.ip'], (((4, 16909060), 2), ((4, 16909061), 1)))
-            self.eq(nodes[5][1]['props']['polyarry.port'], ((80, 2), (90, 1)))
-            self.eq(nodes[5][1]['props']['polyarry.size'], 3)
+            valu, info = nodes[3][1]['props']['seen']
+            self.eq(valu, (1577836800000000, 0x7ffffffffffffffe, 0xfffffffffffffffe))
+            self.eq(info['v']['min'], (1577836800000000, {}))
+            self.eq(info['v']['max'], (0x7ffffffffffffffe, {}))
+            self.eq(info['v']['duration'], (0xfffffffffffffffe, {}))
+
+            self.eq(nodes[4][1]['props']['poly'][1]['t'], 'test:int')
+
+            valu, info = nodes[5][1]['props']['polyarry']
+            self.eq(info['v']['ip'], ((((4, 16909060), 2), ((4, 16909061), 1)), {}))
+            self.eq(info['v']['port'], (((80, 2), (90, 1)), {}))
+            self.eq(info['v']['size'], (3, {}))
 
             opts['view'] = fork
             msgs = await core.stormlist('test:str=baz [ -:seen ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
 
+            # removing the prop removes its virts with it
             self.none(nodes[0][1]['props'].get('seen'))
-            self.none(nodes[0][1]['props'].get('seen.min'))
-            self.none(nodes[0][1]['props'].get('seen.max'))
-            self.none(nodes[0][1]['props'].get('seen.duration'))
-            self.eq(nodes[0][1]['props']['polyarry'], (('test:str', '1'), ('test:str', '2')))
-            self.eq(nodes[0][1]['props']['polyarry.size'], 2)
+
+            valu, info = nodes[0][1]['props']['polyarry']
+            self.eq(valu, (('1', {'t': 'test:str'}), ('2', {'t': 'test:str'})))
+            self.eq(info['v']['size'], (2, {}))
 
             msgs = await core.stormlist('[ inet:net=10.0.0.0/24 ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
@@ -2159,14 +2169,14 @@ class StormTest(s_t_utils.SynTest):
 
             node = nodes[0]
             self.eq('inet:asn', node[1]['embeds']['asn']['$form'])
-            self.eq('hehe', node[1]['embeds']['asn']['registrant:name'][1])
+            self.eq(('hehe', {'t': 'entity:name'}), node[1]['embeds']['asn']['registrant:name'])
 
             opts = {'node:opts': {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}}
             msgs = await core.stormlist('[ ou:org=* :place:country=* as pol:country :email=visi@vertex.link ]', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
 
-            self.eq('vertex.link', node[1]['embeds']['email::fqdn']['zone'][1])
+            self.eq('vertex.link', node[1]['embeds']['email::fqdn']['zone'][0])
             self.eq(6, node[1]['embeds']['email::fqdn']['$nid'])
             self.eq('inet:fqdn', node[1]['embeds']['email::fqdn']['$form'])
 
@@ -2177,7 +2187,7 @@ class StormTest(s_t_utils.SynTest):
                 'sha1': '40b8e76cff472e593bd0ba148c09fec66ae72362'
             }
             opts['view'] = fork
-            opts['node:opts']['show:storage'] = True
+            opts['node:opts']['storage'] = True
             opts['node:opts']['embeds']['ou:org']['lol::nope'] = ('notreal',)
             opts['node:opts']['embeds']['ou:org']['place:country::flag'] = ('md5', 'sha1')
             opts['node:opts']['embeds']['ou:org']['place:country::tld'] = ('domain',)
@@ -2283,14 +2293,14 @@ class StormTest(s_t_utils.SynTest):
 
             self.nn(embeds['object']['$nid'])
             self.eq('inet:service:channel', embeds['object']['$form'])
-            self.eq('foochan', embeds['object']['name'][1])
+            self.eq('foochan', embeds['object']['name'][0])
             self.eq(None, embeds['object']['newp'])
 
             self.eq('inet:service:account', embeds['object::creator']['$form'])
-            self.eq('visi', embeds['object::creator']['name'][1])
+            self.eq('visi', embeds['object::creator']['name'][0])
             self.eq(None, embeds['object::creator']['newp'])
             self.eq('inet:service:account', embeds['grantee']['$form'])
-            self.eq('foocon', embeds['grantee']['id'][1])
+            self.eq('foocon', embeds['grantee']['id'][0])
             self.eq(None, embeds['grantee']['newp'])
 
             # embed through `econ:pay:instrument` type that extends from `ndef`
@@ -2313,7 +2323,7 @@ class StormTest(s_t_utils.SynTest):
 
             embeds = node[1]['embeds']
             self.nn(embeds['actor:instrument']['$nid'])
-            self.eq('infime', embeds['actor:instrument']['name'][1])
+            self.eq('infime', embeds['actor:instrument']['name'][0])
 
             # embeds include virtual prop values
             await core.nodes('''[
@@ -2330,19 +2340,26 @@ class StormTest(s_t_utils.SynTest):
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             self.eq('test:str', node[0][0])
 
+            # an embed is packed exactly like a property on the node it came from
             embeds = node[1]['embeds']
-            self.eq('tcp://1.2.3.4:80', embeds['gprop']['server'][1])
-            self.eq((4, 16909060), embeds['gprop']['server.ip'])
-            self.eq(80, embeds['gprop']['server.port'])
 
-            self.eq((1577836800000000, 1609459200000000, 31622400000000), embeds['gprop']['seen'][1])
-            self.eq(1577836800000000, embeds['gprop']['seen.min'])
-            self.eq(1609459200000000, embeds['gprop']['seen.max'])
-            self.eq(31622400000000, embeds['gprop']['seen.duration'])
-            self.eq(s_time.PREC_MICRO, embeds['gprop']['seen.precision'])
+            valu, info = embeds['gprop']['server']
+            self.eq('tcp://1.2.3.4:80', valu)
+            self.eq('inet:server', info['t'])
+            self.eq((4, 16909060), info['v']['ip'][0])
+            self.eq(80, info['v']['port'][0])
 
-            self.eq((('test:int', 5), ('test:str', 'foo')), embeds['gprop::name']['polyarry'])
-            self.eq(2, embeds['gprop::name']['polyarry.size'])
+            valu, info = embeds['gprop']['seen']
+            self.eq((1577836800000000, 1609459200000000, 31622400000000), valu)
+            self.eq(1577836800000000, info['v']['min'][0])
+            self.eq(1609459200000000, info['v']['max'][0])
+            self.eq(31622400000000, info['v']['duration'][0])
+            self.eq(s_time.PREC_MICRO, info['v']['precision'][0])
+
+            valu, info = embeds['gprop::name']['polyarry']
+            self.eq(((5, {'t': 'test:int'}), ('foo', {'t': 'test:str'})), valu)
+            self.none(info.get('t'))
+            self.eq(2, info['v']['size'][0])
 
             # embeds include meta prop values
             opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', '.updated', 'registrant:name')}}}}
@@ -2351,10 +2368,16 @@ class StormTest(s_t_utils.SynTest):
             embeds = node[1]['embeds']
             self.nn(embeds['asn']['.created'])
             self.nn(embeds['asn']['.updated'])
-            self.eq('hehe', embeds['asn']['registrant:name'][1])
+            self.eq(('hehe', {'t': 'entity:name'}), embeds['asn']['registrant:name'])
 
-            # embeds with meta props and show:storage
-            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'registrant:name')}}, 'show:storage': True}}
+            # an embedded meta value is carried in an envelope like every other
+            # embedded value, so a consumer indexes it the same way.
+            self.len(2, embeds['asn']['.created'])
+            self.eq({}, embeds['asn']['.created'][1])
+            self.isinstance(embeds['asn']['.created'][0], int)
+
+            # embeds with meta props and storage
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'registrant:name')}}, 'storage': True}}
             msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             embeds = node[1]['embeds']
@@ -2364,7 +2387,7 @@ class StormTest(s_t_utils.SynTest):
             self.nn(storage[0]['embeds'].get('asn::.created'))
             self.nn(storage[0]['embeds'].get('asn::registrant:name'))
 
-            # embeds with meta props and show:storage in a fork view
+            # embeds with meta props and storage in a fork view
             # covering the continue-if-unset logic in _joinEmbedStor
             embfork = await core.callStorm('return($lib.view.get().fork().iden)')
 
@@ -2377,12 +2400,12 @@ class StormTest(s_t_utils.SynTest):
 
             # the fork layer has registrant:name in props but the base does not,
             # covering "if relProp not in props: continue" for the base layer
-            opts = {'view': embfork, 'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'registrant:name')}}, 'show:storage': True}}
+            opts = {'view': embfork, 'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'registrant:name')}}, 'storage': True}}
             msgs = await core.stormlist('inet:ip=5.5.5.5', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             embeds = node[1]['embeds']
             self.nn(embeds['asn']['.created'])
-            self.eq('forkname', embeds['asn']['registrant:name'][1])
+            self.eq('forkname', embeds['asn']['registrant:name'][0])
             storage = node[1]['storage']
             self.len(2, storage)
             # fork layer should have registrant:name embed
@@ -2397,7 +2420,7 @@ class StormTest(s_t_utils.SynTest):
             # embeds with meta props in a fork where the embedded node
             # has no storage at all in the top layer (no meta/props dicts)
             embfork2 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': embfork})
-            opts = {'view': embfork2, 'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'registrant:name')}}, 'show:storage': True}}
+            opts = {'view': embfork2, 'node:opts': {'embeds': {'inet:ip': {'asn': ('.created', 'registrant:name')}}, 'storage': True}}
             msgs = await core.stormlist('inet:ip=5.5.5.5', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             storage = node[1]['storage']
@@ -2407,7 +2430,7 @@ class StormTest(s_t_utils.SynTest):
             self.none(storage[0].get('embeds'))
 
             # empty relprop should not cause an error
-            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('',)}}, 'show:storage': True}}
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('',)}}, 'storage': True}}
             msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
             node = [m[1] for m in msgs if m[0] == 'node'][0]
             self.isin('asn', node[1]['embeds'])
@@ -2418,7 +2441,7 @@ class StormTest(s_t_utils.SynTest):
             for m in mesgs:
                 if m[0] == 'node' and m[1][0][0] == 'file:bytes':
                     node = m[1]
-                    sha = node[1]['props']['sha256'][1]
+                    sha = node[1]['props']['sha256'][0]
 
             buf = b''
             async for bytz in (await core.getAxon()).get(s_common.uhex(sha)):
@@ -3197,7 +3220,7 @@ class StormTest(s_t_utils.SynTest):
             base = {
                 'name': 'endptest',
                 'version': '0.0.1',
-                'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
+                'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
             }
 
             # a top-level endpoint with an unknown key is rejected
@@ -3727,6 +3750,103 @@ class StormTest(s_t_utils.SynTest):
             testmax = await core.nodes('ou:org | max #minmax')
             self.eq(testmax[0].ndef, maxnodes[0].ndef)
 
+            # the all-None interval sentinel is skipped rather than raising BadTypeValu
+            opts = {'vars': {'nointerval': (None, None, None)}}
+            self.len(0, await core.nodes('ou:org | max $nointerval', opts=opts))
+            self.len(0, await core.nodes('ou:org | min $nointerval', opts=opts))
+
+            # an untyped 2-tuple (eg a variable, rather than a typed prop like
+            # #minmax above) still falls through to the norm+sort fallback, ordering
+            # by the interval end being sought (SYN-11325)
+            opts = {'vars': {'ival': (1997, 2020)}}
+            self.len(1, await core.nodes('ou:org | max $ival', opts=opts))
+            self.len(1, await core.nodes('ou:org | min $ival', opts=opts))
+
+            # str props order lexically and case insensitively. A raw byte compare
+            # would order these (mango, apple, Zebra) rather than (Zebra, mango, apple).
+            for i, titl in enumerate(('apple', 'Zebra', 'mango')):
+                self.len(1, await core.nodes('[ meta:story=$i :title=$t ]',
+                                             opts={'vars': {'i': ('t', i), 't': titl}}))
+
+            nodes = await core.nodes('meta:story | max :title')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'title', 'Zebra')
+
+            nodes = await core.nodes('meta:story | min :title')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'title', 'apple')
+
+            nodes = await core.nodes('meta:story | max :title --size 3')
+            self.eq(['Zebra', 'mango', 'apple'], [n.get('title')[1] for n in nodes])
+
+            nodes = await core.nodes('meta:story | min :title --size 3')
+            self.eq(['apple', 'mango', 'Zebra'], [n.get('title')[1] for n in nodes])
+
+            # keys of differing types are grouped rather than raising a TypeError
+            self.len(2, await core.nodes('[ test:int=10 test:str=zebra ]'))
+
+            nodes = await core.nodes('test:int=10 test:str=zebra $v=$node.value | max $v')
+            self.len(1, nodes)
+            self.eq(('test:str', 'zebra'), nodes[0].ndef)
+
+            nodes = await core.nodes('test:int=10 test:str=zebra $v=$node.value | min $v')
+            self.len(1, nodes)
+            self.eq(('test:int', 10), nodes[0].ndef)
+
+            # it:version props are ordered version-aware (SYN-11325)
+            for i, vers in enumerate(('0.1.0', '0.2.0', '0.10.0', '1.0.0-alpha',
+                                      '1.0.0', '1!2.0.0', 'not-a-version')):
+                self.len(1, await core.nodes('[ meta:story=$i :version=$v :title=$v ]',
+                                             opts={'vars': {'i': (i,), 'v': vers}}))
+
+            # BadCast: Failed to make an integer from "0.2.0" before the fix
+            nodes = await core.nodes('meta:story | max :version')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'version', '1!2.0.0')
+
+            nodes = await core.nodes('meta:story | min :version')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'version', '0.1.0')
+
+            # 0.10.0 > 0.2.0 (not lexical) and a release outranks its pre-release
+            nodes = await core.nodes('meta:story +:version<1!0.0.0 | max :version --size 3')
+            self.eq(['1.0.0', '1.0.0-alpha', '0.10.0'],
+                    [n.get('version')[1] for n in nodes])
+
+            # a variable holding the typed value orders the same way
+            nodes = await core.nodes('meta:story $v=:version | max $v')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'version', '1!2.0.0')
+
+            # versions which do not parse are skipped, matching filter semantics
+            nodes = await core.nodes('meta:story +:version="not-a-version" | max :version')
+            self.len(0, nodes)
+
+            # a version with a semver virt but no sortable index is also skipped
+            self.len(1, await core.nodes('[ meta:story=(weird,) :version="2.0-BETA-weird~thing" ]'))
+            nodes = await core.nodes('meta:story +:version="2.0-BETA-weird~thing" | min :version')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('meta:story | max :version')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'version', '1!2.0.0')
+
+            # some runt props carry an unnormalized packVersion() int rather than a
+            # version string; those are already sortable and must not be re-parsed
+            pkgdef = {'name': 'deprpkg', 'version': '1.0.0', 'commands': (
+                {'name': 'deprlow', 'storm': '', 'deprecated': {'eolvers': 'v1.0.5'}},
+                {'name': 'deprhigh', 'storm': '', 'deprecated': {'eolvers': 'v3.0.0'}},
+            )}
+            await core.addStormPkg(pkgdef)
+
+            nodes = await core.nodes('syn:cmd:deprecated:version | max :deprecated:version')
+            self.len(1, nodes)
+            self.eq('deprhigh', nodes[0].ndef[1])
+
+            nodes = await core.nodes('syn:cmd:deprecated:version | min :deprecated:version')
+            self.len(1, nodes)
+            self.eq('deprlow', nodes[0].ndef[1])
+
             # --size option: max yields top-N in descending order
             nodes = await core.nodes('test:guid | max :tick --size 2')
             self.len(2, nodes)
@@ -3909,7 +4029,7 @@ class StormTest(s_t_utils.SynTest):
             offs = fini[1].get('nexsoffs')
             self.eq(offs, await core.getNexsIndx() - 1)
 
-            msgs = await core.stormlist('test:str=foo', opts={'nexsoffs': offs})
+            msgs = await core.stormlist('test:str=foo', opts={'nexus': {'offset': offs}})
             self.eq('fini', msgs[-1][0])
             self.nn(msgs[-1][1].get('nexsoffs'))
 
@@ -4243,7 +4363,7 @@ class StormTest(s_t_utils.SynTest):
             q = '''
             $vals = ()
             test:str
-            parallel --size 4 { $vals.append($node.repr()) }
+            parallel --size 4 { $vals.append($node.repr()) } |
             fini { return($vals) }
             '''
             self.len(20, await core.callStorm(q))
@@ -4373,11 +4493,11 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInWarn('bar', msgs)
             self.len(1, [m for m in msgs if m[0] == 'storm:fire'])
             self.len(1, [m for m in msgs if m[0] == 'csv:row'])
-            self.len(0, [m for m in msgs if m[0] == 'node:edits'])
+            self.len(0, [m for m in msgs if m[0] == 'edits'])
 
             await core.addStormPkg({
                 'name': 'testpkg',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'modules': (
                     {'name': 'priv.exec',
                      'asroot:perms': [['power-ups', 'testpkg']],
@@ -4786,7 +4906,7 @@ class StormTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
+                'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
                 'commands': ({
                                  'name': 'testcmd',
                                  'desc': 'test command',
@@ -4853,7 +4973,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('help list')
             self.stormIsInPrint('***\nlist\n****\nImplements the Storm API for a List instance.', msgs)
             self.stormIsInPrint('append(valu)\nAppend a value to the list.', msgs)
-            self.stormIsInPrint('auth.user.list     : List all users.', msgs)
+            self.stormIsInPrint('auth.user.list : List all users.', msgs, whitespace=False)
 
             # email stor / gettr has a multi value return type
             msgs = await core.stormlist('help -v auth:user')
@@ -5852,7 +5972,7 @@ class StormTest(s_t_utils.SynTest):
 
             await core.addStormPkg({
                 'name': 'synapse-woot',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'modules': (
                     {'name': 'woot.runas',
                      'asroot:perms': [['power-ups', 'woot', 'user']],
@@ -5879,7 +5999,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInWarn('bar', msgs)
             self.len(1, [m for m in msgs if m[0] == 'storm:fire'])
             self.len(1, [m for m in msgs if m[0] == 'csv:row'])
-            self.len(0, [m for m in msgs if m[0] == 'node:edits'])
+            self.len(0, [m for m in msgs if m[0] == 'edits'])
 
             q = '''runas visi {
                 $lib.print(foo)
@@ -6007,24 +6127,24 @@ class StormTest(s_t_utils.SynTest):
 
             q = '''file:bytes#aka.feye.thr.apt1 ->it:exec:file:add  ->file:path |uniq| ->file:base |uniq ->file:base:ext=doc'''
             msgs = await core.stormlist(q)
-            self.stormIsInErr("Expected 1 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
+            self.stormHasNoErr(msgs)
 
             msgs = await core.stormlist('help yield')
             self.stormIsInPrint('No commands found matching "yield"', msgs)
 
             q = '''inet:fqdn:zone=earthsolution.org -> inet:dns:request -> file:bytes | uniq -> inet.dns.request'''
             msgs = await core.stormlist(q)
-            self.stormHasNoErr(msgs)
+            self.stormIsInErr("Expected 1 positional arguments. Got 2: ['->', 'inet.dns.request']", msgs)
 
             await core.nodes('''$token=foo $lib.print(({"Authorization":`Bearer {$token}`}))''')
 
             q = '#rep.clearsky.dreamjob -># +syn:tag^=rep |uniq -syn:tag~=rep.clearsky'
             msgs = await core.stormlist(q)
-            self.stormIsInErr("Expected 1 positional arguments", msgs)
+            self.stormHasNoErr(msgs)
 
             q = 'service.add svcrs ssl://svcrs:27492?certname=root'
             msgs = await core.stormlist(q)
-            self.stormIsInPrint('(svcrs): ssl://svcrs:27492?certname=root', msgs)
+            self.stormIsInPrint('added svcrs: ssl://svcrs:27492?certname=root', msgs)
 
             q = "$foo=one $bar=two $lib.print(`{$foo}={$bar}`)"
             msgs = await core.stormlist(q)
@@ -6227,6 +6347,23 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:comp=(77, "seventy-seven")', opts=opts)
             self.len(1, nodes)
             self.propeq(nodes[0], 'hehe', 77)
+
+            # a node re-created above its own tombstone shows no node data in the
+            # source view, so copyto must not carry the data from below it either
+            await core.nodes('[ test:str=x ] $node.data.set(below, (1))')
+
+            fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
+            fork01 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': fork00})
+
+            await core.nodes('test:str=x | delnode --force', opts={'view': fork00})
+            await core.nodes('[ test:str=x ]', opts={'view': fork01})
+
+            msgs = await core.stormlist('test:str=x | copyto $view',
+                                        opts={'view': fork01, 'vars': {'view': view}})
+            self.stormHasNoWarnErr(msgs)
+
+            self.eq((), await core.callStorm(
+                'test:str=x $l=() for $i in $node.data.list() { $l.append($i) } return($l)', opts=opts))
 
             with self.raises(s_exc.ReadOnlyProp):
                 await core.nodes('[ test:ro=bad :readable=foo ]', opts=opts)

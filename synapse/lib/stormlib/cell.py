@@ -1,26 +1,5 @@
-import asyncio
-import logging
-
 import synapse.exc as s_exc
-import synapse.lib.autodoc as s_autodoc
 import synapse.lib.stormtypes as s_stormtypes
-
-logger = logging.getLogger(__name__)
-
-def prepHotfixDesc(txt):
-    lines = txt.split('\n')
-    lines = s_autodoc.scrubLines(lines)
-    lines = s_autodoc.ljuster(lines)
-    return lines
-
-hotfixes = ()
-default_vers = (4, 0, 0)
-runtime_fixes_key = 'cortex:runtime:stormfixes'
-
-def getMaxHotFixes():
-    if not hotfixes:
-        return default_vers
-    return max([vers for vers, info in hotfixes])
 
 @s_stormtypes.registry.registerLib
 class CellLib(s_stormtypes.Lib):
@@ -48,13 +27,6 @@ class CellLib(s_stormtypes.Lib):
                                '(defaults to the Cortex if not provided).'},
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of Telepath URLs.', }}},
-        {'name': 'hotFixesApply', 'desc': 'Apply known data migrations and fixes via storm.',
-         'type': {'type': 'function', '_funcname': '_hotFixesApply', 'args': (),
-                  'returns': {'type': 'list',
-                              'desc': 'Tuple containing the current version after applying the fixes.'}}},
-        {'name': 'hotFixesCheck', 'desc': 'Check to see if there are known hot fixes to apply.',
-         'type': {'type': 'function', '_funcname': '_hotFixesCheck', 'args': (),
-                  'returns': {'type': 'boolean', 'desc': 'Bool indicating if there are hot fixes to apply or not.'}}},
         {'name': 'trimNexsLog', 'desc': '''
             Rotate and cull the Nexus log (and any consumers) at the current offset.
 
@@ -92,8 +64,6 @@ class CellLib(s_stormtypes.Lib):
             'getSystemInfo': self._getSystemInfo,
             'getHealthCheck': self._getHealthCheck,
             'getMirrorUrls': self._getMirrorUrls,
-            'hotFixesApply': self._hotFixesApply,
-            'hotFixesCheck': self._hotFixesCheck,
             'trimNexsLog': self._trimNexsLog,
             'uptime': self._uptime,
         }
@@ -101,68 +71,6 @@ class CellLib(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def _getCellIden(self):
         return self.runt.view.core.getCellIden()
-
-    async def _hotFixesApply(self):
-        if not self.runt.isAdmin():
-            mesg = '$lib.cell.hotFixesApply() requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
-        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=default_vers)
-        for vers, info in hotfixes:
-            if vers <= curv:
-                continue
-
-            desc = info.get('desc')
-            text = info.get('query')
-            vars = info.get('vars', {})
-            assert text is not None
-            assert desc is not None
-            assert vars is not None
-
-            title = prepHotfixDesc(desc)[0]
-            await self.runt.printf(f'Applying hotfix {vers} for [{title}]')
-
-            try:
-                query = await self.runt.getStormQuery(text)
-                async with self.runt.getSubRuntime(query, opts={'vars': vars}) as runt:
-                    async for item in runt.execute():
-                        pass
-            except asyncio.CancelledError: # pragma: no cover
-                raise
-            except Exception as e: # pragma: no cover
-                logger.exception(f'Error applying storm hotfix {vers}')
-                raise
-            else:
-                await self.runt.view.core.setStormVar(runtime_fixes_key, vers)
-                await self.runt.printf(f'Applied hotfix {vers}')
-            curv = vers
-
-        return curv
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _hotFixesCheck(self):
-        if not self.runt.isAdmin():
-            mesg = '$lib.cell.hotFixesCheck() requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
-        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=default_vers)
-
-        dowork = False
-        for vers, info in hotfixes:
-            if vers <= curv:
-                continue
-
-            dowork = True
-
-            desclines = prepHotfixDesc(info.get('desc'))
-            await self.runt.printf(f'Would apply fix {vers} for [{desclines[0]}]')
-            if len(desclines) > 1:
-                for line in desclines[1:]:
-                    await self.runt.printf(f'    {line}' if line else '')
-            else:
-                await self.runt.printf('')
-
-        return dowork
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _getCellInfo(self):
@@ -199,7 +107,7 @@ class CellLib(s_stormtypes.Lib):
 
         ssvc = self.runt.view.core.getStormSvc(name)
         if ssvc is None:
-            mesg = f'No service with name/iden: {name}'
+            mesg = f'No service with name: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
 
         proxy = await ssvc.proxy()
@@ -227,7 +135,7 @@ class CellLib(s_stormtypes.Lib):
         else:
             ssvc = self.runt.view.core.getStormSvc(name)
             if ssvc is None:
-                mesg = f'No service with name/iden: {name}'
+                mesg = f'No service with name: {name}'
                 raise s_exc.NoSuchName(mesg=mesg)
             proxy = await ssvc.proxy()
             info = await proxy.getSystemInfo()

@@ -422,16 +422,12 @@ class HotKeyVal(s_base.Base):
         for lkey, lval in self.slab.scanByFull(db=self.db):
             self.cache[lkey] = self.DecFunc(lval)
 
-        # a commitpulse=False slab does not fire 'commit'; its owner flushes us
-        # explicitly. onfini(self.sync) still flushes on shutdown either way.
-        if slab.commitpulse:
-            slab.on('commit', self._onSlabCommit)
+        # the slab flushes us into the transaction ahead of every commit, so a buffered
+        # value is durable whenever the slab is - no flush from the owner required.
+        # onfini(self.sync) still covers a writer fini'd ahead of its slab.
+        slab.addCommitCallback(self.sync)
 
         self.onfini(self.sync)
-
-    async def _onSlabCommit(self, mesg):
-        if self.dirty:
-            self.sync()
 
     def get(self, name: str, defv=None):
         return self.cache.get(name.encode(), defv)
@@ -455,20 +451,6 @@ class HotKeyVal(s_base.Base):
         self.slab.dirty = True
         return valu
 
-    def setnow(self, name: str, valu):
-        # like set(), but write straight into the slab txn (as delete() does)
-        # rather than buffering for the next 'commit'-event flush. For a
-        # commitpulse=False slab (no commit event) this makes the value durable
-        # on the owner's per-transaction commit without a separate sync().
-        if self.slab.readonly:
-            raise s_exc.IsReadOnly(mesg='Cannot set on a HotKeyVal backed by a readonly slab.')
-
-        byts = name.encode()
-        self.cache[byts] = valu
-        self.dirty.discard(byts)
-        self.slab._put(byts, self.EncFunc(valu), db=self.db)
-        return valu
-
     def delete(self, name: str):
         byts = name.encode()
         self.cache.pop(byts, None)
@@ -476,15 +458,12 @@ class HotKeyVal(s_base.Base):
         self.slab.delete(byts, db=self.db)
 
     def sync(self):
-        # a readonly slab has no write txn; nothing is ever dirtied
-        if self.slab.readonly:
+        # runs ahead of every commit of the slab, so check the cheap case first. A
+        # readonly slab has no write txn and nothing is ever dirtied on it.
+        if not self.dirty or self.slab.readonly:
             return
 
-        tups = [(p, self.EncFunc(self.cache[p])) for p in self.dirty]
-        if not tups:
-            return
-
-        self.slab._putmulti(tups, db=self.db)
+        self.slab._putmulti([(p, self.EncFunc(self.cache[p])) for p in self.dirty], db=self.db)
         self.dirty.clear()
 
     def pack(self):
@@ -504,6 +483,7 @@ class HotCount(HotKeyVal):
         byts = name.encode()
         self.cache[byts] += valu
         self.dirty.add(byts)
+        self.slab.dirty = True
 
     def set(self, name: str, valu):
         if self.slab.readonly:
@@ -534,24 +514,16 @@ class LruHotCount(s_base.Base):
         self.maxsize = size
         self.commitsize = commitsize
 
-        # see HotKeyVal.__anit__: skip the 'commit' hook on a commitpulse=False
-        # slab (owner-flushed); onfini(self.sync) still flushes on shutdown.
-        if slab.commitpulse:
-            slab.on('commit', self._onSlabCommit)
+        # the slab flushes us into the transaction ahead of every commit.
+        slab.addCommitCallback(self.sync)
 
         self.onfini(self.sync)
 
-    async def _onSlabCommit(self, mesg):
-        if self.dirty:
-            self.sync()
-
     def sync(self):
-        # a readonly slab has no write txn; cache eviction must not write
-        if self.slab.readonly:
+        # runs ahead of every commit of the slab, so check the cheap case first. A
+        # readonly slab has no write txn and cache eviction must not write.
+        if not self.dirty or self.slab.readonly:
             return
-
-        if not self.dirty:
-            return()
 
         self.slab._putmulti([(p, self.encode(self.cache[p])) for p in self.dirty], db=self.db)
         self.dirty.clear()
@@ -726,6 +698,8 @@ class MultiQueue(s_base.Base):
             if reqid == self.lastreqid.get(name):
                 return retn
 
+        # the dedupe marker lands in the same txn as the items it guards (the slab flushes
+        # it ahead of the commit), so a nexus replay cannot re-append them.
         self.lastreqid.set(name, reqid)
 
         for item in items:
@@ -1070,14 +1044,21 @@ class Slab(s_base.Base):
         self.growsize = opts.pop('growsize', self.DEFAULT_GROWSIZE)
 
         self.readonly = opts.get('readonly', False)
-        # commitpulse is a runtime-only opt-in (popped, not persisted): when True
-        # (the default) this slab is committed by the periodic sync loop, which
-        # fires the 'commit' event so buffered writers flush before the commit.
-        # A cell that commits its own slabs after every nexus transaction (see
-        # Cell.nexuscommit / Slab.commitDirtyNow) opens them with
-        # commitpulse=False: they are skipped by the sync loop, sync() does not
-        # fire the 'commit' event, and the owner is responsible for flushing
-        # buffered state (in its nexus handlers) and committing.
+        # commitpulse is a runtime-only opt-in (popped, not persisted). Which value a
+        # slab wants follows from who writes it:
+        #
+        # - True (the default): the periodic sync loop commits this slab, and sync() also
+        #   fires the 'commit' event for any external subscriber. Correct for a slab
+        #   written outside any nexus transaction, where the pulse is the only committer:
+        #   spool slabs, or a blob store opened without a Cell to commit it.
+        #
+        # - False: skipped by the sync loop, and sync() does not fire 'commit'. Required
+        #   for a slab holding what nexus handlers write, which NexsRoot._eat commits per
+        #   transaction (Slab.commitDirtyNow) - a pulse landing mid-transaction would make
+        #   state durable ahead of the log entry describing it, which recover() cannot
+        #   repair and no mirror will receive. The owner must then sync() itself after a
+        #   write that is deliberately not a nexus event (see Cell.syncCellSlab). Buffered
+        #   writers need no such care: they register via addCommitCallback().
         self.commitpulse = opts.pop('commitpulse', True)
         self.readahead = opts.get('readahead', True)
 
@@ -1110,6 +1091,7 @@ class Slab(s_base.Base):
             self._initCoXact()
 
         self.resizecallbacks = []
+        self.commitcallbacks = []
 
         self.dbnames = {None: (None, False)}  # prepopulate the default DB for speed
 
@@ -1204,10 +1186,9 @@ class Slab(s_base.Base):
 
     async def sync(self):
         try:
-            # do this from the loop thread only to avoid recursion. On a
-            # commitpulse=False slab sync() is a pure forcecommit - no 'commit'
-            # event, the owner having already flushed buffered writers (see the
-            # commitpulse doc in __anit__).
+            # buffered writers are flushed by forcecommit() below, whatever the commit
+            # mode. The 'commit' event is fired for external subscribers only, and only
+            # on a pulsing slab (see the commitpulse doc in __anit__).
             if self.commitpulse:
                 await self.fire('commit')
             self.forcecommit()
@@ -1265,6 +1246,17 @@ class Slab(s_base.Base):
 
     def addResizeCallback(self, callback):
         self.resizecallbacks.append(callback)
+
+    def addCommitCallback(self, callback):
+        '''
+        Register a buffered writer's flush to run before every commit of this slab.
+
+        The flush writes into the open transaction, so the buffered values are committed
+        with the writes they describe whether the commit comes from the periodic pulse,
+        from a per-transaction commitDirtyNow() or from fini. A writer which registers
+        here needs no flush from its owner.
+        '''
+        self.commitcallbacks.append(callback)
 
     def _growMapSize(self, size=None):
         mapsize = self.mapsize
@@ -2188,17 +2180,24 @@ class Slab(s_base.Base):
             self.xact = self.lenv.begin(write=not self.readonly)
         self.dirty = False
 
-    def _logXactOper(self, func, *args, **kwargs):
-        self.xactops.append((func, args, kwargs))
+    def _logXactOper(self, func, args):
+        # args arrive prebuilt and positional rather than as *args/**kwargs: every write in
+        # the tree passes through here, and packing them per call costs more than the lmdb
+        # operation being journalled. _runXactOpers replays them as func(*args).
+        self.xactops.append((func, args))
 
         if len(self.xactops) == self.max_xactops_len:
-            self.syncevnt.set()
+            # the sync loop is only started by a pulsing slab, so a process whose slabs
+            # are all commitpulse=False has no event to nudge. Its owner commits per
+            # nexus transaction instead (see Slab.commitDirtyNow).
+            if self.syncevnt is not None:
+                self.syncevnt.set()
 
     def _runXactOpers(self):
         # re-run transaction operations in the event of an abort.  Return the last operation's return value.
         retn = None
-        for (f, a, k) in self.xactops:
-            retn = f(*a, **k)
+        for (f, a) in self.xactops:
+            retn = f(*a)
         return retn
 
     def _handle_mapfull(self):
@@ -2229,29 +2228,16 @@ class Slab(s_base.Base):
         retn, self.last_retn = self.last_retn, None
         return retn
 
-    def _xact_action(self, calling_func, xact_func, lkey, *args, db=None, **kwargs):
-        if self.readonly:
-            raise s_exc.IsReadOnly()
-
-        realdb, dupsort = self.dbnames[db]
-
-        try:
-            self.dirty = True
-
-            if not self.recovering:
-                self._logXactOper(calling_func, lkey, *args, db=db, **kwargs)
-
-            return xact_func(self.xact, lkey, *args, db=realdb, **kwargs)
-
-        except lmdb.MapFullError:
-            return self._handle_mapfull()
-
     async def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
 
         # Use a fast path when we have a small amount of data to prevent creating new
         # list objects when we don't have to.
+        # _putmulti is called positionally rather than by keyword, deliberately breaking our
+        # usual "never pass kwargs positionally" rule: this is a write hot path and binding
+        # keywords costs a measurable slice of the call. Keep the argument order here in sync
+        # with the _putmulti signature.
         if isinstance(kvpairs, (list, tuple)) and len(kvpairs) <= self.max_xactops_len:
-            ret = self._putmulti(kvpairs, dupdata=dupdata, append=append, db=db)
+            ret = self._putmulti(kvpairs, dupdata, append, db)
             await asyncio.sleep(0)
             return ret
 
@@ -2261,7 +2247,7 @@ class Slab(s_base.Base):
         # could cause a greedy commit operation from happening.
         consumed, added = 0, 0
         for chunk in s_common.chunks(kvpairs, self.max_xactops_len):
-            rc, ra = self._putmulti(chunk, dupdata=dupdata, append=append, db=db)
+            rc, ra = self._putmulti(chunk, dupdata, append, db)
             consumed = consumed + rc
             added = added + ra
             await asyncio.sleep(0)
@@ -2285,7 +2271,13 @@ class Slab(s_base.Base):
             self.dirty = True
 
             if not self.recovering:
-                self._logXactOper(self._putmulti, kvpairs, dupdata=dupdata, append=append, db=db)
+                # the replay args are packed as a plain positional tuple rather than passed
+                # by keyword, deliberately breaking our usual "never pass kwargs positionally"
+                # rule: every write in the tree funnels through _logXactOper and the keyword
+                # binding costs more than the lmdb operation being journalled. _runXactOpers
+                # replays this as func(*args), so the tuple order must match the signature
+                # of the function being logged.
+                self._logXactOper(self._putmulti, (kvpairs, dupdata, append, db))
 
             with self.xact.cursor(db=realdb) as curs:
                 return curs.putmulti(kvpairs, dupdata=dupdata, append=append)
@@ -2359,12 +2351,42 @@ class Slab(s_base.Base):
         # and cause already-yielded rows to be re-emitted, so bump them to force
         # a safe cursor resume on their next step
         [scan.bump() for scan in self.scans]
-        return self._xact_action(self.pop, lmdb.Transaction.pop, lkey, db=db)
+
+        if self.readonly:
+            raise s_exc.IsReadOnly()
+
+        realdb, dupsort = self.dbnames[db]
+
+        try:
+            self.dirty = True
+
+            if not self.recovering:
+                self._logXactOper(self.pop, (lkey, db))
+
+            return self.xact.pop(lkey, realdb)
+
+        except lmdb.MapFullError:
+            return self._handle_mapfull()
 
     def delete(self, lkey, val=None, db=None):
         # see pop(): bump active scans so a delete cannot corrupt their cursors
         [scan.bump() for scan in self.scans]
-        return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
+
+        if self.readonly:
+            raise s_exc.IsReadOnly()
+
+        realdb, dupsort = self.dbnames[db]
+
+        try:
+            self.dirty = True
+
+            if not self.recovering:
+                self._logXactOper(self.delete, (lkey, val, db))
+
+            return self.xact.delete(lkey, val, realdb)
+
+        except lmdb.MapFullError:
+            return self._handle_mapfull()
 
     async def put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):
         ret = self._put(lkey, lval, dupdata, overwrite, append, db)
@@ -2372,20 +2394,62 @@ class Slab(s_base.Base):
         return ret
 
     def _put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):
-        return self._xact_action(self._put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
-                                 append=append, db=db)
+        # the write preamble is inlined rather than shared with the writes below: this is
+        # the hottest write in the tree, and passing its arguments through another
+        # *args/**kwargs hop costs several times what the lmdb operation itself does.
+        # py-lmdb takes them positionally.
+        if self.readonly:
+            raise s_exc.IsReadOnly()
+
+        realdb, dupsort = self.dbnames[db]
+
+        try:
+            self.dirty = True
+
+            if not self.recovering:
+                self._logXactOper(self._put, (lkey, lval, dupdata, overwrite, append, db))
+
+            return self.xact.put(lkey, lval, dupdata, overwrite, append, realdb)
+
+        except lmdb.MapFullError:
+            return self._handle_mapfull()
 
     def replace(self, lkey, lval, db=None):
         '''
         Like put, but returns the previous value if existed
         '''
-        return self._xact_action(self.replace, lmdb.Transaction.replace, lkey, lval, db=db)
+        # the write preamble is inlined rather than shared: another *args/**kwargs hop
+        # costs more than the lmdb call itself
+        if self.readonly:
+            raise s_exc.IsReadOnly()
+
+        realdb, dupsort = self.dbnames[db]
+
+        try:
+            self.dirty = True
+
+            if not self.recovering:
+                self._logXactOper(self.replace, (lkey, lval, db))
+
+            return self.xact.replace(lkey, lval, realdb)
+
+        except lmdb.MapFullError:
+            return self._handle_mapfull()
 
     def forcecommit(self):
         '''
         Note:
             This method may raise a MapFullError
         '''
+        # flush the registered buffered writers into the transaction so their values are
+        # committed with the writes they describe. Skipped while recovering: a mapfull
+        # replay does not journal what it re-runs, so a flush introduced there would not
+        # survive a second abort. Runs before the dirty check so a writer holding buffered
+        # data is never skipped over.
+        if not self.recovering:
+            for callback in self.commitcallbacks:
+                callback()
+
         if not self.dirty:
             return False
 

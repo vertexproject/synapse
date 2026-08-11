@@ -186,6 +186,18 @@ class MultiSlabSeqn(s_base.Base):
             _, _, evnt = heapq.heappop(self.offsevents)
             evnt.set()
 
+    async def sync(self):
+        '''
+        Commit the tail slab, making the entries added to it durable.
+
+        Notes:
+            add() and addWithPackRetn() only write into the tail slab's open transaction.
+            NexsRoot._eat calls this before committing the slabs holding the state those
+            entries describe, so an unclean exit leaves the log ahead of the state rather
+            than behind it (see NexsRoot.recover).
+        '''
+        await self.tailslab.sync()
+
     async def rotate(self) -> int:
         '''
         Rotate the Nexus log at the current index.

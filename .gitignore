@@ -3,9 +3,6 @@ __pycache__/
 *.py[cod]
 *.swp
 
-# sphinx API doc dir
-docs/synapse/autodocs
-
 # ipython checkpoints
 .ipynb_checkpoints
 
@@ -58,9 +55,6 @@ cover/
 
 # Django stuff:
 *.log
-
-# Sphinx documentation
-docs/_build/
 
 # PyBuilder
 target/

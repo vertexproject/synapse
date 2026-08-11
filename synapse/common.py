@@ -753,43 +753,37 @@ def envbool(name, defval='false'):
 
     Args:
         name (str): Environment variable to resolve.
-        defval (str): Default string value to resolve as.
+        defval (str): Default string value to resolve as. If None and the variable
+                      is not set, None is returned (to distinguish unset from set).
 
     Notes:
         False values will be consider strings "0" or "false" after lower casing.
 
     Returns:
         boolean: True if the envar is set, false if it is set to a false value.
+        None if defval is None and the variable is not set.
     '''
-    return os.getenv(name, defval).lower() not in ('0', 'false')
+    valu = os.getenv(name, defval)
+    if valu is None:
+        return None
 
-_DOCS_BASEURL_DEFAULT = 'https://docs.vertex.link'
-_DOCS_BASEURL_TOKEN = '{{SYN_DOCS_BASEURL}}'
+    return valu.lower() not in ('0', 'false')
 
-def getDocsBaseUrl():
+def isTestRun():
     '''
-    Get the base URL for Vertex Project documentation.
+    Return True if the current process is running under pytest.
 
-    This returns the value of the ``SYN_DOCS_BASEURL`` environment variable,
-    defaulting to ``https://docs.vertex.link`` if not set.
+    Notes:
+        pytest sets PYTEST_CURRENT_TEST in the environment for the
+        duration of each test (and removes it between tests), so this is
+        accurate for exactly the lifetime of a running test -- unlike a
+        hand-rolled "are we in CI" envar, it needs no test-suite-side
+        setup.
 
     Returns:
-        str: Base URL string for Vertex documentation.
+        bool: True if PYTEST_CURRENT_TEST is set.
     '''
-    return os.environ.get('SYN_DOCS_BASEURL', _DOCS_BASEURL_DEFAULT)
-
-def substDocsBaseUrl(text):
-    '''
-    Replace all ``{{SYN_DOCS_BASEURL}}`` tokens in *text* with the result of
-    :func:`getDocsBaseUrl`.
-
-    Args:
-        text (str): Text potentially containing ``{{SYN_DOCS_BASEURL}}`` tokens.
-
-    Returns:
-        str: Text with all tokens replaced by the resolved base URL.
-    '''
-    return text.replace(_DOCS_BASEURL_TOKEN, getDocsBaseUrl())
+    return 'PYTEST_CURRENT_TEST' in os.environ
 
 def getSynPath(*paths):
     return genpath(syndir, *paths)
@@ -808,7 +802,7 @@ def result(retn):
 
     name, info = valu
 
-    ctor = getattr(s_exc, name, None)
+    ctor = s_exc.getSynErrCtor(name, None)
     if ctor is not None:
         raise ctor(**info)
 
@@ -942,17 +936,26 @@ async def merggenr(genrs, cmprkey):
 
         curvs[nextindx] = await genrnext(genrs[nextindx])
 
-async def merggenr2(genrs, cmprkey=None, reverse=False):
+async def merggenr2(genrs, cmprkey=None, reverse=False, withordr=False):
     '''
     Optimized version of merggenr based on heapq.merge
+
+    Args:
+        genrs (list): A list of sorted async generators.
+        cmprkey: Optional callable which returns the sort key for an item.
+        reverse (bool): Set to True when the generators are sorted descending.
+        withordr (bool): Set to True to yield (item, indx) tuples where indx is
+                         the position in genrs of the generator which produced
+                         the item. Items which compare equal are yielded lowest
+                         genrs position first, regardless of reverse.
     '''
     h = []
     h_append = h.append
 
     if reverse:
-        _heapify = heapq._heapify_max
-        _heappop = heapq._heappop_max
-        _heapreplace = heapq._heapreplace_max
+        _heapify = heapq.heapify_max
+        _heappop = heapq.heappop_max
+        _heapreplace = heapq.heapreplace_max
         direction = -1
     else:
         _heapify = heapq.heapify
@@ -969,6 +972,26 @@ async def merggenr2(genrs, cmprkey=None, reverse=False):
                 pass
 
         _heapify(h)
+
+        if withordr:
+
+            while len(h) > 1:
+                try:
+                    while True:
+                        valu, order, nxt = s = h[0]
+                        yield valu, abs(order)
+                        s[0] = await nxt()
+                        _heapreplace(h, s)
+                except StopAsyncIteration:
+                    _heappop(h)
+
+            if h:
+                valu, order, _ = h[0]
+                order = abs(order)
+                yield valu, order
+                async for valu in genrs[order]:
+                    yield valu, order
+            return
 
         while len(h) > 1:
             try:
@@ -996,6 +1019,28 @@ async def merggenr2(genrs, cmprkey=None, reverse=False):
             pass
 
     _heapify(h)
+
+    if withordr:
+
+        while len(h) > 1:
+            try:
+                while True:
+                    _, order, valu, nxt = s = h[0]
+                    yield valu, abs(order)
+                    valu = await nxt()
+                    s[0] = cmprkey(valu)
+                    s[2] = valu
+                    _heapreplace(h, s)
+            except StopAsyncIteration:
+                _heappop(h)
+
+        if h:
+            _, order, valu, _ = h[0]
+            order = abs(order)
+            yield valu, order
+            async for valu in genrs[order]:
+                yield valu, order
+        return
 
     while len(h) > 1:
         try:

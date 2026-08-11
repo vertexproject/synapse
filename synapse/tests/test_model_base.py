@@ -124,12 +124,31 @@ class BaseTest(s_t_utils.SynTest):
             self.true(core.model.form('meta:story').implements('doc:document'))
             self.true(core.model.form('meta:story').implements('doc:authorable'))
             self.true(core.model.form('meta:story').implements('entity:creatable'))
+            self.true(core.model.form('meta:story').implements('doc:published'))
 
             # :supersedes holds prior versions of the story
             nodes = await core.nodes('meta:story:id=STORY-7 [ :supersedes={[ meta:story=* :title="old story" ]} ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('supersedes'))
             self.len(1, await core.nodes('meta:story:title="old story"'))
+
+            # doc:published's props are reachable on a story, and :published is a time rather than a
+            # flag, so it records when the story was published.
+            nodes = await core.nodes('meta:story:id=STORY-7 [ :published=20230601 ]')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'published', 1685577600000000)
+
+            self.len(1, await core.nodes('meta:story:published=20230601'))
+
+            # the rest of doc:published rides along with the interface
+            nodes = await core.nodes('''
+                meta:story:id=STORY-7
+                    [ :public=(true) :topics=(threats,) :publisher={[ entity:contact=* :name=vertex ]} ]
+            ''')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'public', 1)
+            self.nn(nodes[0].get('publisher'))
+            self.len(1, await core.nodes('meta:story -> meta:topic'))
 
     async def test_model_base_source(self):
 

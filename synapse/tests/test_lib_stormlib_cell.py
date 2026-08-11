@@ -2,7 +2,6 @@ import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
-import synapse.lib.stormlib.cell as s_stormlib_cell
 
 import synapse.tests.utils as s_test
 import synapse.tests.test_lib_stormsvc as s_t_stormsvc
@@ -26,18 +25,6 @@ class StormCellTest(s_test.SynTest):
             ret = await core.callStorm('return ( $lib.cell.getHealthCheck() )')
             self.eq(ret, await core.getHealthCheck())
 
-            # New cores have stormvar set to the current max version fix
-            vers = await core.callStorm('return ( $lib.globals.$key )',
-                                        {'vars': {'key': s_stormlib_cell.runtime_fixes_key}})
-            self.nn(vers)
-            self.eq(vers, s_stormlib_cell.getMaxHotFixes())
-
-            msgs = await core.stormlist('$lib.cell.hotFixesCheck()')
-            self.len(0, [m for m in msgs if m[0] == 'print'])
-
-            msgs = await core.stormlist('$lib.cell.hotFixesApply()')
-            self.len(0, [m for m in msgs if m[0] == 'print'])
-
             user = await core.addUser('bob')
             opts = {'user': user.get('iden')}
 
@@ -49,12 +36,6 @@ class StormCellTest(s_test.SynTest):
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.cell.getHealthCheck() )', opts=opts)
-
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return ( $lib.cell.hotFixesCheck() )', opts=opts)
-
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return ( $lib.cell.hotFixesApply() )', opts=opts)
 
     async def test_stormlib_cell_uptime(self):
 
@@ -71,7 +52,7 @@ class StormCellTest(s_test.SynTest):
             self.stormIsInPrint(f'since {day}', msgs)
 
             msgs = await core.stormlist('uptime newp')
-            self.stormIsInErr('No service with name/iden: newp', msgs)
+            self.stormIsInErr('No service with name: newp', msgs)
 
             svc.starttime = svc.starttime - (1 * s_const.day + 2 * s_const.hour)
             msgs = await core.stormlist('uptime stormvar')
@@ -125,12 +106,14 @@ class StormCellTest(s_test.SynTest):
 
                     self.gt(len(await ahawait.wait(timeout=6)), 0)  # nexus replay fires 2 events
 
-                    await self.addSvcToCore(svc00, core00, svcname='testsvc')
+                    # the cell is on the cortex's AHA network, so the cortex discovers
+                    # and registers it automatically under its cell type
+                    self.nn(await self.waitCoreStormSvc(core00, 'stormvar'))
 
                     with self.raises(s_exc.NoSuchName):
                         await core00.callStorm('return($lib.cell.getMirrorUrls(name=newp))')
 
-                    self.eq([], await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))'))
+                    self.eq([], await core00.callStorm('return($lib.cell.getMirrorUrls(name=stormvar))'))
 
                     provurl = await aha.addAhaSvcProv('01.testsvc')
                     ahawait = aha.waiter(1, 'aha:svc:add')
@@ -145,12 +128,12 @@ class StormCellTest(s_test.SynTest):
 
                         expurls = ('aha://01.testsvc.synapse',)
 
-                        self.eq(expurls, await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))'))
+                        self.eq(expurls, await core00.callStorm('return($lib.cell.getMirrorUrls(name=stormvar))'))
 
                     await aha.delAhaSvc('00.testsvc.synapse')
 
                     with self.raises(s_exc.NoSuchName):
-                        await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))')
+                        await core00.callStorm('return($lib.cell.getMirrorUrls(name=stormvar))')
 
         # No AHA case
 
@@ -164,8 +147,8 @@ class StormCellTest(s_test.SynTest):
 
             async with self.getTestCell(s_t_stormsvc.StormvarServiceCell) as svc:
 
-                await self.addSvcToCore(svc, core, svcname='testsvc')
+                await self.addSvcToCore(svc, core)
 
                 with self.raises(s_exc.BadConfValu) as cm:
-                    await core.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))')
+                    await core.callStorm('return($lib.cell.getMirrorUrls(name=stormvar))')
                     self.eq(emesg, cm.exception.get('mesg'))

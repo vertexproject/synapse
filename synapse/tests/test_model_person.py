@@ -76,7 +76,7 @@ class PsModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('remote:provider'))
             self.nn(nodes[0].get('place'))
             self.eq(nodes[0].getProps(virts=True)['period.precision'], s_time.PREC_DAY)
-            self.eq(nodes[0].pack(virts=True)[1]['props']['period.precision'], s_time.PREC_DAY)
+            self.eq(nodes[0].pack(virts=True)[1]['props']['period'][1]['v']['precision'], (s_time.PREC_DAY, {}))
             self.len(1, await core.nodes('edu:class -> geo:place +:name="vertex hall"'))
             self.len(1, await core.nodes('edu:class:remote:url=https://vertex.edu/chem101'))
 

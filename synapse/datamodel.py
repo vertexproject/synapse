@@ -90,6 +90,7 @@ class TagProp:
         props = self.model.form('syn:tagprop').wrapRuntProps({
             'doc': self.info.get('doc', ''),
             'type': self.type.name,
+            'extmodel': self.isext,
         })
 
         return (('syn:tagprop', self.name), {'props': props})
@@ -383,6 +384,7 @@ class Form:
             'doc': self.info.get('doc', self.type.info.get('doc', '')),
             'runt': self.isrunt,
             'type': self.type.name,
+            'extmodel': self.isext,
         }
 
         if (pform := self.modl.form(self.type.subof)) is not None:
@@ -632,9 +634,17 @@ class Model:
 
             # changed properties are nested under their (current) form record,
             # keyed by the relative prop name, and expanded to full names here.
+            # a prop became: is either relative to that form (leading colon) or
+            # a full path to a prop which moved to a different form.
             for prevprop, propentry in entry.get('props', {}).items():
-                if (became := propentry.get('became')) is not None:
-                    self.propprevnames[f'{prevname}:{prevprop}'] = f'{prevname}:{became}'
+
+                if (became := propentry.get('became')) is None:
+                    continue
+
+                if became.startswith(':'):
+                    became = f'{prevname}{became}'
+
+                self.propprevnames[f'{prevname}:{prevprop}'] = became
 
         self.metatypes = {}  # name: Type()
 

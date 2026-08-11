@@ -2,6 +2,7 @@ import os
 import sys
 import signal
 import asyncio
+import logging
 import contextlib
 import multiprocessing
 
@@ -580,6 +581,13 @@ class BaseTest(s_t_utils.SynTest):
             await asyncio.sleep(5)
             yield 'bar'
 
+        async def finigenr():
+            yield 'foo'
+            try:
+                await asyncio.sleep(5)
+            except asyncio.CancelledError:
+                raise s_exc.SynErr(mesg='cancelled')
+
         event = asyncio.Event()
 
         async def slowtask():
@@ -591,7 +599,23 @@ class BaseTest(s_t_utils.SynTest):
 
         items = [item async for item in s_base.schedGenr(goodgenr())]
         self.eq(items, ['foo', 'bar'])
-        await self.agenraises(s_exc.SynErr, s_base.schedGenr(badgenr()))
+
+        # the generator exception is raised to the consumer, and *only* to the
+        # consumer. the Base.schedCoro() taskDone callback must not also log it.
+        with self.getLoggerStream('', level=logging.ERROR) as stream:
+            await self.agenraises(s_exc.SynErr, s_base.schedGenr(badgenr()))
+
+        self.eq('', stream.getvalue())
+
+        # but if the consumer has gone away, there is nobody left to raise the
+        # exception to, so it falls back to being logged.
+        with self.getLoggerStream('synapse.lib.base', level=logging.ERROR) as stream:
+
+            genr = s_base.schedGenr(finigenr())
+            self.eq('foo', await genr.__anext__())
+            await genr.aclose()
+
+        self.isin('scheduled through Base.schedCoro raised exception', stream.getvalue())
 
         async with await s_base.Base.anit() as base:
             task = base.schedCoro(slowtask())

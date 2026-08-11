@@ -265,7 +265,6 @@ Queries = [
     'inet:ip +inet:ip=1.2.3.1-1.2.3.3',
     'inet:ip +inet:ip=10.2.1.4/32',
     'inet:ip -> test:str',
-    'inet:ip | reindex --subs',
     'inet:ip:loc=us',
     'inet:ip:loc=zz',
     'inet:ip=1.2.3.1-1.2.3.3',
@@ -292,7 +291,6 @@ Queries = [
     'ps:person=$pers -> meta:source +:time@=(2014,2017) -> geo:place',
     'ps:person=$pers -> meta:source -> *',
     'ps:person=$pers -> meta:source :node -> *',
-    'reindex --form-counts',
     'sudo | [ inet:ip=1.2.3.4 ]',
     'sudo | [ test:cycle0=foo :test:cycle1=bar ]',
     'sudo | [ test:guid="*" ]',
@@ -807,6 +805,44 @@ Queries = [
     '[test:str=foo :bar=("hehe" as test:str, $x as test:int)]',
     '[test:str=foo :hehe = 5 as `test:{$t}`]',
     '[inet:tls:clientcert=(tcp://5.6.7.8:5678, $client as `crypto:{$kind}`)]',
+    'max domain:vertex.link',
+    'some.cmd domain:vertex.link.sub.deep',
+    'some.cmd $var domain:vertex.link',
+    'inet:fqdn | macro.exec pull_files <(refs)-*',
+    'tee { some.cmd <(refs)-* } { inet:fqdn }',
+    'some.cmd foo if $x { help }',
+    'some.cmd stop',
+    'some.cmd for',
+    'limit 10 for $tag in $node.tags() { help }',
+    'limit 10 | for $tag in $node.tags() { help }',
+    'some.cmd $var word',
+    'some.cmd $var inet:ip',
+    'some.cmd "quoted" -1:12:30',
+    'some.cmd (1, 2) word',
+    'some.cmd #tag word',
+    'some.cmd $lib.foo() word',
+    'some.cmd $var stop',
+    'cron add --monthly -1:12:30 { #bar }',
+    'some.cmd -d=2',
+    'some.cmd foo$bar',
+    'some.cmd ${ inet:fqdn }',
+    'some.cmd key=value',
+    'some.cmd inet:fqdn=vertex.link',
+    'some.cmd format',
+    'some.cmd <- foo',
+    'some.cmd ~tilde',
+    'limit 10 [ inet:ip=1.2.3.4 ]',
+    'limit 10 +inet:user=visi',
+    'limit 10 +#foo',
+    'some.cmd $var >=foo',
+    'some.cmd $var <(refs)-*',
+    'some.cmd -(refs)',
+    'some.cmd $lib.foo(bar) word',
+    'some.cmd $(1 + 2) word',
+    'some.cmd a{b',
+    'some.cmd "foo{bar}"',
+    'tee word { inet:ip }',
+    'inet:ip:asn max :asn return($node)',
 ]
 
 # Generated with print_parse_list below
@@ -1065,7 +1101,6 @@ _ParseResults = [
     'Query: [LiftProp: [Const: inet:ip], FiltOper: [Const: +, AbsPropCond: [Const: inet:ip, Const: =, Const: 1.2.3.1-1.2.3.3]]]',
     'Query: [LiftProp: [Const: inet:ip], FiltOper: [Const: +, AbsPropCond: [Const: inet:ip, Const: =, Const: 10.2.1.4/32]]]',
     'Query: [LiftProp: [Const: inet:ip], FormPivot: [PivotTarget: [Const: test:str]], isjoin=False]',
-    'Query: [LiftProp: [Const: inet:ip], CmdOper: [Const: reindex, List: [Const: --subs]]]',
     'Query: [LiftPropBy: [Const: inet:ip:loc, Const: =, Const: us]]',
     'Query: [LiftPropBy: [Const: inet:ip:loc, Const: =, Const: zz]]',
     'Query: [LiftPropBy: [Const: inet:ip, Const: =, Const: 1.2.3.1-1.2.3.3]]',
@@ -1092,7 +1127,6 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: ps:person, Const: =, VarValue: [Const: pers]], FormPivot: [PivotTarget: [Const: meta:source]], isjoin=False, FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: time]], Const: @=, List: [Const: 2014, Const: 2017]]], FormPivot: [PivotTarget: [Const: geo:place]], isjoin=False]',
     'Query: [LiftPropBy: [Const: ps:person, Const: =, VarValue: [Const: pers]], FormPivot: [PivotTarget: [Const: meta:source]], isjoin=False, PivotOut: [], isjoin=False]',
     'Query: [LiftPropBy: [Const: ps:person, Const: =, VarValue: [Const: pers]], FormPivot: [PivotTarget: [Const: meta:source]], isjoin=False, PropPivotOut: [RelPropValue: [RelProp: [Const: node]]], isjoin=False]',
-    'Query: [CmdOper: [Const: reindex, List: [Const: --form-counts]]]',
     'Query: [CmdOper: [Const: sudo, Const: ()], EditNodeAdd: [FormName: [Const: inet:ip], Const: =, Const: 1.2.3.4]]',
     'Query: [CmdOper: [Const: sudo, Const: ()], EditNodeAdd: [FormName: [Const: test:cycle0], Const: =, Const: foo], EditPropSet: [RelProp: [Const: test:cycle1], Const: =, Const: bar]]',
     'Query: [CmdOper: [Const: sudo, Const: ()], EditNodeAdd: [FormName: [Const: test:guid], Const: =, Const: *]]',
@@ -1514,6 +1548,44 @@ _ParseResults = [
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSet: [RelProp: [Const: bar], Const: =, List: [ValueAs: [Const: hehe, Const: test:str], ValueAs: [VarValue: [Const: x], Const: test:int]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSet: [RelProp: [Const: hehe], Const: =, ValueAs: [Const: 5, FormatString: [Const: test:, VarValue: [Const: t]]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: inet:tls:clientcert], Const: =, List: [Const: tcp://5.6.7.8:5678, ValueAs: [VarValue: [Const: client], FormatString: [Const: crypto:, VarValue: [Const: kind]]]]]]',
+    'Query: [CmdOper: [Const: max, List: [Const: domain:vertex.link]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: domain:vertex.link.sub.deep]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [VarValue: [Const: var], Const: domain:vertex.link]]]',
+    'Query: [LiftProp: [Const: inet:fqdn], CmdOper: [Const: macro.exec, List: [Const: pull_files, Const: <(refs)-*]]]',
+    'Query: [CmdOper: [Const: tee, List: [ArgvQuery: [Query: [CmdOper: [Const: some.cmd, List: [Const: <(refs)-*]]]], ArgvQuery: [Query: [LiftProp: [Const: inet:fqdn]]]]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: foo, Const: if, VarValue: [Const: x], ArgvQuery: [Query: [CmdOper: [Const: help, Const: ()]]]]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: stop]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: for]]]',
+    'Query: [CmdOper: [Const: limit, List: [Const: 10, Const: for, VarValue: [Const: tag], Const: in, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [], CallKwargs: []], ArgvQuery: [Query: [CmdOper: [Const: help, Const: ()]]]]]]',
+    'Query: [CmdOper: [Const: limit, List: [Const: 10]], ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [], CallKwargs: []], SubQuery: [Query: [CmdOper: [Const: help, Const: ()]]]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [VarValue: [Const: var], Const: word]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [VarValue: [Const: var], Const: inet:ip]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: quoted, Const: -1:12:30]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [List: [Const: 1, Const: 2], Const: word]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [TagValue: [TagName: [Const: tag]], Const: word]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: foo], CallArgs: [], CallKwargs: []], Const: word]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [VarValue: [Const: var], Const: stop]]]',
+    'Query: [CmdOper: [Const: cron, List: [Const: add, Const: --monthly, Const: -1:12:30, ArgvQuery: [Query: [LiftTag: [TagName: [Const: bar]]]]]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: -d, Const: 2]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: foo$bar]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [EmbedQuery:  inet:fqdn ]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: key=value]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: inet:fqdn=vertex.link]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: format]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: <-, Const: foo]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: ~tilde]]]',
+    'Query: [CmdOper: [Const: limit, List: [Const: 10, Const: [, Const: inet:ip=1.2.3.4, Const: ]]]]',
+    'Query: [CmdOper: [Const: limit, List: [Const: 10, Const: +inet:user=visi]]]',
+    'Query: [CmdOper: [Const: limit, List: [Const: 10, Const: +#foo]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [VarValue: [Const: var], Const: >=foo]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [VarValue: [Const: var], Const: <(refs)-*]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: -(refs)]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: foo], CallArgs: [Const: bar], CallKwargs: []], Const: word]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [DollarExpr: [ExprNode: [Const: 1, Const: +, Const: 2]], Const: word]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: a{b]]]',
+    'Query: [CmdOper: [Const: some.cmd, List: [Const: foo{bar}]]]',
+    'Query: [CmdOper: [Const: tee, List: [Const: word, ArgvQuery: [Query: [LiftProp: [Const: inet:ip]]]]]]',
+    'Query: [LiftProp: [Const: inet:ip:asn], CmdOper: [Const: max, List: [RelPropValue: [RelProp: [Const: asn]], Const: return($node)]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1568,8 +1640,55 @@ class GrammarTest(s_t_utils.SynTest):
 
         query = 'add {uniq +#*}'
         parser = s_parser.Parser(query)
+        self.eq(parser.cmdargs(), ['add', 'uniq +#*'])
+
+    def test_stormcmdargs(self):
+
+        # command argument words are always opaque strings in the argv
+        tree = s_parser.Parser('some.cmd 10 domain:vertex.link key=value true').query()
+        argv = [kid.valu for kid in tree.kids[0].kids[1].kids]
+        self.eq(argv, ['10', 'domain:vertex.link', 'key=value', 'true'])
+
+        # a syntax error in an argument list names the CMDARGV terminal cleanly
+        parser = s_parser.Parser('some.cmd =foo')
         with self.raises(s_exc.BadSyntax) as cm:
-            parser.cmdargs()
+            parser.query()
+
+        self.isin('command argument', cm.exception.errinfo.get('mesg'))
+
+        # argument words directly after a structured arg stay opaque words
+        tree = s_parser.Parser('some.cmd $var >=foo').query()
+        self.eq(tree.kids[0].kids[1].kids[-1].valu, '>=foo')
+
+        tree = s_parser.Parser('some.cmd $var <(refs)-*').query()
+        self.eq(tree.kids[0].kids[1].kids[-1].valu, '<(refs)-*')
+
+        # like any unquoted string, an argument word ends only at whitespace,
+        # a pipe, a closing brace, or the end of the query
+        tree = s_parser.Parser('some.cmd a{b').query()
+        self.eq(tree.kids[0].kids[1].kids[-1].valu, 'a{b')
+
+        # a $ only starts a variable at the beginning of an argument, so a word
+        # containing one stays a single opaque argument
+        tree = s_parser.Parser('some.cmd foo$bar a$b$c').query()
+        argv = [kid.valu for kid in tree.kids[0].kids[1].kids]
+        self.eq(argv, ['foo$bar', 'a$b$c'])
+
+        tree = s_parser.Parser('some.cmd $var').query()
+        self.eq(str(tree), 'Query: [CmdOper: [Const: some.cmd, List: [VarValue: [Const: var]]]]')
+
+        # an unpiped keyword operation is a plain argument, not a syntax error
+        tree = s_parser.Parser('inet:ip:asn max :asn return($node)').query()
+        self.eq(tree.kids[1].kids[1].kids[-1].valu, 'return($node)')
+
+        tree = s_parser.Parser('some.cmd word { inet:fqdn }').query()
+        self.eq(str(tree), 'Query: [CmdOper: [Const: some.cmd, List: [Const: word, '
+                           'ArgvQuery: [Query: [LiftProp: [Const: inet:fqdn]]]]]]')
+
+        # a } ends the word, so a literal brace pair must be quoted
+        parser = s_parser.Parser('some.cmd foo{bar}')
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.query()
 
     def test_mode_lookup(self):
         q = '1.2.3.4 vertex.link | spin'
@@ -1580,8 +1699,9 @@ class GrammarTest(s_t_utils.SynTest):
 
         query = '1.2.3.4 | uniq +#*'
         parser = s_parser.Parser(query)
-        with self.raises(s_exc.BadSyntax) as cm:
-            parser.lookup()
+        tree = parser.lookup()
+        self.eq(str(tree), 'Lookup: [LookList: [Const: 1.2.3.4], '
+                           'Query: [CmdOper: [Const: uniq, List: [Const: +#*]]]]')
 
     def test_mode_search(self):
         with self.raises(s_exc.BadArg):

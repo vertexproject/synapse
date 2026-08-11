@@ -169,7 +169,12 @@ class StormLibAuthTest(s_test.SynTest):
 
             msgs = await core.stormlist('auth.user.allowed visi node.tag.del')
             self.stormHasNoWarnErr(msgs)
-            self.stormIsInPrint('allowed: false - No matching rule found.', msgs, deguid=True)
+            self.stormIsInPrint('allowed: false - No matching rule found. (default: false)', msgs, deguid=True)
+
+            # the permission may also be given as a list of permission parts
+            msgs = await core.stormlist('auth.user.allowed visi (node, tag, del)')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('allowed: false - No matching rule found. (default: false)', msgs, deguid=True)
 
             msgs = await core.stormlist('auth.user.allowed root node.tag.del')
             self.stormHasNoWarnErr(msgs)
@@ -1575,6 +1580,78 @@ class StormLibAuthTest(s_test.SynTest):
 
             gates = await core.callStorm('return($lib.auth.gates.list())')
             self.isin(viewiden, [g['iden'] for g in gates])
+
+    async def test_stormlib_auth_allowed(self):
+        '''
+        SYN-11123: $user.allowed()/getAllowedReason() must agree with confirm() enforcement.
+        '''
+        async with self.getTestCore() as core:
+
+            bob = await core.auth.addUser('bob')
+            asbob = {'user': bob.iden}
+
+            # a user with a direct deny rule on a perm which is registered default allow
+            await bob.setRules(((False, ('auth', 'self', 'set', 'apikey')),))
+
+            opts = {'vars': {'perm': ('auth', 'self', 'set', 'apikey')}}
+
+            # the permission may be given as a list of parts or as a dotted string, and
+            # neither form may be reported as allowed while confirm() denies it
+            for q in (
+                'return($lib.auth.users.byname(bob).allowed((auth, self, set, apikey)))',
+                'return($lib.auth.users.byname(bob).allowed((auth, self, set, apikey), default=(true)))',
+                'return($lib.auth.users.byname(bob).allowed($perm))',
+                'return($lib.auth.users.byname(bob).allowed("auth.self.set.apikey"))',
+                'return($lib.auth.users.byname(bob).allowed("auth.self.set.apikey", default=(true)))',
+            ):
+                self.false(await core.callStorm(q, opts=opts))
+
+            q = 'return($lib.auth.users.byname(bob).getAllowedReason((auth, self, set, apikey), default=(true)))'
+            self.eq((False, 'Matched user rule (!auth.self.set.apikey).'), await core.callStorm(q))
+
+            # enforcement agrees
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.auth.users.get().genApiKey(newp)', opts=asbob)
+
+            # with the deny rule removed, the registered permdef default (true) is used
+            # when the caller does not specify one -- matching enforcement
+            await bob.setRules(())
+            self.true(core.getPermDefault(('auth', 'self', 'set', 'apikey')))
+
+            self.true(await core.callStorm('return($lib.auth.users.byname(bob).allowed("auth.self.set.apikey"))'))
+            self.true(await core.callStorm('return($lib.auth.users.byname(bob).allowed((auth, self, set, apikey)))'))
+
+            q = 'return($lib.auth.users.byname(bob).getAllowedReason("auth.self.set.apikey"))'
+            self.eq((True, 'No matching rule found. (default: true)'), await core.callStorm(q))
+
+            # and enforcement now allows it
+            self.nn(await core.callStorm('return($lib.auth.users.get().genApiKey(hehe))', opts=asbob))
+
+            # an explicit caller default still wins over the permdef default
+            q = 'return($lib.auth.users.byname(bob).allowed("auth.self.set.apikey", default=(false)))'
+            self.false(await core.callStorm(q))
+
+            # a perm with no permdef falls back to a default of false
+            self.false(core.getPermDefault(('newp', 'newp')))
+            self.false(await core.callStorm('return($lib.auth.users.byname(bob).allowed(newp.newp))'))
+
+            q = 'return($lib.auth.users.byname(bob).getAllowedReason(newp.newp))'
+            self.eq((False, 'No matching rule found. (default: false)'), await core.callStorm(q))
+
+            # an unset gateiden must not be passed through as the string 'None'
+            bob.clearAuthCache()
+            self.false(await core.callStorm('return($lib.auth.users.byname(bob).allowed(newp.newp))'))
+            self.eq([(('newp', 'newp'), False, None, False)], list(bob.permcache.cache.keys()))
+
+            # a permission must be a dotted string or a sequence of parts
+            for text in ('({"foo": "bar"})', '(42)', '(true)', '(null)'):
+                for meth in ('allowed', 'getAllowedReason'):
+                    q = f'return($lib.auth.users.byname(bob).{meth}({text}))'
+                    with self.raises(s_exc.BadArg) as exc:
+                        await core.callStorm(q)
+
+                    self.isin('Permission must be a dotted string or a list of permission parts',
+                              exc.exception.get('mesg'))
 
     async def test_stormlib_auth_apikey(self):
 

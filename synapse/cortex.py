@@ -50,6 +50,7 @@ import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.lib.crypto.rsa as s_rsa
+import synapse.lib.crypto.tinfoil as s_tinfoil
 
 # Importing these registers their commands
 import synapse.lib.stormhttp as s_stormhttp  # noqa: F401
@@ -57,11 +58,14 @@ import synapse.lib.stormhttp as s_stormhttp  # noqa: F401
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.aha as s_stormlib_aha  # noqa: F401
+import synapse.lib.stormlib.ecc as s_stormlib_ecc  # noqa: F401
 import synapse.lib.stormlib.gen as s_stormlib_gen  # noqa: F401
 import synapse.lib.stormlib.gis as s_stormlib_gis  # noqa: F401
 import synapse.lib.stormlib.hex as s_stormlib_hex  # noqa: F401
+import synapse.lib.stormlib.jwt as s_stormlib_jwt  # noqa: F401
 import synapse.lib.stormlib.log as s_stormlib_log  # noqa: F401
 import synapse.lib.stormlib.pkg as s_stormlib_pkg  # noqa: F401
+import synapse.lib.stormlib.rsa as s_stormlib_rsa  # noqa: F401
 import synapse.lib.stormlib.xml as s_stormlib_xml  # noqa: F401
 import synapse.lib.stormlib.auth as s_stormlib_auth  # noqa: F401
 import synapse.lib.stormlib.cell as s_stormlib_cell  # noqa: F401
@@ -94,6 +98,7 @@ import synapse.lib.stormlib.hashes as s_stormlib_hashes  # noqa: F401
 import synapse.lib.stormlib.quorum as s_stormlib_quorum  # noqa: F401
 import synapse.lib.stormlib.random as s_stormlib_random  # noqa: F401
 import synapse.lib.stormlib.scrape as s_stormlib_scrape   # noqa: F401
+import synapse.lib.stormlib.vertex as s_stormlib_vertex
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # noqa: F401
 import synapse.lib.stormlib.spooled as s_stormlib_spooled  # noqa: F401
 import synapse.lib.stormlib.tabular as s_stormlib_tabular  # noqa: F401
@@ -104,11 +109,16 @@ import synapse.lib.stormlib.modelext as s_stormlib_modelext  # noqa: F401
 import synapse.lib.stormlib.compression as s_stormlib_compression  # noqa: F401
 
 logger = logging.getLogger(__name__)
+
 stormlogger = logging.getLogger('synapse.storm')
 
 '''
 A Cortex implements the synapse hypergraph object.
 '''
+
+# the smallest out-edge count at which a node export probes for edges rather
+# than walking them.
+EXPORT_EDGE_LIMIT = 1_000
 
 reqValidTagModel = s_config.getJsValidator({
     'type': 'object',
@@ -132,6 +142,7 @@ reqValidStormMacro = s_config.getJsValidator({
         'updated': {'type': 'number'},
         'permissions': s_msgpack.deepcopy(s_schemas.easyPermSchema),
     },
+    'additionalProperties': False,
     'required': [
         'name',
         'iden',
@@ -631,6 +642,11 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getViewDef(iden, user=self.user)
 
+def _rsaLoadDecrypt(privbyts, byts):
+    # load the RSA private key + decrypt; pure crypto (no slab access) so it is safe
+    # to run in an executor thread
+    return s_rsa.PriKey.load(privbyts).decrypt(byts)
+
 class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the Synapse hypergraph.
@@ -638,11 +654,12 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
     PKG_PROVIDES = ('synapse',)
 
-    # The Cortex commits its slabs after each nexus transaction (see
-    # Cell.nexuscommit / NexsRoot._eat -> Slab.commitDirtyNow) rather than on the
-    # periodic Slab sync loop.
-    nexuscommit = True
     celltype = 'cortex'
+
+    # The Vertex Hub location for $lib.vertex is fixed (not a config option); tests
+    # override these on the instance to point at a local mock hub.
+    _vertex_hub_url = 'https://hub.vertex.link'
+    _vertex_hub_ssl_verify = True
 
     # For the cortex, nexslog:en defaults to True
     confbase = copy.deepcopy(s_cell.Cell.confbase)
@@ -712,10 +729,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self.macrodb = self.slab.initdb('storm:macros')
         self.httpextapidb = self.slab.initdb('http:ext:apis')
 
-        if self.inaugural:
-            self.cellvers.set('cortex:storage', 4)
-            self.cellvers.set('cortex:defaults', 2)
-            self.cellvers.set('cortex:extmodel', 1)
+        await self.initCellVers('cortex:storage')
+        await self.initCellVers('cortex:defaults')
+        await self.initCellVers('cortex:extmodel')
 
         self.viewmeta = self.slab.initdb('view:meta')
 
@@ -740,15 +756,20 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self.stormpkgvars = {}   # type: Dict[str, s_lmdbslab.SafeKeyVal]
         self.stormpkgstate = {}  # type: Dict[str, s_lmdbslab.SafeKeyVal]
 
-        self.svcsbyiden = {}
-        self.svcsbyname = {}
-        self.svcsbysvcname = {}  # remote name, not local name
+        # storm services, keyed by the cell type name of the service. a service
+        # is unique by cell type for a deployment, so no separate iden is needed.
+        self.svcs = {}
 
-        # runtime-only ( not persisted ) set of stable idens for storm services
-        # we have auto-added from AHA discovery. The AHA topo stream replays
-        # svc:add for its whole snapshot on every reconnect, so this guards
-        # against re-adding a discovered service -- including one that has since
-        # been removed with delStormSvc.
+        # maps a storm package name to the cell type name of the service which
+        # delivered it. built from the service defs, so it survives a restart
+        # with the service offline.
+        self.pkgsvcs = {}
+
+        # runtime-only ( not persisted ) set of cell type names for storm
+        # services we have auto-added from AHA discovery. The AHA topo stream
+        # replays svc:add for its whole snapshot on every reconnect, so this
+        # guards against re-adding a discovered service -- including one that has
+        # since been removed with delStormSvc.
         self.ahastormsvcs = set()
 
         self._runtLiftFuncs = {}
@@ -760,6 +781,27 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self.tagnorms = s_cache.FixedCache(self._getTagNorm, size=1000)
 
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
+        self.stormcryptcache = s_cache.FixedCache(self._decStormText, size=10000)
+
+        # $lib.crypto.jwt JWKS caches: jwks_uri -> (expiry_epoch_seconds, jwkset) and
+        # jwks_uri -> asyncio.Lock for per-uri single-flight fetching.
+        self.jwkscache = {}
+        self.jwkslocks = {}
+
+        # per-deployment package seeds are stored RSA-encrypted to our deployment
+        # key; cache their decryption (keyed by the encrypted seed)
+        self.deployseedcache = s_cache.FixedCache(self._decDeploySeed, size=10000)
+
+        # re-key per-deployment Storm packages when the deployment key rotates
+        self.metahooks['vertex:deployment'] = self._onSetMetaVertexDeployment
+
+        # undocumented dev-only overrides for the otherwise-fixed Vertex Hub location
+        # (e.g. to point $lib.vertex at a local hub with a self-signed cert)
+        if (huburl := os.environ.get('SYNDEV_VERTEX_HUB_URL')) is not None:
+            self._vertex_hub_url = huburl
+
+        if (sslverify := s_common.envbool('SYNDEV_VERTEX_HUB_SSL_VERIFY', defval=None)) is not None:
+            self._vertex_hub_ssl_verify = sslverify
 
         self.libroot = (None, {}, {})
         self.stormlibs = []
@@ -778,6 +820,10 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self.onfini(self._onCoreFini)
 
         self.cortexdata = self.slab.getSafeKeyVal('cortex')
+
+        # this must come before any package load: a pkgdef "vaults" field is
+        # checked against the registered vault types as the package loads.
+        self._initVaults()
 
         await self._initCoreInfo()
         self._initStormLibs()
@@ -834,14 +880,20 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         await self._initDeprLocks()
         await self._warnDeprLocks()
 
+        # map each service delivered package back to the service which delivered
+        # it before any packages load, so they regain their provenance on startup
+        # even while the services are offline.
+        for svcname, sdef in self.svcdefs.items():
+            pkgname = sdef.get('pkgname')
+            if pkgname is not None:
+                self.pkgsvcs[pkgname] = svcname
+
         await self._initPureStormCmds()
 
         self.dynitems.update({
             'cron': self.agenda,
             'cortex': self,
         })
-
-        self._initVaults()
 
     def getStormMacro(self, name, user=None):
 
@@ -1281,6 +1333,11 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         for pkgdef in list(self.stormpkgs.values()):
             self._runStormPkgOnload(pkgdef)
+
+        # a passive cortex does not register storm service packages, so reconcile
+        # them now that we are the leader. the service may have changed the
+        # package it delivers while we were passive.
+        self.runActiveTask(self._syncStormSvcPkgs())
 
         self.runActiveTask(_runMigrations())
 
@@ -1843,19 +1900,18 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
     async def _initStormSvcs(self):
 
-        for iden, sdef in self.svcdefs.items():
+        for name, sdef in self.svcdefs.items():
 
             try:
                 await self._setStormSvc(sdef)
 
             except Exception as e:
-                logger.warning(f'initStormService ({iden}) failed: {e}')
+                logger.warning(f'initStormService ({name}) failed: {e}')
 
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
 
-        slab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly, commitpulse=not self.nexuscommit)
-        self.onfini(slab.fini)
+        slab = await self._initSlabFile(path, readonly=self.readonly)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
         self.stormpkgqueue = await slab.getMultiQueue('storm:pkg:queue', nexsroot=self.nexsroot)
@@ -1864,9 +1920,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         # TODO we should probably just store this in the cell.slab to save a file handle :D
         path = os.path.join(self.dirn, 'slabs', 'graphs.lmdb')
 
-        slab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly,
-                                          commitpulse=not self.nexuscommit)
-        self.onfini(slab.fini)
+        slab = await self._initSlabFile(path, readonly=self.readonly)
 
         self.pkggraphs = {}
         self.graphs = s_lmdbslab.SlabDict(slab, db=slab.initdb('graphs'))
@@ -1874,9 +1928,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
     async def _initLayerV3Stor(self):
 
         path = os.path.join(self.dirn, 'slabs', 'layersv3.lmdb')
-        self.v3stor = await s_lmdbslab.Slab.anit(path, readonly=self.readonly, commitpulse=not self.nexuscommit)
-
-        self.onfini(self.v3stor.fini)
+        self.v3stor = await self._initSlabFile(path, readonly=self.readonly)
 
         self.indxabrv = self.v3stor.getNameAbrv('indxabrv')
 
@@ -1986,13 +2038,17 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         await self.getStormQuery(cdef.get('storm'))
 
-    def _setStormCmd(self, cdef):
+    def _setStormCmd(self, cdef, pkgdef=None):
         '''
         Note:
             No change control or persistence
+
+            The pkgdef is the package which provides the command, if any. It is
+            passed rather than stamped into the cdef so the package definition is
+            never mutated by loading it.
         '''
         def ctor(runt, runtsafe):
-            return s_storm.PureCmd(cdef, runt, runtsafe)
+            return s_storm.PureCmd(cdef, runt, runtsafe, pkgdef=pkgdef)
 
         # TODO unify class ctors and func ctors vs briefs...
         def getCmdBrief():
@@ -2000,18 +2056,17 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         # TODO this is super ugly...
         ctor.getCmdBrief = getCmdBrief
-        ctor.pkgname = cdef.get('pkgname')
-        ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
-        ctor.forms = cdef.get('forms', {})
-        ctor.deprecated = cdef.get('deprecated', {})
+
+        ctor.pkgname = None
+        if pkgdef is not None:
+            ctor.pkgname = pkgdef.get('name')
+
+        ctor.deprecated = cdef.get('deprecated')
 
         def getRuntPode(model):
             props = {
                 'doc': ctor.getCmdBrief()
             }
-
-            if ctor.svciden:
-                props['svciden'] = ctor.svciden
 
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
@@ -2083,7 +2138,8 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         # do validation before nexs...
         if verify:
             pkgcopy = s_msgpack.deepcopy(pkgdef)
-            codesign = pkgcopy.pop('codesign', None)
+            metadata = pkgcopy.pop('metadata', None)
+            codesign = metadata.get('codesign') if metadata is not None else None
             if codesign is None:
                 mesg = 'Storm package is not signed!'
                 raise s_exc.BadPkgDef(mesg=mesg)
@@ -2201,14 +2257,38 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             perms = [p['perm'] for p in pkgperms if p.get('perm') is not None]
         await self.feedBeholder('pkg:del', {'name': name}, gates=gates, perms=perms)
 
+    def getStormPkgSvc(self, name):
+        '''
+        Return the cell type name of the storm service which delivered a package.
+        '''
+        return self.pkgsvcs.get(name)
+
+    def _addStormPkgSvc(self, pkgdef):
+        # the service which delivered a package is tracked by the cortex rather
+        # than written into the package def, so it is derived onto the copies we
+        # hand out. this keeps a signed package byte identical to what we stored.
+        # set or clear it so what a caller reads is always what we track, even if
+        # the package it pushed carried a value of its own.
+        svcname = self.pkgsvcs.get(pkgdef.get('name'))
+        if svcname is None:
+            pkgdef.pop('svcname', None)
+        else:
+            pkgdef['svcname'] = svcname
+
+        return pkgdef
+
     async def getStormPkg(self, name):
-        return copy.deepcopy(self.stormpkgs.get(name))
+        pkgdef = copy.deepcopy(self.stormpkgs.get(name))
+        if pkgdef is None:
+            return None
+
+        return self._addStormPkgSvc(pkgdef)
 
     async def getStormPkgs(self):
         return self._getStormPkgs()
 
     def _getStormPkgs(self):
-        return copy.deepcopy(list(self.pkgdefs.values()))
+        return [self._addStormPkgSvc(p) for p in copy.deepcopy(list(self.pkgdefs.values()))]
 
     async def getStormMods(self):
         return copy.deepcopy(self.stormmods)
@@ -2225,9 +2305,6 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
                     'has no version information to check.'
             logger.warning(mesg)
             return
-
-        if isinstance(pkgvers, tuple):
-            pkgvers = '%d.%d.%d' % pkgvers
 
         if s_version.matches(pkgvers, reqvers):
             return mdef
@@ -2350,12 +2427,13 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
     async def _normStormPkg(self, pkgdef, validstorm=True):
         '''
-        Normalize and validate a storm package (optionally storm code).
-        '''
-        version = pkgdef.get('version')
-        if isinstance(version, (tuple, list)):
-            pkgdef['version'] = '%d.%d.%d' % tuple(version)
+        Validate a storm package (optionally storm code).
 
+        Note:
+            This must not modify the package definition. Anything the Cortex needs
+            to add is derived onto our own copy as the package loads, so the def we
+            store stays identical to the (signed) def we were given.
+        '''
         await self._reqStormPkgDeps(pkgdef)
 
         pkgname = pkgdef.get('name')
@@ -2365,7 +2443,18 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         cmds = pkgdef.get('commands', ())
         onload = pkgdef.get('onload')
         inits = pkgdef.get('inits')
-        svciden = pkgdef.get('svciden')
+
+        # module/command storm may be encrypted; the pkgdef is not yet loaded
+        # into self.stormpkgs, so read the encryption seed/salt locally here.
+        metadata = pkgdef.get('metadata')
+        encryption = metadata.get('encryption') if metadata is not None else None
+
+        # a per-deployment package keeps its seed RSA-encrypted to our deployment key
+        # at rest; resolve a plaintext-seed view for the storm validation below without
+        # mutating the persisted def (so it stays encrypted and can be re-keyed later).
+        decryption = None
+        if encryption is not None:
+            decryption = await self._reqDecEncryption(encryption)
 
         if onload is not None and validstorm:
             await self.getStormQuery(onload)
@@ -2381,34 +2470,23 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
                 if validstorm:
                     await self.getStormQuery(initdef.get('query'))
 
-        for mdef in mods:
-            modconf = mdef.setdefault('modconf', {})
-            pkgmeta = {'modname': mdef.get('name'), 'pkgname': pkgname}
-            actual_pkgmeta = modconf.setdefault('pkgmeta', pkgmeta)
-            if svciden:
-                modconf['svciden'] = svciden
-                if pkgmeta is actual_pkgmeta:
-                    pkgmeta['svciden'] = svciden
-
-            if validstorm:
+        if validstorm:
+            for mdef in mods:
                 modtext = mdef.get('storm')
+                if decryption is not None:
+                    modtext = await self.stormcryptcache.aget(self._stormDecCacheKey(decryption, modtext))
+
                 await self.getStormQuery(modtext)
 
         for cdef in cmds:
-            cdef['pkgname'] = pkgname
-            cdef.setdefault('cmdconf', {})
-            if svciden:
-                cdef['cmdconf']['svciden'] = svciden
-
             if validstorm:
                 cmdtext = cdef.get('storm')
+                if decryption is not None:
+                    cmdtext = await self.stormcryptcache.aget(self._stormDecCacheKey(decryption, cmdtext))
+
                 await self.getStormQuery(cmdtext)
 
         for gdef in pkgdef.get('graphs', ()):
-            gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
-            gdef['scope'] = 'power-up'
-            gdef['power-up'] = pkgname
-
             if validstorm:
                 await self.reqValidStormGraph(gdef)
 
@@ -2460,15 +2538,38 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             mdef = mdef.copy()
             modname = mdef.get('name')
             mdef['pkgvers'] = pkgvers
+
+            # A module is handed its modconf at runtime with the package metadata
+            # added. Build that onto our copy so the package is never modified.
+            modconf = {}
+            if (authconf := mdef.get('modconf')) is not None:
+                modconf.update(authconf)
+
+            if modconf.get('pkgmeta') is None:
+                modconf['pkgmeta'] = {'modname': modname, 'pkgname': name}
+
+            mdef['modconf'] = modconf
+
             stormmods[modname] = mdef
 
         self.stormmods = stormmods
 
         for cdef in cmds:
-            self._setStormCmd(cdef)
+            self._setStormCmd(cdef, pkgdef=pkgdef)
 
+        # a package declares what the graph is; identity, provenance, and any
+        # unspecified display options are derived here onto our own copy so the
+        # package def stays untouched. pkg.gen fills the display options in at
+        # build time, but a package may also be authored at runtime.
         for gdef in pkgdef.get('graphs', ()):
             gdef = copy.deepcopy(gdef)
+            gdef['iden'] = s_common.guid((name, gdef.get('name')))
+            gdef['scope'] = 'power-up'
+            gdef['power-up'] = name
+
+            for propname, propvalu in s_schemas.pkggraph_defaults.items():
+                gdef.setdefault(propname, propvalu)
+
             self._initEasyPerm(gdef)
             self.pkggraphs[gdef['iden']] = gdef
 
@@ -2589,28 +2690,37 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         pkgname = pkgdef.get('name')
 
-        for gdef in pkgdef.get('graphs', ()):
-            self.pkggraphs.pop(gdef['iden'], None)
+        # match on the provenance we derived at load time rather than re-deriving
+        # the idens, so this stays correct regardless of the package def contents.
+        for iden in [i for (i, g) in self.pkggraphs.items() if g.get('power-up') == pkgname]:
+            self.pkggraphs.pop(iden, None)
 
         self.stormpkgs.pop(pkgname, None)
 
     def getStormSvc(self, name):
-
-        ssvc = self.svcsbyiden.get(name)
-        if ssvc is not None:
-            return ssvc
-
-        ssvc = self.svcsbyname.get(name)
-        if ssvc is not None:
-            return ssvc
-
-        ssvc = self.svcsbysvcname.get(name)
-        if name is not None:
-            return ssvc
+        return self.svcs.get(name)
 
     async def waitStormSvc(self, name, timeout=None):
+        '''
+        Wait ( up to timeout ) for a storm service ( by cell type name ) to be
+        known to this cortex instance and become ready to use. Covers a service
+        not yet known -- eg one still propagating via AHA auto-discovery -- as
+        well as one already known but not yet ready.
+        '''
+        remaining = s_coro.deadline(timeout)
+
         # Readiness of this cortex instance's own service client.
         ssvc = self.getStormSvc(name)
+
+        while ssvc is None:
+            if timeout == 0:
+                return False
+
+            waiter = self.waiter(1, 'core:stormsvc:add')
+            if await waiter.wait(timeout=remaining()) is None:
+                return False
+
+            ssvc = self.getStormSvc(name)
 
         # Short circuit asyncio.wait_for logic by checking the ready event value.
         # If we call wait_for with a timeout=0 we'll almost always raise a
@@ -2618,197 +2728,150 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         if timeout == 0:
             return ssvc.svcready.is_set()
 
-        return await s_coro.event_wait(ssvc.svcready, timeout=timeout)
+        return await s_coro.event_wait(ssvc.svcready, timeout=remaining())
 
     async def addStormSvc(self, sdef):
         '''
         Add a registered storm service to the cortex.
-        '''
-        iden = sdef.get('iden')
-        if iden is None:
-            iden = sdef['iden'] = s_common.guid()
 
-        if self.svcsbyiden.get(iden) is not None:
-            mesg = f'Storm service already exists: {iden}'
-            raise s_exc.DupStormSvc(mesg=mesg)
+        Notes:
+            The service name must be the cell type name of the remote service.
+            The cortex verifies that when it connects.
+        '''
+        name = sdef.get('name')
+        if name is None:
+            mesg = 'Storm service definitions require a name.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if self.svcs.get(name) is not None:
+            mesg = f'Storm service already exists: {name}'
+            raise s_exc.DupStormSvc(mesg=mesg, name=name)
 
         return await self._push('svc:add', sdef)
 
     @s_nexus.Pusher.onPush('svc:add')
     async def _addStormSvc(self, sdef):
 
-        iden = sdef.get('iden')
-        ssvc = self.svcsbyiden.get(iden)
+        name = sdef.get('name')
+        ssvc = self.svcs.get(name)
         if ssvc is not None:
             return ssvc.sdef
 
         ssvc = await self._setStormSvc(sdef)
         if not self.readonly:
-            self.svcdefs.set(iden, sdef)
+            self.svcdefs.set(name, sdef)
 
-        await self.feedBeholder('svc:add', {'name': sdef.get('name'), 'iden': iden})
+        await self.feedBeholder('svc:add', {'name': name})
         return ssvc.sdef
 
-    async def delStormSvc(self, iden):
-        sdef = self.svcdefs.get(iden)
-        if sdef is None:
-            mesg = f'No storm service with iden: {iden}'
-            raise s_exc.NoSuchStormSvc(mesg=mesg, iden=iden)
+    async def delStormSvc(self, name):
 
-        return await self._push('svc:del', iden)
+        if not isinstance(name, str):
+            mesg = f'Storm service names must be strings, got: {name!r}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        sdef = self.svcdefs.get(name)
+        if sdef is None:
+            mesg = f'No storm service with name: {name}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg, name=name)
+
+        return await self._push('svc:del', name)
 
     @s_nexus.Pusher.onPush('svc:del')
-    async def _delStormSvc(self, iden):
+    async def _delStormSvc(self, name):
         '''
         Delete a registered storm service from the cortex.
         '''
-        ssvc = self.svcsbyiden.get(iden)
+        ssvc = self.svcs.get(name)
         if ssvc is None:  # pragma: no cover
             return
 
-        try:
-            if self.isactive:
-                await self.runStormSvcEvent(iden, 'del')
-        except Exception as e:
-            logger.exception(f'service.del hook for service {iden} failed with error: {e}')
+        # drop the package before the sdef, since the sdef is what remembers it.
+        await self._delStormSvcPkg(name)
 
         # a readonly cortex skips the durable pop (the delete is already committed).
         if not self.readonly:
-            self.svcdefs.pop(iden)
+            self.svcdefs.pop(name)
 
-        await self._delStormSvcPkgs(iden)
-
-        name = ssvc.name
-        if name is not None:
-            self.svcsbyname.pop(name, None)
-
-        self.svcsbyiden.pop(iden, None)
-        self.svcsbysvcname.pop(ssvc.svcname, None)
+        self.svcs.pop(name, None)
         await ssvc.fini()
 
-        await self.feedBeholder('svc:del', {'iden': iden, 'name': name, 'svcname': ssvc.svcname})
+        await self.feedBeholder('svc:del', {'name': name})
 
-    async def _delStormSvcPkgs(self, iden):
+    async def _delStormSvcPkg(self, name):
         '''
-        Delete storm packages associated with a service.
+        Delete the storm package delivered by a service.
         '''
-        for pkg in self.getStormSvcPkgs(iden):
-            name = pkg.get('name')
-            if name:
-                await self._delStormPkg(name)
+        ssvc = self.svcs.get(name)
+        if ssvc is None:  # pragma: no cover
+            return
 
-    def getStormSvcPkgs(self, iden):
-        pkgs = []
-        for _, pdef in self.pkgdefs.items():
-            pkgiden = pdef.get('svciden')
-            if pkgiden and pkgiden == iden:
-                pkgs.append(pdef)
-        return pkgs
+        pkgname = ssvc.sdef.get('pkgname')
+        if pkgname is None:
+            return
 
-    async def setStormSvcEvents(self, iden, edef):
+        self.pkgsvcs.pop(pkgname, None)
+        await self._delStormPkg(pkgname)
+
+    def getStormSvcPkg(self, name):
         '''
-        Set the event callbacks for a storm service. Extends the sdef dict.
+        Return the storm package delivered by a service ( or None ).
+        '''
+        ssvc = self.svcs.get(name)
+        if ssvc is None:  # pragma: no cover
+            return None
 
-        Args:
-            iden (str): The service iden.
-            edef (dict): The events definition.
+        pkgname = ssvc.sdef.get('pkgname')
+        if pkgname is None:
+            return None
+
+        return self.stormpkgs.get(pkgname)
+
+    async def setStormSvcPkgName(self, name, pkgname):
+        '''
+        Record which storm package a service delivered.
 
         Notes:
-
-            The edef is formatted like the following::
-
-                {
-                    <name> : {
-                        'storm': <storm>
-                    }
-                }
-
-            where ``name`` is one of the following items:
-
-            add
-
-                Run the given storm '*before* the service is first added (a la service.add), but not on a reconnect.
-
-            del
-
-                Run the given storm *after* the service is removed (a la service.del), but not on a disconnect.
-
-        Returns:
-            dict: An updated storm service definition dictionary.
+            The cell type name of a service and the name of the package it
+            delivers are unrelated, so the cortex must remember the package in
+            order to remove it when the service is removed -- including while the
+            service is offline. This is pushed through the nexus so a follower
+            may honor a svc:del without ever having connected to the service.
         '''
-        sdef = self.svcdefs.get(iden)
-        if sdef is None:
-            mesg = f'No storm service with iden: {iden}'
-            raise s_exc.NoSuchStormSvc(mesg=mesg)
+        return await self._push('svc:pkg', name, pkgname)
 
-        # A readonly cortex takes no part in storm service event tracking: the
-        # add/del hooks that consume evts only run on an active leader.
-        if self.readonly:
-            return sdef
+    @s_nexus.Pusher.onPush('svc:pkg')
+    async def _setStormSvcPkgName(self, name, pkgname):
 
-        sdef['evts'] = edef
-        self.svcdefs.set(iden, sdef)
-        return sdef
-
-    async def _runStormSvcAdd(self, iden):
-        # A readonly cortex never runs the service.add hook.
-        if self.readonly:
+        ssvc = self.svcs.get(name)
+        if ssvc is None:  # pragma: no cover
             return
 
-        sdef = self.svcdefs.get(iden)
-        if sdef is None:
-            mesg = f'No storm service with iden: {iden}'
-            raise s_exc.NoSuchStormSvc(mesg=mesg)
+        oldname = ssvc.sdef.get('pkgname')
+        if oldname is not None:
+            self.pkgsvcs.pop(oldname, None)
 
-        if sdef.get('added', False):
-            return
+        ssvc.sdef['pkgname'] = pkgname
+        self.pkgsvcs[pkgname] = name
 
-        try:
-            await self.runStormSvcEvent(iden, 'add')
-        except Exception as e:
-            logger.exception(f'runStormSvcEvent service.add failed with error {e}')
-            return
-
-        sdef['added'] = True
-        self.svcdefs.set(iden, sdef)
-
-    async def runStormSvcEvent(self, iden, name):
-        assert name in ('add', 'del')
-
-        sdef = self.svcdefs.get(iden)
-        if sdef is None:
-            mesg = f'No storm service with iden: {iden}'
-            raise s_exc.NoSuchStormSvc(mesg=mesg)
-
-        evnt = sdef.get('evts', {}).get(name, {}).get('storm')
-        if evnt is None:
-            return
-
-        opts = {'vars': {'cmdconf': {'svciden': iden}}}
-        coro = s_common.aspin(self.storm(evnt, opts=opts))
-        if name == 'add':
-            await coro
-        else:
-            self.schedCoro(coro)
+        if not self.readonly:
+            self.svcdefs.set(name, ssvc.sdef)
 
     async def _setStormSvc(self, sdef):
 
-        iden = sdef.get('iden')
+        name = sdef.get('name')
 
         # the service client is a telepath ClientV2 which carries the cortex
-        # side service state as attributes. the handshake and storm package
-        # registration are driven by _onStormSvcLink when a link is made.
+        # side service state as attributes. the storm package registration is
+        # driven by _onStormSvcLink when a link is made.
         ssvc = await s_telepath.ClientV2.anit(sdef.get('url'),
-                                              onlink=functools.partial(self._onStormSvcLink, iden))
+                                              onlink=functools.partial(self._onStormSvcLink, name))
         ssvc.sdef = sdef
-        ssvc.iden = iden
-        ssvc.name = sdef.get('name')  # local name for the cortex
-        ssvc.svcname = ''  # remote name from the service
-        ssvc.svcvers = ''  # remote version from the service
-        ssvc.info = None  # service info from the server
+        ssvc.name = name  # the cell type name of the service
+        ssvc.svcvers = ''  # cell version reported by the service
 
-        # set once the service handshake and package registration completes.
-        # distinct from the ClientV2 link-ready event ( ssvc.ready ).
+        # set once the storm package registration completes. distinct from the
+        # ClientV2 link-ready event ( ssvc.ready ).
         ssvc.svcready = asyncio.Event()
 
         # max time to wait for a live proxy when a storm service method is
@@ -2817,102 +2880,172 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         self.onfini(ssvc)
 
-        self.svcsbyiden[iden] = ssvc
-        self.svcsbyname[ssvc.name] = ssvc
+        self.svcs[name] = ssvc
+
+        await self.fire('core:stormsvc:add', name=name)
 
         return ssvc
 
-    async def _onStormSvcLink(self, iden, proxy, urlinfo):
+    async def _onStormSvcLink(self, name, proxy, urlinfo):
 
-        ssvc = self.svcsbyiden.get(iden)
+        ssvc = self.svcs.get(name)
         if ssvc is None:  # pragma: no cover
             return
 
         names = [c.rsplit('.', 1)[-1] for c in proxy._getClasses()]
 
-        if 'CellApi' in names:
+        # a telepath object may be registered as a service purely so that storm
+        # may call it; only a StormSvc delivers a storm package.
+        if 'StormSvc' in names:
+
             cellinfo = await proxy.getCellInfo()
+
             cellvers = cellinfo['synapse']['version']
-            if not s_version.matches(cellvers, '>=3.0.0b4'):
-                mesg = f'Service {ssvc.name} ({iden}) is running Synapse {cellvers} and must be updated to >= 3.0.0'
+            if not s_version.matches(cellvers, '>=3.0.0b5'):
+                mesg = f'Service {name} is running Synapse {cellvers} and must be updated to >= 3.0.0'
                 logger.error(mesg)
                 raise s_exc.BadVersion(mesg=mesg)
 
-        if 'StormSvc' in names:
-            ssvc.info = await proxy.getStormSvcInfo()
-            await self._runStormSvcInit(ssvc)
+            # a storm service is identified by its cell type, so refuse to treat
+            # some other service as the one this service def names.
+            celltype = cellinfo['cell'].get('type')
+            if celltype != name:
+                mesg = f'Storm service {name} is actually a {celltype} service.'
+                logger.error(mesg)
+                raise s_exc.BadArg(mesg=mesg, name=name, celltype=celltype)
+
+            ssvc.svcvers = cellinfo['cell'].get('version')
+
+            await self._runStormSvcInit(ssvc, proxy)
 
         async def unready():
             ssvc.svcready.clear()
-            await self.fire('stormsvc:client:unready', iden=iden)
+            await self.fire('stormsvc:client:unready', name=name)
 
         proxy.onfini(unready)
 
         ssvc.svcready.set()
 
-    async def _runStormSvcInit(self, ssvc):
+    async def _runStormSvcInit(self, ssvc, proxy):
 
-        # update the remote svcname index for this service
-        self.svcsbysvcname.pop(ssvc.svcname, None)
-        ssvc.svcname = ssvc.info['name']
-        ssvc.svcvers = ssvc.info['vers']
-        self.svcsbysvcname[ssvc.svcname] = ssvc
+        await self.feedBeholder('svc:set', {'name': ssvc.name, 'version': ssvc.svcvers})
 
-        await self.feedBeholder('svc:set', {'name': ssvc.name, 'iden': ssvc.iden,
-                                            'svcname': ssvc.svcname, 'version': ssvc.svcvers})
+        # only the leader retrieves and registers the package. it is pushed
+        # through the nexus so followers load and persist it without needing to
+        # reach the service themselves.
+        if not self.isactive:
+            return
 
-        oldpkgs = self.getStormSvcPkgs(ssvc.iden)
-        byname = {}
-        done = set()
-        for pdef in oldpkgs:
-            byname[pdef.get('name')] = s_hashitem.hashitem(pdef)
+        pkgdef = await proxy.getStormSvcPkg()
+        if pkgdef is None:
+            logger.warning(f'Storm service {ssvc.name} delivered no storm package.')
+            return
 
-        # register new packages
-        for pdef in ssvc.info.get('pkgs', ()):
-            try:
-                pdef['svciden'] = ssvc.iden
-                await self._normStormPkg(pdef)
-            except Exception:
-                name = pdef.get('name')
-                logger.exception(f'normStormPkg ({name}) failed for service {ssvc.name} ({ssvc.iden})')
+        try:
+            await self._normStormPkg(pkgdef)
+        except Exception:
+            logger.exception(f'normStormPkg failed for storm service {ssvc.name}')
+            return
+
+        pkgname = pkgdef.get('name')
+
+        # the files must be in the axon before an onload query may read them
+        try:
+            await self._setStormSvcPkgFiles(ssvc, proxy, pkgdef)
+        except Exception:
+            logger.exception(f'storm package file retrieval failed for storm service {ssvc.name}')
+            return
+
+        oldpkg = self.getStormSvcPkg(ssvc.name)
+        if oldpkg is not None:
+
+            if s_hashitem.hashitem(oldpkg) == s_hashitem.hashitem(pkgdef):
+                return  # pkg unchanged. skip.
+
+            # the service delivers a different package than it used to, so the
+            # one it no longer provides must be dropped.
+            oldname = oldpkg.get('name')
+            if oldname != pkgname:
+                await self._push('pkg:del', oldname)
+
+        await self.setStormSvcPkgName(ssvc.name, pkgname)
+
+        try:
+            await self._push('pkg:add', pkgdef)
+        except Exception:  # pragma: no cover
+            logger.exception(f'addStormPkg ({pkgname}) failed for storm service {ssvc.name}')
+
+    async def _setStormSvcPkgFiles(self, ssvc, proxy, pkgdef):
+        '''
+        Retrieve the files declared by a service delivered package into our axon.
+
+        Notes:
+            A built package carries only the sha256 of each of its files, and a
+            publisher uploads the bytes when it pushes the package. A storm
+            service has no publisher, so we retrieve them from the service.
+        '''
+        files = pkgdef.get('files')
+        if not files:
+            return
+
+        if s_common.isTestRun():
+            # a package's built docs/ (SYN-11304) can run into the hundreds
+            # of files (e.g. Optic's userguide images) -- no test exercises
+            # their content through this path (synapse.lib.mddocs.validate
+            # and docs/test_doctests.py already cover doc correctness), and
+            # fetching them one at a time into a cold per-test axon adds
+            # real overhead (or, for a package with many of them, races a
+            # test's own teardown against the still-in-flight retrieval).
+            files = {p: f for (p, f) in files.items() if not p.startswith('docs/')}
+            if not files:
+                return
+
+        axon = await self.getAxon()
+
+        for (path, filedef) in files.items():
+
+            sha256 = filedef.get('sha256')
+
+            # the files are content addressed, so one we already have needs no fetch
+            if await axon.has(s_common.uhex(sha256)):
                 continue
 
-            name = pdef.get('name')
-            pkgiden = s_hashitem.hashitem(pdef)
+            # a file is retrieved by its package relative path, which is stable, and
+            # verified against the sha256 the ( possibly signed ) package declares
+            async with await axon.upload() as upfd:
 
-            done.add(name)
-            if name in byname:
-                if byname[name] != pkgiden:
-                    await self._delStormPkg(name)  # updating an old package: delete the old then re-add
-                else:
-                    continue  # pkg unchanged. skip.
+                async for byts in proxy.getStormSvcPkgFile(path):
+                    await upfd.write(byts)
+
+                size, gotbyts = await upfd.save()
+
+            # the file changed on the service between being hashed into the
+            # package and being read, so it is not the file the package declares
+            if (gotsha256 := s_common.ehex(gotbyts)) != sha256:
+                mesg = f'Storm service {ssvc.name} package file {path} was retrieved as {gotsha256}, expected {sha256}.'
+                raise s_exc.BadPkgDef(mesg=mesg, path=path, sha256=sha256, gotsha256=gotsha256)
+
+            logger.info(f'Retrieved storm package file {path} ({size} bytes) '
+                        f'from storm service {ssvc.name}')
+
+    async def _syncStormSvcPkgs(self):
+        '''
+        Re-register the storm package of every connected service.
+        '''
+        for ssvc in list(self.svcs.values()):
+
+            if not ssvc.svcready.is_set():
+                continue
 
             try:
-                await self._addStormPkg(pdef)
-            except Exception:  # pragma: no cover
-                logger.exception(f'addStormPkg ({name}) failed for service {ssvc.name} ({ssvc.iden})')
+                proxy = await ssvc.proxy(timeout=ssvc.readytimeout)
+                await self._runStormSvcInit(ssvc, proxy)
 
-        # clean up any packages that no longer exist
-        for name in byname.keys():
-            if name not in done:
-                await self._delStormPkg(name)
-
-        # set events and fire as needed
-        evts = ssvc.info.get('evts')
-        try:
-            if evts is not None:
-                ssvc.sdef = await self.setStormSvcEvents(ssvc.iden, evts)
-        except Exception:
-            logger.exception(f'setStormSvcEvents failed for service {ssvc.name} ({ssvc.iden})')
-
-        try:
-            if self.isactive:
-                await self._runStormSvcAdd(ssvc.iden)
-        except Exception:
-            logger.exception(f'service.add storm hook failed for service {ssvc.name} ({ssvc.iden})')
+            except Exception:
+                logger.exception(f'storm package sync failed for storm service {ssvc.name}')
 
     def getStormSvcs(self):
-        return list(self.svcsbyiden.values())
+        return list(self.svcs.values())
 
     async def _runAhaStormSvcSync(self):
         '''
@@ -2954,26 +3087,24 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         if svctype is None:  # pragma: no cover
             return
 
-        # use a stable iden derived from the service type so re-discovery
-        # ( reconnect, reboot ) is idempotent and never re-adds the service. The
-        # runtime ahastormsvcs set remembers types we have already auto-added so
-        # a topology re-sync ( which replays svc:add for the whole AHA snapshot )
+        # the service type is the service name, so re-discovery ( reconnect,
+        # reboot ) is idempotent and never re-adds the service. The runtime
+        # ahastormsvcs set remembers types we have already auto-added so a
+        # topology re-sync ( which replays svc:add for the whole AHA snapshot )
         # does not re-add one, including a service since removed via delStormSvc.
-        iden = s_common.guid(('aha', 'stormsvc', svctype))
-        if iden in self.ahastormsvcs:
+        if svctype in self.ahastormsvcs:
             return
 
-        # do not clobber a manually added service using the type as its name.
-        if self.svcsbyname.get(svctype) is not None:
+        # do not clobber a manually added service with the same name.
+        if self.svcs.get(svctype) is not None:
             return
 
         sdef = {
-            'iden': iden,
             'name': svctype,
             'url': f'aha://{svctype}...',
         }
 
-        self.ahastormsvcs.add(iden)
+        self.ahastormsvcs.add(svctype)
         logger.info(f'Automatically adding AHA storm service: {svctype}')
         await self.addStormSvc(sdef)
 
@@ -3185,21 +3316,11 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         # load from persisted. Mirrors hold the cluster's current model until the leader
         # issues model:set after a code change.
         if (persisted := self.cellinfo.get('cortex:model')) is not None:
-
-            # SYNDEV_CORTEX_MODEL_PERSIST_IGNORE is a development-only escape hatch which
-            # skips loading the persisted snapshot so a cortex can boot after an incompatible
-            # model change. The current code model is re-persisted by _execCellUpdates() ->
-            # model:set once the cell becomes leader.
-            if s_common.envbool('SYNDEV_CORTEX_MODEL_PERSIST_IGNORE'):
-                logger.warning('SYNDEV_CORTEX_MODEL_PERSIST_IGNORE set: ignoring persisted cortex '
-                               'model, loading code-derived mainline model.')
-
-            else:
-                oldhash = s_common.guid(s_common.flatten(persisted))
-                if self._mainlinehash != oldhash:
-                    self.model.addModelDefs(persisted)
-                    self._loadedhash = oldhash
-                    return
+            oldhash = s_common.guid(s_common.flatten(persisted))
+            if self._mainlinehash != oldhash:
+                self.model.addModelDefs(persisted)
+                self._loadedhash = oldhash
+                return
 
         self.model.addModelDefs(mdefs)
         self._loadedhash = self._mainlinehash
@@ -3876,8 +3997,6 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
     async def _initCoreInfo(self):
         self.stormvars = self.cortexdata.getSubKeyVal('storm:vars:')
-        if self.inaugural:
-            self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
 
     async def _initDeprLocks(self):
 
@@ -3999,7 +4118,6 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self.addStormCmd(s_storm.DelNodeCmd)
         self.addStormCmd(s_storm.LiftByVerb)
         self.addStormCmd(s_storm.MoveTagCmd)
-        self.addStormCmd(s_storm.ReIndexCmd)
         self.addStormCmd(s_storm.ColorizeCmd)
         self.addStormCmd(s_storm.EdgesDelCmd)
         self.addStormCmd(s_storm.ParallelCmd)
@@ -4026,6 +4144,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             s_stormlib_task,
             s_stormlib_vault,
             s_stormlib_quorum,
+            s_stormlib_vertex,
         ]
 
         for cmod in cmdmods:
@@ -4035,8 +4154,11 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
     async def _initPureStormCmds(self):
         oldcmds = []
         for name, cdef in self.cmddefs.items():
-            cmdiden = cdef.get('cmdconf', {}).get('svciden')
-            if cmdiden and self.svcdefs.get(cmdiden) is None:
+            # a storm service used to be able to add a standalone command, which
+            # it tracked with an svciden under cmdconf. a service now delivers a
+            # storm package instead, so any command left carrying one is an orphan.
+            cmdconf = cdef.get('cmdconf')
+            if cmdconf is not None and cmdconf.get('svciden') is not None:
                 oldcmds.append(name)
             else:
                 await self._trySetStormCmd(name, cdef)
@@ -4413,10 +4535,14 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             vdef = {
                 'name': 'default',
                 'layers': (layriden,),
-                'worldreadable': True,
             }
             vdef = await self.addView(vdef, nexs=False)
             iden = vdef.get('iden')
+
+            # the default view is readable by everyone
+            role = await self.auth.getRoleByName('all')
+            await role.addRule((True, ('view', 'read')), gateiden=iden, nexs=False)
+
             self.cellinfo.set('defaultview', iden)
             self.view = self.getView(iden)
 
@@ -4428,7 +4554,6 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         vdef['created'] = s_common.now()
 
         vdef.setdefault('parent', None)
-        vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
 
         s_schemas.reqValidView(vdef)
@@ -4460,15 +4585,6 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         if not self.readonly:
             await self.auth.addAuthGate(iden, 'view')
             await user.setAdmin(True, gateiden=iden, logged=False)
-
-        # worldreadable does not get persisted with the view; the state ends up in perms
-        worldread = vdef.pop('worldreadable', False)
-
-        if worldread and not self.readonly:
-            role = await self.auth.getRoleByName('all')
-            await role.addRule((True, ('view', 'read')), gateiden=iden, nexs=False)
-
-        if not self.readonly:
             self.viewdefs.set(iden, vdef)
 
         view = await self._loadView(vdef)
@@ -4893,10 +5009,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
     @s_nexus.Pusher.onPush('layer:sync:offs:set', reader=False)
     async def _setLayrSyncOffs(self, iden, offs):
         if offs is not None:
-            # setnow (write-through) so the offset is in the txn for this nexus
-            # transaction's commit; a commitpulse=False slab has no 'commit' event
-            # to flush a buffered set(). delete() likewise writes through.
-            self.layeroffs.setnow(iden, offs)
+            # the slab flushes this into the txn for the commit which ends this nexus
+            # transaction, so the offset is durable with the edits it describes.
+            self.layeroffs.set(iden, offs)
         else:
             self.layeroffs.delete(iden)
 
@@ -5400,6 +5515,12 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         if opts is None:
             opts = {}
 
+        s_schemas.reqValidStormOpts(opts)
+
+        if opts.get('show') is not None and opts.get('hide') is not None:
+            mesg = 'The show and hide Storm opts are mutually exclusive.'
+            raise s_exc.BadArg(mesg=mesg)
+
         varz = opts.get('vars')
         if varz is not None:
             for valu in varz.keys():
@@ -5449,13 +5570,33 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         return user
 
+    async def _waitNexsOpt(self, opts):
+        '''
+        Honor the nexus opt, which holds the query until this Cortex has caught up
+        to the offset the caller named.
+
+        Args:
+            opts (dict): A Storm options dictionary.
+
+        Raises:
+            s_exc.TimeOut: If the offset is not reached within the timeout.
+        '''
+        nexus = opts.get('nexus')
+        if nexus is None:
+            return
+
+        offset = nexus.get('offset')
+        if offset is None:
+            return
+
+        if not await self.waitNexsOffs(offset, timeout=nexus.get('timeout')):
+            raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {offset}')
+
     async def count(self, text, opts=None):
 
         opts = self._initStormOpts(opts)
 
-        if (nexsoffs := opts.get('nexsoffs')) is not None:
-            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in count()')
+        await self._waitNexsOpt(opts)
 
         view = self._viewFromOpts(opts)
 
@@ -5469,9 +5610,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         opts = self._initStormOpts(opts)
 
-        if (nexsoffs := opts.get('nexsoffs')) is not None:
-            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in storm().')
+        await self._waitNexsOpt(opts)
 
         view = self._viewFromOpts(opts)
         async for mesg in view.storm(text, opts=opts):
@@ -5481,20 +5620,42 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         opts = self._initStormOpts(opts)
 
-        if (nexsoffs := opts.get('nexsoffs')) is not None:
-            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in callStorm().')
+        await self._waitNexsOpt(opts)
 
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)
+
+    async def _iterExportEdges(self, view, nid, stoplayr, spooldict, edgelimit):
+        '''
+        Yield the (verb, nid2) candidate edges of an exported node.
+        '''
+        # getEdgeCount() is a free upper bound from the sode verb maps, and it
+        # stops at the same layer as node.lastlayr() via its antivalu check.
+        if view.getEdgeCount(nid) > edgelimit:
+
+            # this node has too many edges to walk, so probe for the edges between
+            # it and each of the exported nodes instead.
+            verbs = await view.getNodeEdgeVerbsN1(nid, stop=stoplayr)
+
+            for nid2 in spooldict.keys():
+                await asyncio.sleep(0)
+
+                for verb in verbs:
+                    if await view.hasNodeEdge(nid, verb, nid2, stop=stoplayr):
+                        yield verb, nid2
+
+            return
+
+        # walk the edges of the node and let our caller keep the ones which land
+        # on another exported node.
+        async for verb, nid2 in view.iterNodeEdgesN1(nid, stop=stoplayr):
+            yield verb, nid2
 
     async def exportStorm(self, text, opts=None):
 
         opts = self._initStormOpts(opts)
 
-        if (nexsoffs := opts.get('nexsoffs')) is not None:
-            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in exportStorm().')
+        await self._waitNexsOpt(opts)
 
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
@@ -5509,9 +5670,8 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
                 query = await self.getStormQuery(text, mode=opts.get('mode', 'storm'))
                 async with await s_storm.Runtime.anit(query, view, opts=opts, user=user) as runt:
 
-                    info = opts.get('_loginfo', {})
-                    info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
-                    self._logStormQuery(text, user, info=info)
+                    info = {'mode': opts.get('mode', 'storm'), 'view': self.iden}
+                    self._logStormQuery(text, user, info=info, meta=opts.get('meta'))
 
                     forms = collections.Counter()
                     nodec = 0
@@ -5523,18 +5683,37 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
                     node_edges = collections.defaultdict(list)
                     edges_meta = collections.defaultdict(lambda: collections.defaultdict(set))
+
+                    # A node with more out-edges than this costs more to walk than
+                    # it costs to probe the edges between it and each of the
+                    # exported nodes, so the limit scales with the size of the
+                    # export.
+                    #
+                    # The multiplier is the measured cost of probing one exported
+                    # node against the cost of walking one edge, for a node with a
+                    # couple of verbs. Probing does one lookup per verb, so the
+                    # limit is not exact for a node with many verbs, but guessing
+                    # wrong only costs a constant factor.
+                    edgelimit = max(EXPORT_EDGE_LIMIT, len(spooldict) * 2)
+
                     for nid1, (stoplayr, pode1) in spooldict.items():
                         await asyncio.sleep(0)
                         src_form = pode1[0][0]
-                        for nid2, pode2 in spooldict.items():
-                            await asyncio.sleep(0)
-                            tgt_form = pode2[1][0][0]
-                            n2ndef = self.getNidNdef(nid2)
-                            async for verb in view.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
-                                node_edges[nid1].append((verb, n2ndef))
-                                edges_meta[src_form][verb].add(tgt_form)
 
-                    edges_meta = {k: {vk: sorted(list(vv)) for vk, vv in v.items()} for k, v in edges_meta.items()}
+                        async for verb, nid2 in self._iterExportEdges(view, nid1, stoplayr, spooldict, edgelimit):
+
+                            item = spooldict.get(nid2)
+                            if item is None:
+                                continue
+
+                            tgt_form = item[1][0][0]
+                            node_edges[nid1].append((verb, nid2))
+                            edges_meta[src_form][verb].add(tgt_form)
+
+                    # sort so the metadata does not depend on the order that the forms
+                    # and verbs happened to be encountered in.
+                    edges_meta = {k: {vk: sorted(vv) for vk, vv in sorted(v.items())}
+                                  for k, v in sorted(edges_meta.items())}
 
                     metadata = {
                         'type': 'meta',
@@ -5556,7 +5735,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
                         await asyncio.sleep(0)
                         edges = node_edges.get(nid1)
                         if edges:
-                            pode1[1]['edges'] = edges
+                            # sort so that the export does not depend on which edge
+                            # collection strategy was used for the node.
+                            pode1[1]['edges'] = [(verb, self.getNidNdef(nid2)) for (verb, nid2) in sorted(edges)]
 
                         yield pode1
 
@@ -5568,7 +5749,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
 
-    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0b4,<4.0.0'):
+    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0b5,<4.0.0'):
         '''
         Validate an export storm meta dict for schema, version, and synapse version compatibility.
 
@@ -5686,6 +5867,138 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
     async def getStormQuery(self, text, mode='storm'):
         return await self.querycache.aget((text, mode))
 
+    async def _decStormText(self, key):
+        seed, salt, hashname, iters, text = key
+        return await s_coro.executor(s_tinfoil.decStorm, seed, salt, hashname, iters, text)
+
+    def _stormDecCacheKey(self, encryption, text):
+        pbkdf2 = encryption.get('pbkdf2')
+        return (encryption.get('seed'), encryption.get('salt'), pbkdf2.get('hash'), pbkdf2.get('iters'), text)
+
+    async def _decDeploySeed(self, seed):
+        depl = self.getMeta('vertex:deployment')
+        if depl is None:
+            mesg = 'This Cortex is not registered with the Vertex Hub and cannot decrypt a ' \
+                   'per-deployment Storm package.'
+            raise s_exc.BadState(mesg=mesg)
+
+        try:
+            plain = await s_coro.executor(_rsaLoadDecrypt, depl.get('rsakey'), s_common.uhex(seed))
+        except ValueError:
+            mesg = 'Failed to decrypt per-deployment Storm package seed.'
+            raise s_exc.CryptoErr(mesg=mesg) from None
+
+        return plain.decode()
+
+    async def _reqDecEncryption(self, encryption):
+        '''
+        Return an encryption dict whose ``seed`` is the plaintext pbkdf2 seed. A
+        per-deployment package stores its seed RSA-encrypted to our deployment key,
+        so decrypt it (cached) with the deployment private key.
+        '''
+        if not encryption.get('deploy'):
+            return encryption
+
+        seed = await self.deployseedcache.aget(encryption.get('seed'))
+
+        decryption = dict(encryption)
+        decryption['seed'] = seed
+        decryption.pop('deploy', None)
+        return decryption
+
+    async def _onSetMetaVertexDeployment(self, newdepl, olddepl):
+        '''
+        A vertex:deployment metahook: when the deployment key rotates (an old
+        deployment existed), re-key every per-deployment Storm package by decrypting
+        its seed with the old private key and re-encrypting it to the new public key,
+        so the packages stay usable under the new deployment identity.
+
+        RSA-OAEP is randomized, so each mirror re-encrypts to its own (equivalent)
+        ciphertext; every node still recovers the same seed with the new key.
+        '''
+        if olddepl is None:
+            return
+
+        # load each key once (in the executor) and reuse across packages; the RSA
+        # loads are CPU bound and pure (no slab access), so they are executor-safe
+        oldkey = await s_coro.executor(s_rsa.PriKey.load, olddepl.get('rsakey'))
+        newkey = await s_coro.executor(s_rsa.PriKey.load, newdepl.get('rsakey'))
+        newpub = newkey.public()
+
+        for name, pkgdef in list(self.stormpkgs.items()):
+            metadata = pkgdef.get('metadata')
+            if metadata is None:
+                continue
+
+            encryption = metadata.get('encryption')
+            if encryption is None or not encryption.get('deploy'):
+                continue
+
+            # re-key each package independently so one failure does not stop the rest
+            try:
+                # cellmeta commits after this hook returns, so a crash mid-loop can leave
+                # some packages already re-keyed while getMeta() still names the old key.
+                # Try the new key first so re-running converges instead of failing on the
+                # packages a previous run already converted.
+                blob = s_common.uhex(encryption.get('seed'))
+                try:
+                    seed = await s_coro.executor(newkey.decrypt, blob)
+                except Exception:
+                    seed = await s_coro.executor(oldkey.decrypt, blob)
+
+                encryption['seed'] = s_common.ehex(await s_coro.executor(newpub.encrypt, seed))
+
+                if not self.readonly:
+                    self.pkgdefs.set(name, pkgdef)
+            except Exception:
+                logger.exception(f'Unable to re-key per-deployment Storm package {name} with the new deployment key.')
+
+        # the encrypted seeds changed; drop cached decryptions keyed by the old ones
+        self.deployseedcache.clear()
+
+    async def getStormQueryForDef(self, tdef, mode='storm', pkgdef=None):
+        '''
+        Get a parsed Storm query for a module or command definition, decrypting
+        the query text first if its package is encrypted.
+
+        Args:
+            tdef: The module or command definition.
+            mode: The Storm parser mode.
+            pkgdef: The package which provides the definition, if known. A module
+                    definition otherwise carries its package name under
+                    modconf.pkgmeta.
+        '''
+        text = tdef.get('storm')
+
+        encryption = None
+        if pkgdef is not None:
+            encryption = self._getStormPkgdefEncryption(pkgdef)
+
+        elif (modconf := tdef.get('modconf')) is not None:
+            if (pkgmeta := modconf.get('pkgmeta')) is not None:
+                encryption = self._getStormPkgEncryption(pkgmeta.get('pkgname'))
+
+        if encryption is not None:
+            encryption = await self._reqDecEncryption(encryption)
+            text = await self.stormcryptcache.aget(self._stormDecCacheKey(encryption, text))
+
+        return await self.getStormQuery(text, mode=mode)
+
+    def _getStormPkgdefEncryption(self, pkgdef):
+        if (metadata := pkgdef.get('metadata')) is None:
+            return None
+
+        return metadata.get('encryption')
+
+    def _getStormPkgEncryption(self, pkgname):
+        if pkgname is None:
+            return None
+
+        if (pkgdef := self.stormpkgs.get(pkgname)) is None:
+            return None
+
+        return self._getStormPkgdefEncryption(pkgdef)
+
     @contextlib.asynccontextmanager
     async def getStormRuntime(self, query, opts=None, view=None, user=None):
 
@@ -5742,15 +6055,28 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         except Exception as e:
             return s_common.retnexc(e)
 
-    def _logStormQuery(self, text, user, info=None):
+    def _logStormQuery(self, text, user, info=None, meta=None):
         '''
         Log a storm query.
+
+        Args:
+            text (str): The Storm query text.
+            user: The User who ran the query.
+            info (dict): Fields to record alongside the query.
+            meta (dict): The caller supplied meta opt, if any.
         '''
         if self.stormlog:
             if info is None:
                 info = {}
+
             info['text'] = text
             info['hash'] = s_storm.queryhash(text)
+
+            # nested rather than merged, because meta is caller supplied: flattening
+            # it would let a caller forge a field which reads as our own attribution.
+            if meta is not None:
+                info['meta'] = meta
+
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
                             extra=self.getLogExtra(**info))
 
@@ -5779,9 +6105,6 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
             if cmd.pkgname:
                 entry['package'] = cmd.pkgname
-
-            if cmd.svciden:
-                entry['svciden'] = cmd.svciden
 
             cmds.append(entry)
 
@@ -6483,6 +6806,15 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             except Exception as e:
                 raise s_exc.BadArg(mesg=f'Invalid schema for vault type {vtdef["name"]}: {e}') from None
 
+            # a vault type describes its configs and secrets sections only. The rest
+            # of a vault def is owned by the base vault schema which getVaultSchema()
+            # merges this into, so anything else here would be silently ignored.
+            extra = sorted(set(sch.get('properties') or ()) - set(s_schemas.vaultTypeSections))
+            if extra:
+                sections = ', '.join(s_schemas.vaultTypeSections)
+                mesg = f'Vault type {vtdef["name"]} schema may only declare {sections}: got {", ".join(extra)}'
+                raise s_exc.BadArg(mesg=mesg)
+
         return vtdef
 
     def _reqAddableVaultType(self, vtdef):
@@ -6579,6 +6911,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         vault schema, then against the schema registered for its type at its
         type:version (if any). An untyped vault, or a type with no schema, only
         gets the base validation.
+
+        A vault type schema describes the "configs" and "secrets" sections rather
+        than a whole vault, so it is merged into the base vault schema before use.
         '''
         vault = s_schemas.reqValidVault(vault)
 
@@ -6597,7 +6932,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             if sch is None:
                 return vault
 
-            valid = s_config.getJsValidator(sch)
+            valid = s_config.getJsValidator(s_schemas.getVaultSchema(sch))
             self._vaultvalids[(vtype, version)] = valid
 
         try:

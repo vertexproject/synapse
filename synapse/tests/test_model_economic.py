@@ -603,7 +603,7 @@ class EconTest(s_utils.SynTest):
             self.propeq(nodes[0], 'price', '99')
             self.propeq(nodes[0], 'price.currency', 'USD')
             self.eq('99USD', nodes[0].repr('price'))
-            self.eq('99USD', nodes[0].pack(dorepr=True)[1]['reprs']['price'])
+            self.eq('99USD', nodes[0].pack(dorepr=True)[1]['props']['price'][1]['r'])
 
             # lower-case input is stored upper-case and reprs the same
             nodes = await core.nodes('[ econ:purchase=* :price=99usd ]')
@@ -614,7 +614,7 @@ class EconTest(s_utils.SynTest):
             nodes = await core.nodes('[ econ:purchase=* :price=99 ]')
             self.none(nodes[0].get('price.currency'))
             self.eq('99', nodes[0].repr('price'))
-            self.notin('price', nodes[0].pack(dorepr=True)[1].get('reprs', {}))
+            self.notin('r', nodes[0].pack(dorepr=True)[1]['props']['price'][1])
 
             # common currency symbols are mapped to ISO 4217 codes
             curr = core.model.type('econ:currency')
@@ -763,7 +763,7 @@ class EconTest(s_utils.SynTest):
             self.eq('99', nodes[0].get('range.max'))
             self.eq('USD', nodes[0].get('range.currency'))
             self.eq('32-99USD', nodes[0].repr('range'))
-            self.eq('32-99USD', nodes[0].pack(dorepr=True)[1]['reprs']['range'])
+            self.eq('32-99USD', nodes[0].pack(dorepr=True)[1]['props']['range'][1]['r'])
 
             # sentinel round-trip then completion
             nodes = await core.nodes('[ econ:security:ochlv=(unk,) :range=(?, ?) :range.delta=5 ]')
@@ -898,7 +898,7 @@ class EconTest(s_utils.SynTest):
             self.eq('32', nodes[0].get('change.end'))
             self.eq('USD', nodes[0].get('change.currency'))
             self.eq('99-32USD', nodes[0].repr('change'))
-            self.eq('99-32USD', nodes[0].pack(dorepr=True)[1]['reprs']['change'])
+            self.eq('99-32USD', nodes[0].pack(dorepr=True)[1]['props']['change'][1]['r'])
 
             # a negative endpoint still works via a (start, end) tuple
             nodes = await core.nodes('[ econ:balance=(negtup,) :change=(100, 75) ]')

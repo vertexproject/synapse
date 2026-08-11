@@ -100,6 +100,10 @@ class Boss(s_base.Base):
 
         Returns:
             s_task.Task: The Synapse Task object.
+
+        Raises:
+            s_exc.BadArg: If taskiden is already in use by a running task, or the
+                current task is already promoted under a different iden.
         '''
         task = asyncio.current_task()
 
@@ -117,7 +121,9 @@ class Boss(s_base.Base):
         if synt is not None and not synt.isfini:
 
             if taskiden is not None and synt.iden != taskiden:
-                logger.warning(f'Iden specified for existing task={synt}. Ignored.')
+                mesg = f'The task iden {taskiden} may not be used because the current task ' \
+                       f'is already promoted as {synt.iden}.'
+                raise s_exc.BadArg(mesg=mesg, iden=taskiden)
 
             if synt.root is None:
                 return synt

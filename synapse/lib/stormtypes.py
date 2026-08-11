@@ -874,30 +874,30 @@ class LibService(Lib):
         {'name': 'add', 'desc': 'Add a Storm Service to the Cortex.',
          'type': {'type': 'function', '_funcname': '_libSvcAdd',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the Storm Service to add.', },
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The cell type name of the Storm Service to add.', },
                       {'name': 'url', 'type': 'str', 'desc': 'The Telepath URL to the Storm Service.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'The Storm Service definition.', }}},
         {'name': 'del', 'desc': 'Remove a Storm Service from the Cortex.',
          'type': {'type': 'function', '_funcname': '_libSvcDel',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the service to remove.', },
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The cell type name of the service to remove.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'get', 'desc': 'Get a Storm Service definition.',
          'type': {'type': 'function', '_funcname': '_libSvcGet',
                   'args': (
                       {'name': 'name', 'type': 'str',
-                       'desc': 'The local name, local iden, or remote name, '
-                               'of the service to get the definition for.', },
+                       'desc': 'The cell type name of the service to get the definition for.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'A Storm Service definition.', }}},
         {'name': 'has', 'desc': 'Check if a Storm Service is available in the Cortex.',
          'type': {'type': 'function', '_funcname': '_libSvcHas',
                   'args': (
                       {'name': 'name', 'type': 'str',
-                       'desc': 'The local name, local iden, or remote name, '
-                               'of the service to check for the existence of.', },
+                       'desc': 'The cell type name of the service to check for the existence of.', },
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the service exists in the Cortex, False if it does not.', }}},
@@ -958,14 +958,14 @@ class LibService(Lib):
         }
         return await self.runt.view.core.addStormSvc(sdef)
 
-    async def _libSvcDel(self, iden):
+    async def _libSvcDel(self, name):
         self.runt.confirm(('service', 'del'))
-        return await self.runt.view.core.delStormSvc(iden)
+        return await self.runt.view.core.delStormSvc(name)
 
     async def _libSvcGet(self, name):
         ssvc = self.runt.view.core.getStormSvc(name)
         if ssvc is None:
-            mesg = f'No service with name/iden: {name}'
+            mesg = f'No service with name: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
         self.runt.confirm(('service', 'get'))
         return Service(self.runt, ssvc)
@@ -985,7 +985,6 @@ class LibService(Lib):
         for ssvc in self.runt.view.core.getStormSvcs():
             sdef = dict(ssvc.sdef)
             sdef['ready'] = ssvc.svcready.is_set()
-            sdef['svcname'] = ssvc.svcname
             sdef['svcvers'] = ssvc.svcvers
             retn.append(sdef)
 
@@ -997,7 +996,7 @@ class LibService(Lib):
         timeout = await toint(timeout, noneok=True)
         ssvc = self.runt.view.core.getStormSvc(name)
         if ssvc is None:
-            mesg = f'No service with name/iden: {name}'
+            mesg = f'No service with name: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
         self.runt.confirm(('service', 'get'))
 
@@ -1406,10 +1405,9 @@ class LibBase(Lib):
             mesg = f'No storm module named {name} matching version requirement {reqvers}'
             raise s_exc.NoSuchName(mesg=mesg, name=name, reqvers=reqvers)
 
-        text = mdef.get('storm')
         modconf = mdef.get('modconf')
 
-        query = await self.runt.getStormQuery(text)
+        query = await self.runt.view.core.getStormQueryForDef(mdef)
 
         asroot = self.runt.asroot
 
@@ -1624,7 +1622,7 @@ class LibBase(Lib):
         info = await toprim(info)
         s_json.reqjsonsafe(info)
 
-        ctor = getattr(s_exc, name, None)
+        ctor = s_exc.getSynErrCtor(name, None)
         if ctor is not None:
             raise ctor(mesg=mesg, **info)
 
@@ -7937,7 +7935,6 @@ class LibView(Lib):
                   'args': (
                       {'name': 'layers', 'type': 'list', 'desc': 'A list of layer idens which make up the view.', },
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the view.', 'default': None, },
-                      {'name': 'worldreadable', 'type': 'boolean', 'desc': 'Grant read access to the `all` role.', 'default': False, },
                   ),
                   'returns': {'type': 'view', 'desc': 'A ``view`` object representing the new View.', }}},
         {'name': 'del', 'desc': 'Delete a View from the Cortex.',
@@ -7971,15 +7968,13 @@ class LibView(Lib):
             'list': self._methViewList,
         }
 
-    async def _methViewAdd(self, layers, name=None, worldreadable=False):
+    async def _methViewAdd(self, layers, name=None):
         name = await tostr(name, noneok=True)
         layers = await toprim(layers)
-        worldreadable = await tobool(worldreadable)
 
         vdef = {
             'creator': self.runt.user.iden,
             'layers': layers,
-            'worldreadable': worldreadable,
         }
 
         if name is not None:
@@ -9126,7 +9121,8 @@ class Trigger(Prim):
         self.runt.confirm(('trigger', 'del'), gateiden=trigiden)
 
         useriden = self.runt.user.iden
-        tdef = dict(self.valu)
+        # self.valu is a packed def, so drop the runtime only fields it carries.
+        tdef = {k: v for (k, v) in self.valu.items() if k in s_schemas.trigDefKeys}
         tdef['view'] = viewiden
         tdef['user'] = useriden
         tdef['creator'] = useriden

@@ -145,7 +145,7 @@ class StormlibModelTest(s_test.SynTest):
 
                 with self.getLoggerStream('synapse.lib.view') as stream:
                     data = (
-                        (('test:deprform', 'depr'), {'props': {'deprprop2': ('test:str', '5678')}}),
+                        (('test:deprform', 'depr'), {'props': {'deprprop2': ('5678', {'t': 'test:str'})}}),
                     )
                     await core.addFeedData(data)
                     await stream.expect('Prop test:deprform:deprprop2 is locked due to deprecation', timeout=1)

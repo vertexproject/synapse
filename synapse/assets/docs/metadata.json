@@ -1,0 +1,2724 @@
+{
+  "toc": [
+    {
+      "children": [
+        {
+          "href": "intro.md#key-features",
+          "title": "Key Features"
+        },
+        {
+          "href": "intro.md#whats-next",
+          "title": "What's Next?"
+        }
+      ],
+      "href": "intro.md",
+      "title": "Introduction"
+    },
+    {
+      "children": [
+        {
+          "href": "getting_started.md#demo-instance",
+          "title": "Demo Instance"
+        },
+        {
+          "href": "getting_started.md#vertex-intel-sharing-synapse-instance-visi",
+          "title": "Vertex Intel-Sharing Synapse Instance (VISI)"
+        },
+        {
+          "href": "getting_started.md#open-source-synapse",
+          "title": "Open-Source Synapse"
+        },
+        {
+          "href": "getting_started.md#synapse-quickstart",
+          "title": "Synapse Quickstart"
+        }
+      ],
+      "href": "getting_started.md",
+      "title": "Getting Started"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "href": "userguides/background.md#why-synapse",
+              "title": "Why Synapse?"
+            },
+            {
+              "href": "userguides/background.md#graphs-and-hypergraphs",
+              "title": "Graphs and Hypergraphs"
+            }
+          ],
+          "href": "userguides/background.md",
+          "title": "Background"
+        },
+        {
+          "children": [
+            {
+              "href": "userguides/data_model.md#data-model-objects",
+              "title": "Data Model Objects"
+            },
+            {
+              "href": "userguides/data_model.md#extending-the-data-model",
+              "title": "Extending the Data Model"
+            },
+            {
+              "href": "userguides/data_model.md#kinds-of-forms",
+              "title": "Kinds of Forms"
+            },
+            {
+              "href": "userguides/data_model.md#kinds-of-nodes",
+              "title": "Kinds of Nodes"
+            }
+          ],
+          "href": "userguides/data_model.md",
+          "title": "Data Model"
+        },
+        {
+          "children": [
+            {
+              "href": "userguides/analytical_model.md#tags-as-nodes",
+              "title": "Tags as Nodes"
+            },
+            {
+              "href": "userguides/analytical_model.md#tags-as-labels",
+              "title": "Tags as Labels"
+            },
+            {
+              "href": "userguides/analytical_model.md#tags-associated-with-nodes",
+              "title": "Tags Associated with Nodes"
+            },
+            {
+              "href": "userguides/analytical_model.md#tag-best-practices",
+              "title": "Tag Best Practices"
+            }
+          ],
+          "href": "userguides/analytical_model.md",
+          "title": "Analytical Model"
+        },
+        {
+          "children": [
+            {
+              "href": "userguides/views_layers.md#layers",
+              "title": "Layers"
+            },
+            {
+              "href": "userguides/views_layers.md#views",
+              "title": "Views"
+            },
+            {
+              "href": "userguides/views_layers.md#fork-and-merge",
+              "title": "Fork and Merge"
+            },
+            {
+              "href": "userguides/views_layers.md#best-practices",
+              "title": "Best Practices"
+            }
+          ],
+          "href": "userguides/views_layers.md",
+          "title": "Views and Layers"
+        },
+        {
+          "children": [
+            {
+              "href": "userguides/storm_ref_intro.md",
+              "title": "Storm Reference - Introduction"
+            },
+            {
+              "href": "userguides/storm_ref_syntax.md",
+              "title": "Storm Reference - Document Syntax Conventions"
+            },
+            {
+              "href": "userguides/storm_ref_lift.md",
+              "title": "Storm Reference - Lifting"
+            },
+            {
+              "href": "userguides/storm_ref_filter.md",
+              "title": "Storm Reference - Filtering"
+            },
+            {
+              "href": "userguides/storm_ref_pivot.md",
+              "title": "Storm Reference - Pivoting"
+            },
+            {
+              "href": "userguides/storm_ref_data_mod.md",
+              "title": "Storm Reference - Data Modification"
+            },
+            {
+              "href": "userguides/storm_ref_subquery.md",
+              "title": "Storm Reference - Subqueries"
+            },
+            {
+              "href": "userguides/storm_ref_model_introspect.md",
+              "title": "Storm Reference - Model Introspection"
+            },
+            {
+              "href": "userguides/storm_ref_type_specific.md",
+              "title": "Storm Reference - Type-Specific Storm Behavior"
+            },
+            {
+              "href": "userguides/storm_ref_cmd.md",
+              "title": "Storm Reference - Storm Commands"
+            },
+            {
+              "href": "userguides/storm_ref_automation.md",
+              "title": "Storm Reference - Automation"
+            }
+          ],
+          "href": "userguides/index_storm_ref.md",
+          "title": "Storm Reference"
+        },
+        {
+          "children": [
+            {
+              "href": "userguides/storm_adv_vars.md",
+              "title": "Storm Reference - Advanced - Variables"
+            },
+            {
+              "href": "userguides/storm_adv_methods.md",
+              "title": "Storm Reference - Advanced - Methods"
+            },
+            {
+              "href": "userguides/storm_adv_control.md",
+              "title": "Storm Reference - Advanced - Control Flow"
+            },
+            {
+              "href": "userguides/storm_adv_functions.md",
+              "title": "Storm Reference - Advanced - Functions"
+            }
+          ],
+          "href": "userguides/index_storm_adv.md",
+          "title": "Storm Concepts - Advanced"
+        },
+        {
+          "children": [
+            {
+              "href": "userguides/syn_tools_aha_clone.md",
+              "title": "aha.clone"
+            },
+            {
+              "href": "userguides/syn_tools_aha_easycert.md",
+              "title": "aha.easycert"
+            },
+            {
+              "href": "userguides/syn_tools_aha_enroll.md",
+              "title": "aha.enroll"
+            },
+            {
+              "href": "userguides/syn_tools_aha_list.md",
+              "title": "aha.list"
+            },
+            {
+              "href": "userguides/syn_tools_aha_mirror.md",
+              "title": "aha.mirror"
+            },
+            {
+              "href": "userguides/syn_tools_aha_provision_service.md",
+              "title": "aha.provision.service"
+            },
+            {
+              "href": "userguides/syn_tools_aha_provision_user.md",
+              "title": "aha.provision.user"
+            },
+            {
+              "href": "userguides/syn_tools_axon_copy.md",
+              "title": "axon.copy"
+            },
+            {
+              "href": "userguides/syn_tools_axon_put.md",
+              "title": "axon.put"
+            },
+            {
+              "href": "userguides/syn_tools_axon_get.md",
+              "title": "axon.get"
+            },
+            {
+              "href": "userguides/syn_tools_axon_dump.md",
+              "title": "axon.dump"
+            },
+            {
+              "href": "userguides/syn_tools_axon_load.md",
+              "title": "axon.load"
+            },
+            {
+              "href": "userguides/syn_tools_cortex_csv.md",
+              "title": "cortex.csv"
+            },
+            {
+              "href": "userguides/syn_tools_cortex_feed.md",
+              "title": "cortex.feed"
+            },
+            {
+              "href": "userguides/syn_tools_cortex_layer_dump.md",
+              "title": "cortex.layer.dump"
+            },
+            {
+              "href": "userguides/syn_tools_cortex_layer_load.md",
+              "title": "cortex.layer.load"
+            },
+            {
+              "href": "userguides/syn_tools_service_apikey.md",
+              "title": "service.apikey"
+            },
+            {
+              "href": "userguides/syn_tools_service_backup.md",
+              "title": "service.backup"
+            },
+            {
+              "href": "userguides/syn_tools_service_demote.md",
+              "title": "service.demote"
+            },
+            {
+              "href": "userguides/syn_tools_service_modrole.md",
+              "title": "service.modrole"
+            },
+            {
+              "href": "userguides/syn_tools_service_moduser.md",
+              "title": "service.moduser"
+            },
+            {
+              "href": "userguides/syn_tools_service_promote.md",
+              "title": "service.promote"
+            },
+            {
+              "href": "userguides/syn_tools_service_shutdown.md",
+              "title": "service.shutdown"
+            },
+            {
+              "href": "userguides/syn_tools_service_snapshot.md",
+              "title": "service.snapshot"
+            },
+            {
+              "href": "userguides/syn_tools_storm.md",
+              "title": "storm"
+            },
+            {
+              "href": "userguides/syn_tools_storm_pkg_gen.md",
+              "title": "storm.pkg.gen"
+            },
+            {
+              "href": "userguides/syn_tools_storm_pkg_docs.md",
+              "title": "storm.pkg.doc"
+            },
+            {
+              "href": "userguides/syn_tools_utils_easycert.md",
+              "title": "utils.easycert"
+            }
+          ],
+          "href": "userguides/index_tools.md",
+          "title": "Tools"
+        }
+      ],
+      "href": "userguide.md",
+      "title": "Synapse User Guide"
+    },
+    {
+      "children": [
+        {
+          "href": "adminguide.md#enable-synapse-power-ups",
+          "title": "Enable Synapse Power-Ups"
+        },
+        {
+          "children": [
+            {
+              "href": "adminguide.md#working-with-users",
+              "title": "Working with Users"
+            },
+            {
+              "href": "adminguide.md#working-with-roles",
+              "title": "Working with Roles"
+            },
+            {
+              "href": "adminguide.md#grant-or-revoke-roles",
+              "title": "Grant or Revoke Roles"
+            }
+          ],
+          "href": "adminguide.md#create-and-manage-users-and-roles",
+          "title": "Create and Manage Users and Roles"
+        },
+        {
+          "children": [
+            {
+              "href": "adminguide.md#permissions-background",
+              "title": "Permissions Background"
+            },
+            {
+              "href": "adminguide.md#assign-permissions",
+              "title": "Assign Permissions"
+            },
+            {
+              "href": "adminguide.md#permissions-best-practices",
+              "title": "Permissions Best Practices"
+            },
+            {
+              "href": "adminguide.md#example-permissions",
+              "title": "Example Permissions"
+            },
+            {
+              "href": "adminguide.md#cortex-permissions",
+              "title": "Cortex Permissions"
+            },
+            {
+              "href": "adminguide.md#optic-permissions",
+              "title": "Optic Permissions"
+            },
+            {
+              "href": "adminguide.md#power-up-permissions",
+              "title": "Power-Up Permissions"
+            },
+            {
+              "href": "adminguide.md#storm-runtime-permissions",
+              "title": "Storm Runtime Permissions"
+            }
+          ],
+          "href": "adminguide.md#assign-and-manage-permissions",
+          "title": "Assign and Manage Permissions"
+        },
+        {
+          "children": [
+            {
+              "href": "adminguide.md#extended-forms",
+              "title": "Extended Forms"
+            },
+            {
+              "href": "adminguide.md#extended-properties",
+              "title": "Extended Properties"
+            },
+            {
+              "href": "adminguide.md#extended-universal-properties",
+              "title": "Extended Universal Properties"
+            }
+          ],
+          "href": "adminguide.md#add-extended-model-elements",
+          "title": "Add Extended Model Elements"
+        },
+        {
+          "children": [
+            {
+              "href": "adminguide.md#lock-deprecated-model-elements",
+              "title": "Lock Deprecated Model Elements"
+            },
+            {
+              "href": "adminguide.md#check-for-deprecated-model-elements",
+              "title": "Check for Deprecated Model Elements"
+            }
+          ],
+          "href": "adminguide.md#manage-model-deprecations",
+          "title": "Manage Model Deprecations"
+        },
+        {
+          "href": "adminguide.md#configure-a-mirrored-layer",
+          "title": "Configure a Mirrored Layer"
+        }
+      ],
+      "href": "adminguide.md",
+      "title": "Synapse Admin Guide"
+    },
+    {
+      "children": [
+        {
+          "href": "deploymentguide.md#introduction",
+          "title": "Introduction"
+        },
+        {
+          "href": "deploymentguide.md#prepare-your-hosts",
+          "title": "Prepare your Hosts"
+        },
+        {
+          "children": [
+            {
+              "href": "deploymentguide.md#choose-an-aha-network-name",
+              "title": "Choose an AHA Network Name"
+            },
+            {
+              "href": "deploymentguide.md#choose-a-provisioning-secret",
+              "title": "Choose a Provisioning Secret"
+            },
+            {
+              "href": "deploymentguide.md#configure-an-aha-dns-name",
+              "title": "Configure an AHA DNS Name"
+            },
+            {
+              "href": "deploymentguide.md#deploy-the-aha-container",
+              "title": "Deploy the AHA Container"
+            }
+          ],
+          "href": "deploymentguide.md#deploy-aha-service",
+          "title": "Deploy AHA Service"
+        },
+        {
+          "href": "deploymentguide.md#deploy-aha-mirrors-optional",
+          "title": "Deploy AHA Mirrors (optional)"
+        },
+        {
+          "href": "deploymentguide.md#service-provisioning",
+          "title": "Service Provisioning"
+        },
+        {
+          "href": "deploymentguide.md#deploy-axon-service",
+          "title": "Deploy Axon Service"
+        },
+        {
+          "href": "deploymentguide.md#deploy-jsonstor-service",
+          "title": "Deploy JSONStor Service"
+        },
+        {
+          "href": "deploymentguide.md#deploy-cortex-service",
+          "title": "Deploy Cortex Service"
+        },
+        {
+          "href": "deploymentguide.md#deploy-cortex-mirror-optional",
+          "title": "Deploy Cortex Mirror (optional)"
+        },
+        {
+          "children": [
+            {
+              "href": "deploymentguide.md#generate-an-api-key",
+              "title": "Generate an API Key"
+            },
+            {
+              "href": "deploymentguide.md#connect-with-the-storm-cli",
+              "title": "Connect with the Storm CLI"
+            }
+          ],
+          "href": "deploymentguide.md#create-a-cortex-user",
+          "title": "Create a Cortex User"
+        },
+        {
+          "children": [
+            {
+              "href": "deploymentguide.md#docker-compose",
+              "title": "Docker Compose"
+            }
+          ],
+          "href": "deploymentguide.md#orchestration-examples",
+          "title": "Orchestration Examples"
+        },
+        {
+          "href": "deploymentguide.md#whats-next",
+          "title": "What's next?"
+        }
+      ],
+      "href": "deploymentguide.md",
+      "title": "Synapse Deployment Guide"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "href": "devopsguide.md#docker-images",
+              "title": "Docker Images"
+            },
+            {
+              "href": "devopsguide.md#cellyaml",
+              "title": "cell.yaml"
+            },
+            {
+              "href": "devopsguide.md#environment-variables",
+              "title": "Environment Variables"
+            },
+            {
+              "href": "devopsguide.md#https-certificates",
+              "title": "HTTPS Certificates"
+            }
+          ],
+          "href": "devopsguide.md#overview",
+          "title": "Overview"
+        },
+        {
+          "children": [
+            {
+              "href": "devopsguide.md#generating-a-backup",
+              "title": "Generating a Backup"
+            },
+            {
+              "href": "devopsguide.md#restoring-a-backup",
+              "title": "Restoring a Backup"
+            },
+            {
+              "href": "devopsguide.md#promoting-a-mirror",
+              "title": "Promoting a Mirror"
+            },
+            {
+              "href": "devopsguide.md#updating-services",
+              "title": "Updating Services"
+            },
+            {
+              "href": "devopsguide.md#configure-logging",
+              "title": "Configure Logging"
+            },
+            {
+              "href": "devopsguide.md#configure-free-space-requirement",
+              "title": "Configure Free Space Requirement"
+            },
+            {
+              "href": "devopsguide.md#performance-tuning",
+              "title": "Performance Tuning"
+            },
+            {
+              "href": "devopsguide.md#optimize-databases",
+              "title": "Optimize Databases"
+            },
+            {
+              "href": "devopsguide.md#managing-users-and-roles",
+              "title": "Managing Users and Roles"
+            },
+            {
+              "href": "devopsguide.md#updating-to-aha-and-telepath-tls",
+              "title": "Updating to AHA and Telepath TLS"
+            },
+            {
+              "href": "devopsguide.md#deployment-options",
+              "title": "Deployment Options"
+            },
+            {
+              "href": "devopsguide.md#trimming-the-nexus-log",
+              "title": "Trimming the Nexus Log"
+            },
+            {
+              "href": "devopsguide.md#viewing-deprecation-warnings",
+              "title": "Viewing Deprecation Warnings"
+            },
+            {
+              "href": "devopsguide.md#entrypoint-hooking",
+              "title": "Entrypoint Hooking"
+            },
+            {
+              "href": "devopsguide.md#configure-custom-ca-certificates-for-http-requests",
+              "title": "Configure Custom CA Certificates for HTTP Requests"
+            },
+            {
+              "href": "devopsguide.md#axon-blob-export-and-import",
+              "title": "Axon Blob Export and Import"
+            },
+            {
+              "href": "devopsguide.md#copying-node-edits-between-cortexes",
+              "title": "Copying node edits between Cortexes"
+            }
+          ],
+          "href": "devopsguide.md#common-devops-tasks",
+          "title": "Common Devops Tasks"
+        },
+        {
+          "children": [
+            {
+              "href": "devopsguide.md#aha",
+              "title": "AHA"
+            },
+            {
+              "href": "devopsguide.md#axon",
+              "title": "Axon"
+            },
+            {
+              "href": "devopsguide.md#jsonstor",
+              "title": "JSONStor"
+            },
+            {
+              "href": "devopsguide.md#cortex",
+              "title": "Cortex"
+            }
+          ],
+          "href": "devopsguide.md#synapse-services",
+          "title": "Synapse Services"
+        },
+        {
+          "children": [
+            {
+              "href": "devopsguide.md#orchestration",
+              "title": "Orchestration"
+            },
+            {
+              "href": "devopsguide.md#aha-configuration-options",
+              "title": "AHA Configuration Options"
+            },
+            {
+              "href": "devopsguide.md#axon-configuration-options",
+              "title": "Axon Configuration Options"
+            },
+            {
+              "href": "devopsguide.md#jsonstor-configuration-options",
+              "title": "JSONStor Configuration Options"
+            },
+            {
+              "href": "devopsguide.md#cortex-configuration-options",
+              "title": "Cortex Configuration Options"
+            }
+          ],
+          "href": "devopsguide.md#devops-details",
+          "title": "Devops Details"
+        }
+      ],
+      "href": "devopsguide.md",
+      "title": "Synapse Devops Guide"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "href": "devguides/power-ups.md#anatomy-of-a-storm-package",
+              "title": "Anatomy of a Storm Package"
+            },
+            {
+              "href": "devguides/power-ups.md#storm-modules",
+              "title": "Storm Modules"
+            },
+            {
+              "href": "devguides/power-ups.md#storm-commands",
+              "title": "Storm Commands"
+            },
+            {
+              "href": "devguides/power-ups.md#package-files",
+              "title": "Package Files"
+            },
+            {
+              "href": "devguides/power-ups.md#testing-storm-packages",
+              "title": "Testing Storm Packages"
+            },
+            {
+              "href": "devguides/power-ups.md#advanced-features",
+              "title": "Advanced Features"
+            }
+          ],
+          "href": "devguides/power-ups.md",
+          "title": "Rapid Power-Up Development"
+        },
+        {
+          "children": [
+            {
+              "href": "devguides/architecture.md#library-architecture",
+              "title": "Library Architecture"
+            },
+            {
+              "href": "devguides/architecture.md#object-hierarchies",
+              "title": "Object hierarchies"
+            },
+            {
+              "href": "devguides/architecture.md#telepath-rpc",
+              "title": "Telepath RPC"
+            }
+          ],
+          "href": "devguides/architecture.md",
+          "title": "Synapse Architecture"
+        },
+        {
+          "children": [
+            {
+              "href": "devguides/docker.md#images",
+              "title": "Images"
+            },
+            {
+              "href": "devguides/docker.md#building-images",
+              "title": "Building Images"
+            },
+            {
+              "href": "devguides/docker.md#working-with-synapse-images",
+              "title": "Working with Synapse Images"
+            },
+            {
+              "href": "devguides/docker.md#verifying-container-image-signatures",
+              "title": "Verifying container image signatures"
+            }
+          ],
+          "href": "devguides/docker.md",
+          "title": "Synapse Docker Builds"
+        },
+        {
+          "children": [
+            {
+              "href": "devguides/adv_power_ups.md#implementing-the-service",
+              "title": "Implementing the Service"
+            }
+          ],
+          "href": "devguides/adv_power_ups.md",
+          "title": "Advanced Power-Up Development"
+        },
+        {
+          "children": [
+            {
+              "href": "devguides/storm_api.md#storm-apis",
+              "title": "Storm APIs"
+            },
+            {
+              "href": "devguides/storm_api.md#message-types",
+              "title": "Message Types"
+            },
+            {
+              "href": "devguides/storm_api.md#storm-call-apis",
+              "title": "Storm Call APIs"
+            },
+            {
+              "href": "devguides/storm_api.md#storm-opts",
+              "title": "Storm Opts"
+            }
+          ],
+          "href": "devguides/storm_api.md",
+          "title": "Storm API Guide"
+        }
+      ],
+      "href": "devguide.md",
+      "title": "Synapse Developer Guide"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "href": "300_changes/300changes.md#storm-query-language",
+              "title": "Storm Query Language"
+            },
+            {
+              "href": "300_changes/300changes.md#data-model",
+              "title": "Data Model"
+            },
+            {
+              "href": "300_changes/300changes.md#administration",
+              "title": "Administration"
+            },
+            {
+              "href": "300_changes/300changes.md#deployment-and-performance",
+              "title": "Deployment and Performance"
+            },
+            {
+              "href": "300_changes/300changes.md#apis-and-integration",
+              "title": "APIs and Integration"
+            }
+          ],
+          "href": "300_changes/300changes.md",
+          "title": "Synapse 3.0.0 Feature Highlights"
+        }
+      ],
+      "href": "300_changes/index.md",
+      "title": "Synapse 3.0.0 Changes"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "href": "glossary.md#addition-automatic",
+              "title": "Addition, Automatic"
+            },
+            {
+              "href": "glossary.md#addition-dependent",
+              "title": "Addition, Dependent"
+            },
+            {
+              "href": "glossary.md#advanced-power-up",
+              "title": "Advanced Power-Up"
+            },
+            {
+              "href": "glossary.md#admin-tool",
+              "title": "Admin Tool"
+            },
+            {
+              "href": "glossary.md#analytical-model",
+              "title": "Analytical Model"
+            },
+            {
+              "href": "glossary.md#auth-gate",
+              "title": "Auth Gate"
+            },
+            {
+              "href": "glossary.md#autoadd",
+              "title": "Autoadd"
+            },
+            {
+              "href": "glossary.md#axon",
+              "title": "Axon"
+            }
+          ],
+          "href": "glossary.md#a",
+          "title": "A"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#base-form",
+              "title": "Base Form"
+            },
+            {
+              "href": "glossary.md#base-tag",
+              "title": "Base Tag"
+            },
+            {
+              "href": "glossary.md#binary-unique-identifier",
+              "title": "Binary Unique Identifier"
+            },
+            {
+              "href": "glossary.md#buid",
+              "title": "BUID"
+            }
+          ],
+          "href": "glossary.md#b",
+          "title": "B"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#callable-function",
+              "title": "Callable Function"
+            },
+            {
+              "href": "glossary.md#cell",
+              "title": "Cell"
+            },
+            {
+              "href": "glossary.md#column-embed",
+              "title": "Column, Embed"
+            },
+            {
+              "href": "glossary.md#column-path-variable",
+              "title": "Column, Path Variable"
+            },
+            {
+              "href": "glossary.md#column-property",
+              "title": "Column, Property"
+            },
+            {
+              "href": "glossary.md#column-tag",
+              "title": "Column, Tag"
+            },
+            {
+              "href": "glossary.md#column-tag-glob",
+              "title": "Column, Tag Glob"
+            },
+            {
+              "href": "glossary.md#comparator",
+              "title": "Comparator"
+            },
+            {
+              "href": "glossary.md#comparison-operator",
+              "title": "Comparison Operator"
+            },
+            {
+              "href": "glossary.md#comparison-operator-standard",
+              "title": "Comparison Operator, Standard"
+            },
+            {
+              "href": "glossary.md#comparison-operator-extended",
+              "title": "Comparison Operator, Extended"
+            },
+            {
+              "href": "glossary.md#composite-form",
+              "title": "Composite Form"
+            },
+            {
+              "href": "glossary.md#computed-property",
+              "title": "Computed Property"
+            },
+            {
+              "href": "glossary.md#console-tool",
+              "title": "Console Tool"
+            },
+            {
+              "href": "glossary.md#constant",
+              "title": "Constant"
+            },
+            {
+              "href": "glossary.md#constructor",
+              "title": "Constructor"
+            },
+            {
+              "href": "glossary.md#constructor-guid",
+              "title": "Constructor, Guid"
+            },
+            {
+              "href": "glossary.md#cortex",
+              "title": "Cortex"
+            },
+            {
+              "href": "glossary.md#cron",
+              "title": "Cron"
+            },
+            {
+              "href": "glossary.md#ctor",
+              "title": "Ctor"
+            }
+          ],
+          "href": "glossary.md#c",
+          "title": "C"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#daemon",
+              "title": "Daemon"
+            },
+            {
+              "href": "glossary.md#data-emitter-function",
+              "title": "Data Emitter Function"
+            },
+            {
+              "href": "glossary.md#data-model",
+              "title": "Data Model"
+            },
+            {
+              "href": "glossary.md#data-model-explorer",
+              "title": "Data Model Explorer"
+            },
+            {
+              "href": "glossary.md#deconflictable",
+              "title": "Deconflictable"
+            },
+            {
+              "href": "glossary.md#depadd",
+              "title": "Depadd"
+            },
+            {
+              "href": "glossary.md#directed-edge",
+              "title": "Directed Edge"
+            },
+            {
+              "href": "glossary.md#directed-graph",
+              "title": "Directed Graph"
+            },
+            {
+              "href": "glossary.md#display-mode",
+              "title": "Display Mode"
+            },
+            {
+              "href": "glossary.md#dmon",
+              "title": "Dmon"
+            }
+          ],
+          "href": "glossary.md#d",
+          "title": "D"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#easy-permissions",
+              "title": "Easy Permissions"
+            },
+            {
+              "href": "glossary.md#edge",
+              "title": "Edge"
+            },
+            {
+              "href": "glossary.md#edge-directed",
+              "title": "Edge, Directed"
+            },
+            {
+              "href": "glossary.md#edge-lightweight-light",
+              "title": "Edge, Lightweight (Light)"
+            },
+            {
+              "href": "glossary.md#embed-column",
+              "title": "Embed Column"
+            },
+            {
+              "href": "glossary.md#entity-resolution",
+              "title": "Entity Resolution"
+            },
+            {
+              "href": "glossary.md#expression-syntax",
+              "title": "Expression Syntax"
+            },
+            {
+              "href": "glossary.md#extended-comparison-operator",
+              "title": "Extended Comparison Operator"
+            },
+            {
+              "href": "glossary.md#extended-form",
+              "title": "Extended Form"
+            },
+            {
+              "href": "glossary.md#extended-property",
+              "title": "Extended Property"
+            }
+          ],
+          "href": "glossary.md#e",
+          "title": "E"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#feed",
+              "title": "Feed"
+            },
+            {
+              "href": "glossary.md#filter",
+              "title": "Filter"
+            },
+            {
+              "href": "glossary.md#filter-subquery",
+              "title": "Filter, Subquery"
+            },
+            {
+              "href": "glossary.md#fork",
+              "title": "Fork"
+            },
+            {
+              "href": "glossary.md#form",
+              "title": "Form"
+            },
+            {
+              "href": "glossary.md#form-base",
+              "title": "Form, Base"
+            },
+            {
+              "href": "glossary.md#form-composite",
+              "title": "Form, Composite"
+            },
+            {
+              "href": "glossary.md#form-extended",
+              "title": "Form, Extended"
+            },
+            {
+              "href": "glossary.md#form-guid",
+              "title": "Form, Guid"
+            },
+            {
+              "href": "glossary.md#parent-form",
+              "title": "Parent Form"
+            },
+            {
+              "href": "glossary.md#form-simple",
+              "title": "Form, Simple"
+            },
+            {
+              "href": "glossary.md#form-inheritance",
+              "title": "Form Inheritance"
+            },
+            {
+              "href": "glossary.md#function-callable",
+              "title": "Function, Callable"
+            },
+            {
+              "href": "glossary.md#function-data-emitter",
+              "title": "Function, Data Emitter"
+            },
+            {
+              "href": "glossary.md#function-node-yielder",
+              "title": "Function, Node Yielder"
+            },
+            {
+              "href": "glossary.md#fused-knowledge",
+              "title": "Fused Knowledge"
+            }
+          ],
+          "href": "glossary.md#f",
+          "title": "F"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#gate",
+              "title": "Gate"
+            },
+            {
+              "href": "glossary.md#global-default-workspace",
+              "title": "Global Default Workspace"
+            },
+            {
+              "href": "glossary.md#globally-unique-identifier",
+              "title": "Globally Unique Identifier"
+            },
+            {
+              "href": "glossary.md#graph",
+              "title": "Graph"
+            },
+            {
+              "href": "glossary.md#graph-directed",
+              "title": "Graph, Directed"
+            },
+            {
+              "href": "glossary.md#guid",
+              "title": "Guid"
+            },
+            {
+              "href": "glossary.md#guid-constructor",
+              "title": "Guid Constructor"
+            },
+            {
+              "href": "glossary.md#guid-form",
+              "title": "Guid Form"
+            },
+            {
+              "href": "glossary.md#gutor",
+              "title": "Gutor"
+            }
+          ],
+          "href": "glossary.md#g",
+          "title": "G"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#help-tool",
+              "title": "Help Tool"
+            },
+            {
+              "href": "glossary.md#hyperedge",
+              "title": "Hyperedge"
+            },
+            {
+              "href": "glossary.md#hypergraph",
+              "title": "Hypergraph"
+            }
+          ],
+          "href": "glossary.md#h",
+          "title": "H"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#iden",
+              "title": "Iden"
+            },
+            {
+              "href": "glossary.md#identifier",
+              "title": "Identifier"
+            },
+            {
+              "href": "glossary.md#ingest-tool",
+              "title": "Ingest Tool"
+            },
+            {
+              "href": "glossary.md#inheritance",
+              "title": "Inheritance"
+            },
+            {
+              "href": "glossary.md#interface",
+              "title": "Interface"
+            },
+            {
+              "href": "glossary.md#instance-knowledge",
+              "title": "Instance Knowledge"
+            }
+          ],
+          "href": "glossary.md#i",
+          "title": "I"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#knowledge-fused",
+              "title": "Knowledge, Fused"
+            },
+            {
+              "href": "glossary.md#knowledge-instance",
+              "title": "Knowledge, Instance"
+            }
+          ],
+          "href": "glossary.md#k",
+          "title": "K"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#layer",
+              "title": "Layer"
+            },
+            {
+              "href": "glossary.md#leaf-tag",
+              "title": "Leaf Tag"
+            },
+            {
+              "href": "glossary.md#lift",
+              "title": "Lift"
+            },
+            {
+              "href": "glossary.md#lightweight-light-edge",
+              "title": "Lightweight (Light) Edge"
+            }
+          ],
+          "href": "glossary.md#l",
+          "title": "L"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#macro",
+              "title": "Macro"
+            },
+            {
+              "href": "glossary.md#merge",
+              "title": "Merge"
+            },
+            {
+              "href": "glossary.md#meta-property",
+              "title": "Meta Property"
+            },
+            {
+              "href": "glossary.md#model",
+              "title": "Model"
+            },
+            {
+              "href": "glossary.md#model-analytical",
+              "title": "Model, Analytical"
+            },
+            {
+              "href": "glossary.md#model-data",
+              "title": "Model, Data"
+            }
+          ],
+          "href": "glossary.md#m",
+          "title": "M"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#ndef",
+              "title": "Ndef"
+            },
+            {
+              "href": "glossary.md#node",
+              "title": "Node"
+            },
+            {
+              "href": "glossary.md#node-action",
+              "title": "Node Action"
+            },
+            {
+              "href": "glossary.md#node-data",
+              "title": "Node Data"
+            },
+            {
+              "href": "glossary.md#node-definition",
+              "title": "Node Definition"
+            },
+            {
+              "href": "glossary.md#node-runtime",
+              "title": "Node, Runtime"
+            },
+            {
+              "href": "glossary.md#node-storage",
+              "title": "Node, Storage"
+            },
+            {
+              "href": "glossary.md#node-yielder-function",
+              "title": "Node Yielder Function"
+            },
+            {
+              "href": "glossary.md#non-runtime-safe",
+              "title": "Non-Runtime Safe"
+            },
+            {
+              "href": "glossary.md#non-runtsafe",
+              "title": "Non-Runtsafe"
+            }
+          ],
+          "href": "glossary.md#n",
+          "title": "N"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#optic",
+              "title": "Optic"
+            }
+          ],
+          "href": "glossary.md#o",
+          "title": "O"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#package",
+              "title": "Package"
+            },
+            {
+              "href": "glossary.md#parent-form-1",
+              "title": "Parent Form"
+            },
+            {
+              "href": "glossary.md#path-variable-column",
+              "title": "Path Variable Column"
+            },
+            {
+              "href": "glossary.md#permission",
+              "title": "Permission"
+            },
+            {
+              "href": "glossary.md#pivot",
+              "title": "Pivot"
+            },
+            {
+              "href": "glossary.md#power-up",
+              "title": "Power-Up"
+            },
+            {
+              "href": "glossary.md#power-up-advanced",
+              "title": "Power-Up, Advanced"
+            },
+            {
+              "href": "glossary.md#power-up-rapid",
+              "title": "Power-Up, Rapid"
+            },
+            {
+              "href": "glossary.md#power-ups-tool",
+              "title": "Power-Ups Tool"
+            },
+            {
+              "href": "glossary.md#primary-property",
+              "title": "Primary Property"
+            },
+            {
+              "href": "glossary.md#property",
+              "title": "Property"
+            },
+            {
+              "href": "glossary.md#property-column",
+              "title": "Property Column"
+            },
+            {
+              "href": "glossary.md#property-computed",
+              "title": "Property, Computed"
+            },
+            {
+              "href": "glossary.md#property-extended",
+              "title": "Property, Extended"
+            },
+            {
+              "href": "glossary.md#property-meta",
+              "title": "Property, Meta"
+            },
+            {
+              "href": "glossary.md#property-primary",
+              "title": "Property, Primary"
+            },
+            {
+              "href": "glossary.md#property-relative",
+              "title": "Property, Relative"
+            },
+            {
+              "href": "glossary.md#property-secondary",
+              "title": "Property, Secondary"
+            },
+            {
+              "href": "glossary.md#property-virtual",
+              "title": "Property, Virtual"
+            }
+          ],
+          "href": "glossary.md#p",
+          "title": "P"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#queue",
+              "title": "Queue"
+            }
+          ],
+          "href": "glossary.md#q",
+          "title": "Q"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#rapid-power-up",
+              "title": "Rapid Power-Up"
+            },
+            {
+              "href": "glossary.md#relative-property",
+              "title": "Relative Property"
+            },
+            {
+              "href": "glossary.md#repr",
+              "title": "Repr"
+            },
+            {
+              "href": "glossary.md#research-tool",
+              "title": "Research Tool"
+            },
+            {
+              "href": "glossary.md#role",
+              "title": "Role"
+            },
+            {
+              "href": "glossary.md#root-tag",
+              "title": "Root Tag"
+            },
+            {
+              "href": "glossary.md#rule",
+              "title": "Rule"
+            },
+            {
+              "href": "glossary.md#runtime-node",
+              "title": "Runtime Node"
+            },
+            {
+              "href": "glossary.md#runtime-safe",
+              "title": "Runtime Safe"
+            },
+            {
+              "href": "glossary.md#runtsafe",
+              "title": "Runtsafe"
+            }
+          ],
+          "href": "glossary.md#r",
+          "title": "R"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#secondary-property",
+              "title": "Secondary Property"
+            },
+            {
+              "href": "glossary.md#service",
+              "title": "Service"
+            },
+            {
+              "href": "glossary.md#service-storm",
+              "title": "Service, Storm"
+            },
+            {
+              "href": "glossary.md#service-synapse",
+              "title": "Service, Synapse"
+            },
+            {
+              "href": "glossary.md#simple-form",
+              "title": "Simple Form"
+            },
+            {
+              "href": "glossary.md#slab",
+              "title": "Slab"
+            },
+            {
+              "href": "glossary.md#sode",
+              "title": "Sode"
+            },
+            {
+              "href": "glossary.md#spotlight-tool",
+              "title": "Spotlight Tool"
+            },
+            {
+              "href": "glossary.md#standard-comparison-operator",
+              "title": "Standard Comparison Operator"
+            },
+            {
+              "href": "glossary.md#storage-node",
+              "title": "Storage Node"
+            },
+            {
+              "href": "glossary.md#stories-tool",
+              "title": "Stories Tool"
+            },
+            {
+              "href": "glossary.md#storm",
+              "title": "Storm"
+            },
+            {
+              "href": "glossary.md#storm-editor",
+              "title": "Storm Editor"
+            },
+            {
+              "href": "glossary.md#storm-service",
+              "title": "Storm Service"
+            },
+            {
+              "href": "glossary.md#subquery",
+              "title": "Subquery"
+            },
+            {
+              "href": "glossary.md#subquery-filter",
+              "title": "Subquery Filter"
+            },
+            {
+              "href": "glossary.md#synapse-service",
+              "title": "Synapse Service"
+            }
+          ],
+          "href": "glossary.md#s",
+          "title": "S"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#tag",
+              "title": "Tag"
+            },
+            {
+              "href": "glossary.md#tag-base",
+              "title": "Tag, Base"
+            },
+            {
+              "href": "glossary.md#tag-leaf",
+              "title": "Tag, Leaf"
+            },
+            {
+              "href": "glossary.md#tag-root",
+              "title": "Tag, Root"
+            },
+            {
+              "href": "glossary.md#tag-column",
+              "title": "Tag Column"
+            },
+            {
+              "href": "glossary.md#tag-explorer",
+              "title": "Tag Explorer"
+            },
+            {
+              "href": "glossary.md#tag-glob-column",
+              "title": "Tag Glob Column"
+            },
+            {
+              "href": "glossary.md#taxonomy",
+              "title": "Taxonomy"
+            },
+            {
+              "href": "glossary.md#telepath",
+              "title": "Telepath"
+            },
+            {
+              "href": "glossary.md#tool-admin",
+              "title": "Tool, Admin"
+            },
+            {
+              "href": "glossary.md#tool-console",
+              "title": "Tool, Console"
+            },
+            {
+              "href": "glossary.md#tool-help",
+              "title": "Tool, Help"
+            },
+            {
+              "href": "glossary.md#tool-ingest",
+              "title": "Tool, Ingest"
+            },
+            {
+              "href": "glossary.md#tool-power-ups",
+              "title": "Tool, Power-Ups"
+            },
+            {
+              "href": "glossary.md#tool-research",
+              "title": "Tool, Research"
+            },
+            {
+              "href": "glossary.md#tool-spotlight",
+              "title": "Tool, Spotlight"
+            },
+            {
+              "href": "glossary.md#tool-stories",
+              "title": "Tool, Stories"
+            },
+            {
+              "href": "glossary.md#tool-storm-editor",
+              "title": "Tool, Storm Editor"
+            },
+            {
+              "href": "glossary.md#tool-workflows",
+              "title": "Tool, Workflows"
+            },
+            {
+              "href": "glossary.md#tool-workspaces",
+              "title": "Tool, Workspaces"
+            },
+            {
+              "href": "glossary.md#traverse",
+              "title": "Traverse"
+            },
+            {
+              "href": "glossary.md#trigger",
+              "title": "Trigger"
+            },
+            {
+              "href": "glossary.md#type",
+              "title": "Type"
+            },
+            {
+              "href": "glossary.md#type-base",
+              "title": "Type, Base"
+            },
+            {
+              "href": "glossary.md#type-model-specific",
+              "title": "Type, Model-Specific"
+            },
+            {
+              "href": "glossary.md#type-awareness",
+              "title": "Type Awareness"
+            },
+            {
+              "href": "glossary.md#type-enforcement",
+              "title": "Type Enforcement"
+            },
+            {
+              "href": "glossary.md#type-normalization",
+              "title": "Type Normalization"
+            }
+          ],
+          "href": "glossary.md#t",
+          "title": "T"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#user",
+              "title": "User"
+            }
+          ],
+          "href": "glossary.md#u",
+          "title": "U"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#variable",
+              "title": "Variable"
+            },
+            {
+              "href": "glossary.md#vault",
+              "title": "Vault"
+            },
+            {
+              "href": "glossary.md#view",
+              "title": "View"
+            },
+            {
+              "href": "glossary.md#virtual-property",
+              "title": "Virtual Property"
+            }
+          ],
+          "href": "glossary.md#v",
+          "title": "V"
+        },
+        {
+          "children": [
+            {
+              "href": "glossary.md#workflow",
+              "title": "Workflow"
+            },
+            {
+              "href": "glossary.md#workflows-tool",
+              "title": "Workflows Tool"
+            },
+            {
+              "href": "glossary.md#workspace",
+              "title": "Workspace"
+            },
+            {
+              "href": "glossary.md#workspace-global-default",
+              "title": "Workspace, Global Default"
+            },
+            {
+              "href": "glossary.md#workspaces-tool",
+              "title": "Workspaces Tool"
+            }
+          ],
+          "href": "glossary.md#w",
+          "title": "W"
+        }
+      ],
+      "href": "glossary.md",
+      "title": "Synapse Glossary"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "href": "contributing/contributing.md#project-style-guide",
+              "title": "Project Style Guide"
+            },
+            {
+              "href": "contributing/contributing.md#git-hook-syntax-checking",
+              "title": "Git Hook & Syntax Checking"
+            },
+            {
+              "href": "contributing/contributing.md#contribution-process",
+              "title": "Contribution Process"
+            }
+          ],
+          "href": "contributing/contributing.md",
+          "title": "Contributing to Synapse"
+        },
+        {
+          "children": [
+            {
+              "href": "contributing/doc_mastering.md#generating-docs-locally",
+              "title": "Generating Docs Locally"
+            },
+            {
+              "href": "contributing/doc_mastering.md#mastering-docs",
+              "title": "Mastering Docs"
+            }
+          ],
+          "href": "contributing/doc_mastering.md",
+          "title": "Synapse Doc Mastering"
+        }
+      ],
+      "href": "contributing.md",
+      "title": "Synapse Contributors Guide"
+    },
+    {
+      "children": [
+        {
+          "href": "httpapi.md#httprest-api-conventions",
+          "title": "HTTP/REST API Conventions"
+        },
+        {
+          "children": [
+            {
+              "href": "httpapi.md#api-key-support",
+              "title": "API Key Support"
+            },
+            {
+              "href": "httpapi.md#apiv3login",
+              "title": "/api/v3/login"
+            },
+            {
+              "href": "httpapi.md#apiv3logout",
+              "title": "/api/v3/logout"
+            },
+            {
+              "href": "httpapi.md#apiv3active",
+              "title": "/api/v3/active"
+            },
+            {
+              "href": "httpapi.md#apiv3authusers",
+              "title": "/api/v3/auth/users"
+            },
+            {
+              "href": "httpapi.md#apiv3authroles",
+              "title": "/api/v3/auth/roles"
+            },
+            {
+              "href": "httpapi.md#apiv3authadduser",
+              "title": "/api/v3/auth/adduser"
+            },
+            {
+              "href": "httpapi.md#apiv3authaddrole",
+              "title": "/api/v3/auth/addrole"
+            },
+            {
+              "href": "httpapi.md#apiv3authdelrole",
+              "title": "/api/v3/auth/delrole"
+            },
+            {
+              "href": "httpapi.md#apiv3authuserid",
+              "title": "/api/v3/auth/user/\\<id\\>"
+            },
+            {
+              "href": "httpapi.md#apiv3authpasswordid",
+              "title": "/api/v3/auth/password/\\<id\\>"
+            },
+            {
+              "href": "httpapi.md#apiv3authroleid",
+              "title": "/api/v3/auth/role/\\<id\\>"
+            },
+            {
+              "href": "httpapi.md#apiv3authgrant",
+              "title": "/api/v3/auth/grant"
+            },
+            {
+              "href": "httpapi.md#apiv3authrevoke",
+              "title": "/api/v3/auth/revoke"
+            }
+          ],
+          "href": "httpapi.md#authentication",
+          "title": "Authentication"
+        },
+        {
+          "children": [
+            {
+              "href": "httpapi.md#apiv3feed",
+              "title": "/api/v3/feed"
+            },
+            {
+              "href": "httpapi.md#apiv3storm",
+              "title": "/api/v3/storm"
+            },
+            {
+              "href": "httpapi.md#apiv3stormcall",
+              "title": "/api/v3/storm/call"
+            },
+            {
+              "href": "httpapi.md#apiv3stormexport",
+              "title": "/api/v3/storm/export"
+            },
+            {
+              "href": "httpapi.md#apiv3model",
+              "title": "/api/v3/model"
+            },
+            {
+              "href": "httpapi.md#apiv3modelnorm",
+              "title": "/api/v3/model/norm"
+            },
+            {
+              "href": "httpapi.md#apiv3stormvarsget",
+              "title": "/api/v3/storm/vars/get"
+            },
+            {
+              "href": "httpapi.md#apiv3stormvarsset",
+              "title": "/api/v3/storm/vars/set"
+            },
+            {
+              "href": "httpapi.md#apiv3stormvarspop",
+              "title": "/api/v3/storm/vars/pop"
+            },
+            {
+              "href": "httpapi.md#apiv3coreinfo",
+              "title": "/api/v3/core/info"
+            },
+            {
+              "href": "httpapi.md#apiext",
+              "title": "/api/ext/\\*"
+            }
+          ],
+          "href": "httpapi.md#cortex",
+          "title": "Cortex"
+        },
+        {
+          "children": [
+            {
+              "href": "httpapi.md#apiv3ahaprovisionservice",
+              "title": "/api/v3/aha/provision/service"
+            },
+            {
+              "href": "httpapi.md#apiv3ahaservices",
+              "title": "/api/v3/aha/services"
+            }
+          ],
+          "href": "httpapi.md#aha",
+          "title": "AHA"
+        },
+        {
+          "children": [
+            {
+              "href": "httpapi.md#apiv3axonfilesdel",
+              "title": "/api/v3/axon/files/del"
+            },
+            {
+              "href": "httpapi.md#apiv3axonfilesput",
+              "title": "/api/v3/axon/files/put"
+            },
+            {
+              "href": "httpapi.md#apiv3axonfileshassha256sha-256",
+              "title": "/api/v3/axon/files/has/sha256/\\<SHA-256\\>"
+            },
+            {
+              "href": "httpapi.md#apiv3axonfilesbysha256sha-256",
+              "title": "/api/v3/axon/files/by/sha256/\\<SHA-256\\>"
+            }
+          ],
+          "href": "httpapi.md#axon",
+          "title": "Axon"
+        }
+      ],
+      "href": "httpapi.md",
+      "title": "Synapse HTTP/REST API"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "href": "datamodel_types.md#base-types",
+              "title": "Base Types"
+            },
+            {
+              "href": "datamodel_types.md#types",
+              "title": "Types"
+            },
+            {
+              "href": "datamodel_types.md#interfaces",
+              "title": "Interfaces"
+            }
+          ],
+          "href": "datamodel_types.md",
+          "title": "Synapse Data Model - Types"
+        },
+        {
+          "children": [
+            {
+              "href": "datamodel_forms.md#forms",
+              "title": "Forms"
+            }
+          ],
+          "href": "datamodel_forms.md",
+          "title": "Synapse Data Model - Forms"
+        },
+        {
+          "children": [
+            {
+              "href": "datamodel_deprecation.md#using-deprecated-model-elements",
+              "title": "Using Deprecated Model Elements"
+            }
+          ],
+          "href": "datamodel_deprecation.md",
+          "title": "Datamodel Deprecation Policy"
+        }
+      ],
+      "href": "datamodel.md",
+      "title": "Synapse Data Model"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "href": "stormtypes_libs.md#lib",
+              "title": "$lib"
+            },
+            {
+              "href": "stormtypes_libs.md#libaha",
+              "title": "$lib.aha"
+            },
+            {
+              "href": "stormtypes_libs.md#libauth",
+              "title": "$lib.auth"
+            },
+            {
+              "href": "stormtypes_libs.md#libautheasyperm",
+              "title": "$lib.auth.easyperm"
+            },
+            {
+              "href": "stormtypes_libs.md#libauthgates",
+              "title": "$lib.auth.gates"
+            },
+            {
+              "href": "stormtypes_libs.md#libauthroles",
+              "title": "$lib.auth.roles"
+            },
+            {
+              "href": "stormtypes_libs.md#libauthusers",
+              "title": "$lib.auth.users"
+            },
+            {
+              "href": "stormtypes_libs.md#libaxon",
+              "title": "$lib.axon"
+            },
+            {
+              "href": "stormtypes_libs.md#libbase64",
+              "title": "$lib.base64"
+            },
+            {
+              "href": "stormtypes_libs.md#libbasex",
+              "title": "$lib.basex"
+            },
+            {
+              "href": "stormtypes_libs.md#libbytes",
+              "title": "$lib.bytes"
+            },
+            {
+              "href": "stormtypes_libs.md#libcache",
+              "title": "$lib.cache"
+            },
+            {
+              "href": "stormtypes_libs.md#libcell",
+              "title": "$lib.cell"
+            },
+            {
+              "href": "stormtypes_libs.md#libcompressionbzip2",
+              "title": "$lib.compression.bzip2"
+            },
+            {
+              "href": "stormtypes_libs.md#libcompressiongzip",
+              "title": "$lib.compression.gzip"
+            },
+            {
+              "href": "stormtypes_libs.md#libcompressionzlib",
+              "title": "$lib.compression.zlib"
+            },
+            {
+              "href": "stormtypes_libs.md#libcortex",
+              "title": "$lib.cortex"
+            },
+            {
+              "href": "stormtypes_libs.md#libcortexhttpapi",
+              "title": "$lib.cortex.httpapi"
+            },
+            {
+              "href": "stormtypes_libs.md#libcron",
+              "title": "$lib.cron"
+            },
+            {
+              "href": "stormtypes_libs.md#libcryptocoinethereum",
+              "title": "$lib.crypto.coin.ethereum"
+            },
+            {
+              "href": "stormtypes_libs.md#libcryptoecc",
+              "title": "$lib.crypto.ecc"
+            },
+            {
+              "href": "stormtypes_libs.md#libcryptohashes",
+              "title": "$lib.crypto.hashes"
+            },
+            {
+              "href": "stormtypes_libs.md#libcryptohmac",
+              "title": "$lib.crypto.hmac"
+            },
+            {
+              "href": "stormtypes_libs.md#libcryptojwt",
+              "title": "$lib.crypto.jwt"
+            },
+            {
+              "href": "stormtypes_libs.md#libcryptorsa",
+              "title": "$lib.crypto.rsa"
+            },
+            {
+              "href": "stormtypes_libs.md#libcsv",
+              "title": "$lib.csv"
+            },
+            {
+              "href": "stormtypes_libs.md#libdict",
+              "title": "$lib.dict"
+            },
+            {
+              "href": "stormtypes_libs.md#libdmon",
+              "title": "$lib.dmon"
+            },
+            {
+              "href": "stormtypes_libs.md#libexport",
+              "title": "$lib.export"
+            },
+            {
+              "href": "stormtypes_libs.md#libfeed",
+              "title": "$lib.feed"
+            },
+            {
+              "href": "stormtypes_libs.md#libfile",
+              "title": "$lib.file"
+            },
+            {
+              "href": "stormtypes_libs.md#libgen",
+              "title": "$lib.gen"
+            },
+            {
+              "href": "stormtypes_libs.md#libgis",
+              "title": "$lib.gis"
+            },
+            {
+              "href": "stormtypes_libs.md#libgraph",
+              "title": "$lib.graph"
+            },
+            {
+              "href": "stormtypes_libs.md#libhex",
+              "title": "$lib.hex"
+            },
+            {
+              "href": "stormtypes_libs.md#libinethttp",
+              "title": "$lib.inet.http"
+            },
+            {
+              "href": "stormtypes_libs.md#libinethttpoauthv1",
+              "title": "$lib.inet.http.oauth.v1"
+            },
+            {
+              "href": "stormtypes_libs.md#libinethttpoauthv2",
+              "title": "$lib.inet.http.oauth.v2"
+            },
+            {
+              "href": "stormtypes_libs.md#libinetimap",
+              "title": "$lib.inet.imap"
+            },
+            {
+              "href": "stormtypes_libs.md#libinetipv6",
+              "title": "$lib.inet.ipv6"
+            },
+            {
+              "href": "stormtypes_libs.md#libinetsmtp",
+              "title": "$lib.inet.smtp"
+            },
+            {
+              "href": "stormtypes_libs.md#libinfoseccvss",
+              "title": "$lib.infosec.cvss"
+            },
+            {
+              "href": "stormtypes_libs.md#libinfosecmitreattackflow",
+              "title": "$lib.infosec.mitre.attack.flow"
+            },
+            {
+              "href": "stormtypes_libs.md#libiters",
+              "title": "$lib.iters"
+            },
+            {
+              "href": "stormtypes_libs.md#libjson",
+              "title": "$lib.json"
+            },
+            {
+              "href": "stormtypes_libs.md#libjsonstor",
+              "title": "$lib.jsonstor"
+            },
+            {
+              "href": "stormtypes_libs.md#liblayer",
+              "title": "$lib.layer"
+            },
+            {
+              "href": "stormtypes_libs.md#liblift",
+              "title": "$lib.lift"
+            },
+            {
+              "href": "stormtypes_libs.md#liblog",
+              "title": "$lib.log"
+            },
+            {
+              "href": "stormtypes_libs.md#libmacro",
+              "title": "$lib.macro"
+            },
+            {
+              "href": "stormtypes_libs.md#libmath",
+              "title": "$lib.math"
+            },
+            {
+              "href": "stormtypes_libs.md#libmimehtml",
+              "title": "$lib.mime.html"
+            },
+            {
+              "href": "stormtypes_libs.md#libmodel",
+              "title": "$lib.model"
+            },
+            {
+              "href": "stormtypes_libs.md#libmodeldeprecated",
+              "title": "$lib.model.deprecated"
+            },
+            {
+              "href": "stormtypes_libs.md#libmodelext",
+              "title": "$lib.model.ext"
+            },
+            {
+              "href": "stormtypes_libs.md#libmodelmigration",
+              "title": "$lib.model.migration"
+            },
+            {
+              "href": "stormtypes_libs.md#libmodelmigrations",
+              "title": "$lib.model.migration.s"
+            },
+            {
+              "href": "stormtypes_libs.md#libmodeltags",
+              "title": "$lib.model.tags"
+            },
+            {
+              "href": "stormtypes_libs.md#libpack",
+              "title": "$lib.pack"
+            },
+            {
+              "href": "stormtypes_libs.md#libpipe",
+              "title": "$lib.pipe"
+            },
+            {
+              "href": "stormtypes_libs.md#libpkg",
+              "title": "$lib.pkg"
+            },
+            {
+              "href": "stormtypes_libs.md#libqueue",
+              "title": "$lib.queue"
+            },
+            {
+              "href": "stormtypes_libs.md#libquorummerge",
+              "title": "$lib.quorum.merge"
+            },
+            {
+              "href": "stormtypes_libs.md#librandom",
+              "title": "$lib.random"
+            },
+            {
+              "href": "stormtypes_libs.md#libregex",
+              "title": "$lib.regex"
+            },
+            {
+              "href": "stormtypes_libs.md#libscrape",
+              "title": "$lib.scrape"
+            },
+            {
+              "href": "stormtypes_libs.md#libservice",
+              "title": "$lib.service"
+            },
+            {
+              "href": "stormtypes_libs.md#libspooled",
+              "title": "$lib.spooled"
+            },
+            {
+              "href": "stormtypes_libs.md#libstats",
+              "title": "$lib.stats"
+            },
+            {
+              "href": "stormtypes_libs.md#libstix",
+              "title": "$lib.stix"
+            },
+            {
+              "href": "stormtypes_libs.md#libstixexport",
+              "title": "$lib.stix.export"
+            },
+            {
+              "href": "stormtypes_libs.md#libstiximport",
+              "title": "$lib.stix.import"
+            },
+            {
+              "href": "stormtypes_libs.md#libstorm",
+              "title": "$lib.storm"
+            },
+            {
+              "href": "stormtypes_libs.md#libtabular",
+              "title": "$lib.tabular"
+            },
+            {
+              "href": "stormtypes_libs.md#libtags",
+              "title": "$lib.tags"
+            },
+            {
+              "href": "stormtypes_libs.md#libtask",
+              "title": "$lib.task"
+            },
+            {
+              "href": "stormtypes_libs.md#libtelepath",
+              "title": "$lib.telepath"
+            },
+            {
+              "href": "stormtypes_libs.md#libtime",
+              "title": "$lib.time"
+            },
+            {
+              "href": "stormtypes_libs.md#libtrigger",
+              "title": "$lib.trigger"
+            },
+            {
+              "href": "stormtypes_libs.md#libutils",
+              "title": "$lib.utils"
+            },
+            {
+              "href": "stormtypes_libs.md#libvault",
+              "title": "$lib.vault"
+            },
+            {
+              "href": "stormtypes_libs.md#libvaulttype",
+              "title": "$lib.vault.type"
+            },
+            {
+              "href": "stormtypes_libs.md#libversion",
+              "title": "$lib.version"
+            },
+            {
+              "href": "stormtypes_libs.md#libvertex",
+              "title": "$lib.vertex"
+            },
+            {
+              "href": "stormtypes_libs.md#libvertexpackages",
+              "title": "$lib.vertex.packages"
+            },
+            {
+              "href": "stormtypes_libs.md#libview",
+              "title": "$lib.view"
+            },
+            {
+              "href": "stormtypes_libs.md#libxml",
+              "title": "$lib.xml"
+            },
+            {
+              "href": "stormtypes_libs.md#libyaml",
+              "title": "$lib.yaml"
+            }
+          ],
+          "href": "stormtypes_libs.md",
+          "title": "Storm Libraries"
+        },
+        {
+          "children": [
+            {
+              "href": "stormtypes_prims.md#authgate",
+              "title": "auth:gate"
+            },
+            {
+              "href": "stormtypes_prims.md#authrole",
+              "title": "auth:role"
+            },
+            {
+              "href": "stormtypes_prims.md#authuser",
+              "title": "auth:user"
+            },
+            {
+              "href": "stormtypes_prims.md#authuserjson",
+              "title": "auth:user:json"
+            },
+            {
+              "href": "stormtypes_prims.md#authuserprofile",
+              "title": "auth:user:profile"
+            },
+            {
+              "href": "stormtypes_prims.md#authuservars",
+              "title": "auth:user:vars"
+            },
+            {
+              "href": "stormtypes_prims.md#boolean",
+              "title": "boolean"
+            },
+            {
+              "href": "stormtypes_prims.md#bytes",
+              "title": "bytes"
+            },
+            {
+              "href": "stormtypes_prims.md#cachefixed",
+              "title": "cache:fixed"
+            },
+            {
+              "href": "stormtypes_prims.md#cmdopts",
+              "title": "cmdopts"
+            },
+            {
+              "href": "stormtypes_prims.md#cronjob",
+              "title": "cronjob"
+            },
+            {
+              "href": "stormtypes_prims.md#cryptoecckey",
+              "title": "crypto:ecc:key"
+            },
+            {
+              "href": "stormtypes_prims.md#cryptojwt",
+              "title": "crypto:jwt"
+            },
+            {
+              "href": "stormtypes_prims.md#cryptojwtdict",
+              "title": "crypto:jwt:dict"
+            },
+            {
+              "href": "stormtypes_prims.md#cryptorsakey",
+              "title": "crypto:rsa:key"
+            },
+            {
+              "href": "stormtypes_prims.md#dict",
+              "title": "dict"
+            },
+            {
+              "href": "stormtypes_prims.md#environmentvars",
+              "title": "environment:vars"
+            },
+            {
+              "href": "stormtypes_prims.md#globalvars",
+              "title": "global:vars"
+            },
+            {
+              "href": "stormtypes_prims.md#httpapi",
+              "title": "http:api"
+            },
+            {
+              "href": "stormtypes_prims.md#httpapimethods",
+              "title": "http:api:methods"
+            },
+            {
+              "href": "stormtypes_prims.md#httpapiperms",
+              "title": "http:api:perms"
+            },
+            {
+              "href": "stormtypes_prims.md#httpapirequest",
+              "title": "http:api:request"
+            },
+            {
+              "href": "stormtypes_prims.md#httpapirequestheaders",
+              "title": "http:api:request:headers"
+            },
+            {
+              "href": "stormtypes_prims.md#httpapivars",
+              "title": "http:api:vars"
+            },
+            {
+              "href": "stormtypes_prims.md#inethttpoauthv1client",
+              "title": "inet:http:oauth:v1:client"
+            },
+            {
+              "href": "stormtypes_prims.md#inethttpresp",
+              "title": "inet:http:resp"
+            },
+            {
+              "href": "stormtypes_prims.md#inethttpsocket",
+              "title": "inet:http:socket"
+            },
+            {
+              "href": "stormtypes_prims.md#inetimapserver",
+              "title": "inet:imap:server"
+            },
+            {
+              "href": "stormtypes_prims.md#inetsmtpmessage",
+              "title": "inet:smtp:message"
+            },
+            {
+              "href": "stormtypes_prims.md#jsonschema",
+              "title": "json:schema"
+            },
+            {
+              "href": "stormtypes_prims.md#layer",
+              "title": "layer"
+            },
+            {
+              "href": "stormtypes_prims.md#list",
+              "title": "list"
+            },
+            {
+              "href": "stormtypes_prims.md#modeledge",
+              "title": "model:edge"
+            },
+            {
+              "href": "stormtypes_prims.md#modelform",
+              "title": "model:form"
+            },
+            {
+              "href": "stormtypes_prims.md#modelformprops",
+              "title": "model:form:props"
+            },
+            {
+              "href": "stormtypes_prims.md#modelproperty",
+              "title": "model:property"
+            },
+            {
+              "href": "stormtypes_prims.md#modeltagprop",
+              "title": "model:tagprop"
+            },
+            {
+              "href": "stormtypes_prims.md#modeltype",
+              "title": "model:type"
+            },
+            {
+              "href": "stormtypes_prims.md#node",
+              "title": "node"
+            },
+            {
+              "href": "stormtypes_prims.md#nodedata",
+              "title": "node:data"
+            },
+            {
+              "href": "stormtypes_prims.md#nodepath",
+              "title": "node:path"
+            },
+            {
+              "href": "stormtypes_prims.md#nodepathmeta",
+              "title": "node:path:meta"
+            },
+            {
+              "href": "stormtypes_prims.md#nodepathvars",
+              "title": "node:path:vars"
+            },
+            {
+              "href": "stormtypes_prims.md#nodeprops",
+              "title": "node:props"
+            },
+            {
+              "href": "stormtypes_prims.md#noderef",
+              "title": "noderef"
+            },
+            {
+              "href": "stormtypes_prims.md#number",
+              "title": "number"
+            },
+            {
+              "href": "stormtypes_prims.md#pipe",
+              "title": "pipe"
+            },
+            {
+              "href": "stormtypes_prims.md#pkgqueue",
+              "title": "pkg:queue"
+            },
+            {
+              "href": "stormtypes_prims.md#pkgqueues",
+              "title": "pkg:queues"
+            },
+            {
+              "href": "stormtypes_prims.md#pkgstate",
+              "title": "pkg:state"
+            },
+            {
+              "href": "stormtypes_prims.md#pkgvars",
+              "title": "pkg:vars"
+            },
+            {
+              "href": "stormtypes_prims.md#queue",
+              "title": "queue"
+            },
+            {
+              "href": "stormtypes_prims.md#random",
+              "title": "random"
+            },
+            {
+              "href": "stormtypes_prims.md#runtimevars",
+              "title": "runtime:vars"
+            },
+            {
+              "href": "stormtypes_prims.md#set",
+              "title": "set"
+            },
+            {
+              "href": "stormtypes_prims.md#spooledset",
+              "title": "spooled:set"
+            },
+            {
+              "href": "stormtypes_prims.md#stattally",
+              "title": "stat:tally"
+            },
+            {
+              "href": "stormtypes_prims.md#stixbundle",
+              "title": "stix:bundle"
+            },
+            {
+              "href": "stormtypes_prims.md#stormquery",
+              "title": "storm:query"
+            },
+            {
+              "href": "stormtypes_prims.md#str",
+              "title": "str"
+            },
+            {
+              "href": "stormtypes_prims.md#tabularprinter",
+              "title": "tabular:printer"
+            },
+            {
+              "href": "stormtypes_prims.md#telepathproxy",
+              "title": "telepath:proxy"
+            },
+            {
+              "href": "stormtypes_prims.md#telepathproxygenrmethod",
+              "title": "telepath:proxy:genrmethod"
+            },
+            {
+              "href": "stormtypes_prims.md#telepathproxymethod",
+              "title": "telepath:proxy:method"
+            },
+            {
+              "href": "stormtypes_prims.md#trigger",
+              "title": "trigger"
+            },
+            {
+              "href": "stormtypes_prims.md#valu",
+              "title": "valu"
+            },
+            {
+              "href": "stormtypes_prims.md#vault",
+              "title": "vault"
+            },
+            {
+              "href": "stormtypes_prims.md#vaultdata",
+              "title": "vault:data"
+            },
+            {
+              "href": "stormtypes_prims.md#view-3",
+              "title": "view"
+            },
+            {
+              "href": "stormtypes_prims.md#xmlelement",
+              "title": "xml:element"
+            }
+          ],
+          "href": "stormtypes_prims.md",
+          "title": "Storm Types"
+        }
+      ],
+      "href": "stormtypes.md",
+      "title": "Storm Library Documentation"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "href": "power_ups.md#getting-started-with-rapid-power-ups",
+              "title": "Getting Started with Rapid Power-Ups"
+            }
+          ],
+          "href": "power_ups.md#rapid-power-ups",
+          "title": "Rapid Power-Ups"
+        },
+        {
+          "href": "power_ups.md#advanced-power-ups",
+          "title": "Advanced Power-Ups"
+        }
+      ],
+      "href": "power_ups.md",
+      "title": "Synapse Power-Ups"
+    },
+    {
+      "href": "user_interface.md",
+      "title": "Synapse User Interface"
+    },
+    {
+      "children": [
+        {
+          "href": "support.md#slack",
+          "title": "Slack"
+        },
+        {
+          "href": "support.md#service-desk",
+          "title": "Service Desk"
+        }
+      ],
+      "href": "support.md",
+      "title": "Synapse Support"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "href": "changelog.md#model-changes",
+              "title": "Model Changes"
+            },
+            {
+              "href": "changelog.md#features-and-enhancements",
+              "title": "Features and Enhancements"
+            }
+          ],
+          "href": "changelog.md#v300b4---2026-07-24",
+          "title": "v3.0.0b4 - 2026-07-24"
+        },
+        {
+          "children": [
+            {
+              "href": "changelog.md#model-changes-1",
+              "title": "Model Changes"
+            },
+            {
+              "href": "changelog.md#features-and-enhancements-1",
+              "title": "Features and Enhancements"
+            },
+            {
+              "href": "changelog.md#bugfixes",
+              "title": "Bugfixes"
+            },
+            {
+              "href": "changelog.md#notes",
+              "title": "Notes"
+            },
+            {
+              "href": "changelog.md#improved-documentation",
+              "title": "Improved documentation"
+            }
+          ],
+          "href": "changelog.md#v300b3---2026-07-17",
+          "title": "v3.0.0b3 - 2026-07-17"
+        },
+        {
+          "children": [
+            {
+              "href": "changelog.md#model-changes-2",
+              "title": "Model Changes"
+            },
+            {
+              "href": "changelog.md#features-and-enhancements-2",
+              "title": "Features and Enhancements"
+            },
+            {
+              "href": "changelog.md#bugfixes-1",
+              "title": "Bugfixes"
+            },
+            {
+              "href": "changelog.md#notes-1",
+              "title": "Notes"
+            }
+          ],
+          "href": "changelog.md#v300b2---2026-07-11",
+          "title": "v3.0.0b2 - 2026-07-11"
+        },
+        {
+          "children": [
+            {
+              "href": "changelog.md#model-changes-3",
+              "title": "Model Changes"
+            },
+            {
+              "href": "changelog.md#features-and-enhancements-3",
+              "title": "Features and Enhancements"
+            },
+            {
+              "href": "changelog.md#notes-2",
+              "title": "Notes"
+            }
+          ],
+          "href": "changelog.md#v300b1---2026-06-30",
+          "title": "v3.0.0b1 - 2026-06-30"
+        }
+      ],
+      "href": "changelog.md",
+      "title": "Synapse Changelog"
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import multiprocessing
 
 import unittest.mock as mock
@@ -50,8 +51,16 @@ def aiterspawntgt(linkinfo, n, boom=False):
 
 class Foo:
     YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3'
+
+    def __init__(self):
+        self.slowevt = asyncio.Event()
+
     def woot(self):
         return 10
+
+    async def slowsleep(self):
+        self.slowevt.set()
+        await asyncio.sleep(120)
 
     def sync_iter(self, n):
         for i in iterfunc(n):
@@ -181,6 +190,126 @@ class DaemonTest(s_t_utils.SynTest):
                         await link.tx(mesg)
                         await stream.expect('Error on t2:init:', timeout=6)
 
+    async def test_dmon_fini_sess(self):
+
+        # A daemon shutdown tears down the links before the sessions they
+        # created, so calls in flight on the client link pool end with the
+        # link going down rather than logging errors.
+
+        async with await s_daemon.Daemon.anit() as dmon:
+
+            foo = Foo()
+
+            host, port = await dmon.listen('tcp://127.0.0.1:0')
+            dmon.share('foo', foo)
+
+            prox = await s_telepath.openurl(f'tcp://127.0.0.1:{port}/foo')
+
+            self.eq(10, await prox.woot())
+            self.len(1, dmon.sessions)
+
+            errs = []
+
+            async def caller():
+                try:
+                    while True:
+                        await prox.woot()
+
+                except Exception as e:
+                    errs.append(e)
+
+            async def slowcaller():
+                try:
+                    await prox.slowsleep()
+
+                except Exception as e:
+                    errs.append(e)
+
+            tasks = [prox.schedCoro(caller()) for _ in range(4)]
+
+            # a call which is still running on the daemon when it shuts down
+            tasks.append(prox.schedCoro(slowcaller()))
+            await asyncio.wait_for(foo.slowevt.wait(), timeout=6)
+
+            # wait for the callers to fill out the client side link pool
+            for _ in range(60):
+
+                if len(dmon.links) > 4:
+                    break
+
+                await asyncio.sleep(0.1)
+
+            self.gt(len(dmon.links), 4)
+
+            sess = list(dmon.sessions.values())[0]
+
+            slinks = [link for link in dmon.links if link.get('sess') is sess]
+            self.len(1, slinks)
+
+            # a session must outlive the link which created it
+            linkfini = []
+
+            def onsessfini():
+                linkfini.append(slinks[0].isfini)
+
+            sess.onfini(onsessfini)
+
+            with self.getLoggerStream('synapse.daemon', level=logging.ERROR) as stream:
+
+                await dmon.fini()
+
+                await prox.waitfini(timeout=6)
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+            stream.seek(0)
+            self.eq('', stream.read())
+
+            self.eq([True], linkfini)
+
+            # the callers see the link go down, which the client retries
+            for err in errs:
+                self.true(isinstance(err, (s_exc.IsFini, s_exc.LinkShutDown)))
+
+            self.len(0, dmon.sessions)
+            self.len(0, dmon.links)
+
+    async def test_dmon_fini_t2init(self):
+
+        # a t2:init for a session which is gone is expected while the daemon is
+        # shutting down, so it is logged as such rather than as an error.
+
+        async with await s_daemon.Daemon.anit() as dmon:
+
+            host, port = await dmon.listen('tcp://127.0.0.1:0')
+            dmon.share('foo', Foo())
+
+            async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}/foo') as prox:
+
+                self.eq(10, await prox.woot())
+
+                mesg = ('t2:init', {'todo': ('woot', (), {}), 'name': None, 'sess': 'newp'})
+
+                async with await prox.getPoolLink() as link:
+                    with self.getLoggerStream('synapse.daemon', level=logging.ERROR) as stream:
+                        await link.tx(mesg)
+                        await stream.expect('Error on t2:init:', timeout=6)
+
+                async with await prox.getPoolLink() as link:
+                    with mock.patch.object(dmon, 'isfini', True):
+                        with self.getLoggerStream('synapse.daemon') as stream:
+                            await link.tx(mesg)
+                            await stream.expect('Daemon isfini, aborting t2:init:', timeout=6)
+
+    async def test_dmon_fini_sess_nolink(self):
+
+        # a session which has no link is torn down by the daemon fini
+
+        async with await s_daemon.Daemon.anit() as dmon:
+            sess = await s_daemon.Sess.anit()
+            dmon.sessions[sess.iden] = sess
+
+        self.true(sess.isfini)
+
     async def test_dmon_t2call_genr(self):
 
         # Ensure that t2call messages for generators are produced in the correct order.
@@ -293,42 +422,39 @@ class DaemonTest(s_t_utils.SynTest):
                 self.eq(raw_msgs[-1][1]['retn'][1][0], 'BadState')
 
 class SvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
-    _storm_svc_name = 'foo'
-    _storm_svc_pkgs = (  # type:  ignore
-        {
-            'name': 'foo',
-            'version': (0, 0, 1),
-            'modules': (
-                {
-                    'name': 'foo.mod',
-                    'storm': '''
-                        $x = (3)
+    _storm_svc_pkg = {  # type:  ignore
+        'name': 'foo',
+        'version': '0.0.1',
+        'modules': (
+            {
+                'name': 'foo.mod',
+                'storm': '''
+                    $x = (3)
 
-                        function run_all() {
-                            for $item in $lib.service.get($modconf.svciden).run() {
-                                {}
-                            }
-                            return (null)
+                    function run_all() {
+                        for $item in $lib.service.get(foosvc).run() {
+                            {}
                         }
+                        return (null)
+                    }
 
-                        function run_break() {
-                            for $i in $lib.service.get($modconf.svciden).run() {
-                                if ($i > $x) { return((null)) }
-                            }
-                            return((null))
+                    function run_break() {
+                        for $i in $lib.service.get(foosvc).run() {
+                            if ($i > $x) { return((null)) }
                         }
+                        return((null))
+                    }
 
-                        function run_err() {
-                            for $i in $lib.service.get($modconf.svciden).run() {
-                                if ($i > $x) { [inet:newp=3] }
-                            }
-                            return((null))
+                    function run_err() {
+                        for $i in $lib.service.get(foosvc).run() {
+                            if ($i > $x) { [inet:newp=3] }
                         }
-                    '''
-                },
-            ),
-        },
-    )
+                        return((null))
+                    }
+                '''
+            },
+        ),
+    }
 
     async def run(self):
         async for item in self.cell.run():
@@ -336,6 +462,7 @@ class SvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
 
 
 class Svc(s_cell.Cell):
+    celltype = 'foosvc'
     cellapi = SvcApi
 
     async def initServiceStorage(self):

@@ -212,6 +212,24 @@ class CellWithoutType(s_cell.Cell):
 
 class CellTest(s_t_utils.SynTest):
 
+    async def test_cell_fini_dmon_before_slab(self):
+
+        # the dmon-drain fini is registered before _initCellSlab() boots the
+        # slab, so it must tolerate fini() running before self.dmon even
+        # exists ( eg a boot failure between the two ) rather than raising
+        # AttributeError.
+        realInitCellSlab = s_cell.Cell._initCellSlab
+
+        async def boomInitCellSlab(self, readonly=False):
+            await realInitCellSlab(self, readonly=readonly)
+            raise s_exc.SynErr(mesg='boom')
+
+        with mock.patch.object(s_cell.Cell, '_initCellSlab', boomInitCellSlab):
+            with self.getTestDir() as dirn:
+                with self.raises(s_exc.SynErr):
+                    async with await s_t_utils.TestCell00.anit(dirn, conf=self.getCellConf()):
+                        pass  # pragma: no cover
+
     async def test_cell_prov_mcast_gates(self):
 
         secret = {'SYN_PROVISION_SECRET': 'test-provision-secret'}
@@ -375,8 +393,7 @@ class CellTest(s_t_utils.SynTest):
         A readonly cell shares a writer's dirn: it opens its storage readonly,
         binds neither the shared local sock nor external listeners, and follows
         the leader's nexus-log rotation rather than rotating the shared files
-        itself. A writable cell streams its nexus commit pulse over the CellApi
-        and binds its dmon listeners only once.
+        itself. A writable cell binds its dmon listeners only once.
         '''
         with self.getTestDir() as dirn:
 
@@ -384,13 +401,6 @@ class CellTest(s_t_utils.SynTest):
             # attach to) and listens so sockaddr is set.
             conf = {'dmon:listen': 'tcp://127.0.0.1:0/'}
             async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
-
-                # the commit-pulse CellApi wrapper streams the committed offset;
-                # it yields the current commit index immediately.
-                async with cell.getLocalProxy() as proxy:
-                    async for offs in proxy.getNexusCommitPulse():
-                        self.true(isinstance(offs, int))
-                        break
 
                 # binding the dmon listeners again is a no-op (sockaddr is set)
                 self.nn(cell.sockaddr)
@@ -423,26 +433,159 @@ class CellTest(s_t_utils.SynTest):
 
                 self.eq([42], calls)
 
+                # a readonly cell has no write txn to commit, so syncCellSlab returns
+                # without touching the slab (or taking nexslock to do it).
+                async def _boom():
+                    raise s_exc.SynErr(mesg='must not sync a readonly slab')
+
+                with mock.patch.object(cell.slab, 'sync', _boom):
+                    self.none(await cell.syncCellSlab())
+
     async def test_cell_commitpulse_base(self):
-        # a base cell does not commit per nexus transaction (nexuscommit=False),
-        # so the pulse yields the current committed offset once and then never
-        # fires - the fan-out in NexsRoot._eat is gated on nexuscommit.
+        # every cell commits its dirty slabs per nexus transaction, so its slabs opt out
+        # of the periodic pulse and _eat hands each committed offset to setPulseIndx.
         async with self.getTestCell() as cell:
 
-            self.false(cell.nexuscommit)
+            # the slabs opened through Cell._initSlabFile opt out of the timed pulse
+            self.false(cell.slab.commitpulse)
+            self.false(cell.drive_slab.commitpulse)
+            self.false(cell.nexsroot.nexsslab.commitpulse)
 
-            genr = cell.getNexusCommitPulse()
+            # as does the nexus log itself, which _eat commits before the state slabs
+            self.false(cell.nexsroot.nexslog.tailslab.commitpulse)
+
+            # with nothing pulsing, the periodic sync loop is never even started
+            self.none(s_lmdbslab.Slab.synctask)
+
+            offsets = []
+            cell.nexsroot.setPulseIndx = offsets.append
+
+            # a nexus write (addUser) is committed and pulsed before it returns
+            await cell.auth.addUser('bob')
+
+            offs = await cell.getNexsIndx() - 1
+            self.isin(offs, offsets)
+            self.eq(offsets, sorted(offsets))
+
+            # the write is durable without any timer having run
+            self.false(cell.slab.dirty)
+
+            # nexs:indx is buffered, and the commit which ends the transaction flushes it
+            nexshot = cell.nexsroot.nexshot
+            self.len(0, nexshot.dirty)
+            self.eq(await cell.getNexsIndx(), nexshot.getFresh('nexs:indx'))
+
+    async def test_cell_synccellslab_holds_nexslock(self):
+        # syncCellSlab callers run concurrently with _eat (the AHA registration loop is a
+        # scheduled coro), and _eat applies a handler before committing the log entry
+        # describing it. A commit landing in that window would make state durable ahead of
+        # its log entry, so syncCellSlab takes nexslock the same way _eat does.
+        async with self.getTestCell(conf={'nexslog:en': True}) as cell:
+
+            inhandler = asyncio.Event()
+            release = asyncio.Event()
+
+            realfunc, passitem = cell._nexshands['meta:set']
+
+            async def _setMeta(self, name, valu):
+                retn = await realfunc(self, name, valu)
+                # stall where a real handler would await, after mutating the cell slab
+                inhandler.set()
+                await release.wait()
+                return retn
+
+            cell._nexshands['meta:set'] = (_setMeta, passitem)
+
             try:
-                await asyncio.wait_for(genr.__anext__(), timeout=6)
+                task = cell.schedCoro(cell.setMeta('hehe', 'haha'))
 
-                # a nexus write (addUser) must NOT produce a pulse on a base cell
-                await cell.auth.addUser('bob')
+                await asyncio.wait_for(inhandler.wait(), timeout=10)
 
-                with self.raises(asyncio.TimeoutError):
-                    await asyncio.wait_for(genr.__anext__(), timeout=0.5)
+                # the handler has applied but neither slab has committed
+                self.true(cell.slab.dirty)
+                self.true(cell.nexsroot.nexslog.tailslab.dirty)
+
+                synctask = cell.schedCoro(cell.syncCellSlab())
+
+                # it must block on nexslock rather than commit the applied state
+                await asyncio.sleep(0.2)
+                self.false(synctask.done())
+                self.true(cell.slab.dirty)
+
+                release.set()
+
+                await asyncio.wait_for(task, timeout=10)
+                await asyncio.wait_for(synctask, timeout=10)
 
             finally:
-                await genr.aclose()
+                cell._nexshands['meta:set'] = (realfunc, passitem)
+
+            self.false(cell.slab.dirty)
+
+    async def test_cell_initcellvers(self):
+        # a version stamp is deliberately not a nexus event, so _eat will not commit it
+        # and the timed pulse skips the cell slab. initCellVers must sync it itself.
+        async with self.getTestCell() as cell:
+
+            # an inaugural cell is stamped with the number of updates, without
+            # running any of them
+            await cell.initCellVers('woot:storage', (self.fail, self.fail, self.fail))
+
+            self.eq(3, cell.cellvers.get('woot:storage'))
+
+            # read it back from the committed slab rather than the SafeKeyVal cache
+            self.false(cell.slab.dirty)
+            self.eq(3, s_msgpack.un(cell.slab.get(b'woot:storage', db=cell.cellvers.valudb)))
+
+            # a name with no updates yet is version 0
+            await cell.initCellVers('newp:storage')
+            self.eq(0, cell.cellvers.get('newp:storage'))
+
+    async def test_cell_initcellvers_updates(self):
+        # a cell which is not inaugural runs the updates newer than its stored version
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCell(dirn=dirn) as cell:
+                pass
+
+            async with self.getTestCell(dirn=dirn) as cell:
+
+                calls = []
+
+                async def updone():
+                    calls.append(1)
+
+                async def updtwo():
+                    calls.append(2)
+
+                # a cell which has never been stamped reads as 0 and runs everything
+                await cell.initCellVers('woot:storage', (updone, updtwo))
+
+                self.eq([1, 2], calls)
+                self.eq(2, cell.cellvers.get('woot:storage'))
+                self.false(cell.slab.dirty)
+
+                # appending an update runs only the new one
+                calls.clear()
+
+                async def updthree():
+                    calls.append(3)
+
+                await cell.initCellVers('woot:storage', (self.fail, self.fail, updthree))
+
+                self.eq([3], calls)
+                self.eq(3, cell.cellvers.get('woot:storage'))
+
+                # with nothing to do the version is untouched and no commit is needed
+                await cell.initCellVers('woot:storage', (self.fail, self.fail, self.fail))
+                self.eq(3, cell.cellvers.get('woot:storage'))
+
+                # a cell written by a newer release has updates this one does not
+                with self.raises(s_exc.BadStorageVersion) as cexc:
+                    await cell.initCellVers('woot:storage', (self.fail, self.fail))
+
+                self.isin('Got woot:storage version 3.  Expected 2.', cexc.exception.get('mesg'))
+                self.eq(3, cexc.exception.get('vers'))
 
     async def test_prov_request_schema(self):
 
@@ -1532,6 +1675,34 @@ class CellTest(s_t_utils.SynTest):
                         overrides = s_common.yamlload(dirn, 'cell.mods.yaml')
                         self.eq({}, overrides)
 
+    async def test_cell_execmain(self):
+
+        # Cell.main() installs signal handlers and blocks until the cell is
+        # fini'd, so stub it out and confirm execmain() hands it the cell it
+        # built from argv.
+        cells = []
+
+        async def _main(self):
+            cells.append(self)
+
+        async with self.withSetLoggingMock():
+
+            with self.getTestDir() as dirn:
+
+                conf = {
+                    'dmon:listen': 'tcp://127.0.0.1:0',
+                    'https:port': None,
+                }
+                s_common.yamlsave(conf, dirn, 'cell.yaml')
+
+                with mock.patch.object(s_cell.Cell, 'main', _main):
+                    await s_cell.Cell.execmain([dirn])
+
+                self.len(1, cells)
+                self.eq(cells[0].dirn, dirn)
+
+                await cells[0].fini()
+
     async def test_initargv_failure(self):
         if not os.path.exists('/dev/null'):
             self.skip('Test requires /dev/null to exist.')
@@ -1824,7 +1995,7 @@ class CellTest(s_t_utils.SynTest):
                 resp = await sess.post(f'https://localhost:{hport}/api/v3/auth/onepass/issue')
                 answ = await resp.json()
                 self.eq('err', answ['status'])
-                self.eq('NotAuthenticated', answ['code'])
+                self.eq('AuthDeny', answ['code'])
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
 
@@ -1926,98 +2097,6 @@ class CellTest(s_t_utils.SynTest):
             await step()
 
             self.none(await cell.delActiveCoro(s_common.guid()))
-
-    async def test_inaugural_users(self):
-
-        conf = {
-            'inaugural': {
-                'users': [
-                    {
-                        'name': 'foo@bar.mynet.com',
-                        'email': 'foo@barcorp.com',
-                        'roles': [
-                            'user'
-                        ],
-                        'rules': [
-                            [False, ['thing', 'del']],
-                            [True, ['thing', ]],
-                        ],
-                    },
-                    {
-                        'name': 'sally@bar.mynet.com',
-                        'admin': True,
-                    },
-                ],
-                'roles': [
-                    {
-                        'name': 'user',
-                        'rules': [
-                            [True, ['foo', 'bar']],
-                            [True, ['foo', 'duck']],
-                            [False, ['newp', ]],
-                        ]
-                    },
-                ]
-            }
-        }
-
-        async with self.getTestCell(s_cell.Cell, conf=conf) as cell:  # type: s_cell.Cell
-            iden = s_common.guid((cell.iden, 'auth', 'user', 'foo@bar.mynet.com'))
-            user = cell.auth.user(iden)  # type: s_auth.User
-            self.eq(user.name, 'foo@bar.mynet.com')
-            self.eq(user.pack().get('email'), 'foo@barcorp.com')
-            self.false(user.isAdmin())
-            self.true(user.allowed(('thing', 'cool')))
-            self.false(user.allowed(('thing', 'del')))
-            self.true(user.allowed(('thing', 'duck', 'stuff')))
-            self.false(user.allowed(('newp', 'secret')))
-
-            iden = s_common.guid((cell.iden, 'auth', 'user', 'sally@bar.mynet.com'))
-            user = cell.auth.user(iden)  # type: s_auth.User
-            self.eq(user.name, 'sally@bar.mynet.com')
-            self.true(user.isAdmin())
-
-        # Cannot use root
-        conf = {
-            'inaugural': {
-                'users': [
-                    {'name': 'root',
-                     'admin': False,
-                     }
-                ]
-            }
-        }
-        with self.raises(s_exc.BadConfValu):
-            async with self.getTestCell(s_cell.Cell, conf=conf) as cell:  # type: s_cell.Cell
-                pass
-
-        # Cannot use all
-        conf = {
-            'inaugural': {
-                'roles': [
-                    {'name': 'all',
-                     'rules': [
-                         [True, ['floop', 'bloop']],
-                     ]}
-                ]
-            }
-        }
-        with self.raises(s_exc.BadConfValu):
-            async with self.getTestCell(s_cell.Cell, conf=conf) as cell:  # type: s_cell.Cell
-                pass
-
-        # Colliding with aha:admin will fail
-        conf = {
-            'inaugural': {
-                'users': [
-                    {'name': 'bob@foo.bar.com'}
-                ]
-            },
-            'aha:admin': 'bob@foo.bar.com',
-        }
-        with self.raises(s_exc.DupUserName):
-            async with self.getTestCell(s_cell.Cell, conf=conf) as cell:  # type: s_cell.Cell
-                pass
 
     async def test_advisory_locking(self):
         # fcntl not supported on windows
@@ -2745,11 +2824,17 @@ class CellTest(s_t_utils.SynTest):
                 await cell.auth.rootuser.setPasswd('root')
                 hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
 
+                # Tornado >=6.5.0 caps websocket_ping_timeout at websocket_ping_interval,
+                # so both must be set explicitly to keep a generous grace period for
+                # slow/loaded pong responses (e.g. the beholder websocket below).
+                httpopts = await cell._getCellHttpOpts()
+                self.eq(httpopts['websocket_ping_interval'], 30)
+                self.eq(httpopts['websocket_ping_timeout'], 30)
+
                 names = await prox.getReloadableSystems()
                 self.ge(len(names), 1)
 
                 bitems = []
-                bstrt = asyncio.Event()
                 bdone = asyncio.Event()
 
                 def get_pem_cert():
@@ -2777,8 +2862,6 @@ class CellTest(s_t_utils.SynTest):
                     async with bsess.ws_connect(f'wss://localhost:{hport}/api/v3/behold') as sock:
 
                         async def beholdConsumer():
-                            await sock.send_json({'type': 'call:init'})
-                            bstrt.set()
                             while not cell.isfini:
                                 mesg = await sock.receive_json()
                                 data = mesg.get('data')
@@ -2788,8 +2871,11 @@ class CellTest(s_t_utils.SynTest):
                                     bdone.set()
                                     break
 
+                        await sock.send_json({'type': 'call:init'})
+                        initmesg = await asyncio.wait_for(sock.receive_json(), timeout=12)
+                        self.eq(initmesg['type'], 'init')
+
                         fut = cell.schedCoro(beholdConsumer())
-                        self.true(await asyncio.wait_for(bstrt.wait(), timeout=12))
 
                         async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                             resp = await sess.get(f'https://localhost:{hport}/api/v3/healthcheck')
@@ -3117,6 +3203,64 @@ class CellTest(s_t_utils.SynTest):
         stream.seek(0)
         data = stream.read()
         self.len(0, data, msg=data)
+
+    async def test_cell_meta(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCell(dirn=dirn) as cell:
+
+                # missing keys return the default
+                self.none(cell.getMeta('newp'))
+                self.eq('defv', cell.getMeta('newp', 'defv'))
+
+                # setMeta returns the stored value and is nexus replicated
+                self.eq('bar', await cell.setMeta('foo', 'bar'))
+                self.eq('bar', cell.getMeta('foo'))
+
+                # arbitrary msgpack-able values round-trip and overwrite
+                await cell.setMeta('foo', {'a': (1, 2)})
+                self.eq({'a': (1, 2)}, cell.getMeta('foo'))
+
+                # a metahook fires inside the meta:set handler, before the new value
+                # is stored: at hook time the store still returns the old value passed
+                # in (the invariant holds on every call, including nexus replay)
+                calls = []
+                async def onset(newv, oldv):
+                    self.eq(oldv, cell.getMeta('hooked'))
+                    calls.append(newv)
+
+                cell.metahooks['hooked'] = onset
+
+                await cell.setMeta('hooked', 'one')
+                await cell.setMeta('hooked', 'two')
+                self.isin('one', calls)
+                self.isin('two', calls)
+                self.eq('two', cell.getMeta('hooked'))
+
+                # setting the same value again is a no-op: no nexus event is pushed
+                offs = await cell.getNexsIndx()
+                self.eq('two', await cell.setMeta('hooked', 'two'))
+                self.eq(offs, await cell.getNexsIndx())
+
+                # keys without a registered hook are unaffected
+                await cell.setMeta('unhooked', 'ok')
+                self.eq('ok', cell.getMeta('unhooked'))
+
+                # a hook that raises is logged and swallowed so the set still applies
+                async def boom(newv, oldv):
+                    raise Exception('kaboom')
+
+                cell.metahooks['boom'] = boom
+                with self.getLoggerStream('synapse.lib.cell') as stream:
+                    await cell.setMeta('boom', 'ok')
+                    await stream.expect('error running meta:set hook for boom', timeout=6)
+
+                self.eq('ok', cell.getMeta('boom'))
+
+            # the value persists across a restart
+            async with self.getTestCell(dirn=dirn) as cell:
+                self.eq({'a': (1, 2)}, cell.getMeta('foo'))
 
     async def test_cell_version_regression(self):
         oldverstr = '0.1.0'

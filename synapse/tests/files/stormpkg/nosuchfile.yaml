@@ -1,6 +1,4 @@
-name: testpkg
+name: nosuchfile
 version: 0.0.1
-
-docs:
-    - title: newp
-      path: docs/newp.md
+files:
+    newp.dat: {}

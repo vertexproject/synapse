@@ -307,6 +307,7 @@ modeldefs = (
                 'template': {'title': 'story', 'syntax': 'markdown'},
                 'interfaces': (
                     ('doc:document', {}),
+                    ('doc:published', {}),
                 ),
                 'props': (
                     ('status', ('title', {}), {

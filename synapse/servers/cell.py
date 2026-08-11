@@ -15,7 +15,7 @@ async def main(argv, outp=s_output.stdout):
     if ctor is None:
         raise s_exc.NoSuchCtor(name=argv[0], mesg='No Cell ctor found.')
 
-    return await ctor.initFromArgv(argv[1:], outp=outp)
+    return await ctor.initFromArgv(argv[1:])
 
 if __name__ == '__main__':  # pragma: no cover
     asyncio.run(s_base.main(main(sys.argv[1:])))

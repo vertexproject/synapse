@@ -50,17 +50,20 @@ class BossTest(s_test.SynTest):
 
             self.len(1, boss.ps())
 
-            with self.getLoggerStream('synapse.lib.boss') as stream:
+            iden = s_common.guid()
 
-                iden = s_common.guid()
+            async def double_promote():
 
-                async def double_promote():
-                    await boss.promote('double', root, taskiden=iden)
-                    await boss.promote('double', root, taskiden=iden + iden)
+                synt = await boss.promote('double', root, taskiden=iden)
 
-                coro = boss.schedCoro(double_promote())
-                await stream.expect('Iden specified for existing task', timeout=6)
-                await coro
+                # promoting again with the same iden is a no-op
+                self.eq(synt, await boss.promote('double', root, taskiden=iden))
+
+                # ...but the caller may not be silently given a different one
+                with self.raises(s_exc.BadArg):
+                    await boss.promote('double', root, taskiden=s_common.guid())
+
+            await boss.schedCoro(double_promote())
 
             async with boss.shutdown_lock:
                 with self.raises(s_exc.ShuttingDown):

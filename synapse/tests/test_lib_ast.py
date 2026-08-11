@@ -19,8 +19,8 @@ import synapse.tests.utils as s_test
 foo_stormpkg = {
     'name': 'foo',
     'desc': 'The Foo Module',
-    'version': (0, 0, 1),
-    'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
+    'version': '0.0.1',
+    'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
     'modules': [
         {
             'name': 'hehe.haha',
@@ -1071,6 +1071,39 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('inet:fqdn=vertex.link -(refs)> newp:*')
 
+    async def test_ast_pivot_prop_valu(self):
+        # an explicit ":prop -> form" pivot falls back to norming the value as the
+        # destination type so disparate types which share values may be joined.
+        async with self.getTestCore() as core:
+
+            q = '''[
+                test:str=hehe
+                    :poly={[ test:str=Haha ]}
+                    :polyarry={[ test:str=Haha ]}
+            ]'''
+            await core.nodes(q)
+            await core.nodes('[ test:lowstr=haha test:int=1234 ]')
+
+            # the value references the destination form directly
+            nodes = await core.nodes('test:str=hehe :poly -> test:str')
+            self.eq([('test:str', 'Haha')], [n.ndef for n in nodes])
+
+            # test:lowstr is a different form which norms the same value
+            nodes = await core.nodes('test:str=hehe :poly -> test:lowstr')
+            self.eq([('test:lowstr', 'haha')], [n.ndef for n in nodes])
+
+            # a value which is not valid for the destination type is skipped
+            self.len(0, await core.nodes('test:str=hehe :poly -> test:int'))
+
+            # ...and the same for an array of poly values
+            nodes = await core.nodes('test:str=hehe :polyarry -> test:str')
+            self.eq([('test:str', 'Haha')], [n.ndef for n in nodes])
+
+            nodes = await core.nodes('test:str=hehe :polyarry -> test:lowstr')
+            self.eq([('test:lowstr', 'haha')], [n.ndef for n in nodes])
+
+            self.len(0, await core.nodes('test:str=hehe :polyarry -> test:int'))
+
     async def test_ast_valueas(self):
 
         async with self.getTestCore() as core:
@@ -1721,13 +1754,13 @@ class AstTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': '0.0.1',
-            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
         }
 
         stormpkg = {
             'name': 'stormpkg',
             'version': '1.2.3',
-            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
             'commands': (
                 {
                  'name': 'pkgcmd.old',
@@ -1739,7 +1772,7 @@ class AstTest(s_test.SynTest):
         stormpkgnew = {
             'name': 'stormpkg',
             'version': '1.2.4',
-            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
             'commands': (
                 {
                  'name': 'pkgcmd.new',
@@ -1751,13 +1784,7 @@ class AstTest(s_test.SynTest):
         jsonpkg = {
             'name': 'jsonpkg',
             'version': '1.2.3',
-            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
-            'docs': (
-                {
-                 'title': 'User Guide',
-                 'content': '# User Guide\n\nSuper cool guide.',
-                },
-            )
+            'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
         }
 
         async with self.getTestCore() as core:
@@ -1847,15 +1874,6 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('help pkgcmd')
             self.stormIsInPrint('pkgcmd.new', msgs)
             self.stormNotInPrint('pkgcmd.old', msgs)
-
-            msgs = await core.stormlist('pkg.docs asdf')
-            self.stormIsInWarn('Package (asdf) not found!', msgs)
-
-            msgs = await core.stormlist('pkg.docs stormpkg')
-            self.stormIsInPrint('Package (stormpkg) contains no documentation.', msgs)
-
-            msgs = await core.stormlist('pkg.docs jsonpkg')
-            self.stormIsInPrint('# User Guide\n\nSuper cool guide.', msgs)
 
     async def test_function(self):
         async with self.getTestCore() as core:
@@ -2760,7 +2778,7 @@ class AstTest(s_test.SynTest):
             ndefs = [n[0] for n in nodes]
 
             self.len(2, nodes)
-            self.eq(order, ['init', 'node:edits', 'node', 'print', 'node:edits', 'node', 'print', 'fini'])
+            self.eq(order, ['init', 'edits', 'node', 'print', 'edits', 'node', 'print', 'fini'])
             self.isin(('test:int', 0), ndefs)
             self.isin(('test:int', 1), ndefs)
 
@@ -3043,6 +3061,70 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('test:guid test:int | graph --no-edges')
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(0, nodes[0][1]['path']['edges'])
+
+            # a node deleted in a middle layer hides the edges below it, so the
+            # projection must not include them either
+            await core.nodes('[ test:str=x +(refs)> {[ test:int=1 ]} ]')
+
+            fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts00 = {'view': fork00}
+
+            fork01 = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts00)
+            opts01 = {'view': fork01}
+
+            await core.nodes('test:str=x | delnode --force', opts=opts00)
+            await core.nodes('[ test:str=x ]', opts=opts01)
+
+            nodes = await core.nodes('test:str=x', opts=opts01)
+            self.eq(1, nodes[0].lastlayr())
+            xnid = s_common.int64un(nodes[0].nid)
+
+            self.len(0, await core.nodes('test:str=x -(refs)> *', opts=opts01))
+
+            # give test:int=1 a live out edge of its own. without one it has no n1
+            # edges to count, so it would take the walk path no matter the limit and
+            # the probe fallback would never run.
+            await core.nodes('test:int=1 [ +(refs)> {[ test:str=y ]} ]', opts=opts01)
+
+            # edgelimit=0 covers the pair probe fallback, the default covers the walk
+            for edgelimit in (0, 3000):
+
+                opts = dict(opts01)
+                opts['graph'] = {'edges': True, 'degrees': 0, 'edgelimit': edgelimit}
+
+                msgs = await core.stormlist('test:str=x test:int=1', opts=opts)
+                nodes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(2, nodes)
+
+                for node in nodes:
+                    self.len(0, node[1]['path']['edges'])
+
+            # the edges of an existing node are walked up front rather than in the
+            # pipeline, so the deleted node must be bounded there as well or the
+            # (refs) edge below the tombstone comes back as a reverse edge.
+            opts = dict(opts01)
+            opts['graph'] = {'edges': True, 'degrees': 0, 'existing': (xnid,)}
+
+            msgs = await core.stormlist('test:int=1', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.len(0, nodes[0][1]['path']['edges'])
+
+            # a node which was delayed for having too many edges is probed in
+            # reverse when a later node arrives, which must be bounded too. give
+            # test:str=x enough live edges to be delayed at a limit which still
+            # lets test:int=1 take the walk path.
+            await core.nodes('test:str=x [ +(refs)> {[ test:str=a test:str=b ]} ]', opts=opts01)
+
+            opts = dict(opts01)
+            opts['graph'] = {'edges': True, 'degrees': 0, 'edgelimit': 1}
+
+            msgs = await core.stormlist('test:str=x test:int=1', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(2, nodes)
+
+            intnode = [n for n in nodes if n[0][0] == 'test:int'][0]
+            self.len(0, intnode[1]['path']['edges'])
 
     async def test_ast_storm_readonly(self):
 
@@ -3421,7 +3503,7 @@ class AstTest(s_test.SynTest):
 
                     # Shouldn't optimize this, make sure the edit happens
                     msgs = await core.stormlist('test:int | limit 1 | [:seen=now] +#notag')
-                    self.len(1, [m for m in msgs if m[0] == 'node:edits'])
+                    self.len(1, [m for m in msgs if m[0] == 'edits'])
                     self.len(0, [m for m in msgs if m[0] == 'node'])
                     self.eq(calls, [('prop', 'test:int')])
 
@@ -4069,6 +4151,21 @@ class AstTest(s_test.SynTest):
                 ])
 
                 self.true(node[1]['path'].get('graph:seed'))
+
+            self.len(1, nodes)
+
+            # an existing nid which was deleted in the view no longer resolves to a
+            # node, so it must be skipped rather than dereferenced
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkview = core.getView(fork)
+
+            await core.nodes('file:bytes | delnode --force', opts={'view': fork})
+
+            nodes = []
+
+            async for node in forkview.iterStormPodes('crypto:hash:md5', opts={'graph': rules}):
+                nodes.append(node)
+                self.len(0, node[1]['path'].get('edges'))
 
             self.len(1, nodes)
 

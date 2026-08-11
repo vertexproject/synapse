@@ -93,6 +93,8 @@ class Type:
         self.form = None  # this will reference a Form() if the type is a form
         self.subof = None  # This references the name that a type was extended from.
 
+        self.isext = name.startswith('_')
+
         self.info.setdefault('bases', ('base',))
         self.types = (self.name,) + self.info['bases'][::-1]
 
@@ -231,6 +233,29 @@ class Type:
 
         return await func(cmpr, valu)
 
+    def getSortKey(self, valu, virts=None, reverse=False):
+        '''
+        Return a sortable key used to order values of this type.
+
+        The default implementation returns the value itself, which is correct for
+        any type whose normalized value is directly comparable (such as int and
+        time). Types with a richer ordering override this to return a key which
+        sorts the way the type compares.
+
+        Args:
+            valu: The normalized value to order.
+            virts (dict): Optional virtual property values carried with the value.
+            reverse (bool): True when ordering to find the lowest value rather than
+                the highest. Types whose value spans a range (such as ival) use
+                this to choose which end of the range to order by.
+
+        Returns:
+            A key which may be compared against other keys from this type, or
+            s_common.novalu for a value which the type cannot order. Callers skip
+            values which have no ordering.
+        '''
+        return valu
+
     def getVirtIndx(self, virt):
         indx = self.virtindx.get(virt, s_common.novalu)
         if indx is s_common.novalu:
@@ -292,6 +317,7 @@ class Type:
         props = {
             'doc': self.info.get('doc'),
             'ctor': ctor,
+            'extmodel': self.isext,
         }
 
         opts = {k: v for k, v in self.opts.items()}
@@ -2966,6 +2992,11 @@ class Ival(Type):
             (cmpr, (norm, futstart), self.stortype),
         )
 
+    def getSortKey(self, valu, virts=None, reverse=False):
+        # an interval is ordered by the end being sought: its min when looking for
+        # the lowest value and its max when looking for the highest
+        return valu[0] if reverse else valu[1]
+
     def _getMin(self, valu):
         if valu is None:
             return None
@@ -3733,6 +3764,18 @@ class Poly(Type):
 
             return valu.ndef, {'skipadd': True, 'virts': valu.valuvirts()}
 
+        # The node's own type is a subtype of an accepted type. Re-norm its
+        # value and store it under the accepted ancestor type.
+        if self.typefilter(valu.form.type):
+
+            if valu.form.locked or valu.form.type.locked:
+                formname = valu.form.name
+                raise s_exc.IsDeprLocked(mesg=f'Value of form {formname} is locked due to deprecation.', form=formname)
+
+            norm, typeinfo = await valu.form.type.norm(valu.ndef[1], view=view)
+            realtype = self._canonType(valu.ndef[0], valu.form.type, valu.form)
+            return await self.packTypedNorm(realtype, norm, typeinfo, view=view)
+
         # The node's form is not directly allowed, but an accepted type may be a
         # more specific version of it (e.g. an inet:ip node for an inet:ipv4
         # field). Re-norm the node's value through the narrower declared type so
@@ -3746,7 +3789,7 @@ class Poly(Type):
 
             return await self.packTypedNorm(subtype.name, norm, typeinfo, view=view)
 
-        self._raiseBadTypeValu(valu.form.name)
+        return await self.norm(valu.ndef[1], view=view)
 
     async def _normStormValu(self, valu, view=None):
 
@@ -3755,7 +3798,7 @@ class Poly(Type):
         form = self.modl.form(typename)
 
         if not self.typefilter(tobj) and (form is None or not self.formfilter(form)):
-            self._raiseBadTypeValu(typename)
+            return await self.norm(valu.valu[1], view=view)
 
         if tobj.locked or (form is not None and form.locked):
             raise s_exc.IsDeprLocked(mesg=f'Value of type {typename} is locked due to deprecation.', type=typename)
@@ -3769,8 +3812,8 @@ class Poly(Type):
 
         norm, typeinfo = await tobj.norm(valu.valu[1], view=view)
 
-        tag = self._canonType(typename, tobj, form)
-        return await self.packTypedNorm(tag, norm, typeinfo, view=view)
+        realtype = self._canonType(typename, tobj, form)
+        return await self.packTypedNorm(realtype, norm, typeinfo, view=view)
 
     async def normFromTypedValu(self, valu, view=None):
         '''
@@ -3794,15 +3837,15 @@ class Poly(Type):
         form = self.modl.form(typename)
 
         if not self.acceptsType(typename):
-            self._raiseBadTypeValu(typename)
+            return await self.norm(pval, view=view)
 
         if tobj.locked or (form is not None and form.locked):
             raise s_exc.IsDeprLocked(mesg=f'Value of type {typename} is locked due to deprecation.', type=typename)
 
         norm, typeinfo = await tobj.normFromTypedValu(pval, view=view)
 
-        tag = self._canonType(typename, tobj, form)
-        return await self.packTypedNorm(tag, norm, typeinfo, view=view)
+        realtype = self._canonType(typename, tobj, form)
+        return await self.packTypedNorm(realtype, norm, typeinfo, view=view)
 
     async def packTypedNorm(self, typename, norm, typeinfo, view=None):
         '''
@@ -3945,6 +3988,14 @@ class Str(Type):
         ('onespace', False),
         ('globsuffix', False),
     )
+
+    def getSortKey(self, valu, virts=None, reverse=False):
+        # strings order lexically, case insensitively so that the ordering does not
+        # depend on how the value happens to be capitalized
+        if isinstance(valu, str):
+            return valu.lower()
+
+        return valu
 
     def repr(self, norm):
         return norm

@@ -3,7 +3,7 @@ version: 1.2.3
 
 dependencies:
   synapse:
-    version: ">=3.0.0b4,<4.0.0"
+    version: ">=3.0.0b5,<4.0.0"
 
 genopts:
   dotstorm: true
@@ -13,16 +13,6 @@ author:
   name: The Vertex Project, LLC.
 
 desc: The test package does things
-
-docs:
-    - title: Foo
-      path: docs/_build/foo.md
-    - title: Bar
-      path: docs/_build/bar.md
-    - title: Tables
-      path: docs/_build/tables.md
-    - title: Package Documentation
-      path: docs/_build/stormpackage.md
 
 modules:
   - name: testmod

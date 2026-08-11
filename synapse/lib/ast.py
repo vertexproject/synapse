@@ -455,6 +455,10 @@ class SubGraph:
 
             for nid in existing:
                 othr = await node.view.getNodeByNid(s_common.int64en(nid))
+                if othr is None:
+                    await asyncio.sleep(0)
+                    continue
+
                 for propname, ndef in othr.getNodeRefs():
                     if ndef == node.ndef:
                         yield (othr, path, {'type': 'prop', 'prop': propname, 'reverse': True})
@@ -490,8 +494,11 @@ class SubGraph:
                 await asyncio.sleep(0)
                 yield (intnid1, {'type': 'edge', 'verb': verb})
 
-            # for existing nodes, we need to add n2 -> n1 edges in reverse
-            async for verb in runt.view.iterEdgeVerbs(nid1, node.nid):
+            # for existing nodes, we need to add n2 -> n1 edges in reverse. the edges
+            # belong to nid1, so they stop at the layer which deleted nid1.
+            stop = runt.view.getStopLayr(nid1)
+
+            async for verb in runt.view.iterEdgeVerbs(nid1, node.nid, stop=stop):
                 await asyncio.sleep(0)
                 yield (intnid1, {'type': 'edge', 'verb': verb, 'reverse': True})
 
@@ -533,7 +540,9 @@ class SubGraph:
                         await n1delayed.add(nid)
                         continue
 
-                    async for verb, n2nid in runt.view.iterNodeEdgesN1(nid):
+                    stop = runt.view.getStopLayr(nid)
+
+                    async for verb, n2nid in runt.view.iterNodeEdgesN1(nid, stop=stop):
                         await asyncio.sleep(0)
 
                         if n2nid in results:
@@ -632,7 +641,7 @@ class SubGraph:
                     else:
                         # Try to lift and cache the potential edges for a node so that if we end up
                         # seeing n2 later, we won't have to go back and check for it
-                        async for verb, n2nid in runt.view.iterNodeEdgesN1(nid):
+                        async for verb, n2nid in runt.view.iterNodeEdgesN1(nid, stop=node.lastlayr()):
                             await asyncio.sleep(0)
 
                             if (re := revedge.get(n2nid)) is None:
@@ -658,7 +667,11 @@ class SubGraph:
                         async for n1nid in n1delayed:
                             n1intnid = s_common.int64un(n1nid)
 
-                            async for verb in runt.view.iterEdgeVerbs(n1nid, nid):
+                            # the edges belong to n1nid, so they stop at the layer
+                            # which deleted n1nid.
+                            stop = runt.view.getStopLayr(n1nid)
+
+                            async for verb in runt.view.iterEdgeVerbs(n1nid, nid, stop=stop):
                                 await asyncio.sleep(0)
                                 edges.append((n1intnid, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
@@ -2867,12 +2880,7 @@ class FormPivot(PivotOper):
 
                     refsvalu = node.get(refsname)
                     if refsvalu is not None and refsvalu[0] == destform.name:
-                        if destform.isrunt:
-                            link = {'type': 'prop', 'prop': refsname}
-                            async for pivo in runt.view.nodesByPropValu(destform.name, '=', refsvalu[1]):
-                                yield pivo, link
-
-                        elif (pivo := await runt.view.getNodeByNdef(refsvalu)) is not None:
+                        if (pivo := await runt.view.getNodeByNdef(refsvalu, runts=True)) is not None:
                             yield pivo, {'type': 'prop', 'prop': refsname}
 
                 for refsname in refs.get('ndefarray'):
@@ -2885,7 +2893,7 @@ class FormPivot(PivotOper):
                         link = {'type': 'prop', 'prop': refsname}
                         for aval in refsvalu:
                             if aval[0] == destform.name:
-                                if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
+                                if (pivo := await runt.view.getNodeByNdef(aval, runts=True)) is not None:
                                     yield pivo, link
 
                 #########################################################################
@@ -3032,7 +3040,7 @@ class PropPivotOut(PivotOper):
                     continue
 
                 for item in valu:
-                    if (pivo := await runt.view.getNodeByNdef(item)) is not None:
+                    if (pivo := await runt.view.getNodeByNdef(item, runts=True)) is not None:
                         yield pivo, path.fork(pivo, link)
 
                 continue
@@ -3048,7 +3056,7 @@ class PropPivotOut(PivotOper):
             # A node explicitly deleted in the graph or missing from a underlying layer
             # could cause this lift to return None.
             for formname in runt.model.getChildForms(fname):
-                if (pivo := await runt.view.getNodeByNdef((formname, valu))) is not None:
+                if (pivo := await runt.view.getNodeByNdef((formname, valu), runts=True)) is not None:
                     yield pivo, path.fork(pivo, link)
                     break
 
@@ -3056,6 +3064,15 @@ class PropPivot(PivotOper):
     '''
     :foo -> bar:foo
     '''
+
+    async def valupivot(self, runt, prop, valu):
+        '''
+        Pivot to a form by norming the source value as the destination type.
+
+        Values which are not valid for the destination type are skipped rather than raising.
+        '''
+        async for pivo in runt.view.nodesByPropValu(prop.form.name, '?=', valu, norm=True):
+            yield pivo
 
     def pivogenr(self, runt, prop, virt=None):
 
@@ -3101,15 +3118,18 @@ class PropPivot(PivotOper):
                 if prop.isform:
                     formname = prop.form.name
                     for aval in valu:
-                        if aval[0] != formname:
+
+                        # the array element references the destination form directly
+                        if aval[0] == formname:
+
+                            if (pivo := await runt.view.getNodeByNdef(aval, runts=True)) is not None:
+                                yield pivo, link
+
                             continue
 
-                        if prop.isrunt:
-                            async for pivo in runt.view.nodesByPropValu(formname, '=', aval[1]):
-                                yield pivo, link
-                        else:
-                            if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
-                                yield pivo, link
+                        async for pivo in self.valupivot(runt, prop, aval[1]):
+                            yield pivo, link
+
                     return
 
                 cmpr = '='
@@ -3124,14 +3144,11 @@ class PropPivot(PivotOper):
 
             if prop.isform:
                 if srctype.name != prop.form.name:
-                    return
-
-                if prop.isrunt:
-                    async for pivo in runt.view.nodesByPropValu(prop.form.name, '=', valu):
+                    async for pivo in self.valupivot(runt, prop, valu):
                         yield pivo, link
                     return
 
-                if (pivo := await runt.view.getNodeByNdef((prop.form.name, valu))) is not None:
+                if (pivo := await runt.view.getNodeByNdef((prop.form.name, valu), runts=True)) is not None:
                     yield pivo, link
 
                 return

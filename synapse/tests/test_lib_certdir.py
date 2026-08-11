@@ -2,8 +2,10 @@ import os
 import ssl
 import datetime
 import contextlib
+import unittest.mock as mock
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 import synapse.common as s_common
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
@@ -54,8 +56,8 @@ class CertDirTest(s_t_utils.SynTest):
         pubkey = cert.public_key()
 
         # Make sure the certs were generated with the expected number of bits
-        self.eq(pubkey.key_size, cdir.crypto_numbits)
-        self.eq(key.key_size, cdir.crypto_numbits)
+        self.eq(pubkey.key_size, cdir._rsa_key_size)
+        self.eq(key.key_size, cdir._rsa_key_size)
 
         # Make sure the certs were generated with the correct version number
         self.eq(cert.version.value, 2)
@@ -763,6 +765,101 @@ class CertDirTest(s_t_utils.SynTest):
 
             cdir.valCodeCert(byts3)
 
+    async def test_certdir_shipped_cas(self):
+        '''
+        The CA material shipped in synapse/data/certs must be loadable.
+
+        This is deliberately structural rather than pinned to specific CA
+        names or dates so that it keeps holding across CA rotations. Every
+        Cell loads this certdir, so anything unparsable here breaks all code
+        cert verification.
+        '''
+        cdir = s_certdir.CertDir(path=s_data.path('certs'))
+
+        # every file in cas/ parses as a certificate
+        cacerts = cdir.getCaCerts()
+        self.gt(len(cacerts), 0)
+
+        # every file in crls/ either parses as a CRL or is an empty envelope
+        crls = cdir._getCaCrls()
+
+        # each shipped CA is currently within its validity window
+        now = datetime.datetime.now(datetime.UTC)
+        for cacert in cacerts:
+            self.lt(cacert.not_valid_before_utc, now)
+            self.gt(cacert.not_valid_after_utc, now)
+
+        # each shipped CA chains up to a self-signed root which we also ship
+        for cacert in cacerts:
+            if cacert.issuer == cacert.subject:
+                continue
+
+            cdir._verifyChain(cacert, cacerts, crls)
+
+        # a CRL we ship must be issued by a CA we ship
+        subjects = [cacert.subject for cacert in cacerts]
+        for crl in crls:
+            self.isin(crl.issuer, subjects)
+
+    async def test_certdir_bad_crl_file(self):
+        '''A malformed .crl in the certdir raises BadCertBytes naming the file.'''
+        with self.getCertDir() as cdir:
+
+            path = cdir.genCrlPath('Bad CA')
+            with s_common.genfile(path) as fd:
+                fd.truncate(0)
+                fd.write(b'-----BEGIN X509 CRL-----\nZm9vYmFy\n-----END X509 CRL-----\n')
+
+            with self.raises(s_exc.BadCertBytes) as cm:
+                cdir._getCaCrls()
+
+            self.isin('Unable to load CRL', cm.exception.get('mesg'))
+            self.isin('Bad CA.crl', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.BadCertBytes):
+                cdir.genCaCrl('Bad CA')
+
+    async def test_certdir_empty_crl(self):
+        '''An empty CRL envelope is treated as a CA which has revoked nothing.'''
+        with self.getCertDir() as cdir:
+
+            caname = 'Empty CRL CA'
+            codename = 'Empty CRL Code Signer'
+
+            cdir.genCaCert(caname)
+            cdir.genCodeCert(codename, signas=caname)
+
+            with s_common.genfile(cdir.genCrlPath(caname)) as fd:
+                fd.truncate(0)
+                fd.write(b'-----BEGIN X509 CRL-----\n-----END X509 CRL-----\n')
+
+            # the empty envelope yields no CRLs rather than raising
+            self.eq([], cdir._getCaCrls())
+
+            with s_common.genfile(cdir.getCodeCertPath(codename)) as fd:
+                byts = fd.read()
+
+            self.nn(cdir.valCodeCert(byts))
+
+            # revoking replaces the empty envelope with a real signed CRL
+            crl = cdir.genCaCrl(caname)
+            crl.revoke(cdir.getCodeCert(codename))
+
+            self.len(1, cdir._getCaCrls())
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+
+            self.isin('certificate revoked', cm.exception.get('mesg'))
+
+    def test_certdir_empty_crl_pem(self):
+        self.true(s_certdir._isEmptyCrlPem(b'-----BEGIN X509 CRL-----\n-----END X509 CRL-----\n'))
+        self.true(s_certdir._isEmptyCrlPem(b'-----BEGIN X509 CRL-----\r\n-----END X509 CRL-----\r\n'))
+        self.true(s_certdir._isEmptyCrlPem(b'\n-----BEGIN X509 CRL-----\n\n-----END X509 CRL-----'))
+        self.false(s_certdir._isEmptyCrlPem(b'-----BEGIN X509 CRL-----\nZm9vYmFy\n-----END X509 CRL-----\n'))
+        self.false(s_certdir._isEmptyCrlPem(b''))
+        self.false(s_certdir._isEmptyCrlPem(b'-----BEGIN X509 CRL-----\n'))
+
     async def test_cortex_codesign(self):
 
         async with self.getTestCore() as core:
@@ -813,6 +910,36 @@ class CertDirTest(s_t_utils.SynTest):
                 opts = {'vars': {'pkgdef': pkgdef}}
                 self.none(await core.callStorm('return($lib.pkg.add($pkgdef, verify=(true)))', opts=opts))
 
+                # an already built package can be re-signed under a new identity
+                codename2 = 'Test Build Pipeline Redux'
+                _, codecert2 = core.certdir.genCodeCert(codename2, signas=immname)
+
+                retn = await s_genpkg.main((
+                    '--signas', codename2,
+                    '--certdir', certpath,
+                    '--no-build',
+                    '--save', jsonpath,
+                    jsonpath))
+                self.eq(0, retn)
+
+                resigned = s_common.yamlload(jsonpath)
+                signdef = resigned['metadata']['codesign']
+
+                self.ne(signdef['sign'], pkgorig['metadata']['codesign']['sign'])
+                self.eq(codecert2.subject, core.certdir.loadCertByts(signdef['cert'].encode()).subject)
+
+                # the rest of the package is untouched by the re-sign
+                nosign = s_msgpack.deepcopy(resigned)
+                nosign.pop('metadata')
+
+                origdef = s_msgpack.deepcopy(pkgorig)
+                origdef.pop('metadata')
+
+                self.eq(nosign, origdef)
+
+                opts = {'vars': {'pkgdef': resigned}}
+                self.none(await core.callStorm('return($lib.pkg.add($pkgdef, verify=(true)))', opts=opts))
+
                 with self.raises(s_exc.BadPkgDef) as exc:
                     pkgdef['version'] = '0.0.2'
                     await core.addStormPkg(pkgdef, verify=True)
@@ -824,35 +951,35 @@ class CertDirTest(s_t_utils.SynTest):
                 self.eq(exc.exception.get('mesg'), 'Storm package signature does not match!')
 
                 with self.raises(s_exc.BadPkgDef) as exc:
-                    pkgdef['codesign'].pop('sign', None)
+                    pkgdef['metadata']['codesign'].pop('sign', None)
                     await core.addStormPkg(pkgdef, verify=True)
                 self.eq(exc.exception.get('mesg'), 'Storm package has no signature!')
 
                 with self.raises(s_exc.BadPkgDef) as exc:
-                    pkgdef['codesign'].pop('cert', None)
+                    pkgdef['metadata']['codesign'].pop('cert', None)
                     await core.addStormPkg(pkgdef, verify=True)
                 self.eq(exc.exception.get('mesg'), 'Storm package has no certificate!')
 
                 with self.raises(s_exc.BadPkgDef) as exc:
-                    pkgdef.pop('codesign', None)
+                    pkgdef.pop('metadata', None)
                     await core.addStormPkg(pkgdef, verify=True)
 
                 self.eq(exc.exception.get('mesg'), 'Storm package is not signed!')
 
                 with self.raises(s_exc.BadPkgDef) as exc:
-                    await core.addStormPkg({'codesign': {'cert': 'foo', 'sign': 'bar'}}, verify=True)
+                    await core.addStormPkg({'metadata': {'codesign': {'cert': 'foo', 'sign': 'bar'}}}, verify=True)
                 self.eq(exc.exception.get('mesg'), 'Storm package has malformed certificate!')
 
                 cert = '''-----BEGIN CERTIFICATE-----\nMIIE9jCCAt6'''
                 with self.raises(s_exc.BadPkgDef) as exc:
-                    await core.addStormPkg({'codesign': {'cert': cert, 'sign': 'bar'}}, verify=True)
+                    await core.addStormPkg({'metadata': {'codesign': {'cert': cert, 'sign': 'bar'}}}, verify=True)
                 self.eq(exc.exception.get('mesg'), 'Storm package has malformed certificate!')
 
                 usercertpath = core.certdir.getUserCertPath('notCodeCert')
                 with s_common.genfile(usercertpath) as fd:
                     cert = fd.read().decode()
                 with self.raises(s_exc.BadCertBytes) as exc:
-                    await core.addStormPkg({'codesign': {'cert': cert, 'sign': 'bar'}}, verify=True)
+                    await core.addStormPkg({'metadata': {'codesign': {'cert': cert, 'sign': 'bar'}}}, verify=True)
                 self.eq(exc.exception.get('mesg'), 'Certificate is not for code signing.')
 
                 # revoke our code signing cert and attempt to load
@@ -931,6 +1058,85 @@ class CertDirTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadCertBytes) as cm:
                 cdir._loadKeyPath(path)
             self.isin('Key is ECPrivateKey, expected a DSA or RSA key', cm.exception.get('mesg'))
+
+    def test_certdir_rsa_key_size(self):
+
+        with mock.patch.object(s_certdir.CertDir, '_rsa_key_size', 4096):
+            with self.getCertDir() as cdir:
+                self.eq(cdir._rsa_key_size, 4096)
+                pkey, cert = cdir.genCaCert('numbitsdefault')
+                self.eq(pkey.key_size, 4096)
+
+                # a per-instance override still wins and is picked up by keygen
+                cdir._rsa_key_size = 2048
+                pkey, cert = cdir.genCaCert('numbitsoverride')
+                self.eq(pkey.key_size, 2048)
+
+        with mock.patch.object(s_certdir.CertDir, '_rsa_key_size', 3072):
+            with self.getCertDir() as cdir:
+                self.eq(cdir._rsa_key_size, 3072)
+                pkey, cert = cdir.genCaCert('numbitsclass')
+                self.eq(pkey.key_size, 3072)
+
+    def test_certdir_keycache(self):
+
+        with self.getCertDir() as cdir:
+            caname = 'keycachetest'
+            cdir.genCaCert(caname)
+            keypath = cdir.getCaKeyPath(caname)
+
+            origkey = cdir.getCaKey(caname)
+            self.isinstance(origkey, c_rsa.RSAPrivateKey)
+
+            # a repeat load resolves from the cache rather than re-parsing the PEM bytes
+            with mock.patch.object(c_serialization, 'load_pem_private_key',
+                                   wraps=c_serialization.load_pem_private_key) as patched:
+                cached = cdir.getCaKey(caname)
+                self.eq(0, patched.call_count)
+
+            self.eq(origkey.private_numbers(), cached.private_numbers())
+
+            # regenerating the key at the same path (mtime/size change) invalidates the entry.
+            # genCaCert refuses to overwrite an existing file, so unlink first, mirroring how
+            # AHA provisioning replaces a host/user cert (see aha.py ProvApi.signHostCsr).
+            certpath = cdir.getCaCertPath(caname)
+            os.unlink(keypath)
+            os.unlink(certpath)
+            newkey, newcert = cdir.genCaCert(caname)
+            reloaded = cdir.getCaKey(caname)
+            self.ne(origkey.private_numbers(), reloaded.private_numbers())
+            self.eq(newkey.private_numbers(), reloaded.private_numbers())
+
+            # a missing path returns None without touching the cache
+            missing = cdir._getPathJoin('cas', 'nosuchca.key')
+            self.none(cdir._loadKeyPath(missing))
+
+            # explicit path form, not routed through getCaKey/getCaKeyPath
+            self.isinstance(cdir._loadKeyPath(keypath), c_rsa.RSAPrivateKey)
+            self.none(cdir._loadKeyPath(None))
+
+            # a file exists (so os.stat succeeds) but is empty -- read comes back falsy
+            emptypath = cdir._getPathJoin('cas', 'emptyca.key')
+            with s_common.genfile(emptypath):
+                pass
+            self.none(cdir._loadKeyPath(emptypath))
+
+    def test_certdir_keycache_eviction(self):
+
+        with mock.patch.object(s_certdir.CertDir, '_keycache_max', 2):
+            with self.getCertDir() as cdir:
+                names = ['evict0', 'evict1', 'evict2']
+                for name in names:
+                    cdir.genCaCert(name)
+                    cdir.getCaKey(name)
+
+                # cache is bounded: the oldest entry (evict0) was evicted, the two most
+                # recent survive
+                self.len(2, cdir._keycache)
+                cachekeys = [k[0] for k in cdir._keycache]
+                self.notin(cdir.getCaKeyPath('evict0'), cachekeys)
+                self.isin(cdir.getCaKeyPath('evict1'), cachekeys)
+                self.isin(cdir.getCaKeyPath('evict2'), cachekeys)
 
     # -------------------------------------------------------------------
     # Test helpers for adversarial / edge-case tests

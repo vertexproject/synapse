@@ -58,6 +58,7 @@ Storage Node (<sode>)
 '''
 import os
 import math
+import heapq
 import shutil
 import struct
 import asyncio
@@ -80,6 +81,7 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
 
 import synapse.lib.config as s_config
+import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -101,9 +103,27 @@ reqValidLdef = s_config.getJsValidator({
         'lmdb:growsize': {'type': 'integer'},
         'cache:size': {'type': ['integer', 'null'], 'minimum': 1},
         'name': {'type': 'string'},
+        'desc': {'type': 'string'},
         'readonly': {'type': 'boolean', 'default': False},
+        # These are populated onto the def after the layer exists, but a def read back
+        # off a live layer gets revalidated (see Cortex._twinLayer), so they belong on
+        # the schema.
+        #
+        # model:version is written only by modelrev and the forward wind in
+        # Cortex._addLayer(), but pack() hands the whole layrinfo out, so it is also
+        # part of the layer shape which callers read.
+        'model:version': {'type': 'array', 'items': {'type': 'integer'}},
+        # Both are keyed by pdef iden, so the key space is open and each value is a pdef.
+        'pushs': {
+            'type': 'object',
+            'additionalProperties': s_msgpack.deepcopy(s_schemas.layerPushPullSchema, use_list=True),
+        },
+        'pulls': {
+            'type': 'object',
+            'additionalProperties': s_msgpack.deepcopy(s_schemas.layerPushPullSchema, use_list=True),
+        },
     },
-    'additionalProperties': True,
+    'additionalProperties': False,
     'required': ['iden', 'creator'],
 })
 
@@ -232,6 +252,8 @@ STOR_TYPE_PRICERANGE = 31
 
 STOR_TYPE_COMP = 32
 
+STOR_TYPE_VERS = 33
+
 # the maximum magnitude of a valid hugenum (mirrors synapse.lib.types.hugemax;
 # duplicated here to avoid the types <-> layer import cycle).
 HUGE_MAX = 730750818665451459101842
@@ -303,6 +325,8 @@ INDX_IVAL_DURATION = b'\x00\x0b'
 INDX_PRICERANGE_MAX = b'\x00\x14'
 INDX_PRICERANGE_DELTA = b'\x00\x15'
 INDX_PRICERANGE_RATE = b'\x00\x16'
+
+INDX_VERS_INDEX = b'\x00\x17'
 
 INDX_NODEDATA = b'\x00\x0c'
 
@@ -897,6 +921,28 @@ class IndxByPropIvalDuration(IndxBy):
 
         self.form = form
         self.prop = prop
+
+class IndxByPropVersIndex(IndxBy):
+
+    def __init__(self, layr, form, prop):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.core.getIndxAbrv(INDX_VERS_INDEX, form, prop)
+        IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
+
+        self.form = form
+        self.prop = prop
+
+    def getSodeValu(self, sode):
+        # it:version is always a poly-wrapped secondary prop, so the stored
+        # value is (typename, realstring); unwrap to the real version string
+        # for the refine pass.
+        valt = sode['props'].get(self.prop)
+        if valt is not None:
+            return valt[0][1]
+
+        return s_common.novalu
 
 class IndxByPropPriceRangeMin(IndxByPoly):
 
@@ -2264,6 +2310,95 @@ class StorTypePriceRange(StorType):
         async for item in liftby.keyNidsByRange(self.zerobyts, maxindx, reverse=reverse):
             yield item
 
+class StorTypeVers(StorTypeUtf8):
+    '''
+    Storage type for it:version. The primary value/index is a plain UTF8 string
+    (inherited from StorTypeUtf8), so =, ~=, ^= behave exactly like a normal
+    string. Ordered/range comparisons (>=, <=, range=) instead lift a coarse
+    superset from a dedicated sortable-integer side index (INDX_VERS_INDEX,
+    populated from the type's '_index' virt in _editPropSet/_editPropDel) and
+    then refine each candidate against its real stored string via an opaque
+    predicate supplied by the type -- so this layer never needs to know PEP 440
+    or import packaging. (Similar in spirit to _liftUtf8Prefix / _liftRegx:
+    coarse scan, then check the real sode value.)
+    '''
+    def __init__(self, layr):
+        StorTypeUtf8.__init__(self, layr)
+        self.stortype = STOR_TYPE_VERS
+
+        # >, < are pre-widened to >=, <= by ItVersion.getStorCmprs before the
+        # cmprval reaches the layer, so only these three need version handling.
+        self.lifters.update({
+            '>=': self._liftVersGe,
+            '<=': self._liftVersLe,
+            'range=': self._liftVersRange,
+        })
+
+    async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virt=None):
+        try:
+            indxby = IndxByPropVersIndex(self.layr, form, prop)
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+            yield item
+
+    async def _liftVers(self, liftby, minindx, maxindx, refine, reverse=False):
+        async for lkey, nid in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+            await asyncio.sleep(0)
+
+            if (real := liftby.getNodeValu(nid)) is s_common.novalu:
+                continue
+
+            if await refine(real):
+                yield lkey, nid
+
+    async def _liftVersGe(self, liftby, valu, reverse=False):
+        bound, refine = valu
+        u128 = self.layr.stortypes[STOR_TYPE_U128]
+        async for item in self._liftVers(liftby, u128.getIntIndx(bound), u128.fullbyts, refine, reverse=reverse):
+            yield item
+
+    async def _liftVersLe(self, liftby, valu, reverse=False):
+        bound, refine = valu
+        u128 = self.layr.stortypes[STOR_TYPE_U128]
+        async for item in self._liftVers(liftby, u128.zerobyts, u128.getIntIndx(bound), refine, reverse=reverse):
+            yield item
+
+    async def _liftVersRange(self, liftby, valu, reverse=False):
+        (minb, maxb), refine = valu
+        u128 = self.layr.stortypes[STOR_TYPE_U128]
+        async for item in self._liftVers(liftby, u128.getIntIndx(minb), u128.getIntIndx(maxb), refine, reverse=reverse):
+            yield item
+
+    def _versIndxKey(self, form, prop, virts):
+        # the coarse sortable-int side-index row for it:version, encoded from the
+        # type's internal '_index' virt (a (coarse_int, STOR_TYPE_U128) pair set
+        # in _normPyStr). Non-PEP-440 strings never get an '_index', so they have
+        # no side-index row and simply never match an ordered/range lift.
+        if virts is None or (idxvalt := virts.get('_index')) is None:
+            return None
+
+        abrv = self.layr.core.setIndxAbrv(INDX_VERS_INDEX, form, prop)
+        return abrv + self.layr.getStorIndx(idxvalt[1], idxvalt[0])[0]
+
+    def getVirtIndxVals(self, nid, form, prop, virts, isarray=False, poly=False):
+        # '_index' is skipped by the generic packer (name[0] == '_'), so handle
+        # its dedicated side index here; any other (non-underscore) virt, e.g.
+        # 'semver', still goes through the normal virtual index.
+        kvpairs = list(super().getVirtIndxVals(nid, form, prop, virts, isarray=isarray, poly=poly))
+
+        if (key := self._versIndxKey(form, prop, virts)) is not None:
+            kvpairs.append((key, nid))
+
+        return kvpairs
+
+    def delVirtIndxVals(self, nid, form, prop, virts, isarray=False, poly=False):
+        super().delVirtIndxVals(nid, form, prop, virts, isarray=isarray, poly=poly)
+
+        if (key := self._versIndxKey(form, prop, virts)) is not None:
+            self.layr.layrslab.delete(key, nid, db=self.layr.indxdb)
+
 class StorTypeMsgp(StorType):
 
     def __init__(self, layr):
@@ -2486,6 +2621,16 @@ class StorTypePoly(StorType):
                         indxby = IndxByPolyVirt(self.layr, form, prop, virt, realtype)
                 else:
                     valu, typenames = valu
+
+                    # it:version answers ordered/range comparisons on the bare
+                    # value via StorTypeVers' dedicated side index; route those
+                    # through its indxByProp (which builds the side-index
+                    # IndxBy) rather than the main IndxByPoly index.
+                    if realtype == STOR_TYPE_VERS and cmpr in ('>=', '<=', 'range='):
+                        async for item in self.layr.stortypes[realtype].indxByProp(form, prop, cmpr, valu, reverse=reverse):
+                            yield item
+                        return
+
                     indxby = IndxByPoly(self.layr, form, prop, realtype, typenames=typenames)
 
                 async for item in self.layr.stortypes[realtype].indxBy(indxby, cmpr, valu, reverse=reverse):
@@ -2753,11 +2898,17 @@ class StorTypeNodeProp(StorType):
             yield item
 
 class SodeEnvl:
+
+    # envls are sort neutral, so a sort which falls back to one keeps whatever order the caller
+    # already established. __eq__ tests the type rather than returning True because an
+    # unconditional True would also make an envl equal to None and to any other object.
+    __hash__ = object.__hash__
+
     def __init__(self, layriden, sode):
         self.layriden = layriden
         self.sode = sode
 
-    # any sorting that falls back to the envl are equal already...
+    def __eq__(self, envl): return isinstance(envl, SodeEnvl)
     def __lt__(self, envl): return False
 
 class Layer(s_nexus.Pusher):
@@ -2844,6 +2995,8 @@ class Layer(s_nexus.Pusher):
             StorTypePriceRange(self),
 
             StorTypeComp(self),
+
+            StorTypeVers(self),
         ]
 
         self.polytype = self.stortypes[STOR_TYPE_POLY]
@@ -3489,16 +3642,12 @@ class Layer(s_nexus.Pusher):
         self.lastindx = self.editindx.get('edit:indx')
         self.lastedittime = self.editindx.get('edit:time', defv=None)
 
-        metadb = self.layrslab.initdb('layer:meta')
-        self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
-
         self.bynid = self.layrslab.initdb('bynid')
 
         self.indxdb = self.layrslab.initdb('indx', dupsort=True, dupfixed=True)
 
         self.edgen1abrv = self.core.setIndxAbrv(INDX_EDGE_N1)
         self.edgen2abrv = self.core.setIndxAbrv(INDX_EDGE_N2)
-        self.edgen1n2abrv = self.core.setIndxAbrv(INDX_EDGE_N1N2)
 
         self.indxcounts = await self.layrslab.getLruHotCount('indxcounts')
 
@@ -3509,11 +3658,9 @@ class Layer(s_nexus.Pusher):
 
         slabopts = {
             'readahead': s_common.envbool('SYNDEV_CORTEX_LAYER_READAHEAD', 'true'),
-            # a nexuscommit Cortex commits its layer slabs after each nexus
-            # transaction (Slab.commitDirtyNow) rather than on the timed pulse;
-            # such slabs also do not fire the 'commit' event, so _storNodeEdits
-            # flushes the layer's buffered writers itself (see _saveDirty).
-            'commitpulse': not self.core.nexuscommit,
+            # these slabs hold what the layer's nexus handlers write, so they are
+            # committed per transaction rather than by the timed pulse
+            'commitpulse': False,
         }
 
         if self.core.readonly:
@@ -3524,23 +3671,11 @@ class Layer(s_nexus.Pusher):
 
         await self._initSlabs(slabopts)
 
-        if self.fresh:
-            self.meta.set('version', 11)
-
         self.layrslab.addResizeCallback(self.core.checkFreeSpace)
         self.dataslab.addResizeCallback(self.core.checkFreeSpace)
 
         self.onfini(self.layrslab)
         self.onfini(self.dataslab)
-
-        # readonly layers never have dirty sodes to flush on commit.
-        if not self.core.readonly and self.layrslab.commitpulse:
-            self.layrslab.on('commit', self._onLayrSlabCommit)
-
-        self.layrvers = self.meta.get('version', 11)
-        if self.layrvers != 11:
-            mesg = f'Got layer version {self.layrvers}.  Expected 10.  Accidental downgrade?'
-            raise s_exc.BadStorageVersion(mesg=mesg)
 
     async def getLayerSize(self):
         '''
@@ -3633,9 +3768,6 @@ class Layer(s_nexus.Pusher):
         for form, tag, prop in self.getTagPropIndexes():
             if form is None and tag is not None:
                 yield tag, prop
-
-    async def _onLayrSlabCommit(self, mesg):
-        await self._saveDirtySodes()
 
     async def _saveDirtySodes(self):
 
@@ -4505,7 +4637,7 @@ class Layer(s_nexus.Pusher):
             changes = []
             for edit in edits:
 
-                delt = await self.resolvers[edit[0]](nid, edit, sode)
+                delt = self.resolvers[edit[0]](nid, edit, sode)
                 if delt is not None:
                     changes.append(delt)
 
@@ -4575,14 +4707,9 @@ class Layer(s_nexus.Pusher):
                     for wind in tuple(self.windows):
                         await wind.put((nexsoffs, nodeedits, meta))
 
-        # a commitpulse=False layrslab does not fire 'commit', so flush the
-        # buffered writers this edit touched (sodes, edit:indx, indxcounts) now;
-        # the per-transaction commit in NexsRoot._eat then persists them. A
-        # pulsing slab keeps batching via the 'commit' event, unchanged.
-        if not self.layrslab.commitpulse:
-            await self._saveDirtySodes()
-            self.editindx.sync()
-            self.indxcounts.sync()
+        # the sodes are saved here because they have no slab commit callback to flush
+        # them; edit:indx and indxcounts do (see Slab.addCommitCallback).
+        await self._saveDirtySodes()
 
         await asyncio.sleep(0)
         return nodeedits
@@ -4643,35 +4770,35 @@ class Layer(s_nexus.Pusher):
         self._reqNotReadOnly()
         await self._push('edits', nodeedits, meta)
 
-    async def _calcNodeAdd(self, nid, edit, sode):
+    def _calcNodeAdd(self, nid, edit, sode):
 
         if sode is not None and sode.get('valu') == edit[1][0]:
             return
 
         return edit
 
-    async def _calcNodeDel(self, nid, edit, sode):
+    def _calcNodeDel(self, nid, edit, sode):
 
         if sode is None or (oldv := sode.get('valu')) is None:
             return
 
         return edit
 
-    async def _calcNodeTomb(self, nid, edit, sode):
+    def _calcNodeTomb(self, nid, edit, sode):
 
         if sode is not None and sode.get('antivalu') is not None:
             return
 
         return edit
 
-    async def _calcNodeTombDel(self, nid, edit, sode):
+    def _calcNodeTombDel(self, nid, edit, sode):
 
         if sode is None or sode.get('antivalu') is None:
             return
 
         return edit
 
-    async def _calcMetaSet(self, nid, edit, sode):
+    def _calcMetaSet(self, nid, edit, sode):
 
         name, valu, stortype = edit[1]
 
@@ -4689,7 +4816,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcPropSet(self, nid, edit, sode):
+    def _calcPropSet(self, nid, edit, sode):
 
         prop, valu, stortype, virts = edit[1]
 
@@ -4702,7 +4829,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcPropDel(self, nid, edit, sode):
+    def _calcPropDel(self, nid, edit, sode):
 
         if sode is None or (props := sode.get('props')) is None:
             return
@@ -4712,7 +4839,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcPropTomb(self, nid, edit, sode):
+    def _calcPropTomb(self, nid, edit, sode):
 
         if sode is not None:
             antiprops = sode.get('antiprops')
@@ -4721,7 +4848,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcPropTombDel(self, nid, edit, sode):
+    def _calcPropTombDel(self, nid, edit, sode):
 
         if sode is None:
             return
@@ -4732,7 +4859,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcTagSet(self, nid, edit, sode):
+    def _calcTagSet(self, nid, edit, sode):
 
         if sode is not None and (tags := sode.get('tags')) is not None:
             tag, valu = edit[1]
@@ -4741,7 +4868,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcTagDel(self, nid, edit, sode):
+    def _calcTagDel(self, nid, edit, sode):
 
         if sode is None or (tags := sode.get('tags')) is None:
             return
@@ -4751,7 +4878,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcTagTomb(self, nid, edit, sode):
+    def _calcTagTomb(self, nid, edit, sode):
 
         if sode is not None:
             antitags = sode.get('antitags')
@@ -4760,7 +4887,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcTagTombDel(self, nid, edit, sode):
+    def _calcTagTombDel(self, nid, edit, sode):
 
         if sode is None:
             return
@@ -4771,7 +4898,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcTagPropSet(self, nid, edit, sode):
+    def _calcTagPropSet(self, nid, edit, sode):
 
         if sode is not None and (tagprops := sode.get('tagprops')) is not None:
             tag, prop, valu, stortype, virts = edit[1]
@@ -4781,7 +4908,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcTagPropDel(self, nid, edit, sode):
+    def _calcTagPropDel(self, nid, edit, sode):
 
         if sode is None or (tagprops := sode.get('tagprops')) is None:
             return
@@ -4796,7 +4923,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcTagPropTomb(self, nid, edit, sode):
+    def _calcTagPropTomb(self, nid, edit, sode):
 
         if sode is not None:
             if (antitags := sode.get('antitagprops')) is not None:
@@ -4806,7 +4933,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcTagPropTombDel(self, nid, edit, sode):
+    def _calcTagPropTombDel(self, nid, edit, sode):
 
         if sode is None:
             return
@@ -4820,7 +4947,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcNodeDataSet(self, nid, edit, sode):
+    def _calcNodeDataSet(self, nid, edit, sode):
 
         if sode is None:
             return edit
@@ -4839,7 +4966,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcNodeDataDel(self, nid, edit, sode):
+    def _calcNodeDataDel(self, nid, edit, sode):
 
         if sode is None:
             return
@@ -4855,7 +4982,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcNodeDataTomb(self, nid, edit, sode):
+    def _calcNodeDataTomb(self, nid, edit, sode):
 
         name = edit[1][0]
 
@@ -4869,7 +4996,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcNodeDataTombDel(self, nid, edit, sode):
+    def _calcNodeDataTombDel(self, nid, edit, sode):
 
         name = edit[1][0]
 
@@ -4883,7 +5010,7 @@ class Layer(s_nexus.Pusher):
 
         return edit
 
-    async def _calcNodeEdgeAdd(self, nid, edit, sode):
+    def _calcNodeEdgeAdd(self, nid, edit, sode):
 
         verb, n2nid = edit[1]
 
@@ -4892,12 +5019,12 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return edit
 
-        if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_NORM, vabrv, db=self.indxdb):
+        if sode is not None and self.layrslab.hasdup(self.edgen1abrv + FLAG_NORM + nid + vabrv, s_common.int64en(n2nid), db=self.indxdb):
             return
 
         return edit
 
-    async def _calcNodeEdgeDel(self, nid, edit, sode):
+    def _calcNodeEdgeDel(self, nid, edit, sode):
 
         if sode is None:
             return
@@ -4909,12 +5036,12 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        if not self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_NORM, vabrv, db=self.indxdb):
+        if not self.layrslab.hasdup(self.edgen1abrv + FLAG_NORM + nid + vabrv, s_common.int64en(n2nid), db=self.indxdb):
             return
 
         return edit
 
-    async def _calcNodeEdgeTomb(self, nid, edit, sode):
+    def _calcNodeEdgeTomb(self, nid, edit, sode):
 
         verb, n2nid = edit[1]
 
@@ -4923,12 +5050,12 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_TOMB, vabrv, db=self.indxdb):
+        if sode is not None and self.layrslab.hasdup(self.edgen1abrv + FLAG_TOMB + nid + vabrv, s_common.int64en(n2nid), db=self.indxdb):
             return
 
         return edit
 
-    async def _calcNodeEdgeTombDel(self, nid, edit, sode):
+    def _calcNodeEdgeTombDel(self, nid, edit, sode):
 
         verb, n2nid = edit[1]
 
@@ -4937,7 +5064,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        if sode is None or not self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_TOMB, vabrv, db=self.indxdb):
+        if sode is None or not self.layrslab.hasdup(self.edgen1abrv + FLAG_TOMB + nid + vabrv, s_common.int64en(n2nid), db=self.indxdb):
             return
 
         return edit
@@ -5776,6 +5903,9 @@ class Layer(s_nexus.Pusher):
         name = edit[1][0]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
+        if self.dataslab.delete(nid + abrv + FLAG_NORM, db=self.nodedata):
+            self.dataslab.delete(abrv + FLAG_NORM, nid, db=self.dataname)
+
         if not await self.dataslab.put(abrv + FLAG_TOMB, nid, db=self.dataname):
             return ()
 
@@ -5815,25 +5945,21 @@ class Layer(s_nexus.Pusher):
 
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
-        if self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid + FLAG_NORM, vabrv, db=self.indxdb):
+        if self.layrslab.hasdup(self.edgen1abrv + FLAG_NORM + nid + vabrv, n2nid, db=self.indxdb):
             return ()
 
         n2sode = self._genStorNode(n2nid)
 
         if self.layrslab.delete(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb):
-            self.layrslab.delete(vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)
-            self.layrslab.delete(self.edgen1abrv + nid + vabrv + FLAG_TOMB, n2nid, db=self.indxdb)
-            self.layrslab.delete(self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, nid, db=self.indxdb)
-            self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb)
+            self._delNodeEdgeTomb(nid, form, verb, vabrv, n2nid, sode, maydel=False)
 
         self.dirty[nid] = sode
         self.dirty[n2nid] = n2sode
 
         kvpairs = [
-            (vabrv + nid + FLAG_NORM, n2nid),
-            (self.edgen1abrv + nid + vabrv + FLAG_NORM, n2nid),
-            (self.edgen2abrv + n2nid + vabrv + FLAG_NORM, nid),
-            (self.edgen1n2abrv + nid + n2nid + FLAG_NORM, vabrv)
+            (vabrv + FLAG_NORM + nid, n2nid),
+            (self.edgen1abrv + FLAG_NORM + nid + vabrv, n2nid),
+            (self.edgen2abrv + FLAG_NORM + n2nid + vabrv, nid),
         ]
 
         formabrv = self.core.setIndxAbrv(INDX_FORM, form)
@@ -5867,34 +5993,36 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editNodeEdgeDel(self, nid, form, edit, sode, meta):
+    def _delNodeEdgeCounts(self, nid, form, verb, n2nid, sode, keys, maydel=True):
+        '''
+        Decrement the per node edge verb counts for an edge within this layer.
 
-        verb, n2nid = edit[1]
-        n2nid = s_common.int64en(n2nid)
+        Args:
+            keys (tuple): The sode count names, ('n1verbs', 'n2verbs') or the anti equivalents.
+            maydel (bool): Allow the nid to be removed once it has no counts left.
 
-        vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
+        Notes:
+            A tombstone handler must use maydel=False, since mayDelNid() may clear
+            the sode which it is still populating.
 
-        if not self.layrslab.delete(vabrv + nid + FLAG_NORM, n2nid, db=self.indxdb):
-            self.mayDelNid(nid, sode)
-            return ()
-
-        self.layrslab.delete(self.edgen1abrv + nid + vabrv + FLAG_NORM, n2nid, db=self.indxdb)
-        self.layrslab.delete(self.edgen2abrv + n2nid + vabrv + FLAG_NORM, nid, db=self.indxdb)
-        self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + FLAG_NORM, vabrv, db=self.indxdb)
+        Returns:
+            str: The form of the n2 node.
+        '''
+        n1key, n2key = keys
 
         n2sode = self._genStorNode(n2nid)
         if (n2form := n2sode.get('form')) is None:
             n2form = self.core.getNidNdef(n2nid)[0]
 
-        n1cnts = sode['n1verbs'][verb]
-        n2cnts = n2sode['n2verbs'][verb]
+        n1cnts = sode[n1key][verb]
+        n2cnts = n2sode[n2key][verb]
 
         newvalu = n1cnts.get(n2form, 0) - 1
         if newvalu == 0:
             n1cnts.pop(n2form)
             if not n1cnts:
-                sode['n1verbs'].pop(verb)
-                if not self.mayDelNid(nid, sode):
+                sode[n1key].pop(verb)
+                if maydel and not self.mayDelNid(nid, sode):
                     self.dirty[nid] = sode
         else:
             n1cnts[n2form] = newvalu
@@ -5904,12 +6032,28 @@ class Layer(s_nexus.Pusher):
         if newvalu == 0:
             n2cnts.pop(form)
             if not n2cnts:
-                n2sode['n2verbs'].pop(verb)
-                if not self.mayDelNid(n2nid, n2sode):
+                n2sode[n2key].pop(verb)
+                if maydel and not self.mayDelNid(n2nid, n2sode):
                     self.dirty[n2nid] = n2sode
         else:
             n2cnts[form] = newvalu
             self.dirty[n2nid] = n2sode
+
+        return n2form
+
+    def _delNodeEdgeLive(self, nid, form, verb, vabrv, n2nid, sode, maydel=True):
+        '''
+        Delete the live index rows and counts for an edge within this layer.
+
+        Notes:
+            The caller is expected to have removed the verb index row already, since
+            that delete is used to test for the edge.
+        '''
+        self.layrslab.delete(self.edgen1abrv + FLAG_NORM + nid + vabrv, n2nid, db=self.indxdb)
+        self.layrslab.delete(self.edgen2abrv + FLAG_NORM + n2nid + vabrv, nid, db=self.indxdb)
+
+        keys = ('n1verbs', 'n2verbs')
+        n2form = self._delNodeEdgeCounts(nid, form, verb, n2nid, sode, keys, maydel=maydel)
 
         formabrv = self.core.setIndxAbrv(INDX_FORM, form)
         n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
@@ -5918,6 +6062,36 @@ class Layer(s_nexus.Pusher):
         self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, -1)
         self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, -1)
         self.indxcounts.inc(INDX_EDGE_N1N2 + formabrv + vabrv + n2formabrv, -1)
+
+    def _delNodeEdgeTomb(self, nid, form, verb, vabrv, n2nid, sode, maydel=True):
+        '''
+        Delete the tombstone index rows and counts for an edge within this layer.
+
+        Notes:
+            The caller is expected to have removed the INDX_TOMB row already, since
+            that delete is used to test for the tombstone.
+        '''
+        self.layrslab.delete(vabrv + FLAG_TOMB + nid, n2nid, db=self.indxdb)
+        self.layrslab.delete(self.edgen1abrv + FLAG_TOMB + nid + vabrv, n2nid, db=self.indxdb)
+        self.layrslab.delete(self.edgen2abrv + FLAG_TOMB + n2nid + vabrv, nid, db=self.indxdb)
+
+        keys = ('n1antiverbs', 'n2antiverbs')
+        self._delNodeEdgeCounts(nid, form, verb, n2nid, sode, keys, maydel=maydel)
+
+        self.indxcounts.inc(INDX_TOMB + vabrv, -1)
+
+    async def _editNodeEdgeDel(self, nid, form, edit, sode, meta):
+
+        verb, n2nid = edit[1]
+        n2nid = s_common.int64en(n2nid)
+
+        vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
+
+        if not self.layrslab.delete(vabrv + FLAG_NORM + nid, n2nid, db=self.indxdb):
+            self.mayDelNid(nid, sode)
+            return ()
+
+        self._delNodeEdgeLive(nid, form, verb, vabrv, n2nid, sode)
 
         return ()
 
@@ -5928,6 +6102,9 @@ class Layer(s_nexus.Pusher):
 
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
+        if self.layrslab.delete(vabrv + FLAG_NORM + nid, n2nid, db=self.indxdb):
+            self._delNodeEdgeLive(nid, form, verb, vabrv, n2nid, sode, maydel=False)
+
         if not await self.layrslab.put(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb):
             return ()
 
@@ -5937,10 +6114,9 @@ class Layer(s_nexus.Pusher):
         self.dirty[n2nid] = n2sode
 
         kvpairs = [
-            (vabrv + nid + FLAG_TOMB, n2nid),
-            (self.edgen1abrv + nid + vabrv + FLAG_TOMB, n2nid),
-            (self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, nid),
-            (self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv)
+            (vabrv + FLAG_TOMB + nid, n2nid),
+            (self.edgen1abrv + FLAG_TOMB + nid + vabrv, n2nid),
+            (self.edgen2abrv + FLAG_TOMB + n2nid + vabrv, nid),
         ]
 
         self.indxcounts.inc(INDX_TOMB + vabrv)
@@ -5978,41 +6154,7 @@ class Layer(s_nexus.Pusher):
             self.mayDelNid(nid, sode)
             return ()
 
-        self.layrslab.delete(vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)
-        self.layrslab.delete(self.edgen1abrv + nid + vabrv + FLAG_TOMB, n2nid, db=self.indxdb)
-        self.layrslab.delete(self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, nid, db=self.indxdb)
-        self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb)
-
-        n2sode = self._genStorNode(n2nid)
-        if (n2form := n2sode.get('form')) is None:
-            n2form = self.core.getNidNdef(n2nid)[0]
-
-        n1cnts = sode['n1antiverbs'][verb]
-        n2cnts = n2sode['n2antiverbs'][verb]
-
-        newvalu = n1cnts.get(n2form, 0) - 1
-        if newvalu == 0:
-            n1cnts.pop(n2form)
-            if not n1cnts:
-                sode['n1antiverbs'].pop(verb)
-                if not self.mayDelNid(nid, sode):
-                    self.dirty[nid] = sode
-        else:
-            n1cnts[n2form] = newvalu
-            self.dirty[nid] = sode
-
-        newvalu = n2cnts.get(form, 0) - 1
-        if newvalu == 0:
-            n2cnts.pop(form)
-            if not n2cnts:
-                n2sode['n2antiverbs'].pop(verb)
-                if not self.mayDelNid(n2nid, n2sode):
-                    self.dirty[n2nid] = n2sode
-        else:
-            n2cnts[form] = newvalu
-            self.dirty[n2nid] = n2sode
-
-        self.indxcounts.inc(INDX_TOMB + vabrv, -1)
+        self._delNodeEdgeTomb(nid, form, verb, vabrv, n2nid, sode)
 
         return ()
 
@@ -6024,8 +6166,8 @@ class Layer(s_nexus.Pusher):
     async def getEdges(self, verb=None):
 
         if verb is None:
-            for lkey, lval in self.layrslab.scanByPref(self.edgen1abrv, db=self.indxdb):
-                yield lkey[-17:-9], lkey[-9:-1], lval, lkey[-1:] == FLAG_TOMB
+            for lkey, lval, tomb in self._scanEdgeIndx(self.edgen1abrv):
+                yield lkey[-16:-8], lkey[-8:], lval, tomb
             return
 
         try:
@@ -6033,9 +6175,9 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        for lkey, lval in self.layrslab.scanByPref(vabrv, db=self.indxdb):
+        for lkey, lval, tomb in self._scanEdgeIndx(vabrv):
             # n1nid, verbabrv, n2nid, tomb
-            yield lkey[-9:-1], vabrv, lval, lkey[-1:] == FLAG_TOMB
+            yield lkey[-8:], vabrv, lval, tomb
 
     async def getTagsByPref(self, pref, depth=0):
         try:
@@ -6055,21 +6197,20 @@ class Layer(s_nexus.Pusher):
         sode.pop('n1verbs', None)
         sode.pop('n1antiverbs', None)
 
-        for lkey, n2nid in self.layrslab.scanByPref(self.edgen1abrv + nid, db=self.indxdb):
+        for lkey, n2nid, istomb in self._scanEdgeIndx(self.edgen1abrv, pref=nid):
             await asyncio.sleep(0)
 
-            tomb = lkey[-1:]
-            vabrv = lkey[-9:-1]
+            tomb = FLAG_TOMB if istomb else FLAG_NORM
+            vabrv = lkey[-8:]
 
-            self.layrslab.delete(vabrv + nid + tomb, n2nid, db=self.indxdb)
-            self.layrslab.delete(self.edgen1abrv + nid + vabrv + tomb, n2nid, db=self.indxdb)
-            self.layrslab.delete(self.edgen2abrv + n2nid + vabrv + tomb, nid, db=self.indxdb)
-            self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + tomb, vabrv, db=self.indxdb)
+            self.layrslab.delete(vabrv + tomb + nid, n2nid, db=self.indxdb)
+            self.layrslab.delete(self.edgen1abrv + tomb + nid + vabrv, n2nid, db=self.indxdb)
+            self.layrslab.delete(self.edgen2abrv + tomb + n2nid + vabrv, nid, db=self.indxdb)
 
             verb = self.core.getAbrvIndx(vabrv)[0]
             n2sode = self._genStorNode(n2nid)
 
-            if tomb == FLAG_TOMB:
+            if istomb:
                 self.layrslab.delete(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb)
                 n2cnts = n2sode['n2antiverbs'][verb]
                 newvalu = n2cnts.get(form, 0) - 1
@@ -6148,49 +6289,70 @@ class Layer(s_nexus.Pusher):
 
         return self.stortypes[stortype].indx(valu)
 
+    def _scanEdgeIndx(self, abrv, pref=b''):
+        '''
+        Yield (lkey, lval, tomb) rows from an edge index.
+
+        Notes:
+            The tombstone flag is stored ahead of the rest of the key so that the
+            rows may be yielded in sorted order. The values are sorted by the key
+            bytes which follow the flag and then by dup value, which is the order
+            that the view layer merge requires. A tombstone is yielded ahead of
+            the row it hides.
+        '''
+        offs = len(abrv) + 1
+
+        def rows(flag):
+            for lkey, lval in self.layrslab.scanByPref(abrv + flag + pref, db=self.indxdb):
+                yield lkey, lval, flag == FLAG_TOMB
+
+        # heapq.merge() is stable, so passing the tombstones first breaks ties in
+        # their favor.
+        return heapq.merge(rows(FLAG_TOMB), rows(FLAG_NORM), key=lambda item: (item[0][offs:], item[1]))
+
+    def _scanEdgeVerbs(self, abrv, nid):
+        '''
+        Yield (lkey, tomb) keys from an edge index, one per verb, in verb order.
+        '''
+        def keys(flag):
+            for lkey in self.layrslab.scanKeysByPref(abrv + flag + nid, db=self.indxdb, nodup=True):
+                yield lkey, flag == FLAG_TOMB
+
+        offs = len(abrv) + 1
+        return heapq.merge(keys(FLAG_TOMB), keys(FLAG_NORM), key=lambda item: item[0][offs:])
+
     async def iterNodeEdgesN1(self, nid, verb=None):
 
-        pref = self.edgen1abrv + nid
+        pref = nid
         if verb is not None:
             try:
-                vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
-                pref += vabrv
+                pref += self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
             except s_exc.NoSuchAbrv:
                 return
 
-            for lkey, n2nid in self.layrslab.scanByPref(pref, db=self.indxdb):
-                yield vabrv, n2nid, lkey[-1:] == FLAG_TOMB
-            return
-
-        for lkey, n2nid in self.layrslab.scanByPref(pref, db=self.indxdb):
-            yield lkey[-9:-1], n2nid, lkey[-1:] == FLAG_TOMB
+        for lkey, n2nid, tomb in self._scanEdgeIndx(self.edgen1abrv, pref=pref):
+            yield lkey[-8:], n2nid, tomb
 
     async def iterNodeEdgesN2(self, nid, verb=None):
 
-        pref = self.edgen2abrv + nid
+        pref = nid
         if verb is not None:
             try:
-                vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
-                pref += vabrv
+                pref += self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
             except s_exc.NoSuchAbrv:
                 return
 
-            for lkey, n1nid in self.layrslab.scanByPref(pref, db=self.indxdb):
-                yield vabrv, n1nid, lkey[-1:] == FLAG_TOMB
-            return
-
-        for lkey, n1nid in self.layrslab.scanByPref(pref, db=self.indxdb):
-            yield lkey[-9:-1], n1nid, lkey[-1:] == FLAG_TOMB
+        for lkey, n1nid, tomb in self._scanEdgeIndx(self.edgen2abrv, pref=pref):
+            yield lkey[-8:], n1nid, tomb
 
     async def iterEdgeVerbs(self, n1nid, n2nid):
-        for lkey, vabrv in self.layrslab.scanByPref(self.edgen1n2abrv + n1nid + n2nid, db=self.indxdb):
-            yield vabrv, lkey[-1:] == FLAG_TOMB
+        for lkey, tomb in self._scanEdgeVerbs(self.edgen1abrv, n1nid):
+            if self.layrslab.hasdup(lkey, n2nid, db=self.indxdb):
+                yield lkey[-8:], tomb
 
     async def iterNodeEdgeVerbsN1(self, nid):
-
-        pref = self.edgen1abrv + nid
-        for lkey in self.layrslab.scanKeysByPref(pref, db=self.indxdb, nodup=True):
-            yield lkey[-9:-1], lkey[-1:] == FLAG_TOMB
+        for lkey, tomb in self._scanEdgeVerbs(self.edgen1abrv, nid):
+            yield lkey[-8:], tomb
 
     async def hasNodeEdge(self, n1nid, verb, n2nid):
         try:
@@ -6198,10 +6360,10 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return None
 
-        if self.layrslab.hasdup(self.edgen1abrv + n1nid + vabrv + FLAG_NORM, n2nid, db=self.indxdb):
+        if self.layrslab.hasdup(self.edgen1abrv + FLAG_NORM + n1nid + vabrv, n2nid, db=self.indxdb):
             return True
 
-        elif self.layrslab.hasdup(self.edgen1abrv + n1nid + vabrv + FLAG_TOMB, n2nid, db=self.indxdb):
+        elif self.layrslab.hasdup(self.edgen1abrv + FLAG_TOMB + n1nid + vabrv, n2nid, db=self.indxdb):
             return False
 
     async def iterFormRows(self, form, stortype=None, startvalu=None):

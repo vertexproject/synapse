@@ -162,7 +162,7 @@ class StormTypesTest(s_test.SynTest):
             pdef = {
                 'name': 'testcopy',
                 'desc': 'test',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'commands': [{
                     'name': 'test.copycmdopts',
                     'cmdargs': (
@@ -446,6 +446,34 @@ class StormTypesTest(s_test.SynTest):
         # Remove the modification from the global
         s_stormtypes.registry.undefined_types.discard('storm:type:newp')
 
+    async def test_stormtypes_registry_defaults(self):
+
+        # A sequence default is declared as a tuple, matching the callsig. Ruff B006
+        # is what keeps a mutable default out of the callsig itself.
+
+        class NewpLib:
+
+            async def lookup(self, fqdn, types=('A',)):  # pragma: no cover
+                pass
+
+        def newpinfo(defv):
+            return {'name': 'lookup', 'desc': 'Look it up.',
+                    'type': {'type': 'function', '_funcname': 'lookup',
+                             'args': (
+                                 {'name': 'fqdn', 'type': 'str', 'desc': 'The FQDN.'},
+                                 {'name': 'types', 'type': 'list', 'default': defv,
+                                  'desc': 'The types.'},
+                             ),
+                             'returns': {'type': 'list', 'desc': 'The records.'}}}
+
+        s_stormtypes.registry._validateInfo(NewpLib, newpinfo(('A',)), 'NewpLib')
+
+        with self.raises(AssertionError):
+            s_stormtypes.registry._validateInfo(NewpLib, newpinfo(('B',)), 'NewpLib')
+
+        with self.raises(AssertionError):
+            s_stormtypes.registry._validateInfo(NewpLib, newpinfo('A'), 'NewpLib')
+
     async def test_storm_debug(self):
 
         async with self.getTestCore() as core:
@@ -685,8 +713,8 @@ class StormTypesTest(s_test.SynTest):
         pdef = {
             'name': 'foo',
             'desc': 'test',
-            'version': (0, 0, 1),
-            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
+            'version': '0.0.1',
+            'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
             'modules': [
                 {
                     'name': 'test',
@@ -1229,6 +1257,27 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq('0.0.0.1', await core.callStorm('return($lib.repr(inet:server.ip, ([4, 1])))'))
 
+    async def test_storm_lib_raise_ctor(self):
+
+        async with self.getTestCore() as core:
+
+            # a real exception name reconstructs
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.raise(BadArg, boom)')
+
+            # an unknown name falls through to StormRaise carrying the name
+            with self.raises(s_exc.StormRaise) as exc:
+                await core.callStorm('$lib.raise(NotAClass, boom)')
+            self.eq('NotAClass', exc.exception.get('errname'))
+
+            # a name resolving to a non-exception attribute of synapse.exc must not be
+            # called -- synapse.exc also exposes the sys module and helper functions, and
+            # calling those produced an unrelated error rather than a storm one
+            for name in ('sys', '_check_item'):
+                with self.raises(s_exc.StormRaise) as exc:
+                    await core.callStorm(f'$lib.raise({name}, boom)')
+                self.eq(name, exc.exception.get('errname'))
+
     async def test_storm_lib_json_consts(self):
         async with self.getTestCore() as core:
             # $lib.null/true/false are removed and must raise NoSuchName
@@ -1531,7 +1580,7 @@ class StormTypesTest(s_test.SynTest):
             pdef = {
                 'name': 'libdictcmdopts',
                 'desc': 'test',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'commands': [
                     {
                         'name': 'test.libdict.cmdopts',
@@ -2804,8 +2853,9 @@ class StormTypesTest(s_test.SynTest):
                 $lib.csv.emit($path)
             '''
             mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
-            err = mesgs[-2]
-            self.eq(err[1][0], 'NoSuchType')
+            errs = [m for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][1][0], 'NoSuchType')
 
     async def test_storm_set(self):
 
@@ -3450,12 +3500,12 @@ class StormTypesTest(s_test.SynTest):
                     }
                     '''
                     mesgs = await s_test.alist(prox.storm(listq))
-                    self.len(3 + 1, [m for m in mesgs if m[0] == 'print'])
+                    self.len(3, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('adminkey is sekrit', mesgs)
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
                     rstr = await prox.callStorm('return(`{$lib.globals}`)')
-                    self.eq(rstr, "{'adminkey': 'sekrit', 'bar': {'foo': '1'}, 'cortex:runtime:stormfixes': [4, 0, 0], 'userkey': 'lessThanSekrit'}")
+                    self.eq(rstr, "{'adminkey': 'sekrit', 'bar': {'foo': '1'}, 'userkey': 'lessThanSekrit'}")
 
                     # Storing a valu gets toprim()'d
                     q = '[test:str=test] $lib.auth.users.get().vars.mynode = $node return($lib.auth.users.get().vars.mynode)'
@@ -3610,7 +3660,6 @@ class StormTypesTest(s_test.SynTest):
                 q = '''
                     $ret = ({})
                     for ($key, $val) in $lib.globals {
-                        if ($key = "cortex:runtime:stormfixes") { continue }
                         $ret.$key = $val
                     }
                     $ret.testdict.boo = bar
@@ -4128,7 +4177,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             stormpkg = {
                 'name': 'nodedatatest',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'commands': (
                     {
                      'name': 'nd.permtest',
@@ -4627,13 +4676,13 @@ class StormTypesTest(s_test.SynTest):
 
             data = [
                 (('test:str', 'hello'), {
-                    'props': {'tick': ('test:time', '2001')},
-                    'tags': {'test': (None, None, None)},
+                    'props': {'tick': ('2001', {'t': 'test:time'})},
+                    'tags': {'test': ((None, None, None), {})},
                     'nodedata': {'foo': 'bar'},
-                    'tagprops': {'rep.foo': {'_score': 10}},
+                    'tagprops': {'rep.foo': {'_score': (10, {})}},
                     'edges': [('refs', ('test:str', 'foobarbaz'))],
                 }),
-                (('test:str', 'stars'), {'props': {'tick': ('test:time', '3001')},
+                (('test:str', 'stars'), {'props': {'tick': ('3001', {'t': 'test:time'})},
                                          'tags': {}}),
             ]
             svars = {'data': data}
@@ -4662,9 +4711,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].getEdgeCounts(), {'refs': {'test:str': 1}})
 
             data = [
-                (('test:str', 'sup!'), {'props': {'tick': ('test:time', '2001')},
-                                        'tags': {'test': (None, None, None)}}),
-                (('test:str', 'dawg'), {'props': {'tick': ('test:time', '3001')},
+                (('test:str', 'sup!'), {'props': {'tick': ('2001', {'t': 'test:time'})},
+                                        'tags': {'test': ((None, None, None), {})}}),
+                (('test:str', 'dawg'), {'props': {'tick': ('3001', {'t': 'test:time'})},
                                         'tags': {}}),
             ]
             svars['data'] = data
@@ -4690,10 +4739,10 @@ class StormTypesTest(s_test.SynTest):
 
         data = [
             (('test:str', 'hello'), {
-                'props': {'tick': ('test:time', '2001')},
-                'tags': {'test': (None, None, None)},
+                'props': {'tick': ('2001', {'t': 'test:time'})},
+                'tags': {'test': ((None, None, None), {})},
                 'nodedata': {'foo': 'bar'},
-                'tagprops': {'rep.foo': {'_score': 10}},
+                'tagprops': {'rep.foo': {'_score': (10, {})}},
                 'edges': [('refs', ('test:str', 'foobarbaz'))],
             }),
         ]
@@ -5552,7 +5601,7 @@ class StormTypesTest(s_test.SynTest):
             opts = {'user': visi.iden, 'view': fork, 'vars': {'fork': fork, 'guid': guid}}
             await visi.addRule((True, ('node', 'add', 'doc:report')), gateiden=layr)
             msgs = await core.stormlist('$lib.view.get($fork).addNode(doc:report, $guid)', opts=opts)
-            edits = [ne for ne in msgs if ne[0] == 'node:edits']
+            edits = [ne for ne in msgs if ne[0] == 'edits']
             self.len(1, edits)
             opts['vars']['props'] = {
                 'desc': 'bizbaz',
@@ -5561,14 +5610,14 @@ class StormTypesTest(s_test.SynTest):
             await visi.addRule((True, ('node', 'prop', 'set', 'doc:report', 'desc')), gateiden=layr)
             await visi.addRule((True, ('node', 'prop', 'set', 'doc:report', 'title')), gateiden=layr)
             msgs = await core.stormlist('$lib.view.get($fork).addNode(doc:report, $guid, $props)', opts=opts)
-            edits = [ne for ne in msgs if ne[0] == 'node:edits']
+            edits = [ne for ne in msgs if ne[0] == 'edits']
             self.len(1, edits)
             self.len(2, edits[0][1]['edits'][0][2])
 
             # don't get any node edits for a different view
             opts = {'user': visi.iden, 'vars': {'fork': fork}}
             msgs = await core.stormlist('$lib.view.get($fork).addNode(doc:report, *)', opts=opts)
-            edits = [ne for ne in msgs if ne[0] == 'node:edits']
+            edits = [ne for ne in msgs if ne[0] == 'edits']
             self.len(0, edits)
 
         async with self.getTestCore() as core:
@@ -5579,14 +5628,20 @@ class StormTypesTest(s_test.SynTest):
             ldef = await core.addLayer()
             layer = core.getLayer(ldef.get('iden'))
 
-            # Add a view via stormlib, worldreadable=False (default)
+            # Add a view via stormlib. It is never worldreadable; the all role is
+            # granted read separately.
             iden = await core.callStorm(f'return($lib.view.add(({layer.iden},)).iden)')
             self.nn(iden)
             self.false(visi.allowed(('view', 'read'), gateiden=iden))
 
-            # Add a view via stormlib, worldreadable=True (default)
-            iden = await core.callStorm(f'return($lib.view.add(({layer.iden},), worldreadable=(true)).iden)')
-            self.nn(newiden)
+            # $lib.view.add() no longer takes a worldreadable argument
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(f'return($lib.view.add(({layer.iden},), worldreadable=(true)).iden)')
+
+            await core.callStorm('''
+                $role = $lib.auth.roles.byname(all)
+                $role.addRule(((true), ('view', 'read')), gateiden=$iden)
+            ''', opts={'vars': {'iden': iden}})
             self.true(visi.allowed(('view', 'read'), gateiden=iden))
 
             # Add a view via storm cmd, worldreadable=False (default)
@@ -5610,6 +5665,24 @@ class StormTypesTest(s_test.SynTest):
             iden = views.get('view1')
             self.nn(iden)
             self.true(visi.allowed(('view', 'read'), gateiden=iden))
+
+            # view.add --worldreadable grants the all role read on the new view
+            # rather than going through a view def key, but it needs no permission
+            # beyond view.add: the creator is admin on the gate they just made.
+            newb = await core.auth.addUser('newb')
+            await newb.addRule((True, ('view', 'add')))
+            self.false(newb.isAdmin())
+            self.false(newb.allowed(('auth', 'role', 'set', 'rules')))
+
+            deflayr = core.getView().layers[0].iden
+            msgs = await core.stormlist(f'view.add --name wrview --worldreadable (true) --layers {deflayr}',
+                                        opts={'user': newb.iden})
+            self.stormHasNoWarnErr(msgs)
+
+            views = {view.info.get('name'): view.iden for view in core.listViews()}
+            wriden = views.get('wrview')
+            self.nn(wriden)
+            self.true(visi.allowed(('view', 'read'), gateiden=wriden))
 
             await visi.addRule((True, ('view', 'fork')))
 
@@ -7114,7 +7187,7 @@ class StormTypesTest(s_test.SynTest):
         pdef = {
             'name': 'foo',
             'desc': 'test',
-            'version': (0, 0, 1),
+            'version': '0.0.1',
             'modules': [
                 {
                     'name': 'test',
@@ -7170,7 +7243,7 @@ class StormTypesTest(s_test.SynTest):
         sadt = {
             'name': 'bar',
             'desc': 'test',
-            'version': (0, 0, 1),
+            'version': '0.0.1',
             'commands': [
                 {
                     'name': 'test.badtype',
@@ -7186,7 +7259,7 @@ class StormTypesTest(s_test.SynTest):
         sadchoice = {
             'name': 'baz',
             'desc': 'test',
-            'version': (0, 0, 1),
+            'version': '0.0.1',
             'commands': [
                 {
                     'name': 'test.badchoice',
@@ -8582,7 +8655,7 @@ words\tword\twrd'''
 
             pkg = {
                 'name': 'layrpkg',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'modules': (
                     {
                         'name': 'layrmod',

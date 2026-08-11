@@ -425,7 +425,7 @@ class Benchmarker:
 
             opts = {'vars': {'valu': valu}, 'view': self.viewiden}
             msgs.extend([x async for x in prox.storm(f'[ {form}=$valu {props_to_add} {tags_to_add}]', opts=opts)])
-            newnodes = [m for m in msgs if m[0] == 'node:edits' and m[1]['edits'][0][2][0][0] == 2]
+            newnodes = [m for m in msgs if m[0] == 'edits' and m[1]['edits'][0][2][0][0] == 2]
         assert len(newnodes) == self.workfactor
         return len(newnodes)
 

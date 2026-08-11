@@ -8,38 +8,32 @@ import requests
 # For more information about these APIs, refer to the following documentation.
 # https://synapse.docs.vertex.link/en/latest/synapse/httpapi.html#
 
-# Fill in your url, user, and password.
+# Fill in your url and API key. The Storm and model HTTP endpoints accept
+# X-API-KEY authentication only. Generate an API key for your user with the
+# Storm $lib.auth.users.byname($name).genApiKey() API.
 
 base_url = 'https://yourcortex.yourdomain.com'
-username = 'XXXX'
-password = 'XXXX'
+apikey = 'XXXX'
 
 def main(argv):
 
     sess = requests.session()
 
-    # Login to setup a session cookie with the UI. This sets the sess cookie.
-    # requests.session automatically handles the Set-Cookie header to
-    # store and reuse the session cookie. Refer to the documentation for
-    # other HTTPAPI clients and tools for how they handle cookies.
-
-    url = f'{base_url}/api/v3/login'
-    data = {'user': username, 'passwd': password}
-
-    resp = sess.post(url, json=data)
-    assert resp.status_code == 200, f'Failed to login resp.status={resp.status}'
+    # The X-API-KEY header authenticates every request.
+    sess.headers.update({'X-API-KEY': apikey})
 
     # api/v3/storm - This streams Storm messages back to the user,
     # much like the telepath storm() API. The example shows some
-    # node and print messages being sent back.
+    # node and print messages being sent back. The messages are
+    # newline delimited JSON, so iter_lines() reassembles them.
 
     query = '.created $lib.print($node.repr(".created")) | limit 3'
-    data = {'query': query, 'opts': {'repr': True}}
+    data = {'query': query, 'opts': {'node:opts': {'repr': True}}}
     url = f'{base_url}/api/v3/storm'
 
     resp = sess.get(url, json=data, stream=True)
-    for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
-        mesg = json.loads(chunk)
+    for line in resp.iter_lines():
+        mesg = json.loads(line)
         pprint.pprint(mesg)
 
     # storm/call - this is intended for use with the Storm return() syntax

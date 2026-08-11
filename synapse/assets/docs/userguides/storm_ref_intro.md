@@ -1,0 +1,359 @@
+<a id="storm-ref-intro"></a>
+
+# Storm Reference - Introduction
+
+**Storm** is the query language used to interact with data in Synapse. Storm allows you to ask about, retrieve, annotate, add, modify, and delete data within a Synapse Cortex. If you are using the [open source](https://github.com/vertexproject/synapse) or [Quickstart](https://github.com/vertexproject/synapse-quickstart) versions of Synapse, you will access Synapse via the Storm command-line interface (**Storm CLI**) (see [storm](syn_tools_storm.md#syn-tools-storm)):
+
+``` text
+storm> <query>
+```
+
+If you are a Synapse Enterprise customer or have requested a Synapse Enterprise [demo instance](https://vertex.link/request-a-demo) you will access Synapse via the Synapse UI (also known as [Optic](/docs/synapse-enterprise-optic/latest/index.md)) and use Storm from the Storm query bar.
+
+> [!TIP]
+> If you're not sure which version of Synapse to start with, check out our [Getting Started guide](../getting_started.md).
+
+<a id="storm-bkgd"></a>
+
+## Storm Background
+
+When we designed Storm, we wanted it to be flexible and powerful enough to allow interaction with large amounts of data and a wide range of data types. But we also needed Storm to be intuitive and efficient so it would be accessible to a wide range of users. We wrote Storm specifically to be used by analysts and others from a variety of backgrounds who are not necessarily programmers and who would not want to use what felt like a "programming language".
+
+Wherever possible, we masked Storm's underlying programmatic complexity. Our goal was for Storm to act more like a **data language**, allowing users to:
+
+- **Reference data and query operations in an intuitive form.** We took a "do what I mean" approach for how users interact with and use Storm so that users can focus on the **data** and its relationships, not the query language. Once you get the gist of it, Storm "just works"! This is because Storm and Synapse make use of a number of features (such as property normalization, type enforcement / type awareness, and syntax and query optimization) that work transparently to make Storm easier for you to use. Synapse and Storm do the work in the background so you can focus on analysis.
+- **Use a simple yet powerful syntax to run Storm queries.** Storm uses intuitive symbols (such as an arrow ( `->` ) for pivot operations) for efficient querying, as well as a natural language-like syntax. This makes using Storm feel more like asking a question than constructing a data query. In fact, one method we use to teach Storm to new users is to practice "translating" questions into queries (you'll be surprised how straightforward it is!).
+
+Analysts still need to learn the Storm language - [data model objects](data_model.md#data-model-terms) such as nodes, properties, and tags are Storm's "words", and Storm operators allows you to construct "sentences". That said, Storm works more like "how do I ask this question about the data?" and not "how do I write a program to get the data I need?"
+
+Finally - and most importantly - **giving analysts direct access to Storm allows them to create arbitrary queries and provides them with an extraordinarily powerful analytical tool.** Analysts are not limited by a set of canned queries from a pre-defined menu or an API. Instead, they can ask and answer **any** analytical question: following their research wherever it takes them, creating queries as needed, and working with the data in whatever manner is most appropriate to their analysis.
+
+While Storm has expanded over time to support advanced use cases and capabilities, it remains true to its data language roots. The day-to-day Storm used by most analysts is based on referencing familiar objects and navigating among common relationships. With Storm, you can learn as you go, starting with fundamentals and building on that knowledge. And for [Optic](/docs/synapse-enterprise-optic/latest/index.md) users, Optic's query bar, menus, and dialogs allow you to start using Synapse without knowing any Storm at all.
+
+<a id="storm-ops-basic"></a>
+
+## Basic Storm Operations
+
+Storm allows users to perform all of the common operations used to interact with data in Synapse:
+
+- [Lift](storm_ref_lift.md): retrieve objects from Synapse's data store.
+- [Filter](storm_ref_filter.md): refine your results by including or excluding a subset of nodes.
+- [Pivot](storm_ref_pivot.md): navigate between nodes that share a common property value.
+- [Traverse](storm_ref_pivot.md#storm-traverse): navigate between nodes connected by a lightweight edge.
+- [Modify data](storm_ref_data_mod.md): create, modify, annotate (tag), and delete data from Synapse.
+- [Run commands](storm_ref_cmd.md): Storm supports an extensible set of commands. Many commands are designed to extend the analytical power of Storm. Other Storm commands allow management of permissions for users and roles, Synapse views and layers, and Synapse's [automation](storm_ref_automation.md) features. You can display available commands by running `help` from the Storm CLI.
+
+Many Storm queries - even "advanced" ones - can be constructed from this simple set of building blocks.
+
+### Lift, Filter, and Pivot Criteria
+
+The main operations carried out with Storm are lifting, filtering, and pivoting (we include traversing light edges as part of pivoting). To perform these operations, you need to be able to clearly specify the data you are interested in - your selection criteria. In most cases, the criteria you specify will be based on one or more of the following:
+
+- A **property** (primary or secondary) on a node.
+- A specific **value** for a property (`<form>=<valu>` or `<prop>=<pval>`) on a node.
+- A **tag** on a node.
+- The existence of a **light edge** linking nodes.
+- The name (verb) of a specific **light edge** linking nodes.
+
+All of the above elements - nodes, properties, values, edges, and tags - are the fundamental building blocks of the Synapse [data model](data_model.md#data-model-terms). **As such, an understanding of the Synapse data model is essential to effective use of Storm.**
+
+<a id="storm-op-concepts"></a>
+
+## Storm Operating Concepts
+
+Storm has several notable features in the way it interacts with and operates on data. These concepts are important but also pretty intuitive; it's good to be familiar with them, but most users don't need to worry about them too much for standard Storm queries and operations (day-to-day interaction with Synapse data).
+
+These concepts are much more important if you're using more [advanced Storm](index_storm_adv.md) constructs such as variables, control flow, or functions. If you're writing advanced Storm queries, automation, or custom Power-Ups, you should be comfortable with these terms and behaviors.
+
+<a id="storm-op-work-set"></a>
+
+### Working Set
+
+Most objects in Synapse are **nodes**. Most Storm operations start by **lifting** (selecting) a node or set of nodes from Synapse's data store.
+
+- The set of nodes that you start with is called your **initial working set**.
+- The set of nodes at any given point in your Storm query is called your **current working set**.
+
+<a id="storm-op-chain"></a>
+
+### Operation Chaining
+
+Users commonly interact with data (nodes) in Synapse using operations such as lift, filter, and pivot. Storm allows multiple operations to be **chained** together to form longer queries:
+
+``` text
+storm> inet:fqdn=vertex.link
+
+storm> inet:fqdn=vertex.link -> inet:dns:a
+
+storm> inet:fqdn=vertex.link -> inet:dns:a -> inet:ip
+
+storm> inet:fqdn=vertex.link -> inet:dns:a -> inet:ip +:type=unicast
+```
+
+The above example demonstrates chaining a lift (`inet:fqdn=vetex.link`) with two pivots (`-> inet:dns:a`, `-> inet:ip`) and a filter (`+:type=unicast`).
+
+When Storm operations are concatenated in this manner, they are processed **in order from left to right** with each operation (lift, filter, or pivot) acting on the output of the previous operation. A Storm query is not evaluated as a single whole; Storm evaluates your working set of nodes against each operation in order before moving to the next operation.
+
+> [!NOTE]
+> Technically speaking, your query is evaluated as a whole before it is executed to ensure it is **syntactically valid**. Synapse will complain if your query contains syntax errors. But once Synapse has checked your syntax, nodes are processed by each Storm operation in order.
+
+You do not have to write (or execute) Storm queries one operation at a time - the example above is meant to illustrate the "building block" nature of Storm operations and how you can chain them together to form longer queries. If you know that the question you want Storm to answer is "show me the unicast IP addresses that the FQDN `vertex.link` has resolved to", you can simply run the final query in its entirety. But you can also build queries one operation at a time if you're exploring the data, are not sure where your analysis will take you, or want to check your interim results before proceeding.
+
+The ability to build queries operation by operation means that a Storm query can parallel an analyst's natural thought process: you perform one Storm operation and then consider the next step you want to take in your analysis.
+
+> [!TIP]
+> If a Storm query is not returning the results you expect, running the query operation-by-operation and checking the results at each step is a good debugging process.
+
+<a id="storm-node-consume"></a>
+
+### Node Consumption
+
+Storm operations typically **change** your working set in some way. That is, the nodes that go into (are inbound) to a given Storm operation are not necessarily the nodes that come out of that operation.
+
+Take our operation chaining example above:
+
+- Our **initial working set** consists of the single node `inet:fqdn=vertex.link`, which we selected with a lift operation.
+- When we pivot to the DNS A records for that FQDN, we navigate away from (drop) our initial `inet:fqdn` node, and navigate to (add) the DNS A nodes. Our **current working set** now consists of the DNS A records (`inet:dns:a` nodes) for `vertex.link`.
+- Similarly, when we pivot to the IP addresses, we navigate away from (drop) the DNS A nodes and navigate to (add) the IP nodes. Our current working set is made up of the `inet:ip` nodes.
+- Finally, when we perform our filter operation, we may discard (drop) any IP nodes representing non-unicast IPs (such as `inet:ip=127.0.0.1`) if present.
+
+We refer to this transformation (in particular, dropping) of some or all nodes by a given Storm operation as **consuming** nodes. Most Storm operations consume nodes (that is, change your working set in some way - what comes out of the operation is not the same set of nodes that goes in).
+
+For standard Storm queries this process should be fairly intuitive. However, the idea of **node consumption** and the transformation of your current working set is important to keep in mind for more advanced Storm.
+
+> [!TIP]
+> Storm commands (built-in commands, or commands added by Power-Ups) that operate on nodes generally do **not** consume nodes - by default, the nodes that go into the command are the same nodes that come out. This allows you to chain multiple commands together that all operate on the same inbound nodes. This is a common use case for node enrichment, where you want to send the same indicator (such as an `inet:ip` node) to multiple Power-Up commands to retrieve additional data about the IP from multiple sources.
+>
+> Storm commands may include a `--yield` option to override this behavior and drop (consume) the inbound nodes in order to return the node(s) (or primary node(s)) produced by the command.
+
+<a id="storm-pipeline"></a>
+
+### Storm as a Pipeline
+
+Just as each Storm **operation** in the chain is processed individually from left to right, each node in your working set is evaluated **individually** against a given Storm operation in a query. You can think of your Storm query as a **pipeline** of operations, with each node processed one at a time through the pipeline. Whether you start with one node or 10,000 nodes, they are evaluated against your Storm query one by one.
+
+Processing nodes one by one significantly reduces Synapse's latency and memory use: this is a big part of what makes Synapse so fast and responsive. Synapse can immediately provide you with results for the initial nodes while it continues processing the remaining nodes. In other words, you don't have to wait for your **entire** query to complete before starting to see results.
+
+For everyday Storm, this behavior is transparent - you run a Storm query, you get a response. However, understanding this pipeline behavior is critical when working with (or troubleshooting) Storm queries that leverage features such as subqueries, variables, control flow operations, or functions. See the Advanced Storm Operations sections (below) for additional detail.
+
+<a id="storm-ops-adv"></a>
+
+## Advanced Storm Operations
+
+In our experience, the more analysts use Storm, the more they want even greater power and flexibility from the language to support their analytical workflow! To meet these demands, Storm evolved a number of advanced features, including:
+
+- [Variables](storm_adv_vars.md)
+- [Methods](storm_adv_methods.md)
+- [Control Flow](storm_adv_control.md)
+- [Functions](storm_adv_functions.md)
+- [stormtypes-libs-header](../stormtypes_libs.md#stormtypes-libs-header)
+- [stormtypes-prim-header](../stormtypes_prims.md#stormtypes-prim-header)
+
+**Analysts do not need to use or understand these more advanced concepts in order to use Storm or Synapse.** Basic Storm functions are sufficient for a wide range of analytical needs and workflows. However, these additional features are available to Storm power users and developers as needed:
+
+- For analysts, once they are comfortable with Storm basics, many of them want to expand their Storm skills **specifically because it facilitates their analysis.**
+- For developers, writing extensions to Synapse in Storm has the advantage that the extension **can be deployed or updated on the fly.** Contrast this with extensions written in Python, for example, which would require restarting the system during a maintenance window in order to deploy or update the code.
+
+> [!NOTE]
+> Synapse's [Rapid Power-Ups](../power_ups.md#rapid-powerups) are written entirely in Storm and exposed to Synapse users as Storm commands!
+
+<a id="storm-whitespace-literals"></a>
+
+## Whitespace and Literals in Storm
+
+The Storm query language allows (and in some cases requires) whitespace to separate syntax elements such as commands and command arguments.
+
+When using **literals** in Storm, quotation marks are used to **preserve** whitespace characters and other special characters within the literal.
+
+<a id="storm-whitespace"></a>
+
+### Using Whitespace Characters
+
+Whitespace characters (i.e., spaces) are used within Storm to separate command line arguments. Specifically, whitespace characters are used to separate commands, command arguments, command operators, variables and literals.
+
+When entering a query/command in Storm, one or more whitespace characters are **required** between the following command line arguments:
+
+- A command (such as `max`) and command line parameters (in this case, the property `:created`):
+
+``` text
+storm> inet:whois:record:fqdn=vertex.link | max :created
+```
+
+- An unquoted literal and any subsequent argument or operator:
+
+``` text
+storm> inet:email:fqdn=vertex.link | count
+
+storm> inet:email=support@vertex.link -> *
+```
+
+Whitespace characters can **optionally** be used when performing the following operations:
+
+- Comparison operations:
+
+``` text
+storm> inet:ip=192.168.0.1
+
+storm> inet:ip = 192.168.0.1
+
+storm> file:bytes:size>65536
+
+storm> file:bytes:size > 65536
+```
+
+- Assigning values within edit operations:
+
+``` text
+storm> [inet:fqdn=vertex.link]
+
+storm> [inet:fqdn = vertex.link]
+
+storm> inet:ip=8.8.8.8 [:asn=15169]
+
+storm> inet:ip=8.8.8.8 [:asn = 15169]
+```
+
+- Between brackets, parentheses, or curly braces and their contents:
+
+``` text
+storm> [inet:fqdn=vertex.link]
+
+storm> [ inet:fqdn=vertex.link ]
+
+storm> [ inet:dns:a=(woot.com,1.2.3.4) ]
+
+storm> [ inet:dns:a=( woot.com, 1.2.3.4 ) ]
+
+storm> entity:contact:name='ron the cat' [:org={ou:org:name='the vertex project'}]
+
+storm> entity:contact:name='ron the cat' [ :org={ ou:org:name='the vertex project' } ]
+```
+
+Whitespace characters **cannot** be used between reserved characters when performing the following CLI operations:
+
+- Add and remove tag operations. The plus ( `+` ) and minus ( `-` ) sign characters are used to add and remove tags. When performing tag operations using these characters, the character must be placed next to the tag name. That is, `+#<tag>` is correct; `+ #<tag>` is incorrect.
+
+``` text
+storm> inet:ip=192.168.0.1 [ -#oldtag +#newtag ]
+```
+
+<a id="storm-literals"></a>
+
+### Entering Literals
+
+Storm uses quotation marks to preserve whitespace and other special characters that represent literals. If values with these characters are not quoted, Synapse may misinterpret them and throw a syntax error.
+
+Single ( `' '` ) or double ( `" "` ) quotation marks can be used when specifying a literal in Storm during an assignment or comparison operation. Enclosing a literal in quotation marks is **required** when the literal:
+
+- begins with a non-alphanumeric character,
+- contains a space ( `\s` ), tab ( `\t` ) or newline( `\n` ) character, or
+- contains a reserved Synapse character (for example, `\ ) , = ] } |`).
+
+**Single Quotes**
+
+Enclosing a literal in **single** quotation marks will preserve the literal meaning of **each character.** That is, each character in the literal is interpreted exactly as entered.
+
+Examples:
+
+```stormdoc
+storm> file:base='windows update.exe'
+file:base=windows update.exe
+        :ext = exe
+```
+
+```stormdoc
+storm> entity:name='The Vertex Project, LLC'
+entity:name=The Vertex Project, LLC
+```
+
+If a literal (such as a string) **includes** a single quotation mark, it must be enclosed in double quotes.
+
+Wrong:
+
+```stormdoc
+storm> it:dev:str='Storm's intuitive syntax makes it easy to learn and use.'
+it:dev:str='Storm's intuitive syntax makes it ea...
+                  ^
+Syntax Error: Unexpected token 'unquoted list value' at line 1, column 19, expecting one of: #, $, (, ), )+, )-, )>, *, +, +(, ,, -, -(, -+>, --+>, -->, ->, ., :$, :(, <(, <+(, <+-, <+--, <-, [, ], absolute property name, absolute property name with embed properties, and, as, break, command name, continue, emit, empty, fini, for, function, if, init, or, property name potentially with wildcards, relative property name, return, reverse, stop, switch, try, while, yield, {, |, }
+```
+
+Right:
+
+```stormdoc
+storm> it:dev:str="Storm's intuitive syntax makes it easy to learn and use."
+it:dev:str=Storm's intuitive syntax makes it easy to learn and use.
+```
+
+**Double Quotes**
+
+Enclosing a literal in **double** quotation marks will preserve the literal meaning of all characters **except for** the backslash ( `\` ) character, which is interpreted as an escape character. The backslash can be used to include special characters (such as tab (`\t`) or newline (`\n`)) or reserved Synapse character within a literal.
+
+If you need to include a literal backslash within a double-quoted literal, you must enter it as a double backslash (the first backslash escapes the next backslash character):
+
+Wrong:
+
+```stormdoc
+storm> [ file:path="C:\Program Files\Mozilla Firefox\firefox.exe" ]
+file:path=C:/Program Files/Mozilla Firefoxirefox.exe
+```
+
+In the output above Synapse interpreted the `\f` within the double quotes as the form feed character, which resulted in an incorrectly constructed file path.
+
+Right:
+
+```stormdoc
+storm> [ file:path="C:\\Program Files\\Mozilla Firefox\\firefox.exe" ]
+file:path=C:/Program Files/Mozilla Firefox/firefox.exe
+```
+
+Note that if a literal containing backslashes does not include a single quote, you can simply enclose the file path in single quotes:
+
+Also right:
+
+```stormdoc
+storm> [ file:path='C:\Program Files\Mozilla Firefox\firefox.exe' ]
+file:path=C:/Program Files/Mozilla Firefox/firefox.exe
+```
+
+<a id="storm-backtick-format-strings"></a>
+
+### Backtick Format Strings
+
+Backticks ( `` ` ``\` ) can be used to specify a format string in Storm, with curly braces used to specify expressions which will be substituted into the string at runtime. Any valid Storm expression may be used in a format string, such as variables, node properties, tags, or function calls.
+
+- Use a variable in a string:
+
+```stormdoc
+storm> $ip='1.2.3.4' $str=`The IP is {$ip}`
+```
+
+- Lift a node using a format string:
+
+```stormdoc
+storm> $ip=1.2.3.4 $port=22 inet:client=`tcp://{$ip}:{$port}`
+inet:client=tcp://1.2.3.4:22
+        :proto = tcp
+```
+
+- Use node properties in a string:
+
+```stormdoc
+storm> inet:ip=8.8.8.8 $lib.print(`IP {$node.repr()}: asn={:asn} :seen={:seen} mytag={#mytag}`) | spin
+IP 8.8.8.8: asn=15169 :seen=2024-12-09T03:22:57Z - 2026-07-11T18:06:49Z mytag=2025-03-12T00:00:00Z - 2025-09-27T00:00:00Z
+```
+
+Backtick format strings may also span multiple lines, which will include the newlines when displayed:
+
+```stormdoc
+storm> inet:ip=8.8.8.8 $lib.print(`\nIP {$node.repr()}:\nasn={:asn}\nseen={:seen}\nmytag={#mytag}`) | spin
+
+IP 8.8.8.8:
+asn=15169
+seen=2024-12-09T03:22:57Z - 2026-07-11T18:06:49Z
+mytag=2025-03-12T00:00:00Z - 2025-09-27T00:00:00Z
+```
+
+Like double quotes, backticks will preserve the literal meaning of all characters **except for** the backslash ( `\` ) character, which is interpreted as an escape character. The backslash can be used to include special characters such as tab (`\t`) or newline (`\n`), or to include a backtick (``<span class="title-ref">) or curly brace (</span><span class="title-ref">{</span>\`) in the string.
+
+> [!TIP]
+> For Synapse v2 users: the `$lib.str` library (including `$lib.str.format()`) has been [removed](../300_changes/storm-lib-removed.md#libstr-removed) from Synapse v3. Use backtick format strings instead.

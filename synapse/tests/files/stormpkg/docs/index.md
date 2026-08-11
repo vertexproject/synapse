@@ -1,0 +1,5 @@
+# testpkg
+
+```mdtoc
+foobar.md
+```

@@ -32,9 +32,32 @@ async def iterPropForm(self, form=None, prop=None):
 
 class LayerTest(s_t_utils.SynTest):
 
-    def checkLayrvers(self, core):
-        for layr in core.layers.values():
-            self.eq(layr.layrvers, 11)
+    async def test_layer_sodeenvl_sortneutral(self):
+        '''
+        SodeEnvl must be sort neutral, so a row tuple which ends in one still sorts by whatever key
+        follows it. Without __eq__ the tuples are neither equal nor ordered, which silently strips
+        the sort of that following key rather than raising.
+        '''
+        envl0 = s_layer.SodeEnvl('layr00', {})
+        envl1 = s_layer.SodeEnvl('layr01', {})
+
+        self.eq(envl0, envl1)
+        self.false(envl0 < envl1)
+        self.false(envl1 < envl0)
+
+        # a tuple ending in an envl must compare on the earlier elements only
+        self.eq((10, b'nid', envl0), (10, b'nid', envl1))
+        self.lt((10, b'nid', envl0), (11, b'nid', envl1))
+
+        # so merggenr2( withordr=True ) still resolves a tie by generator order, in both
+        # directions. this is what keeps the topmost layer winning a tie in a multi layer lift.
+        for reverse in (False, True):
+            genrs = [s_common.agen((10, b'nid', envl0)), s_common.agen((10, b'nid', envl1))]
+            retn = await s_t_utils.alist(s_common.merggenr2(genrs, reverse=reverse, withordr=True))
+            self.eq([0, 1], [ordr for _, ordr in retn])
+
+        # envls stay usable as dict keys, since __hash__ is not dropped by defining __eq__
+        self.len(2, {envl0: 'a', envl1: 'b'})
 
     async def test_layer_verify(self):
 
@@ -1718,6 +1741,41 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('[test:str=foo :seen=(2015, 2016)]')
             self.eq(offs, layr.getEditIndx())
 
+    async def test_layer_tomb_over_live(self):
+        '''
+        A tombstone edit applied to a layer which still holds the live row must
+        remove it, so that point lookups and index scans agree.
+        '''
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:str=foo +(refs)> {[ test:int=1 ]} ] $node.data.set(hehe, haha)')
+            nid = s_common.int64un(nodes[0].nid)
+
+            nodes = await core.nodes('test:int=1')
+            n2nid = s_common.int64un(nodes[0].nid)
+
+            layr = core.getLayer()
+
+            # a raw tombstone replay, such as a layer push or a mirror, must not
+            # leave the live rows behind.
+            edits = (
+                (s_layer.EDIT_NODEDATA_TOMB, ('hehe',)),
+                (s_layer.EDIT_EDGE_TOMB, ('refs', n2nid)),
+            )
+            self.len(1, await layr.saveNodeEdits([(nid, 'test:str', edits)], {}))
+
+            # the point lookups and the scans must agree
+            self.none(await core.callStorm('test:str=foo return($node.data.get(hehe))'))
+            self.eq((), await core.callStorm('test:str=foo return($node.data.list())'))
+            self.len(0, await core.nodes('yield $lib.lift.byNodeData(hehe)'))
+
+            self.len(0, await core.nodes('test:str=foo -(refs)> *'))
+            self.len(0, await core.nodes('test:int=1 <(refs)- *'))
+            self.eq(0, core.getView().getEdgeCount(nodes[0].nid, n2=True))
+
+            # and the edit is idempotent
+            self.len(0, await layr.saveNodeEdits([(nid, 'test:str', edits)], {}))
+
     async def test_layer_del_then_lift(self):
         '''
         Regression test
@@ -1945,7 +2003,7 @@ class LayerTest(s_t_utils.SynTest):
                 didset = False
                 async for mesg in core.storm('[( test:guid=(rotest00,) )] $lib.time.sleep(1) [( test:guid=(rotest01,) )]'):
                     msgs.append(mesg)
-                    if mesg[0] == 'node:edits' and not didset:
+                    if mesg[0] == 'edits' and not didset:
                         self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, (true)) return($layer.get(readonly))'))
                         didset = True
 
@@ -2536,6 +2594,38 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, list(layr.layrslab.scanByPref(abrv, db=layr.indxdb)))
             self.eq(0, layr.indxcounts.get(abrv))
             self.len(0, await core.nodes('test:str:poly.port=80'))
+
+    async def test_layer_vers_index(self):
+
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+
+            # an ordered/range lift against a form:prop that has never had a
+            # parseable it:version value indexed hits NoSuchAbrv (the side
+            # index abrv doesn't exist yet) and returns nothing rather than
+            # erroring.
+            self.len(0, await core.nodes('it:hardware:version >= "1.0.0"'))
+
+            await core.nodes('[ it:hardware=(hw,) :version=1.0.0 ]')
+            other = (await core.nodes('[ it:hardware=(hw2,) ]'))[0]
+
+            self.eq(['1.0.0'], [n.get('version')[1] for n in await core.nodes('it:hardware:version >= "1.0.0"')])
+
+            # simulate a stale/orphaned side-index row (index present but the
+            # target node has no :version prop) -- this can't happen via
+            # normal edits, since delVirtIndxVals always removes the row
+            # alongside the prop, so inject one directly to exercise the
+            # defensive skip in StorTypeVers._liftVers / IndxByPropVersIndex's
+            # getSodeValu (getNodeValu falls back to novalu, and the lifter
+            # skips it rather than erroring).
+            abrv = core.getIndxAbrv(s_layer.INDX_VERS_INDEX, 'it:hardware', 'version')
+            lkey, _ = next(layr.layrslab.scanByPref(abrv, db=layr.indxdb))
+            indx = lkey[len(abrv):]
+            await layr.layrslab.put(abrv + indx, other.nid, db=layr.indxdb)
+
+            # the stale row is silently skipped; the real match still returns
+            self.eq(['1.0.0'], [n.get('version')[1] for n in await core.nodes('it:hardware:version >= "1.0.0"')])
 
     async def test_layer_poly_indexes(self):
 
@@ -3187,8 +3277,8 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:guid:_custom:risk:severity')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, testnode00[0])
-            self.propeq(nodes[0], 'name', testnode00[1]['props']['name'][1])
-            self.propeq(nodes[0], '_custom:risk:severity', testnode00[1]['props']['_custom:risk:level'][1])
+            self.propeq(nodes[0], 'name', testnode00[1]['props']['name'][0])
+            self.propeq(nodes[0], '_custom:risk:severity', testnode00[1]['props']['_custom:risk:level'][0])
 
             view00 = (await core.addView(vdef={'layers': [layr00.iden, core.view.layers[0].iden]}))['iden']
             inview = {'view': view00}
@@ -3339,6 +3429,45 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('test:arrayprop=(4,) | delnode', opts=viewopts2)
             self.len(0, await core.nodes('test:arrayprop:vers*[.semver=4.5.6]', opts=viewopts2))
             self.len(0, await core.nodes('test:arrayprop:vers*[.semver=1.2.3]', opts=viewopts2))
+
+            # A reverse array lift over more than one layer must merge the layers into one
+            # descending sequence rather than returning each layer's rows back to back. The layer
+            # index stays out of the merge comparison ( merggenr2 withordr, plus SodeEnvl being
+            # sort neutral ) so a tie resolves to the topmost layer in either direction.
+            await core.nodes('''[
+                (test:arrayprop=(low0,) :ints=(10,) :vers=(v1.0.0,))
+                (test:arrayprop=(low1,) :ints=(30,) :vers=(v3.0.0,))
+            ]''')
+
+            await core.nodes('''[
+                (test:arrayprop=(top0,) :ints=(20,) :vers=(v2.0.0,))
+                (test:arrayprop=(top1,) :ints=(40,) :vers=(v4.0.0,))
+            ]''', opts=viewopts2)
+
+            async def arryvals(name, text, opts=viewopts2):
+                return [node.get(name)[0][1] for node in await core.nodes(text, opts=opts)]
+
+            self.eq([10, 20, 30, 40], await arryvals('ints', 'test:arrayprop:ints*[>=10]'))
+            self.eq([40, 30, 20, 10], await arryvals('ints', 'reverse(test:arrayprop:ints*[>=10])'))
+
+            # the virt lift branch merges the same way
+            self.eq(['v1.0.0', 'v2.0.0', 'v3.0.0', 'v4.0.0'],
+                    await arryvals('vers', 'test:arrayprop:vers*[.semver>=1.0.0]'))
+            self.eq(['v4.0.0', 'v3.0.0', 'v2.0.0', 'v1.0.0'],
+                    await arryvals('vers', 'reverse(test:arrayprop:vers*[.semver>=1.0.0])'))
+
+            # a value in both layers is lifted once, from the topmost layer, either direction
+            await core.nodes('test:arrayprop=(low0,) [ :ints=(10,) ]', opts=viewopts2)
+
+            self.eq([10, 20, 30, 40], await arryvals('ints', 'test:arrayprop:ints*[>=10]'))
+            self.eq([40, 30, 20, 10], await arryvals('ints', 'reverse(test:arrayprop:ints*[>=10])'))
+
+            # the single layer view keeps only the rows written to it
+            self.eq([10, 30], await arryvals('ints', 'test:arrayprop:ints*[>=10]', opts=None))
+            self.eq([30, 10], await arryvals('ints', 'reverse(test:arrayprop:ints*[>=10])', opts=None))
+
+            await core.nodes('test:arrayprop=(low0,) test:arrayprop=(low1,) | delnode', opts=viewopts2)
+            await core.nodes('test:arrayprop=(top0,) test:arrayprop=(top1,) | delnode', opts=viewopts2)
 
             # Bad virt data coverage
             nodes = await core.nodes('[test:str=iparry :polyarry={ inet:server=tcp://1.2.3.4:90 } ]', opts=viewopts2)

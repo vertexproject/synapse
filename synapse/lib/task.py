@@ -25,8 +25,6 @@ class Task(s_base.Base):
         self.protected = False
         self.background = False
 
-        task._syn_task = self
-
         if iden is not None:
             if not isinstance(iden, str):
                 mesg = 'The task iden specified must be a string.'
@@ -40,6 +38,14 @@ class Task(s_base.Base):
         if self.iden is None:
             self.iden = s_common.guid()
 
+        # check before we claim the asyncio task, otherwise a collision leaves it
+        # pointing at a Task which is immediately fini()d by Base.anit().
+        if self.boss.tasks.get(self.iden) is not None:
+            mesg = f'The task iden {self.iden} is already in use by a running task.'
+            raise s_exc.BadArg(mesg=mesg, iden=self.iden)
+
+        task._syn_task = self
+
         self.task = task                # the real task...
         self.tick = s_common.now()
         self.name = name
@@ -47,10 +53,6 @@ class Task(s_base.Base):
         self.root = root
         self.info = info
         self.kids = {}
-
-        if self.boss.tasks.get(self.iden) is not None:
-            mesg = 'Specified task iden already exists!'
-            raise s_exc.BadArg(mesg=mesg, iden=iden)
 
         self.boss.tasks[self.iden] = self
         if root is not None:

@@ -30,21 +30,19 @@ class JsonStor(s_base.Base):
         self.slab = slab
         self.pref = pref
 
-        self.dirty = {}
-
         self.pathdb = self.slab.initdb(f'{pref}:paths')
         self.itemdb = self.slab.initdb(f'{pref}:items')
 
         self.metadb = self.slab.initdb(f'{pref}:meta')
         self.fsinfo = self.slab.initdb(f'{pref}:fsinfo')
 
-        self.slab.on('commit', self._syncDirtyItems)
-
-    async def _syncDirtyItems(self, mesg):
-        todo = list(self.dirty.items())
-        for buid, item in todo:
-            self.slab._put(buid, s_msgpack.en(item), db=self.itemdb)
-            self.dirty.pop(buid, None)
+    def _setItem(self, buid, item):
+        '''
+        Write an item body into the same transaction as the paths/refs entries
+        around it, so an object and the path pointing at it become durable
+        together - otherwise a crash leaves a live path referencing an absent item.
+        '''
+        self.slab._put(buid, s_msgpack.en(item), db=self.itemdb)
 
     async def _incRefObj(self, buid, valu=1):
 
@@ -66,7 +64,6 @@ class JsonStor(s_base.Base):
 
         # remove the item data
         self.slab.pop(buid, db=self.itemdb)
-        self.dirty.pop(buid, None)
 
     async def copyPathObj(self, oldp, newp):
         item = await self.getPathObj(oldp)
@@ -93,7 +90,7 @@ class JsonStor(s_base.Base):
 
         self.slab._put(buid + b'refs', s_msgpack.en(1), db=self.metadb)
 
-        self.dirty[buid] = item
+        self._setItem(buid, item)
 
     async def getPathObj(self, path):
         buid = self._pathToBuid(path)
@@ -102,10 +99,6 @@ class JsonStor(s_base.Base):
         return self._getBuidItem(buid)
 
     def _getBuidItem(self, buid):
-        item = self.dirty.get(buid)
-        if item is not None:
-            return item
-
         byts = self.slab.get(buid, db=self.itemdb)
         if byts is not None:
             return s_msgpack.un(byts)
@@ -219,8 +212,7 @@ class JsonStor(s_base.Base):
             return True
 
         step[name] = valu
-        self.dirty[buid] = item
-        self.slab.dirty = True
+        self._setItem(buid, item)
         return True
 
     async def delPathObjProp(self, path, prop):
@@ -241,8 +233,7 @@ class JsonStor(s_base.Base):
 
         step.pop(names[-1], None)
 
-        self.dirty[buid] = item
-        self.slab.dirty = True
+        self._setItem(buid, item)
         return True
 
     async def cmpDelPathObjProp(self, path, prop, valu):
@@ -265,8 +256,7 @@ class JsonStor(s_base.Base):
             return False
 
         step.pop(name, None)
-        self.dirty[buid] = item
-        self.slab.dirty = True
+        self._setItem(buid, item)
         return True
 
     async def popPathObjProp(self, path, prop, defv=None):
@@ -287,8 +277,7 @@ class JsonStor(s_base.Base):
                 return defv
 
         retn = step.pop(names[-1], defv)
-        self.dirty[buid] = item
-        self.slab.dirty = True
+        self._setItem(buid, item)
         return retn
 
 class JsonStorApi(s_cell.CellApi):

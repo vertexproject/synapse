@@ -4,7 +4,7 @@ import synapse.exc as s_exc
 
 import synapse.lib.cell as s_cell
 import synapse.lib.jsonstor as s_jsonstor
-import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_test
 
@@ -171,40 +171,34 @@ class JsonStorTest(s_test.SynTest):
             async with self.getTestJsonStor(dirn=dirn) as jsonstor:
                 async with jsonstor.getLocalProxy() as prox:
 
+                    stor = jsonstor.jsonstor
+
+                    # every mutation puts the item body straight into the txn, so the
+                    # cell's per-nexus-transaction commit makes the object and the path
+                    # pointing at it durable together.
+                    self.false(jsonstor.slab.commitpulse)
+
+                    def durable(path):
+                        buid = stor._pathToBuid(stor._pathToTupl(path))
+                        return s_msgpack.un(stor.slab.get(buid, db=stor.itemdb))
+
                     await prox.setPathObj('foo/bar', {'hehe': 'haha'})
-                    await s_lmdbslab.Slab.syncLoopOnce()
+                    self.eq({'hehe': 'haha'}, durable('foo/bar'))
 
                     self.true(await prox.setPathObjProp('foo/bar', 'zip', 'zop'))
-                    self.len(1, jsonstor.jsonstor.dirty.items())
-
-                    await s_lmdbslab.Slab.syncLoopOnce()
-                    self.len(0, jsonstor.jsonstor.dirty.items())
-
+                    self.eq({'hehe': 'haha', 'zip': 'zop'}, durable('foo/bar'))
                     self.eq({'hehe': 'haha', 'zip': 'zop'}, await prox.getPathObj('foo/bar'))
 
                     self.true(await prox.delPathObjProp('foo/bar', 'zip'))
-                    self.len(1, jsonstor.jsonstor.dirty.items())
-
-                    await s_lmdbslab.Slab.syncLoopOnce()
-                    self.len(0, jsonstor.jsonstor.dirty.items())
-
+                    self.eq({'hehe': 'haha'}, durable('foo/bar'))
                     self.eq({'hehe': 'haha'}, await prox.getPathObj('foo/bar'))
 
                     self.true(await prox.cmpDelPathObjProp('foo/bar', 'hehe', 'haha'))
-                    self.len(1, jsonstor.jsonstor.dirty.items())
-
-                    await s_lmdbslab.Slab.syncLoopOnce()
-                    self.len(0, jsonstor.jsonstor.dirty.items())
-
+                    self.eq({}, durable('foo/bar'))
                     self.eq({}, await prox.getPathObj('foo/bar'))
 
                     self.true(await prox.setPathObjProp('foo/bar', 'zip', 'zop'))
-                    await s_lmdbslab.Slab.syncLoopOnce()
 
                     self.true(await prox.popPathObjProp('foo/bar', 'zip'))
-                    self.len(1, jsonstor.jsonstor.dirty.items())
-
-                    await s_lmdbslab.Slab.syncLoopOnce()
-                    self.len(0, jsonstor.jsonstor.dirty.items())
-
+                    self.eq({}, durable('foo/bar'))
                     self.eq({}, await prox.getPathObj('foo/bar'))

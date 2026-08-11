@@ -93,8 +93,8 @@ async def main(argv, outp=s_output.stdout):
                 node = [m[1] for m in msgs if m[0] == 'node'][0]
 
                 iden = node[0][1]
-                size = node[1]['props']['size'][1]
-                name = node[1]['props']['name'][1]
+                size = node[1]['props']['size'][0]
+                name = node[1]['props']['name'][0]
                 mesg = f'file: {bname} ({size}) added to core ({iden}) as {name}'
                 outp.printf(mesg)
 

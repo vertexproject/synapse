@@ -1,3 +1,5 @@
+import unittest.mock as mock
+
 import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 
@@ -434,10 +436,18 @@ class DataModelTest(s_t_utils.SynTest):
                 if (became := entry.get('became')) is not None:
                     self.true(became in model.forms or became in model.types)
 
-                # nested prop entries are keyed by relative name; became is relative
+                # nested prop entries are keyed by relative name. a became is
+                # relative to that form when it leads with a colon, otherwise a
+                # full path to a prop which moved to a different form.
                 for prel, propentry in entry.get('props', {}).items():
-                    if (pbecame := propentry.get('became')) is not None:
-                        self.nn(model.prop(f'{name}:{pbecame}'))
+
+                    if (pbecame := propentry.get('became')) is None:
+                        continue
+
+                    if pbecame.startswith(':'):
+                        pbecame = f'{name}{pbecame}'
+
+                    self.nn(model.prop(pbecame))
 
             # the reverse-lookup maps are populated from the v2 model map
             self.eq('ou:orgnet', model.formprevnames.get('ou:orgnet4'))
@@ -447,7 +457,7 @@ class DataModelTest(s_t_utils.SynTest):
             mdict = model.getModelDict()
             self.isin('v2map', mdict)
             self.eq(mdict['v2map']['changes']['ou:orgnet4']['became'], 'ou:orgnet')
-            self.eq(mdict['v2map']['changes']['inet:dns:a']['props']['ipv4']['became'], 'ip')
+            self.eq(mdict['v2map']['changes']['inet:dns:a']['props']['ipv4']['became'], ':ip')
 
             # the legacy prevnames key no longer appears in any packed def
             for fdef in mdict['forms'].values():
@@ -457,6 +467,37 @@ class DataModelTest(s_t_utils.SynTest):
 
             for tdef in mdict['types'].values():
                 self.notin('prevnames', tdef['info'])
+
+        # a prop became: may name a prop on another form outright. the shipped
+        # map has no cross-form move yet, so drive both spellings from a crafted
+        # map to prove the leading colon is what makes a value relative.
+        crafted = {
+            'goals': {},
+            'changes': {
+                'it:account': {
+                    'became': 'it:host:account',
+                    'props': {
+                        'user': {'became': ':name'},
+                        'domain': {'became': 'it:host:domain'},
+                        'gone': {'reason': 'No replacement.'},
+                    },
+                },
+            },
+        }
+
+        with mock.patch.object(s_datamodel, '_v2modelmap', crafted):
+            model = s_datamodel.Model()
+
+            self.eq('it:host:account', model.formprevnames.get('it:account'))
+
+            # relative: resolved against the form the entry is keyed by
+            self.eq('it:account:name', model.propprevnames.get('it:account:user'))
+
+            # full path: used as-is, even though it names a different form
+            self.eq('it:host:domain', model.propprevnames.get('it:account:domain'))
+
+            # a reason-only prop entry contributes no reverse lookup
+            self.notin('it:account:gone', model.propprevnames)
 
     async def test_model_comp_readonly_props(self):
         async with self.getTestCore() as core:
@@ -1595,8 +1636,15 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('test:str:poly~=a'))
             self.len(1, await core.nodes('test:str:poly~=aa'))
 
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('$n={ test:str=cov1 } [ test:str=cov2 :poly=$n.props.inhstr ]')
+            # a value whose type is not accepted falls back to norming the bare
+            # value through the poly's default types (here 'inh' norms via test:str
+            # and resolves to the existing test:str2 child form).
+            nodes = await core.nodes('$n={ test:str=cov1 } [ test:str=cov2 :poly=$n.props.inhstr ]')
+            self.eq(('test:str2', 'inh'), nodes[0].get('poly'))
+
+            # works for guids as well.
+            nodes = await core.nodes('[ test:str=cov2 :poly={[ test:guid=2c3c4c98f306b40f180925de908ac5a1 ]} ]')
+            self.eq(('test:str', '2c3c4c98f306b40f180925de908ac5a1'), nodes[0].get('poly'))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:poly.type=test:float')
@@ -1739,9 +1787,6 @@ class DataModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=foobar')
             s_json.reqjsonsafe(nodes[0].pack(virts=True))
 
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str=asdf :hehe={[tel:mob:mcc=123]}]')
-
             retn = await core.callStorm('[test:int=1 :seen=2020] $foo=:seen return(`{$foo}`)')
             self.eq(retn, '2020-01-01T00:00:00Z - 2020-01-01T00:00:00.000001Z')
 
@@ -1789,16 +1834,16 @@ class DataModelTest(s_t_utils.SynTest):
             self.nn(info.get('subs'))
             self.isin('proto', info['subs'])
 
-            # Sad paths: non-tuple value, unknown typename, known type not in
-            # the poly's allowed set.
+            # Sad paths: non-tuple value and unknown typename still raise.
             with self.raises(s_exc.BadTypeValu):
                 await polytype.normFromTypedValu(3)
 
             with self.raises(s_exc.BadTypeValu):
                 await polytype.normFromTypedValu(('not:a:type', 'foo'))
 
-            with self.raises(s_exc.BadTypeValu):
-                await polytype.normFromTypedValu(('it:dev:int', 7))
+            # a known type that is not accepted falls back to norming the bare
+            # value through the poly's default types.
+            self.eq(('test:int', 7), (await polytype.normFromTypedValu(('it:dev:int', 7)))[0])
 
             # Locked inner type raises IsDeprLocked.
             inttype = modl.type('test:int')

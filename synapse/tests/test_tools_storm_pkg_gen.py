@@ -1,11 +1,17 @@
 import os
 import stat
 import shutil
+import hashlib
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.certdir as s_certdir
+import synapse.lib.schemas as s_schemas
 import synapse.lib.version as s_version
+import synapse.lib.crypto.rsa as s_rsa
+import synapse.lib.crypto.tinfoil as s_tinfoil
 
 import synapse.tests.utils as s_test
 import synapse.tests.files as s_files
@@ -42,10 +48,6 @@ class GenPkgTest(s_test.SynTest):
     async def test_tools_genpkg(self):
 
         with self.raises(s_exc.NoSuchFile):
-            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nosuchfile.yaml')
-            await s_genpkg.main((ymlpath,))
-
-        with self.raises(s_exc.NoSuchFile):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'newpfile.yaml')
             await s_genpkg.main((ymlpath,))
 
@@ -58,11 +60,7 @@ class GenPkgTest(s_test.SynTest):
             await s_genpkg.main((ymlpath,))
 
         with self.raises(s_exc.BadPkgDef):
-            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'notitle.yaml')
-            await s_genpkg.main((ymlpath,))
-
-        with self.raises(s_exc.BadPkgDef):
-            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nocontent.yaml')
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nosuchfile.yaml')
             await s_genpkg.main((ymlpath,))
 
         with self.raises(s_exc.SchemaViolation):
@@ -97,17 +95,29 @@ class GenPkgTest(s_test.SynTest):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badvaultsschema.yaml')
             await s_genpkg.main((ymlpath,))
 
+        datapath = s_common.genpath(dirname, 'files', 'stormpkg', 'files', 'data.dat')
+        with open(datapath, 'rb') as fd:
+            datasha256 = hashlib.sha256(fd.read()).hexdigest()
+
         ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
-        async with self.getTestCore() as core:
+
+        # the package declares a file, so --push needs a Cortex with a real Axon
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
 
             savepath = s_common.genpath(core.dirn, 'testpkg.json')
             yamlpath = s_common.genpath(core.dirn, 'testpkg.yaml')
             newppath = s_common.genpath(core.dirn, 'newp.yaml')
 
             url = core.getLocalUrl()
-            argv = ('--push', url, '--save', savepath, ymlpath)
+            argv = ('--encrypt', '--push', url, '--save', savepath, ymlpath)
 
-            await s_genpkg.main(argv)
+            outp = self.getTestOutp()
+            await s_genpkg.main(argv, outp=outp)
+
+            # pushing to a Cortex uploads the declared files into its Axon
+            outp.expect(f'Uploading file: {datapath} ({datasha256})')
+            self.true(await core.callStorm('return($lib.axon.has($s))', opts={'vars': {'s': datasha256}}))
 
             msgs = await core.stormlist('testpkgcmd')
             self.stormIsInErr('argument <foo> is required', msgs)
@@ -125,15 +135,35 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['name'], 'testpkg')
             self.eq(pdef['version'], '0.0.1')
             self.eq(pdef['modules'][0]['name'], 'testmod')
-            self.eq(pdef['modules'][0]['storm'], 'inet:ip\n')
             self.eq(pdef['modules'][1]['name'], 'apimod')
-            self.isin('function search', pdef['modules'][1]['storm'])
             self.eq(pdef['modules'][2]['name'], 'testpkg.testext')
-            self.eq(pdef['modules'][2]['storm'], 'inet:fqdn\n')
             self.eq(pdef['modules'][3]['name'], 'testpkg.testextfile')
-            self.eq(pdef['modules'][3]['storm'], 'inet:fqdn\n')
             self.eq(pdef['commands'][0]['name'], 'testpkgcmd')
-            self.eq(pdef['commands'][0]['storm'], 'inet:ip\n')
+
+            # storm queries are encrypted by default; the seed/salt/pbkdf live under metadata
+            encryption = pdef['metadata']['encryption']
+            seed = encryption['seed']
+            salt = encryption['salt']
+            self.len(64, seed)
+            self.len(64, salt)
+
+            # the pbkdf params used are captured in the encryption metadata
+            self.eq(encryption['pbkdf2'], {
+                'iters': s_tinfoil.STORM_PKG_PBKDF2_ITERS,
+                'hash': s_tinfoil.STORM_PKG_PBKDF2_HASH,
+            })
+            hashname = encryption['pbkdf2']['hash']
+            iters = encryption['pbkdf2']['iters']
+
+            # the stored storm must not be the plaintext
+            self.ne(pdef['modules'][0]['storm'], 'inet:ip\n')
+
+            # ...and must decrypt back to the original queries
+            self.eq(s_tinfoil.decStorm(seed, salt, hashname, iters, pdef['modules'][0]['storm']), 'inet:ip\n')
+            self.isin('function search', s_tinfoil.decStorm(seed, salt, hashname, iters, pdef['modules'][1]['storm']))
+            self.eq(s_tinfoil.decStorm(seed, salt, hashname, iters, pdef['modules'][2]['storm']), 'inet:fqdn\n')
+            self.eq(s_tinfoil.decStorm(seed, salt, hashname, iters, pdef['modules'][3]['storm']), 'inet:fqdn\n')
+            self.eq(s_tinfoil.decStorm(seed, salt, hashname, iters, pdef['commands'][0]['storm']), 'inet:ip\n')
 
             self.eq(pdef['commands'][0]['endpoints'], [
                 {'path': '/v1/test/one'},
@@ -172,11 +202,26 @@ class GenPkgTest(s_test.SynTest):
             self.eq(psecrets['properties']['quux']['minLength'], 2)
             self.eq(psecrets['required'], ('quux',))
 
-            self.eq(pdef['docs'][0]['title'], 'Foo Bar')
-            self.eq(pdef['docs'][0]['content'], 'Hello!\n')
-
             self.eq(pdef['logo']['mime'], 'image/svg')
             self.eq(pdef['logo']['file'], 'c3R1ZmYK')
+
+            # everything under the files directory ships, keyed by the path relative
+            # to that directory; the contents are never embedded in the package
+            datapath = s_common.genpath(dirname, 'files', 'stormpkg', 'files', 'data.dat')
+            with open(datapath, 'rb') as fd:
+                datasha256 = hashlib.sha256(fd.read()).hexdigest()
+
+            nestpath = s_common.genpath(dirname, 'files', 'stormpkg', 'files', 'sub', 'nested.dat')
+            with open(nestpath, 'rb') as fd:
+                nestsha256 = hashlib.sha256(fd.read()).hexdigest()
+
+            self.eq(pdef['files'], {
+                'data.dat': {'sha256': datasha256},
+                'sub/nested.dat': {'sha256': nestsha256},
+            })
+
+            # the walk is recursive and ordered, so a rebuild is deterministic
+            self.eq(['data.dat', 'sub/nested.dat'], list(pdef['files']))
 
             self.len(3, pdef['optic']['workflows'])
 
@@ -211,32 +256,52 @@ class GenPkgTest(s_test.SynTest):
             ''')
             self.eq([True, {'quux': 'foo'}], ret)
 
-            # nodocs
-            nodocspath = s_common.genpath(core.dirn, 'testpkg_nodocs.json')
-            argv = ('--no-docs', '--save', nodocspath, ymlpath)
+            # encryption is opt-in; without --encrypt the storm queries are plaintext
+            noencpath = s_common.genpath(core.dirn, 'testpkg_noenc.json')
+            argv = ('--save', noencpath, ymlpath)
 
             await s_genpkg.main(argv)
 
-            noddocs_pdef = s_common.yamlload(nodocspath)
+            noenc_pdef = s_common.yamlload(noencpath)
 
-            self.eq(noddocs_pdef['name'], 'testpkg')
-            self.eq(noddocs_pdef['docs'][0]['title'], 'Foo Bar')
-            self.eq(noddocs_pdef['docs'][0]['content'], '')
+            self.none(noenc_pdef.get('metadata'))
+            self.eq(noenc_pdef['modules'][0]['storm'], 'inet:ip\n')
+            self.isin('function search', noenc_pdef['modules'][1]['storm'])
+            self.eq(noenc_pdef['modules'][2]['storm'], 'inet:fqdn\n')
+            self.eq(noenc_pdef['modules'][3]['storm'], 'inet:fqdn\n')
+            self.eq(noenc_pdef['commands'][0]['storm'], 'inet:ip\n')
 
             # No push, no save:  nothing to do
             argv = (ymlpath,)
             retn = await s_genpkg.main(argv)
             self.eq(1, retn)
 
-            # Invalid:  save with pre-made file
-            argv = ('--no-build', '--save', savepath, savepath)
-            retn = await s_genpkg.main(argv)
-            self.eq(1, retn)
-
-            # Push a premade yaml
-            argv = ('--push', url, '--no-build', yamlpath)
+            # An already built package may be saved back out
+            rebuiltpath = s_common.genpath(core.dirn, 'testpkg_rebuilt.json')
+            argv = ('--no-build', '--save', rebuiltpath, savepath)
             retn = await s_genpkg.main(argv)
             self.eq(0, retn)
+            self.eq(s_common.yamlload(savepath), s_common.yamlload(rebuiltpath))
+
+            # ...including in place over the input file
+            argv = ('--no-build', '--save', rebuiltpath, rebuiltpath)
+            retn = await s_genpkg.main(argv)
+            self.eq(0, retn)
+            self.eq(s_common.yamlload(savepath), s_common.yamlload(rebuiltpath))
+
+            # Re-pushing the proto finds the file already in the Axon
+            outp = self.getTestOutp()
+            argv = ('--push', url, ymlpath)
+            self.eq(0, await s_genpkg.main(argv, outp=outp))
+            outp.expect(f'Skipping existing file: {datapath} ({datasha256})')
+
+            # Push a premade yaml. An already built package has no files directory
+            # beside it, so they cannot be uploaded -- warn, but still push the package.
+            outp = self.getTestOutp()
+            argv = ('--push', url, '--no-build', yamlpath)
+            retn = await s_genpkg.main(argv, outp=outp)
+            self.eq(0, retn)
+            outp.expect('No local file for data.dat')
 
             # Push a premade json
             argv = ('--no-build', '--push', url, savepath)
@@ -248,11 +313,255 @@ class GenPkgTest(s_test.SynTest):
             retn = await s_genpkg.main(argv)
             self.eq(1, retn)
 
-    def test_tools_tryloadpkg(self):
-        ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nosuchfile.yaml')
-        pkg = s_genpkg.tryLoadPkgProto(ymlpath)
-        # Ensure it ran the fallback to do_docs=False
-        self.eq(pkg.get('docs'), [{'title': 'newp', 'path': 'docs/newp.md', 'content': ''}])
+            # A file which changes between being hashed and being uploaded would leave
+            # the pushed package definition referencing bytes the Axon does not have
+            with self.getTestDir() as tdir:
+
+                datafile = s_common.genpath(s_common.gendir(tdir, 'files'), 'data.dat')
+                with open(datafile, 'wb') as fd:
+                    fd.write(b'fresh package file bytes')
+
+                otherfile = s_common.genpath(tdir, 'other.dat')
+                with open(otherfile, 'wb') as fd:
+                    fd.write(b'these are not those bytes')
+
+                protopath = s_common.genpath(tdir, 'filespkg.yaml')
+                s_common.yamlsave({'name': 'filespkg', 'version': '0.0.1'}, protopath)
+
+                newsha256 = s_genpkg.getFileSha256(datafile)
+
+                # stand in for the file changing after loadPkgProto hashed it. the
+                # push resolves the contents through getPkgProtoFiles, so only that
+                # lookup is replaced -- the built package keeps the real sha256.
+                with mock.patch.object(s_genpkg, 'getPkgProtoFiles',
+                                       lambda path: {'data.dat': otherfile}):
+                    with self.raises(s_exc.BadPkgDef) as cm:
+                        await s_genpkg.main(('--push', url, protopath))
+
+                self.eq(newsha256, cm.exception.get('sha256'))
+                self.ne(newsha256, cm.exception.get('gotsha256'))
+
+                # ...and the package was not added
+                self.none(await core.getStormPkg('filespkg'))
+
+            # a package which declares no files never reaches for the Axon, so a null
+            # proxy here is enough to prove it is not used
+            await s_genpkg.pushPkgFiles(outp, None, {'name': 'nofiles', 'version': '0.0.1'}, newppath)
+
+    def test_tools_genpkg_files(self):
+
+        protodir = s_common.genpath(dirname, 'files', 'stormpkg')
+        datapath = s_common.genpath(protodir, 'files', 'data.dat')
+
+        with open(datapath, 'rb') as fd:
+            datasha256 = hashlib.sha256(fd.read()).hexdigest()
+
+        self.eq(datasha256, s_genpkg.getFileSha256(datapath))
+
+        with self.raises(s_exc.NoSuchFile) as cm:
+            s_genpkg.getFileSha256(s_common.genpath(protodir, 'files', 'newp.dat'))
+        self.isin('files/newp.dat', cm.exception.get('path'))
+
+        nestpath = s_common.genpath(protodir, 'files', 'sub', 'nested.dat')
+
+        # a package ships everything under its files directory, recursively, keyed
+        # by the path relative to that directory
+        ymlpath = s_common.genpath(protodir, 'testpkg.yaml')
+        self.eq([('data.dat', datapath), ('sub/nested.dat', nestpath)],
+                list(s_genpkg.iterPkgProtoFiles(ymlpath)))
+
+        # a storm service serves its package files from the same mapping
+        self.eq({'data.dat': datapath, 'sub/nested.dat': nestpath},
+                s_genpkg.getPkgProtoFiles(ymlpath))
+
+        # a prototype with no files directory ships none
+        with self.getTestDir() as tdir:
+            nofiles = s_common.genpath(tdir, 'nofiles.yaml')
+            s_common.yamlsave({'name': 'nofiles', 'version': '0.0.1'}, nofiles)
+            self.eq({}, s_genpkg.getPkgProtoFiles(nofiles))
+            self.notin('files', s_genpkg.loadPkgProto(nofiles))
+
+        with self.raises(s_exc.NoSuchFile):
+            list(s_genpkg.iterPkgProtoFiles(s_common.genpath(protodir, 'newp.yaml')))
+
+        # an entry may be authored to carry additional fields for the file it names,
+        # but the walk still decides which files ship and fills in their sha256
+        declared = s_genpkg.loadPkgProto(s_common.genpath(protodir, 'declaredfiles.yaml'))
+        self.eq(declared['files'], {
+            'data.dat': {'sha256': datasha256},
+            'sub/nested.dat': {'sha256': s_genpkg.getFileSha256(nestpath)},
+        })
+
+        # ...and one naming a file the package does not ship is an error
+        with self.raises(s_exc.BadPkgDef) as cm:
+            s_genpkg.loadPkgProto(s_common.genpath(protodir, 'nosuchfile.yaml'))
+
+        self.eq('newp.dat', cm.exception.get('path'))
+
+        # a sha256 is lower case hex, so nothing downstream has to normalize it
+        pkgdef = {'name': 'foopkg', 'version': '0.0.1', 'files': {'data.dat': {'sha256': datasha256}}}
+        s_schemas.reqValidPkgdef(pkgdef)
+
+        pkgdef['files'] = {'data.dat': {'sha256': datasha256.upper()}}
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidPkgdef(pkgdef)
+
+        # ...and a files entry is keyed by path and carries exactly a sha256
+        pkgdef['files'] = {'data.dat': {}}
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidPkgdef(pkgdef)
+
+        pkgdef['files'] = {'data.dat': {'sha256': datasha256, 'path': 'data.dat'}}
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidPkgdef(pkgdef)
+
+        pkgdef['files'] = {'data.dat': datasha256}
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidPkgdef(pkgdef)
+
+    def test_tools_genpkg_advanced(self):
+
+        # a package which is delivered by a deployed storm service declares advanced: true,
+        # which reqSvcPkgProto() -- what such a service loads its own package with --
+        # requires, so a service cannot ship a package the Vertex Hub would present as an
+        # installable rapid power-up
+        with self.getTestDir() as tdir:
+
+            protopath = s_common.genpath(tdir, 'advpkg.yaml')
+            s_common.yamlsave({'name': 'advpkg', 'version': '0.0.1', 'advanced': True}, protopath)
+
+            pkgdef = s_genpkg.reqSvcPkgProto(protopath)
+            self.true(pkgdef['advanced'])
+            s_schemas.reqValidPkgdef(pkgdef)
+
+            # the key is optional and nothing fills it in, so a package which does not
+            # declare it does not carry it at all
+            s_common.yamlsave({'name': 'advpkg', 'version': '0.0.1'}, protopath)
+
+            pkgdef = s_genpkg.tryLoadPkgProto(protopath, readonly=True)
+            self.notin('advanced', pkgdef)
+            s_schemas.reqValidPkgdef(pkgdef)
+
+            with self.raises(s_exc.BadPkgDef) as exc:
+                s_genpkg.reqSvcPkgProto(protopath)
+            self.eq('advpkg', exc.exception.get('name'))
+
+            # ...and declaring it false is not declaring it
+            s_common.yamlsave({'name': 'advpkg', 'version': '0.0.1', 'advanced': False}, protopath)
+            with self.raises(s_exc.BadPkgDef):
+                s_genpkg.reqSvcPkgProto(protopath)
+
+            # it is a boolean, so anything else is a schema violation
+            s_common.yamlsave({'name': 'advpkg', 'version': '0.0.1', 'advanced': 'yes'}, protopath)
+            with self.raises(s_exc.SchemaViolation):
+                s_genpkg.loadPkgProto(protopath)
+
+    async def test_tools_genpkg_signas(self):
+
+        ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
+
+        with self.getTestDir() as dirn:
+
+            cdir = s_certdir.CertDir(path=dirn)
+            cdir.genCaCert('testca')
+            cdir.genCodeCert('coder@vertex.link', signas='testca')
+
+            savepath = s_common.genpath(dirn, 'testpkg.json')
+            argv = ('--certdir', dirn, '--signas', 'coder@vertex.link', '--save', savepath, ymlpath)
+            self.eq(0, await s_genpkg.main(argv))
+
+            pdef = s_common.yamlload(savepath)
+            codesign = pdef['metadata']['codesign']
+            self.nn(codesign.get('cert'))
+            self.nn(codesign.get('sign'))
+
+            # the signed body excludes the whole metadata block, but covers the rest
+            pkgcopy = dict(pdef)
+            pkgcopy.pop('metadata')
+
+            cert = cdir.loadCertByts(codesign['cert'].encode())
+            pubk = s_rsa.PubKey(cert.public_key())
+            self.true(pubk.verifyitem(pkgcopy, s_common.uhex(codesign['sign'])))
+
+            pkgcopy['name'] = 'newp'
+            self.false(pubk.verifyitem(pkgcopy, s_common.uhex(codesign['sign'])))
+
+    async def test_pkg_encryption_runtime(self):
+
+        async with self.getTestCore() as core:
+
+            # defs that do not resolve to an encrypted package skip decryption
+            self.none(core._getStormPkgEncryption(None))
+            self.none(core._getStormPkgEncryption('newp.no.such.pkg'))
+
+            query = await core.getStormQueryForDef({'storm': 'inet:ipv4'})
+            self.nn(query)
+
+            seed = s_common.ehex(os.urandom(32))
+            salt = s_common.ehex(os.urandom(32))
+
+            # use non-default pbkdf params to prove decryption reads them from
+            # the encryption metadata rather than the module-level constants
+            hashname = 'sha512'
+            iters = 1000
+
+            encmod = s_tinfoil.encStorm(seed, salt, hashname, iters, 'function foo() { return((42)) }')
+            enccmd = s_tinfoil.encStorm(seed, salt, hashname, iters, '$lib.print(enccmdran)')
+
+            pkgdef = {
+                'name': 'encpkg',
+                'version': '0.0.1',
+                'metadata': {'encryption': {'seed': seed, 'salt': salt, 'pbkdf2': {'iters': iters, 'hash': hashname}}},
+                'modules': [{'name': 'encmod', 'storm': encmod}],
+                'commands': [{'name': 'enccmd', 'storm': enccmd}],
+            }
+
+            # addStormPkg validates (decrypts) the module/command storm on add
+            await core.addStormPkg(pkgdef)
+
+            # the loaded package exposes its encryption seed/salt
+            self.eq(seed, core._getStormPkgEncryption('encpkg').get('seed'))
+
+            # importing the module and running the command decrypt at runtime
+            self.eq(42, await core.callStorm('return($lib.import(encmod).foo())'))
+
+            msgs = await core.stormlist('enccmd')
+            self.stormIsInPrint('enccmdran', msgs)
+
+    async def test_pkg_encrypt_pubkey(self):
+
+        # a deployment RSA keypair; the admin obtains the PEM from $lib.vertex.deployment
+        prikey = s_rsa.PriKey.generate()
+
+        ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
+
+        with self.getTestDir() as dirn:
+            pempath = s_common.genpath(dirn, 'deploy.pem')
+            with open(pempath, 'wb') as fd:
+                fd.write(prikey.public().dump(fmt='pem'))
+
+            savepath = s_common.genpath(dirn, 'testpkg.json')
+            # --encrypt-pubkey implies --encrypt; the built pkgdef still passes reqValidPkgdef
+            self.eq(0, await s_genpkg.main(('--encrypt-pubkey', pempath, '--save', savepath, ymlpath)))
+
+            pdef = s_common.yamlload(savepath)
+            encryption = pdef['metadata']['encryption']
+
+            # per-deployment: seed is RSA-encrypted (not the 64-hex plaintext) + flagged
+            self.true(encryption['deploy'])
+            self.len(512, encryption['seed'])
+            self.len(64, encryption['salt'])
+
+            # only the deployment private key recovers the real 64-hex seed
+            seed = prikey.decrypt(s_common.uhex(encryption['seed'])).decode()
+            self.len(64, seed)
+
+            # ...and that seed decrypts the (still encrypted) module storm
+            salt = encryption['salt']
+            hashname = encryption['pbkdf2']['hash']
+            iters = encryption['pbkdf2']['iters']
+            self.ne('inet:ip\n', pdef['modules'][0]['storm'])
+            self.eq('inet:ip\n', s_tinfoil.decStorm(seed, salt, hashname, iters, pdef['modules'][0]['storm']))
 
     def test_tools_loadpkgproto_readonly(self):
         self.thisHostMustNot(platform='windows')

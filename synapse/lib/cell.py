@@ -44,7 +44,6 @@ import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.health as s_health
-import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.logging as s_logging
@@ -66,6 +65,7 @@ import synapse.tools.service.backup as s_t_backup
 logger = logging.getLogger(__name__)
 
 NEXUS_VERSION = (3, 0)
+
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -725,11 +725,6 @@ class CellApi(s_base.Base):
             yield item
 
     @adminapi()
-    async def getNexusCommitPulse(self):
-        async for offs in self.cell.getNexusCommitPulse():
-            yield offs
-
-    @adminapi()
     async def initBackupStream(self):
         '''
         Take a live backup of the service and stream it as a series of typed messages.
@@ -780,6 +775,26 @@ class CellApi(s_base.Base):
             'threshold': gc.get_threshold(),
         }
 
+    async def editDriveItem(self, iden, versinfo, edits, udef=None, nexs=None):
+        '''
+        Apply several edits to the data of a drive item as one operation.
+
+        See Cell.editDriveItem() for the edit format and the meaning of nexs.
+
+        Notes:
+            Only a global admin may name the user the edits are checked as, or record them
+            as having been made by someone else. Every other caller gets both set to
+            themselves, whatever they pass.
+        '''
+        if not self.user.isAdmin():
+            udef = await self.cell.getUserDef(self.user.iden)
+            versinfo = {**versinfo, 'updater': self.user.iden}
+
+        elif udef is None:
+            udef = await self.cell.getUserDef(self.user.iden)
+
+        return await self.cell.editDriveItem(iden, versinfo, edits, udef=udef, nexs=nexs)
+
     @adminapi()
     async def getReloadableSystems(self):
         return self.cell.getReloadableSystems()
@@ -808,17 +823,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     # Required storage version in order to boot the cell; this is specified as a PEP440 vesrion identifier.
     # This must be updated during beta releases!
-    _reqSynStorVers = '==3.0.0b4'
+    _reqSynStorVers = '==3.0.0b5'
 
     # Subclasses may set this to an s_mcp.CellMcp subclass to mount an MCP endpoint.
     _mcp_ctor = None
 
-    # When True, dirty slabs are committed after every nexus transaction is
-    # applied (NexsRoot._eat -> Slab.commitDirtyNow) rather than relying on the
-    # periodic Slab sync loop. The cell's slabs are opened with commitpulse=False
-    # and do not fire the 'commit' event, so nexus handlers must flush any
-    # buffered writers they touch.
-    nexuscommit = False
+    nexsrootctor = s_nexus.NexsRoot
 
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
     confbase = {
@@ -930,87 +940,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'aha:admin': {
             'description': 'An AHA client certificate CN to register as a local admin user.',
             'type': 'string',
-        },
-        'aha:svcinfo': {
-            'description': 'An AHA svcinfo object. If set, this overrides self discovered Aha service information.',
-            'type': 'object',
-            'properties': {
-                'urlinfo': {
-                    'type': 'object',
-                    'properties': {
-                        'host': {'type': 'string'},
-                        'port': {'type': 'integer'},
-                        'schema': {'type': 'string'}
-                    },
-                    'required': ('host', 'port', 'scheme', )
-                }
-            },
-            'required': ('urlinfo', ),
-            'hidedocs': True,
-            'hidecmdl': True,
-        },
-        'inaugural': {
-            'description': 'Data used to drive configuration of the service upon first startup.',
-            'type': 'object',
-            'properties': {
-                'roles': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {'type': 'string',
-                                     'pattern': '^(?!all$).+$',
-                                     },
-                            'rules': {
-                                'type': 'array',
-                                'items': {
-                                    'type': 'array',
-                                    'items': [
-                                        {'type': 'boolean'},
-                                        {'type': 'array', 'items': {'type': 'string'}, },
-                                    ],
-                                    'minItems': 2,
-                                    'maxItems': 2,
-                                },
-                            }
-                        },
-                        'required': ['name', ],
-                        'additionalProperties': False,
-                    }
-                },
-                'users': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {'type': 'string',
-                                     'pattern': '^(?!root$).+$',
-                                     },
-                            'admin': {'type': 'boolean', 'default': False, },
-                            'email': {'type': 'string', },
-                            'roles': {
-                                'type': 'array',
-                                'items': {'type': 'string'},
-                            },
-                            'rules': {
-                                'type': 'array',
-                                'items': {
-                                    'type': 'array',
-                                    'items': [
-                                        {'type': 'boolean'},
-                                        {'type': 'array', 'items': {'type': 'string'}, },
-                                    ],
-                                    'minItems': 2,
-                                    'maxItems': 2,
-                                },
-                            },
-                        },
-                        'required': ['name', ],
-                        'additionalProperties': False,
-                    }
-                }
-            },
-            'hidedocs': True,
         },
     }
 
@@ -1158,6 +1087,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self.enter_context(s_telepath.loadTeleCell(self.dirn))
 
+        # registered before the slab so fini() ( which runs _fini_funcs in
+        # registration order ) closes client links and drains in-flight
+        # generator tasks ( eg AhaCell.getAhaTopo() ) before the slab closes
+        # out from under them -- otherwise a still-streaming generator raises
+        # IsFini mid-scan, which Daemon._onLinkMesg logs as an unhandled
+        # exception.
+        async def finidmon():
+            dmon = getattr(self, 'dmon', None)
+            if dmon is not None:
+                await dmon.fini()
+
+        self.onfini(finidmon)
+
         await self._initCellSlab(readonly=readonly)
 
         # initialize network daemons (but do not listen yet)
@@ -1199,10 +1141,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.cellinfo = self.slab.getSafeKeyVal('cell:info')
         self.cellvers = self.slab.getSafeKeyVal('cell:vers')
+        self.cellmeta = self.slab.getSafeKeyVal('cell:meta')
+
+        # name -> async onset(newv, oldv) hooks run inside the meta:set nexus handler
+        # (before the new value is stored) so they run identically on every mirror.
+        self.metahooks = {}
 
         if self.inaugural:
             self.cellinfo.set('nexus:version', NEXUS_VERSION)
-            self.cellvers.set('cell:storage', 1)
+
+        # initCellVers() commits the whole cell slab, so on an inaugural boot it
+        # makes the cellinfo write above durable along with its own.
+        await self.initCellVers('cell:storage')
 
         # Check the cell version didn't regress
         if (lastver := self.cellinfo.get('cell:version')) is not None:
@@ -1260,15 +1210,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initCellStorage()
         await self.initServiceStorage()
 
+        if not self.readonly:
+            # the boot writes above (inaugural cell:info/cell:vers, and any storage
+            # migration run with nexs=False) are outside a nexus transaction, so nothing
+            # else would commit them.
+            await s_lmdbslab.Slab.commitDirtyNow()
+
         # phase 3 - nexus subsystem
         await self.initNexusSubsystem()
 
         await self.configNexsVers()
 
-        # We can now do nexus-safe operations
-        await self._initInauguralConfig()
-
-        # phase 4 - service logic
+        # phase 4 - service logic ( nexus-safe operations may run from here on )
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
@@ -1278,6 +1231,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.permlook is None:
             self.permlook = {pdef['perm']: pdef for pdef in self.getPermDefs()}
         return self.permlook.get(perm)
+
+    def getPermDefault(self, perm):
+        '''
+        Return the registered default value for a permission, or False if it has no permdef.
+        '''
+        permdef = self.getPermDef(perm)
+        if permdef is None:
+            return False
+
+        return permdef.get('default', False)
 
     def getPermDefs(self):
         if self.permdefs is None:
@@ -1505,7 +1468,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _execCellUpdates(self):
         # implement to apply updates to a fully initialized active cell
-        # ( and do so using _bumpCellVers )
+        # ( and do so using initCellVers )
         pass
 
     async def setNexsVers(self, vers):
@@ -1539,34 +1502,125 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.nexspatches.append((meth, getattr(self, meth)))
             setattr(self, meth, repl)
 
-    async def setCellVers(self, name, vers, nexs=True):
-        if nexs:
-            await self._push('cell:vers:set', name, vers)
-        else:
+    async def setCellInfoNow(self, name, valu, locked=False):
+        '''
+        Set a cellinfo value outside of a nexus transaction and commit it.
+
+        The write and the commit which makes it durable are done together here rather
+        than left to each caller. A value which *is* set by a nexus handler must use
+        cellinfo.set() instead, since _eat commits it and syncCellSlab() must not run
+        inside a handler.
+
+        Args:
+            name (str): The cellinfo name to set.
+            valu: The value to set.
+            locked (bool): Set by a caller which already holds nexslock.
+        '''
+        self.cellinfo.set(name, valu)
+        await self.syncCellSlab(locked=locked)
+
+    async def initCellVers(self, name, updates=()):
+        '''
+        Initialize a named storage version for this cell, running any updates needed
+        to bring an existing cell up to it.
+
+        This is the only supported way to stamp a storage version. Do not call
+        cellvers.set() directly: a cell's slabs are committed by NexsRoot._eat, so a
+        bare set() outside a nexus transaction is not durable until some later,
+        unrelated event happens to commit the slab. This pairs the writes with the
+        commit.
+
+        The version *is* the number of updates, so it needs no constant and no
+        argument: a cell with no updates yet is version 0, and appending the first
+        update makes it version 1. A version and its updates can therefore never
+        disagree.
+
+        An inaugural cell is stamped with the current version directly, since a store
+        which was just created has nothing to update. Otherwise the updates it has not
+        run yet are run in order.
+
+        The cell is then required to be at the current version, so a caller may treat
+        a return as proof of it. Only a cell from a newer release can fail that, since
+        the updates it is missing are by definition the ones which were appended after
+        it was written -- so it raises BadStorageVersion rather than running on against
+        a store it does not understand.
+
+        Args:
+            name (str): The version name (e.g. 'cortex:storage').
+            updates: An ordered sequence of update callbacks. The first brings a
+                     version 0 cell to version 1, the second 1 to 2, and so on.
+                     Append to it, never insert or reorder.
+
+        Raises:
+            BadStorageVersion: The cell is at a version newer than this release has
+                               updates for.
+
+        Notes:
+            Storage init runs before the nexus is serving, so this is never a nexus
+            event -- every cell runs it locally, mirrors included. The cell:vers:set
+            handler remains registered so that a log written before this was the case
+            still replays.
+
+            The slab is committed once, after the last update, so a callback must be
+            safe to re-run if the cell dies part way through a multi-step update.
+        '''
+        vers = len(updates)
+
+        if self.inaugural:
             await self._setCellVers(name, vers)
+            await self.syncCellSlab()
+            return
+
+        curv = self.cellvers.get(name, 0)
+
+        bumped = False
+        for updvers, callback in enumerate(updates[curv:], start=curv + 1):
+
+            await callback()
+
+            await self._setCellVers(name, updvers)
+
+            curv = updvers
+            bumped = True
+
+        if bumped:
+            await self.syncCellSlab()
+
+        if curv != vers:
+            mesg = f'Got {name} version {curv}.  Expected {vers}.  Accidental downgrade?'
+            raise s_exc.BadStorageVersion(mesg=mesg, name=name, vers=curv)
 
     @s_nexus.Pusher.onPush('cell:vers:set', reader=False)
     async def _setCellVers(self, name, vers):
         self.cellvers.set(name, vers)
 
-    async def _bumpCellVers(self, name, updates, nexs=True):
+    def getMeta(self, name, defv=None):
+        '''
+        Get a value from the cell metadata store.
+        '''
+        return self.cellmeta.get(name, defv)
 
-        if self.inaugural:
-            await self.setCellVers(name, updates[-1][0], nexs=nexs)
-            return
+    async def setMeta(self, name, valu):
+        '''
+        Set a value in the cell metadata store (nexus replicated). If the stored
+        value already equals valu this is a no-op: no nexus event and no hook.
+        '''
+        if self.cellmeta.get(name) == valu:
+            return valu
 
-        curv = self.cellvers.get(name, 0)
+        return await self._push('meta:set', name, valu)
 
-        for vers, callback in updates:
+    @s_nexus.Pusher.onPush('meta:set', reader=False)
+    async def _setMeta(self, name, valu):
+        hook = self.metahooks.get(name)
+        if hook is not None:
+            try:
+                await hook(valu, self.cellmeta.get(name))
+            except Exception:
+                logger.exception(f'error running meta:set hook for {name}')
 
-            if vers <= curv:
-                continue
-
-            await callback()
-
-            await self.setCellVers(name, vers, nexs=nexs)
-
-            curv = vers
+        self.cellmeta.set(name, valu)
+        return valu
 
     def checkFreeSpace(self):
         self._checkspace.set()
@@ -1810,49 +1864,117 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setDriveInfoPerm(self, iden, perm):
         return await self.drive.setItemPerm(iden, perm)
 
-    @s_nexus.Pusher.onPushAuto('drive:data:path:set', reader=False)
-    async def setDriveItemProp(self, iden, vers, path, valu):
-        if isinstance(path, str):
-            path = (path,)
-
+    async def _reqDriveItemData(self, iden):
         data = await self.getDriveData(iden)
         if data is None:
             mesg = f'No drive item with ID {iden}.'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        _, item = data
+        # msgpack decodes an array as a tuple, so the item is copied with lists
+        # to make every array within it mutable in place
+        return s_msgpack.deepcopy(data[1], use_list=True)
 
-        try:
-            step = item
-            for p in path[:-1]:
-                step = step[p]
-            step[path[-1]] = valu
-        except (KeyError, IndexError):
-            raise s_exc.BadArg(mesg=f'Invalid path {path}')
+    async def editDriveItem(self, iden, versinfo, edits, udef=None, nexs=None):
+        '''
+        Apply several edits to the data of a drive item as one operation.
 
-        return await self.drive.setItemData(iden, vers, item)
+        Every edit is applied before the item is stored, so the data and its version info
+        are written by one putmulti and either all of the edits land or none of them do.
 
-    @s_nexus.Pusher.onPushAuto('drive:data:path:del', reader=False)
-    async def delDriveItemProp(self, iden, vers, path):
-        if isinstance(path, str):
-            path = (path,)
+        Args:
+            iden (str): The drive item iden.
+            versinfo (dict): The version info to store the result under.
+            edits (list): A list of (type, path, info) tuples.
+            udef (dict): A user definition to check edit permission with.
+            nexs (int): The nexus offset the edits were computed against.
 
-        data = await self.getDriveData(iden)
-        if data is None:
-            mesg = f'No drive item with ID {iden}.'
-            raise s_exc.NoSuchIden(mesg=mesg)
+        Notes:
+            The edit types are:
 
-        _, item = data
+            * ``DRIVE_EDIT_SET`` -- set the value at path to ``info.valu``
+            * ``DRIVE_EDIT_DEL`` -- remove the value at path, which is not an error when
+              the value itself is absent, but is one when a step along the way to it is
+            * ``DRIVE_EDIT_INS`` -- insert ``info.valu`` into the list at path, where the
+              last element of path is the index and ``-1`` appends
+            * ``DRIVE_EDIT_MOV`` -- move the value at path to ``info.path``
 
-        try:
-            step = item
-            for p in path[:-1]:
-                step = step[p]
-            del step[path[-1]]
-        except (KeyError, IndexError):
-            return
+            When nexs is given it is compared to the nexs of the stored data, so edits
+            computed against a version of the item which has since been written by someone
+            else are refused rather than applied over the top of theirs.
 
-        return await self.drive.setItemData(iden, vers, item)
+            The version info and the data which are returned are always the ones which are
+            current, whether or not the edits were applied, so a caller whose nexs did not
+            match can rebase its edits onto them and try again without a second read which
+            could race another writer. The version info carries the nexs to pass as the
+            nexs of the next edit.
+
+        Returns:
+            (bool, dict, dict): Whether the edits were applied, the current version info,
+            and the current data.
+        '''
+        info = await self.drive.reqItemInfo(iden)
+
+        if udef is not None and not self._hasEasyPermUdef(info, udef, PERM_EDIT):
+            mesg = f'User ({udef.get("iden")}) requires edit permission on drive item {iden}.'
+            raise s_exc.AuthDeny(mesg=mesg, iden=iden)
+
+        # the edits are applied to a copy first, so that a malformed edit is refused before
+        # any of it reaches the nexus log
+        self.drive._editData(await self._reqDriveItemData(iden), edits)
+
+        return await self._push('drive:data:edits', iden, versinfo, edits, nexs)
+
+    @s_nexus.Pusher.onPush('drive:data:edits', passitem=True, reader=False)
+    async def _editDriveItem(self, iden, versinfo, edits, nexs, nexsitem):
+
+        # the offset this event is applied at is what the drive compares against the
+        # stored one to tell an edit apart from a replay of it
+        versinfo['nexs'] = nexsitem[0]
+
+        return await self.drive.editItemData(iden, versinfo, edits, nexs=nexs)
+
+    def _hasEasyPermUdef(self, item, udef, level):
+        '''
+        The easyperm check against a user definition rather than a heavy User.
+
+        _hasEasyPerm() takes a User, which a caller working from a remote cell's auth does
+        not have.
+        '''
+        useriden = udef.get('iden')
+        if useriden is None:
+            return False
+
+        if level > PERM_ADMIN or level < PERM_DENY:
+            raise s_exc.BadArg(mesg=f'Invalid permission level: {level} (must be <= 3 and >= 0)')
+
+        if udef.get('admin'):
+            return True
+
+        # a grant which is present but insufficient falls through to the roles and then the
+        # default, the same way _hasEasyPerm() does, so that only an explicit deny stops the
+        # check early
+        userlevel = item['permissions']['users'].get(useriden)
+        if userlevel is not None:
+            if userlevel == PERM_DENY:
+                return False
+
+            if userlevel >= level:
+                return True
+
+        roleperms = item['permissions']['roles']
+        for role in udef.get('roles', ()):
+
+            rolelevel = roleperms.get(role['iden'])
+            if rolelevel is None:
+                continue
+
+            if rolelevel == PERM_DENY:
+                return False
+
+            if rolelevel >= level:
+                return True
+
+        return level <= item['permissions'].get('default', PERM_READ)
 
     @s_nexus.Pusher.onPushAuto('drive:set:path', reader=False)
     async def setDriveInfoPath(self, iden, path):
@@ -1864,8 +1986,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return await self.drive.setItemPath(iden, path)
 
-    @s_nexus.Pusher.onPushAuto('drive:data:set', reader=False)
-    async def setDriveData(self, iden, versinfo, data):
+    @s_nexus.Pusher.onPushAuto('drive:data:set', passitem=True, reader=False)
+    async def setDriveData(self, iden, versinfo, data, nexsitem):
+        versinfo['nexs'] = nexsitem[0]
         return await self.drive.setItemData(iden, versinfo, data)
 
     async def delDriveData(self, iden, vers=None):
@@ -1944,7 +2067,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                          'and must be restored from a backup before it can start.')
             raise
 
-        self.cellinfo.set('aha:lead:term', term)
+        await self.setCellInfoNow('aha:lead:term', term)
 
         active = term.get('name') == self.ahasvcname
         self.isfollower = not active
@@ -2085,11 +2208,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getAhaInfo(self):
 
-        # Default to static information
-        ahainfo = self.conf.get('aha:svcinfo')
-        if ahainfo is not None:
-            return ahainfo
-
         # If we have not setup our dmon listener yet, do not generate ahainfo
         if self.sockaddr is None:
             return None
@@ -2197,7 +2315,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     if not self.isactive:
                         term = await proxy.getLeadTerm(self.getCellType())
                         if term is not None:
-                            self.cellinfo.set('aha:lead:term', term)
+                            await self.setCellInfoNow('aha:lead:term', term)
                             self.leadfollow = term.get('name')
 
                 except Exception as e:
@@ -2230,7 +2348,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         if self.cellparent:
             return self.cellparent.nexsroot
-        return await s_nexus.NexsRoot.anit(self)
+
+        return await self.nexsrootctor.anit(self)
 
     async def getNexsIndx(self):
         return await self.nexsroot.index()
@@ -2342,12 +2461,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         nexsoffs = await self.getNexsIndx()
         term = await proxy.setLeadTerm(self.getCellType(), self.ahasvcname, nexsoffs)
-        self.cellinfo.set('aha:lead:term', term)
+        await self.setCellInfoNow('aha:lead:term', term)
 
     async def _saveLeadTerm(self):
         # a follower records the current leadership term so that a later reboot
         # does not falsely detect a schism after leadership has legitimately
-        # changed while we were following.
+        # changed while we were following. Called from handoff() with nexslock held.
         if self.ahaclient is None or self.ahasvcname is None:
             return
 
@@ -2357,7 +2476,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         term = await proxy.getLeadTerm(self.getCellType())
         if term is not None:
-            self.cellinfo.set('aha:lead:term', term)
+            await self.setCellInfoNow('aha:lead:term', term, locked=True)
 
     async def promote(self, force=False):
         '''
@@ -2749,10 +2868,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getNexusChanges(self, offs, tellready=False, wait=True):
         async for item in self.nexsroot.iter(offs, tellready=tellready, wait=wait):
             yield item
-
-    async def getNexusCommitPulse(self):
-        async for offs in self.nexsroot.iterCommitPulse():
-            yield offs
 
     async def _preCaptureBackup(self):
         '''
@@ -3684,7 +3799,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return {
             'cookie_secret': secret,
             'log_function': self._log_web_request,
-            'websocket_ping_interval': 10
+            # Tornado >=6.5.0 caps websocket_ping_timeout at websocket_ping_interval
+            # (previously it defaulted to max(3 * interval, 30)), so both must be set
+            # explicitly to keep a 30s grace period for slow/loaded pong responses.
+            'websocket_ping_interval': 30,
+            'websocket_ping_timeout': 30,
         }
 
     async def _initCellHttp(self):
@@ -3757,13 +3876,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.dmon = await s_daemon.Daemon.anit(ahainfo=ahainfo)
         self.dmon.share('*', self)
 
-        self.onfini(self.dmon.fini)
+    async def _initSlabFile(self, path, readonly=False, ephemeral=False, commitpulse=False, **opts):
+        # a cell's slabs hold the state its nexus handlers write, so they are committed
+        # after every nexus transaction (NexsRoot._eat -> Slab.commitDirtyNow) rather than
+        # on the periodic sync loop: the log entry and the state it describes become
+        # durable together and NexsRoot.recover() only ever has one entry to replay. A
+        # write made outside a nexus transaction must call syncCellSlab(), since nothing
+        # else will commit it. Any remaining opts are passed to the slab.
+        opts.setdefault('map_size', SLAB_MAP_SIZE)
 
-    async def _initSlabFile(self, path, readonly=False, ephemeral=False, commitpulse=None):
-        if commitpulse is None:
-            commitpulse = not self.nexuscommit
-        slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly,
-                                          commitpulse=commitpulse)
+        slab = await s_lmdbslab.Slab.anit(path, readonly=readonly, commitpulse=commitpulse, **opts)
         slab.addResizeCallback(self.checkFreeSpace)
         fini = slab.fini
         if ephemeral:
@@ -3782,6 +3904,36 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await _slab.fini()
 
         self.slab = await self._initSlabFile(path, readonly=readonly)
+
+    async def syncCellSlab(self, locked=False):
+        '''
+        Commit the cell slab after a write made outside of a nexus transaction.
+
+        A cell's slabs are committed only by NexsRoot._eat, so a write which is
+        deliberately not a nexus event is durable only once this has run.
+
+        Args:
+            locked (bool): Set by a caller which already holds nexslock.
+
+        Notes:
+            The commit is made under nexslock because callers run concurrently with
+            _eat (the AHA registration loop is a scheduled coro). _eat applies a
+            handler before it commits the log entry describing it, so a commit landing
+            in that window would make state durable ahead of its log entry - which
+            recover() cannot repair and no mirror will receive. Taking the lock the way
+            _eat does means the two can never interleave. It is not reentrant, so this
+            must not be called from a nexus handler, and a caller already holding it
+            must pass locked=True.
+        '''
+        if self.readonly:
+            return
+
+        if locked:
+            await self.slab.sync()
+            return
+
+        async with self.nexslock:
+            await self.slab.sync()
 
     async def _initCellAuth(self):
 
@@ -3818,37 +3970,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # (aka we dont have a self.cellparent)
         if self.cellparent is None:
             return self.nexsroot
-
-    async def _initInauguralConfig(self):
-        if self.inaugural:
-            icfg = self.conf.get('inaugural')
-            if icfg is not None:
-
-                for rnfo in icfg.get('roles', ()):
-                    name = rnfo.get('name')
-                    logger.debug(f'Adding inaugural role {name}')
-                    iden = s_common.guid((self.iden, 'auth', 'role', name))
-                    role = await self.auth.addRole(name, iden)  # type: s_auth.Role
-
-                    for rule in rnfo.get('rules', ()):
-                        await role.addRule(rule)
-
-                for unfo in icfg.get('users', ()):
-                    name = unfo.get('name')
-                    email = unfo.get('email')
-                    iden = s_common.guid((self.iden, 'auth', 'user', name))
-                    logger.debug(f'Adding inaugural user {name}')
-                    user = await self.auth.addUser(name, email=email, iden=iden)  # type: s_auth.User
-
-                    if unfo.get('admin'):
-                        await user.setAdmin(True)
-
-                    for rolename in unfo.get('roles', ()):
-                        role = await self.auth.reqRoleByName(rolename)
-                        await user.grant(role.iden)
-
-                    for rule in unfo.get('rules', ()):
-                        await user.addRule(rule)
 
     @contextlib.asynccontextmanager
     async def getLocalProxy(self, share=None, user='root'):
@@ -4781,13 +4902,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return [f'aha://{svcentry["name"]}' for svcentry in mirrors]
 
     @classmethod
-    async def initFromArgv(cls, argv, outp=None):
+    async def initFromArgv(cls, argv):
         '''
         Cell launcher which does automatic argument parsing, environment variable resolution and Cell creation.
 
         Args:
             argv (list): A list of command line arguments to launch the Cell with.
-            outp (s_ouput.OutPut): Optional, an output object. No longer used in the default implementation.
 
         Notes:
             This does the following items:
@@ -4872,13 +4992,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return cell
 
     @classmethod
-    async def execmain(cls, argv, outp=None):
+    async def execmain(cls, argv):
         '''
         The main entry point for running the Cell as an application.
 
         Args:
             argv (list): A list of command line arguments to launch the Cell with.
-            outp (s_ouput.OutPut): Optional, an output object. No longer used in the default implementation.
 
         Notes:
             This coroutine waits until the Cell is fini'd or a SIGINT/SIGTERM signal is sent to the process.
@@ -4886,11 +5005,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             None.
         '''
-
-        if outp is None:
-            outp = s_output.stdout
-
-        cell = await cls.initFromArgv(argv, outp=outp)
+        cell = await cls.initFromArgv(argv)
 
         await cell.main()
 

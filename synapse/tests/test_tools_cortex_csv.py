@@ -71,7 +71,7 @@ class CsvToolTest(s_t_utils.SynTest):
             self.eq(0, await s_csvtool.main(argv, outp=outp))
             outp.expect('oh hai')
             outp.expect('2 nodes')
-            outp.expect('node:edits')  # node edits are present in debug output
+            outp.expect('edits')  # node edits are present in debug output
 
             with mock.patch('synapse.telepath.Proxy._getSynVers', self._getOldSynVers):
                 outp = self.getTestOutp()
@@ -139,7 +139,7 @@ class CsvToolTest(s_t_utils.SynTest):
 
             await s_csvtool.main(argv, outp=outp)
             outp.expect('hello hello')
-            outp.expect("'fqdn': ('inet:fqdn', 'google.com')")
+            outp.expect("'fqdn': ('google.com', {'t': 'inet:fqdn'})")
             outp.expect('3 nodes')
 
     async def test_csvtool_local(self):

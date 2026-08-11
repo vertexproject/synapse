@@ -839,10 +839,16 @@ async def schedGenr(genr, maxsize=100):
 
             await q.put((False, None))
 
-        except Exception:
-            if not base.isfini:
-                await q.put((False, None))
-            raise
+        except Exception as e:
+
+            if base.isfini:
+                raise
+
+            # hand the exception off to the consumer so that it is raised
+            # exactly once, by whoever is iterating us. raising it here as
+            # well would cause the Base.schedCoro() taskDone callback to
+            # log it.
+            await q.put((False, e))
 
     async with await Base.anit() as base:
 
@@ -859,6 +865,10 @@ async def schedGenr(genr, maxsize=100):
                 continue
 
             await task
+
+            if retn is not None:
+                raise retn
+
             return
 
 async def main(coro):  # pragma: no cover

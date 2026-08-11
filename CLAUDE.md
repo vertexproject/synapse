@@ -63,6 +63,33 @@ The alias is always `s_` followed by the last segment of the module path.
 - Internal/private methods: underscore prefix `_methodName`
 - Constants: ALL_CAPS in `synapse/lib/const.py`
 
+### Serialization Vocabulary
+
+These short names are **code vocabulary**: use them for identifiers, local
+variables, and helper names. User facing text -- an `s_exc` `mesg=`, a changelog
+entry, doc prose -- spells the term out instead.
+
+A `tval` is the general form. An `ndef` and a `pdef` are `tval`s whose first
+element is specifically a form or a property:
+
+| Name | Long form | Shape |
+|------|-----------|-------|
+| `tval` | typed value | `(<type>, <valu>)` -- what `Type.normFromTypedValu()` takes, and what the poly tuple holds internally |
+| `ndef` | node definition | `(<form>, <valu>)`, a `tval` whose type is a form |
+| `pdef` | property definition | `(<prop>, <valu>)`, a `tval` whose type is a property |
+| `pode` | packed node | `((<form>, <valu>), <info>)`, the serialization returned by `Node.pack()` |
+
+Name a value for what it actually carries: reach for `ndef` or `pdef` only when
+the first element is known to be a form or a property, and use `tval` when it is
+any type name.
+
+A doc may introduce the short form once -- "The packed node (pode) info dict ..."
+-- and then use it inside code spans such as `pode[1]['props'][name]`.
+
+Do not confuse any of these with a model **propdef**, which is the unrelated
+`(<name>, <typedef>, <propinfo>)` triple consumed by
+`datamodel.processPropdefs()`.
+
 ## Development Setup
 
 ```bash
@@ -92,6 +119,9 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
 - Tests must NOT bind to fixed ports (audited via `conftest.py` hook).
 - VCR (vcrpy) is used for HTTP mocking in tests.
 - Regression tests use a separate repo: `synapse-regression`.
+- To detect whether code is currently executing inside a test, check `synapse.common.isTestRun()` (backed by the
+  `PYTEST_CURRENT_TEST` envar pytest sets for the duration of each test). Prefer this over a hand-rolled "are we in
+  CI"-style envar -- it needs no test-suite-side setup and is accurate for exactly the lifetime of one running test.
 
 ## Key Development CLI Tools
 
@@ -104,11 +134,30 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
 
 ## Documentation
 
-- Sphinx-based docs in `docs/synapse/`.
-- Build: `cd docs && make html`
-- Files with the `.rstorm` extension are converted to `.rst` using the `synapse.tools.utils.rstorm` tool.
-- Key docs: `adminguide.rstorm`, `deploymentguide.rst`, `devopsguide.rst`, `httpapi.rst`
-- Whenever possible, use sphinx references for linking between documents/sections.
+- Markdown docs in `docs/synapse/`. Sphinx has been removed; there is no `.rst`/`.rstorm` content or `rstorm` tool
+  usage left in this tree.
+- `synapse.tools.utils.mdstorm` processes any Markdown file with fenced-code-block directives named
+  ` ```mdstorm `, ` ```mdstorm-setup `, ` ```mdshell `, ` ```mdinclude `, and ` ```mdautodoc ` (the `mdstorm` prefix,
+  rather than bare ` ```storm `, keeps that fence name free for future Storm syntax highlighting). ` ```mdinclude `
+  splices another file in verbatim (optionally as a fenced `--code LANG` block). ` ```mdautodoc ` generates
+  Markdown (a Cell's confdefs, a class's own API (`cls.__dict__`, not its full MRO), a Storm package's
+  command/module/dependency reference, the data model, or the Storm types reference) and splices it in at the
+  point of use; `--level N` shifts the generated headings down N levels to nest under an author-written heading.
+  See `synsrc/docs/README.md` for the full directive set.
+- A doc bundle's source tree (an `index.md` plus a ` ```mdtoc ` nav) is built into its own canonical, committed
+  bundle directory -- see `synapse.lib.mddocs.buildBundle` for the stage/mdstorm/nav/validate/merge pipeline. A
+  Storm package builds with `synapse.tools.storm.pkg.doc <pkgfile>` (default destination: `files/docs`, next to
+  the pkgdef); this `docs/synapse/` bundle has no pkgdef of its own, so it instead builds with
+  `synapse.tools.utils.doc docs/synapse synapse/assets/docs`, given both directories explicitly (also how
+  `synapse-enterprise` builds, in the enterprise monorepo). `synapse.tools.utils.mddocs` (the old per-bundle
+  `mddocs.yaml`-driven site builder) stayed removed; `doc` is a from-scratch replacement for the narrower case of
+  a bundle with no pkgdef. A bundle's category is not part of either build; it is derived where a doc manifest is
+  delivered (`synmods.hub.app.HubCell.getDocsManifest`'s Product model for the Hub, `vtxtools.docsmanifest`
+  offline). `docs/` holds only directive-bearing files (see
+  `synapse/assets/docs/contributing/doc_mastering.md`); a plain page lives in the committed bundle dir and is
+  edited there directly.
+- Key docs: `adminguide.md`, `deploymentguide.md`, `devopsguide.md`, `httpapi.md`
+- Whenever possible, link between documents/sections with relative Markdown links (`[text](file.md#anchor)`).
 
 ## Docker
 

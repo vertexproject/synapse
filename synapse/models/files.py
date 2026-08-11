@@ -240,6 +240,23 @@ modeldefs = (
                         'doc': 'The path of the file associated with the {title}.'}),
                 ),
             }),
+            ('file:subfile', {
+                'template': {'title': 'subfile'},
+                'doc': 'Properties common to forms representing a file contained within another file.',
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
+                'props': (
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file contained within the parent file.'}),
+
+                    ('parent', ('file:bytes', {}), {
+                        'doc': 'The parent file which contains the {title}.'}),
+
+                    ('offset', ('size', {}), {
+                        'doc': 'The offset to the beginning of the file within the parent file.'}),
+                ),
+            }),
         ),
 
         'types': (
@@ -368,20 +385,20 @@ modeldefs = (
             # ('file:system:ext3:entry', ('file:system:entry', {}), {}),
             # ('file:system:ntfs:entry', ('file:system:entry', {}), {}),
 
-            ('file:subfile:entry', ('file:stored:entry', {}), {
+            ('file:subfile:entry', ('guid', {}), {
                 'template': {'title': 'subfile entry'},
-                'props': (
-
-                    ('parent', ('file:bytes', {}), {
-                        'doc': 'The parent file which contains the {title}.'}),
-
-                    ('offset', ('size', {}), {
-                        'doc': 'The offset to the beginning of the file within the parent file.'}),
+                'interfaces': (
+                    ('file:entry', {}),
+                    ('file:subfile', {}),
                 ),
+                'props': (),
                 'doc': 'A file entry contained by a parent file.'}),
 
-            ('file:archive:entry', ('file:subfile:entry', {}), {
+            ('file:archive:entry', ('file:stored:entry', {}), {
                 'template': {'title': 'archive file entry'},
+                'interfaces': (
+                    ('file:subfile', {}),
+                ),
                 'props': (
                     ('archived:size', ('size', {}), {
                         'doc': 'The storage size of the file within the archive.'}),

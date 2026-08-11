@@ -1,0 +1,78 @@
+interactions:
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://example.com
+  response:
+    body:
+      string: "<ANSI STANDARD PIZZA>"
+    headers:
+      Accept-Ranges:
+      - bytes
+      Content-Length:
+      - '21'
+      Content-Type:
+      - text/html; charset=UTF-8
+    status:
+      code: 200
+      message: OK
+    url: http://example.com
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Host:
+      - foo.com
+      User-Agent:
+      - Python/3.9 aiohttp/3.7.3
+    method: GET
+    uri: http://foo.com
+  response:
+    body: {}
+    headers:
+      Cache-Control:
+      - private
+      Content-Length:
+      - '178'
+      Content-Type:
+      - text/html
+      Date:
+      - Thu, 05 Aug 2021 04:42:57 GMT
+      Location:
+      - http://www.foo.com/
+      Server:
+      - nginx/1.18.0 (Ubuntu)
+      Set-Cookie:
+      - SERVERID=vpc4|YQtu8|YQtu8; path=/
+    status:
+      code: 301
+      message: Moved Permanently
+    url: http://foo.com
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Host:
+      - www.foo.com
+      User-Agent:
+      - Python/3.9 aiohttp/3.7.3
+    method: GET
+    uri: http://www.foo.com/
+  response:
+    body:
+      string: "<This is (not) a test>"
+    headers:
+      Content-Type:
+      - text/html; charset=utf-8
+    status:
+      code: 200
+      message: OK
+    url: http://www.foo.com/
+version: 1

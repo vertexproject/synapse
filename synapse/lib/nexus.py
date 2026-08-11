@@ -1,5 +1,3 @@
-import os
-import shutil
 import asyncio
 import logging
 import functools
@@ -32,8 +30,11 @@ FOLLOWER_CONNECT_WAIT_S = 60.0
 mirrordisconnect = f'Unable to connect to leader for {FOLLOWER_CONNECT_WAIT_S}s.'
 
 WINDOW_MAXSIZE = 10_000
-PULSE_YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3'
-MIRROR_YIELD_PREFIX = PULSE_YIELD_PREFIX + b'\x92'
+
+# A pre-encoded telepath ('t2:yield', {'retn': (True, ...)}) frame prefix, so the mirror stream
+# can send raw bytes rather than re-encoding the envelope per item. The trailing \x92 opens the
+# two-element (offs, item) array that follows.
+MIRROR_YIELD_PREFIX = b'\x92\xa8t2:yield\x81\xa4retn\x92\xc3\x92'
 
 class RegMethType(type):
     '''
@@ -112,8 +113,6 @@ class NexsRoot(s_base.Base):
         self._mirrors: List[ChangeDist] = []
         self._linkmirrors: List[s_queue.Window] = []
 
-        self._commitpulse = []
-
         # highest nexus offset whose commit (all slabs) has fully completed. Only
         # ever holds a fully-committed offset (updated in _eat after
         # commitDirtyNow), so it is safe even when read outside nexslock.
@@ -126,7 +125,6 @@ class NexsRoot(s_base.Base):
         self._futures: Dict[str, asyncio.Future] = {}
 
         path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
-        fresh = not os.path.exists(path)
 
         logpath = s_common.genpath(self.dirn, 'slabs', 'nexuslog')
 
@@ -134,17 +132,14 @@ class NexsRoot(s_base.Base):
 
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
-        if fresh:
-            self.nexshot.setnow('version', 2)
+        # the log entries are written by _eat, which commits them itself (in log-before-state
+        # order), so the log slabs must not also be committed by the timed pulse - a pulse
+        # landing mid-transaction would commit an entry the handler has not finished
+        # applying.
+        slabopts = {'commitpulse': False}
+        if cell.readonly:
+            slabopts['readonly'] = True
 
-        vers = self.nexshot.get('version')
-
-        if vers <= 1:
-            await self._migrateV1toV2(path, logpath)
-        elif vers != 2:
-            raise s_exc.BadStorageVersion(mesg=f'Got nexus log version {vers}.  Expected 2.  Accidental downgrade?')
-
-        slabopts = {'readonly': True} if cell.readonly else None
         self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, cell=cell, slabopts=slabopts)
 
         # just in case were previously configured differently
@@ -153,26 +148,22 @@ class NexsRoot(s_base.Base):
         maxindx = max(logindx, hotindx)
 
         # everything durable in the log at boot is committed (each entry commits
-        # in its own transaction under nexuscommit), so the last committed offset
-        # is one before the next-write index.
+        # in its own transaction), so the last committed offset is one before the
+        # next-write index.
         self._commitindx = maxindx - 1
 
         # a readonly cell must not rewrite the shared index
         if not cell.readonly:
-            self.nexshot.setnow('nexs:indx', maxindx)
+            self.nexshot.set('nexs:indx', maxindx)
             self.nexslog.setIndex(maxindx)
 
-            # nexshot writes above use setnow (write-through), but the nexus slab
-            # on a nexuscommit cell is commitpulse=False and, with donexslog, is
-            # written only here at boot - nothing commits it later. Commit now so
-            # version/nexs:indx are durable immediately.
+            # the nexus slab is commitpulse=False and, with donexslog, is written only here
+            # at boot - nothing commits it later. Commit now so the nexs:indx written
+            # above is durable immediately.
             await self.nexsslab.sync()
 
         async def fini():
             for wind in self._linkmirrors:
-                await wind.fini()
-
-            for wind in self._commitpulse:
                 await wind.fini()
 
             for dist in self._mirrors:
@@ -188,67 +179,6 @@ class NexsRoot(s_base.Base):
 
     def getNexsKids(self):
         return list(self._nexskids.values())
-
-    async def _migrateV1toV2(self, nexspath, logpath):
-        '''
-        Close the slab, move it to the new multislab location, then copy out the nexshot
-        values, then drop the nexshot db from the multislab
-        '''
-        logger.warning(f'Migrating Nexus log v1->v2 for {nexspath}')
-
-        if os.path.ismount(nexspath):  # pragma: no cover
-            # Fail fast if the nexspath is its own mountpoint.
-            mesg = f'The nexpath={nexspath} is located at its own mount point. This configuration cannot be migrated.'
-            raise s_exc.BadCoreStore(mesg=mesg, nexspath=nexspath)
-
-        # Grab the initial index value
-        seqn = self.nexsslab.getSeqn('nexuslog')
-        first = seqn.first()
-        if first is None:
-            # Nothing in the sequence.  Drop and move along.
-            self.nexsslab.dropdb('nexuslog')
-            self.nexshot.set('version', 2)
-            logger.warning('Nothing in the nexuslog sequence to migrate.')
-            logger.warning('...Nexus log migration complete')
-            return
-
-        await self.nexsslab.fini()
-
-        firstidx = first[0]
-
-        fn = s_multislabseqn.MultiSlabSeqn.slabFilename(logpath, firstidx)
-        logger.warning(f'Existing nexslog will be migrated from {nexspath} to {fn}')
-
-        if os.path.exists(fn):  # pragma: no cover
-            logger.warning(f'Removing old migration which may have failed. This should not exist: {fn}')
-            shutil.rmtree(fn)
-
-        os.makedirs(fn, exist_ok=True)
-        logger.warning('Moving existing nexslog')
-        try:
-            os.replace(nexspath, fn)
-        except OSError as e:  # pragma: no cover
-            logger.exception('Error during nexslog migration.')
-            raise s_exc.BadCoreStore(mesg='Error during nexslogV1toV2', nexspath=nexspath, fn=fn) from e
-
-        # Open a fresh slab where the old one used to be
-        logger.warning(f'Re-opening fresh nexslog slab at {nexspath} for nexshot')
-        self.nexsslab = await self.cell._initSlabFile(nexspath)
-
-        self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
-
-        logger.warning('Copying nexs:indx data from migrated slab to the fresh nexslog')
-        # There's only one value in nexs:indx, so this should be fast
-        async with await s_lmdbslab.Slab.anit(fn) as newslab:
-            olddb = self.nexsslab.initdb('nexs:indx')
-            self.nexsslab.dropdb(olddb)
-            db = newslab.initdb('nexs:indx')
-            await newslab.copydb('nexs:indx', self.nexsslab, destdbname='nexs:indx')
-            newslab.dropdb(db)
-
-        self.nexshot.set('version', 2)
-
-        logger.warning('...Nexus log migration complete')
 
     async def getNexsInfo(self):
         ret = {
@@ -300,6 +230,10 @@ class NexsRoot(s_base.Base):
 
             The log can only have recorded 1 entry ahead of what is applied.  All log actions are idempotent, so
             replaying the last action that (might have) already happened is harmless.
+
+            That bound is structural: _eat holds nexslock across the log write, the apply and the
+            commit of every dirty slab, so an entry and the state it describes become durable
+            together and an unclean exit can strand at most the entry being applied.
         '''
         if not self.donexslog:  # pragma: no cover
             return
@@ -312,10 +246,9 @@ class NexsRoot(s_base.Base):
         try:
             await self._apply(*indxitem)
 
-            # persist the replayed state (nexuscommit cells commit per
-            # transaction rather than on the periodic sync loop).
-            if self.cell.nexuscommit:
-                await s_lmdbslab.Slab.commitDirtyNow()
+            # persist the replayed state, which is committed per transaction rather
+            # than on the periodic sync loop.
+            await s_lmdbslab.Slab.commitDirtyNow()
 
         except Exception:
             logger.exception(f'Exception while replaying log: {s_common.trimText(repr(indxitem))}')
@@ -475,32 +408,32 @@ class NexsRoot(s_base.Base):
             else:
                 saveindx = self.nexshot.get('nexs:indx')
                 if indx is not None and indx > saveindx:  # pragma: no cover
-                    saveindx = self.nexshot.set('nexs:indx', indx)
+                    saveindx = indx
+                    self.nexshot.set('nexs:indx', indx)
 
                 self.nexshot.inc('nexs:indx')
 
-                # nexshot (a commitpulse=False HotCount when nexuscommit is set)
-                # no longer flushes via the 'commit' event, so push the offset
-                # into the txn before the per-transaction commit below.
-                if self.cell.nexuscommit:
-                    self.nexshot.sync()
-
             retn = await self._apply(saveindx, item)
 
-            # commit the dirty slabs while still holding nexslock, so the
-            # nexus-log write (this same transaction) and the applied state are
-            # durable together. Only on success: a failed handler's partial
-            # state stays uncommitted (the log entry is durable and is replayed
-            # on restart).
-            if self.cell.nexuscommit:
-                await s_lmdbslab.Slab.commitDirtyNow()
+            # commit the log entry before the state it describes: separate lmdb
+            # environments, so an unclean exit can land between any two commits, and the
+            # log ahead of the state is the recoverable direction - recover() replays the
+            # last entry, while state no log entry describes is unrepairable and reaches
+            # no mirror. The commitDirtyNow walk cannot give that order: it follows
+            # Slab.allslabs in open order, where cell.lmdb precedes the log tail and a
+            # nexslog:rotate puts the new tail last of all.
+            if self.donexslog:
+                await self.nexslog.sync()
 
-                self._commitindx = saveindx
+            # commit the applied state under nexslock, so it lands with the log entry
+            # above rather than part way through the next transaction. Only on success:
+            # a failed handler's partial state stays uncommitted and its durable log
+            # entry is replayed on restart.
+            await s_lmdbslab.Slab.commitDirtyNow()
 
-                if self._commitpulse:
-                    pulseitem = (saveindx, PULSE_YIELD_PREFIX + s_msgpack.en(saveindx))
-                    for wind in tuple(self._commitpulse):
-                        await wind.put(pulseitem)
+            self._commitindx = saveindx
+
+            self.setPulseIndx(saveindx)
 
             return (saveindx, retn)
 
@@ -518,6 +451,15 @@ class NexsRoot(s_base.Base):
             return await func(nexus, *args, nexsitem=(indx, mesg), **kwargs)
 
         return await func(nexus, *args, **kwargs)
+
+    def setPulseIndx(self, offs):
+        '''
+        Publish a nexus offset whose commit has fully completed.
+
+        Called from _eat with the nexus write lock held, so an implementation must be
+        synchronous and must not block.
+        '''
+        pass
 
     async def index(self):
         if self.donexslog:
@@ -616,42 +558,6 @@ class NexsRoot(s_base.Base):
             self._mirrors.append(dist)
 
             yield dist
-
-    @contextlib.asynccontextmanager
-    async def getCommitPulseWindow(self):
-        async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE, clearonfini=True) as wind:
-
-            async def fini():
-                if wind in self._commitpulse:
-                    self._commitpulse.remove(wind)
-
-            wind.onfini(fini)
-
-            self._commitpulse.append(wind)
-
-            yield wind
-
-    async def iterCommitPulse(self) -> AsyncIterator[int]:
-        '''
-        Yield the committed offset of each nexus transaction as it commits.
-
-        Only meaningful on a ``nexuscommit`` cell (the fan-out in _eat is gated
-        on it); on other cells it yields the current index once and then nothing.
-        '''
-        # attach the window BEFORE reading the committed index, so a commit racing
-        # this attach is either delivered via the window or covered by the index
-        # we yield next. We yield _commitindx (the last FULLY committed offset),
-        # never index() (the next-write offset, which can be read mid-transaction).
-        async with self.getCommitPulseWindow() as wind:
-
-            yield self._commitindx
-
-            if (link := s_scope.get('link')) is None:
-                async for offs, item in wind:
-                    yield offs
-            else:
-                async for offs, item in wind:
-                    await link.send(item)
 
     async def startup(self):
 

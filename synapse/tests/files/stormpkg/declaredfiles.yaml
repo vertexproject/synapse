@@ -1,0 +1,4 @@
+name: declaredfiles
+version: 0.0.1
+files:
+    data.dat: {}

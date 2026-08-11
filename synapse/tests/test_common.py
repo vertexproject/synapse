@@ -69,6 +69,26 @@ class CommonTest(s_t_utils.SynTest):
         ev = ('foo', ('bar', 'bat'))
         self.eq(ev, s_common.tuplify(tv))
 
+    def test_common_result_ctor(self):
+        # a real exception name reconstructs
+        with self.raises(s_exc.BadArg) as exc:
+            s_common.result((False, ('BadArg', {'mesg': 'nope'})))
+        self.eq('nope', exc.exception.get('mesg'))
+
+        # an unknown name falls back to SynErr carrying the name as errx
+        with self.raises(s_exc.SynErr) as exc:
+            s_common.result((False, ('NotAClass', {'mesg': 'bad'})))
+        self.eq(s_exc.SynErr, type(exc.exception))
+        self.eq('NotAClass', exc.exception.get('errx'))
+
+        # a name resolving to a non-exception attribute of synapse.exc must not be
+        # called -- synapse.exc also exposes the sys module and helper functions
+        for name in ('sys', '_check_item'):
+            with self.raises(s_exc.SynErr) as exc:
+                s_common.result((False, (name, {'mesg': 'bad'})))
+            self.eq(s_exc.SynErr, type(exc.exception))
+            self.eq(name, exc.exception.get('errx'))
+
     def test_common_flatten(self):
         item = {'foo': 'bar', 'baz': 10, 'gronk': True, 'hehe': ['ha', 'ha'], 'tupl': (1, 'two'), 'newp': None}
         self.ne('15c8a3727942fa01e04d6a7a525666a2', s_common.guid(item))
@@ -332,10 +352,21 @@ class CommonTest(s_t_utils.SynTest):
             # non-existent and default behaviors
             self.false(s_common.envbool('SYN_NEWP'))
             self.true(s_common.envbool('SYN_NEWP', '1'))
+            # a None default distinguishes unset (None) from a set value
+            self.none(s_common.envbool('SYN_NEWP', None))
+            self.true(s_common.envbool('SYN_FOO', None))
 
         with self.setTstEnvars(SYN_FOO='false', SYN_BAR='0'):
             self.false(s_common.envbool('SYN_FOO'))
             self.false(s_common.envbool('SYN_BAR'))
+            self.false(s_common.envbool('SYN_FOO', None))
+
+    def test_istestrun(self):
+        # true for the entire duration of every test -- pytest sets this
+        self.true(s_common.isTestRun())
+
+        with self.setTstEnvars(PYTEST_CURRENT_TEST=None):
+            self.false(s_common.isTestRun())
 
     async def test_merggenr(self):
         async def asyncl(data):
@@ -397,6 +428,60 @@ class CommonTest(s_t_utils.SynTest):
 
         retn = s_common.merggenr2([asyncl(lt) for lt in (l3, l2, l1)], reverse=True)
         self.eq((9, 8, 7, 6, 5, 4, 3, 2, 1), await alist(retn))
+
+    async def test_merggenr2_withordr(self):
+
+        a1 = (1, 4, 7)
+        a2 = (2, 5, 8)
+        a3 = (3, 6, 9)
+
+        # withordr yields the genrs position which produced each item
+        retn = s_common.merggenr2([s_common.agen(*lt) for lt in (a1, a2, a3)], withordr=True)
+        self.eq([(1, 0), (2, 1), (3, 2), (4, 0), (5, 1), (6, 2), (7, 0), (8, 1), (9, 2)],
+                await s_t_utils.alist(retn))
+
+        retn = s_common.merggenr2([s_common.agen(*lt) for lt in (a1, a2, a3)], cmprkey=lambda x: x, withordr=True)
+        self.eq([(1, 0), (2, 1), (3, 2), (4, 0), (5, 1), (6, 2), (7, 0), (8, 1), (9, 2)],
+                await s_t_utils.alist(retn))
+
+        d1 = (7, 4, 1)
+        d2 = (8, 5, 2)
+        d3 = (9, 6, 3)
+
+        retn = s_common.merggenr2([s_common.agen(*lt) for lt in (d1, d2, d3)], reverse=True, withordr=True)
+        self.eq([(9, 2), (8, 1), (7, 0), (6, 2), (5, 1), (4, 0), (3, 2), (2, 1), (1, 0)],
+                await s_t_utils.alist(retn))
+
+        retn = s_common.merggenr2([s_common.agen(*lt) for lt in (d1, d2, d3)], cmprkey=lambda x: x,
+                                  reverse=True, withordr=True)
+        self.eq([(9, 2), (8, 1), (7, 0), (6, 2), (5, 1), (4, 0), (3, 2), (2, 1), (1, 0)],
+                await s_t_utils.alist(retn))
+
+        # items which compare equal are yielded lowest genrs position first in both directions
+        for reverse in (False, True):
+            retn = s_common.merggenr2([s_common.agen(1), s_common.agen(1), s_common.agen(1)],
+                                      reverse=reverse, withordr=True)
+            self.eq([(1, 0), (1, 1), (1, 2)], await s_t_utils.alist(retn))
+
+            retn = s_common.merggenr2([s_common.agen(1), s_common.agen(1), s_common.agen(1)],
+                                      cmprkey=lambda x: x, reverse=reverse, withordr=True)
+            self.eq([(1, 0), (1, 1), (1, 2)], await s_t_utils.alist(retn))
+
+        # a single non-empty genr hands off to the drain path, which must also tag the items
+        for cmprkey in (None, lambda x: x):
+            retn = s_common.merggenr2([s_common.agen(), s_common.agen(*a2), s_common.agen()],
+                                      cmprkey=cmprkey, withordr=True)
+            self.eq([(2, 1), (5, 1), (8, 1)], await s_t_utils.alist(retn))
+
+            retn = s_common.merggenr2([s_common.agen(), s_common.agen()], cmprkey=cmprkey, withordr=True)
+            self.eq([], await s_t_utils.alist(retn))
+
+        # the tail of a merge drains through the same handoff
+        retn = s_common.merggenr2([s_common.agen(1), s_common.agen(2, 3, 4)], withordr=True)
+        self.eq([(1, 0), (2, 1), (3, 1), (4, 1)], await s_t_utils.alist(retn))
+
+        retn = s_common.merggenr2([s_common.agen(1), s_common.agen(2, 3, 4)], cmprkey=lambda x: x, withordr=True)
+        self.eq([(1, 0), (2, 1), (3, 1), (4, 1)], await s_t_utils.alist(retn))
 
     async def test_sslctx(self):
         with self.getTestDir(mirror='certdir') as dirn:
@@ -465,27 +550,3 @@ class CommonTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.BadDataValu):
             s_common.queryhash('😀\ud83d\ude47')
-
-    def test_docs_baseurl(self):
-        # Default value when env var is not set.
-        with self.setTstEnvars(SYN_DOCS_BASEURL=None):
-            self.eq('https://docs.vertex.link', s_common.getDocsBaseUrl())
-
-        # Override via env var.
-        with self.setTstEnvars(SYN_DOCS_BASEURL='https://example.com'):
-            self.eq('https://example.com', s_common.getDocsBaseUrl())
-
-        # substDocsBaseUrl replaces the token with the resolved base URL.
-        token = s_common._DOCS_BASEURL_TOKEN
-        with self.setTstEnvars(SYN_DOCS_BASEURL=None):
-            result = s_common.substDocsBaseUrl(f'{token}/docs/synapse/latest/foo.html')
-            self.eq('https://docs.vertex.link/docs/synapse/latest/foo.html', result)
-
-        with self.setTstEnvars(SYN_DOCS_BASEURL='https://example.com'):
-            result = s_common.substDocsBaseUrl(f'{token}/docs/synapse/latest/foo.html')
-            self.eq('https://example.com/docs/synapse/latest/foo.html', result)
-
-        # Text with no token is returned unchanged.
-        with self.setTstEnvars():
-            plain = 'no token here'
-            self.eq(plain, s_common.substDocsBaseUrl(plain))

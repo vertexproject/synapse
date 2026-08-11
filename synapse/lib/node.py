@@ -60,6 +60,52 @@ storvirts = {
     s_layer.STOR_TYPE_PRICERANGE: getPriceRangeStorVirts
 }
 
+def getPropVirts(modl, valt):
+    '''
+    Return the virtual property values for a storage property tuple.
+
+    Args:
+        modl (synapse.datamodel.Model): The data model.
+        valt (tuple): A storage (tval, stortype, storvirts) property tuple.
+
+    Returns:
+        (dict): The virtual property values by name. A non-array value carries a
+                ``type`` entry naming the concrete type of the value. An array
+                value carries a ``size`` entry instead.
+    '''
+    valu, stortype, vprops = valt
+
+    retn = {}
+
+    stortype = stortype & s_layer.STOR_MASK_POLY
+
+    if stortype & s_layer.STOR_FLAG_ARRAY:
+
+        for vname, vvals in vprops.items():
+            if vname[0] == '_':
+                continue
+
+            retn[vname] = [(vval[0], vcnt) for vval, vcnt in vvals.items()]
+
+        retn['size'] = len(valu)
+
+        return retn
+
+    if vprops is not None:
+        for vname, vval in vprops.items():
+            if vname[0] == '_':
+                continue
+
+            retn[vname] = vval[0]
+
+    retn['type'] = valu[0]
+
+    if (virtfunc := storvirts.get(stortype)) is not None:
+        proptype = modl.type(valu[0])
+        retn.update(virtfunc(valu[1], vprops, proptype))
+
+    return retn
+
 class NodeBase:
 
     __slots__ = ()
@@ -123,6 +169,22 @@ class NodeBase:
             raise s_exc.NoSuchProp(mesg=mesg)
         return prop
 
+    def _getPropRepr(self, prop, valu, virts):
+        '''
+        Return the repr for a property value, or None if it adds nothing over
+        the system mode value.
+        '''
+        rval = prop.type.reprWithVirts(valu, virts)
+
+        if prop.type.isarray:
+            if rval == [v[1] for v in valu]:
+                return None
+
+        elif rval == valu[1]:
+            return None
+
+        return rval
+
     def _getPropReprs(self, props):
 
         reps = {}
@@ -133,15 +195,9 @@ class NodeBase:
                 continue
 
             _, virts = self.getWithVirts(name)
-            rval = prop.type.reprWithVirts(valu, virts)
 
-            if prop.type.isarray:
-                if rval == [v[1] for v in valu]:
-                    continue
-            elif rval == valu[1]:
-                continue
-
-            reps[name] = rval
+            if (rval := self._getPropRepr(prop, valu, virts)) is not None:
+                reps[name] = rval
 
         return reps
 
@@ -151,32 +207,118 @@ class NodeBase:
         if rval is not None and rval != self.ndef[1]:
             pode[1]['repr'] = rval
 
-        props = pode[1].get('props')
-        if props:
-            pode[1]['reprs'] = self._getPropReprs(props)
+    def _packTags(self, tags, dorepr=False):
+        '''
+        Return the packed tag envelopes.
 
-        tagprops = pode[1].get('tagprops')
-        if tagprops:
-            pode[1]['tagpropreprs'] = self._getTagPropReprs(tagprops)
+        A tag envelope carries no ``t``, since a tag value is always an ival.
+        '''
+        retn = {}
 
-    def _getTagPropReprs(self, tagprops):
+        ivaltype = self.form.modl.type('ival')
 
-        reps = collections.defaultdict(dict)
+        for name, valu in tags.items():
+
+            info = {}
+
+            if dorepr and valu != (None, None, None):
+                info['r'] = ivaltype.repr(valu)
+
+            retn[name] = (valu, info)
+
+        return retn
+
+    def _packTagProps(self, tagprops, dorepr=False):
+        '''
+        Return the packed tag property envelopes.
+
+        A tag property envelope carries no ``t``, since a tag property name is
+        globally unique and names its own type within the model.
+        '''
+        retn = {}
 
         for tag, propdict in tagprops.items():
 
+            packed = retn[tag] = {}
+
             for name, valu in propdict.items():
 
-                prop = self.form.modl.tagprop(name)
-                if prop is None:
-                    continue
+                info = {}
 
-                rval = prop.type.repr(valu)
-                if rval is None or rval == valu:
-                    continue
-                reps[tag][name] = rval
+                if dorepr and (prop := self.form.modl.tagprop(name)) is not None:
 
-        return dict(reps)
+                    rval = prop.type.repr(valu)
+                    if rval is not None and rval != valu:
+                        info['r'] = rval
+
+                packed[name] = (valu, info)
+
+        return retn
+
+    def _packProps(self, storprops, dorepr=False, dovirts=False):
+        '''
+        Return the packed property envelopes for a set of storage property tuples.
+
+        Args:
+            storprops (dict): Storage (tval, stortype, storvirts) tuples by name.
+            dorepr (bool): Include repr values.
+            dovirts (bool): Include virtual property values.
+
+        Returns:
+            (dict): A (valu, info) envelope by property name. See pack() for
+                    the reserved info keys.
+        '''
+        retn = {}
+
+        for name, valt in storprops.items():
+
+            prop = self.form.prop(name)
+            if prop is None:
+                # extra model data from a lower layer has no type or repr.
+                retn[name] = (valt[0], {})
+                continue
+
+            valu = valt[0]
+            info = {}
+
+            if prop.type.isarray:
+
+                elems = []
+                for elem in valu:
+
+                    einfo = {'t': elem[0]}
+
+                    if dorepr and (erepr := prop.type.arraytype.repr(elem)) != elem[1]:
+                        einfo['r'] = erepr
+
+                    elems.append((elem[1], einfo))
+
+                pvalu = tuple(elems)
+
+                # An array container repr is never suppressed. It is the only
+                # thing which lets a consumer without the model render an array
+                # without inspecting the shape of the value.
+                if dorepr:
+                    info['r'] = prop.type.repr(valu)
+
+            else:
+                pvalu = valu[1]
+                info['t'] = valu[0]
+
+                if dorepr and (rval := self._getPropRepr(prop, valu, valt[2])) is not None:
+                    info['r'] = rval
+
+            if dovirts and valt[1] is not None:
+
+                pvirts = getPropVirts(self.form.modl, valt)
+                pvirts.pop('type', None)
+
+                if pvirts:
+                    info['v'] = {vname: (vval, {}) for (vname, vval) in pvirts.items()}
+
+            retn[name] = (pvalu, info)
+
+        return retn
 
     def _getTagTree(self):
 
@@ -381,30 +523,52 @@ class Node(NodeBase):
     def intnid(self):
         return s_common.int64un(self.nid)
 
-    def pack(self, dorepr=False, virts=False, verbs=True):
+    def pack(self, dorepr=False, virts=False):
         '''
         Return the serializable/packed version of the node.
 
         Args:
             dorepr (bool): Include repr information for human readable versions of properties.
             virts (bool): Include virtual properties.
-            verbs (bool): Include edge verb counts.
 
         Returns:
             (tuple): An (ndef, info) node tuple.
+
+        Each value within the ``props`` dict is a ``(valu, info)`` envelope. The
+        two element envelope is invariant; the info dict keys are not. Consumers
+        index ``[0]`` and ``[1]`` unconditionally and must never inspect lengths
+        or element types to decide what they are holding.
+
+        The reserved info keys are:
+
+            ``t``: The concrete type name of the value.
+            ``r``: A human readable rendering of the value.
+            ``v``: Virtual property values, as ``{name: (valu, info)}``.
+
+        New keys are registered here first. Model derived names never appear at
+        the top level of an info dict; they appear only as keys within ``v``.
+
+        ``t`` is present only where the concrete type is carried by the data
+        rather than derivable from the model. It is present on a scalar property
+        and on each array element, whose types vary per value, and absent on an
+        array container, a tag, a tag property, and a property which is not in
+        the model.
+
+        Envelope nesting is bounded at one level: an array member is a scalar
+        envelope, never another array. Array of array is rejected at type
+        definition time and a comp field may not be an array.
         '''
 
         pode = (self.ndef, {
             'nid': s_common.int64un(self.nid),
             'meta': self.getMetaDict(),
-            'tags': self._getTagsDict(),
-            'props': self.getProps(virts=virts),
-            'tagprops': self._getTagPropsDict(),
+            'tags': self._packTags(self._getTagsDict(), dorepr=dorepr),
+            'props': self._packProps(self._getStorProps(), dorepr=dorepr, dovirts=virts),
+            'tagprops': self._packTagProps(self._getTagPropsDict(), dorepr=dorepr),
         })
 
-        if verbs:
-            pode[1]['n1verbs'] = self.getEdgeCounts()
-            pode[1]['n2verbs'] = self.getEdgeCounts(n2=True)
+        pode[1]['n1verbs'] = self.getEdgeCounts()
+        pode[1]['n2verbs'] = self.getEdgeCounts(n2=True)
 
         if virts:
             pode[1]['virts'] = vvals = {}
@@ -525,6 +689,8 @@ class Node(NodeBase):
                     '$form': node.form.name,
                 }
 
+            storprops = {}
+
             for relp in relprops:
 
                 if not relp:
@@ -533,31 +699,22 @@ class Node(NodeBase):
                 if relp[0] == '.':
                     metaname = relp[1:]
                     if metaname in view.core.model.metatypes:
-                        embdnode[relp] = node.getMeta(metaname)
+                        # an embed is shaped like a property, so a meta value is
+                        # carried in an envelope like every other embedded value.
+                        embdnode[relp] = (node.getMeta(metaname), {})
                     continue
 
-                valu, stortype, virts = node.getRawWithLayer(relp)[0]
-                embdnode[relp] = valu
+                valt = node.getRawWithLayer(relp)[0]
 
-                if valu is None:
+                if valt[0] is None:
+                    embdnode[relp] = None
                     continue
 
-                if virts is not None:
-                    for vname, vval in virts.items():
-                        embdnode[f'{relp}.{vname}'] = vval[0]
+                storprops[relp] = valt
 
-                stortype &= s_layer.STOR_MASK_POLY
-
-                if stortype & s_layer.STOR_FLAG_ARRAY:
-                    embdnode[f'{relp}.size'] = len(valu)
-
-                else:
-                    embdnode[f'{relp}.type'] = valu[0]
-
-                    if virtfunc := storvirts.get(stortype):
-                        proptype = self.form.modl.type(valu[0])
-                        for vname, vval in virtfunc(valu[1], virts, proptype).items():
-                            embdnode[f'{relp}.{vname}'] = vval
+            # pack through the embedded node so an embed is shaped exactly like
+            # a property on the node it came from.
+            embdnode.update(node._packProps(storprops, dovirts=True))
 
         return retn
 
@@ -976,7 +1133,10 @@ class Node(NodeBase):
     def getPropNames(self):
         return list(self.getProps().keys())
 
-    def getProps(self, virts=False):
+    def _getStorProps(self):
+        '''
+        Return the storage (tval, stortype, storvirts) property tuples from the Node.
+        '''
         retn = {}
 
         for sode in reversed(self.sodes):
@@ -991,41 +1151,24 @@ class Node(NodeBase):
             if (props := sode.get('props')) is None:
                 continue
 
-            for name, valt in props.items():
-                if virts:
-                    retn[name] = valt
-                else:
-                    retn[name] = valt[0]
+            retn.update(props)
 
-        if virts:
-            for name, valt in list(retn.items()):
-                retn[name] = valu = valt[0]
+        return retn
 
-                stortype = valt[1] & s_layer.STOR_MASK_POLY
-                vprops = valt[2]
+    def getProps(self, virts=False):
 
-                if stortype & s_layer.STOR_FLAG_ARRAY:
-                    for vname, vvals in vprops.items():
-                        if vname[0] == '_':
-                            continue
-                        retn[f'{name}.{vname}'] = [(vval[0], vcnt) for vval, vcnt in vvals.items()]
+        storprops = self._getStorProps()
 
-                    retn[f'{name}.size'] = len(valu)
+        if not virts:
+            return {name: valt[0] for (name, valt) in storprops.items()}
 
-                else:
-                    if vprops is not None:
-                        for vname, vval in vprops.items():
-                            if vname[0] == '_':
-                                continue
+        retn = {}
+        for name, valt in storprops.items():
 
-                            retn[f'{name}.{vname}'] = vval[0]
+            retn[name] = valt[0]
 
-                    retn[f'{name}.type'] = valu[0]
-
-                    if virtfunc := storvirts.get(stortype):
-                        proptype = self.form.modl.type(valu[0])
-                        for vname, vval in virtfunc(valu[1], vprops, proptype).items():
-                            retn[f'{name}.{vname}'] = vval
+            for vname, vval in getPropVirts(self.form.modl, valt).items():
+                retn[f'{name}.{vname}'] = vval
 
         return retn
 
@@ -1383,11 +1526,11 @@ class Node(NodeBase):
             return await protonode.popData(name)
 
     async def iterData(self):
-        async for item in self.view.iterNodeData(self.nid):
+        async for item in self.view.iterNodeData(self.nid, stop=self.lastlayr()):
             yield item
 
     async def iterDataKeys(self):
-        async for name in self.view.iterNodeDataKeys(self.nid):
+        async for name in self.view.iterNodeDataKeys(self.nid, stop=self.lastlayr()):
             yield name
 
 class RuntNode(NodeBase):
@@ -1414,15 +1557,29 @@ class RuntNode(NodeBase):
     def has(self, name, virts=None):
         return self.pode[1]['props'].get(name) is not None
 
+    def _getStorProps(self):
+        '''
+        Return the storage property tuples from the runt node.
+
+        A runt node has no sodes, so it carries neither a stortype nor any
+        virtual property values.
+        '''
+        return {name: (valu, None, None) for (name, valu) in self.pode[1]['props'].items()}
+
     def intnid(self):
         if self.nid is None:
             return None
         return s_common.int64un(self.nid)
 
-    def pack(self, dorepr=False, virts=False, verbs=True):
+    def pack(self, dorepr=False, virts=False):
+
         pode = s_msgpack.deepcopy(self.pode)
+
+        pode[1]['props'] = self._packProps(self._getStorProps(), dorepr=dorepr, dovirts=virts)
+
         if dorepr:
             self._addPodeRepr(pode)
+
         return pode
 
     def valu(self, defv=None, getr=None):
@@ -1597,31 +1754,58 @@ def props(pode):
         pode (tuple): A packed node.
 
     Returns:
-        dict: A dictionary of properties.
+        dict: A dictionary of (valu, info) property envelopes by name.
     '''
     return pode[1]['props'].copy()
 
 def prop(pode, prop):
     '''
-    Return the valu of a given property on the node.
+    Return the envelope of a given property on the node.
 
     Args:
         pode (tuple): A packed node.
-        prop (str): Property to retrieve.
-
-    Notes:
-        The prop argument may be the full property name (foo:bar:baz), relative property name (:baz) , or the unadorned
-        property name (baz).
+        prop (str): Relative property name, without a leading colon.
 
     Returns:
-
+        tuple: The (valu, info) property envelope, or None.
     '''
-    form = pode[0][0]
-    if prop.startswith(form):
-        prop = prop[len(form):]
-    if prop[0] == ':':
-        prop = prop[1:]
     return pode[1]['props'].get(prop)
+
+
+def getPodeTval(form, prop, item, member=False):
+    '''
+    Return the typed value carried by a packed node property envelope.
+
+    Args:
+        form (synapse.datamodel.Form): The form being added.
+        prop (synapse.datamodel.Prop): The property being set.
+        item (tuple): A (valu, info) property envelope.
+        member (bool): The envelope is an array member rather than a container.
+
+    Returns:
+        The typed value expected by Type.normFromTypedValu().
+    '''
+    if not isinstance(item, (tuple, list)) or len(item) != 2 or not isinstance(item[1], dict):
+        mesg = f'Property {form.name}:{prop.name} is not a packed node property envelope.'
+        raise s_exc.BadTypeValu(mesg=mesg, form=form.name, prop=prop.name, valu=item)
+
+    valu, info = item
+
+    if (typename := info.get('t')) is not None:
+        return (typename, valu)
+
+    # envelope nesting is bounded at one level, so an array member carries
+    # its own type name and may not itself be a container.
+    if member or not prop.type.isarray:
+        mesg = f'Property {form.name}:{prop.name} envelope is missing a type name.'
+        raise s_exc.BadTypeValu(mesg=mesg, form=form.name, prop=prop.name, valu=item)
+
+    if not isinstance(valu, (tuple, list)):
+        mesg = f'Property {form.name}:{prop.name} array container value is not a sequence.'
+        raise s_exc.BadTypeValu(mesg=mesg, form=form.name, prop=prop.name, valu=item)
+
+    # an array container carries no type of its own. Its members do.
+    return tuple([getPodeTval(form, prop, elem, member=True) for elem in valu])
 
 def tags(pode, leaf=False):
     '''
@@ -1667,7 +1851,7 @@ def _tagscommon(pode, leafonly):
     # brute force rather than build a tree.  faster in small sets.
     for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):
         look = tag + '.'
-        val = tuple(val)
+        val = tuple(val[0])
         if (leafonly or val == (None, None, None)) and any([r.startswith(look) for r in retn]):
             continue
         retn.append(tag)
@@ -1744,28 +1928,18 @@ def reprProp(pode, prop):
         storm query execution where the ``repr`` key was passed into the
         ``opts`` argument with a True value.
 
-        The prop argument may be the full property name (foo:bar:baz), relative
-        property name (:baz) , or the unadorned property name (baz).
-
     Returns:
         str: The human readable property value.  If the property is not present, returns None.
     '''
-    form = pode[0][0]
-    if prop.startswith(form):
-        prop = prop[len(form):]
-    if prop[0] == ':':
-        prop = prop[1:]
-    opropvalu = pode[1].get('props').get(prop)
-    if opropvalu is None:
+    if (envl := pode[1]['props'].get(prop)) is None:
         return None
-    propvalu = pode[1].get('reprs', {}).get(prop)
-    if propvalu is None:
-        if not opropvalu:
-            return str(opropvalu)
-        if isinstance(opropvalu[0], str):
-            return str(opropvalu[1])
-        return tuple(str(v[1]) for v in opropvalu)
-    return propvalu
+
+    valu, info = envl
+
+    if (rval := info.get('r')) is not None:
+        return rval
+
+    return str(valu)
 
 def reprTag(pode, tag):
     '''
@@ -1786,16 +1960,22 @@ def reprTag(pode, tag):
         str: The human readable value for the tag. If the tag is not present, returns None.
     '''
     tag = tag.lstrip('#')
-    valu = pode[1]['tags'].get(tag)
-    if valu is None:
+    envl = pode[1]['tags'].get(tag)
+    if envl is None:
         return None
+
+    valu, info = envl
+
     valu = tuple(valu)
     if valu == (None, None, None):
         return ''
+
+    if (rval := info.get('r')) is not None:
+        return rval
+
     mint = s_time.repr(valu[0])
     maxt = s_time.reprmax(valu[1])
-    valu = f'{mint} - {maxt}'
-    return valu
+    return f'{mint} - {maxt}'
 
 def reprTagProps(pode, tag):
     '''
@@ -1822,10 +2002,11 @@ def reprTagProps(pode, tag):
     tagprops = pode[1].get('tagprops', {}).get(tag)
     if tagprops is None:
         return ret
-    for prop, valu in tagprops.items():
-        rval = pode[1].get('tagpropreprs', {}).get(tag, {}).get(prop)
-        if rval is not None:
-            ret.append((prop, rval))
-        else:
-            ret.append((prop, str(valu)))
+    for prop, (valu, info) in tagprops.items():
+
+        if (rval := info.get('r')) is None:
+            rval = str(valu)
+
+        ret.append((prop, rval))
+
     return sorted(ret, key=lambda x: x[0])

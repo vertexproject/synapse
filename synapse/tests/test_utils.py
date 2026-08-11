@@ -5,7 +5,6 @@ import logging
 import unittest
 
 import synapse.exc as s_exc
-import synapse.axon as s_axon
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -19,20 +18,16 @@ import synapse.tests.utils as s_t_utils
 logger = logging.getLogger(__name__)
 
 class ClusterSvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
-    _storm_svc_name = 'clustersvc'
-    _storm_svc_pkgs = (
-        {  # type: ignore
-            'name': 'clustersvc',
-            'version': (0, 0, 1),
-            'synapse_version': '>=3.0.0b1,<4.0.0',
-            'commands': (
-                {
-                    'name': 'clustersvc.hi',
-                    'storm': '$lib.print(hello)',
-                },
-            ),
-        },
-    )
+    _storm_svc_pkg = {  # type: ignore
+        'name': 'clustersvc',
+        'version': '0.0.1',
+        'commands': (
+            {
+                'name': 'clustersvc.hi',
+                'storm': '$lib.print(hello)',
+            },
+        ),
+    }
 
 class ClusterSvcCell(s_cell.Cell):
     celltype = 'clustersvc'
@@ -63,8 +58,8 @@ class TestUtils(s_t_utils.SynTest):
             self.eq({'bar': 1}, await clus.cortex.getJsonObj(('foo',)))
 
             # services are reachable by AHA name, celltype, and the proxy helper
-            self.isin('00.cortex', clus.svcs)
-            self.isin('00.axon', clus.svcs)
+            self.isin('000.cortex', clus.svcs)
+            self.isin('000.axon', clus.svcs)
             self.eq(clus.cortex.iden, clus.get('cortex').iden)
             self.none(clus.get('newp'))
             self.nn(clus.getLocalUrl())
@@ -80,8 +75,8 @@ class TestUtils(s_t_utils.SynTest):
         # the service config is provided under the ``conf`` envelope key
         async with self.getTestCluster({'cortex': {'conf': {'nexslog:en': True}, 'mirrors': 1}}) as clus:
             self.true(clus.cortex.conf.get('nexslog:en'))
-            self.isin('01.cortex', clus.svcs)
-            self.eq(clus.cortex.iden, clus.svcs['01.cortex'].iden)
+            self.isin('001.cortex', clus.svcs)
+            self.eq(clus.cortex.iden, clus.svcs['001.cortex'].iden)
 
         # model=False skips loading the synapse test model into the Cortex
         async with self.getTestCluster({'cortex': {'model': False}}) as clus:
@@ -92,7 +87,7 @@ class TestUtils(s_t_utils.SynTest):
         svcs = {'cortex': {}, 'clustersvc': {'ctor': ClusterSvcCell}}
         async with self.getTestCluster(svcs) as clus:
             self.nn(clus.get('clustersvc'))
-            self.isin('00.clustersvc', clus.svcs)
+            self.isin('000.clustersvc', clus.svcs)
             self.nn(clus.cortex.getStormSvc('clustersvc'))
 
         # addSvc() dynamically boots a service onto the running cluster and awaits
@@ -101,57 +96,59 @@ class TestUtils(s_t_utils.SynTest):
 
             svc = await clus.addSvc(ClusterSvcCell)
             self.eq(svc.iden, clus.get('clustersvc').iden)
-            self.isin('00.clustersvc', clus.svcs)
+            self.isin('000.clustersvc', clus.svcs)
             self.nn(clus.cortex.getStormSvc('clustersvc'))
 
             # a second same-type instance follows the leader as a mirror
             mirror = await clus.addSvc(ClusterSvcCell)
-            self.isin('01.clustersvc', clus.svcs)
+            self.isin('001.clustersvc', clus.svcs)
             self.eq(svc.iden, mirror.iden)
-
-            # wait=False returns without awaiting discovery
-            axon2 = await clus.addSvc(s_axon.Axon, wait=False)
-            self.isin('01.axon', clus.svcs)
-            self.nn(axon2)
 
         # getSvcDirn is the predictable per-service dir under the cluster dir, and
         # restart() fini's and re-boots a service from that dir ( same iden )
         async with self.getTestCluster({'cortex': {}, 'clustersvc': {'ctor': ClusterSvcCell}}) as clus:
 
-            self.eq(clus.getSvcDirn('00.clustersvc'), s_common.genpath(clus.dirn, '00.clustersvc'))
+            self.eq(clus.getSvcDirn('000.clustersvc'), s_common.genpath(clus.dirn, '000.clustersvc'))
 
             iden = clus.get('clustersvc').iden
-            svc = await clus.restart('00.clustersvc')
+            svc = await clus.restart('000.clustersvc')
             self.eq(iden, svc.iden)
-            self.true(clus.svcs['00.clustersvc'] is svc)
+            self.true(clus.svcs['000.clustersvc'] is svc)
             self.nn(clus.cortex.getStormSvc('clustersvc'))
 
             # shutdown() leaves the dir intact for hand manipulation; startup()
             # re-boots it from the same dir with the same iden
-            await clus.shutdown('00.clustersvc')
-            self.true(clus.svcs['00.clustersvc'].isfini)
-            svc = await clus.startup('00.clustersvc')
+            await clus.shutdown('000.clustersvc')
+            self.true(clus.svcs['000.clustersvc'].isfini)
+            svc = await clus.startup('000.clustersvc')
             self.false(svc.isfini)
             self.eq(iden, svc.iden)
 
             # restart/shutdown/startup of an unknown service is rejected
             with self.raises(s_exc.BadArg):
-                await clus.restart('99.newp')
+                await clus.restart('999.newp')
 
             with self.raises(s_exc.BadArg):
-                await clus.shutdown('99.newp')
+                await clus.shutdown('999.newp')
 
             with self.raises(s_exc.BadArg):
-                await clus.startup('99.newp')
+                await clus.startup('999.newp')
 
         # an unknown service type with no ctor override is rejected
         with self.raises(s_exc.BadArg):
             async with self.getTestCluster({'newpservice': {}}) as clus:
                 pass  # pragma: no cover
 
-        # an unknown envelope key is rejected
+        # an unknown envelope key is rejected -- for a 'cortex'/'axon'/'jsonstor'
+        # entry, cluster.getCluster() itself catches this; for any other entry
+        # ( added via addSvc() rather than getCluster()'s own envelope
+        # validation ) getTestCluster() must reject it itself.
         with self.raises(s_exc.BadArg):
             async with self.getTestCluster({'cortex': {'newp': {}}}) as clus:
+                pass  # pragma: no cover
+
+        with self.raises(s_exc.BadArg):
+            async with self.getTestCluster({'clustersvc': {'ctor': ClusterSvcCell, 'newp': {}}}) as clus:
                 pass  # pragma: no cover
 
         # AHA is always used and cannot be disabled

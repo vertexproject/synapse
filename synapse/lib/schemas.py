@@ -7,15 +7,20 @@ import synapse.lib.version as s_version
 easyPermSchema = {
     'type': 'object',
     'properties': {
+        # users and roles are keyed by iden, so their key space stays open.
         'users': {
             'type': 'object',
             'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+            'additionalProperties': True,
         },
         'roles': {
             'type': 'object',
             'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+            'additionalProperties': True,
         },
+        'default': {'type': 'number', 'minimum': 0, 'maximum': 3},
     },
+    'additionalProperties': False,
     'required': ['users', 'roles'],
 }
 
@@ -55,11 +60,13 @@ _HttpExtAPIConfSchema = {
                 'properties': {
                     'perm': {'type': 'array', 'items': {'type': 'string', 'minLength': 1}},
                     'default': {'type': 'boolean', 'default': False},
-                }
+                },
+                'additionalProperties': False,
             },
             'default': [],
         },
-        'vars': {'type': 'object', 'default': {}}
+        # vars are caller defined Storm variables, so the keys are open by design.
+        'vars': {'type': 'object', 'default': {}, 'additionalProperties': True}
 
     },
     'additionalProperties': False
@@ -67,7 +74,7 @@ _HttpExtAPIConfSchema = {
 
 reqValidHttpExtAPIConf = s_config.getJsValidator(_HttpExtAPIConfSchema)
 
-_LayerPushPullSchema = {
+layerPushPullSchema = {
     'type': 'object',
     'properties': {
         'url': {'type': 'string'},
@@ -82,10 +89,10 @@ _LayerPushPullSchema = {
                        'minimum': 1, 'maximum': s_const.layer_pdef_csize_max}
 
     },
-    'additionalProperties': True,
+    'additionalProperties': False,
     'required': ['iden', 'url', 'user', 'time'],
 }
-reqValidPush = s_config.getJsValidator(_LayerPushPullSchema)
+reqValidPush = s_config.getJsValidator(layerPushPullSchema)
 reqValidPull = reqValidPush
 
 loglevelSchema = {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())}
@@ -103,7 +110,6 @@ _CronJobSchema = {
         'name': {'type': 'string'},
         'affinity': {'type': ['string', 'null']},
         'doc': {'type': 'string'},
-        'ver': {'type': 'integer'},
         'indx': {'type': 'integer'},
         'errcount': {'type': 'integer'},
         'startcount': {'type': 'integer'},
@@ -146,21 +152,28 @@ _CronJobSchema = {
         'incunit': ['incvals'],
     },
     'definitions': {
+        # the keys are the lower cased synapse.lib.agenda.TimeUnit names, since
+        # agenda resolves each one with TimeUnit.fromString().
         'req': {
             'type': 'object',
             'properties': {
                 'minute': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
                 'hour': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'day': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'dayofweek': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
                 'dayofmonth': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
                 'month': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
                 'year': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-            }
+                # "run once, immediately" - only valid on a non recurring job.
+                'now': {'type': 'boolean'},
+            },
+            'additionalProperties': False,
         }
     }
 }
 
 reqValidCronDef = s_config.getJsValidator(_CronJobSchema)
-reqValidVault = s_config.getJsValidator({
+vaultSchema = {
     'type': 'object',
     'properties': {
         'name': {'type': 'string', 'minLength': 1, 'maxLength': 128},
@@ -169,8 +182,10 @@ reqValidVault = s_config.getJsValidator({
         'scope': {'type': ['string', 'null'], 'enum': [None, 'user', 'role', 'global']},
         'owner': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'permissions': s_msgpack.deepcopy(easyPermSchema),
-        'secrets': {'type': 'object'},
-        'configs': {'type': 'object'},
+        # a vault type schema declares the shape of these two sections; an untyped
+        # vault, or a type with no schema, leaves them open. See getVaultSchema().
+        'secrets': {'type': 'object', 'additionalProperties': True},
+        'configs': {'type': 'object', 'additionalProperties': True},
         'type:version': {'type': 'integer', 'minimum': 0},
     },
     'additionalProperties': False,
@@ -184,14 +199,60 @@ reqValidVault = s_config.getJsValidator({
         'secrets',
         'configs',
     ],
-})
+}
+reqValidVault = s_config.getJsValidator(vaultSchema)
+
+# the only sections a vault type schema may describe. The rest of a vault def is
+# owned by vaultSchema, so a type schema never restates or overrides a base field.
+vaultTypeSections = ('configs', 'secrets')
+
+def getVaultSchema(typeschema):
+    '''
+    Merge a vault type schema into the base vault schema.
+
+    A vault type describes the shape of the "configs" and "secrets" sections and
+    nothing else; the surrounding vault def is described by vaultSchema. Only those
+    two sections are taken, so a type schema cannot widen or redefine a base field
+    even if it declares one. Vault type registration rejects such a schema outright
+    (see Cortex._reqValidVaultTypeDef).
+
+    Args:
+        typeschema (dict): The schema declared by a vault type.
+
+    Returns:
+        dict: A JSON schema for a whole vault def of that type.
+    '''
+    schema = s_msgpack.deepcopy(vaultSchema, use_list=True)
+
+    props = typeschema.get('properties')
+    if props is not None:
+
+        configs = props.get('configs')
+        if configs is not None:
+            schema['properties']['configs'] = s_msgpack.deepcopy(configs, use_list=True)
+
+        secrets = props.get('secrets')
+        if secrets is not None:
+            schema['properties']['secrets'] = s_msgpack.deepcopy(secrets, use_list=True)
+
+    # carry definitions across so a section may use $ref
+    defs = typeschema.get('definitions')
+    if defs is not None:
+        schema['definitions'] = s_msgpack.deepcopy(defs, use_list=True)
+
+    defs = typeschema.get('$defs')
+    if defs is not None:
+        schema['$defs'] = s_msgpack.deepcopy(defs, use_list=True)
+
+    return schema
 
 reqValidVaultType = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'name': {'type': 'string', 'minLength': 1, 'maxLength': 128},
         'version': {'type': 'integer', 'minimum': 0},
-        'schema': {'type': ['object', 'null'], 'default': None},
+        # an opaque JSON schema blob; validated at type registration.
+        'schema': {'type': ['object', 'null'], 'default': None, 'additionalProperties': True},
         'migration': {'type': ['string', 'null'], 'default': None},
     },
     'additionalProperties': False,
@@ -228,7 +289,7 @@ reqValidView = s_config.getJsValidator({
             'additionalProperties': False,
         },
     },
-    'additionalProperties': True,
+    'additionalProperties': False,
     'required': ['iden', 'parent', 'creator', 'layers'],
 })
 
@@ -336,8 +397,11 @@ _cellUserApiKeySchema = {
         'created': {'type': 'integer', 'minimum': 0},
         'updated': {'type': 'integer', 'minimum': 0},
         'expires': {'type': 'integer', 'minimum': 1},
+        # the shadow struct is versioned and owned by synapse.lib.crypto.passwd,
+        # so its shape is left opaque here.
         'shadow': {
             'type': 'object',
+            'additionalProperties': True,
         },
     },
     'additionalProperties': False,
@@ -527,6 +591,7 @@ driveInfoSchema = {
         'updated': {'type': 'number'},
         'updater': {'type': 'string', 'pattern': s_config.re_iden},
         'version': {'type': 'array', 'items': {'type': 'number', 'minItems': 3, 'maxItems': 3}},
+        'nexs': {'type': 'number', 'minimum': 0},
     },
     'required': ('iden', 'parent', 'name', 'created', 'creator', 'kids'),
     'additionalProperties': False,
@@ -540,6 +605,10 @@ driveDataVersSchema = {
         'updated': {'type': 'number'},
         'updater': {'type': 'string', 'pattern': s_config.re_iden},
         'version': {'type': 'array', 'items': {'type': 'number', 'minItems': 3, 'maxItems': 3}},
+        # the nexus offset of the edit which produced this version of the data. It is set
+        # by the nexus handler rather than the caller, since the offset is not known until
+        # the edit is applied and must be the same on a mirror.
+        'nexs': {'type': 'number', 'minimum': 0},
     },
     'required': ('size', 'version', 'updated', 'updater'),
     'additionalProperties': False,
@@ -549,13 +618,21 @@ reqValidDriveDataVers = s_config.getJsValidator(driveDataVersSchema)
 stixIngestConfigSchema = {
     'type': 'object',
     'properties': {
+        'addbundle': {'type': 'boolean'},
         'bundle': {
             'type': ['object', 'null'],
             'properties': {'storm': {'type': 'string'}},
+            'additionalProperties': False,
         },
+        # keyed by STIX object type (indicator, malware, ...) so the key space is
+        # open; each value is the per-type ingest definition.
         'objects': {
             'type': 'object',
-            'properties': {'storm': {'type': 'string'}},
+            'additionalProperties': {
+                'type': 'object',
+                'properties': {'storm': {'type': 'string'}},
+                'additionalProperties': False,
+            },
         },
         'relationships': {
             'type': 'array',
@@ -573,16 +650,21 @@ stixIngestConfigSchema = {
                     'storm': {'type': 'string'},
                 },
                 'required': ['type'],
+                'additionalProperties': False,
             },
         },
         'reporter': {
             'type': ['string', 'null'],
         },
     },
+    'additionalProperties': False,
     'required': ['bundle', 'objects'],
 }
 reqValidStixIngestConfig = s_config.getJsValidator(stixIngestConfigSchema)
 
+# Externally sourced STIX. Both this envelope and the SDOs it carries hold far more
+# fields than the ingest reads, so this stays open at every level and states
+# additionalProperties explicitly to keep that a decision rather than an omission.
 stixIngestBundleSchema = {
     'type': 'object',
     'properties': {
@@ -601,9 +683,11 @@ stixIngestBundleSchema = {
                 'required': ['id', 'type'],
                 'if': {'properties': {'type': {'const': 'relationship'}}},
                 'then': {'required': ['source_ref', 'target_ref']},
+                'additionalProperties': True,
             }
         },
     },
+    'additionalProperties': True,
 }
 reqValidStixIngestBundle = s_config.getJsValidator(stixIngestBundleSchema)
 
@@ -617,7 +701,9 @@ _reqValidGdefSchema = {
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'power-up': {'type': 'string', 'minLength': 1},
         'maxsize': {'type': 'number', 'minimum': 0},
-        'existing': {'type': 'array', 'items': {'type': 'string'}},
+        # NIDs the caller already has. SubGraph.run() packs each one with
+        # s_common.int64en(), so these are integer NIDs and not 2.x hex idens.
+        'existing': {'type': 'array', 'items': {'type': 'integer', 'minimum': 0}},
         'created': {'type': 'number'},
         'updated': {'type': 'number'},
         'refs': {'type': 'boolean', 'default': False},
@@ -667,6 +753,147 @@ _reqValidGdefSchema = {
 }
 reqValidGdef = s_config.getJsValidator(_reqValidGdefSchema)
 
+# Graph display options whose absence would change behavior at projection time.
+# synapse.tools.storm.pkg.gen populates these at build time so a built package is
+# explicit about them, and the Cortex fills in any which are missing on its own
+# copy as the package loads. They are deliberately NOT required: a package may be
+# authored at runtime via $lib.pkg.add(), and these are optional display tuning
+# rather than something every author should have to spell out.
+pkggraph_defaults = {name: _reqValidGdefSchema['properties'][name]['default']
+                     for name in ('refs', 'edges', 'edgelimit', 'filterinput', 'yieldfiltered')}
+
+# A package declares what a graph projection is; the Cortex derives its identity
+# and provenance (iden, scope, power-up) when the package loads, so those keys
+# are not author supplied. Derived from the gdef schema so the display options
+# cannot drift apart.
+_reqValidPkgGdefSchema = s_msgpack.deepcopy(_reqValidGdefSchema, use_list=True)
+for _propname in ('iden', 'scope', 'power-up', 'creator', 'permissions', 'created', 'updated'):
+    _reqValidPkgGdefSchema['properties'].pop(_propname, None)
+
+_reqValidPkgGdefSchema['required'] = ['name']
+_reqValidPkgGdefSchema.pop('allOf', None)
+
+# The graph opt takes an inline rules dict as well as the name of a stored
+# projection, and Runtime.setGraph() writes a fully resolved gdef back into the opt
+# once one is chosen. It therefore reuses the gdef shape with the identity and
+# provenance gates dropped, rather than restating a shape which could drift.
+_stormOptsGraphSchema = s_msgpack.deepcopy(_reqValidGdefSchema, use_list=True)
+_stormOptsGraphSchema.pop('required', None)
+_stormOptsGraphSchema.pop('allOf', None)
+
+# The opts dict accepted by the Storm APIs. This is the single description of the
+# opt surface; Cortex._initStormOpts() validates every Storm call against it.
+#
+# The root is closed, so an opt which is not declared here is rejected rather than
+# silently ignored. A client with its own per query state puts it in "meta", which
+# the Cortex echoes back untouched. The one exception is "readpool", which Synapse
+# Enterprise reads to pin a query to the leader.
+stormOptsSchema = {
+    'type': 'object',
+    'properties': {
+
+        # Caller defined Storm variables. Cortex._initStormOpts() raises BadArg for
+        # a non string name or one of the reserved names, so the keys stay open.
+        'vars': {'type': 'object', 'additionalProperties': True},
+
+        # Caller defined metadata. The Cortex does not read or interpret it; it is
+        # echoed back verbatim as the "meta" key of the init message so a caller can
+        # correlate a message stream with its own per query state.
+        'meta': {'type': 'object', 'additionalProperties': True},
+
+        # null is "unset" for each of these: the read paths fall back to the user's
+        # default view, the root user, and an auto generated task iden respectively.
+        'view': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'user': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'task': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+
+        # mode is not null tolerant; getStormQuery() raises BadArg on an unknown one.
+        'mode': {'type': 'string', 'enum': ['storm', 'lookup']},
+
+        'debug': {'type': 'boolean'},
+        'sudo': {'type': 'boolean'},
+        'readonly': {'type': 'boolean'},
+
+        'limit': {'type': ['integer', 'null'], 'minimum': 1},
+
+        # the range is enforced by View.storm() so the caller gets a specific mesg.
+        'keepalive': {'type': ['number', 'null']},
+
+        # show is an allowlist and hide is a blocklist over message types. They are
+        # mutually exclusive, which _initStormOpts() enforces so the caller gets a
+        # specific mesg rather than a schema violation naming both keys.
+        'show': {'type': 'array', 'items': {'type': 'string'}},
+        'hide': {'type': 'array', 'items': {'type': 'string'}},
+
+        # the members are checked by the runtime, which coerces an int like value
+        # with s_common.intify() and raises BadTypeValu for anything else.
+        'nids': {'type': 'array'},
+
+        # ( <form>, <systemvalu> ) pairs used as initial input.
+        'ndefs': {
+            'type': 'array',
+            'items': {
+                'type': 'array',
+                'minItems': 2,
+                'maxItems': 2,
+                'items': [{'type': 'string'}, {}],
+            },
+        },
+
+        'graph': {
+            'oneOf': [
+                {'type': 'null'},
+                {'type': 'boolean'},
+                {'type': 'string'},
+                _stormOptsGraphSchema,
+            ],
+        },
+
+        'node:opts': {
+            'type': 'object',
+            'properties': {
+                'repr': {'type': 'boolean'},
+                'links': {'type': 'boolean'},
+                'virts': {'type': 'boolean'},
+                'storage': {'type': 'boolean'},
+                # { <form>: { <nodepath>: ( <relprop>, ... ) } } where nodepath is a
+                # "::" delimited chain of form typed props to walk from the node.
+                'embeds': {
+                    'type': 'object',
+                    'additionalProperties': {
+                        'type': 'object',
+                        'additionalProperties': {'type': 'array', 'items': {'type': 'string'}},
+                    },
+                },
+            },
+            'additionalProperties': False,
+        },
+
+        # Hold the query until the Cortex reaches a nexus offset, which is how a
+        # caller keeps a read behind its own write when a mirror or a read pool
+        # worker may serve it. The offset comes off a previous fini message.
+        'nexus': {
+            'type': 'object',
+            'properties': {
+                'offset': {'type': ['integer', 'null'], 'minimum': 0},
+                'timeout': {'type': ['number', 'null'], 'minimum': 0},
+            },
+            'additionalProperties': False,
+        },
+
+        # Not read by the Cortex. See the note above.
+        'readpool': {'type': 'boolean'},
+    },
+    'additionalProperties': False,
+}
+
+# use_default=False so validating never writes schema defaults into a caller's opts.
+reqValidStormOpts = s_config.getJsValidator(stormOptsSchema, use_default=False)
+
+# For the places which persist an opts dict and use null to mean "none given".
+_nullableStormOptsSchema = s_msgpack.deepcopy(stormOptsSchema, use_list=True)
+_nullableStormOptsSchema['type'] = ['object', 'null']
+
 _reqValidPermDefSchema = {
     'type': 'object',
     'properties': {
@@ -677,6 +904,7 @@ _reqValidPermDefSchema = {
         'workflowconfig': {'type': 'boolean'},
         'default': {'type': 'boolean', 'default': False},
     },
+    'additionalProperties': False,
     'required': ['perm', 'desc', 'gate'],
 }
 
@@ -717,7 +945,7 @@ _reqValidPkgdefSchema = {
         'name': {'type': 'string'},
         'version': {
             'type': 'string',
-            'pattern': s_version.semverstr,
+            'pattern': s_version.verstr,
         },
         'build': {
             'type': 'object',
@@ -725,7 +953,7 @@ _reqValidPkgdefSchema = {
                 'time': {'type': 'number'},
                 'synapse:version': {
                     'type': 'string',
-                    'pattern': s_version.semverstr
+                    'pattern': s_version.verstr
                 },
                 'synapse:commit': {
                     'type': 'string',
@@ -733,15 +961,53 @@ _reqValidPkgdefSchema = {
                     'pattern': '^[0-9a-fA-F]*$'
                 },
             },
+            'additionalProperties': False,
             'required': ['time'],
         },
-        'codesign': {
+        'metadata': {
             'type': 'object',
             'properties': {
-                'sign': {'type': 'string'},
-                'cert': {'type': 'string'},
+                'codesign': {
+                    'type': 'object',
+                    'properties': {
+                        'sign': {'type': 'string'},
+                        'cert': {'type': 'string'},
+                    },
+                    'additionalProperties': False,
+                    'required': ['cert', 'sign'],
+                },
+                'encryption': {
+                    'type': 'object',
+                    'properties': {
+                        # length is constrained by the if/then/else below: exactly 64 hex
+                        # for a plaintext seed, and the longer RSA-encrypted form only for
+                        # a per-deployment (deploy=True) package
+                        'seed': {'type': 'string', 'pattern': '^[0-9a-f]{64,1024}$'},
+                        'salt': {'type': 'string', 'pattern': '^[0-9a-f]{64}$'},
+                        'deploy': {'type': 'boolean'},
+                        'pbkdf2': {
+                            'type': 'object',
+                            'properties': {
+                                'iters': {'type': 'integer', 'minimum': 1, 'maximum': 10_000_000},
+                                'hash': {'type': 'string', 'pattern': '^[a-z0-9_]+$'},
+                            },
+                            'required': ['iters', 'hash'],
+                            'additionalProperties': False,
+                        },
+                    },
+                    'required': ['seed', 'salt', 'pbkdf2'],
+                    'additionalProperties': False,
+                    # a plaintext seed is always exactly 32 bytes. Only a per-deployment
+                    # package carries the RSA-encrypted seed, whose hex length is 2x the
+                    # key modulus bytes -- 512 for a 2048-bit key, 768 for the 3072-bit
+                    # default, 1024 for 4096-bit. Constraining these separately keeps a
+                    # non-deploy package from silently accepting an over-long seed.
+                    'if': {'properties': {'deploy': {'const': True}}, 'required': ['deploy']},
+                    'then': {'properties': {'seed': {'pattern': '^[0-9a-f]{512,1024}$'}}},
+                    'else': {'properties': {'seed': {'pattern': '^[0-9a-f]{64}$'}}},
+                },
             },
-            'required': ['cert', 'sign'],
+            'additionalProperties': False,
         },
         'title': {'type': 'string'},
         'modules': {
@@ -752,29 +1018,37 @@ _reqValidPkgdefSchema = {
             'type': 'object',
             'additionalProperties': {'$ref': '#/definitions/endpoint'},
         },
-        'docs': {
-            'type': ['array', 'null'],
-            'items': {'$ref': '#/definitions/doc'},
-        },
         'logo': {
             'type': 'object',
             'properties': {
                 'mime': {'type': 'string'},
                 'file': {'type': 'string'},
             },
-            'additionalProperties': True,
+            'additionalProperties': False,
             'required': ['mime', 'file'],
         },
         'commands': {
             'type': ['array', 'null'],
             'items': {'$ref': '#/definitions/command'},
         },
+        # keyed by the path the file is served by, relative to the package files directory
+        'files': {
+            'type': ['object', 'null'],
+            'additionalProperties': {'$ref': '#/definitions/fileentry'},
+        },
         'graphs': {
             'type': ['array', 'null'],
-            'items': s_msgpack.deepcopy(_reqValidGdefSchema, use_list=True),
+            'items': s_msgpack.deepcopy(_reqValidPkgGdefSchema, use_list=True),
         },
         'desc': {'type': 'string'},
-        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        # declared by an advanced power-up, which is delivered by a deployed storm
+        # service rather than installed as a package. Being a top level key it is
+        # covered by the package code signature.
+        'advanced': {'type': 'boolean'},
+        # derived by the cortex onto the definitions it hands out, naming the
+        # storm service which delivered the package. Declared so a caller may
+        # push back a definition it read; any supplied value is ignored.
+        'svcname': {'type': ['string', 'null']},
         'onload': {'type': 'string'},
         'inits': {
             'type': 'object',
@@ -785,15 +1059,19 @@ _reqValidPkgdefSchema = {
                     'minItems': 1,
                 },
             },
-            'additionalProperties': True,
+            'additionalProperties': False,
             'required': ['versions'],
         },
+        # the optic section is owned by Optic, which validates it separately
+        # against a schema generated from its own types, so it stays opaque here.
+        'optic': {'type': 'object', 'additionalProperties': True},
         'author': {
             'type': 'object',
             'properties': {
                 'url': {'type': 'string'},
                 'name': {'type': 'string'},
             },
+            'additionalProperties': False,
             'required': ['name', 'url'],
         },
         'dependencies': {
@@ -827,6 +1105,7 @@ _reqValidPkgdefSchema = {
                         },
                     },
                 },
+                'additionalProperties': False,
                 'required': ['name', 'varname', 'desc', 'type', 'scopes'],
             },
         },
@@ -843,7 +1122,7 @@ _reqValidPkgdefSchema = {
                         # validateSchemaDef. A $ref to the draft-07 meta-schema
                         # would additionally materialize meta-schema defaults into
                         # it, diverging from the API registration path.
-                        'schema': {'type': 'object'},
+                        'schema': {'type': 'object', 'additionalProperties': True},
                     },
                     'additionalProperties': False,
                     'required': ['version'],
@@ -852,23 +1131,28 @@ _reqValidPkgdefSchema = {
             'additionalProperties': False,
         }
     },
-    'additionalProperties': True,
+    'additionalProperties': False,
     'required': ['name', 'version'],
     'definitions': {
-        'doc': {
+        'fileentry': {
             'type': 'object',
             'properties': {
-                'title': {'type': 'string'},
-                'content': {'type': 'string'},
+                # the sha256 the file is stored and retrieved by
+                'sha256': {'type': 'string', 'pattern': '^[0-9a-f]{64}$'},
             },
-            'additionalProperties': True,
-            'required': ['title', 'content'],
+            'additionalProperties': False,
+            'required': ['sha256'],
         },
         'module': {
             'type': 'object',
             'properties': {
                 'name': {'type': 'string'},
                 'storm': {'type': 'string'},
+                'interfaces': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
+                },
+                # modconf is opaque package-defined configuration
                 'modconf': {
                     'type': 'object',
                     'additionalProperties': True,
@@ -886,7 +1170,7 @@ _reqValidPkgdefSchema = {
                     'enum': ['allow', 'warn', 'deny'],
                 },
             },
-            'additionalProperties': True,
+            'additionalProperties': False,
             'required': ['name', 'storm']
         },
         'initdef': {
@@ -896,7 +1180,8 @@ _reqValidPkgdefSchema = {
                 'inaugural': {'type': 'boolean', 'default': False},
                 'name': {'type': 'string'},
                 'query': {'type': 'string'},
-                'queryopts': {'type': 'object'},
+                # arbitrary Storm opts for the init query.
+                'queryopts': {'type': 'object', 'additionalProperties': True},
                 'version': {'type': 'integer', 'minimum': 0},
             },
             'additionalProperties': False,
@@ -1015,23 +1300,20 @@ _reqValidPkgdefSchema = {
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/cmdinput'},
                 },
+                # cmdconf is opaque package-defined configuration
                 'cmdconf': {
                     'type': 'object',
-                    'properties': {
-                        'svciden': {'type': 'string', 'pattern': s_config.re_iden},
-                    },
                     'additionalProperties': True,
                 },
                 'storm': {'type': 'string'},
                 'desc': {'type': 'string'},
-                'forms': {'$ref': '#/definitions/cmdformhints'},
                 'perms': {'type': 'array',
                     'items': {'type': 'array',
                         'items': {'type': 'string'}},
                 },
                 'deprecated': {'$ref': '#/definitions/deprecatedItem'},
             },
-            'additionalProperties': True,
+            'additionalProperties': False,
             'required': ['name', 'storm']
         },
         'cmdarg': {
@@ -1058,6 +1340,7 @@ _reqValidPkgdefSchema = {
                         },
                         'deprecated': {'$ref': '#/definitions/deprecatedItem'},
                     },
+                    'additionalProperties': False,
                 }
             ],
             'additionalItems': False,
@@ -1068,7 +1351,7 @@ _reqValidPkgdefSchema = {
                 'form': {'type': 'string'},
                 'help': {'type': 'string'},
             },
-            'additionalProperties': True,
+            'additionalProperties': False,
             'required': ['form'],
         },
         'configvartype': {
@@ -1077,38 +1360,6 @@ _reqValidPkgdefSchema = {
                 {'type': 'string'},
             ]
         },
-        # deprecated
-        'cmdformhints': {
-            'type': 'object',
-            'properties': {
-                'input': {
-                    'type': 'array',
-                    'uniqueItems': True,
-                    'items': {
-                        'type': 'string',
-                    }
-                },
-                'output': {
-                    'type': 'array',
-                    'uniqueItems': True,
-                    'items': {
-                        'type': 'string',
-                    }
-                },
-                'nodedata': {
-                    'type': 'array',
-                    'uniqueItems': True,
-                    'items': {
-                        'type': 'array',
-                        'items': [
-                            {'type': 'string'},
-                            {'type': 'string'},
-                        ],
-                        'additionalItems': False,
-                    },
-                },
-            }
-        },
         'dependency': {
             'type': 'object',
             'properties': {
@@ -1116,7 +1367,7 @@ _reqValidPkgdefSchema = {
                 'desc': {'type': 'string'},
                 'optional': {'type': 'boolean'},
             },
-            'additionalItems': True,
+            'additionalProperties': False,
             'required': ('version',),
         },
         'conflict': {
@@ -1125,11 +1376,13 @@ _reqValidPkgdefSchema = {
                 'version': {'type': 'string'},
                 'desc': {'type': 'string'},
             },
-            'additionalItems': True,
+            'additionalProperties': False,
         }
     }
 }
-reqValidPkgdef = s_config.getJsValidator(_reqValidPkgdefSchema)
+# use_default=False so validating a package never writes schema defaults into it;
+# a built package must already carry everything it needs.
+reqValidPkgdef = s_config.getJsValidator(_reqValidPkgdefSchema, use_default=False)
 
 _reqValidDdefSchema = {
     'type': 'object',
@@ -1139,26 +1392,17 @@ _reqValidDdefSchema = {
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'enabled': {'type': 'boolean', 'default': True},
-        'stormopts': {
-            'oneOf': [
-                {'type': 'null'},
-                {'$ref': '#/definitions/stormopts'}
-            ]
-        }
+        # A dmon runs its query through Runtime.anit() rather than View.storm(), so
+        # it never reaches Cortex._initStormOpts() and this is the only place its
+        # opts are checked. It previously named three opts the dmon does not read
+        # (repr and path are no longer read anywhere, and show is implemented by
+        # View.storm) while leaving the dict open, so nothing was validated at all.
+        # null is spliced into the type rather than wrapped in a oneOf so a bad opt
+        # reports which key failed instead of "must be valid exactly by one".
+        'stormopts': _nullableStormOptsSchema,
     },
     'additionalProperties': False,
     'required': ['iden', 'user', 'storm'],
-    'definitions': {
-        'stormopts': {
-            'type': 'object',
-            'properties': {
-                'repr': {'type': 'boolean'},
-                'path': {'type': 'string'},
-                'show': {'type': 'array', 'items': {'type': 'string'}}
-            },
-            'additionalProperties': True,
-        },
-    }
 }
 reqValidDdef = s_config.getJsValidator(_reqValidDdefSchema)
 
@@ -1172,7 +1416,8 @@ _client_assertion_schema = {
                     'type': 'object',
                     'properties': {
                         'query': {'type': 'string'},
-                        'vars': {'type': 'object'},
+                        # caller defined Storm variables.
+                        'vars': {'type': 'object', 'additionalProperties': True},
                         'view': {'type': 'string', 'pattern': s_config.re_iden},
                     },
                     'required': ['query', 'view'],
@@ -1236,6 +1481,9 @@ _reqValidOauth2ProviderSchema = {
 }
 reqValidOauth2Provider = s_config.getJsValidator(_reqValidOauth2ProviderSchema)
 
+# an externally sourced RFC 6749 token response. additionalProperties is True because
+# providers return refresh_token, scope, token_type and their own extensions alongside
+# the two fields we require.
 _reqValidOauth2TokenResponseSchema = {
     'type': 'object',
     'properties': {
@@ -1270,7 +1518,7 @@ TrigSchema = {
         'enabled': {'type': 'boolean'},
         'created': {'type': 'integer', 'minimum': 0},
     },
-    'additionalProperties': True,
+    'additionalProperties': False,
     'required': ['iden', 'user', 'storm', 'enabled', 'creator'],
     'allOf': [
         {
@@ -1304,6 +1552,11 @@ TrigSchema = {
     ],
 }
 reqValidTriggerDef = s_config.getJsValidator(TrigSchema)
+
+# the persistable keys of a trigger def. Trigger.pack() decorates a def with runtime
+# counters and resolved user names, so a packed def must be filtered through this
+# before it may be handed back to addTrigger().
+trigDefKeys = frozenset(TrigSchema['properties'])
 
 _httpLoginV1Schema = {
     'type': 'object',
@@ -1391,7 +1644,9 @@ _v2ModelMapSchema = {
         },
         # retired v2 names, keyed by the full name. A change entry may nest
         # changed properties (keyed by relative prop name) under "props"; each
-        # nested prop entry has the same shape minus "props".
+        # nested prop entry has the same shape minus "props". A nested "became"
+        # is relative to the entry's form when it begins with a colon, and a
+        # full property path otherwise.
         'changes': {
             'type': 'object',
             'additionalProperties': {
@@ -1437,3 +1692,31 @@ _v2ModelMapSchema = {
 }
 
 reqValidV2ModelMap = s_config.getJsValidator(_v2ModelMapSchema)
+
+# RFC 7519 2 StringOrURI: an arbitrary string, but any value containing a ':' MUST be an
+# RFC 3986 URI (a valid scheme followed by URI-legal characters). An empty string has no ':'
+# and stays valid. '$' is a legal sub-delim but is omitted from the class because
+# fastjsonschema rewrites a literal '$' in a pattern to '\Z' (it can be percent-encoded as %24).
+_jwtStringOrUri = r"^(?:[^:]*|[A-Za-z][A-Za-z0-9+.\-]*:[A-Za-z0-9\-._~:/?#\[\]@!&'()*+,;=%]*)$"
+
+# JSON Schema for the RFC 7519 4.1 registered claims. additionalProperties is True so
+# callers may set custom claims; there is no "required" list because every registered
+# claim is optional. iss/sub/aud are StringOrURI (see above); jti is a plain string
+# (RFC 7519 4.1.7). exp/nbf/iat are NumericDate values (epoch seconds), so they
+# are numbers rather than strings.
+_jwtclaimschema = {
+    'type': 'object',
+    'additionalProperties': True,
+    'properties': {
+        'iss': {'type': 'string', 'pattern': _jwtStringOrUri},
+        'sub': {'type': 'string', 'pattern': _jwtStringOrUri},
+        'aud': {'oneOf': [{'type': 'string', 'pattern': _jwtStringOrUri},
+                          {'type': 'array', 'items': {'type': 'string', 'pattern': _jwtStringOrUri}}]},
+        'exp': {'type': 'number', 'minimum': 0},
+        'nbf': {'type': 'number', 'minimum': 0},
+        'iat': {'type': 'number', 'minimum': 0},
+        'jti': {'type': 'string'},
+    },
+}
+reqValidJwtClaims = s_config.getJsValidator(_jwtclaimschema)
+jwtRegisteredClaims = frozenset(_jwtclaimschema['properties'])

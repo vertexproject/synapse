@@ -12,6 +12,7 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.const as s_const
 
 import synapse.tests.utils as s_test
 
@@ -98,6 +99,64 @@ class LinkTest(s_test.SynTest):
         # but the second one fails?
         await link.tx(('me', {'k': 2}))
         await self.asyncraises(ConnectionError, link.tx(('worry?', {'k': 3})))
+
+    async def test_link_abort_tls(self):
+        self.thisHostMustNot(platform='darwin')
+
+        with self.getTestDir(mirror='certdir') as dirn:
+            self.decTinFoilDir(dirn)
+            with self.getTestCertDir(dirn) as certdir:
+
+                hostname = socket.gethostname()
+                certdir.genHostCert(hostname, signas='ca')
+
+                # stream data at the client so that it is guaranteed to have
+                # inbound data in flight when it tears the link down.
+                async def onlink(link):
+                    byts = b'V' * s_const.mebibyte
+                    async with link:
+                        try:
+                            for i in range(50):
+                                await link.send(byts)
+                        except Exception:
+                            pass
+
+                srv_sslctx = certdir.getServerSSLContext(hostname)
+                server = await s_link.listen(hostname, 0, onlink=onlink, ssl=srv_sslctx)
+                _, port = server.sockets[0].getsockname()
+
+                sslctx = certdir.getClientSSLContext()
+
+                try:
+                    # a graceful close races with the in flight data, which TLS
+                    # reports as an error ( APPLICATION_DATA_AFTER_CLOSE_NOTIFY ).
+                    # this half of the test is the control which proves that the
+                    # abort() assertion below is not vacuous.
+                    link = await s_link.connect(hostname, port=port, ssl=sslctx)
+                    self.len(1024, await link.recv(1024))
+
+                    await asyncio.sleep(0.5)
+
+                    with self.getLoggerStream('synapse.lib.link') as stream:
+                        await link.fini()
+
+                    stream.seek(0)
+                    self.isin('Link error waiting on close', stream.read())
+
+                    # abort() tears the link down without a graceful shutdown.
+                    link = await s_link.connect(hostname, port=port, ssl=sslctx)
+                    self.len(1024, await link.recv(1024))
+
+                    await asyncio.sleep(0.5)
+
+                    with self.getLoggerStream('synapse.lib.link') as stream:
+                        await link.abort()
+
+                    stream.seek(0)
+                    self.notin('Link error waiting on close', stream.read())
+
+                finally:
+                    server.close()
 
     async def test_link_rx_sadpath(self):
 
@@ -201,6 +260,32 @@ class LinkTest(s_test.SynTest):
         await coro
 
         self.eq(b'part2qwer', await link1.recvsize(9))
+
+        await link1.fini()
+        sock1.close()
+
+    async def test_link_txfini(self):
+
+        link0, sock0 = await s_link.linksock()
+
+        # a fini'd link has no socket left to shut down.
+        await link0.fini()
+        link0.txfini()
+        sock0.close()
+
+        # neither does a link whose socket went away beneath us.
+        link1, sock1 = await s_link.linksock()
+
+        link1.reader._transport.abort()
+        await asyncio.sleep(0)
+
+        self.false(link1.isfini)
+
+        with self.getLoggerStream('synapse.lib.link') as stream:
+            link1.txfini()
+
+        stream.seek(0)
+        self.isin('Link error on txfini', stream.read())
 
         await link1.fini()
         sock1.close()

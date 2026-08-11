@@ -559,14 +559,14 @@ bar baz",vv
             async with sess.get(f'{url_dl}/foobar') as resp:
                 self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 info = await resp.json()
-                self.eq('NotAuthenticated', info.get('code'))
+                self.eq('AuthDeny', info.get('code'))
             async with sess.head(f'{url_dl}/foobar') as resp:
                 self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 # aiohttp ignores HEAD bodies
             async with sess.delete(f'{url_dl}/foobar') as resp:
                 self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 info = await resp.json()
-                self.eq('NotAuthenticated', info.get('code'))
+                self.eq('AuthDeny', info.get('code'))
 
         # Perms
         async with getNewbSess() as sess:
@@ -897,6 +897,29 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
                     cell._has_axoninfo = {}
                     self.isin('features', await cell.getAxonInfo())
 
+    async def test_axon_commitpulse(self):
+        # both axon slabs are written only by nexus handlers, so they are committed per
+        # nexus transaction rather than on the timed pulse - which carries the axonmetrics
+        # counters with them, the slab flushing them ahead of each commit.
+        async with self.getTestAxon() as axon:
+
+            self.false(axon.axonslab.commitpulse)
+            self.false(axon.blobslab.commitpulse)
+
+            size, sha256 = await axon.put(b'commitpulse')
+
+            # the counters are durable without any timer having run
+            self.false(axon.axonslab.dirty)
+            self.len(0, axon.axonmetrics.dirty)
+            self.eq(1, axon.axonmetrics.getFresh('file:count'))
+            self.eq(size, axon.axonmetrics.getFresh('size:bytes'))
+
+            # and the del path decrements them the same way
+            self.true(await axon.del_(sha256))
+            self.len(0, axon.axonmetrics.dirty)
+            self.eq(0, axon.axonmetrics.getFresh('file:count'))
+            self.eq(0, axon.axonmetrics.getFresh('size:bytes'))
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
@@ -956,6 +979,39 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
                 await user.addRule((True, ('axon', 'has',)))
                 await user.addRule((True, ('axon', 'upload',)))
                 await self.runAxonTestBase(prox)
+
+    async def test_axon_readgenr_bail(self):
+
+        # bailing out early on readlines()/csvrows() must tear the feed link and
+        # the spawned reader process down without logging any errors.
+        data = ('a,b,c,d\n' * 200000).encode()
+
+        async with self.getTestAxon() as axon:
+
+            size, sha256 = await axon.put(data)
+
+            # capture the root logger so that we catch errors logged by asyncio
+            # ( such as an unretrieved task exception ) as well as our own.
+            with self.getLoggerStream('', level=logging.ERROR) as errs:
+
+                with self.getLoggerStream('synapse.axon') as debug:
+
+                    for i in range(5):
+
+                        async for line in axon.readlines(s_common.ehex(sha256)):
+                            break
+
+                        async for row in axon.csvrows(sha256):
+                            break
+
+                    await asyncio.sleep(0.1)
+
+            errs.seek(0)
+            self.eq('', errs.read())
+
+            # the partial read is still traced at debug level.
+            debug.seek(0)
+            self.isin(f'Stopped feeding blob [{s_common.ehex(sha256)}]', debug.read())
 
     async def test_axon_limits(self):
 
@@ -1263,28 +1319,39 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
 
         # Regression test: axon history migration
         with mock.patch('synapse.axon.Axon.reject2xStorage', False):
-            async with self.getRegrAxon('axon-axon_v2') as axon:
 
-                oldpath = s_common.genpath(axon.dirn, 'axon.lmdb')
-                newpath = s_common.genpath(axon.dirn, 'axon_v2.lmdb')
+            with self.withNexusReplay(), self.getRegrDir('axons', 'axon-axon_v2') as dirn:
 
-                hist = list(axon.axonhist.carve(0))
-                self.true(all(tick >= 1e15 for tick, _ in hist))
-                self.len(8, hist)
+                # the cell versions in a 2.x store count updates applied by the 2.x
+                # line, which 3.x counts from zero. Clear them the way the 2.x to
+                # 3.x migration tooling does so the cell boots from an unstamped
+                # store rather than tripping the initCellVers() check.
+                path = s_common.genpath(dirn, 'slabs', 'cell.lmdb')
+                async with await s_lmdbslab.Slab.anit(path) as slab:
+                    await slab.getSafeKeyVal('cell:vers').truncate()
 
-                sizes = [await axon.size(hashlib.sha256(b'foo%d' % i).digest()) for i in range(5)]
-                self.eq(sum(sizes), 20)
+                async with await s_axon.Axon.anit(dirn) as axon:
 
-                items = [x async for x in axon.hashes(0)]
-                self.eq(8, len(items))
+                    oldpath = s_common.genpath(axon.dirn, 'axon.lmdb')
+                    newpath = s_common.genpath(axon.dirn, 'axon_v2.lmdb')
 
-                file_count = axon.axonslab.get(b'file:count', db='metrics')
-                size_bytes = axon.axonslab.get(b'size:bytes', db='metrics')
-                self.eq(int.from_bytes(file_count, 'big'), 8)
-                self.eq(int.from_bytes(size_bytes, 'big'), 3023)
+                    hist = list(axon.axonhist.carve(0))
+                    self.true(all(tick >= 1e15 for tick, _ in hist))
+                    self.len(8, hist)
 
-                self.true(os.path.isdir(newpath))
-                self.false(os.path.isdir(oldpath))
+                    sizes = [await axon.size(hashlib.sha256(b'foo%d' % i).digest()) for i in range(5)]
+                    self.eq(sum(sizes), 20)
+
+                    items = [x async for x in axon.hashes(0)]
+                    self.eq(8, len(items))
+
+                    file_count = axon.axonslab.get(b'file:count', db='metrics')
+                    size_bytes = axon.axonslab.get(b'size:bytes', db='metrics')
+                    self.eq(int.from_bytes(file_count, 'big'), 8)
+                    self.eq(int.from_bytes(size_bytes, 'big'), 3023)
+
+                    self.true(os.path.isdir(newpath))
+                    self.false(os.path.isdir(oldpath))
 
     async def test_axon_history_migration_fail(self):
 

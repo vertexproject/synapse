@@ -26,21 +26,25 @@ class NodeTest(s_t_utils.SynTest):
 
             iden, info = node.pack()
             self.eq(iden, ('test:str', 'cool'))
-            self.eq(info.get('tags'), {'foo': (None, None, None)})
-            self.eq(info.get('tagprops'), {'foo': {'_score': 10, '_note': 'this is a really cool tag!'}})
+            self.eq(info.get('tags'), {'foo': ((None, None, None), {})})
+            self.eq(info.get('tagprops'), {'foo': {'_score': (10, {}), '_note': ('this is a really cool tag!', {})}})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
-            self.eq(props, {'tick': ('test:time', 12345)})
+            self.eq(props, {'tick': (12345, {'t': 'test:time'})})
 
             iden, info = node.pack(dorepr=True)
             self.eq(iden, ('test:str', 'cool'))
-            self.eq(info.get('tags'), {'foo': (None, None, None)})
+            self.eq(info.get('tags'), {'foo': ((None, None, None), {})})
             props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
-            self.eq(props, {'tick': ('test:time', 12345)})
+            self.eq(props, {'tick': (12345, {'t': 'test:time', 'r': '1970-01-01T00:00:00.012345Z'})})
             self.eq(info.get('repr'), None)
-            reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
-            self.eq(reprs, {'tick': '1970-01-01T00:00:00.012345Z'})
-            tagpropreprs = info.get('tagpropreprs')
-            self.eq(tagpropreprs, {'foo': {'_score': '10'}})
+
+            # the reprs sidecar is gone. reprs live in the prop envelope.
+            self.none(info.get('reprs'))
+
+            # the tagpropreprs sidecar is gone. reprs live in the envelope.
+            self.none(info.get('tagpropreprs'))
+            self.eq(info['tagprops'], {'foo': {'_score': (10, {'r': '10'}),
+                                               '_note': ('this is a really cool tag!', {})}})
 
             # Set a property on the node which is extra model and pack it.
             # This situation can be encountered in a multi-layer situation
@@ -51,17 +55,23 @@ class NodeTest(s_t_utils.SynTest):
             node.sodes[0]['props']['newp'] = ((2, 3), 0)
             node.sodes[0]['tagprops']['foo']['valu'] = (10, 0)
             iden, info = node.pack(dorepr=True)
-            props, reprs = info.get('props'), info.get('reprs')
-            tagprops, tagpropreprs = info.get('tagprops'), info.get('tagpropreprs')
-            self.eq(props.get('.newp'), 1)
-            self.eq(props.get('newp'), (2, 3))
-            self.eq(tagprops, {'foo': {'_score': 10, '_note': 'this is a really cool tag!', 'valu': 10}})
+            props = info.get('props')
+            tagprops = info.get('tagprops')
+            self.eq(tagprops, {'foo': {'_score': (10, {'r': '10'}),
+                                       '_note': ('this is a really cool tag!', {}),
+                                       'valu': (10, {})}})
 
-            # without model knowledge it is impossible to repr a value so it should
-            # *not* be in the repr dict
-            self.none(reprs.get('newp'))
-            self.none(reprs.get('.newp'))
-            self.eq(tagpropreprs, {'foo': {'_score': '10'}})
+            # without model knowledge there is no type and no repr to state, so
+            # the value is carried opaquely with an empty info dict.
+            self.eq(props.get('.newp'), (1, {}))
+            self.eq(props.get('newp'), ((2, 3), {}))
+            self.none(info.get('tagpropreprs'))
+
+            # an extra model prop has no stortype, so asking for virts must not raise
+            iden, info = node.pack(dorepr=True, virts=True)
+            props = info.get('props')
+            self.eq(props.get('.newp'), (1, {}))
+            self.eq(props.get('newp'), ((2, 3), {}))
 
             await core.nodes('test:str=cool [ +(refs)> {[ test:str=n1edge ]} <(refs)+ {[ test:int=2 ]} ]')
             nodes = await core.nodes('test:str=cool')
@@ -131,15 +141,11 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(info.get('n2verbs'), {'refs': {'test:str': 1}})
 
             async with core.getLocalProxy() as prox:
+                # the edge verb counts are always included on a packed node
                 async for m in prox.storm('test:str=cool'):
                     if m[0] == 'node':
                         self.nn(m[1][1].get('n1verbs'))
                         self.nn(m[1][1].get('n2verbs'))
-
-                async for m in prox.storm('test:str=cool', opts={'node:opts': {'verbs': False}}):
-                    if m[0] == 'node':
-                        self.none(m[1][1].get('n1verbs'))
-                        self.none(m[1][1].get('n2verbs'))
 
             # the internal "_stortypes" virt a comp value carries for the layer
             # must not leak into the packed (display) virts / props
@@ -153,9 +159,13 @@ class NodeTest(s_t_utils.SynTest):
                 :block=(({"symbol": "btc", "id": "foo", "$as": "crypto:currency:chain"}), 12) ]'''
             nodes = await core.nodes(q)
             iden, info = nodes[0].pack(virts=True)
-            self.false(any('_stortypes' in name for name in info['props']))
-            # the real per-field virt still packs
-            self.eq(info['props']['block.type'], 'crypto:currency:block')
+
+            valu, pinfo = info['props']['block']
+            self.notin('_stortypes', pinfo.get('v', {}))
+
+            # the concrete type is hoisted out of the virts and onto the envelope
+            self.eq(pinfo['t'], 'crypto:currency:block')
+            self.notin('type', pinfo.get('v', {}))
 
     async def test_get_has_pop_repr_set(self):
 
@@ -246,16 +256,24 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(s_node.reprTag(strpode, '#test.foo.time'), '2016-01-01T00:00:00Z - 2019-01-01T00:00:00Z')
             self.none(s_node.reprTag(strpode, 'test.foo.newp'))
 
-            self.eq(s_node.prop(strpode, 'hehe'), ('str', 'hehe'))
-            self.eq(s_node.prop(strpode, 'tick'), ('test:time', 12345))
-            self.eq(s_node.prop(strpode, ':tick'), ('test:time', 12345))
-            self.eq(s_node.prop(strpode, 'test:str:tick'), ('test:time', 12345))
+            self.eq(s_node.prop(strpode, 'hehe'), ('hehe', {'t': 'str'}))
+            self.eq(s_node.prop(strpode, 'tick'), (12345, {'t': 'test:time', 'r': '1970-01-01T00:00:00.012345Z'}))
             self.none(s_node.prop(strpode, 'newp'))
+
+            # the prop argument is a relative name, so a leading colon or a
+            # full property name does not resolve.
+            self.none(s_node.prop(strpode, ':tick'))
+            self.none(s_node.prop(strpode, 'test:str:tick'))
+
+            self.eq(strpode[1]['props']['hehe'][0], 'hehe')
+            self.eq(strpode[1]['props']['tick'][0], 12345)
+            self.none(strpode[1]['props'].get('newp'))
+
+            self.eq(strpode[1]['props']['hehe'][1]['t'], 'str')
+            self.eq(strpode[1]['props']['tick'][1]['t'], 'test:time')
 
             self.eq(s_node.reprProp(strpode, 'hehe'), 'hehe')
             self.eq(s_node.reprProp(strpode, 'tick'), '1970-01-01T00:00:00.012345Z')
-            self.eq(s_node.reprProp(strpode, ':tick'), '1970-01-01T00:00:00.012345Z')
-            self.eq(s_node.reprProp(strpode, 'test:str:tick'), '1970-01-01T00:00:00.012345Z')
             self.none(s_node.reprProp(strpode, 'newp'))
 
             self.eq(s_node.reprTagProps(strpode, 'test'),
@@ -283,6 +301,26 @@ class NodeTest(s_t_utils.SynTest):
             pode2 = node2.pack(dorepr=True)
 
             _test_pode(strpode=pode, intpode=pode2)
+
+            # without a packed repr, an ival tag reprs from its own value
+            rawpode = node.pack()
+            self.eq(s_node.reprTag(rawpode, '#test.foo.time'),
+                    '2016-01-01T00:00:00Z - 2019-01-01T00:00:00Z')
+            self.eq(s_node.reprTag(rawpode, '#test.foo.bar'), '')
+
+            # an absent array property has no members
+            self.none(pode[1]['props'].get('newp'))
+
+            # a runt node carries neither a stortype nor any virts, and packs like any other
+            runt = (await core.nodes('syn:form=test:str'))[0]
+            self.eq(runt._getStorProps()['doc'][1:], (None, None))
+
+            runtpode = runt.pack(dorepr=True, virts=True)
+            self.eq(runtpode[1]['props']['doc'][0], 'The base string type.')
+            self.eq(runtpode[1]['props']['doc'][1]['t'], 'str')
+
+            # a syn:form repr matches its value, so no ndef repr is packed
+            self.none(runtpode[1].get('repr'))
 
             # Now get those packed nodes via Telepath
             async with core.getLocalProxy() as prox:
@@ -496,17 +534,53 @@ class NodeTest(s_t_utils.SynTest):
 
             pode = nodes[0].pack(dorepr=True)
 
-            # polyarry of strings has no repr entry (repr matches raw)
-            self.none(pode[1].get('reprs', {}).get('polyarry'))
+            valu, info = pode[1]['props']['polyarry']
+
+            # an array container carries no type of its own, its members do.
+            self.none(info.get('t'))
+            self.eq(valu, (('bar', {'t': 'test:str'}), ('foo', {'t': 'test:str'})))
+            self.eq(tuple(elem[0] for elem in valu), ('bar', 'foo'))
+
+            # an array container repr is never suppressed, which is what lets a
+            # consumer without the model render it without inspecting the value.
+            self.eq(info['r'], ['bar', 'foo'])
+
             retn = s_node.reprProp(pode, 'polyarry')
-            self.isinstance(retn, tuple)
+            self.isinstance(retn, list)
             self.isin('foo', retn)
             self.isin('bar', retn)
 
-            # test reprProp with an empty array value
-            pode[1]['props']['polyarry'] = ()
-            pode[1].get('reprs', {}).pop('polyarry', None)
+            # a value which carries no repr falls back to the value itself
+            pode[1]['props']['polyarry'] = ((), {})
             self.eq(s_node.reprProp(pode, 'polyarry'), '()')
+
+    async def test_node_pack_form_envelopes(self):
+        '''
+        Pin the envelope shape for a form typed comp field and a form typed
+        array, which are the two shapes a client turns into lift options.
+        '''
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+            self.len(1, nodes)
+
+            props = nodes[0].pack(dorepr=True, virts=True)[1]['props']
+
+            # a comp field carries its concrete form as the type name, so a
+            # client can offer a lift on the field and on the form it names.
+            self.eq(props['fqdn'], ('vertex.link', {'t': 'inet:fqdn'}))
+            self.eq(props['ip'], ((4, 16909060), {'t': 'inet:ip', 'r': '1.2.3.4'}))
+
+            nodes = await core.nodes('[ entity:campaign=* :names=(alpha, beta) ]')
+            self.len(1, nodes)
+
+            valu, info = nodes[0].pack(dorepr=True, virts=True)[1]['props']['names']
+
+            # each member carries its own type name, the container carries none.
+            self.eq(valu, (('alpha', {'t': 'entity:name'}), ('beta', {'t': 'entity:name'})))
+            self.none(info.get('t'))
+            self.eq(info['r'], ['alpha', 'beta'])
+            self.eq(info['v'], {'size': (2, {})})
 
     async def test_node_data(self):
         async with self.getTestCore() as core:
@@ -585,6 +659,36 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(exc.exception.get('mesg'), 'node data keys must be < 507 bytes, got 507.')
             self.eq(exc.exception.get('name'), bigkey)
             self.eq(exc.exception.get('size'), 507)
+
+            # a node deleted in a middle layer and created again above it must not
+            # see the data which belonged to the deleted node
+            await core.nodes('inet:ip=1.2.3.4 $node.data.set(below, (1))')
+
+            fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts00 = {'view': fork00}
+
+            fork01 = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts00)
+            opts01 = {'view': fork01}
+
+            await core.nodes('inet:ip=1.2.3.4 | delnode --force', opts=opts00)
+            await core.nodes('[ inet:ip=1.2.3.4 ]', opts=opts01)
+
+            nodes = await core.nodes('inet:ip=1.2.3.4', opts=opts01)
+            node = nodes[0]
+            self.eq(1, node.lastlayr())
+
+            self.none(await node.getData('below'))
+            self.false(await node.hasData('below'))
+            self.eq([], await alist(node.iterData()))
+            self.eq([], await alist(node.iterDataKeys()))
+
+            # popping must agree with the accessors rather than reaching below the
+            # tombstone, and must not leave a tombstone for data it cannot see
+            self.none(await node.popData('below'))
+            self.eq([], await alist(node.iterData()))
+
+            # the data is still there for a view which did not delete the node
+            self.eq(1, await core.callStorm('inet:ip=1.2.3.4 return($node.data.get(below))'))
 
     async def test_node_tagprops(self):
         async with self.getTestCore() as core:
@@ -711,7 +815,7 @@ class NodeTest(s_t_utils.SynTest):
             self.none(othr[0].getTag('foo'))
 
             msgs = await core.stormlist('test:str=neato | [ -#foo ]', opts={'view': fork})
-            edits = [m[1] for m in msgs if m[0] == 'node:edits']
+            edits = [m[1] for m in msgs if m[0] == 'edits']
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, edits)
             self.len(1, edits[0]['edits'][0][2])
@@ -733,7 +837,7 @@ class NodeTest(s_t_utils.SynTest):
             self.none(othr[0].getTag('ping.pong'))
 
             msgs = await core.stormlist('test:int=12 | [ -#ping.pong ]', opts={'view': fork})
-            edits = [m[1] for m in msgs if m[0] == 'node:edits']
+            edits = [m[1] for m in msgs if m[0] == 'edits']
             nodes = [m[1] for m in msgs if m[0] == 'node']
 
             self.len(1, edits)

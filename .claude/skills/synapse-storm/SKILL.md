@@ -343,7 +343,6 @@ lift.byverb $verb                            // lift by edge verb
 merge --apply                                // merge layer changes
 movenodes --srclayer $src --destlayer $dst   // move nodes between layers
 parallel { query }                           // parallel execution
-reindex                                       // reindex nodes
 runas --user $user { query }                 // run as another user
 scrape --refs $text                          // scrape indicators
 sleep $seconds                               // pause execution
@@ -641,6 +640,134 @@ $func("positional", key=1)
 - Use `(true)`, `(false)`, `(null)` -- not `$lib.true`, `$lib.false`, `$lib.null`
 - Prefer structured relationships such as property pivots or verb specific pivots over wild cards.
 - Use the most specific syntax which makes sense. (`-(refs)> inet:fqdn` is better than `--> *`)
+- Do not guard an operation that already no-ops on a null -- see "Redundant Guards" below.
+
+### Redundant Guards
+
+Storm no-ops on nulls in most of the places an ingest touches, so an `if` wrapped around one of
+those is dead weight. It also reads as though the null case is dangerous, which invites the next
+reader to add more of them.
+
+`?=` skips a null assignment, so the value does not need checking first:
+
+```storm
+// REDUNDANT
+if $valu { [ :prop ?= $valu ] }
+
+// CORRECT
+[ :prop ?= $valu ]
+```
+
+In a gutor, `"$try": true` covers the **`$props`** block -- it is what keeps a non-deconfliction prop
+that will not norm from killing the edit. So a prop whose value may be missing or malformed does not
+need its own guard:
+
+```storm
+// REDUNDANT
+if $size { [ file:bytes ?= ({"sha256": $sha256, "$try": true, "$props": {"size": $size}}) ] }
+
+// CORRECT
+[ file:bytes ?= ({"sha256": $sha256, "$try": true, "$props": {"size": $size}}) ]
+```
+
+`?=` and `"$try": true` are not the same tolerance and do not cover the same keys -- see
+"Deconfliction and node construction" in `synapse-rapid-powerup`'s
+`reference/model-conventions.md` for the full rule. The short version: `?=` covers the
+deconfliction keys, `"$try": true` covers `$props`, and they fail in opposite directions -- on a bad
+value `?=` discards the whole node, while `"$try": true` keeps the node and skips just that prop.
+
+Corollary: **`"$try": true` with no `$props` does nothing** -- drop it rather than carrying it out of
+habit.
+
+```storm
+// POINTLESS -- nothing for $try to cover
+[ file:bytes ?= ({"sha256": $sha256, "$try": true}) ]
+
+// CORRECT
+[ file:bytes ?= ({"sha256": $sha256}) ]
+```
+
+`+#` applies nothing for an **empty list**, so tagging from an API field needs neither a guard nor a
+loop -- `$lib.tags.prefix` returns an empty list when its input is null:
+
+```storm
+// REDUNDANT -- the guard and the loop
+if $item.tags { for $tag in $lib.tags.prefix($item.tags, $pref) { [ +#$tag ] } }
+
+// CORRECT
+[ +#$lib.tags.prefix($item.tags, $pref) ]
+```
+
+Note this works because of the empty list, **not** because `+#` tolerates a null. A bare null raises
+`Invalid value type for tag name`; use `+?#` when the value itself may be null:
+
+```storm
+$foo = (null)
+[ +#$foo ]     // raises
+[ +?#$foo ]    // no-op
+```
+
+(Pass a list. `$lib.tags.prefix` iterates a bare string per character, so a lone tag value goes in
+as `([$tag])`.)
+
+An edit block only runs when a node is in the pipeline, so a function that yielded nothing needs no
+check:
+
+```storm
+// REDUNDANT
+$n = $genThing(...)
+if $n { yield $n [ <(seen)+ $srcnode ] }
+
+// CORRECT
+yield $genThing(...) [ <(seen)+ $srcnode ]
+```
+
+Inlining a subquery into the edge add removes the guard the intermediate variable needed:
+
+```storm
+// REDUNDANT
+if $ip { $ipnode = {[ inet:ip ?= $ip ]} [ +(refs)> $ipnode ] }
+
+// CORRECT
+[ +(refs)> {[ inet:ip ?= $ip ]} ]
+```
+
+A guid-typed form norms a bare tuple, so wrapping the same values in `$lib.guid` is ceremony -- and
+it hides that the tuple *is* the deconfliction set:
+
+```storm
+// REDUNDANT
+$guid = $lib.guid($parent.value, $fnode.value)
+[ file:attachment ?= $guid ]
+
+// CORRECT -- same primary value
+[ file:attachment ?= ($parent.value, $fnode.value) ]
+```
+
+Two conditions before converting one of these:
+
+- **Only if `$guid` is not needed elsewhere.** It generally should not be: reference a node by passing
+  the node, not its guid string (`storm-model-3xx-port` "Node-valued props: pass the node, not a bare
+  guid"; `reference/model-conventions.md` "Do not use a GUID string as a property value"). A `$guid`
+  variable that *is* used elsewhere is usually a sign one of those rules is being bent.
+- **Values going into a guid seed must be normed first**, which the bare-tuple form does for you and
+  `$lib.guid` does not -- `$lib.guid` hashes exactly what it is handed, so
+  `44D88612FEA8A8F36DE82E1278ABB02F` and `44d88612fea8a8f36de82e1278abb02f` produce two different
+  guids while `crypto:hash:md5` norms both to one node. Prefer `$lib.trycast` over `$lib.cast` for
+  vendor input, since `$lib.cast` raises on a bad value, and check `$ok`. Full rule in
+  `reference/model-conventions.md` ("Normalize/case any value you put into a guid seed first").
+
+**Guards that are not redundant** -- keep these:
+
+- a method call on a possibly-null value (`$valu.split(...)`, `$valu.rjust(...)`, `.lower()`) raises
+  rather than no-opping
+- selecting between different node/guid shapes, or an `elif`/`else` that does other work
+- short-circuiting the rest of a function (`if (not $x) { return() }`)
+- avoiding interpolation of a null into a string, which yields the literal text `None`
+- arithmetic on a possibly-null value, which raises `BadCast`
+
+The test for whether a guard earns its place: remove it, and ask what the null actually does. If the
+answer is "nothing happens", the guard was noise.
 
 ## Debugging Workflow
 

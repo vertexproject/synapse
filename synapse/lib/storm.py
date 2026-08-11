@@ -329,7 +329,10 @@ stormcmds = (
             ('--name', {'help': 'The name of the layer.'}),
         ),
         'storm': '''
-            $layr = $lib.layer.add($cmdopts)
+            $opts = $lib.copy($cmdopts)
+            // Set valid ldef keys
+            $opts.help = $lib.undef
+            $layr = $lib.layer.add($opts)
             $lib.print($layr.repr())
             $lib.print("Layer added.")
         ''',
@@ -565,7 +568,11 @@ stormcmds = (
             ('--layers', {'default': [], 'nargs': '*', 'help': 'Layers for the view.'}),
         ),
         'storm': '''
-            $view = $lib.view.add($cmdopts.layers, name=$cmdopts.name, worldreadable=$cmdopts.worldreadable)
+            $view = $lib.view.add($cmdopts.layers, name=$cmdopts.name)
+            if $cmdopts.worldreadable {
+                $role = $lib.auth.roles.byname(all)
+                $role.addRule(((true), ('view', 'read')), gateiden=$view.iden)
+            }
             $lib.print($view.repr())
             $lib.print("View added.")
         ''',
@@ -1740,11 +1747,7 @@ class Runtime(s_base.Base):
             return
 
         if default is None:
-            default = False
-
-            permdef = self.view.core.getPermDef(perms)
-            if permdef:
-                default = permdef.get('default', False)
+            default = self.view.core.getPermDefault(perms)
 
         return self.user.confirm(perms, gateiden=gateiden, default=default)
 
@@ -1753,11 +1756,7 @@ class Runtime(s_base.Base):
             return True
 
         if default is None:
-            default = False
-
-            permdef = self.view.core.getPermDef(perms)
-            if permdef:
-                default = permdef.get('default', False)
+            default = self.view.core.getPermDefault(perms)
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
@@ -1891,25 +1890,21 @@ class Runtime(s_base.Base):
         dorepr = False
         dolink = False
 
-        show_storage = False
-
-        info = self.opts.get('_loginfo', {})
-        info.update({'mode': self.opts.get('mode', 'storm'), 'view': self.view.iden})
-        self.view.core._logStormQuery(self.query.text, self.user, info=info)
+        info = {'mode': self.opts.get('mode', 'storm'), 'view': self.view.iden}
+        self.view.core._logStormQuery(self.query.text, self.user, info=info, meta=self.opts.get('meta'))
 
         nodeopts = self.opts.get('node:opts', {})
 
-        # { form: ( embedprop, ... ) }
+        # { form: { nodepath: ( relprop, ... ) } }
         embeds = nodeopts.get('embeds')
         dorepr = nodeopts.get('repr', False)
         dolink = nodeopts.get('links', False)
         virts = nodeopts.get('virts', False)
-        verbs = nodeopts.get('verbs', True)
-        show_storage = nodeopts.get('show:storage', False)
+        storage = nodeopts.get('storage', False)
 
         async for node, path in self.execute():
 
-            pode = node.pack(dorepr=dorepr, virts=virts, verbs=verbs)
+            pode = node.pack(dorepr=dorepr, virts=virts)
             pode[1]['path'] = await path.pack()
 
             if path.display:
@@ -1921,14 +1916,14 @@ class Runtime(s_base.Base):
             if dolink:
                 pode[1]['links'] = path.links
 
-            if show_storage:
+            if storage:
                 pode[1]['storage'] = await node.getStorNodes()
 
             if embeds is not None:
                 embdef = embeds.get(node.form.name)
                 if embdef is not None:
                     pode[1]['embeds'] = await node.getEmbeds(embdef)
-                    if show_storage:
+                    if storage:
                         await self._joinEmbedStor(pode[1]['storage'], pode[1]['embeds'])
             yield pode
 
@@ -2477,7 +2472,6 @@ class Cmd:
     '''
     name = 'cmd'
     pkgname = ''
-    svciden = ''
     readonly = False
 
     def __init__(self, runt, runtsafe):
@@ -2540,9 +2534,6 @@ class Cmd:
             'doc': cls.getCmdBrief()
         }
 
-        if cls.svciden:
-            props['svciden'] = cls.svciden
-
         if cls.pkgname:
             props['package'] = cls.pkgname
 
@@ -2557,8 +2548,9 @@ class PureCmd(Cmd):
     # or not
     readonly = True
 
-    def __init__(self, cdef, runt, runtsafe):
+    def __init__(self, cdef, runt, runtsafe, pkgdef=None):
         self.cdef = cdef
+        self.pkgdef = pkgdef
         Cmd.__init__(self, runt, runtsafe)
 
     def getDescr(self):
@@ -2594,14 +2586,15 @@ class PureCmd(Cmd):
                 mesg = f'Command ({name}) requires permission: {permtext}'
                 raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
-        text = self.cdef.get('storm')
-        query = await runt.view.core.getStormQuery(text)
+        query = await runt.view.core.getStormQueryForDef(self.cdef, pkgdef=self.pkgdef)
 
         cmdopts = s_stormtypes.CmdOpts(self)
 
-        cmdconf = self.cdef.get('cmdconf', {})
-        if cmdconf:
-            cmdconf = s_msgpack.deepcopy(cmdconf, use_list=True)
+        # copy the author declared cmdconf so the package definition is never
+        # modified by running one of its commands.
+        cmdconf = {}
+        if (authconf := self.cdef.get('cmdconf')) is not None:
+            cmdconf = s_msgpack.deepcopy(authconf, use_list=True)
 
         opts = {
             'vars': {
@@ -2921,15 +2914,14 @@ class HelpCmd(Cmd):
         pkgmap = {}
 
         for pkg in stormpkgs:
-            svciden = pkg.get('svciden')
             pkgname = pkg.get('name')
 
             for cmd in pkg.get('commands', []):
                 pkgmap[cmd.get('name')] = pkgname
 
-            ssvc = runt.view.core.getStormSvc(svciden)
-            if ssvc is not None:
-                pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
+            svcname = runt.view.core.getStormPkgSvc(pkgname)
+            if svcname is not None:
+                pkgsvcs[pkgname] = svcname
 
         if stormcmds:
 
@@ -4652,9 +4644,80 @@ class UniqCmd(Cmd):
                     await uniqset.add(valu)
                     yield node, path
 
+class _RevSortKey:
+    '''
+    Invert a sort key so that heapq may be used as a max heap.
+    '''
+    __slots__ = ('key',)
+
+    def __init__(self, key):
+        self.key = key
+
+    def __eq__(self, othr):
+        return self.key == othr.key
+
+    def __lt__(self, othr):
+        return othr.key < self.key
+
+def _sortKey(valu):
+    '''
+    Group a sort key by type so that heapq never compares values of different
+    types, which would raise a TypeError for a heterogeneous result set (such as
+    a poly property holding both strings and ints). Real numbers share a group so
+    that ints and floats still order against each other.
+    '''
+    if isinstance(valu, (int, float)):
+        return ('', valu)
+
+    return (type(valu).__name__, valu)
+
+async def _getMinMaxKey(runt, argv, reverse):
+    '''
+    Resolve the sort key used to order nodes for the min and max commands.
+
+    Args:
+        runt (Runtime): The Storm runtime.
+        argv: The (possibly typed) value to order by.
+        reverse (bool): True when ordering for the lowest value (the min command).
+
+    Returns:
+        A sortable key, or None if the node should be skipped.
+    '''
+    valu = await s_stormtypes.toprim(argv)
+    if valu is None:
+        return None
+
+    # a typed value orders itself (eg it:version, ival, str)
+    if isinstance(argv, s_stormtypes.Valu):
+        if (ptyp := runt.model.type(argv.valu[0])) is not None:
+            key = ptyp.getSortKey(valu, virts=argv.virts, reverse=reverse)
+            if key is s_common.novalu:
+                return None
+
+            return _sortKey(key)
+
+    # an untyped 2/3-tuple is still treated as an interval
+    if isinstance(valu, (list, tuple)):
+        if valu == (None, None, None):
+            return None
+
+        ival, info = await runt.model.type('ival').norm(valu)
+        return _sortKey(ival[0] if reverse else ival[1])
+
+    return _sortKey(valu)
+
 class MaxCmd(Cmd):
     '''
     Consume nodes and yield the nodes with the highest values for an expression.
+
+    Notes:
+
+        Values are ordered using the ordering defined by their type. Strings order
+        lexically and case insensitively. Intervals order by the end being sought.
+        it:version values order by epoch, major, minor, patch, and pre-release tier
+        only, so versions which differ only within a pre-release tier (such as
+        1.0.0-alpha.1 and 1.0.0-alpha.2) or only by build metadata compare equal.
+        Values which their type cannot order are skipped.
 
     Examples:
 
@@ -4669,6 +4732,9 @@ class MaxCmd(Cmd):
 
         // Yield the two most recent inet:dns:ns records (descending order)
         inet:fqdn=vertex.link -> inet:dns:ns | max .seen --size 2
+
+        // Yield the doc:report node with the highest :version
+        doc:report | max :version
 
     '''
 
@@ -4693,26 +4759,14 @@ class MaxCmd(Cmd):
             mesg = f'Specified size ({size}) is above the maximum ({MINMAX_SIZE_MAX}).'
             raise s_exc.BadArg(mesg=mesg)
 
-        ivaltype = self.runt.view.core.model.type('ival')
-
         # min-heap of (valu, counter, (node, path)) -- smallest valu at root so we can evict it
         heap = []
         counter = 0
 
         async for node, path in genr:
 
-            valu = await s_stormtypes.toprim(self.opts.valu)
-            if valu is None:
+            if (valu := await _getMinMaxKey(self.runt, self.opts.valu, False)) is None:
                 continue
-
-            if isinstance(valu, (list, tuple)):
-                if valu == (None, None, None):
-                    continue
-
-                ival, info = await ivaltype.norm(valu)
-                valu = ival[1]
-
-            valu = s_stormtypes.intify(valu)
 
             if len(heap) < size:
                 heapq.heappush(heap, (valu, counter, (node, path)))
@@ -4728,6 +4782,15 @@ class MinCmd(Cmd):
     '''
     Consume nodes and yield the nodes with the lowest values for an expression.
 
+    Notes:
+
+        Values are ordered using the ordering defined by their type. Strings order
+        lexically and case insensitively. Intervals order by the end being sought.
+        it:version values order by epoch, major, minor, patch, and pre-release tier
+        only, so versions which differ only within a pre-release tier (such as
+        1.0.0-alpha.1 and 1.0.0-alpha.2) or only by build metadata compare equal.
+        Values which their type cannot order are skipped.
+
     Examples:
 
         // Yield the file:bytes node with the lowest :size property
@@ -4741,6 +4804,9 @@ class MinCmd(Cmd):
 
         // Yield the two oldest inet:dns:ns records (ascending order)
         inet:fqdn=vertex.link -> inet:dns:ns | min .seen --size 2
+
+        // Yield the doc:report node with the lowest :version
+        doc:report | min :version
 
     '''
     name = 'min'
@@ -4764,35 +4830,23 @@ class MinCmd(Cmd):
             mesg = f'Specified size ({size}) is above the maximum ({MINMAX_SIZE_MAX}).'
             raise s_exc.BadArg(mesg=mesg)
 
-        ivaltype = self.runt.view.core.model.type('ival')
-
         # max-heap via negated valu -- largest valu at root so we can evict it when we find something smaller
         heap = []
         counter = 0
 
         async for node, path in genr:
 
-            valu = await s_stormtypes.toprim(self.opts.valu)
-            if valu is None:
+            if (valu := await _getMinMaxKey(self.runt, self.opts.valu, True)) is None:
                 continue
 
-            if isinstance(valu, (list, tuple)):
-                if valu == (None, None, None):
-                    continue
-
-                ival, info = await ivaltype.norm(valu)
-                valu = ival[0]
-
-            valu = s_stormtypes.intify(valu)
-
             if len(heap) < size:
-                heapq.heappush(heap, (-valu, counter, (node, path)))
-            elif valu < -heap[0][0]:
-                heapq.heapreplace(heap, (-valu, counter, (node, path)))
+                heapq.heappush(heap, (_RevSortKey(valu), counter, (node, path)))
+            elif valu < heap[0][0].key:
+                heapq.heapreplace(heap, (_RevSortKey(valu), counter, (node, path)))
 
             counter += 1
 
-        for _, _, item in sorted(heap, key=lambda x: x[0], reverse=True):
+        for _, _, item in sorted(heap, key=lambda x: x[0].key):
             yield item
 
 class DelNodeCmd(Cmd):
@@ -4869,26 +4923,6 @@ class DelNodeCmd(Cmd):
             await asyncio.sleep(0)
 
         # a bit odd, but we need to be detected as a generator
-        if False:
-            yield
-
-class ReIndexCmd(Cmd):
-    '''
-    Use admin privileges to re index/normalize node properties.
-
-    NOTE: Currently does nothing but is reserved for future use.
-    '''
-    name = 'reindex'
-
-    def getArgParser(self):
-        pars = Cmd.getArgParser(self)
-        return pars
-
-    async def execStormCmd(self, runt, genr):
-        mesg = 'reindex currently does nothing but is reserved for future use'
-        await runt.warn(mesg)
-
-        # Make this a generator
         if False:
             yield
 

@@ -168,9 +168,14 @@ class Link(s_base.Base):
         self.unpk = s_msgpack.Unpk(strict=True)
 
         async def fini():
-            self.writer.close()
+            # abort before close() so that we never do a graceful (TLS) shutdown
+            # on a link we are throwing away. otherwise inbound data which is
+            # still in flight arrives after our close_notify and wait_closed()
+            # raises APPLICATION_DATA_AFTER_CLOSE_NOTIFY.
             if self._forceclose:
                 self.reader._transport.abort()
+
+            self.writer.close()
             try:
                 await self.writer.wait_closed()
             except Exception as e:
@@ -286,7 +291,27 @@ class Link(s_base.Base):
         await self.send(byts)
 
     def txfini(self):
-        self.sock.shutdown(1)
+
+        # the link may have already been torn down ( or aborted ) beneath us,
+        # in which case there is no socket left to shut down.
+        if self.isfini:
+            return
+
+        try:
+            self.sock.shutdown(socket.SHUT_WR)
+        except OSError as e:
+            logger.debug('Link error on txfini: %s', str(e))
+
+    async def abort(self):
+        '''
+        Fini the link without a graceful shutdown.
+
+        Notes:
+            This is used to discard a link which we know has inbound data still
+            in flight, such as bailing out early on a generator.
+        '''
+        self._forceclose = True
+        await self.fini()
 
     async def recv(self, size):
         return await self.reader.read(size)

@@ -968,6 +968,17 @@ class AuthTest(s_test.SynTest):
             self.false(user.allowed(('hehe',), deepdeny=True))
             self.true(user.allowed(('hehe', 'haha')))
             self.false(user.allowed(('hehe', 'haha'), deepdeny=True))
+
+            # the deepdeny reason names the more specific user rule which denied it
+            reason = user.getAllowedReason(('hehe', 'haha'), deepdeny=True)
+            self.false(reason.value)
+            self.true(reason.deepdeny)
+            self.eq(('hehe', 'haha', 'specific'), reason.rule)
+            self.eq('Matched user rule (!hehe.haha.specific).', reason.mesg)
+
+            # without deepdeny, the same perm matches the less specific allow rule
+            self.eq('Matched user rule (hehe.haha).', user.getAllowedReason(('hehe', 'haha')).mesg)
+
             self.true(user.allowed(('hehe', 'haha', 'wow')))
             self.true(user.allowed(('hehe', 'haha', 'wow'), deepdeny=True))
             self.true(user.allowed(('some', 'perm')))
@@ -1000,6 +1011,12 @@ class AuthTest(s_test.SynTest):
             self.false(user.allowed(('hehe', 'something', 'else'), deepdeny=True))
             self.false(user.allowed(('hehe', 'something', 'else', 'very'), deepdeny=True))
 
+            # a deepdeny match on a role rule names the role
+            reason = user.getAllowedReason(('hehe', 'something', 'else'), deepdeny=True)
+            self.true(reason.deepdeny)
+            self.eq('all', reason.rolename)
+            self.eq('Matched role rule (!hehe.something.else.very.specific) for role all.', reason.mesg)
+
             # There is NOT a deeper permission here, even though there is a deny rule on the role.
             self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), deepdeny=True))
             self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific', 'more')))
@@ -1020,6 +1037,14 @@ class AuthTest(s_test.SynTest):
             self.false(user.allowed(('hehe', 'something', 'else'), gateiden=fork, deepdeny=True))
             self.false(user.allowed(('hehe', 'something', 'else', 'very'), gateiden=fork, deepdeny=True))
             self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), gateiden=fork, deepdeny=True))
+
+            # a deepdeny match on an authgate role rule names both the role and the gate
+            reason = user.getAllowedReason(('hehe', 'something', 'else'), gateiden=fork, deepdeny=True)
+            self.true(reason.deepdeny)
+            self.eq(fork, reason.gateiden)
+            self.eq(f'Matched role rule (!hehe.something.else.very.specific) for role all on gate {fork}.',
+                    reason.mesg)
+
             await core.callStorm('auth.role.delrule --gate $gate all "!hehe.something.else.very.specific"',
                                  opts={'vars': {'gate': fork}})
             await core.callStorm('auth.role.delrule --gate $gate all "beep.boop"',
@@ -1042,6 +1067,13 @@ class AuthTest(s_test.SynTest):
             # than the user specific allow
             self.false(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), gateiden=fork, deepdeny=True))
 
+            # a deepdeny match on an authgate user rule names the gate but no role
+            reason = user.getAllowedReason(('hehe', 'something', 'else'), gateiden=fork, deepdeny=True)
+            self.true(reason.deepdeny)
+            self.none(reason.roleiden)
+            self.eq(f'Matched user rule (!hehe.something.else.very.specific) on gate {fork}.',
+                    reason.mesg)
+
             await core.callStorm('auth.user.delrule --gate $gate lowuser "!hehe.something.else.very.specific"',
                                  opts={'vars': {'gate': fork}})
             await core.callStorm('auth.user.delrule --gate $gate lowuser "beep.boop"',
@@ -1059,6 +1091,12 @@ class AuthTest(s_test.SynTest):
             self.true(user.allowed(('hehe', 'something', 'else'), gateiden=fork, deepdeny=True))
             self.true(user.allowed(('hehe', 'something', 'else', 'very'), gateiden=fork, deepdeny=True))
             self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), gateiden=fork, deepdeny=True))
+
+            # gate admin short circuits the deepdeny check entirely
+            reason = user.getAllowedReason(('hehe',), gateiden=fork, deepdeny=True)
+            self.false(reason.deepdeny)
+            self.true(reason.isadmin)
+            self.eq(f'The user is an admin of auth gate {fork}.', reason.mesg)
 
             await core.callStorm('auth.user.mod --admin (false) lowuser --gate $gate', opts={'vars': {'gate': fork}})
 
@@ -1081,6 +1119,94 @@ class AuthTest(s_test.SynTest):
             self.false(user.allowed(('hehe', 'something', 'else'), deepdeny=True))
             self.false(user.allowed(('hehe', 'something', 'else', 'very'), deepdeny=True))
             self.false(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), deepdeny=True))
+
+    async def test_auth_allowed_reason(self):
+
+        async with self.getTestCore() as core:
+
+            fork = await core.callStorm('return( $lib.view.get().fork().iden )')
+
+            user = await core.auth.addUser('lowuser')
+            role = await core.auth.addRole('ninjas')
+
+            # allowed() and getAllowedReason() share a single cache entry
+            self.len(0, user.permcache)
+            self.none(user.allowed(('foo', 'bar')))
+            self.len(1, user.permcache)
+
+            reason = user.getAllowedReason(('foo', 'bar'))
+            self.len(1, user.permcache)
+            self.none(reason.value)
+            self.true(reason.default)
+            self.eq('No matching rule found. (default: none)', reason.mesg)
+
+            # the caller default is reported in the reason
+            self.eq('No matching rule found. (default: true)',
+                    user.getAllowedReason(('foo', 'bar'), default=True).mesg)
+
+            user.clearAuthCache()
+            self.len(0, user.permcache)
+
+            # a matching user rule
+            await user.addRule((True, ('foo',)))
+            reason = user.getAllowedReason(('foo', 'bar'))
+            self.true(reason.value)
+            self.false(reason.default)
+            self.eq(('foo',), reason.rule)
+            self.eq('Matched user rule (foo).', reason.mesg)
+
+            # a matching deny rule takes precedence over the caller default
+            await user.addRule((False, ('foo', 'bar')), indx=0)
+            reason = user.getAllowedReason(('foo', 'bar'), default=True)
+            self.false(reason.value)
+            self.false(reason.default)
+            self.eq('Matched user rule (!foo.bar).', reason.mesg)
+            self.false(user.allowed(('foo', 'bar'), default=True))
+
+            # a matching role rule
+            await user.grant(role.iden)
+            await role.addRule((True, ('baz',)))
+            reason = user.getAllowedReason(('baz', 'faz'))
+            self.true(reason.value)
+            self.eq(role.iden, reason.roleiden)
+            self.eq('Matched role rule (baz) for role ninjas.', reason.mesg)
+
+            # a matching authgate user rule
+            await user.addRule((True, ('hehe',)), gateiden=fork)
+            reason = user.getAllowedReason(('hehe', 'haha'), gateiden=fork)
+            self.true(reason.value)
+            self.eq(fork, reason.gateiden)
+            self.eq(f'Matched user rule (hehe) on gate {fork}.', reason.mesg)
+
+            # a matching authgate role rule
+            await role.addRule((True, ('wow',)), gateiden=fork)
+            reason = user.getAllowedReason(('wow', 'such'), gateiden=fork)
+            self.true(reason.value)
+            self.eq(role.iden, reason.roleiden)
+            self.eq(f'Matched role rule (wow) for role ninjas on gate {fork}.', reason.mesg)
+
+            # authgate admin
+            await user.setAdmin(True, gateiden=fork)
+            reason = user.getAllowedReason(('newp', 'newp'), gateiden=fork)
+            self.true(reason.value)
+            self.true(reason.isadmin)
+            self.eq(f'The user is an admin of auth gate {fork}.', reason.mesg)
+            await user.setAdmin(False, gateiden=fork)
+
+            # global admin
+            await user.setAdmin(True)
+            reason = user.getAllowedReason(('newp', 'newp'))
+            self.true(reason.value)
+            self.true(reason.isadmin)
+            self.eq('The user is a global admin.', reason.mesg)
+            await user.setAdmin(False)
+
+            # locked takes precedence over everything
+            await user.setLocked(True)
+            reason = user.getAllowedReason(('foo', 'bar'), default=True)
+            self.false(reason.value)
+            self.true(reason.islocked)
+            self.eq('The user is locked.', reason.mesg)
 
     async def test_lib_auth_gate_mod_rules(self):
         async with self.getTestCore() as core:

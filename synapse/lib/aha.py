@@ -35,8 +35,10 @@ _provSvcSchema = {
         'provinfo': {
             'type': 'object',
             'properties': {
+                # arbitrary cell config for the service being provisioned.
                 'conf': {
                     'type': 'object',
+                    'additionalProperties': True,
                 },
                 'dmon:port': {
                     'type': 'integer',
@@ -48,7 +50,8 @@ _provSvcSchema = {
                     'minimum': 0,
                     'maximum': 65535,
                 },
-            }
+            },
+            'additionalProperties': False,
         }
     },
     'additionalProperties': False,
@@ -122,6 +125,24 @@ class AhaApi(s_cell.CellApi):
         async for item in self.cell.callAhaPeerGenr(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item
 
+    def _getSvcEntryForUser(self, svcentry):
+        '''
+        Return a copy of a service entry with client resolution hints for the caller.
+        '''
+        svcentry = s_msgpack.deepcopy(svcentry)
+
+        if svcentry.get('info'):
+
+            urlinfo = svcentry['info']['urlinfo']
+
+            # suggest that the user of the remote service is the same
+            urlinfo['user'] = self.user.name.split('@')[0]
+
+            # we mint user certificates as <user>@<network>
+            urlinfo['certhost'] = self.cell.conf.req('aha:network')
+
+        return svcentry
+
     async def getAhaSvc(self, name, *, filters=None):
         '''
         Return an AHA service description dictionary for a service name.
@@ -130,15 +151,7 @@ class AhaApi(s_cell.CellApi):
         if svcentry is None:
             return None
 
-        svcentry = s_msgpack.deepcopy(svcentry)
-
-        # suggest that the user of the remote service is the same
-        username = self.user.name.split('@')[0]
-
-        if svcentry.get('info'):
-            svcentry['info']['urlinfo']['user'] = username
-
-        return svcentry
+        return self._getSvcEntryForUser(svcentry)
 
     async def getAhaSvcs(self):
         '''
@@ -175,15 +188,7 @@ class AhaApi(s_cell.CellApi):
         if svcentry is None:
             return None
 
-        svcentry = s_msgpack.deepcopy(svcentry)
-
-        # suggest that the user of the remote service is the same
-        username = self.user.name.split('@')[0]
-
-        if svcentry.get('info'):
-            svcentry['info']['urlinfo']['user'] = username
-
-        return svcentry
+        return self._getSvcEntryForUser(svcentry)
 
     async def addAhaSvc(self, name, info):
         '''
@@ -445,7 +450,7 @@ class EnrollApi:
 
         logger.info(f'Signing user CSR for [{username}]', extra=self.aha.getLogExtra(name=username))
 
-        pkey, cert = self.aha.certdir.signUserCsr(xcsr, signas=network, save=False)
+        pkey, cert = await s_coro.executor(self.aha.certdir.signUserCsr, xcsr, signas=network, save=False)
         return self.aha.certdir._certToByts(cert)
 
 class ProvApi:
@@ -475,7 +480,7 @@ class ProvApi:
 
         logger.info(f'Signing host CSR for [{hostname}]', extra=self.aha.getLogExtra(name=hostname))
 
-        pkey, cert = self.aha.certdir.signHostCsr(xcsr, ahanetw, save=False)
+        pkey, cert = await s_coro.executor(self.aha.certdir.signHostCsr, xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
 
     async def signUserCsr(self, byts):
@@ -492,7 +497,7 @@ class ProvApi:
 
         logger.info(f'Signing user CSR for [{username}]', extra=self.aha.getLogExtra(name=username))
 
-        pkey, cert = self.aha.certdir.signUserCsr(xcsr, signas=network, save=False)
+        pkey, cert = await s_coro.executor(self.aha.certdir.signUserCsr, xcsr, signas=network, save=False)
         return self.aha.certdir._certToByts(cert)
 
 class AhaCell(s_cell.Cell):
@@ -527,7 +532,7 @@ class AhaCell(s_cell.Cell):
         return ('SYN_AHA', f'SYN_{cls.__name__.upper()}', )
 
     def getSvcName(self):
-        # An AHA leader mints its own 'aha:name' during _initInauguralConfig and
+        # An AHA leader mints its own 'aha:name' during initServiceRuntime and
         # then self-registers, but getSvcName is first read earlier in boot ( at
         # setup logging time ) while 'aha:name' is still None. Fall back to
         # 'dns:name' so the 'service' log key is populated during that window
@@ -537,25 +542,6 @@ class AhaCell(s_cell.Cell):
             return name
 
         return self.conf.get('dns:name')
-
-    async def _initInauguralConfig(self):
-
-        await s_cell.Cell._initInauguralConfig(self)
-
-        # A fresh, active AHA leader mints its own sequential aha:name ( 000.aha
-        # for the first leader ) so it registers in its own service registry.
-        # Persisted to cell.mods.yaml so the type index is not re-consumed on
-        # reboot. Clones/followers boot non-inaugural ( they clone the leader's
-        # cell.guid ) and/or with a parent set, so they never mint here.
-        if self.inaugural and self.isactive and self.conf.get('aha:name') is None:
-            celltype = self.getCellType()
-            indx = await self.getSvcTypeIndex(celltype)
-            self.modCellConf({'aha:name': f'{indx:03d}.{celltype}'})
-            self.ahasvcname = self._getAhaSvcName()
-
-            # refresh the 'service' log key: it was set from the dns:name fallback
-            # earlier in boot ( before this mint ) so update it to our aha:name.
-            s_logging.setLogInfo('service', self.ahasvcname)
 
     async def _initCellBoot(self):
 
@@ -832,11 +818,18 @@ class AhaCell(s_cell.Cell):
             yield svcentry
 
     def getAhaSvcUrl(self, svcentry, user='root'):
+
         name = svcentry.get('name')
         network = self.conf.get('aha:network')
-        host = svcentry['info']['urlinfo']['host']
-        port = svcentry['info']['urlinfo']['port']
-        return f'ssl://{host}:{port}?hostname={name}&certname={user}@{network}'
+
+        urlinfo = svcentry['info']['urlinfo']
+        host = urlinfo['host']
+        port = urlinfo['port']
+
+        # the CN check is exact, so use the hostname the service advertises
+        hostname = urlinfo.get('hostname', name)
+
+        return f'ssl://{host}:{port}?hostname={hostname}&certname={user}@{network}'
 
     async def callAhaPeerApi(self, iden, todo, timeout=None, skiprun=None):
 
@@ -901,6 +894,19 @@ class AhaCell(s_cell.Cell):
 
     async def initServiceRuntime(self):
 
+        # A fresh, active AHA leader mints its own sequential aha:name ( 000.aha
+        # for the first ) so it registers in its own registry; clones clone the
+        # leader's cell.guid and never mint. Must stay at the top: _runAhaSelfReg
+        # fires as soon as it is added as an active coro below.
+        if self.inaugural and self.isactive and self.conf.get('aha:name') is None:
+            celltype = self.getCellType()
+            indx = await self.getSvcTypeIndex(celltype)
+            self.modCellConf({'aha:name': f'{indx:03d}.{celltype}'})
+            self.ahasvcname = self._getAhaSvcName()
+
+            # refresh the 'service' log key set from the dns:name fallback earlier.
+            s_logging.setLogInfo('service', self.ahasvcname)
+
         self.clients = {}
         self.onfini(self._finiSvcClients)
 
@@ -917,13 +923,6 @@ class AhaCell(s_cell.Cell):
             netw = self.conf.req('aha:network')
 
             await self._initCaCert()
-
-            name = self.conf.get('aha:name')
-            if name is not None:
-                host = f'{name}.{netw}'
-                if self.certdir.getHostCertPath(host) is None:
-                    logger.info(f'Adding server certificate for {host}')
-                    await self._genHostCert(host, signas=netw)
 
             root = f'root@{netw}'
             await self._genUserCert(root, signas=netw)
@@ -1874,7 +1873,7 @@ class AhaCell(s_cell.Cell):
         logger.info(f'Signing host CSR for [{hostname}], sans={sans}', extra=self.getLogExtra(hostname=hostname))
 
         signas = self.conf.get('aha:network')
-        pkey, cert = self.certdir.signHostCsr(xcsr, signas=signas, sans=sans)
+        pkey, cert = await s_coro.executor(self.certdir.signHostCsr, xcsr, signas=signas, sans=sans)
 
         return self.certdir._certToByts(cert).decode()
 
@@ -1891,7 +1890,7 @@ class AhaCell(s_cell.Cell):
         logger.info(f'Signing user CSR for [{username}]', extra=self.getLogExtra(name=username))
 
         signas = self.conf.get('aha:network')
-        pkey, cert = self.certdir.signUserCsr(xcsr, signas=signas)
+        pkey, cert = await s_coro.executor(self.certdir.signUserCsr, xcsr, signas=signas)
 
         return self.certdir._certToByts(cert).decode()
 

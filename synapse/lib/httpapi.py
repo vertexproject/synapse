@@ -16,8 +16,38 @@ import synapse.lib.json as s_json
 import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
+import synapse.lib.crypto.passwd as s_passwd
 
 logger = logging.getLogger(__name__)
+
+def result(code, data):
+    '''
+    Interpret a synapse REST response envelope, returning its result or raising.
+
+    Args:
+        code (int): The HTTP status code.
+        data: The parsed JSON body (or None): a ``{'status': 'ok', 'result': ...}`` or
+              ``{'status': 'err', 'code': <SynErr name>, 'mesg': ...}`` envelope as
+              produced by sendRestRetn / sendRestErr.
+
+    Returns:
+        The ``result`` value from a successful (status ok) response.
+
+    Raises:
+        synapse.exc.SynErr: On any non-ok or malformed response, re-raised as the
+            SynErr named by the envelope ``code`` (defaulting to the base SynErr).
+    '''
+    if not isinstance(data, dict) or data.get('status') != 'ok':
+        mesg = f'REST API request failed (HTTP {code}).'
+        errname = None
+        if isinstance(data, dict):
+            errname = data.get('code')
+            if data.get('mesg') is not None:
+                mesg = data.get('mesg')
+
+        raise s_exc.getSynErrCtor(errname)(mesg=mesg)
+
+    return data.get('result')
 
 class Sess(s_base.Base):
 
@@ -230,7 +260,7 @@ class HandlerBase:
 
     def sendAuthRequired(self):
         self.set_header('WWW-Authenticate', 'Basic realm=synapse')
-        self.sendRestErr('NotAuthenticated', 'The session is not logged in.',
+        self.sendRestErr('AuthDeny', 'The session is not logged in.',
                          status_code=HTTPStatus.UNAUTHORIZED)
 
     async def reqAuthUser(self):
@@ -353,19 +383,13 @@ class HandlerBase:
 
         return await self.handleBasicAuth()
 
-    async def handleBasicAuth(self):
+    def getBasicAuth(self):
         '''
-        Handle basic authentication in the handler.
-
-        Notes:
-            Implementors may override this to disable or implement their own basic auth schemes.
-            This is expected to set web_useriden and web_username upon successful authentication.
+        Parse the HTTP Basic Authorization header into a (name, passwd) tuple.
 
         Returns:
-            str: The user iden of the logged in user.
+            tuple: The (name, passwd) tuple, or None if there is no valid Basic auth header.
         '''
-        authcell = await self.getAuthCell()
-
         auth = self.request.headers.get('Authorization')
         if auth is None:
             return None
@@ -381,6 +405,32 @@ class HandlerBase:
         except Exception:
             logger.exception('invalid basic auth header')
             return None
+
+        return name, passwd
+
+    async def handleBasicAuth(self):
+        '''
+        Handle basic authentication in the handler.
+
+        Notes:
+            Implementors may override this to disable or implement their own basic auth schemes.
+            This is expected to set web_useriden and web_username upon successful authentication.
+            A user API key may be presented as the username, in which case the password is ignored.
+
+        Returns:
+            str: The user iden of the logged in user.
+        '''
+        authcell = await self.getAuthCell()
+
+        creds = self.getBasicAuth()
+        if creds is None:
+            return None
+
+        name, passwd = creds
+
+        # a user API key may be presented as the basic-auth username (password ignored)
+        if s_passwd.parseApiKey(name)[0]:
+            return await self.handleApiKeyAuth(key=name)
 
         udef = await authcell.getUserDefByName(name)
         if udef is None:
@@ -399,9 +449,21 @@ class HandlerBase:
         self.web_username = udef.get('name')
         return self.web_useriden
 
-    async def handleApiKeyAuth(self):
+    async def handleApiKeyAuth(self, key=None):
+        '''
+        Authenticate a user via a user API key.
+
+        Args:
+            key (str): The API key to authenticate with. If None, the X-API-KEY header is used.
+
+        Returns:
+            str: The user iden of the authenticated user, or None.
+        '''
         authcell = await self.getAuthCell()
-        key = self.request.headers.get('X-API-KEY')
+
+        if key is None:
+            key = self.request.headers.get('X-API-KEY')
+
         isok, info = await authcell.checkUserApiKey(key)  # errfo or dict with tdef + udef
         if isok is False:
             self.logAuthIssue(mesg=info.get('mesg'), user=info.get('user'), username=info.get('name'))
@@ -492,12 +554,12 @@ class Handler(HandlerBase, t_web.RequestHandler):
 
 class ApiKeyOnlyMixin:
     '''
-    Restrict a handler to X-API-KEY authentication only.
+    Restrict a handler to user API key authentication only.
 
-    Disables session-cookie and HTTP Basic authentication by resolving the
-    user iden solely from the X-API-KEY header. The sess() and handleBasicAuth()
-    code paths (and any session derived auth such as AWS ALB OIDC) are never
-    consulted.
+    Resolves the user iden solely from a user API key, presented either via the
+    X-API-KEY header or as the HTTP Basic auth username (password ignored). The
+    session-cookie and username/password Basic auth code paths (and any session
+    derived auth such as AWS ALB OIDC) are never consulted.
 
     Notes:
         Mix this in before the base Handler so that this useriden() wins MRO.
@@ -508,7 +570,12 @@ class ApiKeyOnlyMixin:
 
         key = self.request.headers.get('X-API-KEY')
         if key is not None:
-            return await self.handleApiKeyAuth()
+            return await self.handleApiKeyAuth(key=key)
+
+        # also accept a user API key presented as the basic-auth username
+        creds = self.getBasicAuth()
+        if creds is not None and s_passwd.parseApiKey(creds[0])[0]:
+            return await self.handleApiKeyAuth(key=creds[0])
 
         return None
 
@@ -594,19 +661,18 @@ class StormV3(ApiKeyOnlyMixin, StormHandler):
 
         opts = body.get('opts')
         query = body.get('query')
-        stream = body.get('stream')
-        jsonlines = stream == 'jsonlines'
 
         # Maintain backwards compatibility with 0.1.x output
         opts = await self._reqValidOpts(opts)
         if opts is None:
             return
 
-        opts.setdefault('editformat', 'nodeedits')
+        self.set_header('Content-Type', 'application/jsonl')
+
         flushed = None
         try:
             async for mesg in (await self.getCore()).storm(query, opts=opts):
-                self.write(s_json.dumps(mesg, newline=jsonlines))
+                self.write(s_json.dumps(mesg, newline=True))
                 await self.flush()
                 flushed = True
         except Exception as e:
@@ -802,12 +868,12 @@ class AuthUsersV3(Handler):
 
             archived = int(self.get_argument('archived', default='0'))
             if archived not in (0, 1):
-                return self.sendRestErr('BadHttpParam',
+                return self.sendRestErr('BadArg',
                                         'The parameter "archived" must be 0 or 1 if specified.',
                                         status_code=HTTPStatus.BAD_REQUEST)
 
         except Exception:
-            return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.',
+            return self.sendRestErr('BadArg', 'The parameter "archived" must be 0 or 1 if specified.',
                                     status_code=HTTPStatus.BAD_REQUEST)
 
         users = await (await self.getAuthCell()).getUserDefs()
@@ -1037,13 +1103,13 @@ class AuthAddUserV3(Handler):
 
         name = body.get('name')
         if name is None:
-            self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.',
+            self.sendRestErr('SchemaViolation', 'The adduser API requires a "name" argument.',
                              status_code=HTTPStatus.BAD_REQUEST)
             return
 
         authcell = await self.getAuthCell()
         if await authcell.getUserDefByName(name) is not None:
-            self.sendRestErr('DupUser', f'A user named {name} already exists.',
+            self.sendRestErr('DupUserName', f'A user named {name} already exists.',
                              status_code=HTTPStatus.BAD_REQUEST)
             return
 
@@ -1084,13 +1150,13 @@ class AuthAddRoleV3(Handler):
 
         name = body.get('name')
         if name is None:
-            self.sendRestErr('MissingField', 'The addrole API requires a "name" argument.',
+            self.sendRestErr('SchemaViolation', 'The addrole API requires a "name" argument.',
                              status_code=HTTPStatus.BAD_REQUEST)
             return
 
         authcell = await self.getAuthCell()
         if await authcell.getRoleDefByName(name) is not None:
-            self.sendRestErr('DupRole', f'A role named {name} already exists.',
+            self.sendRestErr('DupRoleName', f'A role named {name} already exists.',
                              status_code=HTTPStatus.BAD_REQUEST)
             return
 
@@ -1117,7 +1183,7 @@ class AuthDelRoleV3(Handler):
 
         name = body.get('name')
         if name is None:
-            self.sendRestErr('MissingField', 'The delrole API requires a "name" argument.',
+            self.sendRestErr('SchemaViolation', 'The delrole API requires a "name" argument.',
                              status_code=HTTPStatus.BAD_REQUEST)
             return
 
@@ -1151,7 +1217,7 @@ class ModelNormV3(ApiKeyOnlyMixin, Handler):
         typeopts = body.get('typeopts')
 
         if propname is None:
-            self.sendRestErr('MissingField', 'The property normalization API requires a prop name.',
+            self.sendRestErr('SchemaViolation', 'The property normalization API requires a prop name.',
                              status_code=HTTPStatus.BAD_REQUEST)
             return
 
@@ -1434,6 +1500,7 @@ class ExtApiHandler(ApiKeyOnlyMixin, StormHandler):
         opts = {
             'readonly': adef.get('readonly'),
             'show': (
+                'err',
                 'http:resp:body',
                 'http:resp:code',
                 'http:resp:headers',
@@ -1441,7 +1508,7 @@ class ExtApiHandler(ApiKeyOnlyMixin, StormHandler):
             'user': useriden,
             'vars': varz,
             'view': adef.get('view'),
-            '_loginfo': {
+            'meta': {
                 'httpapi': iden
             }
         }

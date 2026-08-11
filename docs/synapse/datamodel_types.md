@@ -1,0 +1,2 @@
+```mdautodoc --model-types
+```

@@ -1,0 +1,2 @@
+```mdautodoc --stormtypes-prims
+```

@@ -6,8 +6,10 @@ import regex
 
 import synapse.exc as s_exc
 import synapse.data as s_data
+import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
 import synapse.lib.version as s_version
@@ -476,21 +478,39 @@ class Cpe23Str(s_types.Str):
 
 class SemVer(s_types.Int):
     '''
-    Provides support for parsing a semantic version string into its component
-    parts. This normalizes a version string into an integer to allow version
-    ordering.  Prerelease information is disregarded for integer comparison
-    purposes, as we cannot map an arbitrary pre-release version into a integer
-    value
+    Provides support for parsing a semantic version string into a single
+    sortable integer. Major, minor and patch levels are packed as 20-bit
+    integers, followed by a 4-bit pre/release rank, so that integer ordering
+    matches SemVer 2.0.0 precedence -- including that a final release sorts
+    above its pre-releases (e.g. 1.0.0-alpha < 1.0.0-beta < 1.0.0-rc < 1.0.0).
 
-    Major, minor and patch levels are represented as integers, with a max
-    width of 20 bits.  The comparable integer value representing the semver
-    is the bitwise concatenation of the major, minor and patch levels.
-
-    Prerelease and build information will be parsed out and available as
-    strings if that information is present.
+    Only the pre-release *tier* (alpha/beta/rc vs release) participates in the
+    ordering; intra-tier detail (e.g. -alpha.1 vs -alpha.2) and build metadata
+    are not encoded, so those compare equal. A purely-numeric pre-release
+    identifier (e.g. the 0.3.7 in 1.0.0-0.3.7) sorts below alpha, matching
+    SemVer's rule that numeric identifiers rank below alphanumeric ones. A
+    pre-release tag that isn't one of the recognized tiers still sorts as a
+    pre-release, above rc rather than colliding with alpha (e.g. 1.0.0-z sorts
+    above 1.0.0-rc but below 1.0.0). This type is an internal building block for
+    it:version; PEP 440 concepts (epoch/dev/post) are intentionally handled by
+    it:version, not here.
     '''
+    _rankreprs = {
+        s_version.RANK_DEV: 'dev',
+        s_version.RANK_PRE_NUMERIC: 'numeric',
+        s_version.RANK_ALPHA: 'alpha',
+        s_version.RANK_BETA: 'beta',
+        s_version.RANK_RC: 'rc',
+        s_version.RANK_PRE_OTHER: 'other',
+        s_version.RANK_POST: 'post',
+    }
+
     def postTypeInit(self):
         s_types.Int.postTypeInit(self)
+        # packVersionCore() has no epoch, so it fits U64. it:version's own
+        # 'index' virt additionally carries epoch (via packVersionFull()) and
+        # is sized U128 -- see ItVersion.postTypeInit's indextype.
+        self.stortype = s_layer.STOR_TYPE_U64
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
@@ -507,9 +527,12 @@ class SemVer(s_types.Int):
                 raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                         mesg='Unable to parse string as a semver.')
 
-        valu = s_version.packVersion(info.get('major'), info.get('minor', 0), info.get('patch', 0))
+        major = info.get('major')
+        minor = info.get('minor', 0)
+        patch = info.get('patch', 0)
+        rank = s_version.semverRank(info.get('pre'))
 
-        return valu, {}
+        return s_version.packVersionCore(major, minor, patch, rank), {}
 
     async def _normPyInt(self, valu, view=None):
         if valu < 0:
@@ -518,21 +541,42 @@ class SemVer(s_types.Int):
         if valu > s_version.mask60:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Cannot norm a integer larger than 1152921504606846975 as a semver.')
+        # an integer input is a legacy packVersion() major.minor.patch value
         major, minor, patch = s_version.unpackVersion(valu)
-        valu = s_version.packVersion(major, minor, patch)
-        return valu, {}
+        return s_version.packVersionCore(major, minor, patch), {}
 
     def repr(self, valu):
-        major, minor, patch = s_version.unpackVersion(valu)
-        valu = s_version.fmtVersion(major, minor, patch)
-        return valu
+        major, minor, patch, rank = s_version.unpackVersionCore(valu)
+        ret = f'{major}.{minor}.{patch}'
+        if (tag := self._rankreprs.get(rank)) is not None:
+            ret += f'-{tag}'
+        return ret
 
 class ItVersion(s_types.Str):
-
+    '''
+    A version string. The primary value is the full (unmodified) version string,
+    so pre-release/build/PEP 440 metadata is always preserved. Ordered and range
+    comparisons (<, >, <=, >=, range=) are version-aware: the storage type
+    (StorTypeVers) lifts a coarse superset from a sortable-integer side index
+    (encoding a PEP 440 subset of epoch/major/minor/patch/rank) and then refines
+    each candidate against its real stored string via an exact
+    packaging.version.Version comparison supplied by this type. Equality and
+    membership (=, !=, in=, ~=, ^=) remain plain string comparisons on the full
+    string.
+    '''
     def postTypeInit(self):
 
         s_types.Str.postTypeInit(self)
         self.semver = self.modl.type('it:semver')
+
+        # the coarse sortable version integer is indexed and lifted by
+        # StorTypeVers via a dedicated side index; the string primary value is
+        # the it:version value itself.
+        self.stortype = s_layer.STOR_TYPE_VERS
+
+        # an unsigned 128 bit int type used only to feed setVirtInfo (for the
+        # internal '_index' virt) with a stortype; never exposed as a model type.
+        self.indextype = self.modl.type('int').clone({'size': 16, 'signed': False})
 
         self.virtindx |= {
             'semver': 'semver',
@@ -542,15 +586,118 @@ class ItVersion(s_types.Str):
             'semver': (self.semver, self._getSemVer),
         }
 
+        self.setCmprCtor('>=', self._ctorCmprVerGe)
+        self.setCmprCtor('<=', self._ctorCmprVerLe)
+        self.setCmprCtor('>', self._ctorCmprVerGt)
+        self.setCmprCtor('<', self._ctorCmprVerLt)
+        self.setCmprCtor('range=', self._ctorCmprVerRange)
+
+    async def getStorCmprs(self, cmpr, valu, virt=None):
+        # version-aware ordered/range comparisons on the bare value pack a coarse
+        # sortable-int bound plus a refine predicate into the cmprval; StorTypeVers
+        # uses the bound for a coarse lift and the predicate to refine each
+        # candidate against its real string. Strict >,< are widened to inclusive
+        # >=,<= because the coarse int is non-injective (a strict lift could miss
+        # true matches that share a coarse band); the refine removes the resulting
+        # false positives. Everything else stays a plain string comparison.
+        if virt is None and cmpr in ('>=', '<=', '>', '<', 'range='):
+            refine = await self.getCmprCtor(cmpr)(valu)
+
+            if cmpr == 'range=':
+                minb = self._idxFromVer(self._reqVerParse(valu[0]))
+                maxb = self._idxFromVer(self._reqVerParse(valu[1]))
+                return (('range=', ((minb, maxb), refine), self.stortype),)
+
+            bound = self._idxFromVer(self._reqVerParse(valu))
+            widened = {'>': '>=', '<': '<='}.get(cmpr, cmpr)
+            return ((widened, (bound, refine), self.stortype),)
+
+        return await s_types.Str.getStorCmprs(self, cmpr, valu, virt=virt)
+
+    def _verParse(self, valu):
+        try:
+            return s_version.parse(valu)
+        except Exception:
+            return None
+
+    def _reqVerParse(self, valu):
+        try:
+            return s_version.parse(valu)
+        except Exception:
+            mesg = f'Invalid version for comparison: {s_common.trimText(repr(valu))}'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg) from None
+
+    def _idxFromVer(self, ver):
+        rel = list(ver.release) + [0, 0, 0]
+        return s_version.packVersionFull(ver.epoch, rel[0], rel[1], rel[2], s_version.pep440Rank(ver))
+
+    def getSortKey(self, valu, virts=None, reverse=False):
+        # some runt props (such as syn:cmd:deprecated:version) carry an unnormalized
+        # packVersion() int rather than a version string. Those are already sortable,
+        # so use them as-is rather than re-parsing them as a version string.
+        if not isinstance(valu, str):
+            return valu
+
+        # order by the same coarse sortable integer that StorTypeVers indexes, so
+        # min/max agree with the ordered comparisons. The '_index' virt is used when
+        # present to avoid re-parsing; a value which does not parse has no ordering.
+        if virts is not None and (indx := virts.get('_index')) is not None:
+            return indx[0]
+
+        if (ver := self._verParse(valu)) is None:
+            return s_common.novalu
+
+        return self._idxFromVer(ver)
+
     def _getSemVer(self, valu):
 
         if (virts := valu[2]) is None:
             return None
 
-        if (valu := virts.get('semver')) is None: # pragma: no cover
+        if (semv := virts.get('semver')) is None: # pragma: no cover
             return None
 
-        return valu[0]
+        return semv[0]
+
+    async def _ctorCmprVerGe(self, text):
+        rhs = self._reqVerParse(text)
+        async def cmpr(valu):
+            ver = self._verParse(valu)
+            return ver is not None and ver >= rhs
+        return cmpr
+
+    async def _ctorCmprVerLe(self, text):
+        rhs = self._reqVerParse(text)
+        async def cmpr(valu):
+            ver = self._verParse(valu)
+            return ver is not None and ver <= rhs
+        return cmpr
+
+    async def _ctorCmprVerGt(self, text):
+        rhs = self._reqVerParse(text)
+        async def cmpr(valu):
+            ver = self._verParse(valu)
+            return ver is not None and ver > rhs
+        return cmpr
+
+    async def _ctorCmprVerLt(self, text):
+        rhs = self._reqVerParse(text)
+        async def cmpr(valu):
+            ver = self._verParse(valu)
+            return ver is not None and ver < rhs
+        return cmpr
+
+    async def _ctorCmprVerRange(self, vals):
+        if not isinstance(vals, (list, tuple)) or len(vals) != 2:
+            mesg = f'Range comparison requires a 2-tuple: {s_common.trimText(repr(vals))}'
+            raise s_exc.BadTypeValu(name=self.name, valu=vals, mesg=mesg)
+
+        minv = self._reqVerParse(vals[0])
+        maxv = self._reqVerParse(vals[1])
+        async def cmpr(valu):
+            ver = self._verParse(valu)
+            return ver is not None and minv <= ver <= maxv
+        return cmpr
 
     async def _normPyStr(self, valu, view=None):
 
@@ -564,6 +711,15 @@ class ItVersion(s_types.Str):
         except s_exc.BadTypeValu:
             # It's ok for a version to not be semver compatible.
             pass
+
+        # '_index' is an internal, underscore-prefixed virt: the coarse sortable
+        # version integer. StorTypeVers reads it in _editPropSet/_editPropDel to
+        # populate its side index. The '_' prefix keeps it out of the generic
+        # per-virt packer (StorTypePoly.getVirtIndxVals skips '_' names), and it
+        # is intentionally absent from virts/virtindx so it is neither
+        # deref-able nor documented -- comparison is transparent on the bare value.
+        if (ver := self._verParse(norm)) is not None:
+            self.setVirtInfo(info, '_index', self._idxFromVer(ver), self.indextype)
 
         return norm, info
 
@@ -707,6 +863,9 @@ modeldefs = (
 
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that operates the given host.'}),
+
+                    ('domain', ('inet:service:platform', {}), {
+                        'doc': 'The authentication domain that the host is a member of.'}),
 
                     ('id', ('base:id', {}), {
                         'doc': 'An external identifier for the host.'}),
@@ -2585,6 +2744,26 @@ modeldefs = (
                 ),
                 'doc': 'An instance of a snort rule hit.'}),
 
+            ('it:app:suricata:rule', ('meta:rule', {}), {
+                'template': {'title': 'Suricata rule', 'syntax': 'suricata'},
+                'props': (),
+                'doc': 'A suricata rule.'}),
+
+            ('it:app:suricata:matched', ('guid', {}), {
+                'interfaces': (
+                    ('base:matched', {'template': {'rule': 'Suricata rule',
+                                       'rule:type': 'it:app:suricata:rule',
+                                       'target:type': 'inet:flow'}}),
+                ),
+                'props': (
+                    ('sensor', ('it:host', {}), {
+                        'doc': 'The sensor host node that produced the match.'}),
+
+                    ('dropped', ('bool', {}), {
+                        'doc': 'Set to true if the network traffic was dropped due to the match.'}),
+                ),
+                'doc': 'An instance of a suricata rule hit.'}),
+
             ('it:sec:c2:config', ('guid', {}), {
                 'props': (
                     ('family', ('it:softwarename', {}), {
@@ -2838,6 +3017,18 @@ modeldefs = (
 
             (('it:app:snort:rule', 'detects', 'it:softwarename'), {
                 'doc': 'The snort rule detects the named software.'}),
+
+            (('it:app:suricata:rule', 'detects', 'risk:vuln'), {
+                'doc': 'The suricata rule detects use of the vulnerability.'}),
+
+            (('it:app:suricata:rule', 'detects', 'it:software'), {
+                'doc': 'The suricata rule detects use of the software.'}),
+
+            (('it:app:suricata:rule', 'detects', 'meta:technique'), {
+                'doc': 'The suricata rule detects use of the technique.'}),
+
+            (('it:app:suricata:rule', 'detects', 'it:softwarename'), {
+                'doc': 'The suricata rule detects the named software.'}),
 
             (('it:app:yara:rule', 'detects', 'it:software'), {
                 'doc': 'The YARA rule detects the software.'}),

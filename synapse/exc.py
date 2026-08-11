@@ -122,7 +122,6 @@ class BadCoreStore(SynErr):
     '''The storage layer has encountered an error'''
     pass
 
-class BadCtorType(SynErr): pass
 class BadFormDef(SynErr): pass
 class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
@@ -195,7 +194,6 @@ class BadCertBytes(SynErr):
 class BadCertVerify(SynErr):
     '''Raised by certdir when there is a failure to verify a certificate context.'''
 
-class PathExists(SynErr): pass
 class DataAlreadyExists(SynErr):
     '''
     Cannot copy data to a location that already contains data
@@ -205,7 +203,6 @@ class DataAlreadyExists(SynErr):
 class DbOutOfSpace(SynErr): pass
 class DupName(SynErr): pass
 class DupIden(SynErr): pass
-class DupIndx(SynErr): pass
 class DupFileName(SynErr): pass
 class DupFormName(SynErr): pass
 class DupPropName(SynErr): pass
@@ -279,7 +276,6 @@ class NoCertKey(SynErr):
 class NoSuchCert(SynErr): pass
 class BadCertHost(SynErr): pass
 
-class ModAlreadyLoaded(SynErr): pass
 class MustBeJsonSafe(SynErr): pass
 class NotMsgpackSafe(SynErr): pass
 
@@ -336,24 +332,20 @@ class NoSuchEdge(SynErr):
         return NoSuchEdge(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
 
 class NoSuchAbrv(SynErr): pass
-class NoSuchAct(SynErr): pass
 class NoSuchAuthGate(SynErr): pass
 class NoSuchCmd(SynErr): pass
 class NoSuchPkg(SynErr): pass
 class NoSuchCmpr(SynErr): pass
 class NoSuchCond(SynErr): pass
 class NoSuchCtor(SynErr): pass
-class NoSuchDecoder(SynErr): pass
 class NoSuchDir(SynErr): pass
 class NoSuchDyn(SynErr): pass
-class NoSuchEncoder(SynErr): pass
 class NoSuchFile(SynErr): pass
 class NoSuchFunc(SynErr): pass
 class NoSuchIden(SynErr): pass
 class NoSuchImpl(SynErr): pass
 class NoSuchIndx(SynErr): pass
 class NoSuchLayer(SynErr): pass
-class NoSuchLift(SynErr): pass
 class NoSuchMeth(SynErr):
     @classmethod
     def init(cls, name, item):
@@ -361,7 +353,6 @@ class NoSuchMeth(SynErr):
 
 class NoSuchName(SynErr): pass
 class NoSuchObj(SynErr): pass
-class NoSuchOpt(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
 class NoSuchRole(SynErr): pass
@@ -402,12 +393,6 @@ class TimeOut(SynErr): pass
 class Retry(SynErr): pass
 class NotReady(Retry): pass
 
-class StepTimeout(SynErr):
-    '''
-    Raised when a TestStep.wait() call times out.
-    '''
-    pass
-
 class StormRuntimeError(SynErr):
     '''
     A runtime failure during Storm execution. Use sparingly, for things that go wrong
@@ -430,3 +415,23 @@ def reprexc(e):
         if text is not None:
             return text
     return repr(e)
+
+def getSynErrCtor(name, defv=SynErr):
+    '''
+    Return the SynErr subclass named by name, or defv if there is no such subclass.
+
+    Note:
+        Names typically arrive from a remote peer, an HTTP error envelope, or user
+        supplied Storm. This module also contains the sys module and helper functions,
+        so a resolved attribute must be confirmed to be a SynErr subclass before it is
+        called. Callers must not skip the type check: issubclass() raises TypeError
+        rather than returning False when given a non-class.
+    '''
+    if not isinstance(name, str):
+        return defv
+
+    ctor = globals().get(name)
+    if isinstance(ctor, type) and issubclass(ctor, SynErr):
+        return ctor
+
+    return defv

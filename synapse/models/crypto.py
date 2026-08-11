@@ -400,7 +400,7 @@ modeldefs = (
                 'doc': 'A hex encoded SHA512 hash.'}),
 
             ('crypto:hash:ssdeep', ('str', {'strip': True,
-                                            'regex': r'^([3-9]|[1-9]\d+):[A-Za-z0-9+/]{1,64}:[A-Za-z0-9+/]{1,64}$'}), {
+                                            'regex': r'^([3-9]|[1-9]\d+):[A-Za-z0-9+/]{0,64}:[A-Za-z0-9+/]{0,64}$'}), {
                 'ex': '98304:PYZdVAWWlLuKn4messQdqSqkxbpYlXLL:iglLlsHSfxVYVL',
                 'template': {'title': 'ssdeep'},
                 'interfaces': (

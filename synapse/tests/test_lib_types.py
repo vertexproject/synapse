@@ -563,8 +563,8 @@ class TypesTest(s_t_utils.SynTest):
             pnode = node.pack(dorepr=True)
             self.eq(pnode[0], (t, (('test:int', 123), ('str:lower', 'haha'))))
             self.eq(pnode[1].get('repr'), ('123', 'haha'))
-            self.eq(pnode[1].get('reprs').get('foo'), '123')
-            self.notin('bar', pnode[1].get('reprs'))
+            self.eq(pnode[1]['props']['foo'][1]['r'], '123')
+            self.notin('r', pnode[1]['props']['bar'][1])
             self.propeq(node, 'foo', 123)
             self.propeq(node, 'bar', 'haha')
 
@@ -1384,6 +1384,36 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(('inet:http:param', (('str', 'Dvce'), ('str', 'Val'))), pnodes[0].ndef)
             self.len(1, await core.nodes('inet:http:param:name=dvce'))
 
+            # a node whose own type is a subtype of a declared poly type (e.g. a
+            # test:subid node, subof the non-form type test:baseid, into a poly
+            # declaring test:baseid) is accepted and canonicalized to the accepted
+            # ancestor type, not stored under the subtype.
+            await core.addFormProp('test:str', '_polyid', (('test:baseid', {}),), {})
+            await core.addFormProp('test:str', '_polyids', (('test:baseid', {}),), {'array': {}})
+
+            nodes = await core.nodes('[ test:str=deal :_polyid={[ test:subid=woot ]} ]')
+            self.eq(('test:baseid', 'woot'), nodes[0].get('_polyid'))
+            self.len(1, await core.nodes('test:str:_polyid=woot'))
+
+            # the array variant accepts a list of subtype nodes, each canonicalized
+            # to the accepted ancestor type.
+            nodes = await core.nodes('[ test:str=deals :_polyids=(${[ test:subid=aaa ]}, ${[ test:subid=bbb ]}) ]')
+            self.eq((('test:baseid', 'aaa'), ('test:baseid', 'bbb')), nodes[0].get('_polyids'))
+
+            # a node whose type is not an accepted type falls back to norming its
+            # bare value through the poly's default types.
+            nodes = await core.nodes('[ test:str=fallback :_polyid={[ test:int=5 ]} ]')
+            self.eq(('test:baseid', '5'), nodes[0].get('_polyid'))
+
+            # assigning a subtype node whose type is locked raises IsDeprLocked.
+            substype = core.model.type('test:subid')
+            substype.locked = True
+            try:
+                with self.raises(s_exc.IsDeprLocked):
+                    await core.nodes('[ test:str=lock :_polyid={ test:subid=woot } ]')
+            finally:
+                substype.locked = False
+
     async def test_hex(self):
 
         async with self.getTestCore() as core:
@@ -2191,7 +2221,7 @@ class TypesTest(s_t_utils.SynTest):
             exp = (('ival', (ityp.unksize, 1654559999999999, 18446744073709551615)), {'precision': (s_time.PREC_DAY, styp)})
             self.eq(nodes[0].getWithVirts('seen'), exp)
             packed = nodes[0].pack(virts=True)
-            self.eq(packed[1]['props']['seen.precision'], s_time.PREC_DAY)
+            self.eq(packed[1]['props']['seen'][1]['v']['precision'], (s_time.PREC_DAY, {}))
 
             nodes = await core.nodes('[test:str=setprec3 :seen=(20210112, ?) :seen.precision=month]')
             exp = (('ival', (1609459200000000, ityp.unksize, 18446744073709551615)), {'precision': (s_time.PREC_MONTH, styp)})
@@ -2768,6 +2798,25 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('test:comp +:haha*range=(somestring,)')
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:int +test:int*range=3456')
+
+    async def test_sortkey(self):
+
+        model = s_datamodel.getBaseModel()
+
+        # the default implementation orders by the value itself
+        self.eq(20, model.type('int').getSortKey(20))
+
+        # strings order case insensitively
+        self.eq('zebra', model.type('str').getSortKey('Zebra'))
+
+        # a str typed prop may carry an unnormalized non-str value (such as the
+        # packVersion() int on syn:cmd:deprecated:version), which is used as-is
+        self.eq(20, model.type('str').getSortKey(20))
+
+        # an interval orders by the end being sought
+        ival = model.type('ival')
+        self.eq(30, ival.getSortKey((10, 30)))
+        self.eq(10, ival.getSortKey((10, 30), reverse=True))
 
     async def test_str(self):
 

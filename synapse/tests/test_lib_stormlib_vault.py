@@ -644,3 +644,78 @@ class StormlibVaultTest(s_test.SynTest):
             vdef = await core.callStorm('return($lib.vault.get($iden).vdef())',
                                         opts={'vars': {'iden': giden}, 'user': visi.iden})
             self.none(vdef.get('secrets'))
+
+    async def test_stormlib_vault_privsep(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            giden = await core.callStorm(
+                'return($lib.vault.add("gvault", "synapse-test", "global", (null), '
+                '({"apikey": "sekrit"}), ({"server": "gvault"})))')
+
+            # a global vault grants PERM_READ to the all role, so visi may resolve the vault
+            # but may not read the secrets without the privsep module reading them on their behalf
+            vault = core.getVault(giden)
+            self.true(core._hasEasyPerm(vault, visi, s_cell.PERM_READ))
+            self.false(core._hasEasyPerm(vault, visi, s_cell.PERM_EDIT))
+
+            await core.addStormPkg({
+                'name': 'testpkg',
+                'version': '0.0.1',
+                'perms': (
+                    {'perm': ('power-ups', 'testpkg', 'user'), 'gate': 'cortex',
+                     'desc': 'Allows a user to use testpkg.'},
+                ),
+                'modules': (
+                    {
+                        'name': 'testpkg',
+                        'storm': '''
+                            function readSecret() {
+                                $vault = $lib.vault.byname(gvault)
+                                return($lib.import(testpkg.privsep).readSecret(({"vault": $vault})))
+                            }
+
+                            function readVdef() {
+                                $vault = $lib.vault.byname(gvault)
+                                return($lib.import(testpkg.privsep).readVdef(({"vault": $vault})))
+                            }
+
+                            function leakSecret() {
+                                $vault = $lib.vault.byname(gvault)
+                                $secrets = $lib.import(testpkg.privsep).getSecrets(({"vault": $vault}))
+                                return($secrets.apikey)
+                            }
+                        '''
+                    },
+                    {
+                        'name': 'testpkg.privsep',
+                        'asroot:perms': [['power-ups', 'testpkg', 'user']],
+                        'storm': '''
+                            function readSecret(opts) { return($opts.vault.secrets.apikey) }
+
+                            function readVdef(opts) { return($opts.vault.vdef()) }
+
+                            function getSecrets(opts) { return($opts.vault.secrets) }
+                        '''
+                    },
+                ),
+            })
+
+            await core.nodes('auth.user.addrule visi power-ups.testpkg.user')
+
+            opts = {'user': visi.iden}
+
+            # the vault is resolved in the caller's runtime and read from the elevated module
+            self.eq('sekrit', await core.callStorm('return($lib.import(testpkg).readSecret())', opts=opts))
+            self.eq('sekrit', await core.callStorm('return($lib.import(testpkg).readSecret())'))
+
+            # vdef() from the elevated module retains the secrets
+            vdef = await core.callStorm('return($lib.import(testpkg).readVdef())', opts=opts)
+            self.eq({'apikey': 'sekrit'}, vdef.get('secrets'))
+
+            # the elevation does not follow the secrets object back out to the caller
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm('return($lib.import(testpkg).leakSecret())', opts=opts)
+            self.eq(f'User requires edit permission on vault: {giden}.', exc.exception.get('mesg'))

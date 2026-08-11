@@ -1,4 +1,6 @@
 import os
+import base64
+import hashlib
 import logging
 import itertools
 
@@ -6,10 +8,14 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
+
+STORM_PKG_PBKDF2_HASH = 'sha256'
+STORM_PKG_PBKDF2_ITERS = 600_000  # OWASP recommended minimum for PBKDF2-HMAC-SHA256 (2023)
 
 def newkey():
     '''
@@ -73,6 +79,58 @@ class TinFoilHat:
             logger.exception('Error decrypting data')
             return None
         return data
+
+def deriveStormKey(seed, salt, hashname, iters):
+    '''
+    Derive a 32 byte encryption key from a Storm package seed and salt.
+
+    Args:
+        seed (str): The hex encoded seed value.
+        salt (str): The hex encoded salt value.
+        hashname (str): The PBKDF2 hash algorithm name.
+        iters (int): The PBKDF2 iteration count.
+
+    Returns:
+        bytes: A 32 byte key suitable for use with TinFoilHat.
+    '''
+    return hashlib.pbkdf2_hmac(hashname, s_common.uhex(seed), s_common.uhex(salt), iters, dklen=32)
+
+def encStorm(seed, salt, hashname, iters, text):
+    '''
+    Encrypt a Storm query string for storage within a package definition.
+
+    Args:
+        seed (str): The hex encoded seed value.
+        salt (str): The hex encoded salt value.
+        hashname (str): The PBKDF2 hash algorithm name.
+        iters (int): The PBKDF2 iteration count.
+        text (str): The Storm query text to encrypt.
+
+    Returns:
+        str: The base64 encoded, encrypted Storm query.
+    '''
+    envl = TinFoilHat(deriveStormKey(seed, salt, hashname, iters)).enc(text.encode())
+    return base64.b64encode(envl).decode()
+
+def decStorm(seed, salt, hashname, iters, text):
+    '''
+    Decrypt a Storm query string retrieved from a package definition.
+
+    Args:
+        seed (str): The hex encoded seed value.
+        salt (str): The hex encoded salt value.
+        hashname (str): The PBKDF2 hash algorithm name.
+        iters (int): The PBKDF2 iteration count.
+        text (str): The base64 encoded, encrypted Storm query.
+
+    Returns:
+        str: The decrypted Storm query text.
+    '''
+    byts = TinFoilHat(deriveStormKey(seed, salt, hashname, iters)).dec(base64.b64decode(text))
+    if byts is None:
+        raise s_exc.CryptoErr(mesg='Failed to decrypt Storm package query.')
+
+    return byts.decode()
 
 class CryptSeq:
     '''

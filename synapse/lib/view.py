@@ -89,7 +89,9 @@ class View(s_nexus.Pusher):  # type: ignore
         self.dirn = s_common.gendir(core.dirn, 'views', self.iden)
 
         slabpath = s_common.genpath(self.dirn, 'viewstate.lmdb')
-        self.viewslab = await s_lmdbslab.Slab.anit(slabpath, readonly=self.core.readonly)
+
+        self.viewslab = await s_lmdbslab.Slab.anit(slabpath, readonly=self.core.readonly,
+                                                   commitpulse=False)
         self.viewslab.addResizeCallback(core.checkFreeSpace)
 
         self.trigqueue = self.viewslab.getSeqn('trigqueue')
@@ -153,7 +155,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
-        ecnt = 0
         fireedits = None
         if bus is not None and bus.view.iden == self.iden:
             fireedits = []
@@ -173,7 +174,6 @@ class View(s_nexus.Pusher):  # type: ignore
                     continue
 
             if fireedits is not None:
-                ecnt += len(edits)
                 editset = []
 
             for edit in edits:
@@ -380,7 +380,7 @@ class View(s_nexus.Pusher):  # type: ignore
             await func(*args)
 
         if fireedits:
-            await bus.fire('node:edits', edits=fireedits, time=meta.get('time'), count=ecnt)
+            await bus.fire('edits', edits=fireedits, time=meta.get('time'))
 
         return nodeedits
 
@@ -960,7 +960,7 @@ class View(s_nexus.Pusher):  # type: ignore
         try:
             for moddef in await self.core.getStormIfaces(name):
                 try:
-                    query = await self.core.getStormQuery(moddef.get('storm'))
+                    query = await self.core.getStormQueryForDef(moddef)
                     modconf = moddef.get('modconf', {})
                     runt = await s_storm.Runtime.anit(query, self, opts={'vars': {'modconf': modconf}}, user=root)
                     runts.append(runt)
@@ -995,7 +995,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         for moddef in await self.core.getStormIfaces(name):
             try:
-                query = await self.core.getStormQuery(moddef.get('storm'))
+                query = await self.core.getStormQueryForDef(moddef)
 
                 modconf = moddef.get('modconf', {})
 
@@ -1346,6 +1346,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
             yield self.core.getAbrvIndx(abrv)[0]
 
+    def getStopLayr(self, nid):
+        '''
+        Return the index of the layer where a nid was deleted, or None.
+        '''
+        for indx, layr in enumerate(self.layers):
+            if (sode := layr._getStorNode(nid)) is not None and sode.get('antivalu') is not None:
+                return indx
+
     def getEdgeCount(self, nid, verb=None, n2=False):
 
         if n2:
@@ -1507,6 +1515,27 @@ class View(s_nexus.Pusher):  # type: ignore
                     yield s_msgpack.un(byts[2:])[0]
                     break
 
+    async def getNodeEdgeVerbsN1(self, nid, strt=0, stop=None):
+        '''
+        Return the edge verbs which this view has for a node as n1.
+
+        Notes:
+            A verb is returned when some layer has a live edge row for it. That row
+            may still be tombstoned by a higher layer, since resolving that requires
+            pairing the verb with each n2 nid, so callers must use hasNodeEdge().
+        '''
+        abrvs = set()
+
+        for layr in self.layers[strt:stop]:
+            async for vabrv, tomb in layr.iterNodeEdgeVerbsN1(nid):
+                await asyncio.sleep(0)
+
+                # a verb with only tombstone rows in every layer cannot have a live edge.
+                if not tomb:
+                    abrvs.add(vabrv)
+
+        return [self.core.getAbrvIndx(abrv)[0] for abrv in abrvs]
+
     async def hasNodeEdge(self, n1nid, verb, n2nid, strt=0, stop=None):
         for layr in self.layers[strt:stop]:
             if (retn := await layr.hasNodeEdge(n1nid, verb, n2nid)) is not None:
@@ -1664,12 +1693,12 @@ class View(s_nexus.Pusher):  # type: ignore
                 return valu
         return defv
 
-    async def iterNodeData(self, nid):
+    async def iterNodeData(self, nid, strt=0, stop=None):
         '''
         Returns:  Iterable[Tuple[str, Any]]
         '''
         last = None
-        gens = [layr.iterNodeData(nid) for layr in self.layers]
+        gens = [layr.iterNodeData(nid) for layr in self.layers[strt:stop]]
 
         async for abrv, valu, tomb in s_common.merggenr2(gens, cmprkey=lambda x: x[0]):
             if abrv == last:
@@ -1683,12 +1712,12 @@ class View(s_nexus.Pusher):  # type: ignore
 
             yield self.core.getAbrvIndx(abrv)[0], valu
 
-    async def iterNodeDataKeys(self, nid):
+    async def iterNodeDataKeys(self, nid, strt=0, stop=None):
         '''
         Yield each data key from the given node by nid.
         '''
         last = None
-        gens = [layr.iterNodeDataKeys(nid) for layr in self.layers]
+        gens = [layr.iterNodeDataKeys(nid) for layr in self.layers[strt:stop]]
 
         async for abrv, tomb in s_common.merggenr2(gens, cmprkey=lambda x: x[0]):
             if abrv == last:
@@ -1743,9 +1772,8 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        info = opts.get('_loginfo', {})
-        info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
-        self.core._logStormQuery(text, user, info=info)
+        info = {'mode': opts.get('mode', 'storm'), 'view': self.iden}
+        self.core._logStormQuery(text, user, info=info, meta=opts.get('meta'))
 
         taskiden = opts.get('task')
         taskinfo = {'query': text, 'view': self.iden}
@@ -1825,21 +1853,38 @@ class View(s_nexus.Pusher):  # type: ignore
 
         taskinfo = {'query': text, 'view': self.iden}
         taskiden = opts.get('task')
+        meta = opts.get('meta')
         keepalive = opts.get('keepalive')
         if keepalive is not None and keepalive <= 0:
             raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
 
-        if (synt := s_task.current()) is None:
+        synt = s_task.current()
+        if synt is None or taskiden is not None:
             # we only want to promote if we aren't already a syntask because we're probably a worker task that shouldn't
-            # show up in the main task list
+            # show up in the main task list. a caller which asked for a specific task iden gets
+            # that iden or a BadArg, never a different one, so promote to let the Boss enforce it.
             synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
-        show = opts.get('show', set())
+        # None means no filtering. A list, including an empty one, means exactly the
+        # message types it names and nothing else.
+        show = opts.get('show')
+
+        # the inverse of show: every message type except the ones it names. An empty
+        # list hides nothing. _initStormOpts() has already rejected setting both.
+        hide = opts.get('hide')
+        if hide is not None:
+            hide = set(hide)
+
+        def isshown(name):
+            if show is not None:
+                return name in show
+
+            if hide is not None:
+                return name not in hide
+
+            return True
 
         mode = opts.get('mode', 'storm')
-        editformat = opts.get('editformat', 'nodeedits')
-        if editformat not in ('nodeedits', 'count', 'none'):
-            raise s_exc.BadConfValu(mesg=f'invalid edit format, got {editformat}', name='editformat', valu=editformat)
 
         texthash = s_storm.queryhash(text)
 
@@ -1850,26 +1895,42 @@ class View(s_nexus.Pusher):  # type: ignore
             count = 0
             try:
 
-                # Always start with an init message.
-                await chan.put(('init', {'tick': tick, 'text': text, 'abstick': abstick,
-                                         'hash': texthash, 'task': synt.iden}))
+                initinfo = {'tick': tick, 'text': text, 'abstick': abstick,
+                            'hash': texthash, 'task': synt.iden}
+
+                # echoed by reference; the opts dict belongs to the caller.
+                if meta is not None:
+                    initinfo['meta'] = meta
+
+                if isshown('init'):
+                    await chan.put(('init', initinfo))
 
                 # Try text parsing. If this fails, we won't be able to get a storm
                 # runtime, so catch and pass the `err` message
                 query = await self.core.getStormQuery(text, mode=mode)
 
-                shownode = (not show or 'node' in show)
+                shownode = isshown('node')
 
                 async with self.core.getStormRuntime(query, opts=opts, view=self, user=user) as runt:
 
                     if keepalive:
                         runt.schedCoro(runt.keepalive(keepalive))
 
-                    if not show:
-                        runt.bus.link(chan.put)
+                    if show is not None:
+                        [runt.bus.on(n, chan.put) for n in show]
+
+                    elif hide:
+                        # link() has no per event filtering, so the relay drops the
+                        # hidden types itself. An empty hide filters nothing and so
+                        # takes the plain relay below.
+                        async def putshown(mesg):
+                            if mesg[0] not in hide:
+                                await chan.put(mesg)
+
+                        runt.bus.link(putshown)
 
                     else:
-                        [runt.bus.on(n, chan.put) for n in show]
+                        runt.bus.link(chan.put)
 
                     if shownode:
                         async for pode in runt.iterStormPodes():
@@ -1877,9 +1938,8 @@ class View(s_nexus.Pusher):  # type: ignore
                             count += 1
 
                     else:
-                        info = opts.get('_loginfo', {})
-                        info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
-                        self.core._logStormQuery(text, user, info=info)
+                        info = {'mode': opts.get('mode', 'storm'), 'view': self.iden}
+                        self.core._logStormQuery(text, user, info=info, meta=opts.get('meta'))
                         async for item in runt.execute():
                             count += 1
 
@@ -1909,7 +1969,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
                 enfo[1].pop('ename', None)
-                await chan.put(('err', enfo))
+
+                if isshown('err'):
+                    await chan.put(('err', enfo))
 
             finally:
                 if not cancelled:
@@ -1917,14 +1979,15 @@ class View(s_nexus.Pusher):  # type: ignore
                     abstook = abstock - abstick
                     tock = tick + abstook
                     nexsoffs = await self.core.getNexsOffs()
+
+                    # always queued, because it is what terminates the message pump
+                    # below. Whether the caller sees it is decided there.
                     await chan.put(('fini', {'tock': tock, 'abstock': abstock, 'took': abstook,
                                              'count': count, 'nexsoffs': nexsoffs}))
 
         with s_scope.enter({'user': user}):
 
             await synt.worker(runStorm(), name='runstorm')
-
-            editformat = opts.get('editformat', 'nodeedits')
 
             while True:
 
@@ -1935,23 +1998,9 @@ class View(s_nexus.Pusher):  # type: ignore
                     yield mesg
                     continue
 
-                if kind == 'node:edits':
-
-                    if editformat == 'nodeedits':
-                        yield mesg
-                        continue
-
-                    if editformat == 'none':
-                        continue
-
-                    assert editformat == 'count'
-
-                    mesg = ('node:edits:count', {'count': mesg[1].get('count')})
-                    yield mesg
-                    continue
-
                 if kind == 'fini':
-                    yield mesg
+                    if isshown('fini'):
+                        yield mesg
                     break
 
                 yield mesg
@@ -2710,7 +2759,9 @@ class View(s_nexus.Pusher):  # type: ignore
                         if prop.info.get('computed'):
                             continue
 
-                        norm, norminfo = await prop.type.normFromTypedValu(propvalu, view=self)
+                        typedvalu = s_node.getPodeTval(protonode.form, prop, propvalu)
+
+                        norm, norminfo = await prop.type.normFromTypedValu(typedvalu, view=self)
                         await protonode.set(propname, norm, norminfo=norminfo)
                     except Exception as e:
                         if runt is not None:
@@ -2721,8 +2772,12 @@ class View(s_nexus.Pusher):  # type: ignore
 
             tags = forminfo.get('tags')
             if tags is not None:
-                for tagname, tagvalu in tags.items():
+                for tagname, tagenvl in tags.items():
+                    tagvalu = None
                     try:
+                        # a tag is packed as an envelope like any other value
+                        tagvalu, _taginfo = tagenvl
+
                         await protonode.addTag(tagname, tagvalu)
                     except Exception as e:
                         if runt is not None:
@@ -2751,8 +2806,18 @@ class View(s_nexus.Pusher):  # type: ignore
             tagprops = forminfo.get('tagprops')
             if tagprops is not None:
                 for tag, props in tagprops.items():
-                    for name, valu in props.items():
+                    for name, envl in props.items():
+                        valu = None
                         try:
+                            # a tag property is packed as an envelope like any other
+                            # value, and an unvalidated unpack would both abort the
+                            # batch and accept any two element sequence.
+                            if not isinstance(envl, (tuple, list)) or len(envl) != 2 or not isinstance(envl[1], dict):
+                                mesg = f'Tag property {tag}:{name} is not a packed node property envelope.'
+                                raise s_exc.BadTypeValu(mesg=mesg, tag=tag, prop=name, valu=envl)
+
+                            valu = envl[0]
+
                             await protonode.setTagProp(tag, name, valu)
                         except Exception as e:
                             if runt is not None:
@@ -2864,7 +2929,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def getNodeByNid(self, nid, tombs=False):
         return await self._joinStorNode(nid, tombs=tombs)
 
-    async def getNodeByNdef(self, ndef, tombs=False):
+    async def getNodeByNdef(self, ndef, tombs=False, runts=False):
         '''
         Return a single Node by (form,valu) tuple.
 
@@ -2872,10 +2937,22 @@ class View(s_nexus.Pusher):  # type: ignore
             ndef ((str,obj)): A (form,valu) ndef tuple.  valu must be
             normalized.
 
+            tombs (bool): Resolve nodes which have been deleted.
+
+            runts (bool): Resolve runt forms by lifting them. Runt nodes have no
+            nid, so they are never resolved by the default ndef lookup.
+
         Returns:
             (synapse.lib.node.Node): The Node or None.
         '''
         form, valu = ndef
+
+        if runts and (fobj := self.core.model.form(form)) is not None and fobj.isrunt:
+            async for node in self.nodesByPropValu(form, '=', valu):
+                return node
+
+            return None
+
         if (ntyp := self.core.model.type(form)) is None:
             return None
 
@@ -3273,7 +3350,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         def filt(sode):
             if (antitags := sode.get('antitagprops')) is not None:
-                if (antiprops := antitags.get(tag)) is not None and antiprops[prop]:
+                if (antiprops := antitags.get(tag)) is not None and antiprops.get(prop):
                     return True
 
             if (tagprops := sode.get('tagprops')) is None:
@@ -3324,17 +3401,26 @@ class View(s_nexus.Pusher):  # type: ignore
         genrs = [layr.liftByDataName(name) for layr in self.layers]
 
         lastnid = None
+        istomb = False
         smap = {}
 
         async for nid, sref, tomb in s_common.merggenr2(genrs, cmprkey=lambda x: x[0]):
             if not nid == lastnid or sref.layriden in smap:
-                if lastnid is not None and not istomb:  # noqa: F821
-                    srefs = await self._genSrefList(lastnid, smap)
-                    if srefs is not None:
-                        yield lastnid, srefs
+                if lastnid is not None:
+                    if not istomb:
+                        srefs = await self._genSrefList(lastnid, smap)
+                        if srefs is not None:
+                            yield lastnid, srefs
+
+                    # the sodes are per nid, so they must not carry over
+                    smap.clear()
+
+                # a layer yields tombstones first, so only the first row of a nid
+                # decides whether the nodedata is deleted.
+                if not nid == lastnid:
+                    istomb = tomb
 
                 lastnid = nid
-                istomb = tomb
 
             smap[sref.layriden] = sref
 
@@ -3443,7 +3529,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if prop.isrunt:
             for storcmpr, storvalu, _ in cmprvals:
-                async for node in self.getRuntNodes(prop, cmprvalu=(storcmpr, storvalu)):
+                async for node in self.getRuntNodes(prop, cmprvalu=(storcmpr, storvalu), norm=norm):
                     yield node
             return
 
@@ -3567,10 +3653,6 @@ class View(s_nexus.Pusher):  # type: ignore
                     yield node
             return
 
-        async def wrapgenr(lidx, genr):
-            async for indx, nid, _ in genr:
-                yield indx, nid, lidx
-
         if not virt:
             for cmprval in cmprvals:
                 last = None
@@ -3582,11 +3664,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 else:
                     realtype = self.layers[0].stortypes[stortype]
 
-                for lidx, layr in enumerate(self.layers):
-                    genr = layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virt=virt)
-                    genrs.append(wrapgenr(lidx, genr))
+                for layr in self.layers:
+                    genrs.append(layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virt=virt))
 
-                async for indx, nid, lidx in s_common.merggenr2(genrs):
+                async for (indx, nid, _), lidx in s_common.merggenr2(genrs, reverse=reverse, withordr=True):
                     if (indx, nid) == last:
                         continue
 
@@ -3646,11 +3727,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 realtype = stortype & s_layer.STOR_MASK_POLY
                 stortype = self.layers[0].stortypes[realtype]
 
-            for lidx, layr in enumerate(self.layers):
-                genr = layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virt=virt)
-                genrs.append(wrapgenr(lidx, genr))
+            for layr in self.layers:
+                genrs.append(layr.liftByPropArray(prop.form.name, prop.name, (cmprval,), reverse=reverse, virt=virt))
 
-            async for indx, nid, lidx in s_common.merggenr2(genrs):
+            async for (indx, nid, _), lidx in s_common.merggenr2(genrs, reverse=reverse, withordr=True):
                 if (indx, nid) == last:
                     continue
 
@@ -3723,7 +3803,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def getRuntNodes(self, prop, cmprvalu=None):
+    async def getRuntNodes(self, prop, cmprvalu=None, norm=True):
 
         now = s_common.now()
 
@@ -3737,7 +3817,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 cmprvalu = (cmpr, valu)
 
             elif prop.type.ispoly:
-                valu = valu[0]
+                # a normed poly cmpr value is (valu, (typenames,)) from getStorCmprs
+                # while an un-normed one is a poly value of (typename, valu).
+                valu = valu[0] if norm else valu[1]
                 cmprvalu = (cmpr, valu)
 
             ctor = prop.type.getCmprCtor(cmpr)

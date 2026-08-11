@@ -76,6 +76,9 @@ areaunits = {
     'sq.yards': 914.4,
 }
 
+# GeoJSON per RFC 7946. Section 6.1 requires that foreign members be permitted on
+# every object, so each definition states additionalProperties true rather than
+# leaving it implicit; none of them may set it to False.
 geojsonschema = {
 
     'definitions': {
@@ -89,6 +92,7 @@ geojsonschema = {
         'Point': {
             'title': 'GeoJSON Point',
             'type': 'object',
+            'additionalProperties': True,
             'required': ['type', 'coordinates'],
             'properties': {
                 'type': {'type': 'string', 'enum': ['Point']},
@@ -100,6 +104,7 @@ geojsonschema = {
         'LineString': {
             'title': 'GeoJSON LineString',
             'type': 'object',
+            'additionalProperties': True,
             'required': ['type', 'coordinates'],
             'properties': {
                 'type': {'type': 'string', 'enum': ['LineString']},
@@ -111,6 +116,7 @@ geojsonschema = {
         'Polygon': {
             'title': 'GeoJSON Polygon',
             'type': 'object',
+            'additionalProperties': True,
             'required': ['type', 'coordinates'],
             'properties': {
                 'type': {'type': 'string', 'enum': ['Polygon']},
@@ -122,6 +128,7 @@ geojsonschema = {
         'MultiPoint': {
             'title': 'GeoJSON MultiPoint',
             'type': 'object',
+            'additionalProperties': True,
             'required': ['type', 'coordinates'],
             'properties': {
                 'type': {'type': 'string', 'enum': ['MultiPoint']},
@@ -133,6 +140,7 @@ geojsonschema = {
         'MultiLineString': {
             'title': 'GeoJSON MultiLineString',
             'type': 'object',
+            'additionalProperties': True,
             'required': ['type', 'coordinates'],
             'properties': {
                 'type': {'type': 'string', 'enum': ['MultiLineString']},
@@ -144,6 +152,7 @@ geojsonschema = {
         'MultiPolygon': {
             'title': 'GeoJSON MultiPolygon',
             'type': 'object',
+            'additionalProperties': True,
             'required': ['type', 'coordinates'],
             'properties': {
                 'type': {'type': 'string', 'enum': ['MultiPolygon']},
@@ -155,6 +164,7 @@ geojsonschema = {
         'GeometryCollection': {
             'title': 'GeoJSON GeometryCollection',
             'type': 'object',
+            'additionalProperties': True,
             'required': ['type', 'geometries'],
             'properties': {
                 'type': {'type': 'string', 'enum': ['GeometryCollection']},
@@ -173,6 +183,7 @@ geojsonschema = {
         'Feature': {
             'title': 'GeoJSON Feature',
             'type': 'object',
+            'additionalProperties': True,
             'required': ['type', 'properties', 'geometry'],
             'properties': {
                 'type': {'type': 'string', 'enum': ['Feature']},
@@ -186,7 +197,9 @@ geojsonschema = {
                     {'$ref': '#/definitions/MultiPolygon'},
                     {'$ref': '#/definitions/GeometryCollection'},
                 ]},
-                'properties': {'oneOf': [{'type': 'null'}, {'type': 'object'}]},
+                # the Feature "properties" member is caller defined JSON.
+                'properties': {'oneOf': [{'type': 'null'},
+                                         {'type': 'object', 'additionalProperties': True}]},
                 'bbox': {'$ref': '#/definitions/BoundingBox'},
             },
         },
@@ -194,6 +207,7 @@ geojsonschema = {
         'FeatureCollection': {
             'title': 'GeoJSON FeatureCollection',
             'type': 'object',
+            'additionalProperties': True,
             'required': ['type', 'features'],
             'properties': {
                 'type': {'type': 'string', 'enum': ['FeatureCollection']},

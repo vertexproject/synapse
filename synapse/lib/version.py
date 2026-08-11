@@ -15,10 +15,42 @@ import packaging.specifiers as p_specifiers
 import synapse.exc as s_exc
 
 vseps = ('.', '-', '_', '+')
+mask4 = 0xF
 mask20 = 0xFFFFF
+mask32 = 0xFFFFFFFF
 mask60 = 0xFFFFFFFFFFFFFFF
+# Ordered pre/release ranks used to build a sortable version integer. The values
+# are ordered so that a final release sorts strictly *above* all of its
+# pre-releases within the same major.minor.patch band, and a post-release sorts
+# above the release. dev is the floor so a dev release sorts below alpha.
+# RANK_PRE_NUMERIC is for a purely-numeric pre-release identifier (e.g. the
+# '0.3.7' in '1.0.0-0.3.7'); per SemVer precedence numeric identifiers sort
+# below alphanumeric ones, so it ranks below alpha. RANK_PRE_OTHER is for a
+# pre-release tag that doesn't match any recognized tier (e.g. '-z'); it sorts
+# above rc (closest to release, since we don't know any better).
+RANK_DEV = 0x1
+RANK_PRE_NUMERIC = 0x2
+RANK_ALPHA = 0x3
+RANK_BETA = 0x4
+RANK_RC = 0x5
+RANK_PRE_OTHER = 0x6
+RANK_RELEASE = 0x7
+RANK_POST = 0x8
+
+# SemVer major.minor.patch with the codebase's long-standing PEP 440 a|b|rc pre-release extension
+# (e.g. "3.0.0b2"; not strictly SemVer, but accepted here). No epoch. Used by parseSemver, which
+# backs the it:semver type and version/EOL parsing -- it:semver does NOT accept a PEP 440 epoch.
 semverstr = r'''^(?P<maj>(0(?![0-9])|[1-9][0-9]*))\.(?P<min>(0(?![0-9])|[1-9][0-9]*))\.(?P<pat>(0(?![0-9])|[1-9][0-9]*))(?P<pep>(a|b|rc)[0-9]+)?(\-(?P<pre>([0-9A-Za-z\-\.]+)))?(\+(?P<bld>([0-9A-Za-z\.\-]+)))?$'''
 semver_re = regex.compile(semverstr)
+
+# The package-version pattern: semverstr plus an OPTIONAL leading PEP 440 epoch prefix (e.g.
+# "3!1.2.3"), so power-ups on the Synapse 3.x line sort above their legacy 2.x.x counterparts. Used
+# by synapse.lib.schemas to validate both a Storm package's ``version`` field and its
+# ``build:synapse:version`` stamp. The epoch stays optional (not mandatory): the synapse:version
+# stamp, the platform packages (synapse-enterprise, optic), and third-party power-ups all carry
+# plain, un-epoch'd versions that must continue to validate.
+verstr = r'^(?:(?P<epoch>[0-9]+)!)?' + semverstr[1:]
+ver_re = regex.compile(verstr)
 
 def parseSemver(text):
     '''
@@ -119,6 +151,92 @@ def unpackVersion(ver):
     minor = (ver >> 20) & mask20
     patch = ver & mask20
     return major, minor, patch
+
+def packVersionCore(major, minor=0, patch=0, rank=RANK_RELEASE):
+    '''
+    Pack major/minor/patch plus a pre/release rank into a single sortable int.
+
+    The layout (high to low) is [ major:20 ][ minor:20 ][ patch:20 ][ rank:4 ]
+    so that integer ordering matches SemVer 2.0.0 precedence, including that a
+    final release sorts above its pre-releases (see the RANK_* constants). The
+    result fits in an unsigned 64 bit integer.
+    '''
+    ret = rank & mask4
+    ret |= (patch & mask20) << 4
+    ret |= (minor & mask20) << 24
+    ret |= (major & mask20) << 44
+    return ret
+
+def unpackVersionCore(valu):
+    '''
+    Unpack a packVersionCore() integer into a (major, minor, patch, rank) tuple.
+    '''
+    rank = valu & mask4
+    patch = (valu >> 4) & mask20
+    minor = (valu >> 24) & mask20
+    major = (valu >> 44) & mask20
+    return major, minor, patch, rank
+
+def packVersionFull(epoch, major, minor=0, patch=0, rank=RANK_RELEASE):
+    '''
+    Pack a PEP 440 subset (epoch + major/minor/patch + rank) into a sortable int.
+
+    The epoch is prepended above the packVersionCore() value so that integer
+    ordering matches PEP 440 precedence for the encoded fields. The result fits
+    in an unsigned 128 bit integer. Finer PEP 440 details (numeric pre-release
+    sub-identifiers, dev/post ordinals, local versions) are intentionally not
+    encoded here -- they are resolved by the version-aware filter pass.
+    '''
+    return ((epoch & mask32) << 64) | packVersionCore(major, minor, patch, rank)
+
+_semver_pre_tiers = (
+    (('a', 'alpha'), RANK_ALPHA),
+    (('b', 'beta'), RANK_BETA),
+    (('rc', 'c', 'pre', 'preview'), RANK_RC),
+)
+
+def semverRank(pre):
+    '''
+    Derive an ordered rank from a SemVer pre-release string (as kept by
+    parseSemver, e.g. 'a20260617', 'alpha.1', 'rc2'). A missing pre-release is a
+    final release. A purely-numeric first identifier (e.g. '0.3.7') buckets at
+    RANK_PRE_NUMERIC (numeric identifiers sort below alphanumeric ones per SemVer
+    precedence). Any other unrecognized pre-release string is still a
+    pre-release, so it buckets at RANK_PRE_OTHER (below release, above rc);
+    intra-tier ordering is not encoded.
+    '''
+    if pre is None:
+        return RANK_RELEASE
+
+    # rstrip drops a trailing numeric sub-id (e.g. 'a20260617' -> 'a'); if the
+    # first identifier was all digits this leaves an empty head, i.e. a numeric
+    # pre-release identifier.
+    head = pre.split('.', 1)[0].rstrip('0123456789').lower()
+    if head == '':
+        return RANK_PRE_NUMERIC
+
+    for names, rank in _semver_pre_tiers:
+        if head in names:
+            return rank
+
+    return RANK_PRE_OTHER
+
+def pep440Rank(ver):
+    '''
+    Derive an ordered rank from a packaging.version.Version. A version with a
+    pre-release (a/b/rc) ranks at that tier; a post-release ranks above release;
+    a dev release (without pre/post) is the floor; otherwise it is a release.
+    '''
+    if ver.pre is not None:
+        return {'a': RANK_ALPHA, 'b': RANK_BETA, 'rc': RANK_RC}[ver.pre[0]]
+
+    if ver.post is not None:
+        return RANK_POST
+
+    if ver.dev is not None:
+        return RANK_DEV
+
+    return RANK_RELEASE
 
 def fmtVersion(*vsnparts):
     '''
@@ -265,5 +383,5 @@ def reqVersion(valu, reqver,
 ##############################################################################
 # The following are touched during the release process.
 # Edit version; commit is set during release.
-version = '3.0.0b4'
+version = '3.0.0b5'
 commit = ''

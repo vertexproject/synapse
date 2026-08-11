@@ -466,6 +466,46 @@ class TeleTest(s_t_utils.SynTest):
             async with await s_telepath.openurl('ssl://visi@localhost/foo', port=port, certdir=dmon.certdir) as proxy:
                 self.eq(20, await proxy.bar(15, 5))
 
+    async def test_telepath_ssl_certhost(self):
+
+        # AHA advertises certhost so a client can resolve <user>@<network> when
+        # the hostname it connects to is a DNS name that the network name is not
+        # a suffix of ( see AhaApi._getSvcEntryForUser ).
+
+        foo = Foo()
+        async with self.getTestDmon() as dmon:
+
+            dmon.certdir.genCaCert('userca')
+            dmon.certdir.genUserCert('visi@localhost', signas='userca')
+            dmon.certdir.genUserCert('visi@synapse', signas='userca')
+            dmon.certdir.genUserCert('mary@synapse', signas='userca')
+
+            addr, port = await dmon.listen('ssl://127.0.0.1:0/?ca=userca&hostname=localhost')
+            dmon.share('foo', foo)
+
+            info = {'scheme': 'ssl', 'host': 'localhost', 'port': port, 'path': '/foo',
+                    'certdir': dmon.certdir}
+
+            # the hostname resolves visi@localhost, so certhost is not consulted
+            async with await s_telepath.openinfo({**info, 'user': 'visi', 'certhost': 'newp'}) as proxy:
+                self.eq(20, await proxy.bar(15, 5))
+
+            # mary has no cert under the hostname, so we fall back to mary@synapse
+            async with await s_telepath.openinfo({**info, 'user': 'mary', 'certhost': 'synapse'}) as proxy:
+                self.eq(20, await proxy.bar(15, 5))
+
+            # neither the hostname nor certhost resolves a user certificate
+            with self.raises(s_exc.NoSuchCert) as cm:
+                await s_telepath.openinfo({**info, 'user': 'mary', 'certhost': 'newp'})
+
+            self.eq('User certificate not found: mary@newp', cm.exception.get('mesg'))
+
+            # with no certhost the hostname is used as it always was
+            with self.raises(s_exc.NoSuchCert) as cm:
+                await s_telepath.openinfo({**info, 'user': 'mary'})
+
+            self.eq('User certificate not found: mary@localhost', cm.exception.get('mesg'))
+
     async def test_telepath_tls(self):
         self.thisHostMustNot(platform='darwin')
 

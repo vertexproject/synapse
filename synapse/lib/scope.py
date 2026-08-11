@@ -1,5 +1,4 @@
 import asyncio
-import contextlib
 
 import synapse.common as s_common
 
@@ -180,17 +179,29 @@ def ctor(name, func, *args, **kwargs):
     '''
     return globscope.ctor(name, func, *args, **kwargs)
 
-@contextlib.contextmanager
+class _ScopeEnter:
+    '''
+    A lightweight class-based context manager for enter().
+    '''
+    __slots__ = ('vals', 'scope')
+
+    def __init__(self, vals):
+        self.vals = vals
+        self.scope = None
+
+    def __enter__(self):
+        self.scope = _task_scope()
+        self.scope.enter(self.vals)
+
+    def __exit__(self, exc, cls, tb):
+        self.scope.leave()
+        return False
+
 def enter(vals=None):
     '''
     Return the task's local scope for use in a with block
     '''
-    scope = _task_scope()
-    scope.enter(vals)
-    try:
-        yield
-    finally:
-        scope.leave()
+    return _ScopeEnter(vals)
 
 def clone(task: asyncio.Task) -> None:
     '''

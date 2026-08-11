@@ -79,6 +79,39 @@ class TinFoilTest(s_t_utils.SynTest):
         edict['asscd'] = b'georgey'
         self.none(tinh.dec(s_msgpack.en(edict)))
 
+    def test_lib_crypto_tnfl_storm(self):
+
+        seed = s_common.ehex(os.urandom(32))
+        salt = s_common.ehex(os.urandom(32))
+        hashname = 'sha256'
+        iters = 1000
+
+        text = 'inet:ipv4=1.2.3.4\n'
+
+        enc = s_tinfoil.encStorm(seed, salt, hashname, iters, text)
+        self.isinstance(enc, str)
+        self.ne(enc, text)
+
+        # the query round trips back to the original text
+        self.eq(s_tinfoil.decStorm(seed, salt, hashname, iters, enc), text)
+
+        # key derivation is deterministic and yields a 32 byte key
+        self.len(32, s_tinfoil.deriveStormKey(seed, salt, hashname, iters))
+        self.eq(s_tinfoil.deriveStormKey(seed, salt, hashname, iters),
+                s_tinfoil.deriveStormKey(seed, salt, hashname, iters))
+
+        # the wrong seed, salt, or pbkdf params fail to decrypt
+        badseed = s_common.ehex(os.urandom(32))
+        with self.raises(s_exc.CryptoErr):
+            s_tinfoil.decStorm(badseed, salt, hashname, iters, enc)
+
+        badsalt = s_common.ehex(os.urandom(32))
+        with self.raises(s_exc.CryptoErr):
+            s_tinfoil.decStorm(seed, badsalt, hashname, iters, enc)
+
+        with self.raises(s_exc.CryptoErr):
+            s_tinfoil.decStorm(seed, salt, hashname, iters + 1, enc)
+
     def test_lib_crypto_tnfl_break(self):
         ekey = s_tinfoil.newkey()
         tinh = s_tinfoil.TinFoilHat(ekey)

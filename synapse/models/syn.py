@@ -189,7 +189,9 @@ modeldefs = (
                     ('parent', ('syn:type', {}), {
                         'doc': 'Type which this inherits from.', 'computed': True}),
                     ('opts', ('data', {}), {
-                        'doc': 'Arbitrary type options.', 'computed': True})
+                        'doc': 'Arbitrary type options.', 'computed': True}),
+                    ('extmodel', ('bool', {}), {
+                        'doc': 'Specifies if the type is an extended model type.', 'computed': True}),
                 ),
                 'doc': 'A Synapse type used for normalizing nodes and properties.',
             }),
@@ -207,7 +209,9 @@ modeldefs = (
                         'doc': 'Specifies if the form is runtime only.', 'computed': True}),
                     ('interfaces', ('syn:interface', {}), {
                         'array': {},
-                        'doc': 'The fully resolved set of interfaces which this form implements.', 'computed': True})
+                        'doc': 'The fully resolved set of interfaces which this form implements.', 'computed': True}),
+                    ('extmodel', ('bool', {}), {
+                        'doc': 'Specifies if the form is an extended model form.', 'computed': True}),
                 ),
                 'doc': 'A Synapse form used for representing nodes in the graph.',
             }),
@@ -259,6 +263,8 @@ modeldefs = (
                         'doc': 'Description of the tagprop definition.'}),
                     ('type', ('syn:type', {}), {
                         'doc': 'The synapse type for this tagprop.', 'computed': True}),
+                    ('extmodel', ('bool', {}), {
+                        'doc': 'Specifies if the tagprop is an extended model tagprop.', 'computed': True}),
                 ),
                 'doc': 'A user defined tag property.'
             }),
@@ -272,9 +278,6 @@ modeldefs = (
 
                     ('package', ('str', {}), {
                         'doc': 'Storm package which provided the command.'}),
-
-                    ('svciden', ('guid', {}), {
-                        'doc': 'Storm service iden which provided the package.'}),
 
                     ('deprecated', ('bool', {}), {
                         'doc': 'Set to true if this command is scheduled to be removed.'}),

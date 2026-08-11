@@ -755,9 +755,11 @@ class Proxy(s_base.Base):
                         yield s_common.result(retn)
 
                 except GeneratorExit:
-                    # if they bail early on the genr, fini the link
+                    # if they bail early on the genr, abort the link. the remote
+                    # side is likely still sending, so a graceful shutdown would
+                    # race with the data which is still in flight.
                     # TODO: devise a tx/rx strategy to recover these links...
-                    await link.fini()
+                    await link.abort()
 
             return genrloop()
 
@@ -1253,7 +1255,13 @@ async def openinfo(info):
             # attempt to auto-resolve a user certificate for the given
             # host/network.
             if certname is None and user is not None and passwd is None:
+
                 certname = f'{user}@{hostname}'
+
+                # fall back to the network AHA advertised for its user certs
+                certhost = info.get('certhost')
+                if certhost is not None and certdir.getUserForHost(user, hostname) is None:
+                    certname = f'{user}@{certhost}'
 
             if certhash is None:
                 sslctx = certdir.getClientSSLContext(certname=certname)

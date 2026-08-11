@@ -1,0 +1,2 @@
+```mdautodoc --stormpkg ../testpkg.yaml
+```

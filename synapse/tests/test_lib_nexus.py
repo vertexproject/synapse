@@ -1,3 +1,6 @@
+import os
+import sys
+import json
 import asyncio
 import contextlib
 from unittest import mock
@@ -8,7 +11,7 @@ import synapse.common as s_common
 import synapse.lib.auth as s_auth
 import synapse.lib.cell as s_cell
 import synapse.lib.nexus as s_nexus
-import synapse.lib.queue as s_queue
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tools.service.backup as s_backup
 
@@ -74,7 +77,131 @@ class ReadonlyPusher(s_nexus.Pusher):
     async def _onLeaderEvent(self):
         pass  # pragma: no cover
 
+# how many nexus writes the recover-gap child makes before it dies
+RECOVERGAP_ITEMS = 20
+
+# the child exits with one of these so the parent knows which path it took
+RECOVERGAP_EXIT_CRASH = 10
+RECOVERGAP_EXIT_CLEAN = 11
+
+async def _recoverGapChild(dirn, idenpath):  # pragma: no cover
+    '''
+    Do RECOVERGAP_ITEMS nexus writes, then die inside a real slab sync pass.
+    '''
+    conf = {'nexslog:en': True, 'dmon:listen': None, 'health:sysctl:checks': False}
+
+    async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+
+        idens = []
+        for i in range(RECOVERGAP_ITEMS):
+            info = await cell.addDriveItem({'name': f'item{i:03d}'})
+            idens.append(info[-1].get('iden'))
+
+        with open(idenpath, 'w') as fd:
+            json.dump(idens, fd)
+
+        # crash the real sync pass exactly when it reaches the drive slab. Every slab
+        # ahead of it in Slab.allslabs - including the nexus log - has committed by
+        # then, so the log ends up ahead of the state that drive:add applied.
+        async def diesync():
+            sys.stdout.flush()
+            os._exit(RECOVERGAP_EXIT_CRASH)
+
+        cell.drive_slab.sync = diesync
+
+        await s_lmdbslab.Slab.syncLoopOnce()
+
+        # NexsRoot._eat committed each write, so the pass found nothing dirty to
+        # interrupt. Die here instead, with no sync pass at all.
+        sys.stdout.flush()
+        os._exit(RECOVERGAP_EXIT_CLEAN)
+
+def _recoverGapMain():  # pragma: no cover
+    dirn, idenpath = sys.argv[1:3]
+    asyncio.run(_recoverGapChild(dirn, idenpath))
+
 class NexusTest(s_t_utils.SynTest):
+
+    async def _runRecoverGap(self):
+        '''
+        Kill a cell mid-commit and report (child exit code, drive items which survived).
+        '''
+        with self.getTestDir() as dirn:
+
+            celldirn = s_common.gendir(dirn, 'cell')
+            idenpath = s_common.genpath(dirn, 'idens.json')
+
+            script = 'import synapse.tests.test_lib_nexus as t; t._recoverGapMain()'
+            argv = (sys.executable, '-c', script, celldirn, idenpath)
+
+            env = dict(os.environ)
+            # pin the sync timer far away so the only pass is the one the child runs
+            env['SYN_SLAB_COMMIT_PERIOD'] = '3600'
+
+            proc = await asyncio.create_subprocess_exec(*argv, env=env)
+            await proc.wait()
+
+            with open(idenpath) as fd:
+                idens = json.load(fd)
+
+            self.len(RECOVERGAP_ITEMS, idens)
+
+            conf = {'nexslog:en': True, 'dmon:listen': None, 'health:sysctl:checks': False}
+            async with await s_cell.Cell.anit(celldirn, conf=conf) as cell:
+
+                self.eq(RECOVERGAP_ITEMS, cell.nexsroot.nexslog.index())
+
+                found = 0
+                for iden in idens:
+                    if await cell.getDriveInfo(iden) is not None:
+                        found += 1
+
+                return proc.returncode, found
+
+    async def test_nexus_recover_percommit(self):
+        # NexsRoot.recover() replays only nexslog.last(), so the log may never be more
+        # than one entry ahead of the applied state. The per-transaction commit is what
+        # makes that structural: _eat holds nexslock across the log write, the apply and
+        # the commit of every dirty slab.
+        code, found = await self._runRecoverGap()
+
+        # the sync pass never reached drive_slab.sync, so nothing was left dirty for it
+        # to interrupt. Had the writes still been sitting in an uncommitted transaction
+        # the child would have died there instead, with RECOVERGAP_EXIT_CRASH.
+        self.eq(RECOVERGAP_EXIT_CLEAN, code)
+        self.eq(RECOVERGAP_ITEMS, found)
+
+    async def test_nexus_commit_log_before_state(self):
+        # _eat commits the log entry before the state it describes. The two live in
+        # separate LMDB environments and commitDirtyNow walks Slab.allslabs in open
+        # order, which puts the log tail *after* the state slabs - and last of all once
+        # a nexslog:rotate has opened a new one. Committing it first keeps an unclean
+        # exit in the direction recover() can repair.
+        async with self.getTestCell(conf={'nexslog:en': True}) as cell:
+
+            nexslog = cell.nexsroot.nexslog
+
+            # rotate so the live tail slab is the last entry in Slab.allslabs, i.e. the
+            # worst case for a committer that relies on open order.
+            await cell.rotateNexsLog()
+
+            slabs = list(s_lmdbslab.Slab.allslabs.values())
+            self.eq(nexslog.tailslab, slabs[-1])
+
+            dirty = []
+
+            realcommit = s_lmdbslab.Slab.commitDirtyNow
+
+            async def commitDirtyNow():
+                # by the time the state slabs are committed the log entry is already durable
+                dirty.append(nexslog.tailslab.dirty)
+                await realcommit()
+
+            with mock.patch.object(s_lmdbslab.Slab, 'commitDirtyNow', commitDirtyNow):
+                await cell.auth.addUser('bob')
+
+            self.true(len(dirty) > 0)
+            self.eq([False] * len(dirty), dirty)
 
     async def test_nexus_base(self):
 
@@ -149,24 +276,6 @@ class NexusTest(s_t_utils.SynTest):
         async with await ReadonlyPusher.anit(s_common.guid()) as pushr:
             self.isin('reader:event', pushr._nexshands)
             self.isin('leader:event', pushr._nexshands)
-
-    async def test_nexus_commitpulse_fini(self):
-        # a commit-pulse window still attached when the NexsRoot fini's (a
-        # consumer that had not yet detached at shutdown) is torn down as part
-        # of the NexsRoot's shutdown cleanup.
-        with self.getTestDir() as dirn:
-
-            conf = {'nexslog:en': True}
-            nexus = await SampleNexus.anit(conf=conf, dirn=dirn)
-            nexsroot = nexus.nexsroot
-
-            wind = await s_queue.Window.anit(maxsize=10, clearonfini=True)
-            nexsroot._commitpulse.append(wind)
-
-            await nexus.fini()
-
-            # NexsRoot.fini fini'd the still-attached window
-            self.true(wind.isfini)
 
     async def test_nexus_fini(self):
 

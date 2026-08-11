@@ -3,7 +3,7 @@ version: 0.0.1
 
 dependencies:
   synapse:
-    version: '>=3.0.0b4,<4.0.0'
+    version: '>=3.0.0b5,<4.0.0'
 
 genopts:
     dotstorm: true # Specify that storm command/module files end with ".storm"
@@ -18,14 +18,6 @@ perms:
   - perm: [ acme, hello, user ]
     gate: cortex
     desc: Allows a user to call privileged APIs from Acme-Hello.
-
-docs:
-    - title: User Guide
-      path: docs/userguide.md
-    - title: Admin Guide
-      path: docs/adminguide.md
-    - title: Changelog
-      path: docs/changelog.md
 
 modules:
   - name: acme.hello

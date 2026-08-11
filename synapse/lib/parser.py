@@ -30,6 +30,7 @@ terminalEnglishMap = {
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
+    'CMDARGV': 'command argument',
     'CMDOPT': 'command line option',
     'CMDNAME': 'command name',
     'CMDTOKN': 'An unquoted string parsed as a cmd arg',
@@ -37,8 +38,6 @@ terminalEnglishMap = {
     'CMPROTHER': 'comparison operator',
     'COLON': ':',
     'COMMA': ',',
-    'COMMASPACE': ',',
-    'COMMANOSPACE': ',',
     'CONTINUE': 'continue',
     'CPPCOMMENT': 'c++ comment',
     'DEFAULTCASE': 'default case',
@@ -89,7 +88,6 @@ terminalEnglishMap = {
     'EXPRRELNAME': 'relative property name',
     'RPAR': ')',
     'RSQB': ']',
-    'RSQBNOSPACE': ']',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
     'SWITCH': 'switch',
     'TAGSEGNOVAR': 'non-variable tag segment',
@@ -844,7 +842,6 @@ ruleClassMap = {
     'virtprop': s_ast.VirtProp,
     'virtpropvalue': s_ast.VirtPropValue,
     'whileloop': s_ast.WhileLoop,
-    'wordtokn': lambda astinfo, kids: s_ast.Const(astinfo, ''.join([str(k.valu) for k in kids]))
 }
 
 escape_re = regex.compile(r"(?<!\\)((\\\\)*)'")

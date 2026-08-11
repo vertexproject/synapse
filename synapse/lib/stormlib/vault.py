@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
+import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.stormtypes as s_stormtypes
@@ -537,7 +538,7 @@ class LibVault(s_stormtypes.Lib):
 
     async def _listVaults(self):
         for vault in self.runt.view.core.listVaults():
-            if not self.runt.allowedEasyPerm(vault, s_cell.PERM_READ):
+            if not s_stormtypes.allowedEasyPerm(vault, s_cell.PERM_READ):
                 continue
 
             yield Vault(self.runt, vault.get('iden'))
@@ -659,7 +660,7 @@ class VaultConfigs(s_stormtypes.Dict):
     def _getDataSync(self):
         vault = self.runt.view.core.reqVault(self.valu)
         mesg = f'User requires {s_cell.permnames.get(self._vault_perm)} permission on vault: {self.valu}.'
-        self.runt.confirmEasyPerm(vault, self._vault_perm, mesg=mesg)
+        s_scope.get('runt', self.runt).confirmEasyPerm(vault, self._vault_perm, mesg=mesg)
         return vault.get(self._vault_field_name)
 
     async def _getData(self):
@@ -717,6 +718,12 @@ class Vault(s_stormtypes.Prim):
 
     Callers (instantiation) of this class must have already checked that the user has at least
     PERM_READ to the vault.
+
+    Permissions are checked against the runtime in scope, which is the one reading the vault
+    rather than the one which resolved it, so that a privsep module using asroot:perms may read
+    secrets on behalf of a caller who only holds PERM_READ. The runtime captured at construction
+    is used only when no runtime is in scope, which happens when callStorm converts a vault
+    object it is returning after the runtime has exited.
     '''
     _storm_locals = (
         {'name': 'iden', 'desc': 'The Vault iden.', 'type': 'str', },
@@ -811,7 +818,7 @@ class Vault(s_stormtypes.Prim):
 
     async def _methVdef(self):
         vault = self.runt.view.core.reqVault(self.valu)
-        if not self.runt.allowedEasyPerm(vault, s_cell.PERM_EDIT):
+        if not s_scope.get('runt', self.runt).allowedEasyPerm(vault, s_cell.PERM_EDIT):
             vault.pop('secrets')
         return vault
 
@@ -883,7 +890,7 @@ class Vault(s_stormtypes.Prim):
     def value(self):
         vault = self.runt.view.core.reqVault(self.valu)
 
-        if not self.runt.allowedEasyPerm(vault, s_cell.PERM_EDIT):
+        if not s_scope.get('runt', self.runt).allowedEasyPerm(vault, s_cell.PERM_EDIT):
             vault.pop('secrets')
 
         return vault

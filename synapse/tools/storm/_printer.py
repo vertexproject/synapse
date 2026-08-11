@@ -127,7 +127,7 @@ class StormPrinter:
             self.printNode(mesg[1])
             return True
 
-        if mtyp == 'node:edits':
+        if mtyp == 'edits':
             edit = mesg[1]
             count = sum(len(e[2]) for e in edit.get('edits', ()))
             self.printf('.' * count, addnl=False, color=NODEEDIT_COLOR)

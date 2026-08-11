@@ -4,6 +4,7 @@ import time
 import asyncio
 import hashlib
 import logging
+import contextlib
 
 import regex
 
@@ -20,6 +21,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
+import synapse.lib.view as s_view
 import synapse.lib.layer as s_layer
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
@@ -93,16 +95,17 @@ class CortexTest(s_t_utils.SynTest):
                     # its slabs so the read-only Cortex can open the shared dirn in
                     # this same process. the persisted aha config lets the read-only
                     # boot resolve its axon / jsonstor peers via AHA.
-                    svciden = s_common.guid()
                     conf = self.getCellConf(conf={'aha:provision': await aha.addAhaSvcProv('00.cortex')})
                     async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
                         await core.nodes('[ inet:ip=1.2.3.4 ]')
                         # seed a durable svcdef so the read-only cortex sees it read
-                        # through to the leader's committed svcdefs. It has no ``url``,
-                        # so the read-only cortex's boot-time _initStormSvcs logs a
-                        # benign "initStormService ... failed: BadArg" warning when it
-                        # tries to connect; a real sdef always carries a url.
-                        core.svcdefs.set(svciden, {'iden': svciden, 'name': 'testsvc'})
+                        # through to the leader's committed svcdefs. The service is
+                        # never reachable, so its client simply never links.
+                        core.svcdefs.set('testsvc', {'name': 'testsvc', 'url': 'tcp://127.0.0.1:1/svc'})
+
+                        # a def with no url cannot build a client, so the read-only
+                        # cortex's boot-time _initStormSvcs logs a benign warning
+                        core.svcdefs.set('nourlsvc', {'name': 'nourlsvc'})
 
                     async with await s_cortex.Cortex.anit(dirn, readonly=True) as core:
 
@@ -114,7 +117,7 @@ class CortexTest(s_t_utils.SynTest):
 
                         pkgdef = {
                             'name': 'testpkg',
-                            'version': (0, 0, 1),
+                            'version': '0.0.1',
                             'commands': ({'name': 'testcmd', 'storm': 'inet:ip'},),
                         }
 
@@ -129,27 +132,20 @@ class CortexTest(s_t_utils.SynTest):
                         self.nn(core.stormpkgs.get('testpkg'))
                         self.nn(core.getStormCmd('testcmd'))
 
-                        # setStormSvcEvents / _runStormSvcAdd are called on the
-                        # read-only cortex when a storm service connects, but a
-                        # reader takes no part in service event tracking (only the
-                        # active leader runs the add/del hooks that consume evts).
-                        evts = {'add': {'storm': '$lib.print(hi)'}}
-                        sdef = await core.setStormSvcEvents(svciden, evts)
-                        self.notin('evts', sdef)
+                        # a reader replays the svc:pkg event to pick up the package
+                        # a service delivered, but takes no part in persisting it
+                        # ( the leader has already committed the svcdef ).
+                        await core._setStormSvcPkgName('testsvc', 'testpkg')
 
-                        self.none(await core._runStormSvcAdd(svciden))
+                        self.eq('testsvc', core.getStormPkgSvc('testpkg'))
+                        self.eq('testpkg', core.svcs['testsvc'].sdef.get('pkgname'))
+                        self.notin('pkgname', core.svcdefs.get('testsvc'))
 
-                        stored = core.svcdefs.get(svciden)
-                        self.notin('evts', stored)
-                        self.notin('added', stored)
-
-    async def test_cortex_nexuscommit(self):
+    async def test_cortex_percommit(self):
         # the Cortex commits its slabs after each nexus transaction rather than
         # on the timed sync loop: its slabs are commitpulse=False and an applied
         # edit is durable (committed) as soon as it returns, with no timer wait.
         async with self.getTestCore() as core:
-
-            self.true(core.nexuscommit)
 
             # cortex-owned slabs opt out of the periodic pulse
             self.false(core.slab.commitpulse)
@@ -174,54 +170,23 @@ class CortexTest(s_t_utils.SynTest):
             self.gt(committed, -1)
 
     async def test_cortex_commitpulse(self):
-        # the commit pulse signals the offset of each committed nexus transaction.
+        # _eat hands the offset of each committed nexus transaction to setPulseIndx, in order.
+        # The base NexsRoot implementation is a no-op; a subclass that publishes overrides it.
         async with self.getTestCore() as core:
 
-            self.true(core.nexuscommit)
+            offsets = []
+            core.nexsroot.setPulseIndx = offsets.append
 
-            genr = core.getNexusCommitPulse()
-            try:
-                # the first item is the last FULLY committed offset at attach
-                # time (never the not-yet-written next offset).
-                first = await asyncio.wait_for(genr.__anext__(), timeout=6)
-                self.eq(first, await core.getNexsIndx() - 1)
+            await core.nodes('[ inet:ip=1.2.3.4 ]')
 
-                # a committed transaction pulses its offset, and that offset is
-                # already durable when the pulse fires.
-                await core.nodes('[ inet:ip=1.2.3.4 ]')
-                offs = await core.getNexsIndx() - 1
+            # the last committed offset was pulsed, and offsets arrive in order
+            offs = await core.getNexsIndx() - 1
+            self.isin(offs, offsets)
+            self.eq(offsets, sorted(offsets))
 
-                pulsed = first
-                while pulsed < offs:
-                    pulsed = await asyncio.wait_for(genr.__anext__(), timeout=6)
-
-                self.eq(pulsed, offs)
-
-                layr = core.getLayer()
-                self.ge(layr.editindx.getFresh('edit:indx', defv=-1), pulsed)
-
-            finally:
-                await genr.aclose()
-
-            # over a telepath proxy the offsets are pushed directly on the link
-            # (rather than yielded through the daemon genr loop).
-            async with core.getLocalProxy() as prox:
-                genr = prox.getNexusCommitPulse().__aiter__()
-                try:
-                    first = await asyncio.wait_for(genr.__anext__(), timeout=6)
-                    self.eq(first, await core.getNexsIndx() - 1)
-
-                    await core.nodes('[ inet:ip=5.6.7.8 ]')
-                    offs = await core.getNexsIndx() - 1
-
-                    pulsed = first
-                    while pulsed < offs:
-                        pulsed = await asyncio.wait_for(genr.__anext__(), timeout=6)
-
-                    self.eq(pulsed, offs)
-
-                finally:
-                    await genr.aclose()
+            # the pulsed offset is already durable when the pulse fires
+            layr = core.getLayer()
+            self.ge(layr.editindx.getFresh('edit:indx', defv=-1), offs)
 
     async def test_cortex_basics(self):
 
@@ -422,7 +387,7 @@ class CortexTest(s_t_utils.SynTest):
         # a leader and its mirror cortex share the same AHA jsonstor
         async with self.getTestCluster({'cortex': {'conf': {'nexslog:en': True}, 'mirrors': 1}}) as clus:
             core00 = clus.cortex
-            core01 = clus.svcs['01.cortex']
+            core01 = clus.svcs['001.cortex']
             await core00.setJsonObj('foo/bar', 'zoinks')
             await core01.sync()
             self.eq('zoinks', await core00.getJsonObj('foo/bar'))
@@ -1266,8 +1231,12 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(core._userFromOpts({'user': None}), core.auth.rootuser)
 
             with self.raises(s_exc.NoSuchUser):
-                opts = {'user': 'newp'}
+                opts = {'user': 'a' * 32}
                 await core.nodes('[ inet:ip=1.2.3.4 ]', opts=opts)
+
+            # a malformed iden is rejected by the opts schema before the lookup
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes('[ inet:ip=1.2.3.4 ]', opts={'user': 'newp'})
 
             visi = await core.auth.addUser('visi')
             async with core.getLocalProxy(user='visi') as proxy:
@@ -2227,7 +2196,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             with self.raises(s_exc.NoSuchView):
-                await core.nodes('test:comp', opts={'view': 'xxx'})
+                await core.nodes('test:comp', opts={'view': 'a' * 32})
 
             nodes = await core.nodes('[ test:str="foo bar" :tick=2018]')
             self.len(1, nodes)
@@ -3046,7 +3015,7 @@ class CortexTest(s_t_utils.SynTest):
                 vals = list(range(20000))
                 event.set()
                 msgs = await core.stormlist('for $i in $vals {[test:int=$i]} | spin',
-                                             opts={'editformat': 'none', 'vars': {'vals': vals}})
+                                             opts={'show': ('print', 'warn', 'err'), 'vars': {'vals': vals}})
                 self.stormHasNoWarnErr(msgs)
 
             fut = core.schedCoro(add_stuff())
@@ -3580,7 +3549,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
+                'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -3659,7 +3628,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             oldverpkg = {
                 'name': 'versionfail',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'dependencies': {'synapse': {'version': '>=1337.0.0,<2000.0.0'}},
                 'commands': ()
             }
@@ -3669,7 +3638,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             oldverpkg = {
                 'name': 'versionfail',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'dependencies': {'synapse': {'version': '>=1337.0.0,<2000.0.0'}},
                 'commands': ()
             }
@@ -3679,7 +3648,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             oldverpkg = {
                 'name': 'versionfail',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'dependencies': {'synapse': {'version': '>=0.0.1,<2.0.0'}},
                 'commands': ()
             }
@@ -3689,7 +3658,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             noverpkg = {
                 'name': 'nomin',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'commands': ()
             }
 
@@ -3697,7 +3666,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             badcmdpkg = {
                 'name': 'badcmd',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'commands': ({
                     'name': 'invalidCMD',
                     'desc': 'test command',
@@ -3781,6 +3750,23 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(emsg['params'].get('view'), view)
             self.eq(emsg['params'].get('text'), q)
             self.eq(emsg['username'], 'foouser')
+
+            # the meta opt is recorded, nested rather than merged so that a caller
+            # cannot forge a field which reads as our own attribution.
+            opts = {'meta': {'cron': 'newp', 'text': 'newp', 'jobid': 'hehe'}}
+            with self.getLoggerStream('synapse.storm') as stream:
+                await alist(core.storm('help ask', opts=opts))
+
+            mesg = stream.jsonlines()[0]
+            self.eq(mesg['params'].get('meta'), {'cron': 'newp', 'text': 'newp', 'jobid': 'hehe'})
+            self.eq(mesg['params'].get('text'), 'help ask')
+            self.none(mesg['params'].get('cron'))
+
+            # ...and is absent from the record when the opt was not given
+            with self.getLoggerStream('synapse.storm') as stream:
+                await alist(core.storm('help ask'))
+
+            self.notin('meta', stream.jsonlines()[0]['params'])
 
     async def test_storm_mustquote(self):
 
@@ -4372,7 +4358,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'graph.powerup',
                 'version': '0.0.1',
-                'graphs': [{'name': 'testgraph'}]
+                'graphs': [{'name': 'testgraph', **s_schemas.pkggraph_defaults}]
             }
             await core.addStormPkg(otherpkg)
 
@@ -4908,11 +4894,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(1138, nodes[0].getTagProp('beep.beep', '_test'))
 
             # Put bad data in
-            data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
+            data = [(('test:str', 'newp'), {'tags': {'test.newp': ('newp', {})}})]
             await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:str=newp -#test.newp'))
 
-            data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
+            data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': ('newp', {})}}})]
             await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:str=opps +#test.newp'))
 
@@ -4955,21 +4941,21 @@ class CortexBasicTest(s_t_utils.SynTest):
             vdef2 = await core1.view.fork()
             view2_iden = vdef2.get('iden')
 
-            data = [(('test:int', 1), {'tags': {'noprop': [None, None, None]},
-                                       'tagprops': {'noprop': {'_test': 'newp'}}})]
+            data = [(('test:int', 1), {'tags': {'noprop': ([None, None, None], {})},
+                                       'tagprops': {'noprop': {'_test': ('newp', {})}}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             self.len(1, await core1.nodes('test:int=1 +#noprop', opts={'view': view2_iden}))
 
-            data = [(('test:int', 1), {'tags': {'noprop': (None, None, None),
-                                                'noprop.two': (None, None, None)},
-                                       'tagprops': {'noprop': {'_test': 1}}})]
+            data = [(('test:int', 1), {'tags': {'noprop': ((None, None, None), {}),
+                                                'noprop.two': ((None, None, None), {})},
+                                       'tagprops': {'noprop': {'_test': (1, {})}}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#noprop.two', opts={'view': view2_iden})
             self.len(1, nodes)
             self.eq(1, nodes[0].getTagProp('noprop', '_test'))
 
             # Test a bulk add
-            tags = {'tags': {'test': (2020, 2022)}}
+            tags = {'tags': {'test': ((2020, 2022), {})}}
             data = [(('test:int', x), tags) for x in range(2001)]
             await core1.addFeedData(data)
             nodes = await core1.nodes('test:int#test')
@@ -4977,16 +4963,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core1.nodes('movetag test newtag')
 
-            data = [(('test:int', 1), {'props': {'int2': ('int', 2)},
-                                       'tags': {'test': [2020, 2021]},
-                                       'tagprops': {'noprop': {'_test': 1}}})]
+            data = [(('test:int', 1), {'props': {'int2': (2, {'t': 'int'})},
+                                       'tags': {'test': ([2020, 2021], {})},
+                                       'tagprops': {'noprop': {'_test': (1, {})}}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
             self.propeq(nodes[0], 'int2', 2)
             self.eq(1, nodes[0].getTagProp('noprop', '_test'))
 
-            data = [(('test:int', 1), {'tags': {'test': (2020, 2022)}})]
+            data = [(('test:int', 1), {'tags': {'test': ((2020, 2022), {})}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
@@ -4997,24 +4983,24 @@ class CortexBasicTest(s_t_utils.SynTest):
             # This tag doesn't match the regex but should still make the node
             data = [(
                 ('test:int', 8),
-                {'tags': {'test.12345': (None, None, None)},
-                 'tagprops': {'test.12345': {'score': (1, 1)}}}
+                {'tags': {'test.12345': ((None, None, None), {})},
+                 'tagprops': {'test.12345': {'score': ((1, 1), {})}}}
             )]
             await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:int=8 -#test.12345'))
 
-            data = [(('test:int', 8), {'tags': {'test.1234': (None, None, None)}})]
+            data = [(('test:int', 8), {'tags': {'test.1234': ((None, None, None), {})}})]
             await core1.addFeedData(data)
             self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
-            data = [(('test:int', 8), {'tags': {'test.1235': (None, None, None)}})]
+            data = [(('test:int', 8), {'tags': {'test.1235': ((None, None, None), {})}})]
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData(data))
 
             await core1.nodes('model.deprecated.lock test:deprform:deprprop2')
 
-            data = [(('test:deprform', 'foo'), {'props': {'deprprop2': ('test:str', 'bar'),
-                                                          'okayprop': ('str', 'foo')}})]
+            data = [(('test:deprform', 'foo'), {'props': {'deprprop2': ('bar', {'t': 'test:str'}),
+                                                          'okayprop': ('foo', {'t': 'str'})}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:deprform=foo', opts={'view': view2_iden})
             self.len(1, nodes)
@@ -5023,9 +5009,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core1.nodes('model.deprecated.lock test:deprprop')
 
-            data = [(('test:deprform', 'dform'), {'props': {'deprprop': (('test:deprprop', '1'),
-                                                                          ('test:deprprop', '2')),
-                                                            'okayprop': ('str', 'okay')}})]
+            data = [(('test:deprform', 'dform'), {'props': {'deprprop': ((('1', {'t': 'test:deprprop'}),
+                                                                         ('2', {'t': 'test:deprprop'})), {}),
+                                                            'okayprop': ('okay', {'t': 'str'})}})]
             await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:deprform=dform', opts={'view': view2_iden})
             self.len(1, nodes)
@@ -5111,20 +5097,19 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.isin(('test:int', 7), polyarr)
             self.isin(('test:str', 'bee'), polyarr)
 
-            # Sad path: a typed-tuple whose typename isn't allowed by the poly
-            # is rejected per-prop (warned, not raised); the node still lands
-            # with whatever other props were valid.
+            # A typed-tuple whose typename isn't accepted by the poly falls back
+            # to norming the bare value through the poly's default types.
             data = [(('test:str', 'badpoly'),
-                     {'props': {'poly': ('it:dev:int', 7), 'tick': ('test:time', 1)}})]
+                     {'props': {'poly': (7, {'t': 'it:dev:int'}), 'tick': (1, {'t': 'test:time'})}})]
             await dstcore.addFeedData(data)
             nodes = await dstcore.nodes('test:str=badpoly')
             self.len(1, nodes)
-            self.none(nodes[0].get('poly'))
+            self.eq(('test:int', 7), nodes[0].get('poly'))
             self.nn(nodes[0].get('tick'))
 
             # Sad path: a non-tuple value for a poly prop is rejected.
             data = [(('test:str', 'rawpoly'),
-                     {'props': {'poly': 42, 'tick': ('test:time', 2)}})]
+                     {'props': {'poly': 42, 'tick': (2, {'t': 'test:time'})}})]
             await dstcore.addFeedData(data)
             nodes = await dstcore.nodes('test:str=rawpoly')
             self.len(1, nodes)
@@ -5133,7 +5118,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Sad path: a non-list/tuple value for an array prop is rejected.
             data = [(('test:str', 'rawarr'),
-                     {'props': {'polyarry': 42, 'tick': ('test:time', 3)}})]
+                     {'props': {'polyarry': 42, 'tick': (3, {'t': 'test:time'})}})]
             await dstcore.addFeedData(data)
             nodes = await dstcore.nodes('test:str=rawarr')
             self.len(1, nodes)
@@ -5141,7 +5126,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('tick'))
 
             # Empty array still lands as an empty tuple.
-            data = [(('test:str', 'emptyarr'), {'props': {'polyarry': ()}})]
+            data = [(('test:str', 'emptyarr'), {'props': {'polyarry': ((), {})}})]
             await dstcore.addFeedData(data)
             nodes = await dstcore.nodes('test:str=emptyarr')
             self.len(1, nodes)
@@ -5152,8 +5137,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             # propagates virts through Array.normFromTypedValu's accumulator
             # (ip/port virts from inet:server.norm).
             data = [(('test:str', 'dupevirts'),
-                     {'props': {'polyarry': (('test:int', 1), ('test:int', 1),
-                                              ('inet:server', 'tcp://1.2.3.4:80'))}})]
+                     {'props': {'polyarry': (((1, {'t': 'test:int'}), (1, {'t': 'test:int'}),
+                                               ('tcp://1.2.3.4:80', {'t': 'inet:server'})), {})}})]
             await dstcore.addFeedData(data)
             nodes = await dstcore.nodes('test:str=dupevirts')
             self.len(1, nodes)
@@ -5166,7 +5151,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # round-tripped pode with computed values in the props dict
             # doesn't blow up.
             data = [(('test:pivcomp', (('test:pivtarg', 'x'), ('test:str', 'y'))),
-                     {'props': {'targ': ('test:pivtarg', 'x'), 'tick': ('time', 1)}})]
+                     {'props': {'targ': ('x', {'t': 'test:pivtarg'}), 'tick': (1, {'t': 'time'})}})]
             await dstcore.addFeedData(data)
             nodes = await dstcore.nodes('test:pivcomp=(x, y)')
             self.len(1, nodes)
@@ -6361,10 +6346,18 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(core.getView(view))
             self.false(visi.allowed(('view', 'read'), gateiden=view))
 
-            vdef['worldreadable'] = True
+            # worldreadable is not a view def key; grant the all role directly.
             view = (await core.addView(vdef)).get('iden')
             self.nn(core.getView(view))
+            self.false(visi.allowed(('view', 'read'), gateiden=view))
+
+            role = await core.auth.getRoleByName('all')
+            await role.addRule((True, ('view', 'read')), gateiden=view)
             self.true(visi.allowed(('view', 'read'), gateiden=view))
+
+            vdef['worldreadable'] = True
+            with self.raises(s_exc.SchemaViolation):
+                await core.addView(vdef)
 
             # Missing layers
             vdef = {'name': 'mylayer'}
@@ -7098,7 +7091,138 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             with self.raises(s_exc.NoSuchView):
+                await core.nodes('test:int=11', opts={'view': 'a' * 32})
+
+            # a malformed iden is rejected by the opts schema before the lookup
+            with self.raises(s_exc.SchemaViolation):
                 await core.nodes('test:int=11', opts={'view': 'NOTAVIEW'})
+
+    async def test_cortex_storm_opts_nexus(self):
+        '''
+        The nexus opt holds a query until the Cortex reaches the given offset.
+        '''
+        async with self.getTestCore() as core:
+
+            offs = await core.getNexsIndx()
+
+            # a nexus opt with no offset is a no-op
+            self.eq(0, await core.count('test:int', opts={'nexus': {'timeout': 1}}))
+
+            # ...as is an offset which has already been reached
+            opts = {'nexus': {'offset': offs - 1, 'timeout': 6}}
+            self.eq(0, await core.count('test:int', opts=opts))
+
+            # an offset which cannot be reached raises TimeOut on each entry point
+            opts = {'nexus': {'offset': offs + 1000, 'timeout': 0.1}}
+
+            with self.raises(s_exc.TimeOut):
+                await core.count('test:int', opts=opts)
+
+            with self.raises(s_exc.TimeOut):
+                await core.callStorm('return((0))', opts=opts)
+
+            with self.raises(s_exc.TimeOut):
+                await alist(core.storm('test:int', opts=opts))
+
+            with self.raises(s_exc.TimeOut):
+                await alist(core.exportStorm('test:int', opts=opts))
+
+    async def test_cortex_storm_opts_schema(self):
+        '''
+        The opts dict is validated against stormOptsSchema on every Storm call.
+        '''
+        async with self.getTestCore() as core:
+
+            viewiden = core.view.iden
+
+            # a fully populated opts dict validates
+            opts = {
+                'vars': {'hehe': 'haha'},
+                'meta': {'anything': ('the', 'cortex', 'does', 'not', 'read')},
+                'view': viewiden,
+                'user': core.auth.rootuser.iden,
+                'task': s_common.guid(),
+                'mode': 'storm',
+                'debug': True,
+                'readonly': False,
+                'limit': 10,
+                'keepalive': 2,
+                'show': ('node', 'print'),
+                'nids': (),
+                'ndefs': (),
+                'graph': {'degrees': 1},
+                'node:opts': {'repr': True, 'virts': True, 'storage': True,
+                              'embeds': {'inet:ip': {'asn': ('registrant:name',)}}},
+                'nexus': {'offset': 0, 'timeout': 1},
+            }
+            self.len(0, await core.nodes('test:int=99', opts=opts))
+
+            # null means "unset" for the opts whose read paths fall back
+            opts = {'view': None, 'user': None, 'task': None, 'limit': None,
+                    'keepalive': None, 'nexus': {'offset': None, 'timeout': None}}
+            self.len(0, await core.nodes('test:int=99', opts=opts))
+
+            # the root is closed, so an undeclared opt is rejected rather than ignored
+            for bad in ({'newp': True},
+                        {'editformat': 'none'},     # removed in 3.0.0
+                        {'idens': ('a' * 32,)},     # 2.x, replaced by nids
+                        {'repr': True},             # 2.x, moved under node:opts
+                        {'nexsoffs': 0},            # moved under the nexus opt
+                        {'nexstimeout': 1},
+                        {'nexus': {'newp': 1}},
+                        {'_loginfo': {'cron': 'a' * 32}},   # internal, now carried in meta
+                        {'ws': None},               # Optic state, now carried in meta
+                        {'iden': 'a' * 32},
+                        {'historyType': 'storm'},
+                        {'optic:qbar': True},
+                        {'node:opts': {'verbs': False}},        # now unconditional
+                        {'node:opts': {'show:storage': True}},  # renamed to storage
+                        {'node:opts': {'newp': True}}):
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.nodes('test:int=99', opts=bad)
+
+            # ...and so is a declared opt carrying the wrong type
+            for bad in ({'mode': 'newp'},
+                        {'nids': 'newp'},
+                        {'ndefs': (('test:int',),)},
+                        {'limit': 0},
+                        {'show': 'node'},
+                        {'debug': 'yes'},
+                        {'graph': 1234},
+                        {'node:opts': {'repr': 'yes'}},
+                        {'meta': ()},
+                        {'vars': ()}):
+
+                with self.raises(s_exc.SchemaViolation):
+                    await core.nodes('test:int=99', opts=bad)
+
+            # Synapse Enterprise reads readpool; everything else a client wants to carry
+            # goes in meta rather than being declared here.
+            self.len(0, await core.nodes('test:int=99', opts={'readpool': False}))
+
+            # The same schema validates the stormopts of a dmon definition, which
+            # runs its query via Runtime.anit() and so never reaches _initStormOpts.
+            # ( $lib.dmon.add() replaces a caller supplied stormopts, so this is
+            #   reachable through addStormDmon() and the defs replayed at startup. )
+            ddef = {'iden': s_common.guid(), 'user': core.auth.rootuser.iden,
+                    'storm': '$lib.print(hi)', 'stormopts': {'view': viewiden}}
+            self.nn(await core.addStormDmon(ddef))
+
+            for bad in ({'newp': True}, {'repr': True}, {'mode': 'newp'}):
+                ddef = {'iden': s_common.guid(), 'user': core.auth.rootuser.iden,
+                        'storm': '$lib.print(hi)', 'stormopts': bad}
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addStormDmon(ddef)
+
+            # var names are still checked by _initStormOpts for a specific mesg
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes('test:int=99', opts={'vars': {'lib': 'newp'}})
+            self.eq('Storm var name lib is reserved.', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes('test:int=99', opts={'vars': {1: 'newp'}})
+            self.isin('must be strings', cm.exception.get('mesg'))
 
     async def test_cortex_getLayer(self):
         async with self.getTestCore() as core:
@@ -7130,17 +7254,18 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with core.getLocalProxy() as prox:
                 class TstServ(s_stormsvc.StormSvc):
-                    _storm_svc_name = 'tstserv'
-                    _storm_svc_vers = '0.0.2'
-                    _storm_svc_pkgs = [
-                        {  # type: ignore
-                            'name': 'foo',
-                            'version': (0, 0, 1),
-                            'dependencies': {'synapse': {'version': '>=2.100.0,<3.0.0'}},
-                            'modules': [],
-                            'commands': []
+                    _storm_svc_pkg = {  # type: ignore
+                        'name': 'foo',
+                        'version': '0.0.1',
+                        'dependencies': {'synapse': {'version': '>=2.100.0,<3.0.0'}},
+                    }
+
+                    async def getCellInfo(self):
+                        return {
+                            'synapse': {'version': s_version.version},
+                            'cell': {'type': 'alegitservice', 'version': s_version.version},
+                            'features': {'stormservice': '1.0.0'},
                         }
-                    ]
 
                 async def action():
                     await asyncio.sleep(0.1)
@@ -7234,16 +7359,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.eq(data[off]['event'], 'svc:set')
                 self.eq(data[off]['info']['name'], 'alegitservice')
-                self.eq(data[off]['info']['svcname'], 'tstserv')
-                self.eq(data[off]['info']['version'], '0.0.2')
-                self.eq(data[off]['info']['iden'], data[off - 1]['info']['iden'])
+                self.eq(data[off]['info']['version'], s_version.version)
 
     async def test_stormpkg_sad(self):
         base_pkg = {
             'name': 'boom',
             'desc': 'The boom Module',
-            'version': (0, 0, 1),
-            'dependencies': {'synapse': {'version': '>=3.0.0b4,<4.0.0'}},
+            'version': '0.0.1',
+            'dependencies': {'synapse': {'version': '>=3.0.0b5,<4.0.0'}},
             'modules': [
                 {
                     'name': 'boom.mod',
@@ -7324,7 +7447,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # synapse version loads fine
             pkg = {
                 'name': 'depsynok',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'dependencies': {
                     'synapse': {'version': '>=3.0.0b1,<4.0.0'},
                 },
@@ -7336,7 +7459,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # running synapse version raises StormPkgRequires
             pkg = {
                 'name': 'depsynbad',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'dependencies': {
                     'synapse': {'version': '>=1337.0.0,<2000.0.0'},
                 },
@@ -7349,7 +7472,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # StormPkgRequires
             pkg = {
                 'name': 'depmissing',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'dependencies': {
                     'notloaded': {'version': '>=1.0.0'},
                 },
@@ -7361,7 +7484,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # the same missing dependency marked optional loads successfully
             pkg = {
                 'name': 'depmissingopt',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'dependencies': {
                     'notloaded': {'version': '>=1.0.0', 'optional': True},
                 },
@@ -7396,9 +7519,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             pkg = {
                 'name': 'depsynentnotprovided',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'dependencies': {
-                    'synapse-enterprise': {'version': '>=3.0.0b4,<4.0.0'},
+                    'synapse-enterprise': {'version': '>=3.0.0b5,<4.0.0'},
                 },
             }
             with self.raises(s_exc.StormPkgRequires):
@@ -7428,9 +7551,216 @@ class CortexBasicTest(s_t_utils.SynTest):
         }
         s_schemas.reqValidPkgdef(pkgdef)
 
+        # package versions may carry a PEP 440 epoch prefix (Synapse 3.x line)
+        pkgdef['version'] = '3!8.0.0'
+        s_schemas.reqValidPkgdef(pkgdef)
+
+        pkgdef['version'] = '3!3.0.0b3'
+        s_schemas.reqValidPkgdef(pkgdef)
+
+        pkgdef['version'] = '3!1.2'
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidPkgdef(pkgdef)
+
+        # a valid version but a bad command desc must also fail
+        pkgdef['version'] = '3!3.0.0b3'
         pkgdef['commands'][0]['desc'] = 5150
         with self.raises(s_exc.SchemaViolation):
             s_schemas.reqValidPkgdef(pkgdef)
+
+    async def test_stormpkg_schema_strict(self):
+        '''
+        The pkgdef schema and its nested objects reject unknown keys so a typo
+        or stray key fails at validation time rather than silently loading.
+        '''
+        base = {
+            'name': 'strictpkg',
+            'version': '0.0.1',
+            'build': {'time': 12345},
+            'metadata': {'codesign': {'cert': 'certtext', 'sign': 'signtext'}},
+            'author': {'name': 'The Vertex Project', 'url': 'https://vertex.link'},
+            'logo': {'mime': 'image/svg+xml', 'file': 'ZmlsZQ=='},
+            'dependencies': {'synapse': {'version': '>=3.0.0b1,<4.0.0'}},
+            'conflicts': {'legacy': {'version': '<1.0.0'}},
+            'perms': ({'perm': ('power-ups', 'strictpkg', 'user'), 'gate': 'cortex',
+                       'desc': 'a test perm'},),
+            'configvars': ({'name': 'API Key', 'varname': 'strictpkg:apikey', 'desc': 'a key',
+                            'type': 'str', 'scopes': ('global',)},),
+            'inits': {'versions': ({'name': 'first', 'version': 0, 'query': '$lib.print(hi)'},)},
+            'vaults': {'strictpkg': {'version': 0, 'schema': {'type': 'object'}}},
+            'endpoints': {'search': {'path': '/v1/search'}},
+            'graphs': ({'name': 'strictgraph', 'desc': 'a test graph', 'degrees': 2,
+                        **s_schemas.pkggraph_defaults},),
+            'modules': ({'name': 'strictpkg.mod', 'storm': '', 'interfaces': ('strictpkg.iface',)},),
+            'commands': (
+                {
+                    'name': 'strictpkg.cmd',
+                    'storm': '',
+                    'desc': 'a test command',
+                    'cmdinputs': ({'form': 'inet:fqdn', 'help': 'a fqdn'},),
+                    'cmdargs': (('--timeout', {'type': 'int', 'default': 30, 'help': 'a timeout'}),),
+                },
+            ),
+        }
+        s_schemas.reqValidPkgdef(s_msgpack.deepcopy(base, use_list=True))
+
+        # each entry names the nested object which must reject an unknown key
+        cases = (
+            ('pkgdef', lambda p: p),
+            ('build', lambda p: p['build']),
+            ('codesign', lambda p: p['metadata']['codesign']),
+            ('author', lambda p: p['author']),
+            ('logo', lambda p: p['logo']),
+            ('dependency', lambda p: p['dependencies']['synapse']),
+            ('conflict', lambda p: p['conflicts']['legacy']),
+            ('permdef', lambda p: p['perms'][0]),
+            ('configvar', lambda p: p['configvars'][0]),
+            ('inits', lambda p: p['inits']),
+            ('initdef', lambda p: p['inits']['versions'][0]),
+            ('vault', lambda p: p['vaults']['strictpkg']),
+            ('endpoint', lambda p: p['endpoints']['search']),
+            ('graph', lambda p: p['graphs'][0]),
+            ('module', lambda p: p['modules'][0]),
+            ('command', lambda p: p['commands'][0]),
+            ('cmdinput', lambda p: p['commands'][0]['cmdinputs'][0]),
+            ('cmdarg', lambda p: p['commands'][0]['cmdargs'][0][1]),
+        )
+
+        for name, getobj in cases:
+            pkgdef = s_msgpack.deepcopy(base, use_list=True)
+            getobj(pkgdef)['newp'] = 'newp'
+            with self.raises(s_exc.SchemaViolation) as cm:
+                s_schemas.reqValidPkgdef(pkgdef)
+
+            self.isin('newp', cm.exception.get('mesg'), msg=f'{name} allowed an unknown key')
+
+        # a misspelled cmdarg default is rejected rather than silently ignored
+        pkgdef = s_msgpack.deepcopy(base, use_list=True)
+        pkgdef['commands'][0]['cmdargs'][0][1].pop('default')
+        pkgdef['commands'][0]['cmdargs'][0][1]['deafult'] = 30
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidPkgdef(pkgdef)
+
+        # pkgname is derived by the Cortex and may not be author supplied
+        pkgdef = s_msgpack.deepcopy(base, use_list=True)
+        pkgdef['commands'][0]['pkgname'] = 'strictpkg'
+        with self.raises(s_exc.SchemaViolation):
+            s_schemas.reqValidPkgdef(pkgdef)
+
+        # graph identity and provenance are derived by the Cortex at load time
+        for propname in ('iden', 'scope', 'power-up', 'creator', 'permissions'):
+            pkgdef = s_msgpack.deepcopy(base, use_list=True)
+            pkgdef['graphs'][0][propname] = s_common.guid()
+            with self.raises(s_exc.SchemaViolation) as cm:
+                s_schemas.reqValidPkgdef(pkgdef)
+
+            self.isin(propname, cm.exception.get('mesg'))
+
+        # spots which are intentionally open for arbitrary key/values
+        pkgdef = s_msgpack.deepcopy(base, use_list=True)
+        pkgdef['modules'][0]['modconf'] = {'newp': 'newp'}
+        pkgdef['commands'][0]['cmdconf'] = {'newp': 'newp'}
+        pkgdef['inits']['versions'][0]['queryopts'] = {'newp': 'newp'}
+        pkgdef['vaults']['strictpkg']['schema'] = {'type': 'object', 'newp': 'newp'}
+        pkgdef['optic'] = {'newp': 'newp'}
+        s_schemas.reqValidPkgdef(pkgdef)
+
+        # the removed command forms hints are rejected. use cmdinputs instead.
+        pkgdef = s_msgpack.deepcopy(base, use_list=True)
+        pkgdef['commands'][0]['forms'] = {'input': ('inet:fqdn',)}
+        with self.raises(s_exc.SchemaViolation) as cm:
+            s_schemas.reqValidPkgdef(pkgdef)
+
+        self.isin('forms', cm.exception.get('mesg'))
+
+    async def test_stormpkg_nomutate(self):
+        '''
+        Adding a package must not modify the package definition. The stored def has
+        to stay identical to the (signed) def which was handed to us.
+        '''
+        pkgdef = {
+            'name': 'nomutate',
+            'version': '0.0.1',
+            'commands': (
+                {'name': 'nomutate.cmd', 'storm': '', 'desc': 'a test command'},
+            ),
+            'graphs': (
+                {'name': 'nomutategraph', 'desc': 'a test graph', **s_schemas.pkggraph_defaults},
+            ),
+            'modules': (
+                {'name': 'nomutate.mod', 'storm': ''},
+            ),
+        }
+
+        async with self.getTestCore() as core:
+
+            orig = s_msgpack.deepcopy(pkgdef, use_list=True)
+
+            await core.addStormPkg(pkgdef)
+
+            # the caller's dict is untouched...
+            self.eq(orig, pkgdef)
+
+            # ...and so is the def we persisted and the one we serve back out
+            self.eq(orig, core.pkgdefs.get('nomutate'))
+            self.eq(orig, await core.getStormPkg('nomutate'))
+
+            # the runtime module def gets pkgmeta on the Cortex's own copy
+            mdef = await core.getStormMod('nomutate.mod')
+            self.eq({'modname': 'nomutate.mod', 'pkgname': 'nomutate'},
+                    mdef['modconf']['pkgmeta'])
+
+            # ...which is not the def we store
+            self.notin('modconf', core.pkgdefs.get('nomutate')['modules'][0])
+
+            # a version must be a semver string; the Cortex no longer converts a
+            # tuple, since doing so meant modifying the package definition.
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg({'name': 'nomutate.vers', 'version': (0, 0, 1)})
+
+            # A package authored at runtime need not spell out the graph display
+            # options; the Cortex fills them in on its own copy and still leaves
+            # the package definition alone.
+            runtime = {
+                'name': 'nomutate.runtime',
+                'version': '0.0.1',
+                'graphs': ({'name': 'runtimegraph', 'degrees': 1},),
+            }
+            orig = s_msgpack.deepcopy(runtime, use_list=True)
+
+            await core.addStormPkg(runtime)
+
+            self.eq(orig, runtime)
+            self.eq(orig, core.pkgdefs.get('nomutate.runtime'))
+
+            gdef = await core.getStormGraph(s_common.guid(('nomutate.runtime', 'runtimegraph')))
+            self.eq(1, gdef['degrees'])
+            for propname, propvalu in s_schemas.pkggraph_defaults.items():
+                self.eq(propvalu, gdef[propname])
+
+            # the derived graph identity still lands in pkggraphs
+            iden = s_common.guid(('nomutate', 'nomutategraph'))
+            gdef = await core.getStormGraph(iden)
+            self.eq(gdef['iden'], iden)
+            self.eq(gdef['scope'], 'power-up')
+            self.eq(gdef['power-up'], 'nomutate')
+
+            # a power-up graph may still be read but not modified
+            visi = await core.auth.addUser('visi')
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.graph.mod($iden, ({"name": "newp"}))',
+                                 opts={'user': visi.iden, 'vars': {'iden': iden}})
+
+            # the syn:cmd runt node still reports the providing package
+            self.len(1, await core.nodes('syn:cmd=nomutate.cmd +:package=nomutate'))
+
+            # ...and a standalone command has no package
+            await core.setStormCmd({'name': 'standalone.cmd', 'storm': ''})
+            self.len(1, await core.nodes('syn:cmd=standalone.cmd -:package'))
+
+            # dropping the package removes the derived graph
+            await core.delStormPkg('nomutate')
+            self.none(core.pkggraphs.get(iden))
 
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
@@ -7535,9 +7865,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(email[1]['tags'].get('foo'))
                 self.nn(email[1]['tags'].get('foo.bar'))
                 self.len(2, email[1]['tagprops'])
-                self.eq(email[1]['tagprops'], {'foo.bar': {'_user': 'vertex'}, 'visi.woot': {'_rank': 43}})
+                self.eq(email[1]['tagprops'], {'foo.bar': {'_user': ('vertex', {})}, 'visi.woot': {'_rank': (43, {})}})
                 self.len(2, news[1]['tagprops'])
-                self.eq(news[1]['tagprops'], {'visi': {'_file': '/foo/bar/baz'}, 'visi.woot': {'_rank': 1}})
+                self.eq(news[1]['tagprops'], {'visi': {'_file': ('/foo/bar/baz', {})}, 'visi.woot': {'_rank': (1, {})}})
                 self.len(1, news[1]['edges'])
                 self.eq(news[1]['edges'][0], ('refs', ('inet:email', 'visi@vertex.link')))
 
@@ -7623,6 +7953,100 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('err', retval['status'])
                 self.eq('BadTypeValu', retval['code'])
 
+            # collecting the edges between the exported nodes must scale with the
+            # number of exported nodes rather than the number of possible pairs.
+            await core.nodes('for $i in $lib.range(200) { [ inet:fqdn=`{$i}.newp.com` ] }')
+
+            origedges = s_view.View.iterNodeEdgesN1
+            orighas = s_view.View.hasNodeEdge
+            origverbs = s_view.View.getNodeEdgeVerbsN1
+
+            walks = 0
+            probes = 0
+            verbscans = 0
+
+            async def countedges(self, *args, **kwargs):
+                nonlocal walks
+                walks += 1
+                async for item in origedges(self, *args, **kwargs):
+                    yield item
+
+            async def counthas(self, *args, **kwargs):
+                nonlocal probes
+                probes += 1
+                return await orighas(self, *args, **kwargs)
+
+            async def countverbs(self, *args, **kwargs):
+                nonlocal verbscans
+                verbscans += 1
+                return await origverbs(self, *args, **kwargs)
+
+            # the strategy is chosen by comparing the out-edge count of the node to
+            # the limit, so faking the count is how we force each strategy without
+            # having to create a node with thousands of edges.
+            async def exportcount(query, edgecount=None, opts=None):
+                nonlocal walks, probes, verbscans
+                walks = 0
+                probes = 0
+                verbscans = 0
+
+                with contextlib.ExitStack() as stack:
+
+                    stack.enter_context(mock.patch.object(s_view.View, 'iterNodeEdgesN1', countedges))
+                    stack.enter_context(mock.patch.object(s_view.View, 'hasNodeEdge', counthas))
+                    stack.enter_context(mock.patch.object(s_view.View, 'getNodeEdgeVerbsN1', countverbs))
+
+                    if edgecount is not None:
+                        getcount = lambda self, nid: edgecount
+                        stack.enter_context(mock.patch.object(s_view.View, 'getEdgeCount', getcount))
+
+                    return await alist(core.exportStorm(query, opts=opts))
+
+            podes = await exportcount('inet:fqdn | limit 50')
+            base = walks
+
+            # an ordinary export walks each node once and never probes by pair.
+            self.eq(0, probes)
+            self.eq(len(podes) - 1, base)
+
+            # exporting 4x the nodes costs about 4x the edge lifts, where a
+            # quadratic implementation would cost 16x.
+            podes = await exportcount('inet:fqdn')
+            self.eq(0, probes)
+            self.lt(walks, base * 8)
+
+            # a node with more edges than the limit is probed against each of the
+            # exported nodes rather than walked. doc:report has one verb, so it
+            # costs one probe per exported node, while inet:email has no verbs at
+            # all and costs none.
+            podes = await exportcount('doc:report inet:email', edgecount=1000000)
+            self.eq(2, probes)
+            self.eq(0, walks)
+
+            # the verbs of a probed node are enumerated once, not once per target
+            self.eq(2, verbscans)
+
+            # give the report a second verb and a second exported target so that
+            # the natural edge ordering differs between the two strategies: the
+            # walk yields verb major and the probe yields target major.
+            await core.callStorm('$lib.model.ext.addEdge(*, _seen, *, ({}))')
+            await core.nodes('doc:report [ +(_seen)> { inet:email=visi@vertex.link } ]')
+
+            query = 'doc:report inet:email inet:fqdn=hehe.com'
+
+            probepodes = await exportcount(query, edgecount=1000000)
+            walkpodes = await exportcount(query, edgecount=0)
+            self.eq(0, probes)
+
+            report = [p for p in walkpodes[1:] if p[0][0] == 'doc:report'][0]
+            self.len(3, report[1]['edges'])
+
+            # both strategies must produce byte identical exports.
+            for pode in (probepodes[0], walkpodes[0]):
+                pode.pop('created')
+
+            self.eq(s_msgpack.en(probepodes), s_msgpack.en(walkpodes))
+
             async def boom(*args, **kwargs):
                 for x in (): yield x
                 raise s_exc.BadArg()
@@ -7648,6 +8072,61 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadDataValu) as cm:
                     await proxy.callStorm('$lib.feed.fromAxon($sha256)', opts=opts)
                 self.isin('Invalid syn.nodes data.', cm.exception.get('mesg'))
+
+    async def test_cortex_export_envelope_roundtrip(self):
+        '''
+        A packed node survives export and re-import unchanged.
+
+        Node.pack() is both the display format and the interchange format, so
+        this covers every envelope shape the packer emits at once: the export
+        has to carry enough for _addNodeDef() to rebuild the same node.
+        '''
+        async with self.getTestCore() as core0:
+
+            await core0.addTagProp('_score', ('int', {}), {})
+
+            q = '''[
+                test:str=roundtrip
+                    :tick=(12345)
+                    :bar={[ test:int=7 ]}
+                    :seen=(2020, 2021)
+                    :polyarry={[ test:str=foo test:int=5 ]}
+                    +#hehe
+                    +#haha=(2016, 2019)
+                    +#haha:_score=42
+            ]'''
+            nodes = await core0.nodes(q)
+            self.len(1, nodes)
+
+            podes = [pode async for pode in core0.exportStorm('test:str=roundtrip')]
+
+            # the metadata header, then the node itself
+            self.eq(2, len(podes))
+            self.eq(1, podes[0]['vers'])
+
+            async with self.getTestCore() as core1:
+
+                await core1.addTagProp('_score', ('int', {}), {})
+                await core1.addFeedData(podes[1:])
+
+                nodes1 = await core1.nodes('test:str=roundtrip')
+                self.len(1, nodes1)
+
+                # full structural equality rather than spot checks, so a type
+                # name lost anywhere in the envelope fails here.
+                pack0 = nodes[0].pack(dorepr=True, virts=True)
+                pack1 = nodes1[0].pack(dorepr=True, virts=True)
+
+                self.eq(pack0[0], pack1[0])
+                self.eq(pack0[1]['props'], pack1[1]['props'])
+                self.eq(pack0[1]['tags'], pack1[1]['tags'])
+                self.eq(pack0[1]['tagprops'], pack1[1]['tagprops'])
+
+                # round trip equality alone would be satisfied by a repr which
+                # is wrong on both sides, so pin the tag envelope repr itself.
+                self.eq(pack0[1]['tags']['haha'][1]['r'],
+                        '2016-01-01T00:00:00Z - 2019-01-01T00:00:00Z')
+                self.none(pack0[1]['tags']['hehe'][1].get('r'))
 
     async def test_cortex_export_toaxon(self):
         async with self.getTestCluster() as clus:
@@ -8129,9 +8608,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_vault_type_schemas(self):
         '''
-        A vault type's single JSON schema (applied to the whole vault) validates
-        vaults of that type, registered either from a storm package "vaults"
-        field or via the generic addVaultType() API. Versions are append-only.
+        A vault type's JSON schema describes the configs and secrets sections and
+        is merged into the base vault schema to validate vaults of that type. It is
+        registered either from a storm package "vaults" field or via the generic
+        addVaultType() API. Versions are append-only.
         '''
         def _schema(configs, secrets=None):
             props = {'configs': configs}
@@ -8168,7 +8648,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pkgvtype = 'synapse-test:pkg'
             pkgdef = {
                 'name': 'synapse-test-vaults',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'vaults': {pkgvtype: {'version': 1, 'schema': copy.deepcopy(schema)}},
             }
             await core.addStormPkg(pkgdef)
@@ -8222,6 +8702,28 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # a version below the latest is rejected
             await self.asyncraises(s_exc.BadArg, core.addVaultType({'name': genvtype, 'version': 0, 'schema': schema}))
+
+            # a type schema may only describe the configs and secrets sections. The
+            # rest of a vault def is owned by the base vault schema, so declaring a
+            # base field (or anything else) is rejected at registration rather than
+            # being silently dropped by the merge.
+            for badprops in ({'scope': {'type': 'string'}},
+                             {'configs': {'type': 'object'}, 'bogus': {'type': 'object'}}):
+                badsch = {'type': 'object', 'properties': badprops}
+                with self.raises(s_exc.BadArg) as cm:
+                    await core.addVaultType({'name': 'synapse-test:bad', 'version': 1, 'schema': badsch})
+                self.isin('may only declare configs, secrets', cm.exception.get('mesg'))
+
+            # ...and the same check gates the package registration path
+            badpkg = {
+                'name': 'synapse-test-badvaults',
+                'version': '0.0.1',
+                'vaults': {'synapse-test:badpkg': {'version': 1, 'schema': {
+                    'type': 'object', 'properties': {'iden': {'type': 'string'}}}}},
+            }
+            with self.raises(s_exc.BadArg) as cm:
+                await core.addStormPkg(badpkg)
+            self.isin('may only declare configs, secrets', cm.exception.get('mesg'))
 
             # a version is append-only: the new version becomes latest, the old
             # one is retained, and existing vaults stay at their own version
@@ -8332,14 +8834,38 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.addVaultType({'name': 'noschema', 'version': 1})
             self.nn(await core.addVault(_vdef('ns', 'noschema', {'anything': 1}, {'s': 2})))
 
-            # the schema restricts only what it declares; it can also constrain
-            # the vault name (secrets here are left unvalidated)
-            named = _schema(confsch)
-            named['properties']['name'] = {'type': 'string', 'pattern': '^good:'}
-            await core.addVaultType({'name': 'named', 'version': 1, 'schema': named})
-            self.nn(await core.addVault(_vdef('good:one', 'named', {'host': 'h'}, {'anything': 'ok'})))
+            # the schema restricts only the sections it declares: this one names
+            # configs but not secrets, so secrets are left unvalidated
+            cfgonly = _schema(confsch)
+            await core.addVaultType({'name': 'cfgonly', 'version': 1, 'schema': cfgonly})
+            self.nn(await core.addVault(_vdef('cfg:one', 'cfgonly', {'host': 'h'}, {'anything': 'ok'})))
             await self.asyncraises(s_exc.SchemaViolation,
-                                   core.addVault(_vdef('bad:one', 'named', {'host': 'h'}, {})))
+                                   core.addVault(_vdef('cfg:two', 'cfgonly', {'nope': 'h'}, {})))
+
+            # a section may use $ref, so the type schema's definitions are carried
+            # into the merged schema. Both draft-07 "definitions" and the later
+            # "$defs" spelling resolve.
+            srvsch = {
+                'type': 'object',
+                'properties': {'host': {'type': 'string'}},
+                'required': ['host'],
+                'additionalProperties': False,
+            }
+            for indx, defkey in enumerate(('definitions', '$defs')):
+                refsch = _schema({
+                    'type': 'object',
+                    'properties': {'primary': {'$ref': f'#/{defkey}/server'}},
+                    'additionalProperties': False,
+                })
+                refsch[defkey] = {'server': copy.deepcopy(srvsch)}
+
+                vtname = f'refs{indx}'
+                await core.addVaultType({'name': vtname, 'version': 1, 'schema': refsch})
+                self.nn(await core.addVault(_vdef(f'ref:{indx}', vtname, {'primary': {'host': 'h'}}, {})))
+
+                # the $ref really is enforced rather than silently skipped
+                with self.raises(s_exc.SchemaViolation):
+                    await core.addVault(_vdef(f'bad:{indx}', vtname, {'primary': {'nope': 1}}, {}))
 
             # a type with live instances cannot be deleted; the stamp must
             # always resolve to a registered type
@@ -8370,7 +8896,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(1, core.getVaultType(pkgvtype)['version'])
 
             # a package vault type must declare a version (no silent default)
-            noverpkg = {'name': 'synapse-test-nover', 'version': (0, 0, 1),
+            noverpkg = {'name': 'synapse-test-nover', 'version': '0.0.1',
                         'vaults': {'synapse-test:nover': {'schema': copy.deepcopy(schema)}}}
             await self.asyncraises(s_exc.SchemaViolation, core.addStormPkg(noverpkg))
             self.none(core.getVaultType('synapse-test:nover'))
@@ -8381,6 +8907,23 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.addVaultType({'name': 'persist:me', 'version': 3, 'schema': schema})
             async with self.getTestCore(dirn=dirn) as core:
                 self.eq(3, core.getVaultType('persist:me')['version'])
+
+        # a package carrying a vaults field reloads on boot: the startup pkg load
+        # re-checks the declared types against the registered ones, so the vault
+        # types must already be initialized by then
+        pkgdef = {
+            'name': 'synapse-test-vaults',
+            'version': '0.0.1',
+            'vaults': {pkgvtype: {'version': 1, 'schema': copy.deepcopy(schema)}},
+        }
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                await core.addStormPkg(pkgdef)
+                self.eq(1, core.getVaultType(pkgvtype)['version'])
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.nn(core.stormpkgs.get('synapse-test-vaults'))
+                self.eq(1, core.getVaultType(pkgvtype)['version'])
 
     async def test_cortex_vault_type_migration(self):
         '''
@@ -8446,7 +8989,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # a migration callback may import a loaded package's storm module
             pkgdef = {
                 'name': 'synapse-test-mig',
-                'version': (0, 0, 1),
+                'version': '0.0.1',
                 'modules': ({'name': 'synapse-test-mig.util',
                              'storm': 'function addreg(configs) { $configs.region = "eu" return($configs) }'},),
             }
@@ -8465,7 +9008,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # package (and its module) load, so the import resolves
             util = 'function addreg(configs) { $configs.region = "eu" return($configs) }'
             pvtype = 'synapse-test:pkgvault'
-            pkg1 = {'name': 'synapse-test-pkgvault', 'version': (0, 0, 1),
+            pkg1 = {'name': 'synapse-test-pkgvault', 'version': '0.0.1',
                     'modules': ({'name': 'synapse-test-pkgvault.util', 'storm': util},),
                     'vaults': {pvtype: {'version': 1, 'schema': _schema(c1)}}}
             await core.addStormPkg(pkg1)
@@ -8473,7 +9016,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(1, core.getVault(piden)['type:version'])
 
             pmigr = '$vault.configs = $lib.import("synapse-test-pkgvault.util").addreg($vault.configs) $lib.vault.update($vault)'
-            pkg2 = dict(pkg1, version=(0, 0, 2),
+            pkg2 = dict(pkg1, version='0.0.2',
                         vaults={pvtype: {'version': 2, 'schema': _schema(c2), 'migration': pmigr}})
             await core.addStormPkg(pkg2)
             await core._migrateVaultType(pvtype)
@@ -8525,7 +9068,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # a package re-declaring an already-registered type at a lower/equal
             # version is skipped (the type stays at its current version)
-            await core.addStormPkg({'name': 'redecl', 'version': (0, 0, 1),
+            await core.addStormPkg({'name': 'redecl', 'version': '0.0.1',
                                     'vaults': {'dbt': {'version': 1, 'schema': schema}}})
             self.eq(2, core.getVaultType('dbt')['version'])
 
@@ -9224,7 +9767,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn, conf=safemode) as core:
                 pkgdef = {
                     'name': 'foopkg',
-                    'version': (0, 0, 1),
+                    'version': '0.0.1',
                     'onload': '$lib.import(foo.setup).onload()',
                     'modules': (
                         {
@@ -9530,51 +10073,3 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.nn(core.model.forms.get('inet:asn'))
 
                 await stream.expect('ext prop (noexist:form:_test:extprop) error')
-
-    async def test_cortex_model_persist_ignore(self):
-        '''
-        SYNDEV_CORTEX_MODEL_PERSIST_IGNORE lets a cortex boot past an incompatible
-        persisted model snapshot by ignoring it and loading the code-derived model.
-        '''
-        # On a fresh cortex (nothing persisted yet at _loadModels time) the flag is a
-        # no-op and must not log the warning.
-        with self.getLoggerStream('synapse.cortex') as stream:
-            with self.setTstEnvars(SYNDEV_CORTEX_MODEL_PERSIST_IGNORE='true'):
-                async with self.getTestCore() as core:
-                    self.nn(core.model.forms.get('inet:asn'))
-
-            stream.seek(0)
-            self.notin('SYNDEV_CORTEX_MODEL_PERSIST_IGNORE set', stream.read())
-
-        with self.getTestDir() as dirn:
-
-            async with self.getTestCore(dirn=dirn) as core:
-                expected_hash = core._mainlinehash
-
-                # Persist a snapshot that hashes differently and is incompatible with
-                # the code: a type whose base type does not exist makes addModelDefs raise.
-                good_mdefs = list(core.cellinfo.get('cortex:model'))
-                bad_mdefs = good_mdefs + [{'types': (('_test:bogus', ('noexist:basetype', {}), {}),)}]
-                core.cellinfo.set('cortex:model', bad_mdefs)
-
-            # Without the flag, loading the persisted snapshot wedges boot.
-            with self.raises(s_exc.NoSuchType):
-                async with self.getTestCore(dirn=dirn): pass
-
-            # With the flag, the snapshot is ignored and the code model is loaded.
-            with self.getLoggerStream('synapse.cortex') as stream:
-                with self.setTstEnvars(SYNDEV_CORTEX_MODEL_PERSIST_IGNORE='true'):
-                    async with self.getTestCore(dirn=dirn) as core:
-                        self.eq(core._loadedhash, core._mainlinehash)
-                        self.nn(core.model.forms.get('inet:asn'))
-
-                        # Becoming leader re-persists the current code model via model:set.
-                        stored_hash = s_common.guid(s_common.flatten(core.cellinfo.get('cortex:model')))
-                        self.eq(stored_hash, expected_hash)
-
-                await stream.expect('SYNDEV_CORTEX_MODEL_PERSIST_IGNORE set')
-
-            # The snapshot was repaired, so a subsequent boot without the flag is clean.
-            async with self.getTestCore(dirn=dirn) as core:
-                self.eq(core._loadedhash, core._mainlinehash)
-                self.nn(core.model.forms.get('inet:asn'))

@@ -1,96 +1,57 @@
-import io
 import os
-import sys
-import json
-import unittest.mock as mock
+import shutil
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
+
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.storm.pkg.doc as s_t_gendocs
-import synapse.tools.storm.pkg._pandoc_filter as s_t_pandoc_filter
 
 class TestPkgBuildDocs(s_t_utils.SynTest):
 
-    def setUp(self):
-        if not s_t_gendocs.hasPandoc():
-            self.skip('pandoc is not available')
-        super().setUp()
-
     async def test_storm_pkg_doc_base(self):
-
-        with self.setTstEnvars(SYN_DOCS_BASEURL=None), self.getTestDir(mirror='testpkg_build_docs') as dirn:
+        # testpkg_build_docs/docs/ mirrors the shape a real package uses:
+        # index.md (mdtoc), a plain page, a nested subdirectory with a
+        # non-.md asset (proves verbatim copy), a mocks/ cassette (proves
+        # it is never staged/published), and the existing
+        # mdautodoc --stormpkg page.
+        with self.getTestDir(mirror='testpkg_build_docs') as dirn:
             testpkgfp = os.path.join(dirn, 'testpkg.yaml')
             self.true(os.path.isfile(testpkgfp))
+
             argv = [testpkgfp, ]
             r = await s_t_gendocs.main(argv)
             self.eq(r, 0)
 
-            pkgdef = s_common.yamlload(testpkgfp)
-            efiles = set()
-            for dnfo in pkgdef.get('docs'):
-                bname = os.path.basename(dnfo.get('path'))
-                efiles.add(bname)
-                efiles.add(bname.rsplit('.', 1)[0] + '.rst')
-            builddir = os.path.join(dirn, 'docs', '_build')
-            self.eq(efiles, set(os.listdir(builddir)))
+            outdir = os.path.join(dirn, 'files', 'docs')
 
-            text = s_common.getbytes(os.path.join(builddir, 'bar.md')).decode()
-            self.isin('storm> [inet:asn=1]', text)
-            self.isin('inet:asn=1\n', text)
-            self.notin(':orphan:', text)
-            self.notin(':tocdepth:', text)
-            # Token is substituted with the default base URL.
-            self.isin('https://docs.vertex.link/docs/synapse/latest/index.html', text)
-            self.notin('{{SYN_DOCS_BASEURL}}', text)
+            for relpath in ('index.md', 'userguide.md', 'stormpackage.md',
+                             os.path.join('sub', 'nested.md'), os.path.join('sub', 'image.svg')):
+                self.true(os.path.isfile(os.path.join(outdir, relpath)), msg=relpath)
 
-            text = s_common.getbytes(os.path.join(builddir, 'stormpackage.md')).decode()
-            self.isin(':   baz (str): The baz.', text)
-            self.isin(':   Baz the bam:\n\n        yield $lib.import(apimod).search(bam)', text)
+            # mocks/ is a build input only -- never staged, never published
+            self.false(os.path.isdir(os.path.join(outdir, 'mocks')))
 
-            # Verify the rst -> md table conversion: every RST table in the
-            # source comes through as a markdown pipe table whose cells
-            # preserve code spans, bold runs, escaped literal pipes, and
-            # anonymous hyperlinks. ``[Foo](#foo)\[\]`` is pandoc's escape
-            # for ``[]`` immediately after a link (otherwise a markdown
-            # parser could treat ``[Foo][]`` as a shortcut reference).
-            text = s_common.getbytes(os.path.join(builddir, 'tables.md')).decode()
-            self.isin('| `name`', text)
-            self.isin('`a` \\| `b` \\| `c`', text)
-            self.isin('[Foo](#foo)', text)
-            self.isin('[Foo](#foo)\\[\\]', text)
-            self.isin('| **-**', text)
-            # No grid-table or multiline-table separators should leak into
-            # the markdown output.
-            self.notin('+----', text)
-            self.notin('====+', text)
+            with open(os.path.join(outdir, 'stormpackage.md')) as fd:
+                self.isin('# Storm Package: testpkg', fd.read())
 
+            with open(os.path.join(outdir, 'userguide.md')) as fd:
+                self.isin('<ANSI STANDARD PIZZA>', fd.read())
+
+            metadata = s_json.jsload(outdir, 'metadata.json')
+            # category is derived at manifest-delivery time (the Hub /
+            # vtxtools.docsmanifest), never written into a package's own
+            # built bundle
+            self.notin('category', metadata)
+            hrefs = {e['href'] for e in metadata['toc']}
+            self.eq({'userguide.md', os.path.join('sub', 'nested.md').replace(os.sep, '/'), 'stormpackage.md'},
+                     hrefs)
+
+    async def test_storm_pkg_doc_missing_pkg(self):
         with self.getTestDir(mirror='testpkg_build_docs') as dirn:
-            testpkgfp = os.path.join(dirn, 'testpkg.yaml')
-            self.true(os.path.isfile(testpkgfp))
-            argv = [testpkgfp, '--rst-only']
-            r = await s_t_gendocs.main(argv)
-            self.eq(r, 0)
-
-            pkgdef = s_common.yamlload(testpkgfp)
-            efiles = set()
-            for dnfo in pkgdef.get('docs'):
-                bname = os.path.basename(dnfo.get('path'))
-                efiles.add(bname)
-                efiles.add(bname.rsplit('.', 1)[0] + '.rst')
-            builddir = os.path.join(dirn, 'docs', '_build')
-            self.eq(efiles, set(os.listdir(builddir)))
-
-            text = s_common.getbytes(os.path.join(builddir, 'bar.md')).decode()
-            self.eq('', text)
-            text = s_common.getbytes(os.path.join(builddir, 'stormpackage.md')).decode()
-            self.eq('', text)
-
-        with self.getTestDir(mirror='testpkg_build_docs') as dirn:
-
-            # Missing input files
             testpkgfp = os.path.join(dirn, 'newp.yaml')
             self.false(os.path.isfile(testpkgfp))
             argv = [testpkgfp, ]
@@ -98,70 +59,140 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
                 await s_t_gendocs.main(argv)
             self.isin('Package does not exist or does not contain yaml', cm.exception.get('mesg'))
 
-            # pandoc api version check coverage
-            old_stdin = sys.stdin
-            try:
-                sys.stdin = io.StringIO(json.dumps({'pandoc-api-version': [2, 0, 0]}))
-                with self.raises(Exception) as cm:
-                    s_t_pandoc_filter.main()
-                self.isin('does not match required version', str(cm.exception))
-            finally:
-                sys.stdin = old_stdin
+    async def test_storm_pkg_doc_missing_docsdir(self):
+        # documentation is optional -- a package which ships no docs directory
+        # builds nothing rather than failing, so synapse.tools.storm.pkg.publish
+        # can build docs unconditionally on the way out
+        with self.getTestDir(mirror='testpkg_build_docs') as dirn:
+            shutil.rmtree(os.path.join(dirn, 'docs'))
+            testpkgfp = os.path.join(dirn, 'testpkg.yaml')
 
-            # pandoc failure
-            outp = self.getTestOutp()
-            oldv = s_t_gendocs.PANDOC_FILTER
-            try:
-                s_t_gendocs.PANDOC_FILTER = os.path.join(dirn, 'newp.py')
-                with self.raises(s_exc.SynErr) as cm:
-                    await s_t_gendocs.main([os.path.join(dirn, 'testpkg.yaml'),], outp=outp)
-                self.isin('Error converting', cm.exception.get('mesg'))
-                outp.expect('ERR: Error running filter')
-            finally:
-                s_t_gendocs.PANDOC_FILTER = oldv
+            self.none(await s_t_gendocs.buildPkgDocs(testpkgfp))
+            self.eq(0, await s_t_gendocs.main([testpkgfp, ]))
 
-            # Pandoc is missing
-            def nopandoc(*args, **kwargs):
-                return 1
+            # nothing was built, and no staging dir was left behind
+            self.false(os.path.isdir(os.path.join(dirn, 'files')))
+            self.eq([], [n for n in os.listdir(dirn) if n.startswith('.docsbuild-')])
 
-            with mock.patch('os.system', new=nopandoc):
-                argv = [testpkgfp, ]
-                self.eq(1, await s_t_gendocs.main(argv))
-
-    async def test_storm_pkg_doc_stormpkg_rst_stale(self):
-        # A pre-existing docs/stormpackage.rst (left over from a prior build
-        # with longer content, e.g. a wider endpoint table) must not leak
-        # trailing bytes into the freshly generated file.
+    async def test_storm_pkg_doc_save_override(self):
         with self.getTestDir(mirror='testpkg_build_docs') as dirn:
             testpkgfp = os.path.join(dirn, 'testpkg.yaml')
-            docsdir = os.path.join(dirn, 'docs')
+            savedir = os.path.join(dirn, 'altbuild')
 
-            stale = b'X' * 10000
-            with s_common.genfile(docsdir, 'stormpackage.rst') as fd:
-                fd.write(stale)
+            self.eq(0, await s_t_gendocs.main([testpkgfp, '--save', savedir]))
 
-            argv = [testpkgfp, ]
-            r = await s_t_gendocs.main(argv)
-            self.eq(r, 0)
+            self.true(os.path.isfile(os.path.join(savedir, 'metadata.json')))
+            # the default files/docs location is untouched when --save overrides it
+            self.false(os.path.isdir(os.path.join(dirn, 'files')))
 
-            text = s_common.getbytes(os.path.join(docsdir, 'stormpackage.rst')).decode()
-            self.notin('X' * 100, text)
-
-            builddir = os.path.join(dirn, 'docs', '_build')
-            text = s_common.getbytes(os.path.join(builddir, 'stormpackage.md')).decode()
-            self.notin('X' * 100, text)
-
-    async def test_storm_pkg_doc_baseurl(self):
-        # Build with SYN_DOCS_BASEURL overridden to verify the token is replaced.
+    async def test_storm_pkg_doc_merges_static_content(self):
         with self.getTestDir(mirror='testpkg_build_docs') as dirn:
             testpkgfp = os.path.join(dirn, 'testpkg.yaml')
-            argv = [testpkgfp, ]
-            with self.setTstEnvars(SYN_DOCS_BASEURL='https://example.com'):
-                r = await s_t_gendocs.main(argv)
-            self.eq(r, 0)
+            outdir = os.path.join(dirn, 'files', 'docs')
 
-            builddir = os.path.join(dirn, 'docs', '_build')
-            text = s_common.getbytes(os.path.join(builddir, 'bar.md')).decode()
-            self.isin('https://example.com/docs/synapse/latest/index.html', text)
-            self.notin('https://docs.vertex.link', text)
-            self.notin('{{SYN_DOCS_BASEURL}}', text)
+            # simulate a previously-committed static page living in
+            # files/docs that is no longer authored under docs/ at all
+            # (e.g. changelog.md, git mv'd out of docs/ per the
+            # docs/-vs-files/docs split).
+            s_common.gendir(outdir)
+            with open(os.path.join(outdir, 'changelog.md'), 'w') as fd:
+                fd.write('# Changelog\n\nInitial release.\n')
+
+            self.eq(0, await s_t_gendocs.main([testpkgfp, ]))
+
+            # the static file survived the rebuild -- merge, not replace
+            with open(os.path.join(outdir, 'changelog.md')) as fd:
+                self.isin('Initial release.', fd.read())
+
+            # the build's own output still landed correctly
+            self.true(os.path.isfile(os.path.join(outdir, 'userguide.md')))
+            self.true(os.path.isfile(os.path.join(outdir, 'stormpackage.md')))
+            self.true(os.path.isfile(os.path.join(outdir, 'metadata.json')))
+
+    async def test_storm_pkg_doc_save_override_falls_back_to_real_files_docs(self):
+        with self.getTestDir(mirror='testpkg_build_docs') as dirn:
+            testpkgfp = os.path.join(dirn, 'testpkg.yaml')
+
+            # seed the REAL files/docs with a static changelog.md, as if a
+            # prior migration had already git mv'd it out of docs/
+            realoutdir = os.path.join(dirn, 'files', 'docs')
+            s_common.gendir(realoutdir)
+            with open(os.path.join(realoutdir, 'changelog.md'), 'w') as fd:
+                fd.write('# Changelog\n\nInitial release.\n')
+
+            # wire index.md's mdtoc to reference it, like a real
+            # post-migration bundle would
+            indexfp = os.path.join(dirn, 'docs', 'index.md')
+            with open(indexfp, 'w') as fd:
+                fd.write('# testpkg\n\n```mdtoc\nuserguide.md\nsub/nested.md\nstormpackage.md\nchangelog.md\n```\n')
+
+            savedir = os.path.join(dirn, 'altbuild')
+            argv = [testpkgfp, '--save', savedir]
+            self.eq(0, await s_t_gendocs.main(argv))
+
+            # changelog.md's title resolved via the real files/docs, even
+            # though this build's own output went to savedir instead
+            metadata = s_json.jsload(savedir, 'metadata.json')
+            hrefs = {e['href']: e['title'] for e in metadata['toc']}
+            self.eq('Changelog', hrefs['changelog.md'])
+
+            # changelog.md was never copied into savedir -- staticdir is
+            # read-only fallback, and always the package's real
+            # files/docs, independent of --save
+            self.false(os.path.isfile(os.path.join(savedir, 'changelog.md')))
+
+    async def test_storm_pkg_doc_stale_output_preserved(self):
+        # With merge semantics, files in outdir that aren't part of the
+        # staged build are preserved (not removed). This allows static
+        # content (changelog.md, images, etc.) to persist across builds.
+        # Stale pages must be manually `git rm`'d alongside source deletion.
+        with self.getTestDir(mirror='testpkg_build_docs') as dirn:
+            testpkgfp = os.path.join(dirn, 'testpkg.yaml')
+            outdir = os.path.join(dirn, 'files', 'docs')
+            stalefp = os.path.join(outdir, 'stale.txt')
+            with s_common.genfile(stalefp) as fd:
+                fd.write(b'stale')
+
+            self.eq(0, await s_t_gendocs.main([testpkgfp, ]))
+
+            # the static file survived the rebuild -- merge, not replace
+            self.true(os.path.isfile(stalefp))
+
+    async def test_storm_pkg_doc_ci_flag_writes_warn_file(self):
+        with self.getTestDir(mirror='testpkg_build_docs_no_h1') as dirn:
+            testpkgfp = os.path.join(dirn, 'testpkg.yaml')
+            warnfp = os.path.join(dirn, 'docbuild.warn')
+
+            self.eq(0, await s_t_gendocs.main([testpkgfp, '--ci', '--warnfile', warnfp]))
+
+            with open(warnfp) as fd:
+                warntext = fd.read()
+            self.isin('no H1 heading in noh1.md', warntext)
+
+            # docbuild.warn is build-time-only -- it must never be merged
+            # into the committed bundle alongside the pages it built.
+            outdir = os.path.join(dirn, 'files', 'docs')
+            self.false(os.path.isfile(os.path.join(outdir, 'docbuild.warn')))
+
+    async def test_storm_pkg_doc_ci_flag_no_warnfile_drops_issues(self):
+        # --ci without --warnfile still builds (never raises) -- the
+        # issues are simply not persisted anywhere, same as a caller that
+        # doesn't care to collect them.
+        with self.getTestDir(mirror='testpkg_build_docs_no_h1') as dirn:
+            testpkgfp = os.path.join(dirn, 'testpkg.yaml')
+
+            self.eq(0, await s_t_gendocs.main([testpkgfp, '--ci']))
+
+            outdir = os.path.join(dirn, 'files', 'docs')
+            self.false(os.path.isfile(os.path.join(outdir, 'docbuild.warn')))
+
+    async def test_storm_pkg_doc_no_h1_raises(self):
+        # SYN-11304: a doc's title (and metadata.json entry) is discovered
+        # from its first H1 heading; a page with none fails the build.
+        with self.getTestDir(mirror='testpkg_build_docs_no_h1') as dirn:
+            testpkgfp = os.path.join(dirn, 'testpkg.yaml')
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_t_gendocs.main([testpkgfp, ])
+            issues = cm.exception.get('issues')
+            self.true(any('no H1 heading in noh1.md' in i for i in issues))

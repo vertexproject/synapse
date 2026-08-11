@@ -2359,6 +2359,7 @@ A file entry contained by an archive file.
 | Interface |
 |-----------|
 | `file:entry` |
+| `file:subfile` |
 | `meta:observable` |
 
 | Property | Type | Doc |
@@ -2878,6 +2879,7 @@ A file entry contained by a RAR archive file.
 | Interface |
 |-----------|
 | `file:entry` |
+| `file:subfile` |
 | `meta:observable` |
 
 | Property | Type | Doc |
@@ -2942,6 +2944,7 @@ A file entry contained by a ZIP archive file.
 | Interface |
 |-----------|
 | `file:entry` |
+| `file:subfile` |
 | `meta:observable` |
 
 | Property | Type | Doc |
@@ -2998,15 +3001,12 @@ A file entry contained by a parent file.
 | Interface |
 |-----------|
 | `file:entry` |
+| `file:subfile` |
 | `meta:observable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
-| `:accessed` | `time` | The last known accessed time of the file. |
-| `:added` | `time` | The time that the file entry was added. |
-| `:created` | `time` | The created time of the file. |
 | `:file` | `file:bytes` | The file associated with the subfile entry. |
-| `:modified` | `time` | The last known modified time of the file. |
 | `:offset` | `size` | The offset to the beginning of the file within the parent file. |
 | `:parent` | `file:bytes` | The parent file which contains the subfile entry. |
 | `:path` | `file:path` | The path of the file associated with the subfile entry. |
@@ -5337,6 +5337,56 @@ A snort rule.
 | `:url` | `inet:url` | The URL where the Snort rule is available. |
 | `:version` | `it:version` | The version of the Snort rule. |
 
+### `it:app:suricata:matched`
+
+An instance of a suricata rule hit.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `base:matched` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this match. |
+| `:dropped` | `bool` | Set to true if the network traffic was dropped due to the match. |
+| `:rule` | `it:app:suricata:rule` | The rule which matched the target node. |
+| `:rule:version` | `it:version` | The version of the rule which generated the match. |
+| `:sensor` | `it:host` | The sensor host node that produced the match. |
+| `:target` | `inet:flow` | The target node which matched the Suricata rule. |
+| `:time` | `time` | The time that the match occurred. |
+
+### `it:app:suricata:rule`
+
+A suricata rule.
+
+| Interface |
+|-----------|
+| `doc:authorable` |
+| `entity:creatable` |
+| `meta:observable` |
+| `meta:usable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:created` | `time` | The time that the Suricata rule was created. |
+| `:creator` | `entity:actor` | The primary actor which created the Suricata rule. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the Suricata rule. |
+| `:desc` | `text` | A description of the Suricata rule. |
+| `:enabled` | `bool` | The enabled status of the Suricata rule. |
+| `:id` | `base:id` | The Suricata rule ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the Suricata rule. |
+| `:name` | `base:name` | The rule name. |
+| `:seen` | `ival` | The Suricata rule was observed during the time interval. |
+| `:status` | `title` | The status of the rule. |
+| `:supersedes` | `array of it:app:suricata:rule` | An array of Suricata rule versions which are superseded by this Suricata rule. |
+| `:text` | `text` | The text of the Suricata rule. |
+| `:type` | `meta:rule:type:taxonomy` | The rule type. |
+| `:updated` | `time` | The time that the Suricata rule was last updated. |
+| `:url` | `inet:url` | The URL where the Suricata rule is available. |
+| `:version` | `it:version` | The version of the Suricata rule. |
+
 ### `it:app:yara:matched`
 
 An instance of a YARA rule matching a target.
@@ -5429,6 +5479,7 @@ A virtual host instance which runs within a cloud service platform.
 | `:creator` | `entity:actor` | The primary actor which created the cloud host. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the cloud host. |
 | `:desc` | `text` | A free-form description of the host. |
+| `:domain` | `inet:service:platform` | The authentication domain that the host is a member of. |
 | `:hardware` | `it:hardware` | The hardware specification of the cloud host. |
 | `:id` | `base:id` | An external identifier for the host. |
 | `:image` | `it:software:image` | The container image or OS image running on the host. |
@@ -6381,6 +6432,7 @@ A GUID that represents a host or system.
 | `:creator` | `entity:actor` | The primary actor which created the host. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the host. |
 | `:desc` | `text` | A free-form description of the host. |
+| `:domain` | `inet:service:platform` | The authentication domain that the host is a member of. |
 | `:hardware` | `it:hardware` | The hardware specification of the host. |
 | `:id` | `base:id` | An external identifier for the host. |
 | `:image` | `it:software:image` | The container image or OS image running on the host. |
@@ -6942,6 +6994,7 @@ A host which consists of dedicated physical hardware.
 | `:creator` | `entity:actor` | The primary actor which created the host. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the host. |
 | `:desc` | `text` | A free-form description of the host. |
+| `:domain` | `inet:service:platform` | The authentication domain that the host is a member of. |
 | `:hardware` | `it:hardware` | The hardware specification of the host. |
 | `:id` | `base:id` | An external identifier for the host. |
 | `:image` | `it:software:image` | The container image or OS image running on the host. |
@@ -7366,6 +7419,7 @@ A host which runs as a virtualized instance.
 | `:creator` | `entity:actor` | The primary actor which created the virtual host. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the virtual host. |
 | `:desc` | `text` | A free-form description of the host. |
+| `:domain` | `inet:service:platform` | The authentication domain that the host is a member of. |
 | `:hardware` | `it:hardware` | The hardware specification of the virtual host. |
 | `:id` | `base:id` | An external identifier for the host. |
 | `:image` | `it:software:image` | The container image or OS image running on the host. |
@@ -7915,6 +7969,7 @@ A story document authored in markdown.
 |-----------|
 | `doc:authorable` |
 | `doc:document` |
+| `doc:published` |
 | `entity:creatable` |
 
 | Property | Type | Doc |
@@ -7929,9 +7984,14 @@ A story document authored in markdown.
 | `:file:name` | `file:base` | The name of the file containing the story contents. |
 | `:id` | `base:id` | The story ID. |
 | `:ids` | `array of base:id` | An array of alternate IDs for the story. |
+| `:public` | `bool` | Set to true if the story is publicly available. |
+| `:published` | `time` | The time the story was published. |
+| `:publisher` | `entity:actor` | The entity which published the story. |
+| `:publisher:name` | `entity:name` | The name of the entity which published the story. |
 | `:status` | `title` | The status of the story. |
 | `:supersedes` | `array of meta:story` | An array of story versions which are superseded by this story. |
 | `:title` | `title` | The title of the story. |
+| `:topics` | `array of meta:topic` | The topics discussed in the story. |
 | `:type` | `meta:story:type:taxonomy` | The type of story. |
 | `:updated` | `time` | The time that the story was last updated. |
 | `:url` | `inet:url` | The URL where the story is available. |
@@ -10023,7 +10083,6 @@ A Synapse storm command.
 | `:deprecated:version` | `it:version` | The Synapse version when this command will be removed. |
 | `:doc` | `text` | Description of the command. |
 | `:package` | `str` | Storm package which provided the command. |
-| `:svciden` | `guid` | Storm service iden which provided the package. |
 
 ### `syn:deleted`
 
@@ -10043,6 +10102,7 @@ A Synapse form used for representing nodes in the graph.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:doc` | `str` | The docstring for the form. |
+| `:extmodel` | `bool` | Specifies if the form is an extended model form. |
 | `:interfaces` | `array of syn:interface` | The fully resolved set of interfaces which this form implements. |
 | `:parent` | `syn:form` | Form which this form extends. |
 | `:runt` | `bool` | Specifies if the form is runtime only. |
@@ -10095,6 +10155,7 @@ A user defined tag property.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:doc` | `str` | Description of the tagprop definition. |
+| `:extmodel` | `bool` | Specifies if the tagprop is an extended model tagprop. |
 | `:type` | `syn:type` | The synapse type for this tagprop. |
 
 ### `syn:type`
@@ -10105,6 +10166,7 @@ A Synapse type used for normalizing nodes and properties.
 |----------|------|-----|
 | `:ctor` | `str` | The python ctor path for the type object. |
 | `:doc` | `str` | The docstring for the type. |
+| `:extmodel` | `bool` | Specifies if the type is an extended model type. |
 | `:opts` | `data` | Arbitrary type options. |
 | `:parent` | `syn:type` | Type which this inherits from. |
 
@@ -11019,12 +11081,17 @@ A stop made by a vehicle on a trip.
 | `inet:fqdn` | `uses` | `meta:technique` | The source FQDN was selected or created using the target technique. |
 | `inet:net` | `has` | `inet:ip` | The IP address range contains the IP address. |
 | `inet:proto:link` | `shows` | `risk:vulnerable` | The network activity shows that the vulnerability was present. |
+| `inet:service:message` | `about` | `*` | The message is about the target node. |
 | `inet:url` | `uses` | `meta:technique` | The source URL was created using the target technique. |
 | `inet:whois:iprecord` | `has` | `inet:ip` | The IP whois record describes the IP address. |
 | `it:app:snort:rule` | `detects` | `it:software` | The snort rule detects use of the software. |
 | `it:app:snort:rule` | `detects` | `it:softwarename` | The snort rule detects the named software. |
 | `it:app:snort:rule` | `detects` | `meta:technique` | The snort rule detects use of the technique. |
 | `it:app:snort:rule` | `detects` | `risk:vuln` | The snort rule detects use of the vulnerability. |
+| `it:app:suricata:rule` | `detects` | `it:software` | The suricata rule detects use of the software. |
+| `it:app:suricata:rule` | `detects` | `it:softwarename` | The suricata rule detects the named software. |
+| `it:app:suricata:rule` | `detects` | `meta:technique` | The suricata rule detects use of the technique. |
+| `it:app:suricata:rule` | `detects` | `risk:vuln` | The suricata rule detects use of the vulnerability. |
 | `it:app:yara:rule` | `detects` | `it:software` | The YARA rule detects the software. |
 | `it:app:yara:rule` | `detects` | `it:softwarename` | The YARA rule detects the named software. |
 | `it:app:yara:rule` | `detects` | `meta:technique` | The YARA rule detects the technique. |
@@ -11155,6 +11222,7 @@ Properties which are common to matches based on rules.
 | Form |
 |------|
 | `it:app:snort:matched` |
+| `it:app:suricata:matched` |
 | `it:app:yara:matched` |
 
 ### `biz:manufactured`
@@ -11249,6 +11317,7 @@ Properties common to authorable forms.
 | `doc:requirement` |
 | `edu:course` |
 | `it:app:snort:rule` |
+| `it:app:suricata:rule` |
 | `it:app:yara:rule` |
 | `it:software` |
 | `meta:rule` |
@@ -11296,6 +11365,7 @@ Properties common to published documents.
 |------|
 | `biz:rfp` |
 | `doc:report` |
+| `meta:story` |
 
 ### `doc:signable`
 
@@ -11729,6 +11799,23 @@ Properties common to various microsoft office file formats.
 | `file:mime:msdoc` |
 | `file:mime:msppt` |
 | `file:mime:msxls` |
+
+### `file:subfile`
+
+Properties common to forms representing a file contained within another file.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:file` | `file:bytes` | The file contained within the parent file. |
+| `:offset` | `size` | The offset to the beginning of the file within the parent file. |
+| `:parent` | `file:bytes` | The parent file which contains the subfile. |
+
+| Form |
+|------|
+| `file:archive:entry` |
+| `file:mime:rar:entry` |
+| `file:mime:zip:entry` |
+| `file:subfile:entry` |
 
 ### `geo:locatable`
 
@@ -12188,7 +12275,6 @@ Properties common to forms which can be observed.
 | `file:mime:zip:entry` |
 | `file:path` |
 | `file:stored:entry` |
-| `file:subfile:entry` |
 | `file:system:entry` |
 | `inet:asn` |
 | `inet:asnet` |
@@ -12240,6 +12326,7 @@ Properties common to forms which can be observed.
 | `inet:wifi:ssid` |
 | `it:adid` |
 | `it:app:snort:rule` |
+| `it:app:suricata:rule` |
 | `it:app:yara:rule` |
 | `it:dev:str` |
 | `it:hardware` |
@@ -12472,6 +12559,7 @@ An interface implemented by forms which can be used by an actor.
 | `inet:url` |
 | `inet:urlfile` |
 | `it:app:snort:rule` |
+| `it:app:suricata:rule` |
 | `it:app:yara:rule` |
 | `it:cmd` |
 | `it:dev:str` |

@@ -14,24 +14,16 @@ class TestStormPrinter(s_t_utils.SynTest):
             {
                 'repr': 'hello',
                 'props': {
-                    '.created': 1234567890000,
-                    '_ext': 'extval',
-                    'tick': 1234567890000,
-                },
-                'reprs': {
-                    '.created': '2009/02/13 23:31:30.000',
-                    '_ext': 'extval',
-                    'tick': '2009/02/13 23:31:30.000',
+                    '.created': (1234567890000, {'t': 'time', 'r': '2009/02/13 23:31:30.000'}),
+                    '_ext': ('extval', {'t': 'str'}),
+                    'tick': (1234567890000, {'t': 'time', 'r': '2009/02/13 23:31:30.000'}),
                 },
                 'tags': {
-                    'foo': (None, None, None),
-                    'bar': (1577836800000, 1609459200000, None),
+                    'foo': ((None, None, None), {}),
+                    'bar': ((1577836800000, 1609459200000, None), {'r': '2020/01/01 - 2021/01/01'}),
                 },
                 'tagprops': {
-                    'bar': {'risk': 50},
-                },
-                'tagpropreprs': {
-                    'bar': {'risk': '50'},
+                    'bar': {'risk': (50, {'r': '50'})},
                 },
             },
         )
@@ -166,10 +158,8 @@ class TestStormPrinter(s_t_utils.SynTest):
             {
                 'repr': 'hi',
                 'props': {},
-                'reprs': {},
                 'tags': {},
                 'tagprops': {},
-                'tagpropreprs': {},
             },
         )
         self.true(printer.printMesg(('node', node)))
@@ -199,11 +189,11 @@ class TestStormPrinter(s_t_utils.SynTest):
         self.false(printer.printMesg(('err', ('SomeErr', {'mesg': 'boom'}))))
         outp.expect('ERROR: boom')
 
-        # node:edits message
+        # edits message
         outp = self.getTestOutp()
         printer = s_printer.StormPrinter(outp)
         edits = {'edits': [('iden', 'form', [('edit1',), ('edit2',)])]}
-        self.true(printer.printMesg(('node:edits', edits)))
+        self.true(printer.printMesg(('edits', edits)))
         self.isin('..', str(outp))
 
         # Unknown message type

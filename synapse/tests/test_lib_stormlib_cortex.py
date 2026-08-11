@@ -306,7 +306,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                     self.eq(resp.status, http.HTTPStatus.OK)
                     await stream.expect('Executing storm query', timeout=12)
                 msgs = stream.jsonlines()
-                self.eq(msgs[0]['params'].get('httpapi'), echoiden)
+                self.eq(msgs[0]['params']['meta'].get('httpapi'), echoiden)
                 core.stormlog = False
 
                 # Sad paths on the $request methods
@@ -729,7 +729,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
                 self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 data = await resp.json()
-                self.eq(data.get('code'), 'NotAuthenticated')
+                self.eq(data.get('code'), 'AuthDeny')
 
                 q = '$api = $lib.cortex.httpapi.get($iden) $api.authenticated=(false)'
                 msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})

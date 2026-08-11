@@ -69,3 +69,21 @@ class ExcTest(s_t_utils.SynTest):
         self.eq('woot', s_exc.reprexc(exc))
         self.eq('ValueError()', s_exc.reprexc(ValueError()))
         self.eq("ValueError('woot')", s_exc.reprexc(ValueError('woot')))
+
+    def test_getsynerrctor(self):
+        self.eq(s_exc.NoSuchForm, s_exc.getSynErrCtor('NoSuchForm'))
+        self.eq(s_exc.SynErr, s_exc.getSynErrCtor('SynErr'))
+
+        # module members which are not SynErr subclasses must not resolve
+        self.eq(s_exc.SynErr, s_exc.getSynErrCtor('sys'))
+        self.eq(s_exc.SynErr, s_exc.getSynErrCtor('_check_item'))
+        self.eq(s_exc.SynErr, s_exc.getSynErrCtor('reprexc'))
+        self.eq(s_exc.SynErr, s_exc.getSynErrCtor('NoSuchAttrHere'))
+
+        # a name which is not a string resolves to the default
+        self.eq(s_exc.SynErr, s_exc.getSynErrCtor(None))
+        self.eq(s_exc.SynErr, s_exc.getSynErrCtor(('newp',)))
+
+        self.none(s_exc.getSynErrCtor('sys', None))
+        self.none(s_exc.getSynErrCtor(None, None))
+        self.eq(s_exc.NoSuchForm, s_exc.getSynErrCtor('NoSuchForm', None))

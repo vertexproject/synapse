@@ -1,0 +1,33 @@
+<a id="userguide_tools"></a>
+
+# Tools
+
+- [aha.clone](syn_tools_aha_clone.md)
+- [aha.easycert](syn_tools_aha_easycert.md)
+- [aha.enroll](syn_tools_aha_enroll.md)
+- [aha.list](syn_tools_aha_list.md)
+- [aha.mirror](syn_tools_aha_mirror.md)
+- [aha.provision.service](syn_tools_aha_provision_service.md)
+- [aha.provision.user](syn_tools_aha_provision_user.md)
+- [axon.copy](syn_tools_axon_copy.md)
+- [axon.put](syn_tools_axon_put.md)
+- [axon.get](syn_tools_axon_get.md)
+- [axon.dump](syn_tools_axon_dump.md)
+- [axon.load](syn_tools_axon_load.md)
+- [cortex.csv](syn_tools_cortex_csv.md)
+- [cortex.feed](syn_tools_cortex_feed.md)
+- [cortex.layer.dump](syn_tools_cortex_layer_dump.md)
+- [cortex.layer.load](syn_tools_cortex_layer_load.md)
+- [service.apikey](syn_tools_service_apikey.md)
+- [service.backup](syn_tools_service_backup.md)
+- [service.demote](syn_tools_service_demote.md)
+- [service.modrole](syn_tools_service_modrole.md)
+- [service.moduser](syn_tools_service_moduser.md)
+- [service.promote](syn_tools_service_promote.md)
+- [service.shutdown](syn_tools_service_shutdown.md)
+- [service.snapshot](syn_tools_service_snapshot.md)
+- [storm](syn_tools_storm.md)
+- [storm.pkg.gen](syn_tools_storm_pkg_gen.md)
+- [storm.pkg.doc](syn_tools_storm_pkg_docs.md)
+- [utils.easycert](syn_tools_utils_easycert.md)
+

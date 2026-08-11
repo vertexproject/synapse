@@ -595,32 +595,113 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.false(nopulse.dirty)
                 self.eq(nopulsed, [])
 
-    async def test_lmdbslab_hotcount_setnow(self):
-        # setnow() writes through into the txn immediately, so a bare forcecommit
-        # persists it without a separate sync() - unlike set(), which buffers
-        # until the next flush. This is how commitpulse=False HotCount owners
-        # (e.g. the Cortex layeroffs) stay durable without the 'commit' event.
+    async def test_lmdbslab_commit_callbacks(self):
+        # a buffered writer registers its flush on the slab, so its values are committed
+        # with the writes around them without anything flushing it by hand - in either
+        # commit mode, and for a writer registered directly by a caller.
+        with self.getTestDir() as dirn:
+
+            for commitpulse in (True, False):
+
+                path = os.path.join(dirn, f'test{commitpulse}.lmdb')
+
+                async with await s_lmdbslab.Slab.anit(path, map_size=1000000,
+                                                      commitpulse=commitpulse) as slab:
+
+                    hot = await slab.getHotCount('hot')
+                    keyval = await s_lmdbslab.HotKeyVal.anit(slab, 'keyval')
+                    lru = await slab.getLruHotCount('lru')
+
+                    called = []
+                    slab.addCommitCallback(lambda: called.append(True))
+
+                    hot.inc('bumped', valu=3)
+                    keyval.set('buffered', 'valu')
+                    lru.inc(b'lrukey', valu=2)
+
+                    # buffered, so nothing has reached the slab yet
+                    self.none(hot.getFresh('bumped'))
+
+                    # the commit alone makes all three durable
+                    await slab.sync()
+
+                    self.eq([True], called)
+                    self.eq(3, hot.getFresh('bumped'))
+                    self.eq('valu', keyval.getFresh('buffered'))
+                    self.eq(2, s_common.signedint64un(slab.get(b'lrukey', db=lru.db)))
+
+                    self.len(0, hot.dirty)
+                    self.len(0, keyval.dirty)
+                    self.len(0, lru.dirty)
+
+    async def test_lmdbslab_hotcount_buffered(self):
+        # set() and inc() only mark the key dirty; the flush the slab runs at commit is
+        # what puts the value into the transaction, so nothing has to call sync().
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'test.lmdb')
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, commitpulse=False) as slab:
                 hot = await slab.getHotCount('counts')
 
                 hot.set('buffered', 10)
-                hot.setnow('written', 20)
+                hot.inc('bumped')
+                hot.inc('bumped', valu=4)
 
-                # both are readable from cache immediately
+                # readable from cache immediately, but not yet in the txn
                 self.eq(10, hot.get('buffered'))
-                self.eq(20, hot.get('written'))
-
-                # only the write-through value is in the txn; commit without sync()
-                slab.forcecommit()
+                self.eq(5, hot.get('bumped'))
                 self.none(hot.getFresh('buffered', defv=None))
-                self.eq(20, hot.getFresh('written'))
+                self.none(hot.getFresh('bumped', defv=None))
+                self.isin(b'buffered', hot.dirty)
+                self.isin(b'bumped', hot.dirty)
 
-                # flushing the buffered set then commits it too
-                hot.sync()
+                # the commit alone persists both, with the repeated bumps collapsed into
+                # the one write the flush makes
                 slab.forcecommit()
                 self.eq(10, hot.getFresh('buffered'))
+                self.eq(5, hot.getFresh('bumped'))
+                self.len(0, hot.dirty)
+
+    async def test_lmdbslab_hotcount_inc_dirty(self):
+        # inc() must dirty the slab, or the buffered value is skipped by both the sync
+        # loop and Slab.commitDirtyNow() and is silently lost until fini.
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
+                hot = await slab.getHotCount('counts')
+
+                slab.forcecommit()
+                self.false(slab.dirty)
+
+                hot.inc('woot')
+
+                self.true(slab.dirty)
+
+                await s_lmdbslab.Slab.commitDirtyNow()
+                self.eq(1, hot.getFresh('woot'))
+
+    async def test_lmdbslab_max_replay_nopulse(self):
+        # a process whose slabs are all commitpulse=False never starts the sync loop, so
+        # there is no syncevnt to nudge when a transaction overflows the replay log.
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, max_replay_log=100,
+                                                 commitpulse=False) as slab:
+
+                foo = slab.initdb('foo', dupsort=True)
+                byts = b'\x00' * 256
+
+                # pin the class attr rather than asserting on it, so an unrelated open
+                # slab elsewhere in the process cannot mask what is under test here.
+                with patch.object(s_lmdbslab.Slab, 'syncevnt', None):
+
+                    for i in range(150):
+                        slab._put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
+
+                    # the owner commits it per nexus transaction instead
+                    await slab.sync()
+
+                self.false(slab.dirty)
 
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:
@@ -1163,6 +1244,120 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 after_mapsize2 = slab.mapsize
                 self.gt(after_mapsize2, after_mapsize1)
 
+    async def test_lmdbslab_grow_replays_every_write(self):
+        '''
+        A mapfull aborts the transaction and replays it from the xactops journal, so every
+        write must journal arguments its own method can be called back with.
+        '''
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            byts = b'\x00' * 512
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
+
+                foo = slab.initdb('foo')
+                dup = slab.initdb('dup', dupsort=True)
+
+                before = slab.mapsize
+
+                # one of each write in a single transaction, so the replay re-runs them all
+                for i in range(200):
+                    ikey = i.to_bytes(4, 'big')
+                    slab._put(ikey, byts, db=foo)
+                    slab._put(b'dup' + ikey, ikey, db=dup)  # dupsort caps the value size
+                    slab.replace(ikey, byts + ikey, db=foo)
+                    slab._putmulti([(b'mul' + ikey, ikey)], db=foo)
+
+                    if i % 2:
+                        self.eq(byts + ikey, slab.pop(ikey, db=foo))
+                    else:
+                        self.true(slab.delete(b'dup' + ikey, db=dup))
+
+                # the writes grew the map, so the journal really was replayed
+                self.gt(slab.mapsize, before)
+
+                await slab.sync()
+
+                # and the replay left the surviving rows exactly as the writes intended
+                for i in range(200):
+                    ikey = i.to_bytes(4, 'big')
+                    self.eq(ikey, slab.get(b'mul' + ikey, db=foo))
+
+                    if i % 2:
+                        self.none(slab.get(ikey, db=foo))
+                    else:
+                        self.eq(byts + ikey, slab.get(ikey, db=foo))
+                        self.none(slab.get(b'dup' + ikey, db=dup))
+
+    async def test_lmdbslab_remove_mapfull(self):
+        '''
+        A delete or a pop can be the write which trips the mapfull: lmdb copies every page
+        it touches, so removing rows needs free space of its own. The abort and replay must
+        leave the removal applied, with its return value, and the rows around it intact.
+        '''
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            byts = b'\x00' * 512
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
+
+                foo = slab.initdb('foo')
+
+                before = slab.mapsize
+                realfull = slab._handle_mapfull
+
+                def counter(fulls):
+                    def countfull():
+                        fulls.append(True)
+                        return realfull()
+                    return countfull
+
+                delfulls = []
+                popfulls = []
+
+                indx = 0
+                dead = []
+                for _ in range(6):
+
+                    # each burst removes rows the puts ahead of it just wrote, so it starts
+                    # with the map at its edge and has to grow it. Only the burst runs while
+                    # its counter is in place, so anything counted is a mapfull that burst's
+                    # own write raised.
+                    for fulls, remove in ((delfulls, slab.delete), (popfulls, slab.pop)):
+
+                        live = []
+                        for _ in range(100):
+                            ikey = indx.to_bytes(4, 'big')
+                            indx += 1
+                            slab._put(ikey, byts, db=foo)
+                            live.append(ikey)
+
+                        slab._handle_mapfull = counter(fulls)
+
+                        for ikey in live:
+                            # delete returns True, pop returns the row it removed
+                            self.nn(remove(ikey, db=foo))
+
+                        slab._handle_mapfull = realfull
+                        dead.extend(live)
+
+                self.gt(len(delfulls), 0)
+                self.gt(len(popfulls), 0)
+                self.gt(slab.mapsize, before)
+
+                # a row written after the last replay, to show it neither resurrected the
+                # deleted rows nor lost the writes which followed them
+                last = indx.to_bytes(4, 'big')
+                slab._put(last, byts, db=foo)
+
+                await slab.sync()
+
+                self.eq(byts, slab.get(last, db=foo))
+                for ikey in dead:
+                    self.none(slab.get(ikey, db=foo))
+
     async def test_lmdbslab_iternext_repeat_regression(self):
         '''
         Test for a scan being bumped in an iternext where the cursor is in the middle of a list of values with the same
@@ -1491,7 +1686,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # every durable write trips IsReadOnly (no silent no-op)
                 self.raises(s_exc.IsReadOnly, hotc.set, 'a', 9)
                 self.raises(s_exc.IsReadOnly, hotc.inc, 'a')
-                self.raises(s_exc.IsReadOnly, hotc.setnow, 'a', 9)
                 self.raises(s_exc.IsReadOnly, lru.set, b'0', 9)
                 self.raises(s_exc.IsReadOnly, lru.inc, b'0')
                 self.raises(s_exc.IsReadOnly, skv.set, 'c', 'newp')
@@ -1586,6 +1780,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(4, await mque.puts('woot', ('lol2', 'lol3'), reqid='foo2'))
                 self.eq(6, await mque.puts('woot', ('lol2', 'lol3'), reqid='foo2'))
                 self.eq(6, await mque.puts('woot', ('lol2', 'lol3'), reqid='foo2'))
+
+                # the dedupe marker is committed with the items it guards - the slab
+                # flushes it into the transaction ahead of the commit - so a replay after
+                # that commit cannot re-append them.
+                self.none(mque.lastreqid.getFresh('woot'))
+                slab.forcecommit()
+                self.eq('foo2', mque.lastreqid.getFresh('woot'))
 
                 self.eq((0, 'hehe'), await mque.get('woot', 0))
                 self.eq((1, 'haha'), await mque.get('woot', 1))
