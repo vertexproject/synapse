@@ -86,6 +86,14 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate fungible tokens.',
                     'interfaces': ('crypto:smart:effect',),
                 }),
+                ('crypto:smart:effect:freeze', ('guid', {}), {
+                    'doc': 'A smart contract effect which freezes or unfreezes an address on an issuer blocklist.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
+                ('crypto:smart:effect:seize', ('guid', {}), {
+                    'doc': 'A smart contract effect which destroys the tokens held by an address.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
                 # TODO crypto:smart:effect:call - call another smart contract
                 # TODO crypto:smart:effect:giveproxy - grant your proxy for a token based vote
                 ('crypto:payment:input', ('guid', {}), {
@@ -93,6 +101,9 @@ class CryptoModule(s_module.CoreModule):
                 }),
                 ('crypto:payment:output', ('guid', {}), {
                     'doc': 'A payment received from a transaction.',
+                }),
+                ('crypto:payment:fee', ('guid', {}), {
+                    'doc': 'A fee paid to execute a transaction.',
                 }),
                 ('crypto:smart:token', ('comp', {'fields': (('contract', 'crypto:smart:contract'), ('tokenid', 'hugenum'))}), {
                     'doc': 'A token managed by a smart contract.',
@@ -221,6 +232,14 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The address which received payment from the transaction.'}),
                     ('value', ('econ:price', {}), {
                         'doc': 'The value of the currency received from the transaction.'}),
+                )),
+                ('crypto:payment:fee', {}, (
+                    ('transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction the fee was paid for.'}),
+                    ('address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which paid the fee.'}),
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The value of the fee paid to execute the transaction.'}),
                 )),
                 ('crypto:currency:transaction', {}, (
                     ('hash', ('hex', {}), {
@@ -396,6 +415,24 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The address granted proxy authority to manipulate fungible tokens.'}),
                     ('amount', ('hex', {}), {
                         'doc': 'The hex encoded amount of tokens the proxy is allowed to manipulate.'}),
+                )),
+
+                ('crypto:smart:effect:freeze', {}, (
+                    ('contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which enforces the freeze.'}),
+                    ('address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which was frozen or unfrozen.'}),
+                    ('frozen', ('bool', {}), {
+                        'doc': 'Set to true if the address was frozen or false if it was unfrozen.'}),
+                )),
+
+                ('crypto:smart:effect:seize', {}, (
+                    ('contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the tokens.'}),
+                    ('address', ('crypto:currency:address', {}), {
+                        'doc': 'The address whose tokens were destroyed.'}),
+                    ('amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens destroyed.'}),
                 )),
 
                 ('crypto:currency:address', {}, (

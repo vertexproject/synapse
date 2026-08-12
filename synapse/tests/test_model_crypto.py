@@ -121,6 +121,13 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(payees[0].get('index'), 0)
             self.eq(payees[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
+            payfees = await core.nodes('[ crypto:payment:fee=(t1, feepayer) :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=0.0001 ]')
+            self.len(1, payfees)
+            self.eq(payfees[0].get('value'), '0.0001')
+            self.eq(payfees[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.len(1, await core.nodes('crypto:payment:fee -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:payment:fee -> crypto:currency:address'))
+
             payor = payors[0].ndef[1]
             payee = payees[0].ndef[1]
 
@@ -354,6 +361,44 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:address'))
             self.len(1, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:transaction'))
             self.len(1, await core.nodes('crypto:smart:effect:proxytokens -> crypto:smart:contract'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:freeze=*
+                        :index=0
+                        :transaction=*
+                        :contract=*
+                        :address=(eth, 0xd73d44149deb8aabd4b53197654a286dedfda827)
+                        :frozen=$lib.true
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 0)
+            self.nn(node.get('contract'))
+            self.eq(node.get('address'), ('eth', '0xd73d44149deb8aabd4b53197654a286dedfda827'))
+            self.true(node.get('frozen'))
+            self.len(1, await core.nodes('crypto:smart:effect:freeze -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:freeze -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:freeze -> crypto:smart:contract'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:seize=*
+                        :index=0
+                        :transaction=*
+                        :contract=*
+                        :address=(eth, 0xd73d44149deb8aabd4b53197654a286dedfda827)
+                        :amount=960007.90
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 0)
+            self.nn(node.get('contract'))
+            self.eq(node.get('address'), ('eth', '0xd73d44149deb8aabd4b53197654a286dedfda827'))
+            self.eq(node.get('amount'), '960007.9')
+            self.len(1, await core.nodes('crypto:smart:effect:seize -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:seize -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:seize -> crypto:smart:contract'))
 
             nodes = await core.nodes('''
                 [
