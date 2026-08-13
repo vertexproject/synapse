@@ -1315,6 +1315,34 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
                 self.eq(sizes[i], await axon.size(sha256))
                 self.eq(byts, b''.join([chunk async for chunk in axon.get(sha256)]))
 
+    async def test_axon_del_blob_offsets(self):
+
+        async with self.getTestAxon() as axon:
+
+            byts = b'V' * 200
+            sha256 = hashlib.sha256(byts).digest()
+
+            # save as two chunks, so the offsets keys ( cumulative byte totals of
+            # 100 and 200 ) do not collide with the blobs keys ( ordinals 0 and 1 )
+            await axon.save(sha256, [byts[:100], byts[100:]], 200)
+
+            self.len(2, list(axon.blobslab.scanKeysByPref(sha256, db=axon.blobs)))
+            self.len(2, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
+
+            self.true(await axon.del_(sha256))
+
+            self.len(0, list(axon.blobslab.scanKeysByPref(sha256, db=axon.blobs)))
+            self.len(0, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
+
+            # re-add the same bytes as a single chunk and read a range which spans
+            # the boundary the previous chunking used
+            await axon.save(sha256, [byts], 200)
+
+            self.len(1, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
+
+            retn = b''.join([chunk async for chunk in axon.get(sha256, offs=50, size=150)])
+            self.eq(byts[50:], retn)
+
     async def test_axon_history_migration(self):
 
         # Regression test: axon history migration

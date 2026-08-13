@@ -2536,9 +2536,23 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await prtype.normVirt('max', (await prtype.norm((10, 20)))[0], 5)
 
-            # norm requires a 2-tuple
+            # a normed value carries its computed delta and norms again from the pair,
+            # the way an ival does with its duration
+            self.eq((await prtype.norm((1, 2)))[0], (await prtype.norm((1, 2, 3)))[0])
+
+            norm = (await prtype.norm((1, 2)))[0]
+            self.eq(norm, (await prtype.norm(norm))[0])
+
+            unk = (await prtype.norm('?'))[0]
+            self.eq(unk, (await prtype.norm(unk))[0])
+
+            # any other length is still rejected, as is a bad member
+            for bad in ((), (1,), (1, 2, 3, 4), tuple(range(6))):
+                with self.raises(s_exc.BadTypeValu):
+                    await prtype.norm(bad)
+
             with self.raises(s_exc.BadTypeValu):
-                await prtype.norm((1, 2, 3))
+                await prtype.norm(('newp', 2))
 
             # set delta on a one-endpoint-known range derives the other
             newv, _ = await prtype.normVirt('min', None, 5)
@@ -2589,6 +2603,22 @@ class TypesTest(s_t_utils.SynTest):
 
             # rate omitted (unknown) when start == 0
             self.eq(('0', '5', '5', '?'), (await pctype.norm((0, 5)))[0])
+
+            # a normed value carries the computed delta and rate and norms again from
+            # the pair, the way an ival does with its duration
+            norm = (await pctype.norm((100, 125)))[0]
+            self.eq(norm, (await pctype.norm(norm))[0])
+
+            unk = (await pctype.norm('?'))[0]
+            self.eq(unk, (await pctype.norm(unk))[0])
+
+            # any other length is still rejected, as is a bad member
+            for bad in ((), (1,), (1, 2, 3), tuple(range(6))):
+                with self.raises(s_exc.BadTypeValu):
+                    await pctype.norm(bad)
+
+            with self.raises(s_exc.BadTypeValu):
+                await pctype.norm(('newp', 2))
 
             # getters
             valu = (await pctype.norm((100, 125)))[0]

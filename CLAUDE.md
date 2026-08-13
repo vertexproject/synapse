@@ -152,7 +152,13 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
   `mddocs.yaml`-driven site builder) stayed removed; `doc` is a from-scratch replacement for the narrower case of
   a bundle with no pkgdef. A bundle's category is not part of either build; it is derived where a doc manifest is
   delivered (`synmods.hub.app.HubCell.getDocsManifest`'s Product model for the Hub, `vtxtools.docsmanifest`
-  offline). `docs/` holds only directive-bearing files (see
+  offline). Both `buildBundle` and `buildDocs` consult the bundle's own `docs.sha256`, found next to its
+  `docs/` source (`synapse.lib.mddocs.getManifestPath` -- no path is ever passed in): a page whose source AND
+  built output still match that manifest's recorded sha256 is reused as-is instead of rebuilt (skipping mdstorm
+  entirely, so no Cortex boot for an unchanged `mdstorm-setup` page) -- a page with its own ` ```mdtoc ` fence
+  is never reused, since its rendered link list can drift from a sibling page's title alone. Pass `force=True`
+  (CLI: `--force`) to always rebuild every page instead. `docs/` holds
+  only directive-bearing files (see
   `synapse/assets/docs/contributing/doc_mastering.md`); a plain page lives in the committed bundle dir and is
   edited there directly.
 - Key docs: `adminguide.md`, `deploymentguide.md`, `devopsguide.md`, `httpapi.md`

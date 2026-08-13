@@ -3275,6 +3275,56 @@ class LayerTest(s_t_utils.SynTest):
             setq = '[ econ:balance=(b,) +#foo:_cur=(1, 2) ] [ +#foo:_cur.currency=usd ]'
             await self.reqMergeRoundTrip(core, setq, 'econ:balance=(b,)', tagprop=('foo', '_cur'))
 
+    async def test_layer_copyto_roundtrip(self):
+        '''
+        copyto() rebuilds each node in the destination view through the editor, so what it
+        hands the setters has to be re-normable back into the value it read: an array whose
+        members are typed values, and a property or tag property carrying its virts.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('_cur', ('econ:pricechange', {}), {})
+            await core.addTagProp('_seen', ('ival', {}), {})
+
+            q = '$l = $lib.layer.add() return($lib.view.add(layers=($l.iden,)).iden)'
+            viewiden = await core.callStorm(q)
+
+            destlayr = core.getLayer(core.getView(viewiden).layers[0].iden)
+            srclayr = core.getLayer()
+
+            cases = (
+                ('[ ou:conference=(c,) :names=(foo, bar) ]', 'ou:conference=(c,)', ('props', 'names')),
+                ('[ test:str=arr :polyarry=(1, 2) ] [ :polyarry += {[ inet:server=1.2.3.4:80 ]} ]',
+                 'test:str=arr', ('props', 'polyarry')),
+                ('[ test:str=pv :seen=(2020, 2021) ] [ :seen.precision=year ]',
+                 'test:str=pv', ('props', 'seen')),
+                ('[ test:str=tp +#foo:_seen=(2020, 2021) ] [ +#foo:_seen.precision=year ]',
+                 'test:str=tp', ('tagprops', 'foo', '_seen')),
+                ('[ econ:balance=(b,) +#foo:_cur=(1, 2) ] [ +#foo:_cur.currency=usd ]',
+                 'econ:balance=(b,)', ('tagprops', 'foo', '_cur')),
+            )
+
+            for setq, lift, path in cases:
+
+                nodes = await core.nodes(setq)
+                self.len(1, nodes)
+
+                nid = nodes[0].nid
+
+                def gettriple(layr):
+                    sode = layr.getStorNode(nid)
+                    if path[0] == 'props':
+                        return sode.get('props', {}).get(path[1])
+                    return sode.get('tagprops', {}).get(path[1], {}).get(path[2])
+
+                before = gettriple(srclayr)
+                self.nn(before)
+
+                msgs = await core.stormlist(f'{lift} | copyto {viewiden}')
+                self.stormHasNoWarnErr(msgs)
+
+                self.eq(before, gettriple(destlayr))
+
     async def test_layer_tagprop_hidden_virts(self):
         '''
         A hidden ("_" prefixed) virt carries index metadata rather than a value to index.

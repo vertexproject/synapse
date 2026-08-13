@@ -808,7 +808,7 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
         self.isin('## Dependencies', text)
         self.isin('This package depends on the following packages.', text)
         self.isin('| Name | Version | Optional | Description |', text)
-        self.isin('| synapse | >=3.0.0b6,<4.0.0 | no |  |', text)
+        self.isin('| synapse | >=3.0.0,<4.0.0 | no |  |', text)
         self.isin(
             '| testpkg-optdep | >=1.0.0,<2.0.0 | yes | Optional dependency used to enrich '
             'testpkg nodes with additional metadata. |', text)

@@ -1173,27 +1173,15 @@ class Node(NodeBase):
         return retn
 
     def getStormProps(self):
-        retn = {}
-
-        for sode in reversed(self.sodes):
-            if sode.get('antivalu') is not None:
-                retn.clear()
-                continue
-
-            if (proptomb := sode.get('antiprops')) is not None:
-                for name in proptomb.keys():
-                    retn.pop(name, None)
-
-            if (props := sode.get('props')) is not None:
-                retn |= props
-
+        '''
+        Return the property values as typed values carrying the virts they were stored
+        with, for use in the runtime. An array member arrives as a typed value of its own,
+        so callers hand the result to tostor() before storing it again.
+        '''
         refs = {}
-        for name, valt in retn.items():
-            valu, styp, virts = valt
-            if styp & s_layer.STOR_FLAG_ARRAY:
-                refs[name] = valu
-            else:
-                refs[name] = self.form.prop(name).type.tostorm(valu, virts=virts)
+
+        for name, (valu, styp, virts) in self._getStorProps().items():
+            refs[name] = self.form.prop(name).type.tostorm(valu, virts=virts)
 
         return refs
 
@@ -1217,8 +1205,11 @@ class Node(NodeBase):
 
         return retn
 
-    def _getTagPropsDict(self):
-
+    def _getStorTagProps(self):
+        '''
+        Return the storage (valu, stortype, storvirts) tag property tuples from the Node,
+        keyed by tag name. See _getStorProps() for the property equivalent.
+        '''
         retn = collections.defaultdict(dict)
 
         for sode in reversed(self.sodes):
@@ -1239,9 +1230,31 @@ class Node(NodeBase):
 
             for tagname, propvals in tagprops.items():
                 for propname, valt in propvals.items():
-                    retn[tagname][propname] = valt[0]
+                    retn[tagname][propname] = valt
 
         return dict(retn)
+
+    def _getTagPropsDict(self):
+
+        return {tagname: {propname: valt[0] for (propname, valt) in propvals.items()}
+                for (tagname, propvals) in self._getStorTagProps().items()}
+
+    def getStormTagProps(self):
+        '''
+        Return the tag property values as typed values carrying the virts they were
+        stored with, the way getStormProps() does for properties.
+        '''
+        retn = {}
+
+        for tagname, propvals in self._getStorTagProps().items():
+            props = {}
+            for propname, (valu, styp, virts) in propvals.items():
+                ptyp = self.view.core.model.reqTagProp(propname).type
+                props[propname] = ptyp.tostorm(valu, virts=virts)
+
+            retn[tagname] = props
+
+        return retn
 
     async def addTag(self, tag, valu=(None, None, None), norminfo=None):
         '''

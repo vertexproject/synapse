@@ -1,5 +1,32 @@
 # Synapse Changelog
 
+## v3.0.0 - 2026-08-13
+
+### Model Changes
+
+- Updated ``econ:pricerange`` and ``econ:pricechange`` to normalize their own
+  normalized values, which carry the fields they compute alongside the pair
+  their constructors accept.
+
+### Features and Enhancements
+
+- Relaxed the Cell storage version requirement to ``>=3.0.0,<4.0.0`` so that
+  storage created by a Synapse ``3.x`` release may be used by any later ``3.x``
+  release.
+
+### Bugfixes
+
+- Fixed an Axon issue where deleting a file left its byte offset index rows in
+  place, which could cause a subsequent byte range read of the same file to
+  return a short or incorrect result.
+- Fixed a bug where the ``syn.nodes`` feed renormalized a tag property value as
+  new input rather than as the typed value it is, silently skipping a ``comp``
+  typed tag property.
+- Fixed a bug where ``copyto`` failed to copy nodes with array properties and
+  dropped the virtual property values stored with a tag property value.
+- Fixed a bug where a View which had a ``desc`` set could not have a ``quorum``
+  configured, since the View definition schema did not allow the ``desc`` key.
+
 ## v3.0.0rc1 - 2026-08-12
 
 ### Model Changes

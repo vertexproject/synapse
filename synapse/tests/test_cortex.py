@@ -3549,7 +3549,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
+                'dependencies': {'synapse': {'version': '>=3.0.0,<4.0.0'}},
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -4893,6 +4893,31 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core1.nodes('test:int=4')
             self.eq(1138, nodes[0].getTagProp('beep.beep', '_test'))
 
+            # a tag property whose type stores the fields it computes alongside the pair
+            # its constructor takes still ingests from its own packed value
+            await core1.addTagProp('_cur', ('econ:pricechange', {}), {})
+
+            msgs = await core1.stormlist('test:int=1 [ +#beep.beep:_cur=(1, 2) ]')
+            self.stormHasNoWarnErr(msgs)
+            pode = [m[1] for m in msgs if m[0] == 'node'][0]
+            pode = (('test:int', 5), pode[1])
+
+            await core1.addFeedData([pode])
+            nodes = await core1.nodes('test:int=5')
+            self.eq(('1', '2', '1', '100'), nodes[0].getTagProp('beep.beep', '_cur'))
+
+            # and so does one whose value is a tuple of typed values
+            await core1.addTagProp('_comp', ('test:comp', {}), {})
+
+            msgs = await core1.stormlist('test:int=1 [ +#beep.beep:_comp=(1, foo) ]')
+            self.stormHasNoWarnErr(msgs)
+            pode = [m[1] for m in msgs if m[0] == 'node'][0]
+            pode = (('test:int', 6), pode[1])
+
+            await core1.addFeedData([pode])
+            nodes = await core1.nodes('test:int=6')
+            self.eq((('test:int', 1), ('test:lower', 'foo')), nodes[0].getTagProp('beep.beep', '_comp'))
+
             # Put bad data in
             data = [(('test:str', 'newp'), {'tags': {'test.newp': ('newp', {})}})]
             await core1.addFeedData(data)
@@ -4901,6 +4926,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': ('newp', {})}}})]
             await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:str=opps +#test.newp'))
+
+            # a value which is not valid for a known tag property type is rejected
+            data = [(('test:str', 'badtp'), {'tagprops': {'beep.beep': {'_test': ('newp', {})}}})]
+            await core1.addFeedData(data)
+            nodes = await core1.nodes('test:str=badtp')
+            self.len(1, nodes)
+            self.none(nodes[0].getTagProp('beep.beep', '_test'))
 
             data = [(('test:str', 'ahh'), {'nodedata': 123})]
             await core1.addFeedData(data)
@@ -7366,7 +7398,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': '0.0.1',
-            'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0,<4.0.0'}},
             'modules': [
                 {
                     'name': 'boom.mod',
@@ -7449,7 +7481,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'name': 'depsynok',
                 'version': '0.0.1',
                 'dependencies': {
-                    'synapse': {'version': '>=3.0.0b1,<4.0.0'},
+                    'synapse': {'version': '>=3.0.0,<4.0.0'},
                 },
             }
             await core.addStormPkg(pkg)
@@ -7521,7 +7553,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'name': 'depsynentnotprovided',
                 'version': '0.0.1',
                 'dependencies': {
-                    'synapse-enterprise': {'version': '>=3.0.0b6,<4.0.0'},
+                    'synapse-enterprise': {'version': '>=3.0.0,<4.0.0'},
                 },
             }
             with self.raises(s_exc.StormPkgRequires):
@@ -7535,7 +7567,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'version': '0.0.1',
             'title': 'A Schema Test Power-Up',
             'dependencies': {
-                'synapse': {'version': '>=3.0.0b1,<4.0.0'},
+                'synapse': {'version': '>=3.0.0,<4.0.0'},
                 'other': {'version': '>=1.0.0', 'optional': True, 'desc': 'an optional dep'},
             },
             'conflicts': {
@@ -7580,7 +7612,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'metadata': {'codesign': {'cert': 'certtext', 'sign': 'signtext'}},
             'author': {'name': 'The Vertex Project', 'url': 'https://vertex.link'},
             'logo': {'mime': 'image/svg+xml', 'file': 'ZmlsZQ=='},
-            'dependencies': {'synapse': {'version': '>=3.0.0b1,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0,<4.0.0'}},
             'conflicts': {'legacy': {'version': '<1.0.0'}},
             'perms': ({'perm': ('power-ups', 'strictpkg', 'user'), 'gate': 'cortex',
                        'desc': 'a test perm'},),

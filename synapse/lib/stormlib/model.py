@@ -646,9 +646,10 @@ class MigrationEditorMixin:
             self.runt.layerConfirm(('node', 'tag', 'add', *name.split('.')))
             await proto.addTag(name, valu=valu)
 
-        for tagname, tagprops in src._getTagPropsDict().items():
+        for tagname, tagprops in src.getStormTagProps().items():
             for propname, valu in tagprops.items():
                 if overwrite or not proto.hasTagProp(tagname, propname):
+                    valu = await s_stormtypes.tostor(valu)
                     await proto.setTagProp(tagname, propname, valu) # use tag perms
 
     async def copyExtProps(self, src, proto):
@@ -660,7 +661,7 @@ class MigrationEditorMixin:
             if not prop.isext:
                 continue
 
-            await proto.set(name, valu)
+            await proto.set(name, await s_stormtypes.tostor(valu))
 
 @s_stormtypes.registry.registerLib
 class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):

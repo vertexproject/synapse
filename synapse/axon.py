@@ -1416,8 +1416,10 @@ class Axon(s_cell.Cell):
 
     async def _delBlobByts(self, sha256):
 
-        # remove the offset indexes...
-        for lkey in self.blobslab.scanKeysByPref(sha256, db=self.blobs):
+        # remove the offset indexes... ( the offsets db is keyed by the cumulative byte
+        # total of each chunk, so it must be scanned itself rather than the blobs db,
+        # which is keyed by chunk ordinal )
+        for lkey in self.blobslab.scanKeysByPref(sha256, db=self.offsets):
             self.blobslab.delete(lkey, db=self.offsets)
             await asyncio.sleep(0)
 

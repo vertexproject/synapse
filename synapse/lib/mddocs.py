@@ -1,5 +1,6 @@
 import os
 import shutil
+import hashlib
 import logging
 import tempfile
 
@@ -26,6 +27,33 @@ logging.getLogger('markdown_it').setLevel(logging.INFO)
 logging.getLogger('vcr').setLevel(logging.ERROR)
 
 TOC_MAX_DEPTH = 3
+
+# Directories stageTree never copies from a doc bundle's srcdir -- a stray local
+# _build/ or .git, and mocks/ (build INPUT only, VCR cassettes -- see stageTree's
+# docstring). docs/scripts/gen_docs_manifest.py's own _IGNORED_DIRNAMES mirrors
+# this set (it walks the same srcdir/outdir trees to build a bundle's manifest),
+# so it is defined here once and pointed to from there instead of kept in sync
+# by hand.
+STAGE_IGNORE = {'_build', '.git', 'mocks'}
+
+MANIFEST_NAME = 'docs.sha256'
+
+def getManifestPath(srcdir):
+    '''
+    A bundle's docs.sha256 always sits next to its own docs.source -- this
+    mirrors vtxtools.pkginfo's docs.manifest field (enterprise-only), a pure
+    convention derived from docs.source there too. Move one and the other
+    must follow.
+
+    Args:
+        srcdir (str): The bundle's doc source directory (buildDocs'/
+            buildBundle's srcdir).
+
+    Returns:
+        str: Absolute path to the bundle's docs.sha256, whether or not it
+            exists yet.
+    '''
+    return os.path.join(os.path.dirname(s_common.genpath(srcdir)), MANIFEST_NAME)
 
 # Ported from the old Sphinx-era docs/conf.py's convert_rstorm -- warning
 # messages emitted while processing a doc's mdstorm fences that are safe to
@@ -164,8 +192,7 @@ def stageTree(srcdir, outdir):
         outdir (str): The (fresh) staging/output directory.
     '''
     def _ignore(dirn, names):
-        ignored = {'_build', '.git', 'mocks'}
-        return ignored & set(names)
+        return STAGE_IGNORE & set(names)
 
     shutil.copytree(srcdir, outdir, ignore=_ignore, dirs_exist_ok=True)
 
@@ -174,6 +201,20 @@ def _iterMdFiles(outdir):
         for fn in fns:
             if fn.endswith('.md'):
                 yield s_common.genpath(dirn, fn)
+
+def _walkMdFiles(srcdir):
+    '''
+    Yield every .md file's path relative to srcdir, skipping STAGE_IGNORE
+    directories -- the same directories stageTree itself never copies. Unlike
+    _iterMdFiles above (which walks an already-staged outdir, so nothing left
+    to skip), this walks an unstaged doc source tree directly, e.g. for
+    reuseFiles below.
+    '''
+    for dirn, dirs, fns in os.walk(srcdir):
+        dirs[:] = [d for d in dirs if d not in STAGE_IGNORE]
+        for fn in fns:
+            if fn.endswith('.md'):
+                yield os.path.relpath(os.path.join(dirn, fn), srcdir)
 
 def _collapseBlankLines(lines):
     '''
@@ -206,7 +247,145 @@ def _collapseBlankLines(lines):
         out.append(line)
     return out
 
-async def runMdstorm(outdir, srcdir=None):
+def hashFile(path):
+    '''
+    Sha256 hexdigest of path's full contents -- the same hash a bundle's
+    docs.sha256 manifest records for a doc source/built-output pair (see
+    docs/scripts/gen_docs_manifest.py's saveManifest, an enterprise-only
+    writer; this reader lives here so buildDocs' own reuseFiles below, an
+    OSS capability, can consult a manifest without importing that script).
+
+    Args:
+        path (str): File to hash.
+
+    Returns:
+        str: The 64-character hex sha256 digest.
+    '''
+    with open(path, 'rb') as fd:
+        return hashlib.sha256(fd.read()).hexdigest()
+
+def loadManifest(path):
+    '''
+    Read a GNU sha256sum-format manifest (a bundle's docs.sha256, written by
+    docs/scripts/gen_docs_manifest.py's saveManifest) into (relpath,
+    sha256hex) entries.
+
+    Accepts either separator sha256sum itself can emit for a text-mode entry
+    ("  ") or a binary-mode one (" *"), and skips blank lines and a leading
+    '#' comment line, the same way sha256sum -c does.
+
+    Args:
+        path (str): Manifest file to read.
+
+    Returns:
+        list: [(relpath, sha256hex), ...], in file order.
+
+    Raises:
+        ValueError: a non-blank, non-comment line doesn't parse as
+            "<64 hex chars><separator><path>".
+    '''
+    entries = []
+
+    with open(path, 'r') as fd:
+        for lineno, line in enumerate(fd, 1):
+            line = line.rstrip('\n')
+            if not line.strip() or line.lstrip().startswith('#'):
+                continue
+
+            for sep in ('  ', ' *'):
+                hexdigest, _, relpath = line.partition(sep)
+                if relpath:
+                    break
+
+            if not relpath or len(hexdigest) != 64 or any(c not in '0123456789abcdef' for c in hexdigest):
+                raise ValueError(f'{path}:{lineno}: malformed manifest line: {line!r}')
+
+            entries.append((relpath, hexdigest))
+
+    return entries
+
+def reuseFiles(srcdir, builtdir, manifest):
+    '''
+    Which of srcdir's .md pages can skip mdstorm entirely and have builtdir's
+    already-built copy staged in their place instead -- because nothing a
+    rebuild would change has changed: the manifest still records both the
+    source's and the built output's current sha256, AND the source carries no
+    ```mdtoc fence of its own (a page's rendered nav list names OTHER pages'
+    titles, so it can go stale even when its own source hasn't changed --
+    see buildDocs).
+
+    A page with no manifest entry at all (a directive-free page, or a source
+    file newly added since the manifest was last regenerated) is never
+    reusable -- there is nothing recorded to compare against, so mdstorm (or,
+    for a directive-free page, a plain parse-and-copy) always runs it.
+
+    Args:
+        srcdir (str): The bundle's doc source directory (unstaged).
+        builtdir (str): The bundle's real, committed built output directory
+            -- buildDocs' staticdir, NOT its outdir (a throwaway staging
+            copy that has no committed manifest entries of its own).
+        manifest (str): Path to the bundle's docs.sha256 (pkginfo's
+            docs.manifest). May be a path that does not exist yet (a bundle
+            never built before) -- then nothing is reusable.
+
+    Returns:
+        set: srcdir-relative relpaths (matching _walkMdFiles) safe to reuse.
+    '''
+    if manifest is None or not os.path.isfile(manifest):
+        return set()
+
+    if not os.path.isdir(srcdir) or not os.path.isdir(builtdir):
+        return set()
+
+    basedir = os.path.dirname(s_common.genpath(manifest))
+    hashes = dict(loadManifest(manifest))
+
+    reuse = set()
+
+    for relpath in _walkMdFiles(srcdir):
+        srcpath = s_common.genpath(srcdir, relpath)
+        builtpath = s_common.genpath(builtdir, relpath)
+        if not os.path.isfile(builtpath):
+            continue
+
+        srckey = os.path.relpath(srcpath, basedir)
+        dstkey = os.path.relpath(builtpath, basedir)
+
+        srchash = hashes.get(srckey)
+        dsthash = hashes.get(dstkey)
+        if srchash is None or dsthash is None:
+            continue
+
+        if hashFile(srcpath) != srchash or hashFile(builtpath) != dsthash:
+            continue
+
+        with open(srcpath, 'r') as fd:
+            if _fenceDirectives(fd.read(), 'mdtoc'):
+                continue
+
+        reuse.add(relpath)
+
+    return reuse
+
+def stageReuse(builtdir, outdir, reuse):
+    '''
+    Overwrite each reusable page's staged copy (stageTree already placed it
+    there, holding SOURCE content) with its real, already-built content from
+    builtdir -- so runMdstorm never touches it (see its skip= arg) and
+    TocBuilder/validate() read the same built content the last real build
+    produced.
+
+    Args:
+        builtdir (str): The bundle's real, committed built output directory
+            (buildDocs' staticdir).
+        outdir (str): The staging directory stageTree already populated from
+            srcdir.
+        reuse (set): relpaths (see reuseFiles) to copy over.
+    '''
+    for relpath in reuse:
+        shutil.copy2(s_common.genpath(builtdir, relpath), s_common.genpath(outdir, relpath))
+
+async def runMdstorm(outdir, srcdir=None, skip=None):
     '''
     Run mdstorm over every staged .md file in place, collecting any
     non-ignorable warnings emitted along the way (see _classifyWarnings).
@@ -219,13 +398,33 @@ async def runMdstorm(outdir, srcdir=None):
             the docroot (see MdStorm.srcbasedir). May be None (a file's
             mdautodoc fences then resolve relative to its own staged
             location).
+        skip (set): relpaths (relative to outdir, see reuseFiles) to leave
+            untouched -- stageReuse has already put the correct, already-built
+            content there, so running mdstorm over it too would be redundant
+            work at best (rebuilding a page that didn't change) and wrong at
+            worst (re-executing a live ```mdstorm demo re-emits fresh
+            guids/timestamps that would no longer match the manifest that
+            justified reusing it in the first place).
 
     Returns:
         dict: {relpath: [warning-message, ...]} for any file with issues.
     '''
     issues = {}
+    skip = skip if skip is not None else set()
 
-    for path in sorted(_iterMdFiles(outdir)):
+    mdpaths = sorted(_iterMdFiles(outdir))
+    relpaths = [os.path.relpath(p, outdir) for p in mdpaths]
+    reused = sorted(set(relpaths) & skip)
+    if reused:
+        logger.info(f'Reusing {len(reused)} unchanged doc page(s), skipping mdstorm: {reused}')
+    logger.info(f'Running mdstorm on {len(relpaths) - len(reused)} doc page(s): '
+                f'{sorted(set(relpaths) - skip)}')
+
+    for path in mdpaths:
+        relpath = os.path.relpath(path, outdir)
+        if relpath in skip:
+            continue
+
         collector = _WarningCollector()
         logging.getLogger().addHandler(collector)
         try:
@@ -237,7 +436,6 @@ async def runMdstorm(outdir, srcdir=None):
         with open(path, 'w') as fd:
             fd.writelines(_collapseBlankLines(lines))
 
-        relpath = os.path.relpath(path, outdir)
         badmsgs = _classifyWarnings(collector.records)
         if badmsgs:
             issues[relpath] = badmsgs
@@ -637,13 +835,13 @@ def validate(outdir, tocbuilder, staticdir=None):
 
     return issues
 
-async def buildDocs(srcdir, outdir, ci=False, staticdir=None):
+async def buildDocs(srcdir, outdir, ci=False, staticdir=None, force=False):
     '''
     Build one doc bundle from srcdir into outdir: stage sources, run mdstorm
-    over every file (which resolves each page's own ```mdautodoc fences,
-    e.g. confdefs, API docs, or the data model, at the point of use),
-    resolve ```mdtoc fences into rendered nav + metadata.json, and validate
-    the result.
+    over every file that needs it (which resolves each page's own
+    ```mdautodoc fences, e.g. confdefs, API docs, or the data model, at the
+    point of use), resolve ```mdtoc fences into rendered nav + metadata.json,
+    and validate the result.
 
     A bundle's category is intentionally not part of this build -- it is
     derived at the point a doc manifest is delivered (see
@@ -662,7 +860,13 @@ async def buildDocs(srcdir, outdir, ci=False, staticdir=None):
             a mdtoc target or internal link that resolves to a page living
             only there, never staged from srcdir. None for a caller with
             no pre-existing static content to merge into (e.g. a fully
-            isolated/fresh build).
+            isolated/fresh build). Also where reuseFiles below reads a
+            bundle's already-built pages from, unless force is True.
+        force (bool): If True, always rebuild every page -- skip consulting
+            this bundle's docs.sha256 (see getManifestPath) even if one is
+            committed. Callers that want a rebuild to double as an
+            integration test of core Storm/Cortex changes (CI, FORCE=1)
+            should pass True.
 
     Returns:
         dict: {'toc': [...]} -- the same shape written to metadata.json.
@@ -670,7 +874,12 @@ async def buildDocs(srcdir, outdir, ci=False, staticdir=None):
     s_common.gendir(outdir)
     stageTree(srcdir, outdir)
 
-    mdstormissues = await runMdstorm(outdir, srcdir=srcdir)
+    reuse = set()
+    if not force and staticdir is not None:
+        reuse = reuseFiles(srcdir, staticdir, getManifestPath(srcdir))
+        stageReuse(staticdir, outdir, reuse)
+
+    mdstormissues = await runMdstorm(outdir, srcdir=srcdir, skip=reuse)
 
     tocbuilder = TocBuilder(outdir, staticdir=staticdir)
     # buildToc() must run before resolveFences(): it reads the original
@@ -701,7 +910,7 @@ async def buildDocs(srcdir, outdir, ci=False, staticdir=None):
 
     return metadata
 
-async def buildBundle(srcdir, outdir, staticdir=None, ci=False, warnfile=None, stagedir_parent=None):
+async def buildBundle(srcdir, outdir, staticdir=None, ci=False, warnfile=None, stagedir_parent=None, force=False):
     '''
     Build one doc bundle from srcdir and merge the result into outdir, the
     canonical bundle directory a caller has already committed (possibly
@@ -752,6 +961,11 @@ async def buildBundle(srcdir, outdir, staticdir=None, ci=False, warnfile=None, s
             bundles, which have no pkgdef at all). buildPkgDocs passes the
             package's own directory (files/'s parent) instead, since its
             outdir is files/docs, one level inside files/.
+        force (bool): Passed through to buildDocs -- if True, always rebuild
+            every page, skipping the check against this bundle's own
+            docs.sha256 (found next to srcdir -- see getManifestPath) that
+            would otherwise let an unchanged page be reused (alongside
+            outdir, which buildDocs sees as staticdir here -- see below).
 
     Returns:
         dict: The built bundle's metadata (see buildDocs).
@@ -766,7 +980,7 @@ async def buildBundle(srcdir, outdir, staticdir=None, ci=False, warnfile=None, s
     stagedir = tempfile.mkdtemp(prefix='.docsbuild-', dir=dirn)
 
     try:
-        metadata = await buildDocs(srcdir, stagedir, ci=ci, staticdir=staticdir)
+        metadata = await buildDocs(srcdir, stagedir, ci=ci, staticdir=staticdir, force=force)
 
         for curdir, _dirs, fns in os.walk(stagedir):
             reldir = os.path.relpath(curdir, stagedir)

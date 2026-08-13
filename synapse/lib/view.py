@@ -2830,7 +2830,15 @@ class View(s_nexus.Pusher):  # type: ignore
 
                             valu = envl[0]
 
-                            await protonode.setTagProp(tag, name, valu)
+                            # the packed value is the stored norm, so it is re-normed as
+                            # the typed value it is rather than as fresh input. an unknown
+                            # tag property is left for setTagProp() to reject, since it
+                            # adds the tag before it validates the property name
+                            norminfo = None
+                            if (tprop := self.core.model.tagprop(name)) is not None:
+                                valu, norminfo = await tprop.type.normFromTypedValu(valu, opts=self.normopts)
+
+                            await protonode.setTagProp(tag, name, valu, norminfo=norminfo)
                         except Exception as e:
                             if runt is not None:
                                 await runt.warn(str(e))

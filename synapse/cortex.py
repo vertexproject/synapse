@@ -2901,7 +2901,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             cellinfo = await proxy.getCellInfo()
 
             cellvers = cellinfo['synapse']['version']
-            if not s_version.matches(cellvers, '>=3.0.0rc1'):
+            if not s_version.matches(cellvers, '>=3.0.0,<4.0.0'):
                 mesg = f'Service {name} is running Synapse {cellvers} and must be updated to >= 3.0.0'
                 logger.error(mesg)
                 raise s_exc.BadVersion(mesg=mesg)
@@ -5753,7 +5753,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
 
-    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0rc1,<4.0.0'):
+    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0,<4.0.0'):
         '''
         Validate an export storm meta dict for schema, version, and synapse version compatibility.
 

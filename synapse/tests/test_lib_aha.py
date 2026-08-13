@@ -64,7 +64,7 @@ class AhaStormSvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_pkg = {  # type: ignore
         'name': 'ahastormsvc',
         'version': '0.0.1',
-        'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
+        'dependencies': {'synapse': {'version': '>=3.0.0,<4.0.0'}},
         'commands': (
             {
                 'name': 'ahastormsvc.hi',
@@ -81,7 +81,7 @@ class AhaStormSvc2Api(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_pkg = {  # type: ignore
         'name': 'ahastormsvc2',
         'version': '0.0.1',
-        'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
+        'dependencies': {'synapse': {'version': '>=3.0.0,<4.0.0'}},
         'commands': (
             {
                 'name': 'ahastormsvc2.hi',

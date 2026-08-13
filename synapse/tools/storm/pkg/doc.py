@@ -10,7 +10,7 @@ import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
-async def buildPkgDocs(pkgpath, save=None, ci=False, warnfile=None):
+async def buildPkgDocs(pkgpath, save=None, ci=False, warnfile=None, force=False):
     '''
     Build a package's docs/ directory into a doc bundle at files/docs, next
     to the package's own pkgdef -- so the built docs are picked up as
@@ -25,11 +25,17 @@ async def buildPkgDocs(pkgpath, save=None, ci=False, warnfile=None):
     Args:
         pkgpath (str): Path to a storm package prototype yaml file.
         save (str): Output directory for the built bundle. Defaults to
-            <dir-of-pkgpath>/files/docs.
+            <dir-of-pkgpath>/files/docs. Does not affect where this
+            package's docs.sha256 is looked for -- that is always found
+            next to its docs/ source (see
+            synapse.lib.mddocs.getManifestPath), regardless of save.
         ci (bool): Passed through to synapse.lib.mddocs.buildBundle -- write
             issues to warnfile (or drop them) instead of failing the build.
         warnfile (str): Passed through to synapse.lib.mddocs.buildBundle --
             where any --ci warnings/validation issues are written.
+        force (bool): Passed through to synapse.lib.mddocs.buildBundle -- if
+            True, always rebuild every page, even one whose source and
+            built output still match this package's own docs.sha256.
 
     Returns:
         dict: The built bundle's metadata (see synapse.lib.mddocs.buildDocs),
@@ -71,7 +77,7 @@ async def buildPkgDocs(pkgpath, save=None, ci=False, warnfile=None):
     # fence (synapse.tools.storm.pkg.gen walks the package's WHOLE files/
     # tree) never sees the staging dir as one of its own declared files.
     metadata = await s_mddocs.buildBundle(docsdir, outdir, staticdir=staticdir, ci=ci, warnfile=warnfile,
-                                           stagedir_parent=dirn)
+                                           stagedir_parent=dirn, force=force)
 
     logger.info(f'buildPkgDocs complete for {pkgpath} -> {outdir}')
 
@@ -91,10 +97,13 @@ async def main(argv, outp=s_output.stdout):
                             'failing the build (see docs/Makefile mddocs_ciflag for why).')
     pars.add_argument('--warnfile', metavar='<path>',
                        help='With --ci, write warnings/validation issues here instead of raising.')
+    pars.add_argument('--force', default=False, action='store_true',
+                       help='Rebuild every page, including one whose source and built output '
+                            'still match the sha256 recorded in the package\'s own docs.sha256.')
 
     opts = pars.parse_args(argv)
 
-    await buildPkgDocs(opts.pkgfile, save=opts.save, ci=opts.ci, warnfile=opts.warnfile)
+    await buildPkgDocs(opts.pkgfile, save=opts.save, ci=opts.ci, warnfile=opts.warnfile, force=opts.force)
 
     return 0
 

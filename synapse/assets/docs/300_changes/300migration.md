@@ -10,7 +10,7 @@ For the exhaustive list of incompatibilities see [Synapse 3.0.0 Breaking Changes
 ## Before you begin
 
 1.  Provision Python 3.14. Synapse 3.x requires the 3.14.x line (`>=3.14,<3.15`); importing under an earlier interpreter raises. Update venvs, CI runners, and any host that imports the `synapse` package. See [Minimum Python Version 3.14](devops-python-version.md#vtx_300_devops-python-version).
-2.  Pull the 3.x Docker image tags. The base `hub.vertex.link/synapse` image is now built on the official Python 3.14 image, and the published set is the base plus the `-aha`, `-axon`, `-cortex`, and `-jsonstor` variants. The 2.x `cryotank` and `stemcell` images are gone; rebase any custom image off `hub.vertex.link/synapse:v3.0.0b1`.
+2.  Pull the 3.x Docker image tags. The base `hub.vertex.link/synapse` image is now built on the official Python 3.14 image, and the published set is the base plus the `-aha`, `-axon`, `-cortex`, and `-jsonstor` variants. The 2.x `cryotank` and `stemcell` images are gone; rebase any custom image off `hub.vertex.link/synapse:v3.x.x`.
 3.  Keep your existing 2.x deployment running and unchanged. You will stand up a separate 3.x deployment to port your integrations against rather than upgrading 2.x in place, so the 2.x services and their data remain available throughout (and as a fallback). Back up services as usual.
 4.  Read [Synapse 3.0.0 Breaking Changes](300breakingchanges.md#vtx_300_breakingchanges) end to end and inventory what your deployment uses: custom config keys, Storm packages, triggers, crons, macros, and any code that talks to a service over Telepath or HTTP.
 

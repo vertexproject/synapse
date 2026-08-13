@@ -739,7 +739,7 @@ class StormTypesTest(s_test.SynTest):
             'name': 'foo',
             'desc': 'test',
             'version': '0.0.1',
-            'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
+            'dependencies': {'synapse': {'version': '>=3.0.0,<4.0.0'}},
             'modules': [
                 {
                     'name': 'test',
@@ -8225,8 +8225,14 @@ words\tword\twrd'''
                 opts = {'user': visi.iden, 'vars': {'role': ninjas.iden}}
                 await core.callStorm('return($lib.view.get().set(quorum, ({"count": 1, "roles": [$role]})))', opts=opts)
 
+            # setting a quorum validates the whole view def, so a view which
+            # carries a desc must still be able to have a quorum set on it.
+            await core.callStorm('$lib.view.get().set(desc, "the default view")')
+
             opts = {'vars': {'role': ninjas.iden}}
             quorum = await core.callStorm('return($lib.view.get().set(quorum, ({"count": 1, "roles": [$role]})))', opts=opts)
+
+            self.eq('the default view', core.getView().info.get('desc'))
 
             # coverage mop up for edge cases...
             with self.raises(s_exc.CantMergeView):

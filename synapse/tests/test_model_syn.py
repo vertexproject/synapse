@@ -12,7 +12,7 @@ class TestService(s_t_utils.StubStormSvc):
     _storm_svc_pkg = {
         'name': 'foo',
         'version': '0.0.1',
-        'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
+        'dependencies': {'synapse': {'version': '>=3.0.0,<4.0.0'}},
         'commands': (
             {
                 'name': 'foobar',
@@ -792,7 +792,7 @@ class SynModelTest(s_t_utils.SynTest):
                 stormpkg = {
                     'name': 'stormpkg',
                     'version': '1.2.3',
-                    'dependencies': {'synapse': {'version': '>=3.0.0b6,<4.0.0'}},
+                    'dependencies': {'synapse': {'version': '>=3.0.0,<4.0.0'}},
                     'commands': (
                         {
                          'name': 'pkgcmd.old',

@@ -3297,14 +3297,16 @@ class CopyToCmd(Cmd):
                         # re-derived by destination ctor; never copy directly
                         continue
 
-                    await proto.set(name, valu)
+                    # tostor() as the storm edit path does: tostorm() hands back runtime
+                    # values, so an array arrives as a List of typed members
+                    await proto.set(name, await s_stormtypes.tostor(valu))
 
                 for name, valu in node.getTags():
                     await proto.addTag(name, valu=valu)
 
-                for tagname, tagprops in node._getTagPropsDict().items():
+                for tagname, tagprops in node.getStormTagProps().items():
                     for propname, valu in tagprops.items():
-                        await proto.setTagProp(tagname, propname, valu)
+                        await proto.setTagProp(tagname, propname, await s_stormtypes.tostor(valu))
 
                 if not self.opts.no_data:
                     async for name, valu in node.iterData():

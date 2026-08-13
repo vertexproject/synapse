@@ -882,7 +882,12 @@ class NodeTest(s_t_utils.SynTest):
             self.len(1, nodes)
             refs = nodes[0].getStormProps()
             self.nn(refs.get('polyarry'))
-            self.isinstance(refs.get('polyarry'), tuple)
+
+            # an array resolves to a List of typed members, so that each member re-norms
+            # as the type it was stored as rather than as a bare (typename, valu) tuple
+            arry = refs.get('polyarry')
+            self.isinstance(arry, s_stormtypes.List)
+            self.isinstance(arry.valu[0], s_stormtypes.Valu)
 
             # a non-form typed prop resolves to a Valu (not a NodeRef), while a
             # form-valued prop resolves to a NodeRef.

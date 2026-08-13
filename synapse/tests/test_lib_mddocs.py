@@ -1,5 +1,6 @@
 import os
 import shutil
+import hashlib
 import logging
 import tempfile
 from unittest import mock
@@ -18,6 +19,20 @@ def _write(dirn, relpath, text):
     with open(path, 'w') as fd:
         fd.write(text)
     return path
+
+def _writemanifest(path, entries):
+    '''
+    Write a docs.sha256-shaped manifest at path from (relpath, sha256hex)
+    entries -- the same shape gen_docs_manifest.saveManifest/loadManifest
+    read and write, built by hand here so a test can pin an entry to
+    whatever hash it wants (a real hashFile() call for a "matches" case, or
+    a deliberately wrong hex string for a "drifted" one) without needing the
+    enterprise-only gen_docs_manifest.py.
+    '''
+    with open(path, 'w') as fd:
+        fd.write('# test manifest\n')
+        for relpath, hexdigest in entries:
+            fd.write(f'{hexdigest}  {relpath}\n')
 
 class _FakeMdStorm:
     '''A fake MdStorm that emits two log.warning() calls instead of processing directives, for testing runMdstorm's warning capture/classification without needing a real Cortex-triggered warning.'''
@@ -974,3 +989,453 @@ class MdDocsTest(s_test.SynTest):
 
             self.len(1, seen)
             self.eq(s_common.genpath(workdir), seen[0])
+
+    def test_hashfile_returns_sha256_hex(self):
+        with self.getTestDir() as dirn:
+            path = _write(dirn, 'a.md', 'hello world')
+            self.eq(hashlib.sha256(b'hello world').hexdigest(), s_mddocs.hashFile(path))
+
+    def test_loadmanifest_roundtrips_and_rejects_malformed_line(self):
+        with self.getTestDir() as dirn:
+            path = _write(dirn, 'docs.sha256', '\n'.join((
+                '# a comment line, skipped',
+                '',
+                f'{"a" * 64}  page1.md',
+                f'{"b" * 64} *page2.md',
+            )) + '\n')
+            self.eq([('page1.md', 'a' * 64), ('page2.md', 'b' * 64)], s_mddocs.loadManifest(path))
+
+            badpath = _write(dirn, 'bad.sha256', 'not-a-valid-manifest-line\n')
+            with self.raises(ValueError) as cm:
+                s_mddocs.loadManifest(badpath)
+            self.isin('malformed manifest line', str(cm.exception))
+
+    def test_walkmdfiles_skips_stage_ignore_dirs_and_non_md(self):
+        with self.getTestDir() as dirn:
+            _write(dirn, 'index.md', '# Index\n')
+            _write(dirn, 'sub/page.md', '# Page\n')
+            _write(dirn, 'sub/image.svg', '<svg></svg>')
+            _write(dirn, 'mocks/cassette.yaml', 'interactions: []\n')
+            _write(dirn, '_build/stale.md', '# Stale\n')
+
+            got = set(s_mddocs._walkMdFiles(dirn))
+            self.eq({'index.md', os.path.join('sub', 'page.md')}, got)
+
+    def test_getmanifestpath_derives_from_srcdir(self):
+        # every real bundle shape (rapid/synmod: docs.sha256 next to docs/
+        # and files/docs/; synapse: docs.sha256 in synsrc/docs, sibling of
+        # the docs/synapse srcdir) -- see the doc.manifest fixtures in
+        # vtxtools.pkginfo -- has its manifest exactly at
+        # dirname(srcdir)/docs.sha256.
+        with self.getTestDir() as workdir:
+            rapidsrc = s_common.gendir(workdir, 'rapid', 'docs')
+            self.eq(s_common.genpath(workdir, 'rapid', 'docs.sha256'),
+                    s_mddocs.getManifestPath(rapidsrc))
+
+            synmodsrc = s_common.gendir(workdir, 'synmod', 'assets', 'docs')
+            self.eq(s_common.genpath(workdir, 'synmod', 'assets', 'docs.sha256'),
+                    s_mddocs.getManifestPath(synmodsrc))
+
+            synsrc = s_common.gendir(workdir, 'synsrc', 'docs', 'synapse')
+            self.eq(s_common.genpath(workdir, 'synsrc', 'docs', 'docs.sha256'),
+                    s_mddocs.getManifestPath(synsrc))
+
+            # a trailing slash on srcdir must not shift the result up a level
+            self.eq(s_common.genpath(workdir, 'rapid', 'docs.sha256'),
+                    s_mddocs.getManifestPath(rapidsrc + os.sep))
+
+    def test_reusefiles_returns_empty_without_manifest_or_dirs(self):
+        with self.getTestDir() as workdir:
+            srcdir = s_common.gendir(workdir, 'docs')
+            builtdir = s_common.gendir(workdir, 'built')
+            manifest = s_common.genpath(workdir, 'docs.sha256')
+
+            # no manifest at all
+            self.eq(set(), s_mddocs.reuseFiles(srcdir, builtdir, None))
+            # a manifest path that doesn't exist yet (bundle never built before)
+            self.eq(set(), s_mddocs.reuseFiles(srcdir, builtdir, manifest))
+
+            _writemanifest(manifest, [])
+            # srcdir/builtdir must each exist too
+            self.eq(set(), s_mddocs.reuseFiles(s_common.genpath(workdir, 'nosrc'), builtdir, manifest))
+            self.eq(set(), s_mddocs.reuseFiles(srcdir, s_common.genpath(workdir, 'nobuilt'), manifest))
+
+    def test_reusefiles_excludes_various_disqualifying_cases(self):
+        with self.getTestDir() as workdir:
+            srcdir = s_common.genpath(workdir, 'docs')
+            builtdir = s_common.genpath(workdir, 'built')
+            manifest = s_common.genpath(workdir, 'docs.sha256')
+
+            oksrc = _write(srcdir, 'ok.md', '# OK\n')
+            okbuilt = _write(builtdir, 'ok.md', '# OK (built)\n')
+
+            # no built counterpart at all -- os.path.isfile(builtpath) fails
+            nobuiltsrc = _write(srcdir, 'nobuilt.md', '# No Built Copy\n')
+
+            # both files exist, but the manifest names only the SOURCE side
+            nodstsrc = _write(srcdir, 'nodstentrysrc.md', '# No Dst Entry\n')
+            _write(builtdir, 'nodstentrysrc.md', '# No Dst Entry (built)\n')
+
+            # both files exist, but the manifest names only the DEST side
+            _write(srcdir, 'nosrcentrysrc.md', '# No Src Entry\n')
+            nosrcbuilt = _write(builtdir, 'nosrcentrysrc.md', '# No Src Entry (built)\n')
+
+            # an mdtoc-bearing page is never reused, even with matching hashes
+            tocsrc = _write(srcdir, 'toc.md', '\n'.join((
+                '# TOC Page', '', '```mdtoc', 'ok.md', '```', '',
+            )))
+            tocbuilt = _write(builtdir, 'toc.md', '# TOC Page\n\n- [OK](ok.md)\n')
+
+            entries = [
+                (os.path.relpath(oksrc, workdir), s_mddocs.hashFile(oksrc)),
+                (os.path.relpath(okbuilt, workdir), s_mddocs.hashFile(okbuilt)),
+                (os.path.relpath(nobuiltsrc, workdir), s_mddocs.hashFile(nobuiltsrc)),
+                (os.path.relpath(nodstsrc, workdir), s_mddocs.hashFile(nodstsrc)),
+                (os.path.relpath(nosrcbuilt, workdir), s_mddocs.hashFile(nosrcbuilt)),
+                (os.path.relpath(tocsrc, workdir), s_mddocs.hashFile(tocsrc)),
+                (os.path.relpath(tocbuilt, workdir), s_mddocs.hashFile(tocbuilt)),
+            ]
+            _writemanifest(manifest, entries)
+
+            self.eq({'ok.md'}, s_mddocs.reuseFiles(srcdir, builtdir, manifest))
+
+    def test_reusefiles_excludes_hash_mismatch_on_either_side(self):
+        with self.getTestDir() as workdir:
+            srcdir = s_common.genpath(workdir, 'docs')
+            builtdir = s_common.genpath(workdir, 'built')
+            manifest = s_common.genpath(workdir, 'docs.sha256')
+
+            badsrcsrc = _write(srcdir, 'badsrc.md', '# Bad Src\n')
+            badsrcbuilt = _write(builtdir, 'badsrc.md', '# Bad Src (built)\n')
+
+            baddstsrc = _write(srcdir, 'baddst.md', '# Bad Dst\n')
+            baddstbuilt = _write(builtdir, 'baddst.md', '# Bad Dst (built)\n')
+
+            entries = [
+                (os.path.relpath(badsrcsrc, workdir), s_mddocs.hashFile(badsrcsrc)),
+                (os.path.relpath(badsrcbuilt, workdir), s_mddocs.hashFile(badsrcbuilt)),
+                (os.path.relpath(baddstsrc, workdir), s_mddocs.hashFile(baddstsrc)),
+                (os.path.relpath(baddstbuilt, workdir), s_mddocs.hashFile(baddstbuilt)),
+            ]
+            _writemanifest(manifest, entries)
+
+            # the source drifted from what the manifest recorded after the fact
+            with open(badsrcsrc, 'w') as fd:
+                fd.write('# Bad Src (edited after the manifest was written)\n')
+            # the built output was hand-edited after the fact
+            with open(baddstbuilt, 'w') as fd:
+                fd.write('# Bad Dst (edited after the manifest was written)\n')
+
+            self.eq(set(), s_mddocs.reuseFiles(srcdir, builtdir, manifest))
+
+    def test_reusefiles_key_inversion_across_bundle_layouts(self):
+        # a bundle's manifest relpaths are recorded relative to the
+        # manifest's OWN directory (see gen_docs_manifest.buildBundleEntries),
+        # which sits in a different place relative to docsdir/outdir for
+        # each bundle kind -- a rapid/synmod's docs.sha256 sits next to both
+        # docs/ and files/docs, while synapse's sits one level below
+        # synapse/assets/docs (its manifest lives in synsrc/docs, its built
+        # bundle in synsrc/synapse/assets/docs). reuseFiles must key off the
+        # manifest's basedir correctly in either shape.
+        with self.getTestDir() as workdir:
+            # rapid/synmod shape: docs.sha256 next to docs/ and files/docs/
+            rapidmanifest = s_common.genpath(workdir, 'rapid', 'docs.sha256')
+            rapidsrc = s_common.genpath(workdir, 'rapid', 'docs')
+            rapidbuilt = s_common.genpath(workdir, 'rapid', 'files', 'docs')
+            rapidsrcfp = _write(rapidsrc, 'page1.md', '# Page One\n')
+            rapidbuiltfp = _write(rapidbuilt, 'page1.md', '# Page One (built)\n')
+            _writemanifest(rapidmanifest, [
+                (os.path.relpath(rapidsrcfp, os.path.dirname(rapidmanifest)), s_mddocs.hashFile(rapidsrcfp)),
+                (os.path.relpath(rapidbuiltfp, os.path.dirname(rapidmanifest)), s_mddocs.hashFile(rapidbuiltfp)),
+            ])
+            self.eq({'page1.md'}, s_mddocs.reuseFiles(rapidsrc, rapidbuilt, rapidmanifest))
+
+            # synapse shape: the manifest's own dir (synsrc/docs) is a SIBLING
+            # of the built bundle's parent (synsrc/synapse), so built entries
+            # climb out with a leading "../"
+            synmanifestdir = s_common.gendir(workdir, 'synsrc', 'docs')
+            synmanifest = s_common.genpath(synmanifestdir, 'docs.sha256')
+            synsrc = s_common.genpath(synmanifestdir, 'synapse')
+            synbuilt = s_common.genpath(workdir, 'synsrc', 'synapse', 'assets', 'docs')
+            synsrcfp = _write(synsrc, 'page1.md', '# Page One\n')
+            synbuiltfp = _write(synbuilt, 'page1.md', '# Page One (built)\n')
+            _writemanifest(synmanifest, [
+                (os.path.relpath(synsrcfp, synmanifestdir), s_mddocs.hashFile(synsrcfp)),
+                (os.path.relpath(synbuiltfp, synmanifestdir), s_mddocs.hashFile(synbuiltfp)),
+            ])
+            self.eq({'page1.md'}, s_mddocs.reuseFiles(synsrc, synbuilt, synmanifest))
+
+    def test_stagereuse_overwrites_staged_copy_with_built_content(self):
+        with self.getTestDir() as workdir:
+            builtdir = s_common.genpath(workdir, 'built')
+            outdir = s_common.genpath(workdir, 'stage')
+            _write(builtdir, 'page1.md', '# Page One (built)\n')
+            _write(outdir, 'page1.md', '# Page One (staged from source)\n')
+            _write(outdir, 'page2.md', '# Page Two (untouched)\n')
+
+            s_mddocs.stageReuse(builtdir, outdir, {'page1.md'})
+
+            with open(s_common.genpath(outdir, 'page1.md')) as fd:
+                self.eq('# Page One (built)\n', fd.read())
+            with open(s_common.genpath(outdir, 'page2.md')) as fd:
+                self.eq('# Page Two (untouched)\n', fd.read())
+
+    async def test_runmdstorm_skip_leaves_file_untouched(self):
+        with self.getTestDir() as outdir:
+            _write(outdir, 'page1.md', '# Page One\n')
+            _write(outdir, 'page2.md', '# Page Two\n')
+
+            origcls = s_mddocs.s_mdstorm.MdStorm
+            s_mddocs.s_mdstorm.MdStorm = _FakeMdStorm
+            try:
+                issues = await s_mddocs.runMdstorm(outdir, skip={'page1.md'})
+            finally:
+                s_mddocs.s_mdstorm.MdStorm = origcls
+
+            # page1.md was skipped entirely -- untouched, no warnings captured
+            with open(s_common.genpath(outdir, 'page1.md')) as fd:
+                self.eq('# Page One\n', fd.read())
+            self.notin('page1.md', issues)
+
+            # page2.md was not skipped -- ran through the fake, which always
+            # emits an unhandled warning and a fixed page of its own
+            with open(s_common.genpath(outdir, 'page2.md')) as fd:
+                self.eq('# Page One\n', fd.read())
+            self.isin('page2.md', issues)
+
+    async def test_builddocs_manifest_reuse_skips_unchanged_page(self):
+        # page1.md's SOURCE carries a live ```mdstorm fence -- if reuseFiles/
+        # stageReuse work, its staticdir content (which never went through
+        # that fence at all) survives untouched; if it were rebuilt instead,
+        # a real Cortex would execute the fence and a "storm>" echo line
+        # would appear (see test_builddocs_mdstorm_fence_executes). The
+        # manifest lives wherever getManifestPath derives it from srcdir --
+        # no path is passed to buildDocs.
+        with self.getTestDir() as workdir:
+            srcdir = s_common.genpath(workdir, 'docs')
+            staticdir = s_common.genpath(workdir, 'built')
+            outdir = s_common.genpath(workdir, 'stage')
+            manifest = s_mddocs.getManifestPath(srcdir)
+
+            _write(srcdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1src = _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '```mdstorm-setup',
+                '```',
+                '',
+                '```mdstorm',
+                '$lib.print(freshlyrendered)',
+                '```',
+                '',
+            )))
+            page1built = _write(staticdir, 'page1.md', '# Page One\n\nAlready built, never touched again.\n')
+
+            basedir = os.path.dirname(manifest)
+            entries = [
+                (os.path.relpath(page1src, basedir), s_mddocs.hashFile(page1src)),
+                (os.path.relpath(page1built, basedir), s_mddocs.hashFile(page1built)),
+            ]
+            _writemanifest(manifest, entries)
+
+            await s_mddocs.buildDocs(srcdir, outdir, staticdir=staticdir)
+
+            with open(s_common.genpath(outdir, 'page1.md')) as fd:
+                text = fd.read()
+            self.eq('# Page One\n\nAlready built, never touched again.\n', text)
+            self.notin('storm>', text)
+
+    async def test_builddocs_force_rebuilds_matching_page(self):
+        # identical setup to the reuse test above, but force=True skips the
+        # docs.sha256 check entirely -- the live ```mdstorm fence really
+        # executes even though source and built output both still match.
+        with self.getTestDir() as workdir:
+            srcdir = s_common.genpath(workdir, 'docs')
+            staticdir = s_common.genpath(workdir, 'built')
+            outdir = s_common.genpath(workdir, 'stage')
+            manifest = s_mddocs.getManifestPath(srcdir)
+
+            _write(srcdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1src = _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '```mdstorm-setup',
+                '```',
+                '',
+                '```mdstorm',
+                '$lib.print(freshlyrendered)',
+                '```',
+                '',
+            )))
+            page1built = _write(staticdir, 'page1.md', '# Page One\n\nAlready built, never touched again.\n')
+
+            basedir = os.path.dirname(manifest)
+            entries = [
+                (os.path.relpath(page1src, basedir), s_mddocs.hashFile(page1src)),
+                (os.path.relpath(page1built, basedir), s_mddocs.hashFile(page1built)),
+            ]
+            _writemanifest(manifest, entries)
+
+            await s_mddocs.buildDocs(srcdir, outdir, staticdir=staticdir, force=True)
+
+            with open(s_common.genpath(outdir, 'page1.md')) as fd:
+                text = fd.read()
+            self.isin('storm> $lib.print(freshlyrendered)', text)
+
+    async def test_builddocs_manifest_reuse_rebuilds_when_source_changed(self):
+        # a deliberately wrong recorded source hash simulates a page edited
+        # after its manifest entry was last regenerated -- the mismatch
+        # forces a real rebuild, which for a ```mdstorm fence means a real
+        # Cortex actually executes it.
+        with self.getTestDir() as workdir:
+            srcdir = s_common.genpath(workdir, 'docs')
+            staticdir = s_common.genpath(workdir, 'built')
+            outdir = s_common.genpath(workdir, 'stage')
+            manifest = s_mddocs.getManifestPath(srcdir)
+
+            _write(srcdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1src = _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '```mdstorm-setup',
+                '```',
+                '',
+                '```mdstorm',
+                '$lib.print(freshlyrendered)',
+                '```',
+                '',
+            )))
+            page1built = _write(staticdir, 'page1.md', '# Page One\n\nAlready built, never touched again.\n')
+
+            basedir = os.path.dirname(manifest)
+            entries = [
+                (os.path.relpath(page1src, basedir), '0' * 64),  # deliberately wrong
+                (os.path.relpath(page1built, basedir), s_mddocs.hashFile(page1built)),
+            ]
+            _writemanifest(manifest, entries)
+
+            await s_mddocs.buildDocs(srcdir, outdir, staticdir=staticdir)
+
+            with open(s_common.genpath(outdir, 'page1.md')) as fd:
+                text = fd.read()
+            self.isin('storm> $lib.print(freshlyrendered)', text)
+
+    async def test_builddocs_mdtoc_page_never_reused_reflects_reused_sibling_title(self):
+        with self.getTestDir() as workdir:
+            srcdir = s_common.genpath(workdir, 'docs')
+            staticdir = s_common.genpath(workdir, 'built')
+            outdir = s_common.genpath(workdir, 'stage')
+            manifest = s_mddocs.getManifestPath(srcdir)
+
+            indextext = '\n'.join((
+                '# Index',
+                '',
+                '```mdtoc',
+                'page1.md',
+                '```',
+                '',
+            ))
+            indexsrc = _write(srcdir, 'index.md', indextext)
+            page1src = _write(srcdir, 'page1.md', '# Page One\n')
+            # matching manifest entries for BOTH pages, to prove index.md is
+            # excluded despite an (artificially) matching hash pair of its
+            # own -- only its own ```mdtoc fence disqualifies it.
+            indexbuilt = _write(staticdir, 'index.md', indextext)
+            page1built = _write(staticdir, 'page1.md', '# Page One (Already Built Title)\n')
+
+            basedir = os.path.dirname(manifest)
+            entries = [
+                (os.path.relpath(indexsrc, basedir), s_mddocs.hashFile(indexsrc)),
+                (os.path.relpath(indexbuilt, basedir), s_mddocs.hashFile(indexbuilt)),
+                (os.path.relpath(page1src, basedir), s_mddocs.hashFile(page1src)),
+                (os.path.relpath(page1built, basedir), s_mddocs.hashFile(page1built)),
+            ]
+            _writemanifest(manifest, entries)
+
+            metadata = await s_mddocs.buildDocs(srcdir, outdir, staticdir=staticdir)
+
+            # page1.md was reused: its H1 is the BUILT title, not the source's
+            self.eq('Page One (Already Built Title)', metadata['toc'][0]['title'])
+
+            with open(s_common.genpath(outdir, 'index.md')) as fd:
+                text = fd.read()
+            # index.md's own ```mdtoc fence was still resolved (never reused,
+            # despite a manifest entry matching it too), naming page1's
+            # reused title in the rendered bullet list.
+            self.notin('```mdtoc', text)
+            self.isin('[Page One (Already Built Title)](page1.md)', text)
+
+    async def test_builddocs_reused_page_broken_link_still_reported(self):
+        # a reused page's committed built content is still scanned by
+        # validate() the same as a rebuilt one -- reuse skips mdstorm, not
+        # validation.
+        with self.getTestDir() as workdir:
+            srcdir = s_common.genpath(workdir, 'docs')
+            staticdir = s_common.genpath(workdir, 'built')
+            outdir = s_common.genpath(workdir, 'stage')
+            manifest = s_mddocs.getManifestPath(srcdir)
+
+            _write(srcdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1src = _write(srcdir, 'page1.md', '# Page One\n')
+            # the reused BUILT content links to a page that no longer exists
+            # anywhere in this build -- a stale link a prior build left behind.
+            page1built = _write(staticdir, 'page1.md', '# Page One\n\n[gone](goneaway.md)\n')
+
+            basedir = os.path.dirname(manifest)
+            entries = [
+                (os.path.relpath(page1src, basedir), s_mddocs.hashFile(page1src)),
+                (os.path.relpath(page1built, basedir), s_mddocs.hashFile(page1built)),
+            ]
+            _writemanifest(manifest, entries)
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir, staticdir=staticdir)
+            issues = cm.exception.get('issues')
+            self.true(any('goneaway.md' in i for i in issues))
+
+    async def test_builddocs_manifest_without_staticdir_is_inert(self):
+        # a bundle's own docs.sha256, sitting right where getManifestPath
+        # derives it, has nothing to reuse a page's built output FROM
+        # without staticdir -- a no-op, same as force=True.
+        with self.getTestDir() as parentdir:
+            srcdir = s_common.genpath(parentdir, 'docs')
+            outdir = s_common.genpath(parentdir, 'stage')
+            manifest = s_mddocs.getManifestPath(srcdir)
+
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index', '', '```mdtoc', 'page1.md', '```', '',
+            )))
+            page1src = _write(srcdir, 'page1.md', '# Page One\n')
+            basedir = os.path.dirname(manifest)
+            _writemanifest(manifest, [(os.path.relpath(page1src, basedir), s_mddocs.hashFile(page1src))])
+
+            metadata = await s_mddocs.buildDocs(srcdir, outdir)
+            self.eq('Page One', metadata['toc'][0]['title'])
+
+    async def test_buildbundle_manifest_reuse_thread_through(self):
+        # buildBundle must thread force= through to buildDocs the same way
+        # it already threads ci=/warnfile= -- reuse works end-to-end through
+        # the stage-then-merge pipeline, not just via a direct buildDocs
+        # call, and with staticdir defaulting to outdir (the common case --
+        # no explicit staticdir override).
+        with self.getTestDir() as workdir:
+            srcdir = s_common.genpath(workdir, 'docs')
+            outdir = s_common.genpath(workdir, 'built')
+            manifest = s_mddocs.getManifestPath(srcdir)
+
+            _write(srcdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1src = _write(srcdir, 'page1.md', '# Page One\n')
+            _write(outdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1built = _write(outdir, 'page1.md', '# Page One\n\nAlready built, never touched again.\n')
+
+            basedir = os.path.dirname(manifest)
+            entries = [
+                (os.path.relpath(page1src, basedir), s_mddocs.hashFile(page1src)),
+                (os.path.relpath(page1built, basedir), s_mddocs.hashFile(page1built)),
+            ]
+            _writemanifest(manifest, entries)
+
+            await s_mddocs.buildBundle(srcdir, outdir)
+
+            with open(s_common.genpath(outdir, 'page1.md')) as fd:
+                self.eq('# Page One\n\nAlready built, never touched again.\n', fd.read())

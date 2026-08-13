@@ -51,6 +51,14 @@ A doc bundle builds one of two ways, depending on whether it belongs to a Storm 
     `docs/` (see `synapse.lib.mddocs.buildBundle`), merging the result into the destination without deleting any
     pre-existing static content there (see the docs/-vs-committed split below).
 
+5.  Both tools also consult the bundle's own `docs.sha256`, found next to its `docs/` source with no path to
+    give either tool: a page whose source and built output both still match that manifest's recorded sha256 is
+    reused as-is instead of rebuilt (no mdstorm pass, no Cortex boot for an `mdstorm-setup` page) -- a page with
+    its own ` ```mdtoc ` fence is the one exception, since its rendered link list can drift from a sibling
+    page's title alone, so it always rebuilds. Pass `--force` to always rebuild every page from scratch instead,
+    as above. The enterprise monorepo's `docs/Makefile` passes `--force` under `CI`/`FORCE=1`, forcing a full
+    rebuild there.
+
 ## Mastering Docs
 
 Synapse documents are mastered as Markdown (`.md`) files. Storm examples are embedded using fenced code blocks named

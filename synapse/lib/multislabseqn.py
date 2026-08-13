@@ -270,6 +270,10 @@ class MultiSlabSeqn(s_base.Base):
             await self._cacheslab.fini()
             self._cacheslab = self._cacheseqn = None
 
+        # decide which ranges are fully culled before removing any of them, so an in use
+        # slab aborts the cull with nothing deleted. Removing as we go would leave the
+        # ranges ahead of it gone from disk but still named by self._ranges, and _getSeqn
+        # would then reopen one of those names as a new empty slab, holing the log.
         del_ridx = None
         for ridx in range(len(self._ranges) - 1):
             startidx = self._ranges[ridx]
@@ -277,10 +281,16 @@ class MultiSlabSeqn(s_base.Base):
             if self._openslabs.get(startidx):
                 raise s_exc.SlabInUse(mesg='Attempt to cull while another task is still using it')
 
-            fn = self.slabFilename(self.dirn, startidx)
             if offs < self._ranges[ridx + 1] - 1:
+                fn = self.slabFilename(self.dirn, startidx)
                 logger.warning('Log %s will not be deleted since offs is less than last indx', fn)
                 break
+
+            del_ridx = ridx
+
+        for ridx in range(del_ridx + 1 if del_ridx is not None else 0):
+
+            fn = self.slabFilename(self.dirn, self._ranges[ridx])
 
             optspath = s_common.switchext(fn, ext='.opts.yaml')
             try:
@@ -288,9 +298,8 @@ class MultiSlabSeqn(s_base.Base):
             except FileNotFoundError:  # pragma: no cover
                 pass
 
-            logger.info('Removing log %s with startidx %d', fn, startidx)
+            logger.info('Removing log %s with startidx %d', fn, self._ranges[ridx])
             shutil.rmtree(fn)
-            del_ridx = ridx
 
             await asyncio.sleep(0)
 
@@ -348,6 +357,13 @@ class MultiSlabSeqn(s_base.Base):
 
         else:
             startidx = self._ranges[ridx]
+
+            # a range named by self._ranges must already exist on disk. _makeSlab() would
+            # otherwise create it, silently turning a missing log slab into an empty one.
+            fn = self.slabFilename(self.dirn, startidx)
+            if not os.path.isdir(fn):
+                mesg = f'Missing nexus log slab {fn} for startidx {startidx}.'
+                raise s_exc.BadCoreStore(mesg=mesg)
 
             self._cacheridx = None
 

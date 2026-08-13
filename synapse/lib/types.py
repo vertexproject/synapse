@@ -2099,7 +2099,9 @@ class PriceRange(PriceRangeBase):
         return self._hugestr(s_common.hugesub(s_common.hugenum(maxv), s_common.hugenum(minv)))
 
     async def _normPyIter(self, valu, opts):
-        if len(valu) != 2:
+        # a normed value carries the delta it computes alongside the pair, and norms
+        # again from the pair the way an ival does with its duration
+        if len(valu) not in (2, 3):
             mesg = f'{self.name} requires a (min, max) pair.'
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
 
@@ -2365,7 +2367,9 @@ class PriceChange(PriceRangeBase):
         return self.unkprice
 
     async def _normPyIter(self, valu, opts):
-        if len(valu) != 2:
+        # a normed value carries the delta and rate it computes alongside the pair, and
+        # norms again from the pair the way an ival does with its duration
+        if len(valu) not in (2, 4):
             mesg = f'{self.name} requires a (start, end) pair.'
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
 

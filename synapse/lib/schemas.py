@@ -265,6 +265,7 @@ reqValidView = s_config.getJsValidator({
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
+        'desc': {'type': 'string'},
         'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},

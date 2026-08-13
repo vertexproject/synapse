@@ -1,3 +1,4 @@
+import os
 import shutil
 import asyncio
 
@@ -312,6 +313,81 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 await msqn.cull(13)
                 retn = await alist(msqn.iter(1))
                 self.eq([(14, 'foo14')], retn)
+
+    async def test_multislabseqn_cull_inuse_atomic(self):
+        '''
+        A cull which spans several ranges and finds a later one in use must delete
+        nothing at all. Removing the earlier ranges first would leave self._ranges naming
+        directories which no longer exist, and _getSeqn() would reopen one of those names
+        as a new empty slab rather than failing.
+        '''
+        with self.getTestDir() as dirn:
+
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
+
+                # three ranges: [0, 10), [10, 20) and the tail
+                for i in range(10):
+                    await msqn.add(f'foo{i}')
+
+                await msqn.rotate()
+                for i in range(10, 20):
+                    await msqn.add(f'foo{i}')
+
+                await msqn.rotate()
+                for i in range(20, 25):
+                    await msqn.add(f'foo{i}')
+
+                self.eq([0, 10, 20], msqn._ranges)
+                self.len(3, sorted(s_common.listdir(dirn, glob='*.lmdb')))
+
+                # hold the second range open, leaving the first fully culled by offs=19
+                it = msqn.iter(10)
+                self.eq((10, 'foo10'), await it.__anext__())
+
+                await self.asyncraises(s_exc.SlabInUse, msqn.cull(19))
+
+                await it.aclose()
+
+                # nothing was removed and the bookkeeping is untouched
+                self.eq([0, 10, 20], msqn._ranges)
+                self.eq(0, msqn.firstindx)
+                self.len(3, sorted(s_common.listdir(dirn, glob='*.lmdb')))
+
+                # the first range is still readable rather than a hole
+                self.eq('foo0', await msqn.get(0))
+
+                # and the same cull succeeds once the range is released
+                self.true(await msqn.cull(19))
+                self.eq([20], msqn._ranges)
+                self.eq(20, msqn.firstindx)
+                self.len(1, sorted(s_common.listdir(dirn, glob='*.lmdb')))
+
+    async def test_multislabseqn_missing_range_slab(self):
+        '''
+        A range named by self._ranges whose slab is gone from disk raises rather than
+        being silently recreated as an empty slab.
+        '''
+        with self.getTestDir() as dirn:
+
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
+
+                for i in range(10):
+                    await msqn.add(f'foo{i}')
+
+                await msqn.rotate()
+                for i in range(10, 15):
+                    await msqn.add(f'foo{i}')
+
+                self.eq([0, 10], msqn._ranges)
+
+                # simulate the state a partially completed cull used to leave behind
+                shutil.rmtree(msqn.slabFilename(dirn, 0))
+
+                with self.raises(s_exc.BadCoreStore):
+                    await msqn.get(0)
+
+                # the slab was not recreated by the failed read
+                self.false(os.path.isdir(msqn.slabFilename(dirn, 0)))
 
     async def test_multislabseqn_discover(self):
         '''

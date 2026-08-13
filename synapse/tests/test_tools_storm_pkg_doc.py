@@ -5,10 +5,18 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.json as s_json
+import synapse.lib.mddocs as s_mddocs
 
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.storm.pkg.doc as s_t_gendocs
+
+def _write(dirn, relpath, text):
+    path = s_common.genpath(dirn, relpath)
+    s_common.gendir(os.path.dirname(path))
+    with open(path, 'w') as fd:
+        fd.write(text)
+    return path
 
 class TestPkgBuildDocs(s_t_utils.SynTest):
 
@@ -185,6 +193,80 @@ class TestPkgBuildDocs(s_t_utils.SynTest):
 
             outdir = os.path.join(dirn, 'files', 'docs')
             self.false(os.path.isfile(os.path.join(outdir, 'docbuild.warn')))
+
+    async def test_storm_pkg_doc_manifest_skips_unchanged_page(self):
+        # a docs.sha256 sitting right where getManifestPath derives it (the
+        # package's own root, next to docs/ -- no flag needed), threaded
+        # through buildPkgDocs to buildBundle, reuses a page straight out of
+        # the real files/docs (staticdir always -- see buildPkgDocs) instead
+        # of rebuilding it.
+        with self.getTestDir() as dirn:
+            testpkgfp = os.path.join(dirn, 'testpkg.yaml')
+            s_common.yamlsave({'name': 'testpkg', 'version': '0.0.1'}, testpkgfp)
+            docsdir = os.path.join(dirn, 'docs')
+            outdir = os.path.join(dirn, 'files', 'docs')
+            manifest = s_mddocs.getManifestPath(docsdir)
+
+            _write(docsdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1src = _write(docsdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '```mdstorm-setup',
+                '```',
+                '',
+                '```mdstorm',
+                '$lib.print(freshlyrendered)',
+                '```',
+                '',
+            )))
+            _write(outdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1built = _write(outdir, 'page1.md', '# Page One\n\nAlready built, never touched again.\n')
+
+            with open(manifest, 'w') as fd:
+                for relpath, filepath in (('docs/page1.md', page1src), ('files/docs/page1.md', page1built)):
+                    fd.write(f'{s_mddocs.hashFile(filepath)}  {relpath}\n')
+
+            self.eq(0, await s_t_gendocs.main([testpkgfp]))
+
+            with open(os.path.join(outdir, 'page1.md')) as fd:
+                text = fd.read()
+            self.eq('# Page One\n\nAlready built, never touched again.\n', text)
+            self.notin('storm>', text)
+
+    async def test_storm_pkg_doc_force_flag_rebuilds_matching_page(self):
+        # identical setup, but --force skips the docs.sha256 check entirely
+        # -- the live ```mdstorm fence really executes.
+        with self.getTestDir() as dirn:
+            testpkgfp = os.path.join(dirn, 'testpkg.yaml')
+            s_common.yamlsave({'name': 'testpkg', 'version': '0.0.1'}, testpkgfp)
+            docsdir = os.path.join(dirn, 'docs')
+            outdir = os.path.join(dirn, 'files', 'docs')
+            manifest = s_mddocs.getManifestPath(docsdir)
+
+            _write(docsdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1src = _write(docsdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '```mdstorm-setup',
+                '```',
+                '',
+                '```mdstorm',
+                '$lib.print(freshlyrendered)',
+                '```',
+                '',
+            )))
+            _write(outdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1built = _write(outdir, 'page1.md', '# Page One\n\nAlready built, never touched again.\n')
+
+            with open(manifest, 'w') as fd:
+                for relpath, filepath in (('docs/page1.md', page1src), ('files/docs/page1.md', page1built)):
+                    fd.write(f'{s_mddocs.hashFile(filepath)}  {relpath}\n')
+
+            self.eq(0, await s_t_gendocs.main([testpkgfp, '--force']))
+
+            with open(os.path.join(outdir, 'page1.md')) as fd:
+                text = fd.read()
+            self.isin('storm> $lib.print(freshlyrendered)', text)
 
     async def test_storm_pkg_doc_no_h1_raises(self):
         # SYN-11304: a doc's title (and metadata.json entry) is discovered

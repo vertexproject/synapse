@@ -2,6 +2,8 @@ import os
 
 import synapse.common as s_common
 
+import synapse.lib.mddocs as s_mddocs
+
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.utils.doc as s_t_doc
@@ -80,3 +82,72 @@ class TestUtilsDoc(s_t_utils.SynTest):
             srcdir = os.path.join(outdir, 'doesnotexist')
             with self.raises(FileNotFoundError):
                 await s_t_doc.main([srcdir, os.path.join(outdir, 'built')])
+
+    async def test_utils_doc_manifest_skips_unchanged_page(self):
+        # a docs.sha256 sitting right where getManifestPath derives it (next
+        # to srcdir -- no flag needed), with no --staticdir override, reuses
+        # a page straight out of outdir itself (buildBundle's staticdir
+        # default) instead of rebuilding it.
+        with self.getTestDir() as workdir:
+            srcdir = os.path.join(workdir, 'docs')
+            outdir = os.path.join(workdir, 'built')
+            manifest = s_mddocs.getManifestPath(srcdir)
+
+            _write(srcdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1src = _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '```mdstorm-setup',
+                '```',
+                '',
+                '```mdstorm',
+                '$lib.print(freshlyrendered)',
+                '```',
+                '',
+            )))
+            _write(outdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1built = _write(outdir, 'page1.md', '# Page One\n\nAlready built, never touched again.\n')
+
+            with open(manifest, 'w') as fd:
+                for relpath, filepath in (('docs/page1.md', page1src), ('built/page1.md', page1built)):
+                    fd.write(f'{s_mddocs.hashFile(filepath)}  {relpath}\n')
+
+            self.eq(0, await s_t_doc.main([srcdir, outdir]))
+
+            with open(os.path.join(outdir, 'page1.md')) as fd:
+                text = fd.read()
+            self.eq('# Page One\n\nAlready built, never touched again.\n', text)
+            self.notin('storm>', text)
+
+    async def test_utils_doc_force_flag_rebuilds_matching_page(self):
+        # identical setup, but --force skips the docs.sha256 check entirely
+        # -- the live ```mdstorm fence really executes.
+        with self.getTestDir() as workdir:
+            srcdir = os.path.join(workdir, 'docs')
+            outdir = os.path.join(workdir, 'built')
+            manifest = s_mddocs.getManifestPath(srcdir)
+
+            _write(srcdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1src = _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '```mdstorm-setup',
+                '```',
+                '',
+                '```mdstorm',
+                '$lib.print(freshlyrendered)',
+                '```',
+                '',
+            )))
+            _write(outdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            page1built = _write(outdir, 'page1.md', '# Page One\n\nAlready built, never touched again.\n')
+
+            with open(manifest, 'w') as fd:
+                for relpath, filepath in (('docs/page1.md', page1src), ('built/page1.md', page1built)):
+                    fd.write(f'{s_mddocs.hashFile(filepath)}  {relpath}\n')
+
+            self.eq(0, await s_t_doc.main([srcdir, outdir, '--force']))
+
+            with open(os.path.join(outdir, 'page1.md')) as fd:
+                text = fd.read()
+            self.isin('storm> $lib.print(freshlyrendered)', text)

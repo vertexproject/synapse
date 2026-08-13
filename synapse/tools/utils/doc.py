@@ -27,13 +27,17 @@ async def main(argv, outp=s_output.stdout):
                             'failing the build (see docs/Makefile mddocs_ciflag for why).')
     pars.add_argument('--warnfile', metavar='<path>',
                        help='With --ci, write warnings/validation issues here instead of raising.')
+    pars.add_argument('--force', default=False, action='store_true',
+                       help='Rebuild every page, including one whose source and built output '
+                            'still match the sha256 recorded in the bundle docs.sha256 found '
+                            'next to <srcdir>.')
 
     opts = pars.parse_args(argv)
 
     outp.printf(f'Building docs for {opts.srcdir}')
 
     await s_mddocs.buildBundle(opts.srcdir, opts.outdir, staticdir=opts.staticdir, ci=opts.ci,
-                                warnfile=opts.warnfile)
+                                warnfile=opts.warnfile, force=opts.force)
 
     outp.printf(f'Built {opts.srcdir} -> {opts.outdir}')
 
