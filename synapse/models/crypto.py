@@ -301,7 +301,7 @@ class CryptoModule(s_module.CoreModule):
                 )),
 
                 ('crypto:currency:bridge:swap', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True}), {
+                    ('name', ('str', {'strip': True}), {
                         'doc': 'The name of the bridge protocol which executed the swap.'}),
                     ('matched', ('bool', {}), {
                         'doc': 'Set to true if the two transactions were matched together by an external observer.'}),

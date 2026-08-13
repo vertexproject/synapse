@@ -441,7 +441,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                 ]''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('name'), 'debridge.finance')
+            self.eq(node.get('name'), 'deBridge.finance')
             self.eq(node.get('matched'), True)
             self.eq(node.get('origin:address'), ('eth', '0xaaaa'))
             self.nn(node.get('origin:contract'))
