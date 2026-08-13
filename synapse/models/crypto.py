@@ -45,6 +45,9 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:currency:transaction', ('guid', {}), {
                     'doc': 'An individual crypto currency transaction recorded on the blockchain.',
                 }),
+                ('crypto:currency:bridge:swap', ('guid', {}), {
+                    'doc': 'A cross-chain swap which bridges value between two transactions on different chains.',
+                }),
                 ('crypto:currency:block', ('comp', {'fields': (
                                                         ('coin', 'crypto:currency:coin'),
                                                         ('offset', 'int'),
@@ -92,6 +95,10 @@ class CryptoModule(s_module.CoreModule):
                 }),
                 ('crypto:smart:effect:seize', ('guid', {}), {
                     'doc': 'A smart contract effect which destroys the tokens held by an address.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
+                ('crypto:smart:effect:swaptokens', ('guid', {}), {
+                    'doc': 'A smart contract effect which swaps one token or currency for another.',
                     'interfaces': ('crypto:smart:effect',),
                 }),
                 # TODO crypto:smart:effect:call - call another smart contract
@@ -293,6 +300,29 @@ class CryptoModule(s_module.CoreModule):
                     # TODO break out args/retvals and maybe make humon repr?
                 )),
 
+                ('crypto:currency:bridge:swap', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The name of the bridge protocol which executed the swap.'}),
+                    ('matched', ('bool', {}), {
+                        'doc': 'Set to true if the two transactions were matched together by an external observer.'}),
+                    ('origin:transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction which sent value on the origin chain.'}),
+                    ('origin:address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which sent value on the origin chain.'}),
+                    ('origin:contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the tokens sent on the origin chain. This is not set if the sent value was a native currency.'}),
+                    ('origin:amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens or currency sent on the origin chain.'}),
+                    ('destination:transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction which received value on the destination chain.'}),
+                    ('destination:address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which received value on the destination chain.'}),
+                    ('destination:contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the tokens received on the destination chain. This is not set if the received value was a native currency.'}),
+                    ('destination:amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens or currency received on the destination chain.'}),
+                )),
+
                 ('crypto:currency:block', {}, (
                     ('coin', ('crypto:currency:coin', {}), {
                         'doc': 'The coin/blockchain this block resides on.', 'ro': True, }),
@@ -433,6 +463,21 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The address whose tokens were destroyed.'}),
                     ('amount', ('hugenum', {}), {
                         'doc': 'The amount of tokens destroyed.'}),
+                )),
+
+                ('crypto:smart:effect:swaptokens', {}, (
+                    ('contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The pool or router contract which executed the swap.'}),
+                    ('address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which swapped the tokens.'}),
+                    ('sent:contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the sent tokens. This is not set if the sent value was a native currency.'}),
+                    ('sent:amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens or currency sent by the address.'}),
+                    ('received:contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the received tokens. This is not set if the received value was a native currency.'}),
+                    ('received:amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens or currency received by the address.'}),
                 )),
 
                 ('crypto:currency:address', {}, (

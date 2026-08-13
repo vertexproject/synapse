@@ -402,6 +402,81 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [
+                    crypto:smart:effect:swaptokens=*
+                        :index=179
+                        :transaction=*
+                        :contract=*
+                        :address=(eth, 0x241ebd14e40899ddb1191c140f85c37917b0505b)
+                        :sent:contract=*
+                        :sent:amount=0.025194371619325567
+                        :received:contract=*
+                        :received:amount=22574.721
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 179)
+            self.nn(node.get('contract'))
+            self.eq(node.get('address'), ('eth', '0x241ebd14e40899ddb1191c140f85c37917b0505b'))
+            self.nn(node.get('sent:contract'))
+            self.eq(node.get('sent:amount'), '0.025194371619325567')
+            self.nn(node.get('received:contract'))
+            self.eq(node.get('received:amount'), '22574.721')
+            self.len(1, await core.nodes('crypto:smart:effect:swaptokens -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:swaptokens -> crypto:currency:transaction'))
+            self.len(3, await core.nodes('crypto:smart:effect:swaptokens -> crypto:smart:contract'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:currency:bridge:swap=(bridge1,)
+                        :name="deBridge.finance"
+                        :matched=true
+                        :origin:transaction=(otxn,)
+                        :origin:address=(eth, 0xaaaa)
+                        :origin:contract=*
+                        :origin:amount=1.5
+                        :destination:transaction=(dtxn,)
+                        :destination:address=(bsc, 0xbbbb)
+                        :destination:contract=*
+                        :destination:amount=1490.0
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'debridge.finance')
+            self.eq(node.get('matched'), True)
+            self.eq(node.get('origin:address'), ('eth', '0xaaaa'))
+            self.nn(node.get('origin:contract'))
+            self.eq(node.get('origin:amount'), '1.5')
+            self.eq(node.get('destination:address'), ('bsc', '0xbbbb'))
+            self.nn(node.get('destination:contract'))
+            self.eq(node.get('destination:amount'), '1490')
+
+            # the swap is reachable from either leg via its indexed transaction prop, and bridges to the other leg
+            self.len(1, await core.nodes('crypto:currency:bridge:swap:origin:transaction=(otxn,)'))
+            self.len(1, await core.nodes('crypto:currency:bridge:swap:destination:transaction=(dtxn,)'))
+            self.len(2, await core.nodes('crypto:currency:bridge:swap=(bridge1,) -> crypto:currency:transaction'))
+            nodes = await core.nodes('crypto:currency:bridge:swap:origin:transaction=(otxn,) :destination:transaction -> crypto:currency:transaction')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('crypto:currency:transaction', s_common.guid(('dtxn',))))
+
+            # is:matched does not imply the destination leg is populated
+            nodes = await core.nodes('''
+                [
+                    crypto:currency:bridge:swap=(bridge2,)
+                        :matched=true
+                        :origin:transaction=(otxn2,)
+                        :origin:address=(eth, 0xcccc)
+                        :origin:amount=2.0
+                        :destination:transaction=(dtxn2,)
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.nn(node.get('destination:transaction'))
+            self.none(node.get('destination:address'))
+            self.none(node.get('destination:contract'))
+            self.none(node.get('destination:amount'))
+
+            nodes = await core.nodes('''
+                [
                     crypto:smart:token=(2bdea834252a220b61aadf592cc0de66, 30)
                         :owner=eth/aaaa
                         :nft:url = https://coin.vertex.link/nfts/30
