@@ -45,7 +45,7 @@ If the image tag is not provided, it will tag the images with `:3.x.x-dev`.
 
 Developers working with Synapse images should consider the following items:
 
-- The Synapse images are not locked to a specific Python version. The underlying Python minor version or base distribution may change. If they do change, that will be noted in the Synapse changelog. If you are building containers off of a floating tag such as `vertexproject/synapse:v3.x.x`, make sure you are reviewing our [changelog](../changelog.md) for items which may affect your use cases. Python patch level updates will not be included in the changelogs.
+- The Synapse images are not locked to a specific Python version. The underlying Python minor version or base distribution may change. If they do change, that will be noted in the Synapse changelog. If you are building containers off of a floating tag such as `hub.vertex.link/synapse:v3.x.x`, make sure you are reviewing our [changelog](../changelog.md) for items which may affect your use cases. Python patch level updates will not be included in the changelogs.
 
 - The `synapse` package and its dependencies are installed in an isolated Docker-managed Python environment. While our container's `pip` retains [PEP668](https://peps.python.org/pep-0668/) compatibility checks, enforcement is not triggered as a result. If you are installing your own Python packages to the distribution, you can do so without any special flags:
 

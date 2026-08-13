@@ -459,6 +459,43 @@ class BaseTest(s_t_utils.SynTest):
         proc.join(timeout=10)
         self.eq(proc.exitcode, 137)
 
+    async def test_base_del_signal_handlers(self):
+        self.thisHostMustNot(platform='windows')
+
+        # Giving up the last handler is what puts the process wide signal wakeup fd
+        # back, so both handlers come off here and nothing is left holding it.
+        loop = asyncio.get_running_loop()
+
+        async with await s_base.Base.anit() as base:
+
+            await base.addSignalHandlers()
+
+            self.isin(signal.SIGINT, loop._signal_handlers)
+            self.isin(signal.SIGTERM, loop._signal_handlers)
+
+            base.delSignalHandlers()
+
+            self.notin(signal.SIGINT, loop._signal_handlers)
+            self.notin(signal.SIGTERM, loop._signal_handlers)
+
+            # removal is what resets the wakeup fd, so nothing may be left holding it
+            self.len(0, loop._signal_handlers)
+
+        # the handlers belong to the loop, so a Base that never installed any leaves
+        # the ones already in place alone
+        async with await s_base.Base.anit() as base:
+
+            await base.addSignalHandlers()
+
+            async with await s_base.Base.anit() as nosigs:
+                nosigs.delSignalHandlers()
+
+            self.isin(signal.SIGINT, loop._signal_handlers)
+            self.isin(signal.SIGTERM, loop._signal_handlers)
+
+            base.delSignalHandlers()
+            self.len(0, loop._signal_handlers)
+
     def test_base_main_sigint(self):
         self.thisHostMustNot(platform='windows')
         # We have no reliable way to test this on windows

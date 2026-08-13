@@ -20,7 +20,7 @@ As you can see in the minimal example below, the **Storm Package** is defined by
 
 `acme-hello.yaml`:
 
-``` text
+``` yaml
 name: acme-hello
 version: 0.0.1
 title: Acme Hello
@@ -133,7 +133,7 @@ Deploying **Storm Modules** allows you to author powerful library functions that
 
 A **Storm Module** is specified within the `modules:` section of the **Storm Package** YAML file.
 
-``` text
+``` yaml
 modules:
 
   - name: acme.hello
@@ -163,7 +163,7 @@ function bar() {
 
 In order to facilitate delegating permission for privileged operations, **Storm** modules may specify permissions which allow the module to be imported with admin privileges. It is a best-practice to declare these permissions within the **Storm** package using the `perms:` key before using them:
 
-``` text
+``` yaml
 perms:
   - perm: [ acme, hello, user ]
     gate: cortex
@@ -180,6 +180,7 @@ To minimize risk, you must very carefully consider what functions to implement w
 
 An excellent example use case for a privileged **Storm** module exists when you have an API key or password which you would like to use on a user's behalf without disclosing the actual API key. The **Storm** library `$lib.globals.set(<name>, <valu>)` and `$lib.globals.get(<name>)` can be used to access protected global variables which regular users may not access without special permissions. By implementing a privileged **Storm** module which retrieves the API key and uses it on the user's behalf without disclosing it, you may protect the API key from disclosure while also allowing users to use it. For example, `acme.hello.privsep.storm`:
 
+```storm
 function getFooByBar(bar) {
 
     // Retrieve an API key from protected storage
@@ -201,6 +202,7 @@ function getFooByBar(bar) {
     // Return the JSON response (but not the API key)
     return($resp.json())
 }
+```
 
 Notice that the `$apikey` is being retrieved and used to call the HTTP API but is not returned to the caller.
 
@@ -230,7 +232,7 @@ storm>
 
 A more complex command declaration:
 
-``` text
+``` yaml
 commands:
 
   - name: acme.hello.omgopts
@@ -289,6 +291,7 @@ complete. 0 nodes in 6 ms (0/sec).
 
 Command line options are available within the **Storm** command by accessing the implicit `$cmdopts` variable. The command example (`storm/commands/acme.hello.omgopts.storm`) can be seen below:
 
+```storm
 // An init {} block only runs once even if there are multiple nodes in the pipeline.
 
 init {
@@ -308,13 +311,13 @@ init {
     $lib.print(`FQDN: {$fqdn}`)
 }
 
-
 // You may also act on nodes in the pipeline
 $lib.print(`GOT NODE: {$node.repr()}`)
 
 if $lib.debug { $lib.print("debug mode detected!") }
 
 // Any nodes still in the pipeline are sent as output
+```
 
 ### Command Option Conventions
 
@@ -348,7 +351,7 @@ files/
 
 When the package is built with `storm.pkg.gen`, a `files:` section is generated from that directory. It is keyed by the path each file is served under -- its path relative to the `files` directory -- and each entry carries the SHA256 of its contents:
 
-``` text
+``` yaml
 files:
     data.mmdb:
         sha256: 0f4b3fa39e8f4bd4f2a1e35e2a83ff3d9c50a5c0ea6b0e29b1a3cb5eaf2d7f61
@@ -435,7 +438,7 @@ The `--yield` option is typically used to allow a **Storm** command which takes 
 
 To implement a command with a `--yield` option is typically accomplished via the following pattern:
 
-``` text
+``` yaml
 commands:
 
   - name: acme.hello.mayyield
@@ -454,6 +457,7 @@ commands:
 
 Then within `storm/commands/acme.hello.mayyield.storm`:
 
+```storm
 function nodeGenrFunc(fqdn) {
     // Fake a DNS lookup and make a few inet:dns:a records...
     [ inet:dns:a=($fqdn, 1.2.3.4) ]
@@ -461,6 +465,7 @@ function nodeGenrFunc(fqdn) {
 }
 
 divert $cmdopts.yield $nodeGenrFunc($node)
+```
 
 When executed, the `acme.hello.mayyield` command will output the nodes received as inputs which is useful for pipelining enrichments. If the user specifies `--yield` the command will output the resulting `inet:dns:a` nodes constructed by the `nodeGenrFunc()` function.
 
@@ -470,7 +475,7 @@ If you have access to the **Synapse** commercial UI **Optic** you may find it he
 
 To define **Optic** actions, you declare them in the **Storm Package** YAML file:
 
-``` text
+``` yaml
 optic:
     actions:
       - name: Hello Omgopts

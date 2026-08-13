@@ -218,7 +218,7 @@ async def runMdstorm(outdir, srcdir=None):
             --stormpkg fence can resolve a pkgdef path that lives outside
             the docroot (see MdStorm.srcbasedir). May be None (a file's
             mdautodoc fences then resolve relative to its own staged
-            location, same as mdinclude).
+            location).
 
     Returns:
         dict: {relpath: [warning-message, ...]} for any file with issues.

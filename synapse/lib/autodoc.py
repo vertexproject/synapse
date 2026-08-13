@@ -13,7 +13,6 @@ import synapse.common as s_common
 import synapse.lib.json as s_json
 import synapse.lib.config as s_config
 import synapse.lib.dyndeps as s_dyndeps
-import synapse.lib.version as s_version
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -1929,7 +1928,6 @@ async def docStormpkgMd(pkgpath):
     md.addHead(f'Storm Package: {pkgname}')
     lines = [
         'The following Commands are available from this package.',
-        f'This documentation is generated for version {s_version.fmtVersion(pkgdef.get("version"))} of the package.',
     ]
     md.addLines(*lines)
 

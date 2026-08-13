@@ -818,8 +818,7 @@ class MdDocsTest(s_test.SynTest):
         # packages/<pkg>/<pkg>.yaml, or synmods/<mod>/assets/docs next to
         # synmods/<mod>/assets/<pkg>.yaml) -- --stormpkg resolves against
         # the ORIGINAL srcdir (MdStorm.srcbasedir), not the staged outdir,
-        # so no source outside srcdir needs to be staged to reach it,
-        # unlike mdinclude.
+        # so no source outside srcdir needs to be staged to reach it.
         with self.getTestDir() as workdir, self.getTestDir() as outdir:
             srcdir = s_common.genpath(workdir, 'docs')
             s_common.yamlsave({'name': 'srcbasedirpkg', 'version': '0.0.1'},

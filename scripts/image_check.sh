@@ -5,19 +5,19 @@
 #
 # Uses several tools ( trivy / grype / docker scout ) to generate reports for
 # CVEs which may be present in a docker image.
-# By default, this will pull the latest vertexproject/synapse:master image
+# By default, this will pull the latest vertexproject/synapse:main image
 # to check, and compare it against the previous stable release image.
 #
 # A single parameter ( an image name ) can be provided to check an arbitrary
 # image. Example:
 #
-# ./scripts/image_check.sh vertexproject/synapse-foobar:master
+# ./scripts/image_check.sh vertexproject/synapse-foobar:main
 #
 # A second parameter ( a second image name ) can be provided to compare the
 # first image to the second with docker scout compare. This will only compare
 # the two images if the they have the same repo. Example:
 #
-# ./scripts/image_check.sh vertexproject/synapse-foobar:master vertexproject/synapse-foobar:v1.2.3
+# ./scripts/image_check.sh vertexproject/synapse-foobar:main vertexproject/synapse-foobar:v1.2.3
 #
 ##############################################################################
 
@@ -26,8 +26,8 @@ set -u # undefined variables
 set -o pipefail # pipefail propagate error codes
 set -x # debugging
 
-CHECK_IMAGE=${1:-vertexproject/synapse:master}
-REFERENCE_IMAGE=${2:-vertexproject/synapse:v2.x.x}
+CHECK_IMAGE=${1:-vertexproject/synapse:main}
+REFERENCE_IMAGE=${2:-vertexproject/synapse:v3.x.x}
 
 docker pull $CHECK_IMAGE
 

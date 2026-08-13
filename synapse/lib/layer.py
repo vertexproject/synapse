@@ -170,15 +170,6 @@ class LayerApi(s_cell.CellApi):
 
         return await self.layr.saveNodeEdits(nodeedits, meta)
 
-    async def storNodeEditsNoLift(self, nodeedits, *, meta=None):
-
-        self.user.confirm(self.writeperm, gateiden=self.layr.iden)
-
-        if meta is None:
-            meta = {'time': s_common.now(), 'user': self.user.iden}
-
-        await self.layr.storNodeEditsNoLift(nodeedits, meta)
-
     async def syncNodeEdits(self, offs, *, wait=True, compat=False, withmeta=False):
         '''
         Yield (offs, nodeedits, meta) tuples from the nexus log starting from the given offset.
@@ -1256,6 +1247,13 @@ class StorType:
 
         for name, (valu, vtyp) in virts.items():
 
+            # hidden ("_" prefixed) virts carry index metadata rather than a value to
+            # index, as in getVirtIndxVals(). no tagprop type produces them today, since
+            # a tagprop is never poly or array, but skipping them keeps this in step with
+            # the property path rather than unpacking the metadata as a (valu, vtyp) pair
+            if name[0] == '_':
+                continue
+
             p_abrv = layr.core.setIndxAbrv(INDX_VIRTUAL_TAGPROP, None, None, prop, name)
             tp_abrv = layr.core.setIndxAbrv(INDX_VIRTUAL_TAGPROP, None, tag, prop, name)
             ftp_abrv = layr.core.setIndxAbrv(INDX_VIRTUAL_TAGPROP, form, tag, prop, name)
@@ -1276,6 +1274,10 @@ class StorType:
         layr = self.layr
 
         for name, (valu, vtyp) in virts.items():
+
+            # skipped on the way in (see getTagPropVirtIndxVals), so skipped on the way out
+            if name[0] == '_':
+                continue
 
             p_abrv = layr.core.setIndxAbrv(INDX_VIRTUAL_TAGPROP, None, None, prop, name)
             tp_abrv = layr.core.setIndxAbrv(INDX_VIRTUAL_TAGPROP, None, tag, prop, name)
@@ -4333,10 +4335,14 @@ class Layer(s_nexus.Pusher):
 
         newp_valu, info = await newp.type.norm(valu)
         newp_name = newp.name
-        newp_stortype = newp.type.stortype
         newp_formname = newp.form.name
 
-        set_edit = (EDIT_PROP_SET, (newp_name, newp_valu, newp_stortype, info.get('virts')))
+        # the value's own stortype and hidden storage virts, not the type's declared
+        # stortype: a poly indexes under STOR_FLAG_POLY plus its member type, and an
+        # array member needs its "_stortypes" to be indexed without the model
+        newp_stortype, newp_virts = newp.type.getStorInfo(newp_valu, virts=info.get('virts'))
+
+        set_edit = (EDIT_PROP_SET, (newp_name, newp_valu, newp_stortype, newp_virts))
         nodeedits = [(s_common.int64un(nid), newp_formname, [set_edit])]
 
         changes = await self.saveNodeEdits(nodeedits, meta)
@@ -4379,10 +4385,10 @@ class Layer(s_nexus.Pusher):
 
         # EDIT_NODE_DEL will delete all nodedata and n1 edges if there is a valu in the sode
         if (valu := sode.get('valu')):
-            edits.append((EDIT_NODE_DEL,))
+            edits.append((EDIT_NODE_DEL, ()))
         else:
             if (valu := sode.get('antivalu')):
-                edits.append((EDIT_NODE_TOMB_DEL,))
+                edits.append((EDIT_NODE_TOMB_DEL, ()))
 
             async for abrv, tomb in self.iterNodeDataKeys(nid):
                 name = self.core.getAbrvIndx(abrv)[0]
@@ -4761,18 +4767,10 @@ class Layer(s_nexus.Pusher):
 
         return True
 
-    async def storNodeEditsNoLift(self, nodeedits, meta):
-        '''
-        Execute a series of node edit operations.
-
-        Does not return the updated nodes.
-        '''
-        self._reqNotReadOnly()
-        await self._push('edits', nodeedits, meta)
-
     def _calcNodeAdd(self, nid, edit, sode):
 
-        if sode is not None and sode.get('valu') == edit[1][0]:
+        # sode['valu'] holds the whole (valu, stortype, virts) tuple that edit[1] carries
+        if sode is not None and sode.get('valu') == edit[1]:
             return
 
         return edit
@@ -5072,9 +5070,15 @@ class Layer(s_nexus.Pusher):
     async def _editNodeAdd(self, nid, form, edit, sode, meta):
 
         if (cval := sode.get('valu')) is not None:
-            if cval != edit[1][0]:
+
+            # a folding nidNorm() such as the one on the text type maps values which
+            # differ only by case onto the same nid, so the incoming value may differ
+            # from the one we hold. the index rows are built from the folded value and
+            # are the same either way, leaving the storage node as the only update.
+            if cval != edit[1]:
                 sode['valu'] = edit[1]
                 self.dirty[nid] = sode
+
             return ()
 
         valu, stortype, virts = sode['valu'] = edit[1]
@@ -5185,6 +5189,35 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
+    async def _delNodeLiveValues(self, nid, form, sode):
+        '''
+        Delete every live value this layer holds for a node, leaving its tombstones intact.
+
+        Notes:
+            The caller is expected to have set sode['antivalu'] already, so that the
+            mayDelNid() calls made by the edit handlers below keep the storage node.
+        '''
+        # tagprops come off before their tags, since _editTagDel() does not cascade
+        if (tagprops := sode.get('tagprops')) is not None:
+            for tag, props in list(tagprops.items()):
+                for prop in list(props.keys()):
+                    await self._editTagPropDel(nid, form, (EDIT_TAGPROP_DEL, (tag, prop)), sode, None)
+
+        if (tags := sode.get('tags')) is not None:
+            for tag in sorted(tags.keys(), key=len, reverse=True):
+                await self._editTagDel(nid, form, (EDIT_TAG_DEL, (tag,)), sode, None)
+
+        if (props := sode.get('props')) is not None:
+            for prop in list(props.keys()):
+                await self._editPropDel(nid, form, (EDIT_PROP_DEL, (prop,)), sode, None)
+
+        if sode.get('valu') is not None:
+            # _editNodeDel() wipes the node data and edges for us
+            await self._editNodeDel(nid, form, (EDIT_NODE_DEL, ()), sode, None)
+        else:
+            await self._wipeNodeData(nid, sode)
+            await self._delNodeEdges(nid, form, sode)
+
     async def _editNodeTomb(self, nid, form, edit, sode, meta):
 
         if sode.get('antivalu') is not None:
@@ -5203,8 +5236,29 @@ class Layer(s_nexus.Pusher):
 
         self.dirty[nid] = sode
 
-        await self._wipeNodeData(nid, sode)
-        await self._delNodeEdges(nid, form, sode)
+        # a tombstone and a live value for the same node are mutually exclusive within a
+        # layer, which is what lets _joinSodes() build a node from whichever sode holds
+        # the valu without consulting antivalu. an editor delete removes the live values
+        # ahead of the tombstone; a tombstone arriving on its own, as a layer push or a
+        # mirror replays it, removes them here.
+        await self._delNodeLiveValues(nid, form, sode)
+
+        # a whole node tombstone also supersedes any part-of-node tombstones. the node
+        # data and edge tombstones are already gone via _wipeNodeData()/_delNodeEdges();
+        # clear the remaining three here so the sode matches the lone EDIT_NODE_TOMB that
+        # iterLayerNodeEdits() replays for it to a mirror or a merge.
+        if (antitagprops := sode.get('antitagprops')) is not None:
+            for tag, props in list(antitagprops.items()):
+                for prop in list(props.keys()):
+                    await self._editTagPropTombDel(nid, form, (EDIT_TAGPROP_TOMB_DEL, (tag, prop)), sode, None)
+
+        if (antitags := sode.get('antitags')) is not None:
+            for tag in list(antitags.keys()):
+                await self._editTagTombDel(nid, form, (EDIT_TAG_TOMB_DEL, (tag,)), sode, None)
+
+        if (antiprops := sode.get('antiprops')) is not None:
+            for prop in list(antiprops.keys()):
+                await self._editPropTombDel(nid, form, (EDIT_PROP_TOMB_DEL, (prop,)), sode, None)
 
         return kvpairs
 
@@ -5240,7 +5294,8 @@ class Layer(s_nexus.Pusher):
 
                 kvpairs = []
 
-                isarray = oldt & STOR_FLAG_ARRAY
+                # oldt is None when the prop is absent and the edit sets it to None
+                isarray = oldt is not None and oldt & STOR_FLAG_ARRAY
 
                 if oldvirts is not None:
                     self._getRealStorType(oldt).delVirtIndxVals(nid, form, prop, oldvirts, isarray=isarray, poly=True)
@@ -5455,8 +5510,13 @@ class Layer(s_nexus.Pusher):
             formabrv = self.core.setIndxAbrv(INDX_FORM, form)
             kvpairs.append((formabrv, nid))
 
+        # set the tombstone before dropping the live value so mayDelNid() keeps the sode
         sode['antiprops'][prop] = True
         self.dirty[nid] = sode
+
+        # a tombstone hides the prop, so a value this layer still holds for it is
+        # unreachable. dropping it keeps the tombstone and live rows mutually exclusive.
+        await self._editPropDel(nid, form, (EDIT_PROP_DEL, (prop,)), sode, None)
 
         return kvpairs
 
@@ -5530,8 +5590,9 @@ class Layer(s_nexus.Pusher):
 
         if sode.get('form') is None:
             sode['form'] = form
-            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
-            kvpairs.append((formabrv, nid))
+            # formabrv is the INDX_TAG (form, tag) abrv that the tag index rows below are
+            # written under, so the form row uses its own abrv
+            kvpairs.append((self.core.setIndxAbrv(INDX_FORM, form), nid))
 
         if valu == (None, None, None):
             kvpairs.append((abrv, nid))
@@ -5617,8 +5678,13 @@ class Layer(s_nexus.Pusher):
             formabrv = self.core.setIndxAbrv(INDX_FORM, form)
             kvpairs.append((formabrv, nid))
 
+        # set the tombstone before dropping the live value so mayDelNid() keeps the sode
         sode['antitags'][tag] = True
         self.dirty[nid] = sode
+
+        # a tombstone hides the tag, so a value this layer still holds for it is
+        # unreachable. dropping it keeps the tombstone and live rows mutually exclusive.
+        await self._editTagDel(nid, form, (EDIT_TAG_DEL, (tag,)), sode, None)
 
         return kvpairs
 
@@ -5835,8 +5901,13 @@ class Layer(s_nexus.Pusher):
         if antitags is None or antiprops is None:
             sode['antitagprops'][tag] = {}
 
+        # set the tombstone before dropping the live value so mayDelNid() keeps the sode
         sode['antitagprops'][tag][prop] = True
         self.dirty[nid] = sode
+
+        # a tombstone hides the tagprop, so a value this layer still holds for it is
+        # unreachable. dropping it keeps the tombstone and live rows mutually exclusive.
+        await self._editTagPropDel(nid, form, (EDIT_TAGPROP_DEL, (tag, prop)), sode, None)
 
         return kvpairs
 
@@ -6224,18 +6295,22 @@ class Layer(s_nexus.Pusher):
                     n2cnts[form] = newvalu
                     self.dirty[n2nid] = n2sode
 
+                # a tombstone is only counted by the tombstone verb count (see
+                # _delNodeEdgeTomb) so the live edge counts are left alone here
+                self.indxcounts.inc(INDX_TOMB + vabrv, -1)
+                continue
+
+            n2cnts = n2sode['n2verbs'][verb]
+            newvalu = n2cnts.get(form, 0) - 1
+            if newvalu == 0:
+                n2cnts.pop(form)
+                if not n2cnts:
+                    n2sode['n2verbs'].pop(verb)
+                    if not self.mayDelNid(n2nid, n2sode):
+                        self.dirty[n2nid] = n2sode
             else:
-                n2cnts = n2sode['n2verbs'][verb]
-                newvalu = n2cnts.get(form, 0) - 1
-                if newvalu == 0:
-                    n2cnts.pop(form)
-                    if not n2cnts:
-                        n2sode['n2verbs'].pop(verb)
-                        if not self.mayDelNid(n2nid, n2sode):
-                            self.dirty[n2nid] = n2sode
-                else:
-                    n2cnts[form] = newvalu
-                    self.dirty[n2nid] = n2sode
+                n2cnts[form] = newvalu
+                self.dirty[n2nid] = n2sode
 
             self.indxcounts.inc(vabrv, -1)
             self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, -1)
@@ -6552,6 +6627,21 @@ class Layer(s_nexus.Pusher):
             return
 
         for _, nid in self.layrslab.scanByPref(INDX_TOMB + abrv, db=self.indxdb):
+            await asyncio.sleep(0)
+            yield nid
+
+    async def iterTagTombstones(self, tag):
+        '''
+        Yield the nid of each node in this layer with a tombstone for the given tag.
+        '''
+        # tag tombstones are stored under the form agnostic (None, tag) abrv
+        try:
+            abrv = self.core.getIndxAbrv(INDX_TAG, None, tag)
+        except s_exc.NoSuchAbrv:
+            return
+
+        for _, nid in self.layrslab.scanByPref(INDX_TOMB + abrv, db=self.indxdb):
+            await asyncio.sleep(0)
             yield nid
 
     async def iterEdgeTombstones(self, verb=None):
@@ -6585,16 +6675,17 @@ class Layer(s_nexus.Pusher):
             tombtype = byts[:2]
             tombinfo = s_msgpack.un(byts[2:])
 
+            # nids are yielded as ints, matching iterEdgeTombstones() and $node.nid
             if tombtype == INDX_EDGE_VERB:
-                n1nid = lkey[10:18]
+                n1nid = s_common.int64un(lkey[10:18])
 
                 for _, n2nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
-                    yield (n1nid, tombtype, (tombinfo[0], n2nid))
+                    yield (n1nid, tombtype, (tombinfo[0], s_common.int64un(n2nid)))
 
             else:
 
                 for _, nid in self.layrslab.scanByDups(lkey, db=self.indxdb):
-                    yield (nid, tombtype, tombinfo)
+                    yield (s_common.int64un(nid), tombtype, tombinfo)
 
     async def confirmLayerEditPerms(self, user, gateiden, delete=False):
         if user.allowed(('node',), gateiden=gateiden, deepdeny=True):

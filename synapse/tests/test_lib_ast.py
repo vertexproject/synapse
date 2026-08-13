@@ -4582,6 +4582,33 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:arrayprop +test:arrayprop:ints.size*newp=5')
 
+    async def test_ast_tagpropvirtset_perms(self):
+        '''
+        Setting a tagprop virt is a tag edit and requires the tag add perms, the same
+        way EditTagPropSet and EditTagVirtSet do.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('_ival', ('ival', {}), {})
+            await core.nodes('[ test:str=foo +#a.b:_ival=2020 ]')
+
+            layriden = core.getView().wlyr.iden
+
+            user = await core.auth.addUser('lowly')
+            await user.addRule((True, ('view', 'read')), gateiden=core.getView().iden)
+
+            useropts = {'user': user.iden}
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('test:str=foo [ +#a.b:_ival.precision=day ]', opts=useropts)
+
+            await user.addRule((True, ('node', 'tag', 'add')), gateiden=layriden)
+
+            valu = await core.callStorm('''
+                test:str=foo [ +#a.b:_ival.precision=day ] return(#a.b:_ival.precision)
+            ''', opts=useropts)
+            self.eq(s_time.PREC_DAY, valu)
+
     async def test_ast_tagvalu(self):
 
         async with self.getTestCore() as core:

@@ -1,3 +1,6 @@
+```mdstorm-setup
+```
+
 <a id="storm-ref-syntax"></a>
 
 # Storm Reference - Document Syntax Conventions
@@ -71,12 +74,8 @@ Example queries may or may not include results (the output of the query). Result
   <inet:dns:a> -> inet:ip
 ```
 
-```stormdoc
-storm> [ inet:ip=1.2.3.4 :place:loc=us ]
-inet:ip=1.2.3.4
-        :place:loc = us
-        :type = unicast
-        :version = 4
+```mdstorm
+  [ inet:ip=1.2.3.4 :place:loc=us ]
 ```
 
 ## Type-Specific Behavior

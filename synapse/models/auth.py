@@ -10,8 +10,8 @@ class Passwd(s_types.Str):
         self.sha1 = self.modl.type('crypto:hash:sha1')
         self.sha256 = self.modl.type('crypto:hash:sha256')
 
-    async def norm(self, valu, view=None):
-        retn = await s_types.Str.norm(self, valu)
+    async def norm(self, valu, opts=None):
+        retn = await s_types.Str.norm(self, valu, opts=opts)
         retn[1].setdefault('subs', {})
         byts = retn[0].encode('utf8')
         retn[1]['subs'].update({

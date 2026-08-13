@@ -117,23 +117,18 @@ class ProtoNode(s_node.NodeBase):
         edits = []
 
         if not self.node or self.setvalu or not self.node.hasvalu():
-            if (svirts := self.form.type.getStorVirts(self.valu)) is not None:
-                self.virts = self.virts | svirts if self.virts is not None else svirts
+            stortype, self.virts = self.form.type.getStorInfo(self.valu, virts=self.virts)
 
-            edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype, self.virts)))
+            edits.append((s_layer.EDIT_NODE_ADD, (self.valu, stortype, self.virts)))
 
         for name, valu in self.meta.items():
             edits.append((s_layer.EDIT_META_SET, (name, valu, self.model.metatypes[name].stortype)))
 
         for name, valu in self.props.items():
             ptyp = self.form.props.get(name).type
-            stortype = ptyp.getStorType(valu[0])
+            stortype, virts = ptyp.getStorInfo(valu[0], virts=valu[1])
 
-            if (svirts := ptyp.getStorVirts(valu[0])) is not None:
-                virts = valu[1] | svirts if valu[1] is not None else svirts
-                valu = (valu[0], virts)
-
-            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], stortype, valu[1])))
+            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], stortype, virts)))
 
         for name in self.propdels:
             edits.append((s_layer.EDIT_PROP_DEL, (name,)))
@@ -681,7 +676,7 @@ class ProtoNode(s_node.NodeBase):
             raise s_exc.IsDeprLocked(mesg=f'Tagprop {name} is locked.', prop=name)
 
         if norminfo is None:
-            valu, norminfo = await prop.type.norm(valu, view=self.editor.view)
+            valu, norminfo = await prop.type.norm(valu, opts=self.editor.view.normopts)
 
         if not norminfo.get('skipadd'):
             if (propform := self.model.form(prop.type.name)) is not None:
@@ -805,7 +800,7 @@ class ProtoNode(s_node.NodeBase):
 
         if norminfo is None:
             try:
-                valu, norminfo = await prop.type.norm(valu, view=self.editor.view)
+                valu, norminfo = await prop.type.norm(valu, opts=self.editor.view.normopts)
             except s_exc.BadTypeValu as e:
                 if 'prop' not in e.errinfo:
                     oldm = e.get('mesg')
@@ -912,14 +907,14 @@ class ProtoNode(s_node.NodeBase):
             for tname in subp.type.typeset:
                 mtyp = self.model.type(tname)
                 if mtyp is not None and mtyp.typehash is subhash:
-                    return await subp.type.packTypedNorm(tname, subvalu, subinfo, view=self.editor.view)
+                    return await subp.type.packTypedNorm(tname, subvalu, subinfo, opts=self.editor.view.normopts)
 
             substype = self.model.typesbyhash.get(subhash)
             if substype is not None and substype.ispoly:
                 if subp.type.acceptsType(subvalu[0]):
-                    return await subp.type.normFromTypedValu(subvalu, view=self.editor.view)
+                    return await subp.type.normFromTypedValu(subvalu, opts=self.editor.view.normopts)
 
-                return await subp.type.norm(subvalu[1], view=self.editor.view)
+                return await subp.type.norm(subvalu[1], opts=self.editor.view.normopts)
 
         return subvalu, None
 
@@ -975,6 +970,7 @@ class NodeEditor:
         self.user = user
         self.view = view
         self.tagcache = tagcache
+
         self.protonodes = {}
         self.maxnodes = view.core.maxnodes
 
@@ -1034,7 +1030,7 @@ class NodeEditor:
 
         if norminfo is None:
             try:
-                valu, norminfo = await form.type.norm(valu, view=self.view)
+                valu, norminfo = await form.type.norm(valu, opts=self.view.normopts)
             except s_exc.BadTypeValu as e:
                 e.set('form', form.name)
                 raise e

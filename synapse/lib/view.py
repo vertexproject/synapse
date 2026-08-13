@@ -88,6 +88,9 @@ class View(s_nexus.Pusher):  # type: ignore
         self.core = core
         self.dirn = s_common.gendir(core.dirn, 'views', self.iden)
 
+        # a shared read-only normopts for norms which resolve against this view.
+        self.normopts = {'view': self}
+
         slabpath = s_common.genpath(self.dirn, 'viewstate.lmdb')
 
         self.viewslab = await s_lmdbslab.Slab.anit(slabpath, readonly=self.core.readonly,
@@ -781,7 +784,11 @@ class View(s_nexus.Pusher):  # type: ignore
                 async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits(meta=True):
                     nid = s_common.int64en(intnid)
 
-                    if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
+                    # a whole node tombstone deletes the parent node outright, which
+                    # subsumes every other edit the fork staged for it. test for the edit
+                    # rather than for a lone edit, so this does not depend on
+                    # iterLayerNodeEdits() happening to yield it by itself.
+                    if any(edit[0] == s_layer.EDIT_NODE_TOMB for edit in edits):
                         protonode = await editor.getNodeByNid(nid)
                         if protonode is None:
                             continue
@@ -1176,7 +1183,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.layers = layers
         self.info['layers'] = layridens
-        self.core.viewdefs.set(self.iden, self.info)
+        if not self.core.readonly:
+            self.core.viewdefs.set(self.iden, self.info)
 
         await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layridens}, gates=[self.iden, self.layers[0].iden])
 
@@ -1269,7 +1277,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             normv = valu
             if norm:
-                normv, info = await prop.type.norm(normv, view=self)
+                normv, info = await prop.type.norm(normv, opts=self.normopts)
 
             for layr in self.layers:
                 count += layr.getPropValuCount(formname, propname, prop.type.stortype, normv)
@@ -1286,7 +1294,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 count += await layr.getTagPropCount(form, tag, prop.name)
             return count
 
-        norm, info = await prop.type.norm(valu, view=self)
+        norm, info = await prop.type.norm(valu, opts=self.normopts)
 
         for layr in self.layers:
             await asyncio.sleep(0)
@@ -1322,7 +1330,7 @@ class View(s_nexus.Pusher):  # type: ignore
             atyp = prop.type.arraytype
             normv = valu
             if norm:
-                normv, info = await atyp.norm(normv, view=self)
+                normv, info = await atyp.norm(normv, opts=self.normopts)
 
             for layr in self.layers:
                 count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, normv)
@@ -1499,9 +1507,13 @@ class View(s_nexus.Pusher):  # type: ignore
                         if sode.get('antivalu') is not None:
                             break
 
-                        if propname is not None and (sode['props'].get(propname) is not None or
-                                                     sode['antiprops'].get(propname) is not None):
-                            break
+                        if propname is not None:
+
+                            if (props := sode.get('props')) is not None and props.get(propname) is not None:
+                                break
+
+                            if (antiprops := sode.get('antiprops')) is not None and antiprops.get(propname) is not None:
+                                break
                     else:
                         lastvalu = valu
                         yield indx, valu
@@ -2741,7 +2753,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 if form is None:
                     raise s_exc.NoSuchForm(mesg=f'No form named {formname} for valu={formvalu}.')
 
-                norm, norminfo = await form.type.normFromTypedValu(formvalu, view=self)
+                norm, norminfo = await form.type.normFromTypedValu(formvalu, opts=self.normopts)
                 protonode = await editor.addNode(formname, norm, norminfo=norminfo)
             except Exception as e:
                 if runt is not None:
@@ -2761,7 +2773,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                         typedvalu = s_node.getPodeTval(protonode.form, prop, propvalu)
 
-                        norm, norminfo = await prop.type.normFromTypedValu(typedvalu, view=self)
+                        norm, norminfo = await prop.type.normFromTypedValu(typedvalu, opts=self.normopts)
                         await protonode.set(propname, norm, norminfo=norminfo)
                     except Exception as e:
                         if runt is not None:
@@ -2836,7 +2848,7 @@ class View(s_nexus.Pusher):  # type: ignore
                             continue
 
                         try:
-                            n2valu, _ = await n2form.type.norm(n2valu, view=self)
+                            n2valu, _ = await n2form.type.norm(n2valu, opts=self.normopts)
                         except s_exc.BadTypeValu as e:
                             continue
 
@@ -3027,51 +3039,76 @@ class View(s_nexus.Pusher):  # type: ignore
     async def storNodeEdits(self, edits, meta):
         await self.saveNodeEdits(edits, meta=meta)
 
-    async def delTombstone(self, nid, tombtype, tombinfo, runt=None):
+    async def delTombstone(self, nid, tombtype, tombinfo, runt):
+        '''
+        Remove a tombstone from the write layer of this view.
 
+        Notes:
+            Removing a tombstone makes the masked value visible again, so it is
+            confirmed against the "add" permission for the value, not the "del" one.
+
+        Returns:
+            bool: True if the tombstone was removed, False if it was not present.
+        '''
         if (ndef := self.core.getNidNdef(nid)) is None:
-            raise s_exc.BadArg(f'delTombstone() got an invalid nid: {nid}')
+            mesg = f'delTombstone() got an invalid nid: {nid}'
+            raise s_exc.BadArg(mesg=mesg, nid=nid)
 
-        edit = None
+        form = self.core.model.reqForm(ndef[0])
 
         if tombtype == s_layer.INDX_PROP:
-            (form, prop) = tombinfo
-            if prop is None:
-                edit = [((s_layer.EDIT_NODE_TOMB_DEL), ())]
+
+            (_, propname) = tombinfo
+
+            if propname is None:
+                edit = (s_layer.EDIT_NODE_TOMB_DEL, ())
+                runt.layerConfirm(form.addperm)
             else:
-                edit = [((s_layer.EDIT_PROP_TOMB_DEL), (prop,))]
+                if (prop := form.props.get(propname)) is None:
+                    mesg = f'delTombstone() got an invalid property: {form.name}:{propname}'
+                    raise s_exc.BadArg(mesg=mesg, form=form.name, prop=propname)
+
+                edit = (s_layer.EDIT_PROP_TOMB_DEL, (propname,))
+                runt.confirmPropSet(prop)
 
         elif tombtype == s_layer.INDX_TAG:
-            (form, tag) = tombinfo
-            edit = [((s_layer.EDIT_TAG_TOMB_DEL), (tag,))]
+
+            (_, tag) = tombinfo
+            edit = (s_layer.EDIT_TAG_TOMB_DEL, (tag,))
+            runt.layerConfirm(('node', 'tag', 'add', *tag.split('.')))
 
         elif tombtype == s_layer.INDX_TAGPROP:
-            (form, tag, prop) = tombinfo
-            edit = [((s_layer.EDIT_TAGPROP_TOMB_DEL), (tag, prop))]
+
+            (_, tag, prop) = tombinfo
+            edit = (s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop))
+            runt.layerConfirm(('node', 'tag', 'add', *tag.split('.')))
 
         elif tombtype == s_layer.INDX_NODEDATA:
+
             (name,) = tombinfo
-            edit = [((s_layer.EDIT_NODEDATA_TOMB_DEL), (name,))]
+            edit = (s_layer.EDIT_NODEDATA_TOMB_DEL, (name,))
+            runt.layerConfirm(('node', 'data', 'set', name))
 
         elif tombtype == s_layer.INDX_EDGE_VERB:
+
             (verb, n2nid) = tombinfo
-            edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, s_common.int64un(n2nid)))]
+            edit = (s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid))
+            runt.layerConfirm(('node', 'edge', 'add', verb))
 
-        if edit is not None:
+        else:
+            mesg = f'delTombstone() got an unknown tombstone type: {tombtype!r}'
+            raise s_exc.BadArg(mesg=mesg, tombtype=tombtype)
 
-            if runt is not None:
-                meta = {
-                    'user': runt.user.iden,
-                    'time': s_common.now()
-                }
-                await self.saveNodeEdits([(s_common.int64un(nid), ndef[0], edit)], meta, bus=runt.bus)
-                return
+        meta = {
+            'user': runt.user.iden,
+            'time': s_common.now()
+        }
 
-            meta = {
-                'user': self.core.auth.rootuser,
-                'time': s_common.now()
-            }
-            await self.saveNodeEdits([(s_common.int64un(nid), ndef[0], edit)], meta)
+        nodeedit = (s_common.int64un(nid), form.name, [edit])
+        edits = await self.saveNodeEdits([nodeedit], meta, bus=runt.bus)
+
+        # the layer drops a *_TOMB_DEL edit which has no tombstone to remove
+        return len(edits) > 0
 
     async def scrapeIface(self, text, unique=False, refang=True):
 
@@ -3092,7 +3129,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     tobj = self.core.model.type(form)
                     # norming a guid constructor dict mutates it in place;
                     # norm a copy so we can still yield the raw value.
-                    valu, norminfo = await tobj.norm(s_msgpack.deepcopy(rawvalu, use_list=True), view=self)
+                    valu, norminfo = await tobj.norm(s_msgpack.deepcopy(rawvalu, use_list=True), opts=self.normopts)
                 except s_exc.BadTypeValu:
                     await asyncio.sleep(0)
                     continue
@@ -3132,7 +3169,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         tobj = self.core.model.type(form)
                         # norming a guid constructor dict mutates it in place;
                         # norm a copy so we can still yield the raw value.
-                        valu, norminfo = await tobj.norm(s_msgpack.deepcopy(rawvalu, use_list=True), view=self)
+                        valu, norminfo = await tobj.norm(s_msgpack.deepcopy(rawvalu, use_list=True), opts=self.normopts)
                     except AttributeError:  # pragma: no cover
                         logger.exception(f'Scrape interface yielded unknown form {form}')
                         await asyncio.sleep(0)
@@ -3161,7 +3198,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getDeletedRuntNode(self, nid):
         if (ndef := self.core.getNidNdef(nid)) is None:
-            raise s_exc.BadArg(f'getDeletedRuntNode() got an invalid nid: {nid}')
+            mesg = f'getDeletedRuntNode() got an invalid nid: {nid}'
+            raise s_exc.BadArg(mesg=mesg, nid=nid)
 
         sodes = await self.getStorNodes(nid)
         props = {

@@ -603,11 +603,11 @@ The following example shows setting a password policy on the Cortex with the fol
 
 The following Compose file shows using the policy:
 
-``` text
+``` yaml
 services:
   000.cortex:
     user: "999"
-    image: vertexproject/synapse-cortex:v3.x.x
+    image: hub.vertex.link/synapse-cortex:v3.x.x
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -668,11 +668,11 @@ chown -R 999 /srv/syn/001.axon/storage
 
 Create the `/srv/syn/001.axon/docker-compose.yaml` file with contents:
 
-``` text
+``` yaml
 services:
   001.axon:
     user: "999"
-    image: vertexproject/synapse-axon:v3.x.x
+    image: hub.vertex.link/synapse-axon:v3.x.x
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -699,11 +699,11 @@ chown -R 999 /srv/syn/002.cortex/storage
 
 Create the `/srv/syn/002.cortex/docker-compose.yaml` file with contents:
 
-``` text
+``` yaml
 services:
   002.cortex:
     user: "999"
-    image: vertexproject/synapse-cortex:v3.x.x
+    image: hub.vertex.link/synapse-cortex:v3.x.x
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -775,16 +775,123 @@ mkdir -p /srv/syn/000.cortex/bookhooks
 
 Copy the following script to `/srv/syn/cortex/bookhooks/preboot.sh` and use `chmod` to mark it as an executable file:
 
-```mdinclude --code bash
-devguides/certbot.sh
+```bash
+#!/bin/bash
+
+# Certbot preboot example
+# Author: william.gibb@vertex.link
+
+# This script is an example of using Let's Encrypt certbot tool to generate
+# an HTTPS certificate for a Synapse service.
+#
+# This creates and stores a Python venv in the
+# /vertex/storage/preboot/letsencrypt/venv directory, so the certbot
+# tool is installed once in a separate python environment, and cached in
+# a mapped volume.
+#
+# Once the venv is setup, certbot is used to create and potentially renew
+# an HTTPS certificate. This certificate and private key are then copied to
+# the locations in /vertex/storage where Synapse services assume they will
+# find the HTTPS keys.
+#
+# certbot does use a random backoff timer when performing a renewal. There may
+# be a random delay when starting a service when the certificate needs to be
+# renewed.
+#
+# Required Environment variables:
+#
+# CERTBOT_HOSTNAME - the hostname that certbot will generate a certificate for.
+# CERTBOT_EMAIL - the email address used with certbot.
+#
+# Optional Environment variables:
+#
+# CERTBOT_ARGS - additional args passed to the "certbot certonly" and
+#   "certbot renew" commands.
+#
+
+# set -x # echo commands
+set -e # exit on nonzero
+
+BASEDIR=/vertex/preboot
+DSTKEY=/vertex/storage/sslkey.pem
+DSTCRT=/vertex/storage/sslcert.pem
+
+if [ -z ${CERTBOT_HOSTNAME} ]; then
+    echo "CERTBOT_HOSTNAME env var is unset"
+    exit 1
+fi
+
+if [ -z ${CERTBOT_EMAIL} ]; then
+    echo "CERTBOT_EMAIL env var is unset"
+    exit 1
+fi
+
+LEDIR=$BASEDIR/letsencrypt
+
+CONFDIR=$LEDIR/conf
+LOGSDIR=$LEDIR/logs
+WORKDIR=$LEDIR/work
+VENV=$LEDIR/venv
+
+mkdir -p $LOGSDIR
+mkdir -p $CONFDIR
+mkdir -p $WORKDIR
+
+CERTBOT_DIR_ARGS=" --work-dir ${WORKDIR} --logs-dir=${LOGSDIR} --config-dir=${CONFDIR} "
+
+KEYFILE="${CONFDIR}/live/${CERTBOT_HOSTNAME}/privkey.pem"
+CERTFILE="${CONFDIR}/live/${CERTBOT_HOSTNAME}/fullchain.pem"
+
+# Create a python venv, activate it, and install certbot and supporting tools.
+if [ ! -d $VENV ]; then
+    echo "Creating venv and installing certbot"
+    python3 -m venv --without-pip --copies $VENV
+
+    . $VENV/bin/activate
+
+    python3 -c "import urllib.request as ur; ur.urlretrieve('https://bootstrap.pypa.io/get-pip.py', '/tmp/get-pip.py')"
+    python3 /tmp/get-pip.py  # installs pip, wheel, setuptools
+    python3 -m pip install --no-cache-dir "certbot==2.6.0"
+
+else
+
+    echo "Activating venv"
+    . $VENV/bin/activate
+
+fi
+
+if [ ! -f ${KEYFILE} ]; then
+
+    certbot -n ${CERTBOT_DIR_ARGS} certonly --agree-tos --email ${CERTBOT_EMAIL} --standalone -d ${CERTBOT_HOSTNAME} ${CERTBOT_ARGS:-}
+
+    if [ $? -ne 0 ]; then
+        echo "Error running certbot"
+        exit 1
+    fi
+
+fi
+
+certbot -n ${CERTBOT_DIR_ARGS} renew --standalone ${CERTBOT_ARGS:-}
+
+if [ $? -ne 0 ]; then
+    echo "Error checking certificate renewal"
+    exit 1
+fi
+
+echo "Copying certificates"
+
+cp ${KEYFILE} ${DSTKEY}
+cp ${CERTFILE} ${DSTCRT}
+
+echo "Done setting up HTTPS certificates"
 ```
 
 That directory will be mounted at `/vertex/boothooks`. The following Compose file shows mounting that directory into the container and setting environment variables for the script to use:
 
-``` text
+``` yaml
 services:
   000.cortex:
-    image: vertexproject/synapse-cortex:v3.x.x
+    image: hub.vertex.link/synapse-cortex:v3.x.x
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -811,11 +918,11 @@ The Cortex and Axon can be configured to use additional CA certificates when mak
 
 The following Compose file shows an example using this option with the Cortex.
 
-``` text
+``` yaml
 services:
   000.cortex:
     user: "999"
-    image: vertexproject/synapse-cortex:v3.x.x
+    image: hub.vertex.link/synapse-cortex:v3.x.x
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -895,7 +1002,7 @@ To configure custom CA certificates with kubernetes, do the following:
     >
     > ``` text
     > - name: SYN_CORTEX_TLS_CA_DIR
-    >   value: "/vertex/tls-ca-dir-certs/"
+    >   value: "/vertex/tls-ca-certs/"
     > ```
 
 3.  Verify the TLS certificates were loaded by making an HTTPS request in Storm.
@@ -923,7 +1030,7 @@ In this example, the volume with the configmap contains symlinks which are treat
 
 ### Axon Blob Export and Import
 
-For situations where an organization needs to synchronize Axon blobs between two Axons that do not connect directly to each other, due to network segmentation as an example, there are command line tools available to export blobs from a source Axon and then import those blobs into a different Axon. For Axons that can communicate directly, the `axon2axon` tool should be used for live synchronization.
+For situations where an organization needs to synchronize Axon blobs between two Axons that do not connect directly to each other, due to network segmentation as an example, there are command line tools available to export blobs from a source Axon and then import those blobs into a different Axon. For Axons that can communicate directly, the `synapse.tools.axon.copy` tool should be used for live synchronization.
 
 - `synapse.tools.axon.dump`: Export blobs from a specified Axon into one or more tar.gz archive files.
 - `synapse.tools.axon.load`: Import blobs from one or more tar.gz archive files into a specified Axon.
@@ -996,7 +1103,7 @@ The import tool will automatically order the node edit files based on starting o
 
 The AHA service provides service discovery, provisioning, graceful mirror promotion, and certificate authority services to the other Synapse services. For a step-by-step guide to deploying an AHA instance, see the [Synapse Deployment Guide](deploymentguide.md#deploymentguide). We will use `<yournetwork>` to specify locations where the value should be replaced with your chosen AHA network name.
 
-Docker Image: `vertexproject/synapse-aha:v3.x.x`
+Docker Image: `hub.vertex.link/synapse-aha:v3.x.x`
 
 **Configuration**
 
@@ -1057,7 +1164,7 @@ sys.exit(asyncio.run(main(sys.argv[1:]))))
 
 The Axon service provides binary / blob storage inside of the Synapse ecosystem. Binary objects are indexed based on the SHA-256 hash so that storage of the same set of bytes is not duplicated. The Axon exposes a set of Telepath / HTTP APIs that can be used to upload, download, and check for the existence of a binary blob. For a step-by-step guide to deploying an Axon, see the [Synapse Deployment Guide](deploymentguide.md#deploymentguide).
 
-Docker Image: `vertexproject/synapse-axon:v3.x.x`
+Docker Image: `hub.vertex.link/synapse-axon:v3.x.x`
 
 > [!NOTE]
 > For ease of use in simple deployments, the Cortex contains an embedded Axon instance. For production deployments it is **highly** recommended that you install it as a separated service to help distribute load and allow direct access by other Advanced Power-Ups.
@@ -1097,7 +1204,7 @@ python -m synapse.tools.service.moduser --add visi --allow axon
 
 The JSONStor is a utility service that provides a mechanism for storing and retrieving arbitrary JSON objects using a hierarchical naming system. It is commonly used to store user preferences, cache API query responses, and hold data that is not part of the [Data Model](userguides/data_model.md#userguide_datamodel). For an example of deploying a JSONStor, see the [Synapse Deployment Guide](deploymentguide.md#deploymentguide).
 
-Docker Image: `vertexproject/synapse-jsonstor:v3.x.x`
+Docker Image: `hub.vertex.link/synapse-jsonstor:v3.x.x`
 
 > [!NOTE]
 > For ease of use in simple deployments, the Cortex contains an embedded JSONStor instance. For production deployments it is **highly** recommended that you install it as a separated service to help distribute load and allow direct access by other Advanced Power-Ups.
@@ -1113,7 +1220,7 @@ A typical JSONStor deployment does not require any additional configuration. For
 
 A Cortex is the [hypergraph](https://en.wikipedia.org/wiki/Hypergraph) database and main component of the Synapse service architecture. The Cortex is also where the Storm query language runtimes and execute where all automation and enrichment occurs. For a step-by-step guide to deploying a Cortex, see the [Synapse Deployment Guide](deploymentguide.md#deploymentguide).
 
-Docker Image: `vertexproject/synapse-cortex:v3.x.x`
+Docker Image: `hub.vertex.link/synapse-cortex:v3.x.x`
 
 **Configuration**
 
@@ -1129,7 +1236,7 @@ When enabled, the log message contains the query text and username:
 
 When structured logging is also enabled for a Cortex, the query text, username, and user iden are included as individual fields in the logged message as well:
 
-``` text
+``` json
 {
   "message": "Executing storm query {inet:ip=1.2.3.4} as [root]",
   "logger": {
@@ -1578,13 +1685,13 @@ $api.vars.number = (5)
 
 When executing this method, the JSON response would be the following:
 
-``` text
+``` json
 {"mesg": "There are 5 things available!"}
 ```
 
 If `$api.vars.number = "several"` was executed, the JSON response would now be the following:
 
-``` text
+``` json
 {"mesg": "There are several things available!"}
 ```
 
@@ -1736,7 +1843,7 @@ A Storm query which generates an error which tears down the Storm runtime with a
 
 For example, if the previous example where the handler sent a `mesg` about the `$number` of things available was run after the variable `$number` was removed, the code would generate the following response body:
 
-``` text
+``` json
 {"status": "err", "code": "NoSuchVar", "mesg": "Missing variable: number"}
 ```
 
@@ -1786,8 +1893,131 @@ The following examples walk through deploying an example Synapse deployment ( ba
 
 The following `aha.yaml` can be used to deploy an AHA service.
 
-```mdinclude --code yaml
-./kubernetes/aha.yaml
+```yaml
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: example-aha00
+  labels:
+    app.kubernetes.io/name: "aha00"
+    app.kubernetes.io/instance: "aha00"
+    app.kubernetes.io/version: "v3.x.x"
+    app.kubernetes.io/component: "aha"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: do-block-storage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aha00
+  labels:
+    app.kubernetes.io/name: "aha00"
+    app.kubernetes.io/instance: "aha00"
+    app.kubernetes.io/version: "v3.x.x"
+    app.kubernetes.io/component: "aha"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "aha00"
+      app.kubernetes.io/instance: "aha00"
+      app.kubernetes.io/version: "v3.x.x"
+      app.kubernetes.io/component: "aha"
+      app.kubernetes.io/part-of: "synapse"
+      environment: "dev"
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "aha00"
+        app.kubernetes.io/instance: "aha00"
+        app.kubernetes.io/version: "v3.x.x"
+        app.kubernetes.io/component: "aha"
+        app.kubernetes.io/part-of: "synapse"
+        environment: "dev"
+    spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: example-aha00
+      containers:
+      - name: aha00
+        image: hub.vertex.link/synapse-aha:v3.x.x
+        env:
+          - name: SYN_LOG_LEVEL
+            value: DEBUG
+          - name: SYN_LOG_STRUCT
+            value: "false"
+          - name: SYN_AHA_DNS_NAME
+            value: aha00.default.svc.cluster.local
+          - name: SYN_AHA_AHA_NETWORK
+            value: dev.synapse
+          - name: SYN_AHA_HTTPS_PORT
+            value: "null"
+          - name: SYN_PROVISION_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: synapse-provision
+                key: secret
+        volumeMounts:
+          - mountPath: /vertex/storage
+            name: data
+        imagePullPolicy: Always
+        startupProbe:
+          failureThreshold: 2147483647
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.service.healthcheck', '-c', 'cell:///vertex/storage']
+        readinessProbe:
+          failureThreshold: 2
+          initialDelaySeconds: 20
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.service.healthcheck', '-c', 'cell:///vertex/storage']
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aha00
+  labels:
+    app.kubernetes.io/name: "aha00"
+    app.kubernetes.io/instance: "aha00"
+    app.kubernetes.io/version: "v3.x.x"
+    app.kubernetes.io/component: "aha"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: aha00
+    environment: "dev"
+  ports:
+    - port: 27492
+      protocol: TCP
+      name: telepath
+    - port: 27272
+      protocol: TCP
+      name: provisioning
+    - port: 27272
+      protocol: UDP
+      name: discovery
 ```
 
 This can be deployed via `kubectl apply`. That will create the PVC, deployment, and service.
@@ -1829,8 +2059,102 @@ The same secret is configured on the AHA service and on every service via the `S
 
 The following `axon.yaml` can be used as the basis to deploy an Axon service.
 
-```mdinclude --code yaml
-./kubernetes/axon.yaml
+```yaml
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: example-axon00
+  labels:
+    app.kubernetes.io/name: "axon"
+    app.kubernetes.io/instance: "axon00"
+    app.kubernetes.io/version: "v3.x.x"
+    app.kubernetes.io/component: "axon"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: do-block-storage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axon00
+  labels:
+    app.kubernetes.io/name: "axon"
+    app.kubernetes.io/instance: "axon00"
+    app.kubernetes.io/version: "v3.x.x"
+    app.kubernetes.io/component: "axon"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "axon"
+      app.kubernetes.io/instance: "axon00"
+      app.kubernetes.io/version: "v3.x.x"
+      app.kubernetes.io/component: "axon"
+      app.kubernetes.io/part-of: "synapse"
+      environment: "dev"
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "axon"
+        app.kubernetes.io/instance: "axon00"
+        app.kubernetes.io/version: "v3.x.x"
+        app.kubernetes.io/component: "axon"
+        app.kubernetes.io/part-of: "synapse"
+        environment: "dev"
+    spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: example-axon00
+      containers:
+      - name: axon
+        image: hub.vertex.link/synapse-axon:v3.x.x
+        env:
+          - name: SYN_LOG_LEVEL
+            value: DEBUG
+          - name: SYN_LOG_STRUCT
+            value: "false"
+          - name: SYN_PROVISION_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: synapse-provision
+                key: secret
+          - name: SYN_PROVISION_HOST
+            value: "aha00.default.svc.cluster.local"
+          - name: SYN_AXON_HTTPS_PORT
+            value: "null"
+        volumeMounts:
+          - mountPath: /vertex/storage
+            name: data
+        imagePullPolicy: Always
+        startupProbe:
+          failureThreshold: 2147483647
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.service.healthcheck', '-c', 'cell:///vertex/storage']
+        readinessProbe:
+          failureThreshold: 2
+          initialDelaySeconds: 20
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.service.healthcheck', '-c', 'cell:///vertex/storage']
+      restartPolicy: Always
 ```
 
 The service auto-provisions against AHA on its first boot using the shared secret configured above; it registers as `000.axon.dev.synapse`.
@@ -1866,8 +2190,102 @@ The hostname `000.axon.dev.synapse` seen in the logs is **not** a DNS label in K
 
 The following `jsonstor.yaml` can be used as the basis to deploy a JSONStor service.
 
-```mdinclude --code yaml
-./kubernetes/jsonstor.yaml
+```yaml
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: example-jsonstor00
+  labels:
+    app.kubernetes.io/name: "jsonstor"
+    app.kubernetes.io/instance: "jsonstor00"
+    app.kubernetes.io/version: "v3.x.x"
+    app.kubernetes.io/component: "jsonstor"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: do-block-storage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jsonstor00
+  labels:
+    app.kubernetes.io/name: "jsonstor"
+    app.kubernetes.io/instance: "jsonstor00"
+    app.kubernetes.io/version: "v3.x.x"
+    app.kubernetes.io/component: "jsonstor"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "jsonstor"
+      app.kubernetes.io/instance: "jsonstor00"
+      app.kubernetes.io/version: "v3.x.x"
+      app.kubernetes.io/component: "jsonstor"
+      app.kubernetes.io/part-of: "synapse"
+      environment: "dev"
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "jsonstor"
+        app.kubernetes.io/instance: "jsonstor00"
+        app.kubernetes.io/version: "v3.x.x"
+        app.kubernetes.io/component: "jsonstor"
+        app.kubernetes.io/part-of: "synapse"
+        environment: "dev"
+    spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: example-jsonstor00
+      containers:
+      - name: jsonstor
+        image: hub.vertex.link/synapse-jsonstor:v3.x.x
+        env:
+          - name: SYN_LOG_LEVEL
+            value: DEBUG
+          - name: SYN_LOG_STRUCT
+            value: "false"
+          - name: SYN_PROVISION_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: synapse-provision
+                key: secret
+          - name: SYN_PROVISION_HOST
+            value: "aha00.default.svc.cluster.local"
+          - name: SYN_JSONSTOR_HTTPS_PORT
+            value: "null"
+        volumeMounts:
+          - mountPath: /vertex/storage
+            name: data
+        imagePullPolicy: Always
+        startupProbe:
+          failureThreshold: 2147483647
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.service.healthcheck', '-c', 'cell:///vertex/storage']
+        readinessProbe:
+          failureThreshold: 2
+          initialDelaySeconds: 20
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.service.healthcheck', '-c', 'cell:///vertex/storage']
+      restartPolicy: Always
 ```
 
 The service auto-provisions against AHA on its first boot using the shared secret configured above; it registers as `000.jsonstor.dev.synapse`.
@@ -1903,8 +2321,127 @@ The hostname `000.jsonstor.dev.synapse` seen in the logs is **not** a DNS label 
 
 The following `cortex.yaml` can be used as the basis to deploy the Cortex.
 
-```mdinclude --code yaml
-./kubernetes/cortex.yaml
+```yaml
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: example-cortex00
+  labels:
+    app.kubernetes.io/name: "cortex"
+    app.kubernetes.io/instance: "cortex00"
+    app.kubernetes.io/version: "v3.x.x"
+    app.kubernetes.io/component: "cortex"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: do-block-storage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cortex00
+  labels:
+    app.kubernetes.io/name: "cortex"
+    app.kubernetes.io/instance: "cortex00"
+    app.kubernetes.io/version: "v3.x.x"
+    app.kubernetes.io/component: "cortex"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "cortex"
+      app.kubernetes.io/instance: "cortex00"
+      app.kubernetes.io/version: "v3.x.x"
+      app.kubernetes.io/component: "cortex"
+      app.kubernetes.io/part-of: "synapse"
+      environment: "dev"
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "cortex"
+        app.kubernetes.io/instance: "cortex00"
+        app.kubernetes.io/version: "v3.x.x"
+        app.kubernetes.io/component: "cortex"
+        app.kubernetes.io/part-of: "synapse"
+        environment: "dev"
+    spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: example-cortex00
+      containers:
+      - name: cortex
+        image: hub.vertex.link/synapse-cortex:v3.x.x
+        env:
+          - name: SYN_LOG_LEVEL
+            value: DEBUG
+          - name: SYN_LOG_STRUCT
+            value: "false"
+          - name: SYN_PROVISION_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: synapse-provision
+                key: secret
+          - name: SYN_PROVISION_HOST
+            value: "aha00.default.svc.cluster.local"
+          - name: SYN_CORTEX_TELEPATH_PORT
+            value: "27492"
+          - name: SYN_CORTEX_HTTPS_PORT
+            value: "null"
+          - name: SYN_CORTEX_STORM_LOG
+            value: "true"
+        volumeMounts:
+          - mountPath: /vertex/storage
+            name: data
+        imagePullPolicy: Always
+        startupProbe:
+          failureThreshold: 2147483647
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.service.healthcheck', '-c', 'cell:///vertex/storage']
+        readinessProbe:
+          failureThreshold: 2
+          initialDelaySeconds: 20
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.service.healthcheck', '-c', 'cell:///vertex/storage']
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cortex
+  labels:
+    app.kubernetes.io/name: "cortex"
+    app.kubernetes.io/instance: "cortex00"
+    app.kubernetes.io/version: "v3.x.x"
+    app.kubernetes.io/component: "cortex"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: cortex00
+    environment: "dev"
+  ports:
+    - port: 27492
+      protocol: TCP
+      name: telepath
 ```
 
 The service auto-provisions against AHA on its first boot using the shared secret configured above; it registers as `000.cortex.dev.synapse`. The Cortex uses a fixed Telepath listening port of `27492` so that we can later use port-forwarding to access the Cortex service. This port is set via the `SYN_CORTEX_TELEPATH_PORT` environment variable in `cortex.yaml`. The `telepath:port` option overrides the port AHA would otherwise assign during provisioning while inheriting the provisioned hostname and CA, so the Cortex binds this static port.
@@ -2020,8 +2557,128 @@ For Synapse-Enterprise users, deploying commercial components can follow a simil
 
 The following `optic.yaml` can be used as the basis to deploy Optic.
 
-```mdinclude --code yaml
-./kubernetes/optic.yaml
+```yaml
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: example-optic00
+  labels:
+    app.kubernetes.io/name: "optic"
+    app.kubernetes.io/instance: "optic00"
+    app.kubernetes.io/version: "v3-1.x.x"
+    app.kubernetes.io/component: "optic"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  # You will need to use an appropriate storageClassName for your cluster.
+  storageClassName: do-block-storage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: optic00
+  labels:
+    app.kubernetes.io/name: "optic"
+    app.kubernetes.io/instance: "optic00"
+    app.kubernetes.io/version: "v3-1.x.x"
+    app.kubernetes.io/component: "optic"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "optic"
+      app.kubernetes.io/instance: "optic00"
+      app.kubernetes.io/version: "v3-1.x.x"
+      app.kubernetes.io/component: "optic"
+      app.kubernetes.io/part-of: "synapse"
+      environment: "dev"
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "optic"
+        app.kubernetes.io/instance: "optic00"
+        app.kubernetes.io/version: "v3-1.x.x"
+        app.kubernetes.io/component: "optic"
+        app.kubernetes.io/part-of: "synapse"
+        environment: "dev"
+    spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: example-optic00
+      containers:
+      - name: optic
+        image: hub.vertex.link/synapse-enterprise-optic:v3-1.x.x
+        securityContext:
+          readOnlyRootFilesystem: true
+        env:
+          - name: SYN_LOG_LEVEL
+            value: DEBUG
+          - name: SYN_LOG_STRUCT
+            value: "false"
+          - name: SYN_PROVISION_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: synapse-provision
+                key: secret
+          - name: SYN_PROVISION_HOST
+            value: "aha00.default.svc.cluster.local"
+          - name: SYN_OPTIC_HTTPS_PORT
+            value: "4443"
+        volumeMounts:
+          - mountPath: /vertex/storage
+            name: data
+        imagePullPolicy: Always
+        startupProbe:
+          failureThreshold: 2147483647
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.service.healthcheck', '-c', 'cell:///vertex/storage']
+        readinessProbe:
+          failureThreshold: 2
+          initialDelaySeconds: 20
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.service.healthcheck', '-c', 'cell:///vertex/storage']
+      restartPolicy: Always
+      imagePullSecrets:
+        - name: "regcred"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: optic
+  labels:
+    app.kubernetes.io/name: "optic"
+    app.kubernetes.io/instance: "optic00"
+    app.kubernetes.io/version: "v3-1.x.x"
+    app.kubernetes.io/component: "optic"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: optic
+    environment: "dev"
+  ports:
+    - port: 4443
+      protocol: TCP
+      name: https
 ```
 
 The service auto-provisions against AHA on its first boot using the shared secret configured above; it registers as `000.optic.dev.synapse`.
@@ -2109,14 +2766,58 @@ It is common for Kubernetes to be executed in a managed environment, where an op
 
 The following `sysctl.yaml` can be used as the basis to deploy these modifications.
 
-```mdinclude --code yaml
-./kubernetes/sysctl.yaml
+```yaml
+apiVersion: "apps/v1"
+kind: "DaemonSet"
+metadata:
+  name: "setsysctl"
+  labels:
+    app.kubernetes.io/name: "sysctl"
+    app.kubernetes.io/instance: "sysctl"
+    app.kubernetes.io/version: "1.36.0-glibc"
+    app.kubernetes.io/component: "sysctl"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "sysctl"
+      app.kubernetes.io/instance: "sysctl"
+      app.kubernetes.io/version: "1.36.0-glibc"
+      app.kubernetes.io/component: "sysctl"
+      app.kubernetes.io/part-of: "synapse"
+      environment: "dev"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "sysctl"
+        app.kubernetes.io/instance: "sysctl"
+        app.kubernetes.io/version: "1.36.0-glibc"
+        app.kubernetes.io/component: "sysctl"
+        app.kubernetes.io/part-of: "synapse"
+        environment: "dev"
+    spec:
+      containers:
+      - name: "apply-sysctl"
+        image: "busybox:1.36.0-glibc"  # A glibc based busybox
+        securityContext:
+          privileged: true
+        command:
+        - "/bin/sh"
+        - "-c"
+        - |
+          set -o errexit
+          set -o xtrace
+          while sysctl -w vm.swappiness=10 vm.dirty_expire_centisecs=20 vm.dirty_writeback_centisecs=20 vm.dirty_background_ratio=2 vm.dirty_ratio=4
+          do
+            sleep 600s
+          done
 ```
 
-This can be deployed via `kubectl apply`. That will create the DaemonSet for you..
+This can be deployed via `kubectl apply`. That will create the DaemonSet for you.
 
 ``` text
-$ kubectl apply -f sysctl_dset.yaml
+$ kubectl apply -f sysctl.yaml
 daemonset.apps/setsysctl created
 ```
 

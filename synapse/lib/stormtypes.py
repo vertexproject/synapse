@@ -2680,7 +2680,7 @@ class LibLift(Lib):
             prop = form.reqProp(propname)
 
             try:
-                norm, _ = await prop.type.norm(valu, view=self.runt.view)
+                norm, _ = await prop.type.norm(valu, opts=self.runt.view.normopts)
                 norms[propname] = norm
 
             except s_exc.BadTypeValu as e:
@@ -6626,6 +6626,14 @@ class Node(Prim):
         adds = ['.'.join(tag) for tag in adds]
         dels = ['.'.join(tag) for tag in dels]
         if apply:
+            # confirm every tag up front so a denial does not leave a partial apply
+            gateiden = self.valu.view.wlyr.iden
+            for tag in adds:
+                confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=gateiden)
+
+            for tag in dels:
+                confirm(('node', 'tag', 'del', *tag.split('.')), gateiden=gateiden)
+
             for tag in adds:
                 await self.valu.addTag(tag)
 
@@ -7272,6 +7280,11 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of n1nid, verb, n2nid.'}}},
         {'name': 'delTombstone', 'desc': '''
             Delete a tombstone stored in the layer.
+
+            May only be called on the write layer of the current view. Removing a
+            tombstone makes the value it masks visible again, so it requires the "add"
+            permission for that value (``node.add``, ``node.prop.set``, ``node.tag.add``,
+            ``node.data.set``, or ``node.edge.add``) rather than the "del" permission.
             ''',
          'type': {'type': 'function', '_funcname': 'delTombstone',
                   'args': (
@@ -7405,7 +7418,7 @@ class Layer(Prim):
                     yield nid, sref
                 return
 
-            norm, info = await ptyp.norm(propvalu, view=False)
+            norm, info = await ptyp.norm(propvalu, opts={'view': False})
             cmprvals = await ptyp.getStorCmprs(propcmpr, norm)
             async for _, nid, sref in layr.liftByMetaValu(name, cmprvals):
                 yield nid, sref
@@ -7425,7 +7438,7 @@ class Layer(Prim):
                     yield nid, sref
                 return
 
-            norm, info = await prop.type.norm(propvalu, view=False)
+            norm, info = await prop.type.norm(propvalu, opts={'view': False})
             if prop.type.ispoly:
                 norm = norm[1]
 
@@ -7630,7 +7643,7 @@ class Layer(Prim):
                     count += layr.getPropCount(prop.form.name, prop.name)
                 continue
 
-            norm, info = await prop.type.norm(valu, view=False)
+            norm, info = await prop.type.norm(valu, opts={'view': False})
             if prop.isform:
                 count += layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
             else:
@@ -7667,7 +7680,7 @@ class Layer(Prim):
                 continue
 
             atyp = prop.type.arraytype
-            norm, info = await atyp.norm(valu, view=False)
+            norm, info = await atyp.norm(valu, opts={'view': False})
 
             if prop.isform:
                 count += layr.getPropArrayValuCount(prop.name, None, atyp.stortype, norm)
@@ -7692,7 +7705,7 @@ class Layer(Prim):
             return await layr.getTagPropCount(form, tag, prop.name)
 
         valu = await tostor(valu)
-        norm, info = await prop.type.norm(valu, view=False)
+        norm, info = await prop.type.norm(valu, opts={'view': False})
 
         return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 
@@ -7816,6 +7829,13 @@ class Layer(Prim):
         nid = await tonidbyts(nid)
         tombtype = await toprim(tombtype)
         tombinfo = await toprim(tombinfo)
+
+        # tombstones are removed by writing an edit, which always lands in the write
+        # layer of the current view, so refuse to imply otherwise for another layer.
+        layriden = self.valu.get('iden')
+        if layriden != self.runt.view.wlyr.iden:
+            mesg = 'delTombstone() may only be called on the write layer of the current view.'
+            raise s_exc.BadArg(mesg=mesg, iden=layriden)
 
         return await self.runt.view.delTombstone(nid, tombtype, tombinfo, runt=self.runt)
 

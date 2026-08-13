@@ -60,7 +60,8 @@ run at the time of document generation. See `synsrc/docs/README.md` (a level abo
 
 **docs/ vs. the committed bundle dir.** `docs/` holds only files that carry one of these directives (or an
 ` ```mdtoc ` fence) -- a page whose content is entirely plain Markdown, and any non-Markdown file that is not
-itself a directive's input (an image, a Kubernetes manifest spliced in with ` ```mdinclude `, etc.), lives instead
+itself a directive's input (an image, etc. -- as opposed to a Storm package's own pkgdef yaml, consumed by an
+` ```mdautodoc --stormpkg ` fence), lives instead
 in the committed bundle dir (`synapse/assets/docs/` for this bundle) and is edited there directly. A build merges
 its own output into that directory without touching what it never staged, so a plain page and a generated one sit
 side by side in the built result, and ordinary relative Markdown links between them work exactly the same either

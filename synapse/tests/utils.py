@@ -292,14 +292,14 @@ class TestType(s_types.Type):
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
         return valu.lower(), {}
 
 class ThreeType(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_U8
 
-    async def norm(self, valu, view=None):
+    async def norm(self, valu, opts=None):
         typehash = self.modl.type('int').typehash
         return 3, {'subs': {'three': (typehash, 3, {})}}
 

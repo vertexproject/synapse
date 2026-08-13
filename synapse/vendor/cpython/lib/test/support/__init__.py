@@ -1,5 +1,5 @@
 ##############################################################################
-# Taken from the cpython 3.11 source branch after the 3.11.10 release.
+# Taken from the cpython 3.14 source branch at the v3.14.7 tag.
 # It has been modified for vendored imports and to remove unused items.
 ##############################################################################
 # """Supporting definitions for the Python regression tests."""

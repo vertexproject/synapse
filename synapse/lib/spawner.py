@@ -39,6 +39,11 @@ def _ioWorkProc(todo, sockpath):
                     raise
                 await item.waitfini()
 
+                # the worker takes SIGINT/SIGTERM of its own (the signal reaches the
+                # whole process group), so it gives the handlers up here, once that
+                # shutdown is done and while this loop is still running.
+                item.delSignalHandlers()
+
     asyncio.run(workloop())
 
 async def _spawnerWait(sockpath, timeout=30):
@@ -90,18 +95,26 @@ class SpawnerMixin:
             try:
                 async with await s_telepath.openurl(f'unix://{sockpath}:item') as finiproxy:
                     await finiproxy.task(('fini', (), {}))
-            except (s_exc.LinkErr, s_exc.NoSuchPath, asyncio.CancelledError):
+
+            except (s_exc.LinkErr, s_exc.NoSuchPath, ConnectionError, asyncio.CancelledError):
                 # This can fail if the subprocess was terminated from outside...
+                # ConnectionError is the signalled case: SIGINT reaches the whole
+                # process group, so the worker is already going down and the link
+                # resets as we ask it to exit.
                 pass
 
-            # A closed socket while base.isfini is False normally means the
-            # worker died unexpectedly (worth an error). quietclose() lets the
-            # owner flag that the worker exited as part of a coordinated
-            # shutdown, so we do not log a spurious error.
-            if not base.isfini and (quietclose is None or not quietclose()):
-                logger.error(f'IO Worker Socket Closed: {sockpath}')
+            finally:
+                # the call above is best effort; the teardown below is what releases
+                # the worker, so it runs either way.
 
-            await base.fini()
+                # A closed socket while base.isfini is False normally means the
+                # worker died unexpectedly (worth an error). quietclose() lets the
+                # owner flag that the worker exited as part of a coordinated
+                # shutdown, so we do not log a spurious error.
+                if not base.isfini and (quietclose is None or not quietclose()):
+                    logger.error(f'IO Worker Socket Closed: {sockpath}')
+
+                await base.fini()
 
         proxy.onfini(fini)
         base.onfini(proxy)

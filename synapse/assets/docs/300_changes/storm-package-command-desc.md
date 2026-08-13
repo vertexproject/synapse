@@ -19,7 +19,7 @@ What you need to do
 
 :   Rename `descr` to `desc` in your package YAML/dict wherever it appears on a command definition, an `optic.actions` entry, or an `optic.spotlight.extractors` entry. A package that still supplies `descr` in one of these spots fails pkgdef schema validation (`SchemaViolation`) rather than being silently accepted with a missing description.
 
-    ``` text
+    ``` yaml
     # 2.x
     commands:
       - name: mypkg.mycmd

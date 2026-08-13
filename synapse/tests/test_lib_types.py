@@ -1686,6 +1686,9 @@ class TypesTest(s_t_utils.SynTest):
             await t.norm(2**63)
         self.isinstance(cm.exception.get('valu'), str)
 
+        self.eq(await t.norm(1.234), (1, {}))
+        self.eq(await t.normFromTypedValu(877976), (877976, {}))
+
         # test base types that Model snaps in...
         self.eq((await t.norm('100'))[0], 100)
         self.eq((await t.norm('0x20'))[0], 32)
@@ -1852,6 +1855,114 @@ class TypesTest(s_t_utils.SynTest):
             ok, valu = await core.callStorm('return($lib.trycast(test:arrayprop:ints, (1, 2, 3)))')
             self.true(ok)
             self.eq(valu, (1, 2, 3))
+
+    async def test_ival_default_prec_set(self):
+        async with self.getTestCore() as core:
+            prec = s_time.PREC_SECOND
+            nEdu = await core.nodes('[edu:class=* :period=(1999, 20001224)]')
+            self.propeq(nEdu[0], 'period.precision', s_time.PREC_DAY)
+            self.eq(nEdu[0].repr('period'), '1999-01-01T00:00:00Z - 2000-12-24*')
+
+            nPrec = await core.nodes('edu:class [:period.precision=second]')
+            self.propeq(nPrec[0], 'period.precision', prec)
+
+            nQuery = await core.nodes('edu:class [:period.began={return("1998-01-01T12:12:12Z")}]')
+            self.propeq(nQuery[0], 'period.precision', prec)
+            self.eq(nQuery[0].repr('period'), '1998-01-01T12:12:12Z - 2000-12-24*')
+
+            nMax = await core.nodes('edu:class [:period.ended="2012-12-12T12:12:12"]')
+            self.propeq(nMax[0], 'period.precision', prec)
+            self.eq(nMax[0].repr('period'), '1998-01-01T12:12:12Z - 2012-12-12T12:12:12.*')
+
+            nMin = await core.nodes('edu:class [:period.began="1990-06-06T06:06:06.666"]')
+            self.propeq(nMin[0], 'period.precision', prec)
+            # the trailing .666 on the began virt gets ripped off
+            self.eq(nMin[0].repr('period'), '1990-06-06T06:06:06Z - 2012-12-12T12:12:12.*')
+
+            nGo = await core.nodes('edu:class [:period.ended=*]')
+            self.propeq(nGo[0], 'period.precision', prec)
+            self.eq(nGo[0].repr('period'), '1990-06-06T06:06:06Z - *')
+
+            nDura = await core.nodes('edu:class [:period.duration=31D]')
+            self.propeq(nDura[0], 'period.precision', prec)
+            self.eq(nDura[0].repr('period'), '1990-06-06T06:06:06Z - 1990-07-07T06:06:06.*')
+
+            nUnk = await core.nodes('edu:class [:period.began=?]')
+            self.propeq(nUnk[0], 'period.precision', prec)
+            self.eq(nUnk[0].repr('period'), '? - 1990-07-07T06:06:06.*')
+
+            nDuraUnk = await core.nodes('edu:class [:period.duration=6D]')
+            self.propeq(nDuraUnk[0], 'period.precision', prec)
+            self.eq(nDuraUnk[0].repr('period'), '1990-07-01T06:06:06Z - 1990-07-07T06:06:06.*')
+
+            nApprx = await core.nodes('edu:class [:period.ended="2022?"]')
+            self.propeq(nApprx[0], 'period.precision', prec)
+            self.eq(nApprx[0].repr('period'), '1990-07-01T06:06:06Z - 2022-01-01T00:00:00.*')
+
+            nSvar = await core.nodes('edu:class $b=:period.began [:period.began=$b]')
+            self.propeq(nSvar[0], 'period.precision', prec)
+            self.eq(nSvar[0].repr('period'), '1990-07-01T06:06:06Z - 2022-01-01T00:00:00.*')
+
+            await core.nodes('edu:class [-:period]')
+
+            nPick = await core.nodes('edu:class [:period=(1990, "2022?")]')
+            self.propeq(nPick[0], 'period.precision', s_time.PREC_YEAR)
+
+            nYear = await core.nodes('edu:class [:period.began=19890707]')
+            self.propeq(nYear[0], 'period.precision', s_time.PREC_YEAR)
+            self.eq(nYear[0].repr('period'), '1989-01-01T00:00:00Z - 2022-12-31*')
+
+            # whole new ival
+            nReset = await core.nodes('edu:class [:period="1909-07-07T12:11:10Z - 2077-12-11T00:00:00Z"]')
+            self.propeq(nReset[0], 'period.precision', s_time.PREC_DAY)
+            self.eq(nReset[0].repr('period'), '1909-07-07T00:00:00Z - 2077-12-11*')
+
+            nRef = await core.nodes('edu:class [:period.ended=$lib.cast(test:time, "22220202")]')
+            self.propeq(nRef[0], 'period.precision', s_time.PREC_DAY)
+            self.eq(nRef[0].repr('period'), '1909-07-07T00:00:00Z - 2222-02-02*')
+
+            nNode = await core.nodes('edu:class [:period.began={[ test:int=$valu ]}]', opts={'vars': {'valu': s_time.parse('2022')}})
+            self.propeq(nNode[0], 'period.precision', s_time.PREC_DAY)
+            self.eq(nNode[0].repr('period'), '2022-01-01T00:00:00Z - 2222-02-02*')
+
+            await core.nodes('edu:class [-:period :period=(?, ?) :period.duration=6D]')
+            nSetTwoMin = await core.nodes('edu:class [:period.began=19991212]')
+            self.propeq(nSetTwoMin[0], 'period.precision', s_time.PREC_DAY)
+            self.eq(nSetTwoMin[0].repr('period'), '1999-12-12T00:00:00Z - 1999-12-18*')
+
+            await core.nodes('edu:class [-:period :period=(?, ?) :period.duration=6D]')
+            nSetTwoMax = await core.nodes('edu:class [:period.ended=19991218]')
+            self.propeq(nSetTwoMax[0], 'period.precision', s_time.PREC_DAY)
+            self.eq(nSetTwoMax[0].repr('period'), '1999-12-12T00:00:00Z - 1999-12-18*')
+
+            nodes = await core.nodes('[auth:passwd=hehe :seen=$lib.cast(test:str, "2020")]')
+            self.eq(nodes[0].get('seen'), ('ival', (1577836800000000, 1577836800000001, 1)))
+
+            # we set 6D, make sure we can retrieve via it
+            nodes = await core.nodes('edu:class:period.duration=6D')
+            self.len(1, nodes)
+
+            # zero length ivals
+            nZero = await core.nodes('edu:class [-:period :period=("1999-10-10", "1999-10-10")]')
+            self.propeq(nZero[0], 'period.precision', s_time.PREC_DAY)
+            # not quite a day
+            self.propeq(nZero[0], 'period.duration', 86399999999)
+            self.eq(nZero[0].repr('period'), '1999-10-10T00:00:00Z - 1999-10-10*')
+
+            nodes = await core.nodes('edu:class [-:period :period="2022?"]')
+            self.propeq(nodes[0], 'period.precision', s_time.PREC_YEAR)
+            self.eq(nodes[0].repr('period'), '2022-01-01T00:00:00Z - 2022-12-31*')
+
+            # tag prop ivals
+            await core.addTagProp('_boop', ('activity:day', {}), {'doc': 'stuff'})
+
+            nTagProp = await core.nodes('edu:class [+#ival.test:_boop=(1999, 2999) +#ival.test:_boop.precision=second]')
+            tp = nTagProp[0].getTagPropWithVirts('ival.test', '_boop')
+            self.eq(tp[1], {'precision': (s_time.PREC_SECOND, 2)})
+
+            nTPMin = await core.nodes('edu:class [+#ival.test:_boop.began=1990]')
+            tp = nTPMin[0].getTagPropWithVirts('ival.test', '_boop')
+            self.eq(tp[1], {'precision': (s_time.PREC_SECOND, 2)})
 
     async def test_ival(self):
         model = s_datamodel.getBaseModel()
@@ -3082,74 +3193,74 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(await t.norm('2025-04-05 12:34:56.123456'), (1743856496123456, {}))
 
             exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
-            self.eq(await t.norm(1743856496123456, prec=s_time.PREC_YEAR), exp)
+            self.eq(await t.norm(1743856496123456, opts={'precision': s_time.PREC_YEAR}), exp)
 
             exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
-            self.eq(await t.norm(decimal.Decimal(1743856496123456), prec=s_time.PREC_YEAR), exp)
+            self.eq(await t.norm(decimal.Decimal(1743856496123456), opts={'precision': s_time.PREC_YEAR}), exp)
 
             exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
-            self.eq(await t.norm(s_stormtypes.Number(1743856496123456), prec=s_time.PREC_YEAR), exp)
+            self.eq(await t.norm(s_stormtypes.Number(1743856496123456), opts={'precision': s_time.PREC_YEAR}), exp)
 
             exp = (1743856496123456, {})
-            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MICRO), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_MICRO}), exp)
 
             exp = (1743856496123000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
-            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MILLI), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_MILLI}), exp)
 
             exp = (1743856496000000, {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
-            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_SECOND), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_SECOND}), exp)
 
             exp = (1743856440000000, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
-            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MINUTE), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_MINUTE}), exp)
 
             exp = (1743854400000000, {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
-            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_HOUR), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_HOUR}), exp)
 
             exp = (1743811200000000, {'virts': {'precision': (s_time.PREC_DAY, styp)}})
-            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_DAY), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_DAY}), exp)
 
             exp = (1743465600000000, {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
-            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MONTH), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_MONTH}), exp)
 
             exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
-            self.eq(await t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_YEAR), exp)
+            self.eq(await t.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_YEAR}), exp)
 
             tmax = t.clone({'maxfill': True})
 
             exp = (1743856496123456, {})
-            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MICRO), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_MICRO}), exp)
 
             exp = (1743856496123999, {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
-            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MILLI), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_MILLI}), exp)
 
             exp = (1743856496999999, {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
-            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_SECOND), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_SECOND}), exp)
 
             exp = (1743856499999999, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
-            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MINUTE), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_MINUTE}), exp)
 
             exp = (1743857999999999, {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
-            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_HOUR), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_HOUR}), exp)
 
             exp = (1743897599999999, {'virts': {'precision': (s_time.PREC_DAY, styp)}})
-            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_DAY), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_DAY}), exp)
 
             exp = (1746057599999999, {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
-            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MONTH), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_MONTH}), exp)
 
             exp = (1767225599999999, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
-            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_YEAR), exp)
+            self.eq(await tmax.norm('2025-04-05 12:34:56.123456', opts={'precision': s_time.PREC_YEAR}), exp)
 
-            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_YEAR))[0])
-            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MONTH))[0])
-            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_DAY))[0])
-            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_HOUR))[0])
-            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MINUTE))[0])
-            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_SECOND))[0])
-            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MILLI))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', opts={'precision': s_time.PREC_YEAR}))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', opts={'precision': s_time.PREC_MONTH}))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', opts={'precision': s_time.PREC_DAY}))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', opts={'precision': s_time.PREC_HOUR}))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', opts={'precision': s_time.PREC_MINUTE}))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', opts={'precision': s_time.PREC_SECOND}))[0])
+            self.eq(maxtime, (await tmax.norm('9999-12-31T23:59:59.999999Z', opts={'precision': s_time.PREC_MILLI}))[0])
 
             with self.raises(s_exc.BadTypeValu):
-                await tmax.norm('2025-04-05 12:34:56.123456', prec=123)
+                await tmax.norm('2025-04-05 12:34:56.123456', opts={'precision': 123})
 
             with self.raises(s_exc.BadTypeDef):
                 await core.addType('test:int', 'time', {'precision': 'newp'}, {})

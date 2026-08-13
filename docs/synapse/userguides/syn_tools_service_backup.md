@@ -14,4 +14,4 @@ python -m synapse.tools.service.backup -h
 ```
 
 > [!NOTE]
-> This tool was previously run using `synapse.tools.backup`. It can still be run with that name.
+> This tool was previously run using `synapse.tools.backup`, which was removed in Synapse 3.0.0. See [CLI Tool Changes](../300_changes/devops-cli-tools.md#vtx_300_devops-cli-tools).

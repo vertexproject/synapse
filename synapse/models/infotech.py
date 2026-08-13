@@ -254,7 +254,7 @@ class Cpe22Str(s_types.Str):
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
 
         text = valu.lower()
 
@@ -284,7 +284,7 @@ class Cpe22Str(s_types.Str):
 
         return v2_2, {}
 
-    async def _normPyList(self, parts, view=None):
+    async def _normPyList(self, parts, opts):
         return zipCpe22(parts), {}
 
 def zipCpe22(parts):
@@ -347,7 +347,7 @@ class Cpe23Str(s_types.Str):
         self.strtype = self.modl.type('str').clone({'lower': True})
         self.entname = self.modl.type('entity:name')
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
 
@@ -514,7 +514,7 @@ class SemVer(s_types.Int):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
         valu = valu.strip()
         if not valu:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
@@ -534,7 +534,7 @@ class SemVer(s_types.Int):
 
         return s_version.packVersionCore(major, minor, patch, rank), {}
 
-    async def _normPyInt(self, valu, view=None):
+    async def _normPyInt(self, valu, opts):
         if valu < 0:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Cannot norm a negative integer as a semver.')
@@ -699,9 +699,9 @@ class ItVersion(s_types.Str):
             return ver is not None and minv <= ver <= maxv
         return cmpr
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
 
-        norm, info = await s_types.Str._normPyStr(self, valu)
+        norm, info = await s_types.Str._normPyStr(self, valu, opts)
 
         try:
             semv, semvinfo = await self.semver.norm(norm)
@@ -934,6 +934,9 @@ modeldefs = (
 
                     ('id', ('base:id', {}), {
                         'doc': 'An external id that uniquely identifies this log entry.'}),
+
+                    ('host:name', ('it:hostname', {}), {
+                        'doc': 'The name of the host which generated the log event.'}),
 
                     ('product', ('it:software', {}), {
                         'doc': 'The software which produced the log entry.'}),

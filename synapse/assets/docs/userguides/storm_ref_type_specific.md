@@ -72,8 +72,8 @@ Set the `:names` property of an organization (`ou:org`) node to a single value:
 storm> ou:org:name=vertex [ :names=('The Vertex Project',) ]
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
-        :names = ['The Vertex Project']
-        :websites = ['https://vertex.link/']
+        :names = ('The Vertex Project',)
+        :websites = ('https://vertex.link/',)
 ```
 
 Set the `:names` property of an organization (`ou:org`) node to contain multiple variations of the organization name:
@@ -82,8 +82,8 @@ Set the `:names` property of an organization (`ou:org`) node to contain multiple
 storm> ou:org:name=vertex [ :names=('The Vertex Project', 'The Vertex Project, LLC') ]
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
-        :names = ['The Vertex Project', 'The Vertex Project, LLC']
-        :websites = ['https://vertex.link/']
+        :names = ('The Vertex Project', 'The Vertex Project, LLC')
+        :websites = ('https://vertex.link/',)
 ```
 
 > [!WARNING]
@@ -95,7 +95,7 @@ Add a name to the array of names associated with an organization:
 storm> ou:org:name='Monty Python' [ :names+='The Spanish Inquisition' ]
 ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
-        :names = ["Monty Python's Flying Circus", 'The Spanish Inquisition']
+        :names = ("Monty Python's Flying Circus", 'The Spanish Inquisition')
 ```
 
 Remove a name from the array of names associated with an organization:
@@ -104,7 +104,7 @@ Remove a name from the array of names associated with an organization:
 storm> ou:org:name='Monty Python' [ :names-='The Spanish Inquisition' ]
 ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
-        :names = ["Monty Python's Flying Circus"]
+        :names = ("Monty Python's Flying Circus",)
 ```
 
 Add multiple values to the array of names associated with an organization:
@@ -113,7 +113,7 @@ Add multiple values to the array of names associated with an organization:
 storm> ou:org:name='Monty Python' [ :names ++= ('The Spanish Inquisition', 'Spamalot') ]
 ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
-        :names = ["Monty Python's Flying Circus", 'Spamalot', 'The Spanish Inquisition']
+        :names = ("Monty Python's Flying Circus", 'Spamalot', 'The Spanish Inquisition')
 ```
 
 Remove multiple values from the array of names associated with an organization:
@@ -122,7 +122,7 @@ Remove multiple values from the array of names associated with an organization:
 storm> ou:org:name='Monty Python' [ :names --= ('The Spanish Inquisition', 'Spamalot') ]
 ou:org=96df93d36ef3399ca05a49a3e8a3e3ad
         :name = Monty Python
-        :names = ["Monty Python's Flying Circus"]
+        :names = ("Monty Python's Flying Circus",)
 ```
 
 > [!TIP]
@@ -133,7 +133,7 @@ Use the edit try operator to attempt to add a single value to the `:emails` arra
 ```stormdoc
 storm> entity:contact:name='ron the cat' [ :emails?+='ron[at]protonmail.com' ]
 entity:contact=eb141bade0f7833c7998d9871f7dd871
-        :emails = ['ron@vertex.link']
+        :emails = ('ron@vertex.link',)
         :name = ron the cat
         :type = vertex.employee
 ```
@@ -153,8 +153,8 @@ Lifting or filtering array properties using the equals ( `=` ) operator requires
 storm> ou:org:names=('The Vertex Project', 'The Vertex Project, LLC')
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
-        :names = ['The Vertex Project', 'The Vertex Project, LLC']
-        :websites = ['https://vertex.link/']
+        :names = ('The Vertex Project', 'The Vertex Project, LLC')
+        :websites = ('https://vertex.link/',)
 ```
 
 For this reason, Storm offers a special syntax for lifting and filtering with `array` types. The syntax consists of an asterisk ( `*` ) followed by a set of square brackets ( `[ ]` ), where the square brackets contain a comparison operator and a value that can match one or more elements in the array. This allows users to match elements in the array similarly to how they would match individual property values.
@@ -170,8 +170,8 @@ Lift the `ou:org` node(s) whose `:names` property contains a name that exactly m
 storm> ou:org:names*[='the vertex project']
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
-        :names = ['The Vertex Project', 'The Vertex Project, LLC']
-        :websites = ['https://vertex.link/']
+        :names = ('The Vertex Project', 'The Vertex Project, LLC')
+        :websites = ('https://vertex.link/',)
 ```
 
 Lift the `ou:org` node(s) whose `:names` property contains a name that includes the string `vertex`:
@@ -180,12 +180,12 @@ Lift the `ou:org` node(s) whose `:names` property contains a name that includes 
 storm> ou:org:names*[~=vertex]
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
-        :names = ['The Vertex Project', 'The Vertex Project, LLC']
-        :websites = ['https://vertex.link/']
+        :names = ('The Vertex Project', 'The Vertex Project, LLC')
+        :websites = ('https://vertex.link/',)
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
-        :names = ['The Vertex Project', 'The Vertex Project, LLC']
-        :websites = ['https://vertex.link/']
+        :names = ('The Vertex Project', 'The Vertex Project, LLC')
+        :websites = ('https://vertex.link/',)
 ```
 
 > [!TIP]
@@ -196,7 +196,7 @@ Lift the x509 certificate nodes that reference the domain `microsoft.com`:
 ```stormdoc
 storm> crypto:x509:cert:identities:fqdns*[=microsoft.com]
 crypto:x509:cert=1239ca963e0bf5801029ee309279af85
-        :identities:fqdns = ['microsoft.com', 'office365.com']
+        :identities:fqdns = ('microsoft.com', 'office365.com')
         :issuer = CN=Microsoft Certificate Authority
         :sha256 = 6b60c1c833979494caff32bf02391793ac85f533516367f12a1cea857bbacba7
 ```
@@ -208,11 +208,11 @@ storm> doc:report:publisher:name=proofpoint +:topics*[^=cyber]
 doc:report=35f46fad2d9c564cd9f6164b15a65ae3
         :publisher:name = proofpoint
         :title = more things happened today
-        :topics = ['cybersecurity', 'zero trust']
+        :topics = ('cybersecurity', 'zero trust')
 doc:report=8856a1e346dbac855fc30a8e1478bf8a
         :publisher:name = proofpoint
         :title = report about stuff
-        :topics = ['cybercrime', 'ransomware']
+        :topics = ('cybercrime', 'ransomware')
 ```
 
 See [Lift by (Arrays) (*[ ])](storm_ref_lift.md#lift-by-arrays) and [Filter by (Arrays) (*[ ])](storm_ref_filter.md#filter-by-arrays) for additional details.
@@ -247,10 +247,10 @@ Pivot from a set of `entity:name` nodes to any nodes that reference those names 
 storm> entity:name^=ministry <- *
 ou:org=e365491864a971d208683af6d0c5258a
         :name = valisministeerium
-        :names = ['ministry of foreign affairs of estonia']
+        :names = ('ministry of foreign affairs of estonia',)
 ou:org=d9a396b7dbd4be115c04961f650a239c
         :name = ministry of public security
-        :names = ['mps']
+        :names = ('mps',)
 ```
 
 <a id="type-duration"></a>
@@ -402,8 +402,8 @@ It is impractical to manually type a guid value when lifting or otherwise specif
 storm> ou:org:name=vertex
 ou:org=7918de6a997e984dbf966f8002df95ad
         :name = vertex
-        :names = ['The Vertex Project', 'The Vertex Project, LLC']
-        :websites = ['https://vertex.link/']
+        :names = ('The Vertex Project', 'The Vertex Project, LLC')
+        :websites = ('https://vertex.link/',)
 ```
 
 Alternatively, the guid value can be copied and pasted.
@@ -435,12 +435,12 @@ Most importantly, it is still possible for users or processes to inadvertently c
 
 ```stormdoc
 storm> ou:org:name='the vertex project'
-ou:org=41297aa13d003417d229d76a80cfcbdf
+ou:org=cc65c3ba1b31715406735d4aec76cbe3
         :name = the vertex project
-        :websites = ['https://vertex.link/']
-ou:org=fe45477715b3e95d8276cf4a78759a4e
+        :websites = ('https://vertex.link/',)
+ou:org=6bff1c3aae5eb72aa3f75812101f495f
         :name = the vertex project
-        :websites = ['https://vertex.link/']
+        :websites = ('https://vertex.link/',)
 ```
 
 The nodes above have different guid values - they are unique and have been deconflicted based on their primary property. But looking at the secondary properties, it is clear (to a human) that both `ou:org` nodes are meant to represent The Vertex Project - this is a problem, because we do not want two different nodes for one organization.
@@ -539,7 +539,7 @@ Let's say you want to deconflict an `ou:org` node using the organization's FQDN 
 ```stormdoc
 storm> ou:org:name='the vertex project'
 ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
-        :dns:mx = ['vertex.link', 'vtx.lk']
+        :dns:mx = ('vertex.link', 'vtx.lk')
         :email = info@vertex.link
         :name = the vertex project
 ```
@@ -549,7 +549,7 @@ The following dictionary syntax identifies and lifts the existing node (note the
 ```stormdoc
 storm> [ ou:org=( { "name": "the vertex project", "dns:mx": [ "vtx.lk", "vertex.link" ] } ) ]
 ou:org=4d6e7a274a2cb69edf7d01922b85fdc7
-        :dns:mx = ['vertex.link', 'vtx.lk']
+        :dns:mx = ('vertex.link', 'vtx.lk')
         :email = info@vertex.link
         :name = the vertex project
 ```
@@ -559,7 +559,7 @@ In contrast, the following dictionary syntax only contains one of the `:dns:mx` 
 ```stormdoc
 storm> [ ou:org=( { "name": "vertex", "dns:mx": [ "vertex.link" ] } )  ]
 ou:org=8621515203b49ce5a95800989f9a783b
-        :dns:mx = ['vertex.link']
+        :dns:mx = ('vertex.link',)
         :name = vertex
 ```
 
@@ -698,7 +698,7 @@ Note that this is a "blank" node with no secondary properties set. Unlike dictio
 storm> [ ou:org=('the vertex project', 'https://vertex.link/') :name='the vertex project' :websites+=https://vertex.link/ ]
 ou:org=d7f0d5bd78b358a74147995fc9b2e1b2
         :name = the vertex project
-        :websites = ['https://vertex.link/']
+        :websites = ('https://vertex.link/',)
 ```
 
 Secondary property deconfliction (provided by dictionary syntax and described above) is the preferred deconfliction method to avoid duplicate nodes. However, predictable guids may be useful when:
@@ -748,14 +748,14 @@ You can specify the asterisk ( `*` ) as the primary property value when creating
 
 ```stormdoc
 storm> [ ou:org=* ]
-ou:org=9ce42424393cc8143f90dfce9decd3a3
+ou:org=e2b0a9746dd0ecb8ac56293ff3a0a43e
 ```
 
 Note that this is a "blank" node with no secondary properties set. You can set the properties once the node has been created, or set them as part of your original query:
 
 ```stormdoc
 storm> [ ou:org=* :name='the vertex project' ]
-ou:org=fc937c7bec941ccdf9cc251f8457b0c9
+ou:org=f433b4b0b885c01eff9c6839d7c0f5ef
         :name = the vertex project
 ```
 
@@ -824,9 +824,9 @@ Set the `:org` property for an `entity:contact` node to the guid value of the as
 ```stormdoc
 storm> entity:contact:name='ron the cat' [ :org={ ou:org:name='the vertex project' } ]
 entity:contact=eb141bade0f7833c7998d9871f7dd871
-        :emails = ['ron@vertex.link']
+        :emails = ('ron@vertex.link',)
         :name = ron the cat
-        :org = fc937c7bec941ccdf9cc251f8457b0c9
+        :org = f433b4b0b885c01eff9c6839d7c0f5ef
         :title = cattribution analyst
         :type = vertex.employee
 ```
@@ -1845,7 +1845,7 @@ Set the time of a DNS request to the current time:
 storm> inet:dns:request:query:name=woot.com [ :time=now ]
 inet:dns:request=a8569961179b0f059054dd9531019b9a
         :query:name = woot.com
-        :time = 2026-08-11T19:32:43.468444Z
+        :time = 2026-08-09T02:55:13.51909Z
 ```
 
 Set the observed time window (technically an `ival` type) for when an IP address was a known sinkhole (via the `#cno.infra.dns.sink.hole` tag) from its known start date to an indefinite future time (i.e., the sinkhole is presumed to remain a sinkhole indefinitely / until the values are manually updated with an explicit end date):
@@ -1894,7 +1894,7 @@ When specifying a relative time for a `time` value, **the offset will be calcula
 storm> inet:dns:request:query:name=woot.com [ :time='-5 minutes' ]
 inet:dns:request=a8569961179b0f059054dd9531019b9a
         :query:name = woot.com
-        :time = 2026-08-11T19:27:43.494354Z
+        :time = 2026-08-09T02:50:13.558839Z
 ```
 
 Plus / minus ( `+-` ) relative times cannot be specified for `time` types, as the type requires a single value. See the section on [ival](storm_ref_type_specific.md#type-ival) (interval) types for details on using `+-` times with `ival` types.

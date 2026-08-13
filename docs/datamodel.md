@@ -3855,7 +3855,7 @@ An IPv4 or IPv6 address.
 | `:place:latlong:accuracy` | `phys:distance` | The accuracy of the latlong where the IP address was located. |
 | `:place:loc` | `loc` | The geopolitical location where the IP address was located. |
 | `:place:name` | `geo:name` | The name of the place where the IP address was located. |
-| `:scope` | `inet:ipscope` | The IPv6 scope of the address (e.g., global, link-local, etc.). |
+| `:scope` | `inet:ipscope` | The scope of the address (e.g., global, link-local, etc.). |
 | `:seen` | `ival` | The IP address was observed during the time interval. |
 | `:type` | `str:lower` | The type of IP address (e.g., private, multicast, etc.). |
 | `:version` | `inet:ipversion` | The IP version of the address. |
@@ -6731,6 +6731,7 @@ A GUID representing an individual log event.
 | `:data` | `data` | A raw JSON record of the log event. |
 | `:exe` | `file:bytes` | The executable file which caused the log event. |
 | `:host` | `it:host` | The host on which the log event occurred. |
+| `:host:name` | `it:hostname` | The name of the host which generated the log event. |
 | `:id` | `base:id` | An external id that uniquely identifies this log entry. |
 | `:mesg` | `text` | The log message text. |
 | `:proc` | `it:exec:proc` | The process which caused the log event. |

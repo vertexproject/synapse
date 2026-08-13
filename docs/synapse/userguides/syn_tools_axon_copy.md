@@ -14,4 +14,4 @@ python -m synapse.tools.axon.copy -h
 ```
 
 > [!NOTE]
-> This tool was previously run using `synapse.tools.axon2axon`. It can still be run with that name.
+> This tool was previously run using `synapse.tools.axon2axon`, which was removed in Synapse 3.0.0. See [CLI Tool Changes](../300_changes/devops-cli-tools.md#vtx_300_devops-cli-tools).

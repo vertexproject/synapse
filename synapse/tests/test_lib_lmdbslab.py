@@ -703,6 +703,43 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.false(slab.dirty)
 
+    async def test_lmdbslab_mapfull_nocommit(self):
+        '''
+        Growing the map must not commit the transaction it grew for. A commitpulse=False
+        slab is committed by its owner once the nexus transaction it belongs to is
+        applied, so a write which happens to fill the map cannot make a partial edit
+        durable ahead of the rest of it.
+        '''
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            byts = b'\x00' * 512
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000,
+                                                  commitpulse=False) as slab:
+
+                foo = slab.initdb('foo')
+
+                before = slab.mapsize
+                commits = len(slab.commitstats)
+
+                for i in range(200):
+                    slab._put(i.to_bytes(4, 'big'), byts, db=foo)
+
+                # the map grew, and nothing was committed on the way
+                self.gt(slab.mapsize, before)
+                self.eq(commits, len(slab.commitstats))
+                self.true(slab.dirty)
+
+                # so a crash here loses the whole edit rather than half of it
+                await slab.sync()
+
+                self.eq(commits + 1, len(slab.commitstats))
+                self.false(slab.dirty)
+
+                for i in range(200):
+                    self.eq(byts, slab.get(i.to_bytes(4, 'big'), db=foo))
+
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'test.lmdb')
@@ -739,7 +776,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # Trigger an out-of-space
                 with self.raises(s_exc.DbOutOfSpace):
 
-                    for i in range(400):
+                    for i in range(1000):
                         await slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
 
             # lets ensure our maxsize persisted and it caps the mapsize
@@ -1333,6 +1370,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
                             indx += 1
                             slab._put(ikey, byts, db=foo)
                             live.append(ikey)
+
+                        # commit the puts so the removals start with the map at its edge:
+                        # a mapfull on the way past no longer commits for us
+                        await slab.sync()
 
                         slab._handle_mapfull = counter(fulls)
 

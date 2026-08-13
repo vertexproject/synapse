@@ -15,7 +15,6 @@ import decimal
 import fnmatch
 import hashlib
 import logging
-import tarfile
 import binascii
 import builtins
 import tempfile
@@ -25,8 +24,6 @@ import threading
 import traceback
 import contextlib
 import collections
-
-import http.cookies
 import tornado.escape
 
 import yaml
@@ -37,7 +34,6 @@ import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.vendor.cpython.lib.ipaddress as ipaddress  # noqa: F401
-import synapse.vendor.cpython.lib.http.cookies as v_cookies
 
 
 try:
@@ -1127,15 +1123,6 @@ def queryhash(text):
         mesg = 'Query contains invalid characters and cannot be parsed.'
         raise s_exc.BadDataValu(mesg=mesg) from exc
 
-def _patch_http_cookies():
-    '''
-    Patch stdlib http.cookies._unquote from the 3.11.10 implementation if
-    the interpreter we are using is not patched for CVE-2024-7592.
-    '''
-    if not hasattr(http.cookies, '_QuotePatt'):
-        return
-    http.cookies._unquote = v_cookies._unquote
-
 def _patch_tornado_json():
     import synapse.lib.json as s_json
 
@@ -1151,38 +1138,7 @@ def _patch_tornado_json():
     if hasattr(tornado.escape, 'json_decode'):
         tornado.escape.json_decode = s_json.loads
 
-def _patch_tarfile_count():
-    '''
-    Patch tarfile block size reading from the cpython implementation if
-    the interpreter has not been patched for CVE-2025-8194.
-    See https://mail.python.org/archives/list/security-announce@python.org/thread/ZULLF3IZ726XP5EY7XJ7YIN3K5MDYR2D/
-    '''
-    if sys.version_info.major > 3:
-        return
-
-    # Map of minor versions to micro versions which contain the patch
-    min_patched_micros = {
-        11: 14,
-        12: 12,
-        13: 6,
-    }
-    req_micro = min_patched_micros.get(sys.version_info.minor)
-    if req_micro is None:
-        return
-    if sys.version_info.micro >= req_micro:
-        return
-
-    def _block_patched(self, count):
-        if count < 0:  # pragma: no cover
-            raise tarfile.InvalidHeaderError("invalid offset")
-        return _block_patched._orig_block(self, count)
-
-    _block_patched._orig_block = tarfile.TarInfo._block
-    tarfile.TarInfo._block = _block_patched
-
-_patch_http_cookies()
 _patch_tornado_json()
-_patch_tarfile_count()
 
 async def waitretn(futu, timeout):
     try:

@@ -70,10 +70,10 @@ When choosing the DNS name for your AHA server, it is important to keep in mind 
 
 Create the `/srv/syn/000.aha/docker-compose.yaml` file with contents:
 
-``` text
+``` yaml
 services:
   000.aha:
-    image: vertexproject/synapse-aha:v3.x.x
+    image: hub.vertex.link/synapse-aha:v3.x.x
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -126,10 +126,10 @@ By default, AHA uses port `27492` to listen for RPC connections from other Synap
 
 Create the `/srv/syn/001.aha/docker-compose.yaml` file with contents:
 
-``` text
+``` yaml
 services:
   001.aha:
-    image: vertexproject/synapse-aha:v3.x.x
+    image: hub.vertex.link/synapse-aha:v3.x.x
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -169,7 +169,7 @@ AHA names each service automatically from its service type. The first instance o
 
 Set `SYN_PROVISION_SECRET` to the same value on every service you deploy:
 
-``` text
+``` yaml
 environment:
     - SYN_PROVISION_SECRET=<shared-secret>
 ```
@@ -189,10 +189,10 @@ In the Synapse service architecture, an Axon provides a place to store arbitrary
 
 Create the `/srv/syn/000.axon/docker-compose.yaml` file with contents:
 
-``` text
+``` yaml
 services:
   000.axon:
-    image: vertexproject/synapse-axon:v3.x.x
+    image: hub.vertex.link/synapse-axon:v3.x.x
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -216,10 +216,10 @@ docker compose --file /srv/syn/000.axon/docker-compose.yaml up -d
 
 Create the `/srv/syn/000.jsonstor/docker-compose.yaml` file with contents:
 
-``` text
+``` yaml
 services:
   000.jsonstor:
-    image: vertexproject/synapse-jsonstor:v3.x.x
+    image: hub.vertex.link/synapse-jsonstor:v3.x.x
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -243,10 +243,10 @@ docker compose --file /srv/syn/000.jsonstor/docker-compose.yaml up -d
 
 Create the `/srv/syn/000.cortex/docker-compose.yaml` file with contents:
 
-``` text
+``` yaml
 services:
   000.cortex:
-    image: vertexproject/synapse-cortex:v3.x.x
+    image: hub.vertex.link/synapse-cortex:v3.x.x
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -289,10 +289,10 @@ To deploy a Cortex mirror for high availability, deploy another Cortex service w
 
 Create the `/srv/syn/001.cortex/docker-compose.yaml` file with contents:
 
-``` text
+``` yaml
 services:
   001.cortex:
-    image: vertexproject/synapse-cortex:v3.x.x
+    image: hub.vertex.link/synapse-cortex:v3.x.x
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -401,7 +401,7 @@ Because all of the services share the `synapse` bridge network, they resolve the
 
 Create a `docker-compose.yaml` file with contents:
 
-``` text
+``` yaml
 x-vtx-constants:
   # Modify this secret value to a unique value for your deployment
   provision_secret: &provision_secret "<shared-secret>"
@@ -409,7 +409,7 @@ x-vtx-constants:
 services:
 
   000.aha:
-    image: vertexproject/synapse-aha:v3.x.x
+    image: hub.vertex.link/synapse-aha:v3.x.x
     restart: unless-stopped
     networks: [ synapse ]
     volumes:
@@ -420,7 +420,7 @@ services:
       SYN_PROVISION_SECRET: *provision_secret
 
   000.axon:
-    image: vertexproject/synapse-axon:v3.x.x
+    image: hub.vertex.link/synapse-axon:v3.x.x
     restart: unless-stopped
     networks: [ synapse ]
     volumes:
@@ -429,7 +429,7 @@ services:
       SYN_PROVISION_SECRET: *provision_secret
 
   000.jsonstor:
-    image: vertexproject/synapse-jsonstor:v3.x.x
+    image: hub.vertex.link/synapse-jsonstor:v3.x.x
     restart: unless-stopped
     networks: [ synapse ]
     volumes:
@@ -438,7 +438,7 @@ services:
       SYN_PROVISION_SECRET: *provision_secret
 
   000.cortex:
-    image: vertexproject/synapse-cortex:v3.x.x
+    image: hub.vertex.link/synapse-cortex:v3.x.x
     restart: unless-stopped
     networks: [ synapse ]
     # publish host port 4443 to the Cortex HTTPS API listening port

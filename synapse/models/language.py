@@ -74,7 +74,7 @@ class LangCode(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
 
         text = str(valu).strip()
         if not text:

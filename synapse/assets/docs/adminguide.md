@@ -67,7 +67,7 @@ Add the user "Ron" with email address `ronthecat@vertex.link`:
 
 ```stormdoc
 storm> auth.user.add ron --email ronthecat@vertex.link
-User (ron) added with iden: 910f30b41be69331a57639105675cb09
+User (ron) added with iden: 65ef88905c2e29b24739857f60b0759b
 ```
 
 > [!TIP]
@@ -85,7 +85,7 @@ Display information for user "Ron":
 
 ```stormdoc
 storm> auth.user.show ron
-User: ron (910f30b41be69331a57639105675cb09)
+User: ron (65ef88905c2e29b24739857f60b0759b)
 
   Locked: false
   Admin: false
@@ -93,7 +93,7 @@ User: ron (910f30b41be69331a57639105675cb09)
   Rules:
 
   Roles:
-    e6272d9d8c8333692c120ef9e65e728e - all
+    5ff63f33765828350fa00e6c684d79cc - all
 
   Gates:
 ```
@@ -180,7 +180,7 @@ Add the new role "cattribution analyst":
 
 ```stormdoc
 storm> auth.role.add "cattribution analyst"
-Role (cattribution analyst) added with iden: dab7dc975556a0163b24a8f0cbaba230
+Role (cattribution analyst) added with iden: 5519e5ad546c457fe727855b6fe017e3
 ```
 
 > [!TIP]
@@ -198,12 +198,12 @@ Display information for the "all" role:
 
 ```stormdoc
 storm> auth.role.show all
-Role: all (e6272d9d8c8333692c120ef9e65e728e)
+Role: all (5ff63f33765828350fa00e6c684d79cc)
 
   Rules:
 
   Gates:
-    9458e01346113b576b1ad98b1a9c492b - (view)
+    79a398abf2e614071e8edee3c0c44943 - (view)
       [0  ] - view.read
 ```
 
@@ -722,10 +722,10 @@ Display all views:
 ```stormdoc
 storm> view.list
 
-View: 9458e01346113b576b1ad98b1a9c492b (name: default)
-  Creator: 0532108f2c4a095f9fdc6cd7fa016fd9
+View: 79a398abf2e614071e8edee3c0c44943 (name: default)
+  Creator: 5634a58d79099b36c85d387eb735b705
   Layers:
-    ff74a069b62a17acbd8705d3ca6dc069: default readonly: False
+    542d3436052ecc7626c59135bc9d7e04: default readonly: False
 
 ```
 
@@ -733,7 +733,7 @@ Display the current layer:
 
 ```stormdoc
 storm> layer.get
-Layer: ff74a069b62a17acbd8705d3ca6dc069 (name: default) readonly: False creator: 0532108f2c4a095f9fdc6cd7fa016fd9
+Layer: 542d3436052ecc7626c59135bc9d7e04 (name: default) readonly: False creator: 5634a58d79099b36c85d387eb735b705
 ```
 
 ##### View a Gate's Permissions
@@ -749,12 +749,12 @@ storm> auth.gate.show $lib.view.get().iden
 Gate Type: view
 
 Auth Gate Users:
-  0532108f2c4a095f9fdc6cd7fa016fd9 - root
+  5634a58d79099b36c85d387eb735b705 - root
     Admin: true
     Rules:
 
 Auth Gate Roles:
-  e6272d9d8c8333692c120ef9e65e728e - all
+  5ff63f33765828350fa00e6c684d79cc - all
     Rules:
       [0  ] - view.read
 ```
@@ -766,7 +766,7 @@ storm> auth.gate.show $lib.layer.get().iden
 Gate Type: layer
 
 Auth Gate Users:
-  0532108f2c4a095f9fdc6cd7fa016fd9 - root
+  5634a58d79099b36c85d387eb735b705 - root
     Admin: true
     Rules:
 

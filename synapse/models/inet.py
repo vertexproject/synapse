@@ -40,6 +40,13 @@ ja4s_regex = r'^([tq])([sd\d]\d)(\d{2})([a-zA-Z0-9]{2})_([0-9a-f]{4})_([0-9a-f]{
 
 def getAddrType(ip):
 
+    # an IPv4-mapped IPv6 address classifies as the IPv4 address it embeds. the
+    # is_* properties already delegate, but the rfc6598 check below can not.
+    if ip.version == 6:
+        mapped = ip.ipv4_mapped
+        if mapped is not None:
+            ip = mapped
+
     if ip.is_multicast:
         return 'multicast'
 
@@ -73,6 +80,17 @@ ipv6_multicast_scopes = {
     'ff0f:': 'reserved',
 }
 
+# administratively scoped IPv4 multicast from https://www.rfc-editor.org/rfc/rfc2365
+ipv4_multicast_scopes = (
+    (ipaddress.IPv4Network('224.0.0.0/24'), 'link-local'),
+    (ipaddress.IPv4Network('239.192.0.0/14'), 'organization-local'),
+    (ipaddress.IPv4Network('239.255.0.0/16'), 'site-local'),
+    # the rest of the administratively scoped block has no assigned scope, but it
+    # is definitionally not global. this entry must stay last, since the two above
+    # are contained by it.
+    (ipaddress.IPv4Network('239.0.0.0/8'), 'unassigned'),
+)
+
 scopes_enum = 'reserved,interface-local,link-local,realm-local,admin-local,site-local,organization-local,global,unassigned'
 
 svcaccesstypes = (
@@ -86,6 +104,13 @@ svcaccesstypes = (
 
 def getAddrScope(ipv6):
 
+    # an IPv4-mapped IPv6 address has no IPv6 scope of its own, so derive it
+    # from the embedded IPv4 address rather than the ipv6_multicast_scopes
+    # table, which would never match the ::ffff: prefix.
+    mapped = ipv6.ipv4_mapped
+    if mapped is not None:
+        return getAddrScope4(mapped)
+
     if ipv6.is_loopback:
         return 'link-local'
 
@@ -95,6 +120,21 @@ def getAddrScope(ipv6):
     if ipv6.is_multicast:
         pref = ipv6.compressed[:5]
         return ipv6_multicast_scopes.get(pref, 'unassigned')
+
+    return 'global'
+
+def getAddrScope4(ipv4):
+
+    if ipv4.is_loopback:
+        return 'link-local'
+
+    if ipv4.is_link_local:
+        return 'link-local'
+
+    if ipv4.is_multicast:
+        for netw, scope in ipv4_multicast_scopes:
+            if ipv4 in netw:
+                return scope
 
     return 'global'
 
@@ -175,7 +215,7 @@ class IPAddr(s_types.Type):
 
         yield valu
 
-    async def _normPyTuple(self, valu, view=None):
+    async def _normPyTuple(self, valu, opts):
 
         if len(valu) != 2 or type(valu[0]) is not int or type(valu[1]) is not int:
             mesg = f'Invalid IP address tuple: {valu}'
@@ -212,7 +252,7 @@ class IPAddr(s_types.Type):
 
         return valu, {'subs': subs}
 
-    async def _normPyStr(self, text, view=None):
+    async def _normPyStr(self, text, opts):
 
         valu = text.replace('[.]', '.')
         valu = valu.replace('(.)', '.')
@@ -424,7 +464,7 @@ class SockAddr(s_types.Str):
 
         return valu, None, ''
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
         orig = valu
         subs = {}
         info = {'subs': subs}
@@ -501,7 +541,7 @@ class SockAddr(s_types.Str):
 
         return f'{proto}://{ipv4_repr}{pstr}', info
 
-    async def _normPyTuple(self, valu, view=None):
+    async def _normPyTuple(self, valu, opts):
         ipaddr, ipinfo = await self.iptype.norm(valu)
 
         ip_repr = self.iptype.repr(ipaddr)
@@ -529,7 +569,7 @@ class Email(s_types.Str):
         self.usertype = self.modl.type('entity:name')
         self.plustype = self.modl.type('str').clone({'lower': True})
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
 
         try:
             user, fqdn = valu.split('@', 1)
@@ -637,7 +677,7 @@ class Fqdn(s_types.Type):
             return norm == valu
         return cmpr
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
 
         valu = unicodedata.normalize('NFKC', valu)
 
@@ -801,7 +841,7 @@ class HttpCookie(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.strtype = self.modl.type('str')
 
-    async def _normPyStr(self, text, view=None):
+    async def _normPyStr(self, text, opts):
 
         text = text.strip()
         parts = text.split('=', 1)
@@ -910,10 +950,10 @@ class IPRange(s_types.Range):
 
         return cidr
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
 
         if '-' in valu:
-            norm, info = await super()._normPyStr(valu)
+            norm, info = await super()._normPyStr(valu, opts)
             size = (await self.sizetype.norm(norm[1][1] - norm[0][1] + 1))[0]
             self.setVirtInfo(info, 'size', size, self.sizetype)
 
@@ -958,7 +998,7 @@ class IPRange(s_types.Range):
 
         return (network, broadcast), info
 
-    async def _normPyTuple(self, valu, view=None):
+    async def _normPyTuple(self, valu, opts):
         if len(valu) != 2:
             raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
                                     mesg=f'Must be a 2-tuple of type {self.subtype.name}: {s_common.trimText(repr(valu))}')
@@ -1002,7 +1042,7 @@ class Rfc2822Addr(s_types.Str):
         self.nametype = self.modl.type('base:name')
         self.emailtype = self.modl.type('inet:email')
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
 
         # remove quotes for normalized version
         valu = valu.replace('"', ' ').replace("'", ' ')
@@ -1075,7 +1115,7 @@ class Url(s_types.Str):
         # used directly and the underlying node is created via 'adds'.
         return (self.hostpoly.typehash, (typename, norm), {'adds': ((typename, norm, norminfo),)})
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
         valu = valu.strip()
         orig = valu
         subs = {}
@@ -1300,7 +1340,7 @@ modeldefs = (
                         'doc': 'The most current DNS reverse lookup for the IP.'}),
 
                     ('scope', ('inet:ipscope', {}), {
-                        'doc': 'The IPv6 scope of the address (e.g., global, link-local, etc.).'}),
+                        'doc': 'The scope of the address (e.g., global, link-local, etc.).'}),
 
                     ('version', ('inet:ipversion', {}), {
                         'doc': 'The IP version of the address.'}),

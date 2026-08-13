@@ -117,12 +117,12 @@ The fork and merge workflow supports merging **all** changes from the fork into 
 
 Changes that result from deletions are stored in the forked view as **tombstones**. Within the fork, Synapse behaves as though deleted properties, tags, edges, or nodes do not exist - e.g., they are not visible when viewing nodes and are not returned in any query results.
 
-Deletions are displayed in the output of the [diff](storm_ref_cmd.md#storm-diff) command, along with any other changes in the fork. The `diff` command displays fully deleted nodes as `syn:deleted` runtime nodes (runt nodes).
+Deletions are displayed in the output of the [diff](storm_ref_cmd.md#storm-diff) command, along with any other changes in the fork. The `diff` command displays fully deleted nodes as `syn:deleted` runtime nodes (runt nodes). The scoped forms `diff --prop` and `diff --tag` also surface the nodes whose property or tag was deleted in the fork, so those removals can be reviewed and merged the same way an edit can.
 
 > [!TIP]
 > To view **only** the deleted nodes in a fork, run `diff | +syn:deleted`.
 
-In Optic, when [Review Mode](/docs/synapse-enterprise-optic/latest/user_interface/userguides/fork_merge.md#enable-review-mode) is enabled, deletions (tombstones) are displayed using bold / strikethrough text and a tombstone icon. In addition, the `diff` command will display fully deleted nodes using their original form instead of as `syn:deleted` nodes.
+In Optic, when [Review Mode](/docs/synapse-enterprise-optic/latest/user_interface/userguides/fork_merge.md#enable-review-mode) is enabled, deletions (tombstones) are displayed using bold / strikethrough text and a tombstone icon. Review Mode also displays fully deleted nodes using their original form rather than as `syn:deleted` nodes; the `diff` command itself is unchanged, and outside of Review Mode a fully deleted node is still returned as a `syn:deleted` runt node.
 
 <a id="ug_insert_parent"></a>
 

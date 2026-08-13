@@ -1,7 +1,7 @@
 ##############################################################################
-# Taken from the cpython 3.11 source branch after the 3.11.10 release.
+# Taken from the cpython 3.14 source branch at the v3.14.7 tag.
 ##############################################################################
-# Copyright (C) 2002-2007 Python Software Foundation
+# Copyright (C) 2002 Python Software Foundation
 # Contact: email-sig@python.org
 
 """Email address parsing code.
@@ -16,7 +16,7 @@ __all__ = [
     'quote',
     ]
 
-import time, calendar
+import time
 
 SPACE = ' '
 EMPTYSTRING = ''
@@ -36,7 +36,7 @@ _daynames = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 # zones.  RFC1123 recommends that numeric timezone indicators be used
 # instead of timezone names.
 
-_timezones = {'UT': 0, 'UTC': 0, 'GMT': 0, 'Z': 0,
+_timezones = {'UT':0, 'UTC':0, 'GMT':0, 'Z':0,
               'AST': -400, 'ADT': -300,  # Atlantic (used in Canada)
               'EST': -500, 'EDT': -400,  # Eastern
               'CST': -600, 'CDT': -500,  # Central
@@ -62,7 +62,7 @@ def _parsedate_tz(data):
 
     The last (additional) element is the time zone offset in seconds, except if
     the timezone was specified as -0000.  In that case the last element is
-    None.  This indicates a UTC timestamp that explicitly declaims knowledge of
+    None.  This indicates a UTC timestamp that explicitly disclaims knowledge of
     the source timezone, as opposed to a +0000 timestamp that indicates the
     source timezone really was UTC.
 
@@ -80,7 +80,7 @@ def _parsedate_tz(data):
     else:
         i = data[0].rfind(',')
         if i >= 0:
-            data[0] = data[0][i + 1:]
+            data[0] = data[0][i+1:]
     if len(data) == 3: # RFC 850 date, deprecated
         stuff = data[0].split('-')
         if len(stuff) == 3:
@@ -149,8 +149,9 @@ def _parsedate_tz(data):
         return None
     # Check for a yy specified in two-digit format, then convert it to the
     # appropriate four-digit format, according to the POSIX standard. RFC 822
-    # calls for a two-digit yy, but RFC 2822 (which obsoletes RFC 822)
-    # mandates a 4-digit yy. For more information, see the documentation for
+    # calls for a two-digit yy, but RFC 2822 (which obsoletes RFC 822) already
+    # mandated a 4-digit yy, and RFC 5322 (which obsoletes RFC 2822) continues
+    # this requirement. For more information, see the documentation for
     # the time module.
     if yy < 100:
         # The year is between 1969 and 1999 (inclusive).
@@ -168,7 +169,7 @@ def _parsedate_tz(data):
             tzoffset = int(tz)
         except ValueError:
             pass
-        if tzoffset == 0 and tz.startswith('-'):
+        if tzoffset==0 and tz.startswith('-'):
             tzoffset = None
     # Convert a timezone offset into seconds ; -0500 -> -18000
     if tzoffset:
@@ -177,7 +178,7 @@ def _parsedate_tz(data):
             tzoffset = -tzoffset
         else:
             tzsign = 1
-        tzoffset = tzsign * ((tzoffset // 100) * 3600 + (tzoffset % 100) * 60)
+        tzoffset = tzsign * ( (tzoffset//100)*3600 + (tzoffset % 100)*60)
     # Daylight Saving Time flag is set to -1, since DST is unknown.
     return [yy, mm, dd, thh, tmm, tss, 0, 1, -1, tzoffset]
 
@@ -197,6 +198,9 @@ def mktime_tz(data):
         # No zone info, so localtime is better assumption than GMT
         return time.mktime(data[:8] + (-1,))
     else:
+        # Delay the import, since mktime_tz is rarely used
+        import calendar
+
         t = calendar.timegm(data)
         return t - data[9]
 
@@ -224,7 +228,7 @@ class AddrlistClass:
     def __init__(self, field):
         """Initialize a new instance.
 
-        `field' is an unparsed address header field, containing
+        'field' is an unparsed address header field, containing
         one or more addresses.
         """
         self.specials = '()<>@,:;.\"[]'
@@ -233,9 +237,11 @@ class AddrlistClass:
         self.CR = '\r\n'
         self.FWS = self.LWS + self.CR
         self.atomends = self.specials + self.LWS + self.CR
-        # Note that RFC 2822 now specifies `.' as obs-phrase, meaning that it
-        # is obsolete syntax.  RFC 2822 requires that we recognize obsolete
-        # syntax, so allow dots in phrases.
+        # Note that RFC 2822 section 4.1 introduced '.' as obs-phrase to handle
+        # existing practice (periods in display names), even though it was not
+        # allowed in RFC 822. RFC 5322 section 4.1 (which obsoletes RFC 2822)
+        # continues this requirement. We must recognize obsolete syntax, so
+        # allow dots in phrases.
         self.phraseends = self.atomends.replace('.', '')
         self.field = field
         self.commentlist = []
@@ -423,14 +429,14 @@ class AddrlistClass:
     def getdelimited(self, beginchar, endchars, allowcomments=True):
         """Parse a header fragment delimited by special characters.
 
-        `beginchar' is the start character for the fragment.
-        If self is not looking at an instance of `beginchar' then
+        'beginchar' is the start character for the fragment.
+        If self is not looking at an instance of 'beginchar' then
         getdelimited returns the empty string.
 
-        `endchars' is a sequence of allowable end-delimiting characters.
+        'endchars' is a sequence of allowable end-delimiting characters.
         Parsing stops when one of these is encountered.
 
-        If `allowcomments' is non-zero, embedded RFC 2822 comments are allowed
+        If 'allowcomments' is non-zero, embedded RFC 2822 comments are allowed
         within the parsed fragment.
         """
         if self.field[self.pos] != beginchar:
@@ -474,7 +480,7 @@ class AddrlistClass:
 
         Optional atomends specifies a different set of end token delimiters
         (the default is to use self.atomends).  This is used e.g. in
-        getphraselist() since phrase endings must not include the `.' (which
+        getphraselist() since phrase endings must not include the '.' (which
         is legal in phrases)."""
         atomlist = ['']
         if atomends is None:
@@ -529,14 +535,14 @@ class AddressList(AddrlistClass):
         newaddr = AddressList(None)
         newaddr.addresslist = self.addresslist[:]
         for x in other.addresslist:
-            if x not in self.addresslist:
+            if not x in self.addresslist:
                 newaddr.addresslist.append(x)
         return newaddr
 
     def __iadd__(self, other):
         # Set union, in-place
         for x in other.addresslist:
-            if x not in self.addresslist:
+            if not x in self.addresslist:
                 self.addresslist.append(x)
         return self
 
@@ -544,7 +550,7 @@ class AddressList(AddrlistClass):
         # Set difference
         newaddr = AddressList(None)
         for x in self.addresslist:
-            if x not in other.addresslist:
+            if not x in other.addresslist:
                 newaddr.addresslist.append(x)
         return newaddr
 

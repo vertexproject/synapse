@@ -709,6 +709,31 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('test:str=foo $tags=(["foo", "foo.a"]) [ -#$tags ]')
             self.eq(nodes[0].getTagNames(), ['baz'])
 
+            # applying the diff is a tag add/del and is permissioned as one
+            layriden = core.getView().wlyr.iden
+
+            user = await core.auth.addUser('lowly')
+            await user.addRule((True, ('view', 'read')), gateiden=core.getView().iden)
+
+            useropts = {'user': user.iden}
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('test:str=foo $node.difftags((["hehe"]), apply=(true))', opts=useropts)
+
+            await user.addRule((True, ('node', 'tag', 'add')), gateiden=layriden)
+
+            # the add is now allowed, but removing "baz" still needs the del perm
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('test:str=foo $node.difftags((["hehe"]), apply=(true))', opts=useropts)
+
+            # and nothing was applied by the denied call
+            self.eq((await core.nodes('test:str=foo'))[0].getTagNames(), ['baz'])
+
+            await user.addRule((True, ('node', 'tag', 'del')), gateiden=layriden)
+
+            nodes = await core.nodes('test:str=foo $node.difftags((["hehe"]), apply=(true))', opts=useropts)
+            self.eq(nodes[0].getTagNames(), ['hehe'])
+
     async def test_storm_lib_base(self):
         pdef = {
             'name': 'foo',

@@ -1323,3 +1323,58 @@ class StormLibJwtJwksTest(s_test.SynTest):
         self.eq(await resolver.resolve('example.com', 443, socket.AF_INET6), [])
 
         await resolver.close()
+
+    async def test_stormlib_jwt_global_addrs(self):
+
+        def addrs(*ips):
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, '', (ip, 443)) for ip in ips]
+
+        # a globally reachable address is allowed
+        s_jwt._reqGlobalAddrs('example.com', addrs('8.8.8.8'), False)
+        s_jwt._reqGlobalAddrs('example.com', addrs('2001:4860:4860::8888'), False)
+
+        # the RFC 6598 shared address space is neither private nor globally reachable
+        with self.raises(s_exc.BadArg) as cm:
+            s_jwt._reqGlobalAddrs('example.com', addrs('100.64.0.1'), False)
+
+        self.isin('non-global', cm.exception.errinfo.get('mesg'))
+
+        # an IPv4-mapped IPv6 address is classified by the IPv4 address it embeds
+        with self.raises(s_exc.BadArg):
+            s_jwt._reqGlobalAddrs('example.com', addrs('::ffff:10.0.0.1'), False)
+
+        # the cloud metadata endpoint, in both forms
+        with self.raises(s_exc.BadArg):
+            s_jwt._reqGlobalAddrs('example.com', addrs('169.254.169.254'), False)
+
+        with self.raises(s_exc.BadArg):
+            s_jwt._reqGlobalAddrs('example.com', addrs('::ffff:169.254.169.254'), False)
+
+        # is_global reports the IPv4 translation prefixes as globally reachable, so an address
+        # which embeds a non-global IPv4 address has to be rejected on the embedded address
+        for addr in ('64:ff9b::7f00:1', '64:ff9b::a9fe:a9fe', '::ffff:0:127.0.0.1', '::7f00:1'):
+
+            self.true(s_jwt.ipaddress.ip_address(addr).is_global)
+
+            with self.raises(s_exc.BadArg) as cm:
+                s_jwt._reqGlobalAddrs('example.com', addrs(addr), False)
+
+            self.isin('embeds the non-global address', cm.exception.errinfo.get('mesg'))
+
+        # a translated address which embeds a global IPv4 address is allowed, since that is
+        # what an IPv6-only network reaching an IPv4-only host looks like
+        s_jwt._reqGlobalAddrs('example.com', addrs('64:ff9b::808:808'), False)
+        s_jwt._reqGlobalAddrs('example.com', addrs('::ffff:0:808:808'), False)
+
+        # 64:ff9b:1::/48 is already covered by is_global
+        with self.raises(s_exc.BadArg) as cm:
+            s_jwt._reqGlobalAddrs('example.com', addrs('64:ff9b:1::7f00:1'), False)
+
+        self.isin('non-global', cm.exception.errinfo.get('mesg'))
+
+        # a single non-global address rejects the whole resolution
+        with self.raises(s_exc.BadArg):
+            s_jwt._reqGlobalAddrs('example.com', addrs('8.8.8.8', '127.0.0.1'), False)
+
+        # allowinternal skips the check entirely
+        s_jwt._reqGlobalAddrs('example.com', addrs('127.0.0.1'), True)

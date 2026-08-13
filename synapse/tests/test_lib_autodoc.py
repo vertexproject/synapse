@@ -803,7 +803,6 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
         text = pkgdocs.getMdText()
 
         self.isin('# Storm Package: testpkg', text)
-        self.isin('This documentation is generated for version 0.0.1 of the package.', text)
 
         # Dependencies, rendered as a markdown pipe table.
         self.isin('## Dependencies', text)

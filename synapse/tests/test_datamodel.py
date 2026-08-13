@@ -83,6 +83,89 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchType):
                 core.model.reqType('newp:newp')
 
+    async def test_datamodel_display_columns(self):
+
+        modl = s_datamodel.getBaseModel()
+
+        modl.addIface('test:award:able', {
+            'doc': 'An interface implemented by forms which may be achieved.'})
+
+        modl.addType('test:org', 'guid', {}, {})
+        modl.addForm('test:org', {}, (
+            ('name', ('str', {}), {'doc': 'The name of the org.'}),
+        ))
+
+        # two forms implement the interface but only one of them has an issuer
+        modl.addType('test:award', 'guid', {}, {
+            'interfaces': (('test:award:able', {}),),
+        })
+        modl.addForm('test:award', {}, (
+            ('name', ('str', {}), {'doc': 'The name of the award.'}),
+            ('issuer', ('test:org', {}), {'doc': 'The org which issued the award.'}),
+        ))
+
+        modl.addType('test:goal', 'guid', {}, {
+            'interfaces': (('test:award:able', {}),),
+        })
+        modl.addForm('test:goal', {}, (
+            ('name', ('str', {}), {'doc': 'The name of the goal.'}),
+        ))
+
+        # a column may step through a poly prop when at least one of the forms
+        # it accepts carries the rest of the path
+        modl.addType('test:achieved', 'guid', {}, {
+            'display': {
+                'columns': (
+                    {'type': 'prop', 'opts': {'name': 'achievement::issuer::name'}},
+                ),
+            },
+        })
+        modl.addForm('test:achieved', {}, (
+            ('achievement', ('test:award:able', {}), {'doc': 'The achievement.'}),
+        ))
+
+        # but none of the forms accepted by the poly have an org prop
+        modl.addType('test:achieved:newp', 'guid', {}, {
+            'display': {
+                'columns': (
+                    {'type': 'prop', 'opts': {'name': 'achievement::org::name'}},
+                ),
+            },
+        })
+        with self.raises(s_exc.BadFormDef) as cm:
+            modl.addForm('test:achieved:newp', {}, (
+                ('achievement', ('test:award:able', {}), {'doc': 'The achievement.'}),
+            ))
+        self.isin('test:award, test:goal has no property named org', cm.exception.get('mesg'))
+
+        # a column may not step through a prop which does not reference a form
+        modl.addType('test:achieved:nope', 'guid', {}, {
+            'display': {
+                'columns': (
+                    {'type': 'prop', 'opts': {'name': 'name::newp'}},
+                ),
+            },
+        })
+        with self.raises(s_exc.NoSuchForm) as cm:
+            modl.addForm('test:achieved:nope', {}, (
+                ('name', ('str', {}), {'doc': 'The name.'}),
+            ))
+        self.isin('test:achieved:nope:name does not reference a form', cm.exception.get('mesg'))
+
+        # nor step through an array prop, which the embeds are not able to traverse
+        modl.addType('test:achieved:arry', 'guid', {}, {
+            'display': {
+                'columns': (
+                    {'type': 'prop', 'opts': {'name': 'awards::name'}},
+                ),
+            },
+        })
+        with self.raises(s_exc.NoSuchForm) as cm:
+            modl.addForm('test:achieved:arry', {}, (
+                ('awards', ('test:award', {}), {'array': {}, 'doc': 'The awards.'}),
+            ))
+        self.isin('test:achieved:arry:awards does not reference a form', cm.exception.get('mesg'))
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.getBaseModel()
         mods = (
@@ -1819,7 +1902,7 @@ class DataModelTest(s_t_utils.SynTest):
             # When the target node already exists, skipadd is set and no adds
             # are emitted.
             await core.nodes('[ test:int=99 ]')
-            norm, info = await polytype.normFromTypedValu(('test:int', 99), view=core.view)
+            norm, info = await polytype.normFromTypedValu(('test:int', 99), opts={'view': core.view})
             self.eq(norm, ('test:int', 99))
             self.true(info.get('skipadd'))
             self.none(info.get('adds'))
@@ -1871,7 +1954,7 @@ class DataModelTest(s_t_utils.SynTest):
             self.false(inttype.locked)
             inttype.locked = True
             try:
-                norm, info = await polytype.norm(5, view=core.view)
+                norm, info = await polytype.norm(5, opts={'view': core.view})
                 self.eq(norm, ('test:str', '5'))
             finally:
                 inttype.locked = False
@@ -1898,7 +1981,7 @@ class DataModelTest(s_t_utils.SynTest):
             # When the referenced node exists and a view is given, skipadd is
             # set and no adds are emitted.
             await core.nodes('[ test:int=99 ]')
-            norm, info = await polytype.packTypedNorm('test:int', 99, {}, view=core.view)
+            norm, info = await polytype.packTypedNorm('test:int', 99, {}, opts={'view': core.view})
             self.eq(norm, ('test:int', 99))
             self.true(info.get('skipadd'))
             self.none(info.get('adds'))

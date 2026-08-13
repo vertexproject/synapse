@@ -15937,6 +15937,7 @@ The base type for the form can be found at [`it:log:event`](datamodel_types.md#d
 | `:severity` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:log:severity',)` | A log level integer that increases with severity. |  |
 | `:data` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('data',)` | A raw JSON record of the log event. |  |
 | `:id` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('base:id',)` | An external id that uniquely identifies this log entry. |  |
+| `:host:name` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:hostname',)` | The name of the host which generated the log event. |  |
 | `:product` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('it:software',)` | The software which produced the log entry. |  |
 | `:service:platform` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:platform',)` | The service platform which generated the log event. |  |
 | `:service:account` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:service:account',)` | The service account which generated the log event. |  |

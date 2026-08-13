@@ -1,10 +1,10 @@
 ##############################################################################
-# Taken from the cpython 3.11 source branch after the 3.11.10 release.
+# Taken from the cpython 3.14 source branch at the v3.14.7 tag.
 ##############################################################################
 import codecs
 
 # vendored from:
-# https://github.com/python/cpython/blob/v3.11.10/Lib/json/__init__.py#L244-L271
+# https://github.com/python/cpython/blob/v3.14.7/Lib/json/__init__.py#L248-L275
 def detect_encoding(b):
     bstartswith = b.startswith
     if bstartswith((codecs.BOM_UTF32_BE, codecs.BOM_UTF32_LE)):

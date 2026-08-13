@@ -1575,31 +1575,59 @@ class Model:
             colopts = column.get('opts')
 
             if coltype == 'prop':
-                curf = form
-                propname = colopts.get('name')
-                parts = propname.split('::')
-
-                for i, partname in enumerate(parts):
-
-                    if curf is None and i == (len(parts) - 1):
-                        mesg = f'No form named {prop.type.name} for property {prop.full}.'  # noqa: F821
-                        raise s_exc.NoSuchForm(mesg=mesg)
-
-                    prop = curf.prop(partname)
-                    if prop is None:
-                        mesg = (f'Form {form.name} defines prop column {propname}'
-                               f' but {curf.full} has no property named {partname}.')
-                        raise s_exc.BadFormDef(mesg=mesg)
-
-                    # TODO: check whether poly props could be valid for one of the forms
-                    if prop.type.ispoly:
-                        break
-
-                    curf = self.form(prop.type.name)
+                self._checkDisplayColumn(form, colopts.get('name'))
 
             else:
                 mesg = f'Form {form.name} defines column with invalid type ({coltype}).'
                 raise s_exc.BadFormDef(mesg=mesg)
+
+    def _checkDisplayColumn(self, form, propname):
+        '''
+        Confirm that a display column property path resolves within the model.
+
+        A step through a poly property may land on any of the forms which the poly
+        accepts, so the remainder of the path must resolve for at least one of them.
+        This is the same rule the UI uses when it resolves an embed path.
+        '''
+        curforms = (form,)
+        parts = propname.split('::')
+
+        for i, partname in enumerate(parts):
+
+            props = [prop for prop in [curform.prop(partname) for curform in curforms]
+                     if prop is not None]
+
+            if not props:
+                formnames = ', '.join(sorted(curform.full for curform in curforms))
+                mesg = (f'Form {form.name} defines prop column {propname}'
+                        f' but {formnames} has no property named {partname}.')
+                raise s_exc.BadFormDef(mesg=mesg)
+
+            if i == len(parts) - 1:
+                return
+
+            curforms = []
+            for prop in props:
+                curforms.extend(self._getDisplayStepForms(prop))
+
+            if not curforms:
+                propnames = ', '.join(sorted(prop.full for prop in props))
+                mesg = (f'Form {form.name} defines prop column {propname}'
+                        f' but property {propnames} does not reference a form.')
+                raise s_exc.NoSuchForm(mesg=mesg)
+
+    def _getDisplayStepForms(self, prop):
+        '''
+        Return the forms which a display column property path may step through.
+
+        Only the forms named by a poly type are traversable, so a property which is
+        not poly typed (an array) steps to no forms.
+        '''
+        if not prop.type.ispoly:
+            return ()
+
+        return [stepform for stepform in [self.form(ptyp.name) for ptyp in prop.type.getTypeSet()]
+                if stepform is not None]
 
     def delForm(self, formname):
 

@@ -4,72 +4,37 @@
 
 # Getting Started
 
-Now that you have looked over the [Introduction](intro.md#intro) to Synapse, you'd like to try it out! What do you do next?
+Now that you have looked over the [Introduction](intro.md) to Synapse, you'd like to try it out! What do you do next?
 
 There are several ways for you to explore Synapse and its features, depending on your needs. Each option is summarized here and described in more detail below.
 
-<table style="width:99%;">
-<colgroup>
-<col style="width: 26%" />
-<col style="width: 57%" />
-<col style="width: 15%" />
-</colgroup>
-<tbody>
-<tr class="odd">
-<td><blockquote>
-<p><strong>Option</strong></p>
-</blockquote></td>
-<td><blockquote>
-<p><strong>Description</strong></p>
-</blockquote></td>
-<td></td>
-</tr>
-<tr class="even">
-<td colspan="3"><dl>
-<dt>[Demo Instance](getting_started.md#syn-demo) | - Cloud-hosted, personal instance of [Synapse Enterprise](https://vertex.link/synapse) |</dt>
-<dd>
-<div class="line-block">- Admin-level access to your instance |<br />
-- Access via the web-based [Optic](/docs/synapse-enterprise-optic/latest/index.md) user interface |<br />
-- Access to all [Rapid Power-Ups](power_ups.md#rapid-power-ups) |<br />
-- Access to most [Advanced Power-Ups](power_ups.md#advanced-powerups) |<br />
-- Sample data |<br />
-- Data sets for the [APT1 Scavenger Hunt](https://v.vtx.lk/apt1hunt) and [Synapse Bootcamp](https://vertex.link/training/bootcamp)</div>
-</dd>
-</dl></td>
-</tr>
-<tr class="odd">
-<td colspan="3"><dl>
-<dt>[Vertex Intel-Sharing Synapse Instance (VISI)](getting_started.md#syn-visi) | - Cloud-hosted, community instance of [Synapse Enterprise](https://vertex.link/synapse) |</dt>
-<dd>
-<div class="line-block">- Access via the web-based [Optic](/docs/synapse-enterprise-optic/latest/index.md) user interface |<br />
-- User account to explore or contribute to the community instance |<br />
-- Access to all [Rapid Power-Ups](power_ups.md#rapid-power-ups) |<br />
-- Access to most [Advanced Power-Ups](power_ups.md#advanced-powerups) |<br />
-- Sample data |<br />
-- Community-generated data and analysis |<br />
-- Training materials hosted in the Synapse <strong>Learning Tool</strong> |</div>
-</dd>
-</dl></td>
-</tr>
-<tr class="even">
-<td colspan="3"><dl>
-<dt>[Open-Source Synapse](getting_started.md#syn-open) | - Publicly available source code hosted on [Github](https://github.com/vertexproject/synapse) |</dt>
-<dd>
-<div class="line-block">- Access via the [Storm CLI](./userguides/syn_tools_storm.md) |<br />
-- Access to open-source [Rapid Power-Ups](power_ups.md#rapid-power-ups) |</div>
-</dd>
-</dl></td>
-</tr>
-<tr class="odd">
-<td colspan="3"><dl>
-<dt>[Synapse Quickstart](getting_started.md#syn-quick) | - Pre-configured [Docker container](https://www.docker.com/resources/what-container/) for open-source Synapse |</dt>
-<dd>
-<div class="line-block">- Access via the [Storm CLI](./userguides/syn_tools_storm.md) |</div>
-</dd>
-</dl></td>
-</tr>
-</tbody>
-</table>
+### [Demo Instance](getting_started.md#syn-demo)
+- Cloud hosted, personal instance of [Synapse Enterprise](https://vertex.link/synapse)
+- Admin-level access to your instance
+- Access via the web-based [Optic](/docs/synapse-enterprise-optic/latest/index.md)
+- Access to all [Rapid Power-Ups](power_ups.md#rapid-power-ups)
+- Access to most [Advanced Power-Ups](power_ups.md#advanced-powerups)
+- Sample data
+- Data sets for the [APT1 Scavenger Hunt](https://v.vtx.lk/apt1hunt) and [Synapse Bootcamp](https://vertex.link/training/bootcamp)
+
+### [Vertex Intel-Sharing Instance (VISI)](getting_started.md#syn-visi)
+- Cloud-hosted, community instance of [Synapse Enterprise](https://vertex.link/synapse)
+- Access via the web-based [Optic](/docs/synapse-enterprise-optic/latest/index.md) user interface
+- User account to explore or contribute to the community instance
+- Access to all [Rapid Power-Ups](power_ups.md#rapid-power-ups)
+- Access to most [Advanced Power-Ups](power_ups.md#advanced-powerups)
+- Sample data
+- Community-generated data and analysis
+- Training materials hosted in the Synapse Learning Tool
+
+### [Open-Source Synapse](getting_started.md#syn-open)
+- Publicly available source code hosted on [Github](https://github.com/vertexproject/synapse)
+- Access via the [Storm CLI](userguides/syn_tools_storm.md)
+- Access to open-source [Rapid Power-Ups](power_ups.md#rapid-power-ups)
+
+### [Synapse Quickstart](getting_started.md#syn-quick)
+- Pre-configured [Docker container](https://www.docker.com/resources/what-container/) for open-source Synapse |
+- Access via the [Storm CLI](userguides/syn_tools_storm.md)
 
 > [!TIP]
 > Both **Synapse Enterprise** and **open-source Synapse** share the same key features, including Synapse's core architecture and functionality, our extensive data model, and the full capability of the Storm query language and libraries.

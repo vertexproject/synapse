@@ -137,9 +137,8 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
 - Markdown docs in `docs/synapse/`. Sphinx has been removed; there is no `.rst`/`.rstorm` content or `rstorm` tool
   usage left in this tree.
 - `synapse.tools.utils.mdstorm` processes any Markdown file with fenced-code-block directives named
-  ` ```mdstorm `, ` ```mdstorm-setup `, ` ```mdshell `, ` ```mdinclude `, and ` ```mdautodoc ` (the `mdstorm` prefix,
-  rather than bare ` ```storm `, keeps that fence name free for future Storm syntax highlighting). ` ```mdinclude `
-  splices another file in verbatim (optionally as a fenced `--code LANG` block). ` ```mdautodoc ` generates
+  ` ```mdstorm `, ` ```mdstorm-setup `, ` ```mdshell `, and ` ```mdautodoc ` (the `mdstorm` prefix, rather than
+  bare ` ```storm `, keeps that fence name free for future Storm syntax highlighting). ` ```mdautodoc ` generates
   Markdown (a Cell's confdefs, a class's own API (`cls.__dict__`, not its full MRO), a Storm package's
   command/module/dependency reference, the data model, or the Storm types reference) and splices it in at the
   point of use; `--level N` shifts the generated headings down N levels to nest under an author-written heading.

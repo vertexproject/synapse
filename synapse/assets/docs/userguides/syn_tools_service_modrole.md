@@ -33,4 +33,4 @@ options:
 ```
 
 > [!NOTE]
-> This tool was previously run using `synapse.tools.modrole`. It can still be run with that name.
+> This tool was previously run using `synapse.tools.modrole`, which was removed in Synapse 3.0.0. See [CLI Tool Changes](../300_changes/devops-cli-tools.md#vtx_300_devops-cli-tools).

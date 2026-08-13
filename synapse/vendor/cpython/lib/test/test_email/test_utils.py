@@ -1,14 +1,11 @@
 ##############################################################################
-# Taken from the cpython 3.11 source branch after the 3.11.10 release.
+# Taken from the cpython 3.14 source branch at the v3.14.7 tag.
 # It has been modified for vendored imports and vendored test harness.
 ##############################################################################
 
 import datetime
 import time
 import unittest
-import sys
-import os.path
-import zoneinfo
 
 from synapse.vendor.cpython.lib.email import utils
 
@@ -78,6 +75,15 @@ class DateTimeTests(s_v_utils.VendorTest):
             with self.subTest(dtstr=dtstr):
                 self.assertRaises(ValueError, utils.parsedate_to_datetime, dtstr)
 
+    def test_parsedate_to_datetime_out_of_range_raises_valueerror(self):
+        out_of_range_dates = [
+            'Mon, 20 Nov 9999999999 12:00:00 +0000',
+            'Mon, 20 Nov 2017 12:00:00 +24000000000000',
+        ]
+        for dtstr in out_of_range_dates:
+            with self.subTest(dtstr=dtstr):
+                self.assertRaises(ValueError, utils.parsedate_to_datetime, dtstr)
+
 class LocaltimeTests(s_v_utils.VendorTest):
 
     def test_localtime_is_tz_aware_daylight_true(self):
@@ -93,14 +99,14 @@ class LocaltimeTests(s_v_utils.VendorTest):
     def test_localtime_daylight_true_dst_false(self):
         t_support.patch(self, time, 'daylight', True)
         t0 = datetime.datetime(2012, 3, 12, 1, 1)
-        t1 = utils.localtime(t0, isdst=-1)
+        t1 = utils.localtime(t0)
         t2 = utils.localtime(t1)
         self.assertEqual(t1, t2)
 
     def test_localtime_daylight_false_dst_false(self):
         t_support.patch(self, time, 'daylight', False)
         t0 = datetime.datetime(2012, 3, 12, 1, 1)
-        t1 = utils.localtime(t0, isdst=-1)
+        t1 = utils.localtime(t0)
         t2 = utils.localtime(t1)
         self.assertEqual(t1, t2)
 
@@ -108,7 +114,7 @@ class LocaltimeTests(s_v_utils.VendorTest):
     def test_localtime_daylight_true_dst_true(self):
         t_support.patch(self, time, 'daylight', True)
         t0 = datetime.datetime(2012, 3, 12, 1, 1)
-        t1 = utils.localtime(t0, isdst=1)
+        t1 = utils.localtime(t0)
         t2 = utils.localtime(t1)
         self.assertEqual(t1, t2)
 
@@ -116,26 +122,26 @@ class LocaltimeTests(s_v_utils.VendorTest):
     def test_localtime_daylight_false_dst_true(self):
         t_support.patch(self, time, 'daylight', False)
         t0 = datetime.datetime(2012, 3, 12, 1, 1)
-        t1 = utils.localtime(t0, isdst=1)
+        t1 = utils.localtime(t0)
         t2 = utils.localtime(t1)
         self.assertEqual(t1, t2)
 
     @t_support.run_with_tz('EST+05EDT,M3.2.0,M11.1.0')
     def test_localtime_epoch_utc_daylight_true(self):
         t_support.patch(self, time, 'daylight', True)
-        t0 = datetime.datetime(1990, 1, 1, tzinfo=datetime.timezone.utc)
+        t0 = datetime.datetime(1990, 1, 1, tzinfo = datetime.timezone.utc)
         t1 = utils.localtime(t0)
         t2 = t0 - datetime.timedelta(hours=5)
-        t2 = t2.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=-5)))
+        t2 = t2.replace(tzinfo = datetime.timezone(datetime.timedelta(hours=-5)))
         self.assertEqual(t1, t2)
 
     @t_support.run_with_tz('EST+05EDT,M3.2.0,M11.1.0')
     def test_localtime_epoch_utc_daylight_false(self):
         t_support.patch(self, time, 'daylight', False)
-        t0 = datetime.datetime(1990, 1, 1, tzinfo=datetime.timezone.utc)
+        t0 = datetime.datetime(1990, 1, 1, tzinfo = datetime.timezone.utc)
         t1 = utils.localtime(t0)
         t2 = t0 - datetime.timedelta(hours=5)
-        t2 = t2.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=-5)))
+        t2 = t2.replace(tzinfo = datetime.timezone(datetime.timedelta(hours=-5)))
         self.assertEqual(t1, t2)
 
     def test_localtime_epoch_notz_daylight_true(self):

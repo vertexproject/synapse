@@ -1171,6 +1171,41 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(norm, (6, 0xfe800000000000000000000000000001))
             self.eq(info.get('subs').get('type')[1], 'linklocal')
 
+            # An IPv4-mapped IPv6 address classifies as the IPv4 address it embeds.
+            mapped = (
+                ('8.8.8.8', 'unicast', 'global'),
+                ('1.2.3.4', 'unicast', 'global'),
+                ('127.0.0.1', 'loopback', 'link-local'),
+                ('10.0.0.1', 'private', 'global'),
+                ('0.0.0.0', 'private', 'global'),
+                ('169.254.1.1', 'linklocal', 'link-local'),
+                ('100.64.0.1', 'shared', 'global'),
+                ('224.0.0.1', 'multicast', 'link-local'),
+                ('224.0.1.1', 'multicast', 'global'),
+                ('239.192.0.1', 'multicast', 'organization-local'),
+                ('239.255.0.1', 'multicast', 'site-local'),
+                ('239.0.0.1', 'multicast', 'unassigned'),
+                ('239.196.0.1', 'multicast', 'unassigned'),
+            )
+
+            for addr, addrtype, addrscope in mapped:
+
+                norm, info = await t.norm(f'::ffff:{addr}')
+                subs = info.get('subs')
+                self.eq(norm[0], 6)
+                self.eq(subs.get('type')[1], addrtype)
+                self.eq(subs.get('scope')[1], addrscope)
+
+                # the mapped form must classify the same as the bare IPv4 address
+                norm4, info4 = await t.norm(addr)
+                self.eq(norm4[0], 4)
+                self.eq(info4.get('subs').get('type')[1], addrtype)
+
+            # 3fff::/20 is reserved for documentation by RFC 9637
+            self.eq((await t.norm('3fff::1'))[1].get('subs').get('type')[1], 'private')
+            self.eq((await t.norm('3fff:fff:ffff:ffff:ffff:ffff:ffff:ffff'))[1].get('subs').get('type')[1], 'private')
+            self.eq((await t.norm('3fff:1000::'))[1].get('subs').get('type')[1], 'unicast')
+
             # Form Tests ======================================================
 
             nodes = await core.nodes('[ inet:ip="::fFfF:1.2.3.4" ]')
@@ -1459,6 +1494,17 @@ class InetModelTest(s_t_utils.SynTest):
                 'virts': {'mask': (101, 2), 'size': (134217728, 19)}
             })
             self.eq(await t.norm(valu), expected)
+
+            # an IPv4-mapped range reprs with the embedded IPv4 dotted quad
+            norm, info = await t.norm('::ffff:1.2.3.0/120')
+            self.eq(t.repr(norm), '::ffff:1.2.3.0/120')
+
+            norm, info = await t.norm('::ffff:1.2.3.4-::ffff:1.2.3.4')
+            self.eq(t.repr(norm), '::ffff:1.2.3.4/128')
+
+            # a range which is not CIDR aligned reprs as min-max
+            norm, info = await t.norm('::ffff:1.2.3.4-::ffff:1.2.3.6')
+            self.eq(t.repr(norm), '::ffff:1.2.3.4-::ffff:1.2.3.6')
 
             valu = ('fe00::', 'fd00::')
             await self.asyncraises(s_exc.BadTypeValu, t.norm(valu))

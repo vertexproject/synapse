@@ -4,6 +4,7 @@ import asyncio
 from unittest import mock
 
 import synapse.exc as s_exc
+import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.process as s_process
@@ -19,6 +20,28 @@ class SpawnTarget(s_base.Base, s_spawner.SpawnerMixin):
 
 
 class SpawnerTest(s_t_utils.SynTest):
+
+    async def test_spawner_fini_link_reset(self):
+
+        # A worker signalled along with the leader is already going down, so the link
+        # resets (ConnectionResetError, not LinkErr) as we ask it to exit. The
+        # teardown after that call still runs, which is what releases the worker.
+        base = await s_base.Base.anit()
+
+        spawner = SpawnTarget.spawner(base=base, quietclose=lambda: True)
+        proxy = await spawner()
+
+        async def _reset(*args, **kwargs):
+            raise ConnectionResetError('Connection lost')
+
+        try:
+            with mock.patch.object(s_telepath, 'openurl', _reset):
+                await proxy.fini()
+
+            self.true(base.isfini)
+
+        finally:
+            await base.fini()
 
     async def test_spawner_wait_timeout(self):
 

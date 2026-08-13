@@ -5419,7 +5419,7 @@ class EditPropSet(Edit):
                     newinfos = {}
                     if isadd:
                         for v in valu:
-                            norm, info = await prop.type.arraytype.norm(v, view=runt.view)
+                            norm, info = await prop.type.arraytype.norm(v, opts=runt.view.normopts)
                             arry.append(norm)
                             newinfos[norm] = info
 
@@ -5428,13 +5428,13 @@ class EditPropSet(Edit):
                         # we cant remove something we cant norm...
                         # but that also means it can't be in the array so...
                         for v in valu:
-                            norm, info = await prop.type.arraytype.norm(v, view=runt.view)
+                            norm, info = await prop.type.arraytype.norm(v, opts=runt.view.normopts)
                             try:
                                 arry.remove(norm)
                             except ValueError:
                                 pass
 
-                    valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
+                    valu, norminfo = await prop.type.norm(arry, opts={'view': runt.view, 'newinfos': newinfos})
 
                 if isinstance(prop.type, s_types.Ival):
                     oldv = node.get(name)
@@ -5516,7 +5516,7 @@ class EditPropSetMulti(Edit):
                     await asyncio.sleep(0)
 
                     try:
-                        norm, info = await atyp.norm(item, view=runt.view)
+                        norm, info = await atyp.norm(item, opts=runt.view.normopts)
                     except excignore:
                         continue
                     except s_exc.BadTypeValu as e:
@@ -5531,7 +5531,7 @@ class EditPropSetMulti(Edit):
                         except ValueError:
                             pass
 
-                valu, norminfo = await prop.type.normSkipAddExisting(arry, newinfos=newinfos, view=runt.view)
+                valu, norminfo = await prop.type.norm(arry, opts={'view': runt.view, 'newinfos': newinfos})
 
             except TypeError:
                 styp = await s_stormtypes.totype(valu, basetypes=True)
@@ -6086,10 +6086,13 @@ class EditTagPropVirtSet(Edit):
             prop = runt.model.reqTagProp(propname, extra=self.kids[0].addExcInfo)
             virt = await self.kids[1].compute(runt, path)
 
+            # setting a tagprop virt is gated by the add perms for the tag it lives on
+            runt.layerConfirm(('node', 'tag', 'add', *tag.split('.')))
+
             try:
-                oldv = node.getTagProp(tag, propname)
+                oldv, oldvirts = node.getTagPropWithVirts(tag, propname)
                 valu = await rval.compute(runt, path)
-                newv, norminfo = await prop.type.normVirt(virt, oldv, valu)
+                newv, norminfo = await prop.type.normVirt(virt, oldv, valu, oldvirts=oldvirts)
 
                 await node.setTagProp(tag, propname, newv, norminfo=norminfo)
             except excignore:
@@ -6114,7 +6117,7 @@ class EditTagPropDel(Edit):
             tag, prop = await self.kids[0].compute(runt, path)
             tagparts = tag.split('.')
 
-            # for now, use the tag add perms
+            # removing a tagprop is gated by the del perms for the tag it lives on
             runt.layerConfirm(('node', 'tag', 'del', *tagparts))
 
             await node.delTagProp(tag, prop)

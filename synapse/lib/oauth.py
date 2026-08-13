@@ -400,7 +400,11 @@ class OAuthMixin(s_nexus.Pusher):
 
         await self._push('oauth:provider:add', conf)
 
-    @s_nexus.Pusher.onPush('oauth:provider:add')
+    # The provider and client handlers are leader-only (reader=False). All of the
+    # state they manage lives in the slab, which a readonly cell reads through to
+    # the writer, and the refresh they schedule runs in an active coro. A readonly
+    # cell still issues these events; the leader applies them.
+    @s_nexus.Pusher.onPush('oauth:provider:add', reader=False)
     async def _addOAuthProvider(self, conf):
         iden = conf['iden']
         if self._getOAuthProvider(iden) is None:
@@ -424,7 +428,7 @@ class OAuthMixin(s_nexus.Pusher):
         if self._getOAuthProvider(iden) is not None:
             return await self._push('oauth:provider:del', iden)
 
-    @s_nexus.Pusher.onPush('oauth:provider:del')
+    @s_nexus.Pusher.onPush('oauth:provider:del', reader=False)
     async def _delOAuthProvider(self, iden):
         for clientiden in list(self._oauth_clients.keys()):
             if clientiden.startswith(iden):
@@ -481,7 +485,7 @@ class OAuthMixin(s_nexus.Pusher):
         if self._oauth_clients.get(provideriden + useriden) is not None:
             return await self._push('oauth:client:data:clear', provideriden, useriden)
 
-    @s_nexus.Pusher.onPush('oauth:client:data:clear')
+    @s_nexus.Pusher.onPush('oauth:client:data:clear', reader=False)
     async def _clearOAuthAccessToken(self, provideriden, useriden):
         return self._oauth_clients.pop(provideriden + useriden)
 
@@ -502,7 +506,7 @@ class OAuthMixin(s_nexus.Pusher):
             raise s_exc.SynErr(mesg=f'Failed to get OAuth v2 token: {data["error"]}')
         await self._setOAuthTokenData(provideriden, useriden, data)
 
-    @s_nexus.Pusher.onPushAuto('oauth:client:data:set')
+    @s_nexus.Pusher.onPushAuto('oauth:client:data:set', reader=False)
     async def _setOAuthTokenData(self, provideriden, useriden, data):
         iden = provideriden + useriden
         self._oauth_clients.set(iden, data)

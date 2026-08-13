@@ -22,7 +22,7 @@ class Phone(s_types.Str):
 
         self.loctype = self.modl.type('loc')
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
         digs = digits(valu)
         if not digs:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
@@ -39,11 +39,11 @@ class Phone(s_types.Str):
         # TODO prefix based validation?
         return digs, {'subs': subs}
 
-    async def _normPyInt(self, valu, view=None):
+    async def _normPyInt(self, valu, opts):
         if valu < 1:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='phone int must be greater than 0')
-        return await self._normPyStr(str(valu))
+        return await self._normPyStr(str(valu), opts)
 
     def repr(self, valu):
         # XXX geo-aware reprs are practically a function of cc which

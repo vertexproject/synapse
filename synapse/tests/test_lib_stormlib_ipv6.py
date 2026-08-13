@@ -16,6 +16,11 @@ class StormIpv6Test(s_test.SynTest):
             self.eq('2001:4860:4860:0000:0000:0000:0000:8888',
                     await core.callStorm(query))
 
+            # an IPv4-mapped address expands with the dotted quad intact
+            query = '$valu="::ffff:1.2.3.4" return ( $lib.inet.ipv6.expand($valu) )'
+            self.eq('0000:0000:0000:0000:0000:ffff:1.2.3.4',
+                    await core.callStorm(query))
+
             query = '$valu="2001:4860:4860::XXXX" return ( $lib.inet.ipv6.expand($valu) )'
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm(query)

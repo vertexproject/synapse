@@ -893,13 +893,9 @@ class LayerTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await layrprox.storNodeEdits(nodeedits)
 
-                with self.raises(s_exc.AuthDeny):
-                    await layrprox.storNodeEditsNoLift(nodeedits)
-
                 await user.addRule((True, ('layer', 'write')), gateiden=layer0.iden)
 
                 await layrprox.storNodeEdits(nodeedits)
-                await layrprox.storNodeEditsNoLift(nodeedits)
 
             # _saveNodeEditsFollower (the non-leader edit-forward path) returns
             # the leader's result directly when the forwarded saveLayerNodeEdits
@@ -1776,6 +1772,451 @@ class LayerTest(s_t_utils.SynTest):
             # and the edit is idempotent
             self.len(0, await layr.saveNodeEdits([(nid, 'test:str', edits)], {}))
 
+    async def test_layer_tomb_over_live_parts(self):
+        '''
+        The prop, tag and tagprop tombstones must also remove the live row they mask,
+        the same way the nodedata and light edge tombstones do.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('_score', ('int', {}), {})
+
+            nodes = await core.nodes('[ test:str=foo :hehe=haha +#a.b=2024 +#c.d:_score=7 ]')
+            nid = s_common.int64un(nodes[0].nid)
+
+            layr = core.getLayer()
+
+            edits = (
+                (s_layer.EDIT_PROP_TOMB, ('hehe',)),
+                (s_layer.EDIT_TAG_TOMB, ('a.b',)),
+                (s_layer.EDIT_TAGPROP_TOMB, ('c.d', '_score')),
+            )
+            self.len(1, await layr.saveNodeEdits([(nid, 'test:str', edits)], {}))
+
+            # the live values are gone from the storage node...
+            sode = layr._getStorNode(nodes[0].nid)
+            self.notin('hehe', sode.get('props', {}))
+            self.notin('a.b', sode.get('tags', {}))
+            self.notin('c.d', sode.get('tagprops', {}))
+
+            # ...and the tombstones remain
+            self.true(sode['antiprops'].get('hehe'))
+            self.true(sode['antitags'].get('a.b'))
+            self.true(sode['antitagprops']['c.d'].get('_score'))
+
+            # the point lookups and the index scans agree
+            nodes = await core.nodes('test:str=foo')
+            self.len(1, nodes)
+            self.none(nodes[0].get('hehe'))
+            self.none(nodes[0].getTag('a.b'))
+            self.none(nodes[0].getTagProp('c.d', '_score'))
+
+            self.len(0, await core.nodes('test:str:hehe=haha'))
+            self.len(0, await core.nodes('test:str:hehe'))
+            self.len(0, await core.nodes('#a.b'))
+            self.len(0, await core.nodes('#a.b@=2024'))
+            self.len(0, await core.nodes('#c.d:_score'))
+            self.len(0, await core.nodes('#c.d:_score=7'))
+
+            # and the edits are idempotent
+            self.len(0, await layr.saveNodeEdits([(nid, 'test:str', edits)], {}))
+
+    async def test_layer_node_tomb_over_live(self):
+        '''
+        A whole node tombstone must remove every live value the layer holds for the node,
+        and supersede any part-of-node tombstones it was carrying.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('_score', ('int', {}), {})
+
+            nodes = await core.nodes('''
+                [ test:str=foo :hehe=haha +#a.b +#c.d:_score=7
+                  +(refs)> {[ test:int=1 ]} ] $node.data.set(hehe, haha)
+            ''')
+            node = nodes[0]
+            nid = s_common.int64un(node.nid)
+
+            layr = core.getLayer()
+
+            # give the node a part-of-node tombstone which the node tombstone supersedes
+            self.len(1, await layr.saveNodeEdits([(nid, 'test:str', (
+                (s_layer.EDIT_PROP_TOMB, ('newp',)),
+            ))], {}))
+            self.true(layr._getStorNode(node.nid)['antiprops'].get('newp'))
+
+            self.len(1, await layr.saveNodeEdits([(nid, 'test:str', (
+                (s_layer.EDIT_NODE_TOMB, ()),
+            ))], {}))
+
+            sode = layr._getStorNode(node.nid)
+
+            # the tombstone is all that is left of the node in this layer
+            self.true(sode.get('antivalu'))
+            self.eq({}, sode.get('props', {}))
+            self.eq({}, sode.get('tags', {}))
+            self.eq({}, sode.get('tagprops', {}))
+            self.eq({}, sode.get('antiprops', {}))
+            self.eq({}, sode.get('antitags', {}))
+            self.eq({}, sode.get('antitagprops', {}))
+            self.eq({}, sode.get('n1verbs', {}))
+
+            # so iterLayerNodeEdits() replays exactly the tombstone, losing nothing
+            edits = [e async for e in layr.iterLayerNodeEdits()]
+            self.eq([(nid, 'test:str', [(s_layer.EDIT_NODE_TOMB, ())])],
+                    [e for e in edits if e[0] == nid])
+
+            # the node is no longer lifted by any index
+            self.len(0, await core.nodes('test:str=foo'))
+            self.len(0, await core.nodes('test:str'))
+            self.len(0, await core.nodes('test:str:hehe=haha'))
+            self.len(0, await core.nodes('#a.b'))
+            self.len(0, await core.nodes('#c.d:_score=7'))
+            self.len(0, await core.nodes('yield $lib.lift.byNodeData(hehe)'))
+            self.len(0, await core.nodes('test:int=1 <(refs)- *'))
+
+            # and the edit is idempotent
+            self.len(0, await layr.saveNodeEdits([(nid, 'test:str', (
+                (s_layer.EDIT_NODE_TOMB, ()),
+            ))], {}))
+
+    async def test_layer_del_tombstone_perms(self):
+        '''
+        delTombstone() removes a mask over a lower layer value, so it requires the "add"
+        permission for that value, and may only target the write layer of the view.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('_score', ('int', {}), {})
+            await core.nodes('[ test:str=foo :hehe=haha +#a.b +#c.d:_score=7 ]')
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': viewiden}
+
+            await core.nodes('test:str=foo [ -:hehe -#a.b -#c.d:_score ]', opts=opts)
+            self.len(0, await core.nodes('test:str:hehe=haha', opts=opts))
+
+            layriden = core.getView(viewiden).wlyr.iden
+
+            user = await core.auth.addUser('lowly')
+            await user.addRule((True, ('view', 'read')), gateiden=viewiden)
+
+            useropts = {'view': viewiden, 'user': user.iden}
+
+            q = '''
+                $layr = $lib.layer.get()
+                for ($nid, $type, $info) in $layr.getTombstones() {
+                    $lib.print($layr.delTombstone($nid, $type, $info))
+                }
+            '''
+
+            # without the add perms the user may not remove a tombstone
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes(q, opts=useropts)
+
+            await user.addRule((True, ('node', 'prop', 'set')), gateiden=layriden)
+            await user.addRule((True, ('node', 'tag', 'add')), gateiden=layriden)
+
+            msgs = await core.stormlist(q, opts=useropts)
+            self.stormHasNoWarnErr(msgs)
+
+            # the values from the parent layer are visible in the fork again
+            self.len(1, await core.nodes('test:str:hehe=haha', opts=opts))
+            self.len(1, await core.nodes('#a.b', opts=opts))
+            self.len(1, await core.nodes('#c.d:_score=7', opts=opts))
+
+            # delTombstone() returns True when it removed one and False when it did not
+            nid = await core.callStorm('test:str=foo return($node.nid)', opts=opts)
+            tombinfo = ('test:str', 'hehe')
+            valu = await core.callStorm('''
+                return($lib.layer.get().delTombstone($nid, $type, $info))
+            ''', opts={'view': viewiden, 'vars': {
+                'nid': nid, 'type': s_layer.INDX_PROP, 'info': tombinfo}})
+            self.false(valu)
+
+            # an unknown tombstone type is rejected rather than silently ignored
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('''
+                    return($lib.layer.get().delTombstone($nid, $type, $info))
+                ''', opts={'view': viewiden, 'vars': {
+                    'nid': nid, 'type': b'\x99\x99', 'info': tombinfo}})
+
+            # as is a property which does not exist on the node's form
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('''
+                    return($lib.layer.get().delTombstone($nid, $type, $info))
+                ''', opts={'view': viewiden, 'vars': {
+                    'nid': nid, 'type': s_layer.INDX_PROP, 'info': ('test:str', 'newp')}})
+
+            # and it may only be called on the write layer of the current view
+            parentlayr = core.getView().layers[0].iden
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('''
+                    return($lib.layer.get($layr).delTombstone($nid, $type, $info))
+                ''', opts={'view': viewiden, 'vars': {
+                    'layr': parentlayr, 'nid': nid,
+                    'type': s_layer.INDX_PROP, 'info': tombinfo}})
+
+    async def test_layer_del_stor_node_valuless(self):
+        '''
+        delStorNode() on a storage node with no valu of its own, which is what a fork
+        looks like once it edits a node that lives in the parent. Such a sode carries
+        the live and tombstoned node data and light edges, or a whole node tombstone.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:int=1 ]')
+            await core.nodes('[ test:int=2 ]')
+            await core.nodes('[ test:str=foo +(refs)> { test:int=1 } ] $node.data.set(pdata, x)')
+            await core.nodes('[ test:str=bar ]')
+
+            meta = {'time': s_common.now(), 'user': core.auth.rootuser.iden}
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': viewiden}
+            layr = core.getView(viewiden).wlyr
+
+            # the fork masks the inherited edge and node data, and adds its own of each
+            nodes = await core.nodes('''
+                test:str=foo
+                [ -(refs)> { test:int=1 } +(refs)> { test:int=2 } ]
+                $node.data.pop(pdata) $node.data.set(fdata, y)
+            ''', opts=opts)
+            nid = nodes[0].nid
+
+            sode = layr._getStorNode(nid)
+            self.none(sode.get('valu'))
+            self.none(sode.get('antivalu'))
+            self.nn(sode.get('n1verbs'))
+            self.nn(sode.get('n1antiverbs'))
+
+            self.true(await layr.delStorNode(nid, meta=meta))
+            self.eq({}, layr._getStorNode(nid))
+
+            # dropping the fork's storage node restores the inherited view of the node
+            self.eq([('test:int', 1)], [n.ndef for n in
+                    await core.nodes('test:str=foo -(refs)> *', opts=opts)])
+            self.eq('x', await core.callStorm('test:str=foo return($node.data.get(pdata))', opts=opts))
+            self.none(await core.callStorm('test:str=foo return($node.data.get(fdata))', opts=opts))
+
+            # a whole node tombstone is the other shape a valu-less sode takes
+            nodes = await core.nodes('test:str=bar | delnode', opts=opts)
+            barnid = core.getNidByNdef(('test:str', 'bar'))
+            self.true(layr._getStorNode(barnid).get('antivalu'))
+            self.len(0, await core.nodes('test:str=bar', opts=opts))
+
+            self.true(await layr.delStorNode(barnid, meta=meta))
+            self.eq({}, layr._getStorNode(barnid))
+            self.len(1, await core.nodes('test:str=bar', opts=opts))
+
+            # and the ordinary case, a sode which does hold the valu
+            rootlayr = core.getLayer()
+            self.true(await rootlayr.delStorNode(barnid, meta=meta))
+            self.len(0, await core.nodes('test:str=bar'))
+
+            # the parent is otherwise untouched
+            self.len(1, await core.nodes('test:str=foo'))
+
+    async def test_layer_diff_tag_tombstone(self):
+        '''
+        diff --tag must surface tags removed in the fork, the way diff --prop does for
+        props, so that the removal can be merged down.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:fqdn=evil.com +#cno.mal ]')
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': viewiden}
+
+            await core.nodes('inet:fqdn=evil.com [ -#cno.mal ]', opts=opts)
+            self.len(0, await core.nodes('#cno.mal', opts=opts))
+
+            layr = core.getView(viewiden).wlyr
+
+            # the tag lift cannot see the removal, the tombstone walk can
+            self.len(0, [nid async for nid, sode in layr.liftByTags(['cno.mal'])])
+            self.len(1, [nid async for nid in layr.iterTagTombstones('cno.mal')])
+
+            nodes = await core.nodes('diff --tag cno.mal', opts=opts)
+            self.len(1, nodes)
+            self.eq(('inet:fqdn', 'evil.com'), nodes[0].ndef)
+
+            # and the removal merges down to the parent
+            await core.nodes('diff --tag cno.mal | merge --apply', opts=opts)
+            self.len(0, await core.nodes('#cno.mal'))
+
+    async def test_layer_tag_form_indx_new_sode(self):
+        '''
+        A tag set which is the first edit to materialize a nid in the layer must write
+        the per-form tag index rows under the tag abbreviation.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=foo ]')
+
+            vdef = await core.view.fork()
+            view = core.getView(vdef.get('iden'))
+            opts = {'view': view.iden}
+
+            layr = view.layers[0]
+
+            # the node lives in the layer below, so the tag set creates the sode
+            await core.nodes('test:str=foo [ +#hehe=2020 ]', opts=opts)
+
+            self.len(1, await core.nodes('test:str#hehe', opts=opts))
+            self.len(1, await core.nodes('test:str#hehe@=2020', opts=opts))
+            self.len(1, await alist(layr.liftByTag('hehe', form='test:str')))
+
+            # the count and the index rows must agree
+            self.eq(1, await layr.getTagCount('hehe', formname='test:str'))
+
+            # and the form row is the only row under the form abbreviation
+            formabrv = core.getIndxAbrv(s_layer.INDX_FORM, 'test:str')
+            rows = list(layr.layrslab.scanByPref(formabrv, db=layr.indxdb))
+            self.len(1, rows)
+            self.eq(formabrv, rows[0][0])
+
+            # removing the tag removes every row it added
+            await core.nodes('test:str=foo [ -#hehe ]', opts=opts)
+
+            self.len(0, await core.nodes('test:str#hehe', opts=opts))
+            self.eq(0, await layr.getTagCount('hehe', formname='test:str'))
+            self.len(0, list(layr.layrslab.scanByPref(formabrv, db=layr.indxdb)))
+
+    async def test_layer_delnode_edge_tomb_counts(self):
+        '''
+        Deleting a node which carries edge tombstones must adjust the tombstone verb
+        count rather than the live edge counts.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=foo +(refs)> {[ test:int=1 ]} ]')
+
+            vdef = await core.view.fork()
+            view = core.getView(vdef.get('iden'))
+            opts = {'view': view.iden}
+
+            layr = view.layers[0]
+            vabrv = core.getIndxAbrv(s_layer.INDX_EDGE_VERB, 'refs')
+            tombabrv = s_layer.INDX_TOMB + vabrv
+
+            # the edge lives in the layer below, so deleting it writes a tombstone
+            await core.nodes('test:str=foo [ -(refs)> { test:int=1 } ]', opts=opts)
+
+            self.eq(0, layr.getEdgeVerbCount('refs'))
+            self.eq(1, layr.indxcounts.get(tombabrv))
+
+            await core.nodes('test:str=foo | delnode', opts=opts)
+
+            self.eq(0, layr.getEdgeVerbCount('refs'))
+            self.eq(0, layr.getEdgeVerbCount('refs', n1form='test:str'))
+            self.eq(0, layr.getEdgeVerbCount('refs', n2form='test:int'))
+            self.eq(0, layr.getEdgeVerbCount('refs', n1form='test:str', n2form='test:int'))
+            self.eq(0, layr.indxcounts.get(tombabrv))
+
+    async def test_layer_node_add_dedup(self):
+        '''
+        A node add which matches the storage node must be dropped by calcEdits(), and
+        one which differs only by the folding of nidNorm() must update the storage
+        node without disturbing the index.
+        '''
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+
+            nodes = await core.nodes('[ test:str=foo ]')
+            nid = s_common.int64un(nodes[0].nid)
+
+            sode = layr.getStorNode(nodes[0].nid)
+            edit = (s_layer.EDIT_NODE_ADD, sode['valu'])
+
+            self.none(layr._calcNodeAdd(nodes[0].nid, edit, sode))
+            self.eq((), await layr.saveNodeEdits([(nid, 'test:str', (edit,))], {}))
+
+            # the text type folds case for nid deconfliction, so a raw node add such as
+            # a layer push may carry a different value for a nid we already hold
+            nodes = await core.nodes('[ it:hostname="HayStack" ]')
+            nid = s_common.int64un(nodes[0].nid)
+
+            abrv = core.getIndxAbrv(s_layer.INDX_PROP, 'it:hostname', None)
+            rows = list(layr.layrslab.scanByPref(abrv, db=layr.indxdb))
+            self.len(1, rows)
+
+            edit = (s_layer.EDIT_NODE_ADD, ('haystack', s_layer.STOR_TYPE_TEXT, None))
+            self.len(1, await layr.saveNodeEdits([(nid, 'it:hostname', (edit,))], {}))
+
+            self.eq(('haystack', s_layer.STOR_TYPE_TEXT, None), layr.getStorNode(nodes[0].nid)['valu'])
+
+            # the index rows and counts are built from the folded value, so they stand
+            self.eq(rows, list(layr.layrslab.scanByPref(abrv, db=layr.indxdb)))
+            self.eq(1, layr.indxcounts.get(abrv))
+
+            self.len(1, await core.nodes('it:hostname="HayStack"'))
+            self.len(1, await core.nodes('it:hostname=haystack'))
+
+    async def test_layer_prop_set_virts_no_prop(self):
+        '''
+        A prop set with no value and virts, for a prop the node does not have, must not
+        raise from the virts comparison.
+        '''
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+
+            nodes = await core.nodes('[ test:str=foo ]')
+            nid = s_common.int64un(nodes[0].nid)
+
+            virts = {'newp': ('bar', s_layer.STOR_TYPE_UTF8)}
+            edits = ((s_layer.EDIT_PROP_SET, ('hehe', None, s_layer.STOR_TYPE_UTF8, virts)),)
+
+            self.len(1, await layr.saveNodeEdits([(nid, 'test:str', edits)], {}))
+
+    async def test_layer_mapfull_mid_edit(self):
+        '''
+        A map growth part way through a nexus edit must not commit the layer slab: the
+        index rows are written as the edits are applied but the storage nodes are only
+        flushed at the end, so a commit here would make a partial edit durable ahead of
+        both the storage nodes and the nexus log entry describing it.
+        '''
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+            slab = layr.layrslab
+
+            grown = []
+            realedit = layr._editPropSet
+
+            async def wrap(nid, form, edit, sode, meta):
+                retn = await realedit(nid, form, edit, sode, meta)
+
+                # the map fills part way through the edit and has to grow
+                if not grown:
+                    commits = len(slab.commitstats)
+                    slab._handle_mapfull()
+                    grown.append((commits, len(slab.commitstats)))
+
+                return retn
+
+            layr.editors[s_layer.EDIT_PROP_SET] = wrap
+            try:
+                await core.nodes('[ test:str=foo :hehe=lol :tick=2020 ]')
+            finally:
+                layr.editors[s_layer.EDIT_PROP_SET] = realedit
+
+            # the growth happened and committed nothing
+            self.len(1, grown)
+            self.eq(grown[0][0], grown[0][1])
+
+            # and the edit survived the abort and replay intact
+            nodes = await core.nodes('test:str=foo')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'hehe', 'lol')
+            self.propeq(nodes[0], 'tick', 1577836800000000)
+
+            self.len(1, await core.nodes('test:str:hehe=lol'))
+            self.len(1, await core.nodes('test:str:tick=2020'))
+
     async def test_layer_del_then_lift(self):
         '''
         Regression test
@@ -2626,6 +3067,277 @@ class LayerTest(s_t_utils.SynTest):
 
             # the stale row is silently skipped; the real match still returns
             self.eq(['1.0.0'], [n.get('version')[1] for n in await core.nodes('it:hardware:version >= "1.0.0"')])
+
+    def getPropIndxRows(self, core, layr, form, prop):
+        '''
+        Return the (rows, ckeys) of every index which belongs to a single (form, prop):
+        the prop and array value indexes, their side indexes, and the virtual property
+        indexes. ckeys are the index count keys those rows are counted under, including
+        the per-member-type key a poly value rides on the first 10 bytes of its index.
+        '''
+        rows = set()
+        ckeys = set()
+
+        for byts, abrv in core.indxabrv.items():
+
+            args = s_msgpack.un(byts[2:])
+            if len(args) < 2 or args[0] != form or args[1] != prop:
+                continue
+
+            ckeys.add(abrv)
+
+            for lkey, nid in layr.layrslab.scanByPref(abrv, db=layr.indxdb):
+                rows.add((lkey, nid))
+                ckeys.add(abrv + lkey[len(abrv):len(abrv) + 10])
+
+        return rows, ckeys
+
+    async def reqPolyIndxRoundTrip(self, core, form, prop, setq, delq, opts=None):
+        '''
+        Require that setting and then deleting a poly property leaves the index exactly
+        as it was found, and that what it stores in between describes itself: the layer
+        de-indexes a value using only the stortype and virts held alongside it, so a
+        triple which is not a Type.getStorInfo() fixpoint leaves rows no lift can find.
+        '''
+        layr = core.getLayer()
+        ptyp = core.model.reqProp(f'{form}:{prop}').type
+
+        rows, ckeys = self.getPropIndxRows(core, layr, form, prop)
+        counts = {ckey: layr.indxcounts.get(ckey) for ckey in ckeys}
+
+        nodes = await core.nodes(setq, opts=opts)
+        self.len(1, nodes)
+
+        valt = layr.getStorNode(nodes[0].nid).get('props', {}).get(prop)
+        self.nn(valt)
+        self.eq((valt[1], valt[2]), ptyp.getStorInfo(valt[0], virts=valt[2]))
+
+        await core.nodes(delq, opts=opts)
+
+        newrows, newckeys = self.getPropIndxRows(core, layr, form, prop)
+        self.eq(rows, newrows)
+
+        for ckey in ckeys | newckeys:
+            self.eq(counts.get(ckey, 0), layr.indxcounts.get(ckey))
+
+    async def test_layer_poly_index_roundtrip(self):
+
+        polyvals = (
+            'test:int=1',
+            'inet:fqdn=foo.com',
+            'inet:server=1.2.3.4:80',       # a comp member, which carries _stortypes
+            'test:lowstr=HeHe',             # a folding member
+        )
+
+        async with self.getTestCore() as core:
+
+            for valu in polyvals:
+                setq = f'[ test:str=poly :poly={{[ {valu} ]}} ]'
+                await self.reqPolyIndxRoundTrip(core, 'test:str', 'poly', setq, 'test:str=poly [ -:poly ]')
+
+            # guid and comp members, which are keyed by their folded buid
+            for valu in ('ps:person=*', 'test:comp=(1, foo)'):
+                setq = f'[ test:str=poly :bar={{[ {valu} ]}} ]'
+                await self.reqPolyIndxRoundTrip(core, 'test:str', 'bar', setq, 'test:str=poly [ -:bar ]')
+
+            # an ival poly, which maintains the max and duration side indexes
+            setq = '[ test:str=poly :seen=(2020, 2021) ]'
+            await self.reqPolyIndxRoundTrip(core, 'test:str', 'seen', setq, 'test:str=poly [ -:seen ]')
+
+            # poly arrays, including comp elements (_elemvirts) and duplicate elements
+            setq = '[ test:str=poly :polyarry=(1, 2) ] [ :polyarry += {[ inet:server=1.2.3.4:80 ]} ]'
+            await self.reqPolyIndxRoundTrip(core, 'test:str', 'polyarry', setq, 'test:str=poly [ -:polyarry ]')
+
+            setq = '[ test:str=poly :polynonuniq=(foo, foo, bar, foo) ]'
+            await self.reqPolyIndxRoundTrip(core, 'test:str', 'polynonuniq', setq, 'test:str=poly [ -:polynonuniq ]')
+
+            # setStorNodeProp() builds the edit itself rather than going through the editor
+            await core.nodes('[ test:str=stor ]')
+
+            setq = 'test:str=stor $lib.layer.get().setStorNodeProp($node.nid, test:str:poly, foo.com)'
+            await self.reqPolyIndxRoundTrip(core, 'test:str', 'poly', setq, 'test:str=stor [ -:poly ]')
+
+            setq = 'test:str=stor $lib.layer.get().setStorNodeProp($node.nid, test:str:seen, (2020, 2021))'
+            await self.reqPolyIndxRoundTrip(core, 'test:str', 'seen', setq, 'test:str=stor [ -:seen ]')
+
+            setq = 'test:str=stor $lib.layer.get().setStorNodeProp($node.nid, test:str:polyarry, (foo, bar))'
+            await self.reqPolyIndxRoundTrip(core, 'test:str', 'polyarry', setq, 'test:str=stor [ -:polyarry ]')
+
+            # the poly member type count is maintained for every producer
+            self.eq(0, await core.count('test:str:poly'))
+
+            await core.nodes('[ test:str=c1 :poly={[ inet:fqdn=count.com ]} ]')
+            await core.nodes('test:str=stor $lib.layer.get().setStorNodeProp($node.nid, test:str:poly, hehe)')
+
+            view = core.getView()
+            self.eq(1, await view.getPropCount('test:str:poly', type='inet:fqdn'))
+            self.eq(1, await view.getPropCount('test:str:poly', type='test:str'))
+            self.eq(0, await view.getPropCount('test:str:poly', type='test:int'))
+
+            await core.nodes('test:str=c1 [ -:poly ]')
+            await core.nodes('test:str=stor [ -:poly ]')
+
+            self.eq(0, await view.getPropCount('test:str:poly', type='inet:fqdn'))
+            self.eq(0, await view.getPropCount('test:str:poly', type='test:str'))
+
+    async def test_layer_poly_index_movenodes(self):
+        '''
+        movenodes() merges a prop value across layers, so the stortype and virts it
+        stores must describe the merged value rather than whichever layer was walked
+        last, or the row it writes is one no lift can find.
+        '''
+        async with self.getTestCore() as core:
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            viewopts = {'view': viewiden}
+
+            view = core.getView(viewiden)
+            layr = core.getLayer(view.layers[0].iden)
+
+            # the member types differ between the layers, as do the array lengths
+            await core.nodes('[ test:str=move :poly={[ inet:server=1.2.3.4:80 ]} :polyarry=(1, 2) ]')
+            await core.nodes('test:str=move [ :poly=hehe :polyarry=(3, 4, 5) ]', opts=viewopts)
+
+            msgs = await core.stormlist('test:str=move | movenodes --apply', opts=viewopts)
+            self.stormHasNoWarnErr(msgs)
+
+            props = layr.getStorNode((await core.nodes('test:str=move', opts=viewopts))[0].nid).get('props')
+
+            for prop in ('poly', 'polyarry'):
+                valt = props.get(prop)
+                self.nn(valt)
+
+                ptyp = core.model.reqProp(f'test:str:{prop}').type
+                self.eq((valt[1], valt[2]), ptyp.getStorInfo(valt[0], virts=valt[2]))
+
+            # the moved values are still liftable from the layer they landed in
+            self.len(1, await core.nodes('test:str:poly=hehe', opts=viewopts))
+            self.len(1, await core.nodes('test:str:poly.type=test:str', opts=viewopts))
+
+            for valu in (3, 4, 5):
+                self.len(1, await core.nodes(f'test:str:polyarry*[={valu}]', opts=viewopts))
+
+    async def reqMergeRoundTrip(self, core, setq, lift, prop=None, tagprop=None):
+        '''
+        Require that merging a node moves its property or tag property down intact: the
+        parent layer must end up holding the same (valu, stortype, virts) triple the fork
+        held. merge() re-norms through the editor, so a value which cannot be re-read from
+        its stored form -- or which drops the virts stored with it -- shows up here.
+        '''
+        viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+        viewopts = {'view': viewiden}
+
+        forklayr = core.getLayer(core.getView(viewiden).layers[0].iden)
+
+        nodes = await core.nodes(setq, opts=viewopts)
+        self.len(1, nodes)
+
+        nid = nodes[0].nid
+
+        def gettriple(layr):
+            sode = layr.getStorNode(nid)
+            if tagprop is not None:
+                return sode.get('tagprops', {}).get(tagprop[0], {}).get(tagprop[1])
+            return sode.get('props', {}).get(prop)
+
+        before = gettriple(forklayr)
+        self.nn(before)
+
+        msgs = await core.stormlist(f'{lift} | merge --apply', opts=viewopts)
+        self.stormHasNoWarnErr(msgs)
+
+        self.eq(before, gettriple(core.getLayer()))
+
+    async def test_layer_merge_roundtrip(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('_cur', ('econ:pricechange', {}), {})
+            await core.addTagProp('_seen', ('ival', {}), {})
+
+            # an array property: its members are typed tuples, so the stored value can only
+            # be re-read as a typed value
+            setq = '[ ou:conference=(c,) :names=(foo, bar) ]'
+            await self.reqMergeRoundTrip(core, setq, 'ou:conference=(c,)', prop='names')
+
+            setq = '[ test:str=arr :polyarry=(1, 2) ] [ :polyarry += {[ inet:server=1.2.3.4:80 ]} ]'
+            await self.reqMergeRoundTrip(core, setq, 'test:str=arr', prop='polyarry')
+
+            # a scalar property whose stored virt has to survive the re-norm
+            setq = '[ test:str=pv :seen=(2020, 2021) ] [ :seen.precision=year ]'
+            await self.reqMergeRoundTrip(core, setq, 'test:str=pv', prop='seen')
+
+            # a tag property, both a plain one and one whose stored norm has more fields
+            # than its constructor takes
+            setq = '[ test:str=tp +#foo:_seen=(2020, 2021) ] [ +#foo:_seen.precision=year ]'
+            await self.reqMergeRoundTrip(core, setq, 'test:str=tp', tagprop=('foo', '_seen'))
+
+            setq = '[ econ:balance=(b,) +#foo:_cur=(1, 2) ] [ +#foo:_cur.currency=usd ]'
+            await self.reqMergeRoundTrip(core, setq, 'econ:balance=(b,)', tagprop=('foo', '_cur'))
+
+    async def test_layer_tagprop_hidden_virts(self):
+        '''
+        A hidden ("_" prefixed) virt carries index metadata rather than a value to index.
+        No tagprop type produces one today, since a tagprop is never poly or array, but
+        the tagprop virt indexers skip them the way the property path does rather than
+        unpacking the metadata as a (valu, vtyp) pair.
+        '''
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+
+            await core.addTagProp('_cur', ('econ:pricechange', {}), {})
+            nodes = await core.nodes('[ econ:balance=(b,) +#foo:_cur=(1, 2) ]')
+
+            nid = nodes[0].nid
+            stor = layr.stortypes[core.model.tagprop('_cur').type.stortype]
+            tagabrv = core.getIndxAbrv(s_layer.INDX_TAG, None, 'foo')
+
+            virts = {'currency': ('USD', s_layer.STOR_TYPE_UTF8)}
+            hidden = virts | {'_stortypes': ((s_layer.STOR_TYPE_UTF8,), s_layer.STOR_TYPE_MSGP)}
+
+            rows = stor.getTagPropVirtIndxVals(nid, 'econ:balance', 'foo', tagabrv, '_cur', virts)
+            self.len(3, rows)
+            self.eq(rows, stor.getTagPropVirtIndxVals(nid, 'econ:balance', 'foo', tagabrv, '_cur', hidden))
+
+            # and the delete side skips it too, so the two stay symmetric
+            self.none(stor.delTagPropVirtIndxVals(nid, 'econ:balance', 'foo', tagabrv, '_cur', hidden))
+
+    async def test_layer_tagprop_index_movenodes(self):
+        '''
+        movenodes() merges a tagprop value across layers, so the virts it stores must
+        be the ones belonging to the value it kept. A tagprop is never poly or array
+        (TagProp clones a named type), but a virt which the layer indexes -- an
+        econ:price currency, say -- still has to describe the value it rides with.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('_cur', ('econ:pricechange', {}), {})
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            viewopts = {'view': viewiden}
+
+            view = core.getView(viewiden)
+            layr = core.getLayer(view.layers[0].iden)
+
+            await core.nodes('[ econ:balance=(b,) +#foo:_cur=(1, 2) ]')
+            await core.nodes('econ:balance=(b,) [ +#foo:_cur.currency=eur ]')
+
+            await core.nodes('econ:balance=(b,) [ +#foo:_cur=(1, 2) ]', opts=viewopts)
+            await core.nodes('econ:balance=(b,) [ +#foo:_cur.currency=usd ]', opts=viewopts)
+
+            msgs = await core.stormlist('econ:balance | movenodes --apply', opts=viewopts)
+            self.stormHasNoWarnErr(msgs)
+
+            # the write layer value wins, so its currency virt is the one which moves
+            nodes = await core.nodes('econ:balance', opts=viewopts)
+            self.len(1, nodes)
+
+            sode = layr.getStorNode(nodes[0].nid)
+            self.eq('USD', sode['tagprops']['foo']['_cur'][2]['currency'][0])
+
+            self.len(1, await core.nodes('econ:balance#foo:_cur.currency=usd', opts=viewopts))
+            self.len(0, await core.nodes('econ:balance#foo:_cur.currency=eur', opts=viewopts))
 
     async def test_layer_poly_indexes(self):
 

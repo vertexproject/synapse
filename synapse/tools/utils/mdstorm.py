@@ -16,9 +16,7 @@ def _formatFlagInvocation(action):
     '''
     Render a single argparse action's flag (and its value placeholder, if
     any) the way it would appear on a fenced directive's flag line, e.g.
-    "--vars VARS" or "--hide-query" for a boolean flag. A positional
-    argument (e.g. mdinclude's "path") has no option_strings, so it is
-    rendered as just its metavar/dest instead of a "--flag" form.
+    "--vars VARS" or "--hide-query" for a boolean flag.
 
     Args:
         action (argparse.Action): The action to render.
@@ -26,8 +24,6 @@ def _formatFlagInvocation(action):
     Returns:
         str: The flag invocation text.
     '''
-    if not action.option_strings:
-        return action.metavar or action.dest.upper()
     optstr = action.option_strings[0]
     if action.nargs == 0:
         return optstr

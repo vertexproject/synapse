@@ -576,7 +576,7 @@ modeldefs = (
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'actor::name'}},
                         {'type': 'prop', 'opts': {'name': 'achievement::name'}},
-                        {'type': 'prop', 'opts': {'name': 'achievement::org::name'}},
+                        {'type': 'prop', 'opts': {'name': 'achievement::issuer::name'}},
                         {'type': 'prop', 'opts': {'name': 'time'}},
                     ),
                 },

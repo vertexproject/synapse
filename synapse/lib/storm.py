@@ -3190,6 +3190,14 @@ class DiffCmd(Cmd):
                 if node is not None:
                     yield node, runt.initPath(node)
 
+            # a tag removed in this view is stored as a tombstone, which the lift above
+            # does not see, so walk them too. this mirrors the --prop branch below.
+            for tag in tags:
+                async for nid in layr.iterTagTombstones(tag):
+                    node = await self.runt.view._joinStorNode(nid)
+                    if node is not None:
+                        yield node, runt.initPath(node)
+
             return
 
         if self.opts.prop:
@@ -3277,7 +3285,7 @@ class CopyToCmd(Cmd):
 
             async with view.getEditor() as editor:
 
-                nval, norminfo = await node.form.type.normFromTypedValu(node.ndef[1], view=view)
+                nval, norminfo = await node.form.type.normFromTypedValu(node.ndef[1], opts=view.normopts)
                 proto = await editor.addNode(node.ndef[0], nval, norminfo=norminfo)
 
                 await proto.setMeta('created', node.getMeta('created'))
@@ -3701,7 +3709,7 @@ class MergeCmd(Cmd):
                         delnode = True
                         try:
                             nval = valu[0]
-                            norm, norminfo = await node.form.type.normFromTypedValu(nval, view=editor.view)
+                            norm, norminfo = await node.form.type.normFromTypedValu(nval, opts=editor.view.normopts)
                             protonode = await editor.addNode(form, norm, norminfo=norminfo)
                             if protonode.node is not None and protonode.node.valu() != nval:
                                 await protonode.setValue(nval)
@@ -3739,8 +3747,13 @@ class MergeCmd(Cmd):
                         valurepr = prop.type.repr(valu)
                         await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                     else:
-                        if prop.type.ispoly:
-                            valu = prop.type.tostorm(valu, virts=virts)
+                        # hand back a typed value carrying the virts it was stored with,
+                        # rather than the raw stored norm: an array's members are typed
+                        # (typename, valu) tuples which norm() cannot re-read, and a bare
+                        # value arrives with no virts for the setter to preserve. tostor()
+                        # then converts as the storm edit path does, so an array arrives
+                        # as a tuple of typed members rather than a List primitive
+                        valu = await s_stormtypes.tostor(prop.type.tostorm(valu, virts=virts))
 
                         await protonode.set(name, valu)
                         if not self.opts.wipe:
@@ -3801,7 +3814,11 @@ class MergeCmd(Cmd):
                             valurepr = repr(valu)
                             await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
                         else:
-                            await protonode.setTagProp(tag, prop, valu)
+                            # as with a property above, the stored norm is handed back as
+                            # a typed value so its virts ride along with it
+                            tptype = core.model.reqTagProp(prop).type
+                            tpvalu = await s_stormtypes.tostor(tptype.tostorm(valu, virts=virts))
+                            await protonode.setTagProp(tag, prop, tpvalu)
                             if not self.opts.wipe:
                                 subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop)))
 
@@ -4211,15 +4228,22 @@ class MoveNodesCmd(Cmd):
 
         movevals = {}
         virtvals = {}
-        stortypes = {}
         form = node.form.name
 
         for layr, sode in sodes.items():
 
             for name, (valu, stortype, virts) in sode.get('props', {}).items():
 
-                virtvals[name] = virts
-                stortypes[name] = stortype
+                if name not in virtvals:
+                    # the layers are walked in precedence order, so the first layer to
+                    # carry the prop is the one whose virts ride along with the merged
+                    # value. the hidden storage virts are dropped here and re-derived
+                    # from the merged value below, since they describe the value they
+                    # were stored with and a merge may produce a different one
+                    if virts is not None:
+                        virts = {vkey: vval for (vkey, vval) in virts.items() if vkey[0] != '_'}
+
+                    virtvals[name] = virts or None
 
                 if (oldv := movevals.get(name)) is not s_common.novalu:
                     if oldv is None:
@@ -4254,8 +4278,13 @@ class MoveNodesCmd(Cmd):
                         valurepr = node.form.prop(name).type.repr(valu)
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
                     else:
-                        stortype = stortypes.get(name)
-                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, stortype, virtvals.get(name))))
+                        # derive the stortype and hidden storage virts from the merged
+                        # value. they must describe the value they are stored with, and
+                        # merge() may pick another layer's value or synthesize a new one
+                        ptyp = node.form.prop(name).type
+                        stortype, virts = ptyp.getStorInfo(valu, virts=virtvals.get(name))
+
+                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, stortype, virts)))
                 else:
                     if destprops is not None and (destvalu := destprops.get(name)) is not None:
                         if not self.opts.apply:
@@ -4346,7 +4375,6 @@ class MoveNodesCmd(Cmd):
 
         movevals = {}
         virtvals = {}
-        stortypes = {}
         form = node.form.name
 
         for layr, sode in sodes.items():
@@ -4355,8 +4383,13 @@ class MoveNodesCmd(Cmd):
                 for prop, (valu, stortype, virts) in tagdict.items():
 
                     name = (tag, prop)
-                    virtvals[name] = virts
-                    stortypes[name] = stortype
+
+                    if name not in virtvals:
+                        # as in _moveProps: the layers are walked in precedence order, so
+                        # the first layer to carry the tagprop is the one whose virts ride
+                        # along with the merged value. a tagprop is never poly or array, so
+                        # there are no hidden storage virts to re-derive here
+                        virtvals[name] = virts
 
                     if (oldv := movevals.get(name)) is not s_common.novalu:
                         if oldv is None:
@@ -4397,7 +4430,7 @@ class MoveNodesCmd(Cmd):
                         mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
                         await self.runt.printf(mesg)
                     else:
-                        edit = (tag, prop, valu, stortypes.get((tag, prop)), virtvals.get((tag, prop)))
+                        edit = (tag, prop, valu, tptype.stortype, virtvals.get((tag, prop)))
                         self.adds.append((s_layer.EDIT_TAGPROP_SET, edit))
 
                 else:

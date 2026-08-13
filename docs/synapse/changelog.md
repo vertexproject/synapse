@@ -1,3 +1,0 @@
-```mdinclude
-../../CHANGELOG.md
-```

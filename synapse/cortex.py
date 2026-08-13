@@ -2901,7 +2901,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             cellinfo = await proxy.getCellInfo()
 
             cellvers = cellinfo['synapse']['version']
-            if not s_version.matches(cellvers, '>=3.0.0b6'):
+            if not s_version.matches(cellvers, '>=3.0.0rc1'):
                 mesg = f'Service {name} is running Synapse {cellvers} and must be updated to >= 3.0.0'
                 logger.error(mesg)
                 raise s_exc.BadVersion(mesg=mesg)
@@ -4933,7 +4933,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         # on a readonly cortex the layer def + auth gate/admin are shared read-
         # through (the leader already committed them); _initLayr still builds the
-        # in-memory Layer and (via addAuthGate's read-through early return) the gate.
+        # in-memory Layer and skips the gate write.
         if not self.readonly:
             self.layerdefs.set(iden, ldef)
 
@@ -4980,7 +4980,11 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             layr.nodeAddHook = onadd
             layr.nodeDelHook = ondel
 
-        await self.auth.addAuthGate(layr.iden, 'layer')
+        # creating the gate is a durable auth write which belongs to the leader; a
+        # readonly cortex shares the committed gate read-through, which is what
+        # every other gate call site here guards for (see _addView / _delLayer).
+        if not self.readonly:
+            await self.auth.addAuthGate(layr.iden, 'layer')
 
         for pdef in layrinfo.get('pushs', {}).values():
             await self.runLayrPush(layr, pdef)
@@ -5749,7 +5753,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             size, sha256 = await fd.save()
             return (size, s_common.ehex(sha256))
 
-    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0b6,<4.0.0'):
+    def reqValidExportStormMeta(self, meta, synver_range='>=3.0.0rc1,<4.0.0'):
         '''
         Validate an export storm meta dict for schema, version, and synapse version compatibility.
 

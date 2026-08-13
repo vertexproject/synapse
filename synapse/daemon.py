@@ -319,6 +319,12 @@ class Daemon(s_base.Base):
         except ConnectionResetError:
             logger.debug(f'Dmon.onLinkMesg Handler: connection reset link={link.getAddrInfo()}')
 
+        except s_exc.IsFini:
+            # the link is gone before the handler could reply on it, which is how a
+            # shutdown reads from here: a peer opens a link to this cell while the
+            # same signal is already tearing both ends down.
+            logger.debug(f'Dmon.onLinkMesg Handler: link is fini link={link.getAddrInfo()}')
+
         except Exception:
             logger.exception(f'Dmon.onLinkMesg Handler: mesg={s_common.trimText(repr(mesg), n=80)} '
                              f'link={link.getAddrInfo()}')

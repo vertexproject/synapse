@@ -40,7 +40,7 @@ What you need to do
 
 What changed
 
-:   A new runt form `syn:deleted` (type `data`, `runt=True`) is added in 3.x, with the computed props `:nid`, `:form`, `:value`, and `:sodes` (the per-layer storage nodes). Because tombstoned nodes are intentionally not lifted, the `diff` command surfaces them: its lift path iterates the write layer's storage nodes and, when a storage node has `antivalu` set (a whole-node tombstone), yields `view.getDeletedRuntNode(nid)` -- a `syn:deleted` runt node whose primary value is the ndef of the deleted node -- instead of trying to lift the now-hidden node. The prop-scoped (`--prop`) diff path also walks the layer's prop tombstones so deleted props are surfaced alongside changed props. Added and changed nodes still diff as their normal forms; only fully-deleted nodes appear as `syn:deleted`.
+:   A new runt form `syn:deleted` (type `data`, `runt=True`) is added in 3.x, with the computed props `:nid`, `:form`, `:value`, and `:sodes` (the per-layer storage nodes). Because tombstoned nodes are intentionally not lifted, the `diff` command surfaces them: its lift path iterates the write layer's storage nodes and, when a storage node has `antivalu` set (a whole-node tombstone), yields `view.getDeletedRuntNode(nid)` -- a `syn:deleted` runt node whose primary value is the ndef of the deleted node -- instead of trying to lift the now-hidden node. The scoped diff paths also walk the layer's tombstones so deletions are surfaced alongside changes: `--prop` walks the prop tombstones, and `--tag` walks the tag tombstones. Added and changed nodes still diff as their normal forms; only fully-deleted nodes appear as `syn:deleted`.
 
 Why
 
@@ -94,7 +94,9 @@ What you need to do
 
 What changed
 
-:   The Storm Layer object gains tombstone-management methods. `getTombstones()` yields `(nid, tombtype, info)` tuples for the tombstones in the layer; `getEdgeTombstones(verb=None)` yields `(n1nid, verb, n2nid)` edge tombstones; and `delTombstone(nid, tombtype, tombinfo)` removes a tombstone, returning `True` if removed and `False` if not. `getNodeData(nid)` now yields `(name, valu, istombstone)` tuples so node-data tombstones are visible, and it takes a nid (e.g. `$node.nid`) rather than the 2.x node iden.
+:   The Storm Layer object gains tombstone-management methods. `getTombstones()` yields `(nid, tombtype, info)` tuples for the tombstones in the layer; `getEdgeTombstones(verb=None)` yields `(n1nid, verb, n2nid)` edge tombstones; and `delTombstone(nid, tombtype, tombinfo)` removes a tombstone, returning `True` if removed and `False` if not. Both yield node ids as integers, the same as `$node.nid`. `getNodeData(nid)` now yields `(name, valu, istombstone)` tuples so node-data tombstones are visible, and it takes a nid (e.g. `$node.nid`) rather than the 2.x node iden.
+
+:   `delTombstone()` may only be called on the write layer of the current view, and is permissioned as an **add** rather than a delete: removing a tombstone makes the value it masks visible again, so it requires the add permission for that value -- `node.add`, `node.prop.set`, `node.tag.add`, `node.data.set`, or `node.edge.add`, according to what the tombstone masks. An unrecognized tombstone type raises `BadArg` rather than silently doing nothing.
 
 Why
 
@@ -102,7 +104,7 @@ Why
 
 What you need to do
 
-:   Use `$lib.layer.get().getTombstones()` (or `getEdgeTombstones`) to enumerate staged deletions in a write layer, and `$layer.delTombstone($nid, $tombtype, $tombinfo)` to cancel a staged deletion before merge. When iterating node data with `getNodeData()` in 3.x, expect a third `istombstone` element in each tuple, and pass a nid instead of the node iden.
+:   Use `$lib.layer.get().getTombstones()` (or `getEdgeTombstones`) to enumerate staged deletions in a write layer, and `$layer.delTombstone($nid, $tombtype, $tombinfo)` to cancel a staged deletion before merge. Grant the user the add permission for whatever the tombstone masks, since that is what cancelling it restores. When iterating node data with `getNodeData()` in 3.x, expect a third `istombstone` element in each tuple, and pass a nid instead of the node iden.
 
     ``` text
     // Synapse 2.x: no tombstone APIs existed; getNodeData yielded 2-tuples

@@ -71,80 +71,43 @@ A single Synapse Cortex can easily scale vertically to hold tens of billions of 
 
 ## What's Next?
 
-<table style="width:99%;">
-<colgroup>
-<col style="width: 28%" />
-<col style="width: 59%" />
-<col style="width: 11%" />
-</colgroup>
-<tbody>
-<tr class="odd">
-<td><strong>Get Started!</strong></td>
-<td colspan="2"><ul>
-<li>There are several options for you to deploy | and start using Synapse! See our | [Getting Started](getting_started.md#getting_started) guide to see which | right for you. | |</li>
-<li><dl>
-<dt>Watch a [Guided Tour](https://v.vtx.lk/synapse-tour)</dt>
-<dd>
-<div class="line-block"></div>
-</dd>
-</dl></li>
-</ul></td>
-</tr>
-<tr class="even">
-<td><strong>Users</strong></td>
-<td colspan="2"><ul>
-<li>[Synapse User Guide](userguide.md#userguide) |</li>
-<li>[Storm Reference](userguides/index_storm_ref.md#userguide_storm_ref) |</li>
-<li>[Changelog](changelog.md) |</li>
-<li>Ask a question in <a href="https://v.vtx.lk/join-slack">Slack</a> |</li>
-</ul></td>
-</tr>
-<tr class="odd">
-<td><strong>DevOps</strong></td>
-<td colspan="2"><ul>
-<li>[Synapse Devops Guide](devopsguide.md#devopsguide) |</li>
-<li>[Synapse Deployment Guide](deploymentguide.md#deploymentguide) |</li>
-<li>Synapse [sizing guide](https://vertex.link/files/docs/synapse/Synapse-Sizing-Guidance.pdf)</li>
-</ul></td>
-</tr>
-<tr class="even">
-<td><strong>Developers</strong></td>
-<td colspan="2"><ul>
-<li>[Synapse Developer Guide](devguide.md#devguide) |</li>
-<li>[Synapse HTTP/REST API](httpapi.md#http-api) |</li>
-<li>[Synapse Data Model](datamodel.md#dm-index) |</li>
-<li>[Storm Library Documentation](stormtypes.md#stormtypes_index) |</li>
-</ul></td>
-</tr>
-<tr class="odd">
-<td><strong>Admins</strong></td>
-<td colspan="2"><ul>
-<li>[Synapse Admin Guide](adminguide.md#adminguide) |</li>
-</ul></td>
-</tr>
-<tr class="even">
-<td><strong>Synapse UI</strong> (commercial)</td>
-<td colspan="2"><ul>
-<li>[Synapse UI](/docs/synapse-enterprise-optic/latest/index.md) ("Optic") documentation (includes guides for users, devops, and | developers) |</li>
-</ul></td>
-</tr>
-<tr class="odd">
-<td><strong>Learn More</strong></td>
-<td><ul>
-<li>Video <a href="https://v.vtx.lk/youtube">Library</a></li>
-<li>Visit The Vertex Project <a href="https://vertex.link/">Website</a></li>
-</ul></td>
-<td></td>
-</tr>
-<tr class="even">
-<td><strong>Connect With Us!</strong></td>
-<td colspan="2"><ul>
-<li><a href="https://v.vtx.lk/join-slack">Slack</a> |</li>
-<li><a href="https://v.vtx.lk/linkedin">LinkedIn</a> |</li>
-<li>[X/Twitter](https://v.vtx.lk/twitter)</li>
-<li><a href="https://v.vtx.lk/bluesky">Bluesky</a> |</li>
-<li>"Star" us on <a href="https://github.com/vertexproject/synapse">Github</a> |</li>
-</ul></td>
-</tr>
-</tbody>
-</table>
+### Getting Started
+
+There are several options for you to deploy and start using Synapse! See our [Getting Started](getting_started.md#getting_started) guide to see which option is
+right for you.
+
+Watch a [Guided Tour](https://v.vtx.lk/synapse-tour)
+
+### Users
+- [Synapse User Guide](userguide.md)
+- [Storm Reference](userguides/index_storm_ref.md)
+- [Changelog](changelog.md)
+- Ask a question in [Slack](https://v.vtx.lk/join-slack)
+
+### DevOps
+- [Synapse Devops Guide](devopsguide.md)
+- [Synapse Deployment Guide](deploymentguide.md)
+- Synapse [sizing guide](https://vertex.link/files/docs/synapse/Synapse-Sizing-Guidance.pdf)
+
+### Developers
+- [Synapse Developer Guide](devguide.md)
+- [Synapse HTTP/REST API](httpapi.md)
+- [Synapse Data Mode](datamodel.md)
+- [Storm Library Documentation](stormtypes.md)
+
+### Admins
+- [Synapse Admin Guide](adminguide.md)
+
+### Synapse UI (commercial)
+- [Synapse UI](/docs/synapse-enterprise-optic/latest/index.md) ("Optic") documentation (includes guides for users, devops, and developers)
+
+### Learn More
+- Video [Library](https://v.vtx.lk/youtube)
+- Visit The Vertex Project [Website](https://vertex.link/)
+
+### Connect With Us!
+- [Slack](https://v.vtx.lk/join-slack)
+- [LinkedIn](https://v.vtx.lk/linkedin)
+- [X/Twitter](https://v.vtx.lk/twitter)
+- [Bluesky](https://v.vtx.lk/bluesky)
+- "Star" us on [Github](https://github.com/vertexproject/synapse)

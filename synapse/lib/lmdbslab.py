@@ -1194,8 +1194,8 @@ class Slab(s_base.Base):
             self.forcecommit()
 
         except lmdb.MapFullError:
-            self._handle_mapfull()
-            # There's no need to re-try self.forcecommit as _growMapSize does it
+            # this caller is committing, so the grow-and-replay commits for it
+            self._handle_mapfull(docommit=True)
 
     async def fini(self):
         await self.fire('commit')
@@ -2200,7 +2200,18 @@ class Slab(s_base.Base):
             retn = f(*a)
         return retn
 
-    def _handle_mapfull(self):
+    def _handle_mapfull(self, docommit=False):
+        '''
+        Grow the map and replay the aborted transaction from the xactops journal.
+
+        Args:
+            docommit (bool): Commit the replayed transaction. Only the callers which
+                             are already committing pass this. A write which happens to
+                             be the one that fills the map must not commit on the way
+                             past: the transaction belongs to whoever opened it, and for
+                             a commitpulse=False slab that is a nexus handler whose
+                             writes are only durable as a whole (see Slab.commitDirtyNow).
+        '''
         [scan.bump() for scan in self.scans]
 
         while True:
@@ -2218,7 +2229,8 @@ class Slab(s_base.Base):
                 self.last_retn = self._runXactOpers()
                 self.recovering = False
 
-                self.forcecommit()
+                if docommit:
+                    self.forcecommit()
 
             except lmdb.MapFullError:
                 continue

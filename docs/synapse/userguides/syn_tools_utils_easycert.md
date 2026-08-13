@@ -14,4 +14,4 @@ python -m synapse.tools.utils.easycert -h
 ```
 
 > [!NOTE]
-> This tool was previously run using `synapse.tools.easycert`. It can still be run with that name.
+> This tool was previously run using `synapse.tools.easycert`, which was removed in Synapse 3.0.0. See [CLI Tool Changes](../300_changes/devops-cli-tools.md#vtx_300_devops-cli-tools).

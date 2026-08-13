@@ -1,7 +1,9 @@
 ##############################################################################
-# Taken from the cpython 3.11 source branch after the 3.11.10 release.
+# Taken from the cpython 3.14 source branch at the v3.14.7 tag.
+# It has been modified for vendored imports, and the RFC 2231 functions have
+# been commented out since they are unused.
 ##############################################################################
-# Copyright (C) 2001-2010 Python Software Foundation
+# Copyright (C) 2001 Python Software Foundation
 # Author: Barry Warsaw
 # Contact: email-sig@python.org
 
@@ -28,8 +30,6 @@ __all__ = [
 import os
 import re
 import time
-import random
-import socket
 import datetime
 import urllib.parse
 
@@ -38,9 +38,6 @@ from synapse.vendor.cpython.lib.email._parseaddr import AddressList as _AddressL
 from synapse.vendor.cpython.lib.email._parseaddr import mktime_tz
 
 from synapse.vendor.cpython.lib.email._parseaddr import parsedate, parsedate_tz, _parsedate_tz
-
-# Intrapackage imports
-from email.charset import Charset
 
 COMMASPACE = ', '
 EMPTYSTRING = ''
@@ -74,6 +71,7 @@ def _sanitize(string):
     return original_bytes.decode('utf-8', 'replace')
 
 
+
 # Helpers
 
 def formataddr(pair, charset='utf-8'):
@@ -97,6 +95,8 @@ def formataddr(pair, charset='utf-8'):
             name.encode('ascii')
         except UnicodeEncodeError:
             if isinstance(charset, str):
+                # lazy import to improve module import time
+                from email.charset import Charset
                 charset = Charset(charset)
             encoded_name = charset.header_encode(name)
             return "%s <%s>" % (encoded_name, address)
@@ -246,7 +246,7 @@ def formatdate(timeval=None, localtime=False, usegmt=False):
 
     Fri, 09 Nov 2001 01:08:47 -0000
 
-    Optional timeval if given is a floating point time value as accepted by
+    Optional timeval if given is a floating-point time value as accepted by
     gmtime() and localtime(), otherwise the current time is used.
 
     Optional localtime is a flag that when True, interprets timeval, and
@@ -261,13 +261,13 @@ def formatdate(timeval=None, localtime=False, usegmt=False):
     # 2822 requires that day and month names be the English abbreviations.
     if timeval is None:
         timeval = time.time()
-    if localtime or usegmt:
-        dt = datetime.datetime.fromtimestamp(timeval, datetime.timezone.utc)
-    else:
-        dt = datetime.datetime.utcfromtimestamp(timeval)
+    dt = datetime.datetime.fromtimestamp(timeval, datetime.timezone.utc)
+
     if localtime:
         dt = dt.astimezone()
         usegmt = False
+    elif not usegmt:
+        dt = dt.replace(tzinfo=None)
     return format_datetime(dt, usegmt)
 
 def format_datetime(dt, usegmt=False):
@@ -299,7 +299,12 @@ def make_msgid(idstring=None, domain=None):
     portion of the message id after the '@'.  It defaults to the locally
     defined hostname.
     """
-    timeval = int(time.time() * 100)
+    # Lazy imports to speedup module import time
+    # (no other functions in email.utils need these modules)
+    import random
+    import socket
+
+    timeval = int(time.time()*100)
     pid = os.getpid()
     randint = random.getrandbits(64)
     if idstring is None:
@@ -317,10 +322,13 @@ def parsedate_to_datetime(data):
     if parsed_date_tz is None:
         raise ValueError('Invalid date value or format "%s"' % str(data))
     *dtuple, tz = parsed_date_tz
-    if tz is None:
-        return datetime.datetime(*dtuple[:6])
-    return datetime.datetime(*dtuple[:6],
-            tzinfo=datetime.timezone(datetime.timedelta(seconds=tz)))
+    try:
+        if tz is None:
+            return datetime.datetime(*dtuple[:6])
+        return datetime.datetime(*dtuple[:6],
+                tzinfo=datetime.timezone(datetime.timedelta(seconds=tz)))
+    except OverflowError as exc:
+        raise ValueError('Invalid date value or format "%s"' % str(data)) from exc
 
 
 def parseaddr(addr, *, strict=True):
@@ -362,6 +370,7 @@ def unquote(str):
         if str.startswith('<') and str.endswith('>'):
             return str[1:-1]
     return str
+
 
 
 # RFC2231-related functions - parameter encoding and decoding
@@ -416,8 +425,14 @@ rfc2231_continuation = re.compile(r'^(?P<name>\w+)\*((?P<num>[0-9]+)\*?)?$',
 #         for name, continuations in rfc2231_params.items():
 #             value = []
 #             extended = False
-#             # Sort by number
-#             continuations.sort()
+#             # Sort by number, treating None as 0 if there is no 0,
+#             # and ignore it if there is already a 0.
+#             has_zero = any(x[0] == 0 for x in continuations)
+#             if has_zero:
+#                 continuations = [x for x in continuations if x[0] is not None]
+#             else:
+#                 continuations = [(x[0] or 0, x[1], x[2]) for x in continuations]
+#             continuations.sort(key=lambda x: x[0])
 #             # And now append all values in numerical order, converting
 #             # %-encodings for the encoded segments.  If any of the
 #             # continuation names ends in a *, then the entire string, after
@@ -465,41 +480,15 @@ rfc2231_continuation = re.compile(r'^(?P<name>\w+)\*((?P<num>[0-9]+)\*?)?$',
 # better than not having it.
 #
 
-def localtime(dt=None, isdst=-1):
+def localtime(dt=None):
     """Return local time as an aware datetime object.
 
     If called without arguments, return current time.  Otherwise *dt*
     argument should be a datetime instance, and it is converted to the
     local time zone according to the system time zone database.  If *dt* is
     naive (that is, dt.tzinfo is None), it is assumed to be in local time.
-    In this case, a positive or zero value for *isdst* causes localtime to
-    presume initially that summer time (for example, Daylight Saving Time)
-    is or is not (respectively) in effect for the specified time.  A
-    negative value for *isdst* causes the localtime() function to attempt
-    to divine whether summer time is in effect for the specified time.
 
     """
     if dt is None:
-        return datetime.datetime.now(datetime.timezone.utc).astimezone()
-    if dt.tzinfo is not None:
-        return dt.astimezone()
-    # We have a naive datetime.  Convert to a (localtime) timetuple and pass to
-    # system mktime together with the isdst hint.  System mktime will return
-    # seconds since epoch.
-    tm = dt.timetuple()[:-1] + (isdst,)
-    seconds = time.mktime(tm)
-    localtm = time.localtime(seconds)
-    try:
-        delta = datetime.timedelta(seconds=localtm.tm_gmtoff)
-        tz = datetime.timezone(delta, localtm.tm_zone)
-    except AttributeError:
-        # Compute UTC offset and compare with the value implied by tm_isdst.
-        # If the values match, use the zone name implied by tm_isdst.
-        delta = dt - datetime.datetime(*time.gmtime(seconds)[:6])
-        dst = time.daylight and localtm.tm_isdst > 0
-        gmtoff = -(time.altzone if dst else time.timezone)
-        if delta == datetime.timedelta(seconds=gmtoff):
-            tz = datetime.timezone(delta, time.tzname[dst])
-        else:
-            tz = datetime.timezone(delta)
-    return dt.replace(tzinfo=tz)
+        dt = datetime.datetime.now()
+    return dt.astimezone()

@@ -4,21 +4,22 @@ import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 
+_easyPermLevelSchema = {'type': 'number', 'minimum': 0, 'maximum': 3}
+
 easyPermSchema = {
     'type': 'object',
     'properties': {
-        # users and roles are keyed by iden, so their key space stays open.
+        # users and roles are keyed by iden, so their key space stays open while
+        # every value is constrained to a permission level.
         'users': {
             'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
-            'additionalProperties': True,
+            'additionalProperties': _easyPermLevelSchema,
         },
         'roles': {
             'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
-            'additionalProperties': True,
+            'additionalProperties': _easyPermLevelSchema,
         },
-        'default': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        'default': _easyPermLevelSchema,
     },
     'additionalProperties': False,
     'required': ['users', 'roles'],

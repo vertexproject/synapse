@@ -2438,6 +2438,11 @@ Returns true if edits were made. The return type is [`boolean`](#stormprims-bool
 
 Delete a tombstone stored in the layer.
 
+May only be called on the write layer of the current view. Removing a
+tombstone makes the value it masks visible again, so it requires the "add"
+permission for that value (``node.add``, ``node.prop.set``, ``node.tag.add``,
+``node.data.set``, or ``node.edge.add``) rather than the "del" permission.
+
 
 **Args:**
 

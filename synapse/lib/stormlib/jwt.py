@@ -1,7 +1,6 @@
 import hmac
 import socket
 import asyncio
-import ipaddress
 import urllib.parse
 
 import aiohttp
@@ -21,6 +20,19 @@ import synapse.lib.crypto.utils as s_crypto
 import synapse.lib.schemas as s_schemas
 import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.stormlib.cryptoutils as s_cryptoutils
+
+ipaddress = s_common.ipaddress
+
+# IPv6 prefixes which embed an IPv4 address in their low 32 bits and which ipaddress
+# reports as globally reachable. RFC 6052 (NAT64), RFC 2765 2.1 (IPv4-translated) and
+# RFC 4291 2.5.5.1 (IPv4-compatible). These are the well-known prefixes only; an
+# operator may translate with their own network-specific prefix, which no fixed list
+# can cover.
+translatednets = (
+    ipaddress.IPv6Network('64:ff9b::/96'),
+    ipaddress.IPv6Network('::ffff:0:0:0/96'),
+    ipaddress.IPv6Network('::/96'),
+)
 
 # JWKS fetch/cache tuning.
 JWKS_TTL = 300              # seconds a fetched JWKS is served from cache
@@ -348,16 +360,37 @@ def _reqGlobalAddrs(host, sockaddrs, allowinternal):
     # sockaddrs are getaddrinfo (family, socktype, proto, canonname, sockaddr) tuples; element 0
     # of each trailing sockaddr is the resolved IP string (IPv4 and IPv6 alike).
     for *_, sockaddr in sockaddrs:
+
         ipaddr = ipaddress.ip_address(sockaddr[0])
         if not ipaddr.is_global:
             mesg = f'jwks_uri resolves to the non-global address {ipaddr}; set allowinternal to override.'
             raise s_exc.BadArg(mesg=mesg, host=host)
+
+        # is_global reports the translation prefixes as globally reachable, so an address which
+        # embeds an internal IPv4 address passes the check above. On a network running a
+        # translator the connection then lands on the embedded address. Classify on the embedded
+        # address rather than the prefix, or a NAT64 address for a global IPv4 host is refused.
+        for netw in translatednets:
+
+            if ipaddr not in netw:
+                continue
+
+            embed = ipaddress.IPv4Address(int(ipaddr) & 0xffffffff)
+            if not embed.is_global:
+                mesg = f'jwks_uri resolves to {ipaddr}, which embeds the non-global address ' \
+                       f'{embed}; set allowinternal to override.'
+                raise s_exc.BadArg(mesg=mesg, host=host)
+
+            break
 
 class _PinnedResolver(aiohttp.abc.AbstractResolver):
     '''
     An aiohttp resolver that returns only the addresses already resolved and vetted, so the
     connection dials exactly the checked IPs rather than re-resolving (which a DNS-rebinding
     host could answer differently).
+
+    This only applies to a direct connection. When a proxy is configured the proxy resolves
+    the host itself, so the vetting in _reqGlobalAddrs is advisory on that path.
     '''
     def __init__(self, addrs):
         self.addrs = addrs
@@ -628,7 +661,8 @@ class LibJwt(s_stormtypes.Lib):
 
         proxyurl = await s_stormtypes.resolveCoreProxyUrl(proxy)
         if proxyurl is not None:
-            # the proxy performs the connect; the local address vetting still ran.
+            # the proxy resolves and connects to the host itself, so the addresses vetted by
+            # _reqGlobalAddrs are not the ones dialed and the rebinding window stays open.
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
         else:
             # dial only the resolved and vetted addresses (defeats DNS-rebinding).

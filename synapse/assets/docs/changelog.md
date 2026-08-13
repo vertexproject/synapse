@@ -1,7 +1,107 @@
-<a id="changelog"></a>
-
-
 # Synapse Changelog
+
+## v3.0.0rc1 - 2026-08-12
+
+### Model Changes
+
+- ``inet:net`` and ``inet:cidr`` now repr IPv4-mapped IPv6 ranges with the
+  embedded IPv4 dotted quad.
+- ``inet:ip`` ``:type`` is now ``private`` for addresses in ``3fff::/20``.
+- ``inet:ip`` ``:type`` and ``:scope`` now classify IPv4-mapped IPv6 addresses
+  the same as the IPv4 address they embed.
+- Added the it:log:event:host:name property.
+
+### Features and Enhancements
+
+- Synapse container images are now also published to the Vertex Hub registry at
+  ``hub.vertex.link``, without the ``vertexproject/`` prefix (e.g.
+  ``hub.vertex.link/synapse-cortex``).
+
+### Bugfixes
+
+- Fixed a bug where ``merge`` dropped the virtual property values stored with a
+  property or tag property value.
+- Fixed a bug where ``merge`` failed to merge nodes with array properties.
+- ``$layer.getTombstones()`` now yields node ids as integers, matching
+  ``$layer.getEdgeTombstones()`` and ``$node.nid``.
+- Setting a tagprop virtual property such as ``[ +#foo.bar:_baz.precision=day ]``
+  now confirms the tag ``add`` permission.
+- ``$node.difftags()`` now confirms the tag ``add`` and ``del`` permissions
+  when called with ``apply=(true)``.
+- ``diff --tag`` now surfaces tags deleted in the view.
+- ``$layer.delTombstone()`` now returns ``true`` or ``false`` as documented,
+  and raises ``BadArg`` for an unknown tombstone type.
+- ``$layer.delTombstone()`` now requires the ``add`` permission for the value
+  the tombstone masks, and may only be called on the write layer of the current
+  view.
+- A whole node tombstone now clears the part-of-node tombstones it supersedes,
+  so a layer push or a merge no longer silently drops them.
+- Fixed the ``EDIT_PROP_TOMB``, ``EDIT_TAG_TOMB``, ``EDIT_TAGPROP_TOMB``, and
+  ``EDIT_NODE_TOMB`` layer edits not removing a live value held by the same
+  layer, which could leave a point lookup and an index scan disagreeing.
+- Fixed a bug where ``movenodes`` stored a merged tag property value with the
+  virtual properties of another layer value.
+- Fixed a bug where ``$lib.layer.get().setStorNodeProp()`` did not record the
+  storage type and hidden storage virtual properties of the value it set,
+  omitting member type counts and ``ival`` side indexes.
+- Fixed a bug where ``movenodes`` stored a merged property value with the
+  storage type and virtual properties of another layer value, writing property
+  index rows which lifts could not find.
+- Fixed a bug where growing the LMDB map part way through a nexus transaction
+  committed the partially applied writes, which could leave a layer with index
+  rows and counts that no storage node or nexus log entry accounted for.
+- Fixed a bug where deleting a node which carried edge tombstones decremented
+  the live edge counts rather than the tombstone edge count.
+- Fixed a bug where setting a tag on a node which did not yet exist in the
+  write layer wrote the per-form tag index rows under the wrong abbreviation,
+  causing ``<form>#<tag>`` lifts to miss the node.
+- ``$lib.crypto.jwt.verify()`` now rejects a ``jwks_uri`` which resolves to an
+  IPv6 address embedding a non-global IPv4 address, such as a ``64:ff9b::/96``
+  NAT64 address for a private host, unless ``allowinternal`` is set.
+- ``$lib.inet.ipv6.expand()`` now renders IPv4-mapped addresses with the
+  embedded IPv4 dotted quad.
+- Fixed an issue where a read worker would fail to apply a view or layer change
+  made while it was behind the leader, and diverge from it.
+- Fixed an issue where the OAuth V2 nexus handlers would attempt a write on a
+  read-only Cortex.
+- Fixed an issue where recomputing the layers of a forked View would attempt a
+  write on a read-only Cortex.
+- Fixed the ``entity:achieved`` default display column
+  ``achievement::org::name`` which referenced a property that does not exist.
+  It is now ``achievement::issuer::name``.
+- Fixed Ival types not persisting or respecting the precision virtual property
+  upon setting other virtual properties.
+
+### Notes
+
+- Updated the vendored ``email`` and ``json`` modules to the CPython 3.14.7
+  release.
+- Removed the `mdinclude` mdstorm directive. Every `mdinclude` fence has been
+  inlined directly into its page's Markdown source instead of being spliced in
+  at build time.
+- Updated the vendored ``ipaddress`` module to the CPython 3.14.7 release.
+- Removed Synapse patches for CVE-2024-7592 and CVE-2025-8194 since they were
+  for Python versions that are no longer supported.
+
+### Improved documentation
+
+- The documentation bundle navigation now lists the ``v3.0.0b5`` and
+  ``v3.0.0b6`` changelog entries.
+- Updated the Docker image references in the deployment documentation to use
+  the Vertex Hub registry (``hub.vertex.link``).
+- Removed the CHANGELOG.md file at the root of the Synapse OSS repository. The
+  Synapse changelog can now be found [here](https://github.com/vertexproject/synapse/blob/main/synapse/assets/docs/changelog.md)
+  or at the [Vertex Hub](https://hub.vertex.link/docs/synapse/latest/changelog.md).
+- Corrected the CLI tool documentation to note that the 2.x top-level
+  ``synapse.tools.<name>`` module paths were removed in Synapse 3.0.0.
+- Updated the Kubernetes deployment examples for Synapse 3, including the
+  ``synapse.tools.service.healthcheck`` probe path and the ``v3.x.x`` image
+  tags.
+
+### Deprecations
+
+- Removed the ``storNodeEditsNoLift()`` Layer API. Use ``storNodeEdits()``,
+  which resolves the edits against the layer before they are applied.
 
 ## v3.0.0b6 - 2026-08-11
 

@@ -38,14 +38,14 @@ Print the value of `$node` for an `inet:dns:a` node:
 
 ```stormdoc
 storm> inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node) | spin
-Node{(('inet:dns:a', (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 917309932)))), {'nid': 0, 'meta': {'created': 1786476692787659, 'updated': 1786476692800915}, 'tags': {}, 'props': {'fqdn': ('woot.com', {'t': 'inet:fqdn'}), 'ip': ((4, 917309932), {'t': 'inet:ip'}), 'seen': ((1482957991000000, 1482957991001000, 1000), {'t': 'ival'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
+Node{(('inet:dns:a', (('inet:fqdn', 'woot.com'), ('inet:ipv4', (4, 917309932)))), {'nid': 0, 'meta': {'created': 1786244006752088, 'updated': 1786244006755052}, 'tags': {}, 'props': {'fqdn': ('inet:fqdn', 'woot.com'), 'ip': ('inet:ip', (4, 917309932)), 'seen': ('ival', (1482957991000000, 1482957991001000, 1000))}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
 ```
 
 Print the value of `$node` for an `inet:fqdn` node with tags present:
 
 ```stormdoc
 storm> inet:fqdn=aunewsonline.com $lib.print($node) | spin
-Node{(('inet:fqdn', 'aunewsonline.com'), {'nid': 4, 'meta': {'created': 1786476692813434, 'updated': 1786476692817937}, 'tags': {'rep': ((None, None, None), {}), 'rep.mandiant': ((None, None, None), {}), 'rep.mandiant.apt1': ((None, None, None), {}), 'cno': ((None, None, None), {}), 'cno.infra': ((None, None, None), {}), 'cno.infra.dns': ((None, None, None), {}), 'cno.infra.dns.sink': ((None, None, None), {}), 'cno.infra.dns.sink.hole': ((None, None, None), {}), 'cno.infra.dns.sink.hole.kleissner': ((1385424000000000, 1480118400000000, 94694400000000), {})}, 'props': {'host': ('aunewsonline', {'t': 'str:lower'}), 'domain': ('com', {'t': 'inet:fqdn'}), 'issuffix': (0, {'t': 'bool'}), 'iszone': (1, {'t': 'bool'}), 'zone': ('aunewsonline.com', {'t': 'inet:fqdn'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
+Node{(('inet:fqdn', 'aunewsonline.com'), {'nid': 4, 'meta': {'created': 1786244006769939, 'updated': 1786244006774394}, 'tags': {'rep': (None, None, None), 'rep.mandiant': (None, None, None), 'rep.mandiant.apt1': (None, None, None), 'cno': (None, None, None), 'cno.infra': (None, None, None), 'cno.infra.dns': (None, None, None), 'cno.infra.dns.sink': (None, None, None), 'cno.infra.dns.sink.hole': (None, None, None), 'cno.infra.dns.sink.hole.kleissner': (1385424000000000, 1480118400000000, 94694400000000)}, 'props': {'host': ('str:lower', 'aunewsonline'), 'domain': ('inet:fqdn', 'com'), 'issuffix': ('bool', 0), 'iszone': ('bool', 1), 'zone': ('inet:fqdn', 'aunewsonline.com')}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
 ```
 
 > [!NOTE]
@@ -60,12 +60,12 @@ storm> inet:fqdn=ns1.example.com $ns=$node :zone -> inet:whois:record:fqdn [ :na
 inet:whois:record=cba505c601a201eec02bebde19c031d5
         :created = 2024-03-27T03:00:00Z
         :fqdn = example.com
-        :nameservers = ['ns1.example.com']
+        :nameservers = ('ns1.example.com',)
         :updated = 2026-03-22T11:37:00Z
 inet:whois:record=c7b669878864e9f66b2034e7c3cd3165
         :created = 2024-03-27T03:00:00Z
         :fqdn = example.com
-        :nameservers = ['ns1.example.com']
+        :nameservers = ('ns1.example.com',)
         :updated = 2024-09-18T22:46:00Z
 ```
 
@@ -253,7 +253,7 @@ Print the repr of the `.created` meta property of an `inet:dns:a` node:
 
 ```stormdoc
 storm> inet:dns:a=(woot.com, 54.173.9.236) $lib.print($node.repr('.created')) | spin
-2026-08-11T19:31:32.787659Z
+2026-08-09T02:53:26.752088Z
 ```
 
 <a id="meth-node-tags"></a>

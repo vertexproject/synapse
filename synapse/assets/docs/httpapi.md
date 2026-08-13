@@ -14,7 +14,7 @@ All Synapse RESTful APIs use HTTP GET/POST methods to retrieve and modify data. 
 
 For a successful API call:
 
-``` text
+``` json
 {"status": "ok", "result": "some api result here"}
 ```
 
@@ -215,7 +215,7 @@ def logoutExample(sess, ssl):
 
     :   This API expects the following JSON body:
 
-        ``` text
+        ``` json
         { "name": "myuser" }
         ```
 
@@ -237,7 +237,7 @@ def logoutExample(sess, ssl):
 
     :   This API expects the following JSON body:
 
-        ``` text
+        ``` json
         { "name": "myrole" }
         ```
 
@@ -259,7 +259,7 @@ def logoutExample(sess, ssl):
 
     :   This API expects the following JSON body:
 
-        ``` text
+        ``` json
         { "name": "myrole" }
         ```
 
@@ -387,7 +387,7 @@ def logoutExample(sess, ssl):
 
     :   This API expects the following JSON body:
 
-        ``` text
+        ``` json
         {
             "user": "<id>",
             "role": "<id>"
@@ -410,7 +410,7 @@ def logoutExample(sess, ssl):
 
     :   This API expects the following JSON body:
 
-        ``` text
+        ``` json
         {
             "user": "<id>",
             "role": "<id>"

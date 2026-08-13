@@ -39,7 +39,7 @@ A service delivers exactly one package. The Cortex identifies the service by its
 
 The package must declare `advanced: true`:
 
-``` text
+``` yaml
 name: my-power-up
 version: 1.0.0
 advanced: true

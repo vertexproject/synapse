@@ -66,7 +66,21 @@ Normalization converts an arbitrary input value into the canonical storage form.
 
 **Registration:** `setNormFunc(pytype, func)` maps a Python type to an async normalizer.
 
-**Dispatch:** `async norm(valu, view=None)` looks up `type(valu)` in `_type_norms` and calls the matching function. If no match, raises `BadTypeValu`.
+**Dispatch:** `async norm(valu, opts=None)` looks up `type(valu)` in `_type_norms` and calls the matching function. If no match, raises `BadTypeValu`.
+
+**norm opts:** Per-norm options travel in a single `opts` dict rather than as individual keyword arguments. Do not confuse it with the type's own `self.opts` (see [Options Pattern](#options-pattern-_opt_defs) below); `opts` in a norm function signature is always the per-norm dict. `norm()` accepts `opts=None` as shorthand and substitutes `{}` once, so a registered norm function always receives a real dict and takes it as a **required positional** argument. A norm function that forgets to pass it down therefore raises `TypeError` instead of silently dropping an option.
+
+Current keys:
+
+| Key | Purpose |
+|-----|---------|
+| `view` | A View to resolve existing nodes against, or `False` for none |
+| `precision` | A time precision to norm time values with |
+| `newinfos` | Array items which are already normed, keyed by value |
+
+The norm `opts` dict is **read-only** for the duration of a norm. A type that needs different options for the values it norms below itself builds a new dict (`opts | {'precision': prec}`) rather than mutating the one it was handed, so sibling values do not inherit the change. `Array` likewise strips `newinfos` before recursing, since those entries key its own items.
+
+Adding an option means adding a key, not a parameter -- no signature in the hierarchy changes. The `view`/`prec` keyword arguments and the `hasprec` class flag that gated whether a type accepted `prec` are both gone.
 
 **Return value:** Always a tuple `(normalized_value, info_dict)` where info may contain:
 - `'subs'` -- Sub-property values: `{name: (typehash, norm, info)}`
@@ -80,7 +94,7 @@ def postTypeInit(self):
     self.setNormFunc(str, self._normPyStr)
     self.setNormFunc(int, self._normPyInt)  # coerce int to str
 
-async def _normPyStr(self, valu, view=None):
+async def _normPyStr(self, valu, opts):
     # apply lower/upper/strip/onespace/replace transforms
     # validate against enums/regex
     # extract regex capture groups as subs
@@ -172,7 +186,7 @@ Each lift function returns a tuple of `(cmpr, norm_value, stortype)` triples. Th
 
 | Method | Purpose |
 |--------|---------|
-| `norm(valu, view=None)` | Normalize a value to canonical form |
+| `norm(valu, opts=None)` | Normalize a value to canonical form |
 | `repr(norm)` | Human-readable string from normalized value |
 | `tostorm(valu)` | Make value safe for Storm runtime (deep-copy mutables, wrap poly in NodeRef) |
 | `clone(opts)` | Create new instance of same type with different options |

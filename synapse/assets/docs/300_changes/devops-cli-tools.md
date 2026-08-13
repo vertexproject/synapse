@@ -135,7 +135,7 @@ Why
 
 What you need to do
 
-:   If you maintained your own `.rst`/`.rstorm` documentation using `rstorm`, port it to Markdown with fenced `mdstorm`/`mdstorm-setup`/`mdshell`/`mdinclude`/`mdautodoc` directives (see `synsrc/docs/README.md` for the directive mapping) and build it with `synapse.tools.utils.mdstorm` for a single file, or with `synapse.tools.storm.pkg.doc` if it is a Storm package's `docs/` tree.
+:   If you maintained your own `.rst`/`.rstorm` documentation using `rstorm`, port it to Markdown with fenced `mdstorm`/`mdstorm-setup`/`mdshell`/`mdautodoc` directives (see `synsrc/docs/README.md` for the directive mapping) and build it with `synapse.tools.utils.mdstorm` for a single file, or with `synapse.tools.storm.pkg.doc` if it is a Storm package's `docs/` tree.
 
     ``` bash
     # 2.x

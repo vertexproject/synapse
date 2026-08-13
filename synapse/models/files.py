@@ -12,7 +12,7 @@ class FileBase(s_types.Text):
 
         self.exttype = self.modl.type('text')
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
 
         norm = valu.strip().replace('\\', '/')
         if norm.find('/') != -1:
@@ -73,7 +73,7 @@ class FilePath(s_types.Text):
 
         return valu[0]
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
 
         if len(valu) == 0:
             return '', {}
@@ -125,7 +125,7 @@ class FilePath(s_types.Text):
             self.setVirtInfo(info, 'base', base, self.basetype, {})
 
         if len(path) > 1:
-            dirn, dirinfo = await self._normPyStr(lead + '/'.join(path[:-1]))
+            dirn, dirinfo = await self._normPyStr(lead + '/'.join(path[:-1]), opts)
             self.setVirtInfo(info, 'dir', dirn, self, dirinfo)
 
         return fullpath, info

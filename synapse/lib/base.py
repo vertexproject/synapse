@@ -621,6 +621,31 @@ class Base:
         loop.add_signal_handler(signal.SIGINT, sigint)
         loop.add_signal_handler(signal.SIGTERM, sigterm)
 
+    def delSignalHandlers(self):
+        '''
+        Give up the SIGTERM/SIGINT handlers registered by addSignalHandlers().
+
+        Call this once the shutdown they drive has finished, while the ioloop is
+        still running. Giving up the last handler resets the process wide signal
+        wakeup fd, so it is released here while the socket it points at is still
+        open, ahead of loop.close().
+
+        Waiting for that shutdown to finish keeps a second signal harmless: the
+        handler is still installed while the teardown runs, so it re-enters fini()
+        rather than raising KeyboardInterrupt through it.
+
+        The handlers belong to the ioloop rather than to one Base, so this only acts
+        for a Base that installed them: a caller that never did leaves whatever the
+        loop has in place.
+        '''
+        if self._syn_signal_tasks is None:
+            return
+
+        loop = asyncio.get_running_loop()
+
+        for signo in (signal.SIGINT, signal.SIGTERM):
+            loop.remove_signal_handler(signo)
+
     async def main(self, timeout=BASE_MAIN_BG_TASK_TIMEOUT): # pragma: no cover
         '''
         Helper function to setup signal handlers for this base as the main object.
@@ -631,6 +656,7 @@ class Base:
         '''
         await self.addSignalHandlers()
         await self.waitfini()
+        self.delSignalHandlers()
         # shutdown logging to allow it to drain any queued messages it has, swapping in a stream handler,
         # and then cancellling the task so we do not have to await the pump task in bg tasks.
         await s_logging.shutdown()

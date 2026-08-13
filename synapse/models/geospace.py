@@ -242,10 +242,10 @@ class Dist(s_types.Int):
         self.setNormFunc(str, self._normPyStr)
         self.baseoff = self.opts.get('baseoff')
 
-    async def _normPyInt(self, valu, view=None):
+    async def _normPyInt(self, valu, opts):
         return valu, {}
 
-    async def _normPyStr(self, text, view=None):
+    async def _normPyStr(self, text, opts):
         try:
             valu, off = s_grammar.parse_float(text, 0)
         except Exception:
@@ -295,10 +295,10 @@ class Area(s_types.Int):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
 
-    async def _normPyInt(self, valu, view=None):
+    async def _normPyInt(self, valu, opts):
         return valu, {}
 
-    async def _normPyStr(self, text, view=None):
+    async def _normPyStr(self, text, opts):
         try:
             valu, off = s_grammar.parse_float(text, 0)
         except Exception:
@@ -370,7 +370,7 @@ class LatLong(s_types.Type):
         dist = (await self.modl.type('phys:distance').norm(valu[1]))[0]
         return ((cmpr, (latlong, dist), self.stortype),)
 
-    async def _normPyStr(self, valu, view=None):
+    async def _normPyStr(self, valu, opts):
         valu = valu.strip()
 
         parts = valu.split(',')
@@ -378,15 +378,15 @@ class LatLong(s_types.Type):
             try:
                 float(parts[0])
                 float(parts[1])
-                return await self._normPyTuple(tuple(parts))
+                return await self._normPyTuple(tuple(parts), opts)
             except ValueError:
                 pass
 
         latv, lonv = s_gis.parseLatLong(valu)
 
-        return await self._normPyTuple((latv, lonv))
+        return await self._normPyTuple((latv, lonv), opts)
 
-    async def _normPyTuple(self, valu, view=None):
+    async def _normPyTuple(self, valu, opts):
         if len(valu) != 2:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Valu must contain valid latitude,longitude')

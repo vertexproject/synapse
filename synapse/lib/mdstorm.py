@@ -44,7 +44,7 @@ ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
 # rendering as an unstyled code block. Anything after the directive name on
 # the opening fence line is the directive's fence-line flags -- see
 # _splitDirectiveFlags.
-re_directive_name = regex.compile(r'^(?:mdstorm(?:-[a-z0-9]+)*|mdshell|mdinclude|mdautodoc)$')
+re_directive_name = regex.compile(r'^(?:mdstorm(?:-[a-z0-9]+)*|mdshell|mdautodoc)$')
 
 _md_parser = markdown_it.MarkdownIt('commonmark')
 
@@ -105,27 +105,14 @@ mdshell_flags.add_argument('--hide-query', action='store_true',
 mdshell_flags.add_argument('--fail-ok', action='store_true',
                            help="Don't fail the mdstorm run if the command exits non-zero.")
 
-# mdinclude's flags: replaces the old RST ``include::``/``literalinclude::``
-# directives. There is no "--" body terminator (unlike mdstorm/mdshell) since
-# an included path is a single token, not multi-line query/command text --
-# fence-line and body text are simply concatenated and shlex-split together,
-# the same way mdstorm-setup handles its whole-body flags.
-mdinclude_flags = argparse.ArgumentParser(add_help=False)
-mdinclude_flags.add_argument('path', help='Path to the file to splice in, relative to this document unless '
-                                           'absolute.')
-mdinclude_flags.add_argument('--code', default=None, metavar='LANG',
-                             help='Wrap the included content in a fenced code block with this info string '
-                                  '(the old literalinclude:: case); omit to splice the file in as literal '
-                                  'Markdown (the old include:: case, e.g. an mdautodoc --conf fragment).')
-
 # mdautodoc's flags: generate Markdown and splice it into the document at
 # the point of use, replacing synapse.tools.utils.autodoc's old "generate a
-# file, then mdinclude it" flow. Exactly one target kind is recognized per
-# fence; --level lets a fence nest its generated headings under an
-# author-written heading instead of leaving them as page-level siblings (see
-# _shiftHeadingLevel). Like mdinclude there is no "--" body terminator --
-# every flag value here is a single token, so fence-line and body text are
-# simply concatenated and shlex-split together.
+# file, then splice it in by hand" flow. Exactly one target kind is
+# recognized per fence; --level lets a fence nest its generated headings
+# under an author-written heading instead of leaving them as page-level
+# siblings (see _shiftHeadingLevel). Like mdstorm-setup there is no "--"
+# body terminator -- every flag value here is a single token, so fence-line
+# and body text are simply concatenated and shlex-split together.
 mdautodoc_flags = argparse.ArgumentParser(add_help=False)
 _mdautodoc_kind = mdautodoc_flags.add_mutually_exclusive_group(required=True)
 _mdautodoc_kind.add_argument('--conf', metavar='CTOR',
@@ -388,10 +375,7 @@ class MdStorm(s_base.Base):
         # never copies a package's own yaml/storm sources -- nor a bundle's
         # mocks/ directory -- into the staged tree: mdautodoc's --stormpkg,
         # mdstorm-setup's --load-pkg, and a relative --mock-http all resolve
-        # against it. mdinclude tries self.basedir first (most targets do
-        # live inside the docroot, and are staged) and falls back to
-        # self.srcbasedir for one that deliberately climbs out of it (see
-        # _handleMdInclude).
+        # against it.
         if srcdir is not None and outdir is not None:
             relpath = os.path.relpath(self.basedir, s_common.genpath(outdir))
             self.srcbasedir = s_common.genpath(srcdir, relpath)
@@ -425,7 +409,6 @@ class MdStorm(s_base.Base):
             'mdstorm': (mdstorm_flags, self._handleStorm),
             'mdshell': (mdshell_flags, self._handleShell),
             'mdstorm-setup': (mdstormsetup_flags, self._handleStormSetup),
-            'mdinclude': (mdinclude_flags, self._handleMdInclude),
             'mdautodoc': (mdautodoc_flags, self._handleAutodoc),
         }
 
@@ -829,64 +812,16 @@ class MdStorm(s_base.Base):
 
         self._printf('```\n')
 
-    async def _handleMdInclude(self, parser, fenceargs, text):
-        '''
-        Splice another file's content into the document verbatim, replacing
-        the old RST ``include::``/``literalinclude::`` directives. The
-        target path is a single token, not multi-line text, so (like
-        mdstorm-setup) there is no "--" body terminator -- fence-line and
-        body text are simply concatenated and shlex-split together.
-
-        Args:
-            parser (argparse.ArgumentParser): mdinclude_flags.
-            fenceargs (str): Text following "mdinclude" on the opening fence line.
-            text (str): The fence body -- normally just the path, optionally with --code.
-        '''
-        combined = ' '.join(part.strip() for part in (fenceargs, text) if part.strip())
-        opts = parser.parse_args(shlex.split(combined))
-
-        path = opts.path
-        if os.path.isabs(path):
-            if not os.path.isfile(path):
-                raise s_exc.NoSuchFile(mesg='mdinclude filepath does not exist', path=path)
-        else:
-            # Most mdinclude targets live inside the docroot (already
-            # staged into self.basedir), but a target authored as
-            # "../CHANGELOG.md" or similar deliberately reaches outside
-            # it -- stageTree only mirrors the docroot itself, so that
-            # path is never staged. Fall back to self.srcbasedir (the
-            # doc's original, unstaged location) the same way
-            # _resolveMockHttp/--stormpkg already do, rather than reviving
-            # mddocs.yaml's old copy: mechanism to paper over it.
-            staged = os.path.join(self.basedir, path)
-            if os.path.isfile(staged):
-                path = staged
-            else:
-                path = os.path.join(self.srcbasedir, path)
-                if not os.path.isfile(path):
-                    raise s_exc.NoSuchFile(mesg='mdinclude filepath does not exist', path=path)
-
-        with open(path, 'r') as fd:
-            content = fd.read()
-
-        if opts.code:
-            self._printf(f'```{opts.code}\n')
-            self._printf(content)
-            if not content.endswith('\n'):
-                self._printf('\n')
-            self._printf('```\n')
-        else:
-            self._printf(content)
-
     async def _handleAutodoc(self, parser, fenceargs, text):
         '''
         Splice generated Markdown (a Cell's confdefs, a class's own API, a
         Storm package's command/module reference, the data model, or the
         Storm types reference) into the document, replacing the old
-        "generate a file into an autodoc: savedir, then mdinclude it" flow
-        driven by mddocs.yaml. Like mdinclude, there is no "--" body
-        terminator -- every flag here is a single token, so fence-line and
-        body text are simply concatenated and shlex-split together.
+        "generate a file into an autodoc: savedir, then splice it in by
+        hand" flow driven by mddocs.yaml. Like mdstorm-setup, there is no
+        "--" body terminator -- every flag here is a single token, so
+        fence-line and body text are simply concatenated and shlex-split
+        together.
 
         Args:
             parser (argparse.ArgumentParser): mdautodoc_flags.

@@ -120,6 +120,29 @@ class DaemonTest(s_t_utils.SynTest):
 
                 await stream.expect('exceeds OS supported UNIX socket path length', timeout=1)
 
+    async def test_dmon_link_mesg_isfini(self):
+
+        # A handler that cannot reply because the link is already gone is how a
+        # shutdown reads from the daemon: a peer opens a link while the same signal
+        # tears both ends down, so link.tx() raises IsFini. That belongs at debug
+        # alongside a connection reset, so the shutdown stays free of ERROR logs.
+        class FakeLink:
+            def getAddrInfo(self):
+                return {'family': 'unix', 'addr': '/tmp/nope'}
+
+        async def _isfini(link, mesg):
+            raise s_exc.IsFini()
+
+        async with await s_daemon.Daemon.anit() as dmon:
+
+            dmon.mesgfuncs['tele:syn'] = _isfini
+
+            with self.getLoggerStream('', level=logging.ERROR) as stream:
+                await dmon._onLinkMesg(FakeLink(), ('tele:syn', {'name': 'item'}))
+
+            stream.seek(0)
+            self.eq('', stream.read())
+
     async def test_dmon_ready(self):
 
         async with await s_daemon.Daemon.anit() as dmon:

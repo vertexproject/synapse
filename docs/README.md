@@ -15,9 +15,9 @@ python -m synapse.tools.utils.mdstorm mydoc.md --save mydoc.out.md
 ## Directives
 
 A directive is a fenced code block whose info string starts with `mdstorm`, `mdstorm-setup`,
-`mdshell`, `mdinclude`, or `mdautodoc` (optionally followed by flags -- see below). Any other
-fenced block (` ```python `, ` ```json `, or a plain ` ```storm ` example left for future syntax
-highlighting) passes through untouched.
+`mdshell`, or `mdautodoc` (optionally followed by flags -- see below). Any other fenced block
+(` ```python `, ` ```json `, or a plain ` ```storm ` example left for future syntax highlighting)
+passes through untouched.
 
 - ` ```mdstorm ` -- run a Storm query and render its output. Recognizes `--hide-query`,
   `--hide-tags`, `--hide-props`, `--vars`, `--opts`, `--fail`, `--hide-output`, `--hide`, and
@@ -27,10 +27,6 @@ highlighting) passes through untouched.
   `--envvar`, `--load-pkg`, and `--load-svc`.
 - ` ```mdshell ` -- run a shell command and render its output. Recognizes
   `--include-stderr`, `--hide-query`, and `--fail-ok`.
-- ` ```mdinclude ` -- splice another file's content into the document verbatim. Takes one
-  required positional `path` (relative to the including document unless absolute) and an
-  optional `--code LANG`, which wraps the content in a fenced code block with that info string
-  instead of splicing it in as literal Markdown.
 - ` ```mdautodoc ` -- generate Markdown and splice it into the document at the point of use.
   Recognizes exactly one of `--conf CTOR` (a Cell subclass's confdefs), `--api CTOR` (a class's
   own public methods, `cls.__dict__` not its full MRO), `--stormpkg PATH` (a Storm package's
@@ -45,8 +41,8 @@ more lines at the top of the body -- the flags themselves don't need to be one p
 particular arrangement -- but that flags region must be terminated by a line containing exactly
 `--` and nothing else (the terminator itself does need to be alone on its line); everything after
 that line is the literal query (or command) text, rendered in the doc exactly as authored.
-`mdstorm-setup`, `mdinclude`, and `mdautodoc` are the exception -- their whole body is flags/path,
-so no `--` terminator is needed there.
+`mdstorm-setup` and `mdautodoc` are the exception -- their whole body is flags, so no `--`
+terminator is needed there.
 
     ```mdstorm
     --vars {"targ": "vertex.link"}
@@ -87,8 +83,8 @@ self-contained.
 | `.. storm-python-path::`         | removed -- no longer needed                                |
 | `.. storm-multiline::`           | removed -- a fence body is already multi-line              |
 | `.. storm-expect::`              | removed -- was already a no-op in `rstorm`                 |
-| `.. include::`                   | ` ```mdinclude `                                           |
-| `.. literalinclude::`            | ` ```mdinclude ` with `--code LANG`                        |
+| `.. include::`                   | inline the content directly (verbatim Markdown)            |
+| `.. literalinclude::`            | inline the content directly, in a fenced ` ```LANG ` block |
 
 Where `rstorm` set shared context once (`storm-cortex`, `storm-opts`, `storm-envvar`,
 `storm-vcr-opts`) that applied to every following directive, `mdstorm-setup` still runs once per
@@ -115,16 +111,11 @@ failing the build:
     $lib.raise(BadArg, "no such target")
     ```
 
-Splice in a Cell's confdefs, nested under an author-written heading, or splice in a Kubernetes
-manifest as a highlighted code block:
+Splice in a Cell's confdefs, nested under an author-written heading:
 
     ### Cortex Configuration Options
 
     ```mdautodoc --conf synapse.cortex.Cortex --level 1
-    ```
-
-    ```mdinclude --code yaml
-    kubernetes/cortex.yaml
     ```
 
 ## Getting help
