@@ -183,6 +183,8 @@ def getServerSSLContext() -> ssl.SSLContext:
 
     This object has a minimum TLS version of 1.2, a subset of ciphers in use, and disabled client renegotiation.
 
+    This object treats a TLS session which the client abandons without a close_notify as a clean EOF.
+
     This object has no certificates loaded in it.
 
     Returns:
@@ -194,6 +196,15 @@ def getServerSSLContext() -> ssl.SSLContext:
     sslctx.set_ciphers(TLS_SERVER_CIPHERS)
     # Disable client renegotiation if available.
     sslctx.options |= getattr(ssl, "OP_NO_RENEGOTIATION", 0)
+
+    # Clients routinely abandon a TLS session without a close_notify. Treating that as a
+    # clean EOF leaves OpenSSL with no alert to write to the dead socket, which matters
+    # because a failed write leaves an ERR_LIB_SYS entry on OpenSSL's per thread error
+    # queue, and CPython reports that entry's errno against the next TLS read of any
+    # connection in this process, tearing down a healthy and unrelated TLS connection.
+    # Keep this until CPython clears the error queue on that path upstream.
+    sslctx.options |= ssl.OP_IGNORE_UNEXPECTED_EOF
+
     return sslctx
 
 class CertDir:

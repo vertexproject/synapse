@@ -1,0 +1,8 @@
+---
+desc: Set ``ssl.OP_IGNORE_UNEXPECTED_EOF`` on server SSL contexts, so a TLS session
+  which a client abandons without a ``close_notify`` leaves other TLS connections
+  in the service alone.
+desc:literal: false
+prs: []
+type: bug
+...
