@@ -684,6 +684,10 @@ class CertDirTest(s_t_utils.SynTest):
 
             ctx = cdir.getServerSSLContext(hostname)
             self.eq(ctx.verify_mode, ssl.VerifyMode.CERT_NONE)
+            self.eq(ctx.minimum_version, ssl.TLSVersion.TLSv1_2)
+            # A client abandoning a TLS session without a close_notify must not tear
+            # down an unrelated TLS connection in this process.
+            self.true(ctx.options & ssl.OP_IGNORE_UNEXPECTED_EOF)
 
             with self.raises(s_exc.NoCertKey):
                 cdir.getServerSSLContext('haha.newp.com')
