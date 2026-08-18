@@ -45,6 +45,9 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:currency:transaction', ('guid', {}), {
                     'doc': 'An individual crypto currency transaction recorded on the blockchain.',
                 }),
+                ('crypto:currency:bridge:swap', ('guid', {}), {
+                    'doc': 'A cross-chain swap which bridges value between two transactions on different chains.',
+                }),
                 ('crypto:currency:block', ('comp', {'fields': (
                                                         ('coin', 'crypto:currency:coin'),
                                                         ('offset', 'int'),
@@ -86,6 +89,18 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate fungible tokens.',
                     'interfaces': ('crypto:smart:effect',),
                 }),
+                ('crypto:smart:effect:freeze', ('guid', {}), {
+                    'doc': 'A smart contract effect which freezes or unfreezes an address on an issuer blocklist.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
+                ('crypto:smart:effect:seize', ('guid', {}), {
+                    'doc': 'A smart contract effect which destroys the tokens held by an address.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
+                ('crypto:smart:effect:swaptokens', ('guid', {}), {
+                    'doc': 'A smart contract effect which swaps one token or currency for another.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
                 # TODO crypto:smart:effect:call - call another smart contract
                 # TODO crypto:smart:effect:giveproxy - grant your proxy for a token based vote
                 ('crypto:payment:input', ('guid', {}), {
@@ -93,6 +108,9 @@ class CryptoModule(s_module.CoreModule):
                 }),
                 ('crypto:payment:output', ('guid', {}), {
                     'doc': 'A payment received from a transaction.',
+                }),
+                ('crypto:payment:fee', ('guid', {}), {
+                    'doc': 'A fee paid to execute a transaction.',
                 }),
                 ('crypto:smart:token', ('comp', {'fields': (('contract', 'crypto:smart:contract'), ('tokenid', 'hugenum'))}), {
                     'doc': 'A token managed by a smart contract.',
@@ -222,6 +240,14 @@ class CryptoModule(s_module.CoreModule):
                     ('value', ('econ:price', {}), {
                         'doc': 'The value of the currency received from the transaction.'}),
                 )),
+                ('crypto:payment:fee', {}, (
+                    ('transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction the fee was paid for.'}),
+                    ('address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which paid the fee.'}),
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The value of the fee paid to execute the transaction.'}),
+                )),
                 ('crypto:currency:transaction', {}, (
                     ('hash', ('hex', {}), {
                         'doc': 'The unique transaction hash for the transaction.'}),
@@ -272,6 +298,29 @@ class CryptoModule(s_module.CoreModule):
                     ('contract:output', ('file:bytes', {}), {
                         'doc': 'Output value of a smart contract call.'}),
                     # TODO break out args/retvals and maybe make humon repr?
+                )),
+
+                ('crypto:currency:bridge:swap', {}, (
+                    ('name', ('str', {'strip': True}), {
+                        'doc': 'The name of the bridge protocol which executed the swap.'}),
+                    ('matched', ('bool', {}), {
+                        'doc': 'Set to true if the two transactions were matched together by an external observer.'}),
+                    ('source:transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction which sent the bridged value.'}),
+                    ('source:address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which sent the bridged value.'}),
+                    ('source:contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the sent tokens. This is not set if the sent value was a native currency.'}),
+                    ('source:amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens or currency sent.'}),
+                    ('target:transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction which received the bridged value.'}),
+                    ('target:address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which received the bridged value.'}),
+                    ('target:contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the received tokens. This is not set if the received value was a native currency.'}),
+                    ('target:amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens or currency received.'}),
                 )),
 
                 ('crypto:currency:block', {}, (
@@ -396,6 +445,39 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The address granted proxy authority to manipulate fungible tokens.'}),
                     ('amount', ('hex', {}), {
                         'doc': 'The hex encoded amount of tokens the proxy is allowed to manipulate.'}),
+                )),
+
+                ('crypto:smart:effect:freeze', {}, (
+                    ('contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which enforces the freeze.'}),
+                    ('address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which was frozen or unfrozen.'}),
+                    ('frozen', ('bool', {}), {
+                        'doc': 'Set to true if the address was frozen or false if it was unfrozen.'}),
+                )),
+
+                ('crypto:smart:effect:seize', {}, (
+                    ('contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the tokens.'}),
+                    ('address', ('crypto:currency:address', {}), {
+                        'doc': 'The address whose tokens were destroyed.'}),
+                    ('amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens destroyed.'}),
+                )),
+
+                ('crypto:smart:effect:swaptokens', {}, (
+                    ('contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The pool or router contract which executed the swap.'}),
+                    ('address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which swapped the tokens.'}),
+                    ('sent:contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the sent tokens. This is not set if the sent value was a native currency.'}),
+                    ('sent:amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens or currency sent by the address.'}),
+                    ('received:contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the received tokens. This is not set if the received value was a native currency.'}),
+                    ('received:amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens or currency received by the address.'}),
                 )),
 
                 ('crypto:currency:address', {}, (

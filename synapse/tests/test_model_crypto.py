@@ -121,6 +121,13 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(payees[0].get('index'), 0)
             self.eq(payees[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
+            payfees = await core.nodes('[ crypto:payment:fee=(t1, feepayer) :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=0.0001 ]')
+            self.len(1, payfees)
+            self.eq(payfees[0].get('value'), '0.0001')
+            self.eq(payfees[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.len(1, await core.nodes('crypto:payment:fee -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:payment:fee -> crypto:currency:address'))
+
             payor = payors[0].ndef[1]
             payee = payees[0].ndef[1]
 
@@ -354,6 +361,119 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:address'))
             self.len(1, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:transaction'))
             self.len(1, await core.nodes('crypto:smart:effect:proxytokens -> crypto:smart:contract'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:freeze=*
+                        :index=0
+                        :transaction=*
+                        :contract=*
+                        :address=(eth, 0xd73d44149deb8aabd4b53197654a286dedfda827)
+                        :frozen=$lib.true
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 0)
+            self.nn(node.get('contract'))
+            self.eq(node.get('address'), ('eth', '0xd73d44149deb8aabd4b53197654a286dedfda827'))
+            self.true(node.get('frozen'))
+            self.len(1, await core.nodes('crypto:smart:effect:freeze -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:freeze -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:freeze -> crypto:smart:contract'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:seize=*
+                        :index=0
+                        :transaction=*
+                        :contract=*
+                        :address=(eth, 0xd73d44149deb8aabd4b53197654a286dedfda827)
+                        :amount=960007.90
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 0)
+            self.nn(node.get('contract'))
+            self.eq(node.get('address'), ('eth', '0xd73d44149deb8aabd4b53197654a286dedfda827'))
+            self.eq(node.get('amount'), '960007.9')
+            self.len(1, await core.nodes('crypto:smart:effect:seize -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:seize -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:seize -> crypto:smart:contract'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:swaptokens=*
+                        :index=179
+                        :transaction=*
+                        :contract=*
+                        :address=(eth, 0x241ebd14e40899ddb1191c140f85c37917b0505b)
+                        :sent:contract=*
+                        :sent:amount=0.025194371619325567
+                        :received:contract=*
+                        :received:amount=22574.721
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 179)
+            self.nn(node.get('contract'))
+            self.eq(node.get('address'), ('eth', '0x241ebd14e40899ddb1191c140f85c37917b0505b'))
+            self.nn(node.get('sent:contract'))
+            self.eq(node.get('sent:amount'), '0.025194371619325567')
+            self.nn(node.get('received:contract'))
+            self.eq(node.get('received:amount'), '22574.721')
+            self.len(1, await core.nodes('crypto:smart:effect:swaptokens -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:swaptokens -> crypto:currency:transaction'))
+            self.len(3, await core.nodes('crypto:smart:effect:swaptokens -> crypto:smart:contract'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:currency:bridge:swap=(bridge1,)
+                        :name="deBridge.finance"
+                        :matched=true
+                        :source:transaction=(otxn,)
+                        :source:address=(eth, 0xaaaa)
+                        :source:contract=*
+                        :source:amount=1.5
+                        :target:transaction=(dtxn,)
+                        :target:address=(bsc, 0xbbbb)
+                        :target:contract=*
+                        :target:amount=1490.0
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('name'), 'deBridge.finance')
+            self.eq(node.get('matched'), True)
+            self.eq(node.get('source:address'), ('eth', '0xaaaa'))
+            self.nn(node.get('source:contract'))
+            self.eq(node.get('source:amount'), '1.5')
+            self.eq(node.get('target:address'), ('bsc', '0xbbbb'))
+            self.nn(node.get('target:contract'))
+            self.eq(node.get('target:amount'), '1490')
+
+            # the swap is reachable from either leg via its indexed transaction prop, and bridges to the other leg
+            self.len(1, await core.nodes('crypto:currency:bridge:swap:source:transaction=(otxn,)'))
+            self.len(1, await core.nodes('crypto:currency:bridge:swap:target:transaction=(dtxn,)'))
+            self.len(2, await core.nodes('crypto:currency:bridge:swap=(bridge1,) -> crypto:currency:transaction'))
+            nodes = await core.nodes('crypto:currency:bridge:swap:source:transaction=(otxn,) :target:transaction -> crypto:currency:transaction')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('crypto:currency:transaction', s_common.guid(('dtxn',))))
+
+            # is:matched does not imply the target leg is populated
+            nodes = await core.nodes('''
+                [
+                    crypto:currency:bridge:swap=(bridge2,)
+                        :matched=true
+                        :source:transaction=(otxn2,)
+                        :source:address=(eth, 0xcccc)
+                        :source:amount=2.0
+                        :target:transaction=(dtxn2,)
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.nn(node.get('target:transaction'))
+            self.none(node.get('target:address'))
+            self.none(node.get('target:contract'))
+            self.none(node.get('target:amount'))
 
             nodes = await core.nodes('''
                 [
