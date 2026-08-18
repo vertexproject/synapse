@@ -305,22 +305,22 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The name of the bridge protocol which executed the swap.'}),
                     ('matched', ('bool', {}), {
                         'doc': 'Set to true if the two transactions were matched together by an external observer.'}),
-                    ('origin:transaction', ('crypto:currency:transaction', {}), {
-                        'doc': 'The transaction which sent value on the origin chain.'}),
-                    ('origin:address', ('crypto:currency:address', {}), {
-                        'doc': 'The address which sent value on the origin chain.'}),
-                    ('origin:contract', ('crypto:smart:contract', {}), {
-                        'doc': 'The contract which defines the tokens sent on the origin chain. This is not set if the sent value was a native currency.'}),
-                    ('origin:amount', ('hugenum', {}), {
-                        'doc': 'The amount of tokens or currency sent on the origin chain.'}),
-                    ('destination:transaction', ('crypto:currency:transaction', {}), {
-                        'doc': 'The transaction which received value on the destination chain.'}),
-                    ('destination:address', ('crypto:currency:address', {}), {
-                        'doc': 'The address which received value on the destination chain.'}),
-                    ('destination:contract', ('crypto:smart:contract', {}), {
-                        'doc': 'The contract which defines the tokens received on the destination chain. This is not set if the received value was a native currency.'}),
-                    ('destination:amount', ('hugenum', {}), {
-                        'doc': 'The amount of tokens or currency received on the destination chain.'}),
+                    ('source:transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction which sent the bridged value.'}),
+                    ('source:address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which sent the bridged value.'}),
+                    ('source:contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the sent tokens. This is not set if the sent value was a native currency.'}),
+                    ('source:amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens or currency sent.'}),
+                    ('target:transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction which received the bridged value.'}),
+                    ('target:address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which received the bridged value.'}),
+                    ('target:contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the received tokens. This is not set if the received value was a native currency.'}),
+                    ('target:amount', ('hugenum', {}), {
+                        'doc': 'The amount of tokens or currency received.'}),
                 )),
 
                 ('crypto:currency:block', {}, (

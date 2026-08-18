@@ -430,50 +430,50 @@ class CryptoModelTest(s_t_utils.SynTest):
                     crypto:currency:bridge:swap=(bridge1,)
                         :name="deBridge.finance"
                         :matched=true
-                        :origin:transaction=(otxn,)
-                        :origin:address=(eth, 0xaaaa)
-                        :origin:contract=*
-                        :origin:amount=1.5
-                        :destination:transaction=(dtxn,)
-                        :destination:address=(bsc, 0xbbbb)
-                        :destination:contract=*
-                        :destination:amount=1490.0
+                        :source:transaction=(otxn,)
+                        :source:address=(eth, 0xaaaa)
+                        :source:contract=*
+                        :source:amount=1.5
+                        :target:transaction=(dtxn,)
+                        :target:address=(bsc, 0xbbbb)
+                        :target:contract=*
+                        :target:amount=1490.0
                 ]''')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('name'), 'deBridge.finance')
             self.eq(node.get('matched'), True)
-            self.eq(node.get('origin:address'), ('eth', '0xaaaa'))
-            self.nn(node.get('origin:contract'))
-            self.eq(node.get('origin:amount'), '1.5')
-            self.eq(node.get('destination:address'), ('bsc', '0xbbbb'))
-            self.nn(node.get('destination:contract'))
-            self.eq(node.get('destination:amount'), '1490')
+            self.eq(node.get('source:address'), ('eth', '0xaaaa'))
+            self.nn(node.get('source:contract'))
+            self.eq(node.get('source:amount'), '1.5')
+            self.eq(node.get('target:address'), ('bsc', '0xbbbb'))
+            self.nn(node.get('target:contract'))
+            self.eq(node.get('target:amount'), '1490')
 
             # the swap is reachable from either leg via its indexed transaction prop, and bridges to the other leg
-            self.len(1, await core.nodes('crypto:currency:bridge:swap:origin:transaction=(otxn,)'))
-            self.len(1, await core.nodes('crypto:currency:bridge:swap:destination:transaction=(dtxn,)'))
+            self.len(1, await core.nodes('crypto:currency:bridge:swap:source:transaction=(otxn,)'))
+            self.len(1, await core.nodes('crypto:currency:bridge:swap:target:transaction=(dtxn,)'))
             self.len(2, await core.nodes('crypto:currency:bridge:swap=(bridge1,) -> crypto:currency:transaction'))
-            nodes = await core.nodes('crypto:currency:bridge:swap:origin:transaction=(otxn,) :destination:transaction -> crypto:currency:transaction')
+            nodes = await core.nodes('crypto:currency:bridge:swap:source:transaction=(otxn,) :target:transaction -> crypto:currency:transaction')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('crypto:currency:transaction', s_common.guid(('dtxn',))))
 
-            # is:matched does not imply the destination leg is populated
+            # is:matched does not imply the target leg is populated
             nodes = await core.nodes('''
                 [
                     crypto:currency:bridge:swap=(bridge2,)
                         :matched=true
-                        :origin:transaction=(otxn2,)
-                        :origin:address=(eth, 0xcccc)
-                        :origin:amount=2.0
-                        :destination:transaction=(dtxn2,)
+                        :source:transaction=(otxn2,)
+                        :source:address=(eth, 0xcccc)
+                        :source:amount=2.0
+                        :target:transaction=(dtxn2,)
                 ]''')
             self.len(1, nodes)
             node = nodes[0]
-            self.nn(node.get('destination:transaction'))
-            self.none(node.get('destination:address'))
-            self.none(node.get('destination:contract'))
-            self.none(node.get('destination:amount'))
+            self.nn(node.get('target:transaction'))
+            self.none(node.get('target:address'))
+            self.none(node.get('target:contract'))
+            self.none(node.get('target:amount'))
 
             nodes = await core.nodes('''
                 [
