@@ -46,6 +46,7 @@ import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
+import synapse.lib.nodefuse as s_nodefuse
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -961,8 +962,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._migration_lock = asyncio.Lock()
         if __debug__:
             self._migration_evnt = asyncio.Event()
-
-        self._fuse_lock = asyncio.Lock()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -7240,15 +7239,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             yield
             self.migration = False
 
-    def getFuseLock(self):
+    async def fuseNodes(self, srcndef, dstndef, useriden):
         '''
-        Return the lock which serializes cortex wide node fuse operations.
+        Fuse the src node into the dst node across every layer in the Cortex.
 
-        Node fusion writes to arbitrary layers rather than a single view's write layer,
-        so two concurrent fuses which touch the same nodes could interleave their edits.
-        This does not serialize a fuse against ordinary queries.
+        Node fusion writes to arbitrary layers rather than a single view's write layer, and
+        the edits it makes depend on the state it reads. It is therefore applied as a single
+        nexus operation, which the nexus runs one at a time for the whole Cortex, so no other
+        write can land between those reads and writes.
+
+        Args:
+            srcndef (tuple): The (form, valu) of the node to fuse from. It will be deleted.
+            dstndef (tuple): The (form, valu) of the node to fuse into. It will be kept.
+            useriden (str): The iden of the user running the fuse.
+
+        Returns:
+            dict: The consequences of the fuse, for s_nodefuse.runConsequences().
         '''
-        return self._fuse_lock
+        return await self._push('model:fuse:nodes', srcndef, dstndef, useriden, s_common.now())
+
+    @s_nexus.Pusher.onPush('model:fuse:nodes', passitem=True)
+    async def _fuseNodes(self, srcndef, dstndef, useriden, tick, nexsitem):
+
+        fuser = s_nodefuse.NodeFuser(self, useriden, tick=tick)
+
+        return await fuser.fuse(srcndef, dstndef, nexsitem=nexsitem)
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''

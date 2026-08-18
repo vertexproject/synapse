@@ -838,6 +838,8 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
               point at dst. This includes form-typed, ndef-typed, and array-typed properties.
               A read-only comp-form sub-property which references src causes that comp form
               node to be renamed, which is applied as a further fuse.
+            - A reference src holds to itself, whether a property or a light edge, follows the
+              node and becomes a reference dst holds to itself.
 
             Requirements and restrictions:
 
@@ -859,9 +861,17 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
             Atomicity:
 
-            fuse() is logically a single operation but it is not transactional across layers.
-            The edits to each layer are atomic and nexus replicated individually. If it is
-            interrupted, re-running fuse() with the same arguments completes it.
+            A fuse is computed and applied as a single Cortex wide operation. The Cortex applies
+            one such operation at a time, so no other write can land between the reads which
+            decide what the fuse will do and the writes which apply it.
+
+            The edits are still written with one call per layer, so a fuse is not transactional
+            across layers and a failure part way through can leave some layers updated. Re-running
+            fuse() with the same arguments completes an interrupted fuse.
+
+            Because the whole fuse must be applied at once, it cannot be split into smaller
+            batches. A fuse which requires a very large number of edits is refused rather than
+            applied non-atomically.
 
             Notes:
 
@@ -973,13 +983,23 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         srcndef = src.ndef
         dstndef = dst.ndef
 
-        async with core.getFuseLock():
+        conseq = await core.fuseNodes(srcndef, dstndef, runt.user.iden)
 
-            fuser = s_nodefuse.NodeFuser(core, runt.user.iden, warn=runt.warn)
-            await fuser.fuse(srcndef, dstndef)
+        # The fuse runs inside a nexus operation, which cannot warn into this runtime or fire
+        # trigger consequences of its own, so both are handled out here.
+        for mesg in conseq.get('warnings', ()):
+            await runt.warn(mesg, log=False)
+
+        await s_nodefuse.runConsequences(core, runt.user.iden, conseq)
 
         # Node objects this snap is holding may now be stale
         await runt.snap.clearCache()
+
+        failed = conseq.get('failed')
+        if failed:
+            mesg = '$lib.model.migration.fuse() failed to apply edits to some layers: '
+            mesg += ', '.join([f'{iden} ({errm})' for iden, errm in failed])
+            raise s_exc.SynErr(mesg=mesg, layers=[iden for iden, _ in failed])
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):

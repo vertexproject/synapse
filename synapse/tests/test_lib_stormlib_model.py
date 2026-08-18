@@ -7,6 +7,8 @@ import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.nodefuse as s_nodefuse
 
+import synapse.tools.backup as s_tools_backup
+
 import synapse.tests.utils as s_test
 
 from unittest import mock
@@ -1024,7 +1026,7 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('cycle2-dst', nodes[0].get('somestr'))
 
-            # --- Cycle: src references itself, which is not a ref to rewrite ---
+            # --- Cycle: src references itself, so the reference follows the node ---
 
             opts = {'vars': {'cy3src': 'cycle3-src', 'cy3dst': 'cycle3-dst'}}
             await core.nodes(
@@ -1037,8 +1039,11 @@ class StormlibModelTest(s_test.SynTest):
             nodes = await core.nodes('test:str=$cy3dst', opts=opts)
             self.len(1, nodes)
 
-            # src's own :somestr was copied across as-is
-            self.eq('cycle3-src', nodes[0].get('somestr'))
+            # src referenced itself, so dst references itself rather than the node which is
+            # now gone. leaving these pointed at src would dangle, and would also mean a
+            # repeat of the same fuse still had references to rewrite.
+            self.eq('cycle3-dst', nodes[0].get('somestr'))
+            self.eq(('test:str', 'cycle3-dst'), nodes[0].get('bar'))
 
             # --- A comp form which cannot be re-normalized is warned about ---
 
@@ -1156,26 +1161,150 @@ class StormlibModelTest(s_test.SynTest):
                 self.len(1, nodes)
                 self.eq('sc-dst', nodes[0].get('lulz'))
 
-    async def test_stormlib_model_migration_fuse_degraded(self):
+    async def test_stormlib_model_migration_fuse_toobig(self):
 
         async with self.getTestCore() as core:
 
             await core.nodes('[ test:str=deg-src :hehe=srcval +#degtag test:str=deg-dst ]')
 
-            # force the edit ceiling low enough that the batch must flush early, which
-            # gives up per-layer atomicity and must say so
+            # a fuse is applied as a single nexus operation, so it cannot be flushed in
+            # chunks. force the edit ceiling low enough that it must refuse.
             with mock.patch.object(s_nodefuse, 'maxlayeredits', 1):
-                mesgs = await core.stormlist(
-                    'test:str=deg-src $n=$node -> { test:str=deg-dst $lib.model.migration.fuse($n, $node) }')
+                with self.raises(s_exc.BadArg) as cm:
+                    await core.nodes(
+                        'test:str=deg-src $n=$node -> { test:str=deg-dst $lib.model.migration.fuse($n, $node) }')
 
-            self.stormIsInWarn('no longer atomic per layer', mesgs)
+            self.isin('cannot be split into smaller batches', cm.exception.get('mesg'))
 
-            # the fuse still completed correctly
+            # nothing was applied, so src is intact and dst did not gain anything
+            self.len(1, await core.nodes('test:str=deg-src'))
+
+            nodes = await core.nodes('test:str=deg-dst')
+            self.len(1, nodes)
+            self.none(nodes[0].get('hehe'))
+            self.notin('degtag', nodes[0].tags)
+
+            # under the ceiling it completes normally
+            await core.nodes(
+                'test:str=deg-src $n=$node -> { test:str=deg-dst $lib.model.migration.fuse($n, $node) }')
+
             self.len(0, await core.nodes('test:str=deg-src'))
             nodes = await core.nodes('test:str=deg-dst')
             self.len(1, nodes)
             self.eq('srcval', nodes[0].get('hehe'))
             self.isin('degtag', nodes[0].tags)
+
+    async def test_stormlib_model_migration_fuse_single_nexus_op(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('''[
+                test:str=atom-src :hehe=srcval +#atomtag
+                test:str=atom-dst
+            ]''')
+
+            # fork so that the fuse writes to more than one layer
+            vdef = await core.view.fork()
+            forkopts = {'view': vdef.get('iden')}
+            await core.nodes('test:str=atom-src [ :tick=2020 ]', opts=forkopts)
+
+            # The whole fuse is a single nexus operation, no matter how many layers it writes
+            # to. The nexus applies one operation at a time for the whole Cortex, so no other
+            # write can land between the reads which compute the edits and the writes which
+            # apply them. Note that this is isolation rather than atomicity: the edits are
+            # still written one call per layer, so a failure part way through can leave some
+            # layers updated.
+            offs = await core.nexsroot.index()
+
+            await core.nodes(
+                'test:str=atom-src $n=$node -> { test:str=atom-dst $lib.model.migration.fuse($n, $node) }',
+                opts=forkopts)
+
+            self.eq(1, await core.nexsroot.index() - offs)
+
+            self.len(0, await core.nodes('test:str=atom-src', opts=forkopts))
+
+            nodes = await core.nodes('test:str=atom-dst', opts=forkopts)
+            self.len(1, nodes)
+            self.eq('srcval', nodes[0].get('hehe'))
+            self.eq(s_time.parse('2020'), nodes[0].get('tick'))
+            self.isin('atomtag', nodes[0].tags)
+
+    async def test_stormlib_model_migration_fuse_nexus_mirror(self):
+
+        # a fuse is applied as one nexus operation, which a mirror replays for itself, so the
+        # mirror must end up with exactly the same state as the leader
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                pass
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                await core00.nodes('''[
+                    test:str=mir-src :hehe=srcval :somestr=mir-src +#mirtag=(2020, 2021)
+                    test:str=mir-dst
+                ]''')
+                await core00.nodes('test:str=mir-src [ +(refs)> { test:str=mir-dst } ]')
+                await core00.nodes('[ test:arrayprop="*" :strs=(mir-src,) ]')
+
+                core01conf = {'mirror': core00.getLocalUrl()}
+
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+
+                    await core01.sync()
+
+                    await core00.nodes(
+                        'test:str=mir-src $n=$node -> { test:str=mir-dst $lib.model.migration.fuse($n, $node) }')
+
+                    await core01.sync()
+
+                    for core in (core00, core01):
+
+                        self.len(0, await core.nodes('test:str=mir-src'))
+
+                        nodes = await core.nodes('test:str=mir-dst')
+                        self.len(1, nodes)
+                        self.eq('srcval', nodes[0].get('hehe'))
+                        self.eq('mir-dst', nodes[0].get('somestr'))
+                        self.isin('mirtag', nodes[0].tags)
+
+                        # the edge from src to dst became a self edge on dst
+                        edges = await core.nodes('test:str=mir-dst -(refs)> test:str')
+                        self.len(1, edges)
+                        self.eq(('test:str', 'mir-dst'), edges[0].ndef)
+
+                        # the inbound array reference was rewritten
+                        nodes = await core.nodes('test:arrayprop')
+                        self.len(1, nodes)
+                        self.eq(('mir-dst',), nodes[0].get('strs'))
+
+    async def test_stormlib_model_migration_fuse_selfedge(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=se-src test:str=se-dst ]')
+            await core.nodes('test:str=se-src [ +(refs)> { test:str=se-src } ]')
+
+            self.len(1, await core.nodes('test:str=se-src -(refs)> test:str'))
+
+            await core.nodes(
+                'test:str=se-src $n=$node -> { test:str=se-dst $lib.model.migration.fuse($n, $node) }')
+
+            self.len(0, await core.nodes('test:str=se-src'))
+
+            # src had an edge to itself, so dst has an edge to itself rather than a dangling
+            # edge to the node which is now gone
+            nodes = await core.nodes('test:str=se-dst -(refs)> test:str')
+            self.len(1, nodes)
+            self.eq(('test:str', 'se-dst'), nodes[0].ndef)
+
+            self.len(0, await core.nodes('test:str -(refs)> test:str +test:str=se-src'))
 
     async def test_stormlib_model_migration_fuse_admin(self):
 
@@ -1276,17 +1405,19 @@ class StormlibModelTest(s_test.SynTest):
             self.len(3, core.viewsbylayer[baselayr.iden][1:])
 
             counts = collections.defaultdict(int)
-            realsave = s_layer.Layer.saveNodeEdits
+            realsave = s_layer.Layer._storNodeEdits
 
-            async def saveNodeEdits(self, edits, meta):
+            async def _storNodeEdits(self, nodeedits, meta, nexsitem):
                 counts[self.iden] += 1
-                return await realsave(self, edits, meta)
+                return await realsave(self, nodeedits, meta, nexsitem)
 
-            with mock.patch.object(s_layer.Layer, 'saveNodeEdits', saveNodeEdits):
+            with mock.patch.object(s_layer.Layer, '_storNodeEdits', _storNodeEdits):
                 await core.nodes(
                     'test:str=shr-src $n=$node -> { test:str=shr-dst $lib.model.migration.fuse($n, $node) }')
 
-            # the shared base layer is written exactly once, not once per view
+            # the shared base layer is written exactly once, not once per view. a layer records
+            # its node edit log entry at the nexus offset it was applied at, so applying twice
+            # within the one fuse operation would overwrite the first entry.
             self.eq(1, counts[baselayr.iden])
 
             self.len(0, await core.nodes('test:str=shr-src'))
@@ -1461,12 +1592,10 @@ class StormlibModelTest(s_test.SynTest):
             q = 'test:str=rec-src $n=$node -> { test:str=rec-dst $lib.model.migration.fuse($n, $node) }'
 
             # --- a layer which fails is warned about and then raises ---
-            realsave = s_layer.Layer.saveNodeEdits
-
-            async def badsave(self, edits, meta):
+            async def badsave(self, nodeedits, meta, nexsitem):
                 raise s_exc.SynErr(mesg='layer go boom')
 
-            with mock.patch.object(s_layer.Layer, 'saveNodeEdits', badsave):
+            with mock.patch.object(s_layer.Layer, '_storNodeEdits', badsave):
                 mesgs = await core.stormlist(q)
 
             self.stormIsInWarn('failed to apply edits to layer', mesgs)

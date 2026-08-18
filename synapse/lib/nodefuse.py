@@ -14,8 +14,9 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-# Once a single fuse has queued this many edits we flush early. This gives up per-layer
-# atomicity, so it is warned about rather than done silently.
+# A fuse is computed and applied as a single nexus operation, so all of its edits are held
+# in memory and applied together. A fuse which needs more edits than this is refused rather
+# than silently giving up atomicity by splitting into several operations.
 maxlayeredits = 100000
 
 # stortypes which _editPropSet/_editTagPropSet union with the existing value rather than
@@ -37,14 +38,17 @@ class NodeFuser:
     Inbound references are rewritten in the layer which holds them, and the source is
     then deleted from every writable layer which held it.
 
-    NOTE: This is logically a single operation but it is not transactional across layers.
-          Each layer is its own nexus Pusher, so the edits for each layer are atomic and
-          replicated individually. Every edit is expressed as "dst gains X" or "src loses
-          X" and the storage layer no-ops edits which have already been applied, so
-          re-running a fuse which was interrupted will complete it.
+    The whole fuse is computed and applied inside a single Cortex nexus operation. The
+    nexus applies one operation at a time for the entire Cortex, so no other write can land
+    between the reads which compute the edits and the writes which apply them.
+
+    NOTE: The edits are still applied with one call per layer, so a fuse is not transactional
+          across layers and a failure part way through can leave some layers updated. Every
+          edit is expressed as "dst gains X" or "src loses X" and the storage layer no-ops
+          edits which have already been applied, so re-running an interrupted fuse completes it.
     '''
 
-    def __init__(self, core, useriden, warn=None, maxedits=None):
+    def __init__(self, core, useriden, tick=None, maxedits=None):
 
         self.core = core
         self.model = core.model
@@ -55,9 +59,12 @@ class NodeFuser:
 
         self.maxedits = maxedits
 
-        self._warnfunc = warn
+        # A fuse runs inside a nexus operation, so the time must come from the caller which
+        # pushed it. Sampling it here would make a mirror replay a different value.
+        if tick is None:
+            tick = s_common.now()
 
-        self.meta = {'time': s_common.now(), 'user': useriden}
+        self.meta = {'time': tick, 'user': useriden}
 
         self.layers = []        # the layers we may write to
         self.layridens = set()
@@ -66,13 +73,17 @@ class NodeFuser:
         self.newbuids = set()   # buids which this fuse creates
         self.visited = set()    # src buids which have already been fused
         self.failed = []        # (layriden, mesg) for each layer which failed
-
-        self.degraded = False
+        self.warnings = []      # warnings for the caller to emit
 
     async def warn(self, mesg):
+        '''
+        Record a warning for the caller to emit.
+
+        A fuse runs inside a nexus operation, which a mirror replays with no Storm runtime to
+        warn into, so these are collected and returned rather than emitted from here.
+        '''
         logger.warning(mesg)
-        if self._warnfunc is not None:
-            await self._warnfunc(mesg)
+        self.warnings.append(mesg)
 
     async def _getSodes(self, buid):
         '''
@@ -102,27 +113,21 @@ class NodeFuser:
 
         return None  # pragma: no cover
 
-    def _hasNdef(self, buid, layers):
-        '''
-        Return True if any of the given layers holds the primary property for buid.
-        '''
-        sodes = self.sodes.get(buid, {})
-        for layer in layers:
-            if sodes.get(layer.iden, {}).get('valu') is not None:
-                return True
-
-        return False
-
-    async def fuse(self, srcndef, dstndef):
+    async def fuse(self, srcndef, dstndef, nexsitem=None):
         '''
         Fuse the src node into the dst node across every layer in the Cortex.
+
+        This must be called from within the Cortex nexus operation which fuses nodes, so that
+        no other write can land between the reads which compute the edits and the writes which
+        apply them.
 
         Args:
             srcndef (tuple): The (form, valu) of the node to fuse from. It will be deleted.
             dstndef (tuple): The (form, valu) of the node to fuse into. It will be kept.
+            nexsitem (tuple): The (offs, mesg) tuple of the nexus operation applying the fuse.
 
         Returns:
-            None
+            dict: The consequences of the fuse, to be passed to runConsequences().
         '''
         self.layers = []
         self.layridens = set()
@@ -140,8 +145,6 @@ class NodeFuser:
 
         batch = s_layer.LayerEditBatch(self.core, self.meta)
 
-        applied = {}
-
         todo = collections.deque()
         todo.append((srcndef, dstndef, None))
 
@@ -157,85 +160,55 @@ class NodeFuser:
 
             todo.extend(await self._fuseOne(nextsrc, nextdst, subs, batch))
 
-            if batch.size() >= self.maxedits:
+            # The whole fuse is one nexus operation, so the edits cannot be flushed in chunks.
+            # Refuse rather than accumulate an unbounded batch.
+            if batch.size() > self.maxedits:
+                mesg = (f'$lib.model.migration.fuse() requires more than {self.maxedits} edits to fuse '
+                        f'{srcndef[0]}={srcndef[1]!r}. A fuse is applied as a single operation, so it '
+                        f'cannot be split into smaller batches.')
+                raise s_exc.BadArg(mesg=mesg, form=srcndef[0])
 
-                if not self.degraded:
-                    self.degraded = True
-                    await self.warn(
-                        f'$lib.model.migration.fuse() exceeded {self.maxedits} queued edits and must '
-                        f'flush early. The edits for each layer will span several transactions, so '
-                        f'they are no longer atomic per layer. Re-run fuse() with the same arguments '
-                        f'if it is interrupted.')
+        applied = await self._applyBatch(batch, nexsitem)
 
-                self._addApplied(applied, await self._flush(batch))
+        return self._getConseq(applied)
 
-        self._addApplied(applied, await self._flush(batch))
-
-        await self._runConsequences(applied)
-
-        if self.failed:
-            mesg = '$lib.model.migration.fuse() failed to apply edits to some layers: '
-            mesg += ', '.join([f'{iden} ({errm})' for iden, errm in self.failed])
-            raise s_exc.SynErr(mesg=mesg, layers=[iden for iden, _ in self.failed])
-
-    async def _runConsequences(self, applied):
+    def _getConseq(self, applied):
         '''
-        Fire the trigger consequences of the applied edits, once per affected view.
+        Return what the caller needs to fire the consequences of the applied edits.
 
-        A layer may be part of several views, and a view may include several of the layers
-        we wrote to, so the edits are inverted to a per-view set and coalesced per buid.
-        Each view then decides which of them are actually observable there.
+        The consequences cannot be fired from here because a trigger may run Storm which
+        writes, and we are inside a nexus operation holding the cell wide nexus lock. They are
+        returned rather than fired so that a caller on a mirror, where the edits were applied
+        by the leader, fires them locally.
         '''
-        byview = {}
+        buids = set()
+        for changes in applied.values():
+            for (buid, _, _) in changes:
+                buids.add(buid)
 
-        for layriden, changes in applied.items():
+        return {
+            'applied': applied,
+            'failed': self.failed,
+            'warnings': self.warnings,
+            'newbuids': [buid for buid in self.newbuids if buid in buids],
+            'sodes': {buid: self.sodes.get(buid, {}) for buid in buids},
+        }
 
-            for view in self.core.viewsbylayer[layriden]:
-
-                entry = byview.get(view.iden)
-                if entry is None:
-                    entry = byview[view.iden] = (view, {}, set())
-
-                (_, nodeedits, seen) = entry
-
-                for (buid, formname, edits) in changes:
-
-                    nodeedit = nodeedits.get(buid)
-                    if nodeedit is None:
-                        nodeedit = nodeedits[buid] = (buid, formname, [])
-
-                    for edit in edits:
-                        # the same edit may have been applied to more than one of this
-                        # view's layers, but it is only observable here once
-                        key = (buid, s_msgpack.en(edit))
-                        if key in seen:
-                            continue
-
-                        seen.add(key)
-                        nodeedit[2].append(edit)
-
-        for (view, nodeedits, _) in byview.values():
-
-            flatedits = [nodeedit for nodeedit in nodeedits.values() if nodeedit[2]]
-            if not flatedits:  # pragma: no cover
-                continue
-
-            # which of the nodes we created were not already visible in this view?
-            added = set([buid for buid in self.newbuids if not self._hasNdef(buid, view.layers)])
-
-            await view.runNodeEdits(flatedits, self.useriden, added=added, sodecache=self.sodes)
-
-    def _addApplied(self, applied, flushed):
-        for layriden, changes in flushed.items():
-            applied.setdefault(layriden, []).extend(changes)
-
-    async def _flush(self, batch):
+    async def _applyBatch(self, batch, nexsitem):
         '''
-        Flush the batch, warning about (and recording) any layer which fails.
+        Apply the queued edits, one call per layer.
+
+        The edits are applied directly to each layer rather than through Layer.saveNodeEdits()
+        because we are already inside a nexus operation, and pushing another one from in here
+        would deadlock on the cell wide nexus lock.
+
+        Each layer is applied exactly once. A layer records its node edit log entry at the
+        nexus offset it was applied at, so applying to the same layer twice within one nexus
+        operation would overwrite the first entry.
         '''
         retn = {}
 
-        # flush one layer at a time so that one failing layer cannot lose the others
+        # apply one layer at a time so that one failing layer cannot lose the others
         for layriden, layredits in batch.popLayerEdits().items():
 
             layer = self.core.getLayer(layriden)
@@ -243,7 +216,8 @@ class NodeFuser:
                 continue
 
             try:
-                _, changes = await layer.saveNodeEdits(list(layredits.values()), self.meta)
+                nodeedits = list(layredits.values())
+                changes = await layer._storNodeEdits(nodeedits, self.meta, nexsitem=nexsitem)
 
             except asyncio.CancelledError:  # pragma: no cover
                 raise
@@ -261,6 +235,63 @@ class NodeFuser:
                 retn[layriden] = changes
 
         return retn
+
+    def _getSelfRefs(self, form):
+        '''
+        Return a {propname: (isarray, isndef)} mapping of the props on the given form which
+        can reference a node of that same form.
+
+        This mirrors what _iterRefs() treats as an inbound reference, so that a reference
+        src holds to itself is recognised as one when it is transferred to dst.
+        '''
+        retn = {}
+
+        for prop in form.props.values():
+
+            ptyp = prop.type
+            isarray = ptyp.isarray
+
+            if isarray:
+                ptyp = ptyp.arraytype
+
+            if isinstance(ptyp, s_types.Ndef):
+                retn[prop.name] = (isarray, True)
+                continue
+
+            if ptyp.name == form.name:
+                retn[prop.name] = (isarray, False)
+
+        return retn
+
+    def _swapSelfRef(self, valu, isarray, isndef, srcndef, dstndef):
+        '''
+        Return valu with any reference to src replaced by a reference to dst.
+
+        A property on src which references src is a self reference, so it must follow the node
+        and reference dst once it has been transferred. Leaving it pointing at src would
+        dangle, and would also mean a repeat of the same fuse saw it as an inbound reference
+        which still needed rewriting, making the fuse non-idempotent.
+        '''
+        if isndef:
+            (oldv, newv) = (srcndef, dstndef)
+        else:
+            (oldv, newv) = (srcndef[1], dstndef[1])
+
+        if not isarray:
+
+            if valu == oldv:
+                return newv
+
+            return valu
+
+        if oldv not in valu:
+            return valu
+
+        newlist = [item for item in valu if item != oldv]
+        if newv not in newlist:
+            newlist.append(newv)
+
+        return newlist
 
     async def _fuseOne(self, srcndef, dstndef, subs, batch):
         '''
@@ -284,7 +315,7 @@ class NodeFuser:
 
         # dst gets a node add in each layer which holds src, so it is a candidate for a
         # node:add consequence in any view where it was not already visible. Which views
-        # those are is decided per view in _runConsequences().
+        # those are is decided per view in runConsequences().
         self.newbuids.add(dstbuid)
 
         # a destination which does not exist in any layer yet is one we are creating, so
@@ -304,6 +335,9 @@ class NodeFuser:
                 f'$lib.model.migration.fuse() cannot modify layer {layriden} because it is {why}. '
                 f'{formname}={srcndef[1]!r} will not be removed from it, and will still be visible '
                 f'in any view which includes that layer.')
+
+        # props on src's own form which may hold a reference to src itself
+        selfrefs = self._getSelfRefs(form)
 
         todo = []
 
@@ -373,6 +407,10 @@ class NodeFuser:
                 if stype not in mergetypes and name in dstprops:
                     continue
 
+                selfref = selfrefs.get(name)
+                if selfref is not None:
+                    valu = self._swapSelfRef(valu, selfref[0], selfref[1], srcndef, dstndef)
+
                 batch.addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_PROP_SET, (name, valu, None, stype), ()),
                 ))
@@ -412,11 +450,22 @@ class NodeFuser:
             # 3. transfer light edges. N1 edges move to dst, and for N2 edges the edge is
             #    stored under the n1 node, so it is re-pointed there.
             for verb, n2iden in n1edges:
+
+                # an edge from src to itself must follow the node and become an edge from
+                # dst to itself, for the same reason a self referencing property does
+                if n2iden == srciden:
+                    n2iden = dstiden
+
                 batch.addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
                 ))
 
             for verb, n1iden in n2edges:
+
+                # src's edge to itself is already transferred by the N1 pass above, and
+                # adding it here would put an edge on the src node we are about to delete
+                if n1iden == srciden:
+                    continue
 
                 n1buid = s_common.uhex(n1iden)
 
@@ -449,6 +498,10 @@ class NodeFuser:
                     ))
 
             for verb, n1iden in n2edges:
+
+                # src's edge to itself is removed along with src below
+                if n1iden == srciden:
+                    continue
 
                 n1buid = s_common.uhex(n1iden)
 
@@ -646,3 +699,76 @@ class NodeFuser:
 
         # renaming the comp is itself a fuse of the old comp node into the new one
         return ((refform.name, refvalu), (refform.name, newvalu), norminfo.get('subs'))
+
+def _hasNdef(sodes, buid, layers):
+    '''
+    Return True if any of the given layers held the primary property for buid.
+    '''
+    laysodes = sodes.get(buid, {})
+    for layer in layers:
+        if laysodes.get(layer.iden, {}).get('valu') is not None:
+            return True
+
+    return False
+
+async def runConsequences(core, useriden, conseq):
+    '''
+    Fire the trigger consequences of a fuse, once per affected view.
+
+    A layer may be part of several views, and a view may include several of the layers which
+    were written to, so the edits are inverted to a per-view set and coalesced per buid. Each
+    view then decides which of them are actually observable there.
+
+    This runs outside of the nexus operation which applied the edits, because a trigger may
+    run Storm which writes.
+
+    Args:
+        core (Cortex): The Cortex the fuse was applied to.
+        useriden (str): The iden of the user which ran the fuse.
+        conseq (dict): The consequences returned by NodeFuser.fuse().
+
+    Returns:
+        None
+    '''
+    applied = conseq.get('applied', {})
+    sodes = conseq.get('sodes', {})
+    newbuids = conseq.get('newbuids', ())
+
+    byview = {}
+
+    for layriden, changes in applied.items():
+
+        for view in core.viewsbylayer[layriden]:
+
+            entry = byview.get(view.iden)
+            if entry is None:
+                entry = byview[view.iden] = (view, {}, set())
+
+            (_, nodeedits, seen) = entry
+
+            for (buid, formname, edits) in changes:
+
+                nodeedit = nodeedits.get(buid)
+                if nodeedit is None:
+                    nodeedit = nodeedits[buid] = (buid, formname, [])
+
+                for edit in edits:
+                    # the same edit may have been applied to more than one of this
+                    # view's layers, but it is only observable here once
+                    key = (buid, s_msgpack.en(edit))
+                    if key in seen:
+                        continue
+
+                    seen.add(key)
+                    nodeedit[2].append(edit)
+
+    for (view, nodeedits, _) in byview.values():
+
+        flatedits = [nodeedit for nodeedit in nodeedits.values() if nodeedit[2]]
+        if not flatedits:  # pragma: no cover
+            continue
+
+        # which of the nodes we created were not already visible in this view?
+        added = set([buid for buid in newbuids if not _hasNdef(sodes, buid, view.layers)])
+
+        await view.runNodeEdits(flatedits, useriden, added=added, sodecache=sodes)

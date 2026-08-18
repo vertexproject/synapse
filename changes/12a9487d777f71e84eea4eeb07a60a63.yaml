@@ -1,14 +1,7 @@
 ---
-desc: Added the ``$lib.model.migration.fuse()`` Storm API to merge one node into another
-  node of the same form and delete the source node. Properties, tags, tag properties,
-  light edges, and node data are transferred to the destination node, with the destination
-  node's existing values winning any conflicts, and inbound references to the source
-  node are rewritten to point at the destination node. The API requires global admin
-  permissions and operates on the entire Cortex rather than the current view, so the
-  source node is removed from all views. Read-only and mirrored layers cannot be modified
-  and are skipped with a warning. Property placement is preserved, so each value is
-  written to the layer it was already stored in and property merges only occur within
-  a layer.
+desc: Added a new Storm API, ``$lib.model.migration.fuse()``, to merge one node into
+  another node of the same form and delete the source node. This requires global admin
+  permissions and operates on the entire Cortex.
 desc:literal: false
 prs: []
 type: feat
