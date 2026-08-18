@@ -2763,6 +2763,13 @@ class CellTest(s_t_utils.SynTest):
                     sock = ctx.wrap_socket(conn)
                     sock.settimeout(60)
                     der_cert = sock.getpeercert(binary_form=True)
+                    # Shut the TLS session down cleanly with a close_notify. Abandoning it
+                    # can leave an error on OpenSSL's per thread error queue which CPython
+                    # then reports against the next TLS read of the beholder websocket.
+                    try:
+                        sock.unwrap()
+                    except OSError:  # pragma: no cover
+                        pass
                     sock.close()
                     conn.close()
                     return ssl.DER_cert_to_PEM_cert(der_cert)
@@ -2826,11 +2833,69 @@ class CellTest(s_t_utils.SynTest):
 
                         await cell.addUser('bob')
 
-                        self.true(await asyncio.wait_for(bdone.wait(), timeout=12))
-                        await fut
+                        # The consumer task returns once both user:add events arrive.
+                        # Awaiting the task itself surfaces whatever killed it, rather
+                        # than a bare timeout on the event.
+                        await asyncio.wait_for(fut, timeout=12)
+                        self.true(bdone.is_set())
 
                         users = {m.get('info', {}).get('name') for m in bitems}
                         self.eq(users, {'alice', 'bob'})
+
+    async def test_cell_https_tls_sess_abandon(self):
+        '''
+        A TLS session which a client abandons leaves other TLS connections alone.
+
+        Notes:
+            An abandoned session makes OpenSSL write an alert to a dead socket, and
+            without ``ssl.OP_IGNORE_UNEXPECTED_EOF`` on the listener SSL context, the
+            EPIPE from that write stays on OpenSSL's per thread error queue and
+            surfaces as a spurious ``BrokenPipeError`` on the next TLS read of any
+            connection in this process. The beholder websocket here is a connection
+            which reads server pushed data, so it is the one which gets torn down.
+        '''
+        async with self.getTestCell(s_cell.Cell) as cell:
+
+            await cell.auth.rootuser.setPasswd('root')
+            hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
+
+            def abandonTlsSess():
+                # Only run this in a executor thread. Complete the TLS handshake and
+                # abandon the session without a close_notify.
+                ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                conn = socket.create_connection((hhost, hport))
+                sock = ctx.wrap_socket(conn)
+                sock.settimeout(60)
+                sock.getpeercert(binary_form=True)
+                sock.close()
+                conn.close()
+
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as bsess:
+
+                async with bsess.ws_connect(f'wss://localhost:{hport}/api/v1/behold') as sock:
+
+                    async def waitUserAdd(name):
+                        while True:
+                            data = (await sock.receive_json()).get('data')
+                            if data.get('event') != 'user:add':
+                                continue
+
+                            self.eq(data['info']['name'], name)
+                            return
+
+                    await sock.send_json({'type': 'call:init'})
+                    initmesg = await asyncio.wait_for(sock.receive_json(), timeout=12)
+                    self.eq(initmesg['type'], 'init')
+
+                    for indx in range(4):
+
+                        await s_coro.executor(abandonTlsSess)
+
+                        name = f'user{indx:02d}'
+                        await cell.addUser(name)
+                        await asyncio.wait_for(waitUserAdd(name), timeout=12)
 
     async def test_cell_user_api_key(self):
         async with self.getTestCell(s_cell.Cell) as cell:

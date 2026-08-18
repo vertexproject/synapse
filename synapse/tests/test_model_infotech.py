@@ -1779,6 +1779,55 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.eq(0x10000200003, nodes[0].get('version'))
 
+    async def test_it_app_suricata(self):
+
+        async with self.getTestCore() as core:
+
+            hit = s_common.guid()
+            rule = s_common.guid()
+            flow = s_common.guid()
+            host = s_common.guid()
+            opts = {'vars': {'rule': rule, 'flow': flow, 'host': host, 'hit': hit}}
+
+            nodes = await core.nodes('''
+            [ it:app:suricata:rule=$rule
+                :id=999
+                :text=gronk
+                :name=foo
+                :desc=bar
+                :author = {[ ps:contact=* :name=visi ]}
+                :created = 20120101
+                :updated = 20220101
+                :enabled=1
+                :version=1.2.3
+                +(detects)> {[ it:prod:softname=woot ]}
+            ]
+            ''', opts=opts)
+
+            self.len(1, nodes)
+            self.eq('999', nodes[0].get('id'))
+            self.eq('foo', nodes[0].get('name'))
+            self.eq('gronk', nodes[0].get('text'))
+            self.eq('bar', nodes[0].get('desc'))
+            self.eq(True, nodes[0].get('enabled'))
+            self.eq(0x10000200003, nodes[0].get('version'))
+            self.eq(1325376000000, nodes[0].get('created'))
+            self.eq(1640995200000, nodes[0].get('updated'))
+            self.nn(nodes[0].get('author'))
+
+            self.len(1, await core.nodes('it:app:suricata:rule -(detects)> it:prod:softname'))
+
+            nodes = await core.nodes('''[ it:app:suricata:matched=$hit
+                :rule=$rule :target=$flow :time=2015 :sensor=$host
+                :version=1.2.3 :dropped=true ]''', opts=opts)
+            self.len(1, nodes)
+            self.true(nodes[0].get('dropped'))
+            self.eq(rule, nodes[0].get('rule'))
+            self.eq(flow, nodes[0].get('target'))
+            self.eq(host, nodes[0].get('sensor'))
+            self.eq(1420070400000, nodes[0].get('time'))
+            self.eq(0x10000200003, nodes[0].get('version'))
+
     async def test_it_reveng(self):
 
         async with self.getTestCore() as core:

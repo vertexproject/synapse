@@ -1049,6 +1049,12 @@ class ItModule(s_module.CoreModule):
                 ('it:app:snort:hit', ('guid', {}), {
                     'doc': 'An instance of a snort rule hit.',
                 }),
+                ('it:app:suricata:rule', ('guid', {}), {
+                    'doc': 'A suricata rule.',
+                }),
+                ('it:app:suricata:matched', ('guid', {}), {
+                    'doc': 'An instance of a suricata rule hit.',
+                }),
                 ('it:reveng:function', ('guid', {}), {
                     'doc': 'A function inside an executable.',
                 }),
@@ -1119,6 +1125,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'The target node was returned as a result of running the query.'}),
                 (('it:app:snort:rule', 'detects', None), {
                     'doc': 'The snort rule is intended for use in detecting the target node.'}),
+                (('it:app:suricata:rule', 'detects', None), {
+                    'doc': 'The suricata rule is intended for use in detecting the target node.'}),
                 (('it:app:yara:rule', 'detects', None), {
                     'doc': 'The YARA rule is intended for use in detecting the target node.'}),
                 (('it:dev:repo', 'has', 'inet:url'), {
@@ -3200,6 +3208,59 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time of the network flow that caused the hit.'}),
                     ('sensor', ('it:host', {}), {
                         'doc': 'The sensor host node that produced the hit.'}),
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The version of the rule at the time of match.'}),
+
+                    ('dropped', ('bool', {}), {
+                        'doc': 'Set to true if the network traffic was dropped due to the match.'}),
+                )),
+
+                ('it:app:suricata:rule', {}, (
+
+                    ('id', ('str', {}), {
+                        'doc': 'The suricata rule id.'}),
+
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The suricata rule text.'}),
+
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the suricata rule.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief description of the suricata rule.'}),
+
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The current version of the rule.'}),
+
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'Contact info for the author of the rule.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time the rule was created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the rule was most recently modified.'}),
+
+                    ('enabled', ('bool', {}), {
+                        'doc': 'The rule enabled status to be used for suricata evaluation engines.'}),
+                )),
+
+                ('it:app:suricata:matched', {}, (
+
+                    ('rule', ('it:app:suricata:rule', {}), {
+                        'doc': 'The suricata rule that matched the file.'}),
+
+                    ('target', ('inet:flow', {}), {
+                        'doc': 'The inet:flow that matched the suricata rule.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the rule matched the network flow.'}),
+
+                    ('sensor', ('it:host', {}), {
+                        'doc': 'The sensor host node that produced the hit.'}),
+
                     ('version', ('it:semver', {}), {
                         'doc': 'The version of the rule at the time of match.'}),
 
