@@ -48,7 +48,7 @@ class NodeFuser:
           edits which have already been applied, so re-running an interrupted fuse completes it.
     '''
 
-    def __init__(self, core, useriden, tick=None, maxedits=None):
+    def __init__(self, core, useriden, tick, maxedits=None):
 
         self.core = core
         self.model = core.model
@@ -59,11 +59,9 @@ class NodeFuser:
 
         self.maxedits = maxedits
 
-        # A fuse runs inside a nexus operation, so the time must come from the caller which
-        # pushed it. Sampling it here would make a mirror replay a different value.
-        if tick is None:
-            tick = s_common.now()
-
+        # A fuse runs inside a nexus operation, so tick must come from the caller which pushed
+        # it. Sampling the time here would make a mirror replay a different value, so it is
+        # required rather than defaulted.
         self.meta = {'time': tick, 'user': useriden}
 
         self.layers = []        # the layers we may write to

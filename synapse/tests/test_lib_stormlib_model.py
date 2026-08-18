@@ -1284,6 +1284,44 @@ class StormlibModelTest(s_test.SynTest):
                         self.len(1, nodes)
                         self.eq(('mir-dst',), nodes[0].get('strs'))
 
+    async def test_stormlib_model_migration_fuse_selfref_array(self):
+
+        async with self.getTestCore() as core:
+
+            # --- an array which references src has that entry repointed at dst ---
+
+            opts = {'vars': {'src': 'arr-src', 'dst': 'arr-dst', 'other': 'arr-other'}}
+            await core.nodes('[ test:str=$other test:str=$dst ]', opts=opts)
+            await core.nodes('[ test:str=$src :ndefs=((test:str, $src), (test:str, $other)) ]', opts=opts)
+
+            await core.nodes(
+                'test:str=$src $n=$node -> { test:str=$dst $lib.model.migration.fuse($n, $node) }', opts=opts)
+
+            self.len(0, await core.nodes('test:str=$src', opts=opts))
+
+            nodes = await core.nodes('test:str=$dst', opts=opts)
+            self.len(1, nodes)
+
+            ndefs = nodes[0].get('ndefs')
+            self.isin(('test:str', 'arr-dst'), ndefs)
+            self.isin(('test:str', 'arr-other'), ndefs)
+            self.notin(('test:str', 'arr-src'), ndefs)
+
+            # --- an array which does not reference src is transferred unchanged ---
+
+            opts = {'vars': {'src': 'arr2-src', 'dst': 'arr2-dst', 'other': 'arr-other'}}
+            await core.nodes('[ test:str=$dst ]', opts=opts)
+            await core.nodes('[ test:str=$src :ndefs=((test:str, $other),) ]', opts=opts)
+
+            await core.nodes(
+                'test:str=$src $n=$node -> { test:str=$dst $lib.model.migration.fuse($n, $node) }', opts=opts)
+
+            self.len(0, await core.nodes('test:str=$src', opts=opts))
+
+            nodes = await core.nodes('test:str=$dst', opts=opts)
+            self.len(1, nodes)
+            self.eq((('test:str', 'arr-other'),), nodes[0].get('ndefs'))
+
     async def test_stormlib_model_migration_fuse_selfedge(self):
 
         async with self.getTestCore() as core:
