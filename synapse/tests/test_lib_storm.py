@@ -4640,6 +4640,41 @@ class StormTest(s_t_utils.SynTest):
         self.eq('                                This is the final line with no leading spaces.', pars.mesgs[13])
         self.eq('  --taz <taz>                 : Taz option (default: True)', pars.mesgs[14])
 
+    async def test_storm_pkg_endpoint_schema(self):
+
+        async with self.getTestCore() as core:
+
+            base = {
+                'name': 'endptest',
+                'version': '0.0.1',
+            }
+
+            # a command.endpoints entry with an unknown key is rejected
+            pdef = dict(base)
+            pdef['commands'] = (
+                {'name': 'endptest.cmd', 'storm': '',
+                    'endpoints': [{'path': '/v1/x', 'newp': 1}]},
+            )
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pdef)
+
+            # a command.endpoints entry missing the required path is rejected
+            pdef = dict(base)
+            pdef['commands'] = (
+                {'name': 'endptest.cmd', 'storm': '',
+                    'endpoints': [{'desc': 'no path'}]},
+            )
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(pdef)
+
+            # a well-formed command.endpoints entry validates
+            pdef = dict(base)
+            pdef['commands'] = (
+                {'name': 'endptest.cmd', 'storm': '',
+                    'endpoints': [{'url': 'https://x', 'path': '/v1/x', 'desc': 'ok'}]},
+            )
+            await core.addStormPkg(pdef)
+
     async def test_storm_cmd_help(self):
 
         async with self.getTestCore() as core:
@@ -4663,6 +4698,20 @@ class StormTest(s_t_utils.SynTest):
                                 'host': 'vertex.link',
                                 'desc': 'Single line endpoint description.'
                             },
+                            {
+                                'path': '/v1/test/three',
+                                'url': 'https://two.vertex.link/api',
+                                'desc': 'Endpoint on the second base URL.'
+                            },
+                            {
+                                'path': '/v1/test/four',
+                                'url': 'https://one.vertex.link/api',
+                            },
+                            {
+                                'path': '/v1/test/five',
+                                'url': 'https://one.vertex.link/api',
+                                'desc': 'Second endpoint on the first base URL.'
+                            },
                         ),
                         'perms': (
                             ['power-ups', 'testpkg', 'user'],
@@ -4677,12 +4726,23 @@ class StormTest(s_t_utils.SynTest):
 
             self.isin('Usage: woot [options]', helptext)
 
+            # Endpoints are grouped by their base URL, with the endpoints that do not
+            # declare one first, then the rest sorted by URL. The legacy host field is
+            # not used for grouping.
             exp = textwrap.dedent('''\
                 Endpoints:
 
-                  /v1/test/one                : My multi-line endpoint description which spans multiple lines and has a second line.
+                  (user-configured base URL)
+                    /v1/test/one              : My multi-line endpoint description which spans multiple lines and has a second line.
                                                 This is the second line of the description.
-                  /v1/test/two                : Single line endpoint description.
+                    /v1/test/two              : Single line endpoint description.
+
+                  https://one.vertex.link/api
+                    /v1/test/four
+                    /v1/test/five             : Second endpoint on the first base URL.
+
+                  https://two.vertex.link/api
+                    /v1/test/three            : Endpoint on the second base URL.
             ''').rstrip()
             self.isin(exp, helptext)
 

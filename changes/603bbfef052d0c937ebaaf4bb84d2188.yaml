@@ -1,0 +1,8 @@
+---
+desc: Added support for a ``url`` field on Storm command ``endpoints`` definitions
+  to declare the base URL an endpoint is served from. Command help now groups endpoints
+  by base URL.
+desc:literal: false
+prs: []
+type: feat
+...
