@@ -5,7 +5,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.time as s_time
-import synapse.lib.layer as s_layer
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
