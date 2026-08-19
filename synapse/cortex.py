@@ -7244,9 +7244,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Fuse the src node into the dst node across every layer in the Cortex.
 
         Node fusion writes to arbitrary layers rather than a single view's write layer, and
-        the edits it makes depend on the state it reads. It is therefore applied as a single
-        nexus operation, which the nexus runs one at a time for the whole Cortex, so no other
-        write can land between those reads and writes.
+        the edits it makes depend on the state it reads. The edits are computed here, outside
+        of any nexus operation, and are then carried in the payloads of the nexus operations
+        which apply them. That keeps the edits themselves in the nexus log, so a mirror
+        applies exactly the edits which were computed here rather than recomputing them from
+        its own state.
+
+        A fuse of a heavily referenced node can need a very large number of edits, so they are
+        applied in chunks of one nexus operation each rather than all at once. A fuse is
+        therefore not transactional, and an interruption can leave part of it applied. See
+        s_nodefuse.iterEditChunks() for the ordering which makes that recoverable.
+
+        Since the reads are not serialized against other writes, the edits are recomputed
+        after applying and re-applied if anything raced in. Note that this means a fuse
+        always costs at least one more read pass than it strictly needs, to confirm that
+        there is nothing left to do.
 
         Args:
             srcndef (tuple): The (form, valu) of the node to fuse from. It will be deleted.
@@ -7254,16 +7266,66 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             useriden (str): The iden of the user running the fuse.
 
         Returns:
-            dict: The consequences of the fuse, for s_nodefuse.runConsequences().
+            dict: The warnings to emit and the layers which failed.
         '''
-        return await self._push('model:fuse:nodes', srcndef, dstndef, useriden, s_common.now())
+        # tick is sampled once and carried in the nexus payload, so that the leader and every
+        # mirror record the same time in the layer node edit logs.
+        tick = s_common.now()
 
-    @s_nexus.Pusher.onPush('model:fuse:nodes', passitem=True)
-    async def _fuseNodes(self, srcndef, dstndef, useriden, tick, nexsitem):
+        maxpasses = s_nodefuse.maxfusepasses
 
-        fuser = s_nodefuse.NodeFuser(self, useriden, tick=tick)
+        result = s_nodefuse.initResult()
 
-        return await fuser.fuse(srcndef, dstndef, nexsitem=nexsitem)
+        for indx in range(maxpasses):
+
+            fuser = s_nodefuse.NodeFuser(self, useriden)
+
+            layeredits = await fuser.getLayerEdits(srcndef, dstndef)
+
+            # merge even with nothing to apply, since computing the edits may have produced
+            # warnings of its own which the caller still needs to emit
+            s_nodefuse.mergeResult(result, fuser.getResult())
+
+            if not layeredits:
+                break
+
+            if indx > 0:
+                logger.info(f'fuseNodes() found more edits for {srcndef[0]}={srcndef[1]!r} after '
+                            f'applying, re-applying (pass {indx + 1} of {maxpasses}).')
+
+            failed = False
+
+            for chunk in s_nodefuse.iterEditChunks(layeredits):
+
+                retn = await self._push('model:fuse:edits', chunk, useriden, tick)
+
+                s_nodefuse.mergeResult(result, retn)
+
+                # A layer which failed is not retried here. The failure would simply repeat,
+                # and the warning already tells the caller to re-run once they have dealt with
+                # it. Stop pushing chunks rather than driving the rest of the fuse into it.
+                if retn['failed']:
+                    failed = True
+                    break
+
+            if failed:
+                break
+
+        else:
+            mesg = (f'$lib.model.migration.fuse() did not settle after {maxpasses} passes '
+                    f'for {srcndef[0]}={srcndef[1]!r}. Edits are still arriving for it. Re-run '
+                    f'fuse() with the same arguments to complete it.')
+            logger.warning(mesg)
+            result['warnings'].append(mesg)
+
+        return result
+
+    @s_nexus.Pusher.onPush('model:fuse:edits', passitem=True)
+    async def _fuseNodeEdits(self, layeredits, useriden, tick, nexsitem):
+
+        meta = {'time': tick, 'user': useriden}
+
+        return await s_nodefuse.applyLayerEdits(self, layeredits, meta, nexsitem)
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''

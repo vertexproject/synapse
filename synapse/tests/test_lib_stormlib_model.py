@@ -1101,8 +1101,8 @@ class StormlibModelTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             # two layers which each independently hold src, and a view over both of them.
-            # The fuse emits the same node delete to each layer, but the view can only
-            # observe it once, so its node:del trigger must only fire once.
+            # The fuse must remove src from each layer it lives in, not just the first one
+            # the view resolves it from.
             layr0 = await core.callStorm('return($lib.layer.add().iden)')
             layr1 = await core.callStorm('return($lib.layer.add().iden)')
 
@@ -1131,8 +1131,9 @@ class StormlibModelTest(s_test.SynTest):
             self.len(0, await core.nodes('test:str=ml-src', opts={'view': view0}))
             self.len(0, await core.nodes('test:str=ml-src', opts={'view': view1}))
 
-            # exactly one node:del consequence, not one per layer
-            self.eq(1, await core.callStorm('return($lib.queue.gen(mlq).size())'))
+            # a fuse fires no triggers, not even where the same edit landed in two of the
+            # view's layers. See test_stormlib_model_migration_fuse_no_triggers().
+            self.eq(0, await core.callStorm('return($lib.queue.gen(mlq).size())'))
 
     async def test_stormlib_model_migration_fuse_shared_comp(self):
 
@@ -1161,40 +1162,88 @@ class StormlibModelTest(s_test.SynTest):
                 self.len(1, nodes)
                 self.eq('sc-dst', nodes[0].get('lulz'))
 
-    async def test_stormlib_model_migration_fuse_toobig(self):
+    async def test_stormlib_model_migration_fuse_chunked(self):
 
         async with self.getTestCore() as core:
 
+            # a node with enough inbound light edges that a realistic fuse needs many edits
             await core.nodes('[ test:str=deg-src :hehe=srcval +#degtag test:str=deg-dst ]')
+            await core.nodes('for $i in $lib.range(40) { [ test:int=$i +(refs)> { test:str=deg-src } ] }')
 
-            # a fuse is applied as a single nexus operation, so it cannot be flushed in
-            # chunks. force the edit ceiling low enough that it must refuse.
-            with mock.patch.object(s_nodefuse, 'maxlayeredits', 1):
-                with self.raises(s_exc.BadArg) as cm:
-                    await core.nodes(
-                        'test:str=deg-src $n=$node -> { test:str=deg-dst $lib.model.migration.fuse($n, $node) }')
+            self.len(40, await core.nodes('test:str=deg-src <(refs)- test:int'))
 
-            self.isin('cannot be split into smaller batches', cm.exception.get('mesg'))
+            offs = await core.nexsroot.index()
 
-            # nothing was applied, so src is intact and dst did not gain anything
-            self.len(1, await core.nodes('test:str=deg-src'))
+            # A fuse is never refused for being too large. Force the chunk size low enough that
+            # it must span several nexus operations, and it still completes.
+            with mock.patch.object(s_nodefuse, 'maxchunkedits', 4):
+                await core.nodes(
+                    'test:str=deg-src $n=$node -> { test:str=deg-dst $lib.model.migration.fuse($n, $node) }')
 
-            nodes = await core.nodes('test:str=deg-dst')
-            self.len(1, nodes)
-            self.none(nodes[0].get('hehe'))
-            self.notin('degtag', nodes[0].tags)
+            self.true(await core.nexsroot.index() - offs > 1)
 
-            # under the ceiling it completes normally
-            await core.nodes(
-                'test:str=deg-src $n=$node -> { test:str=deg-dst $lib.model.migration.fuse($n, $node) }')
-
+            # every chunk applied, so the fuse is complete
             self.len(0, await core.nodes('test:str=deg-src'))
+
             nodes = await core.nodes('test:str=deg-dst')
             self.len(1, nodes)
             self.eq('srcval', nodes[0].get('hehe'))
             self.isin('degtag', nodes[0].tags)
 
-    async def test_stormlib_model_migration_fuse_single_nexus_op(self):
+            # and every inbound edge was repointed at dst
+            self.len(40, await core.nodes('test:str=deg-dst <(refs)- test:int'))
+
+    async def test_stormlib_model_migration_fuse_chunk_interrupted(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=int-src :hehe=srcval :somestr=int-src +#inttag test:str=int-dst ]')
+            await core.nodes('for $i in $lib.range(20) { [ test:int=$i +(refs)> { test:str=int-src } ] }')
+
+            q = 'test:str=int-src $n=$node -> { test:str=int-dst $lib.model.migration.fuse($n, $node) }'
+
+            # fail every chunk after the first, so the fuse is interrupted part way through
+            realsave = s_layer.Layer._storNodeEdits
+            calls = []
+
+            async def failsave(self, nodeedits, meta, nexsitem):
+                calls.append(nodeedits)
+                if len(calls) > 1:
+                    raise s_exc.SynErr(mesg='layer go boom')
+
+                return await realsave(self, nodeedits, meta, nexsitem)
+
+            with mock.patch.object(s_nodefuse, 'maxchunkedits', 4):
+                with mock.patch.object(s_layer.Layer, '_storNodeEdits', failsave):
+                    mesgs = await core.stormlist(q)
+
+            self.stormIsInWarn('failed to apply edits to layer', mesgs)
+            self.stormIsInErr('failed to apply edits to some layers', mesgs)
+
+            # more than one chunk was attempted, so this really was a partial apply
+            self.true(len(calls) > 1)
+
+            # Nothing is removed from src until dst holds it, so the interruption cannot have
+            # lost any of src's state.
+            nodes = await core.nodes('test:str=int-src')
+            self.len(1, nodes)
+            self.eq('srcval', nodes[0].get('hehe'))
+            self.isin('inttag', nodes[0].tags)
+
+            # re-running completes it, with nothing lost along the way
+            await core.nodes(q)
+
+            self.len(0, await core.nodes('test:str=int-src'))
+
+            nodes = await core.nodes('test:str=int-dst')
+            self.len(1, nodes)
+            self.eq('srcval', nodes[0].get('hehe'))
+            self.eq('int-dst', nodes[0].get('somestr'))
+            self.isin('inttag', nodes[0].tags)
+
+            self.len(20, await core.nodes('test:str=int-dst <(refs)- test:int'))
+
+    async def test_stormlib_model_migration_fuse_one_chunk(self):
 
         async with self.getTestCore() as core:
 
@@ -1208,12 +1257,11 @@ class StormlibModelTest(s_test.SynTest):
             forkopts = {'view': vdef.get('iden')}
             await core.nodes('test:str=atom-src [ :tick=2020 ]', opts=forkopts)
 
-            # The whole fuse is a single nexus operation, no matter how many layers it writes
-            # to. The nexus applies one operation at a time for the whole Cortex, so no other
-            # write can land between the reads which compute the edits and the writes which
-            # apply them. Note that this is isolation rather than atomicity: the edits are
-            # still written one call per layer, so a failure part way through can leave some
-            # layers updated.
+            # A fuse whose edits fit in one chunk is applied by a single nexus operation, no
+            # matter how many layers it writes to. Note that this is not atomicity: the edits
+            # are written one call per layer, and a larger fuse spans several operations, so a
+            # failure part way through can leave some of it applied. See
+            # test_stormlib_model_migration_fuse_chunked() for the multi chunk case.
             offs = await core.nexsroot.index()
 
             await core.nodes(
@@ -1230,10 +1278,65 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(s_time.parse('2020'), nodes[0].get('tick'))
             self.isin('atomtag', nodes[0].tags)
 
+    async def test_stormlib_model_migration_fuse_nexus_payload(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('''[
+                test:str=pay-src :hehe=srcval +#paytag
+                test:str=pay-dst
+            ]''')
+
+            # fork so that the fuse writes to more than one layer
+            vdef = await core.view.fork()
+            forkopts = {'view': vdef.get('iden')}
+            await core.nodes('test:str=pay-src [ :tick=2020 ]', opts=forkopts)
+
+            baselayr = core.getView().layers[0]
+            forklayr = core.getView(vdef.get('iden')).layers[0]
+
+            offs = await core.nexsroot.index()
+
+            await core.nodes(
+                'test:str=pay-src $n=$node -> { test:str=pay-dst $lib.model.migration.fuse($n, $node) }',
+                opts=forkopts)
+
+            # The node edits themselves are the payload of the nexus operation, rather than the
+            # operation being a request for a mirror to recompute them from its own state. A
+            # mirror therefore applies exactly the edits which were computed here.
+            changes = [item async for item in core.getNexusChanges(offs, wait=False)]
+            self.len(1, changes)
+
+            (chngoffs, (nexsiden, event, args, kwargs, _)) = changes[0]
+            self.eq(offs, chngoffs)
+            self.eq('model:fuse:edits', event)
+
+            (layeredits, useriden, tick) = args
+            self.eq(core.auth.rootuser.iden, useriden)
+            self.nn(tick)
+
+            # one entry per layer, sorted by layer iden so the payload does not depend on
+            # layer iteration order
+            self.eq(sorted([baselayr.iden, forklayr.iden]), [layriden for (layriden, _) in layeredits])
+
+            # and each entry carries real (buid, form, edits) tuples for that layer. these came
+            # back out of the nexus log, so they have already round tripped through msgpack.
+            srcbuid = s_common.buid(('test:str', 'pay-src'))
+            dstbuid = s_common.buid(('test:str', 'pay-dst'))
+
+            for (layriden, nodeedits) in layeredits:
+
+                self.true(len(nodeedits) > 0)
+
+                for (buid, formname, edits) in nodeedits:
+                    self.isin(buid, (srcbuid, dstbuid))
+                    self.eq('test:str', formname)
+                    self.true(len(edits) > 0)
+
     async def test_stormlib_model_migration_fuse_nexus_mirror(self):
 
-        # a fuse is applied as one nexus operation, which a mirror replays for itself, so the
-        # mirror must end up with exactly the same state as the leader
+        # a fuse is applied as one nexus operation which carries the edits, so a mirror
+        # applies exactly those edits and must end up with the same state as the leader
         with self.getTestDir() as dirn:
 
             path00 = s_common.gendir(dirn, 'core00')
@@ -1259,10 +1362,29 @@ class StormlibModelTest(s_test.SynTest):
 
                     await core01.sync()
 
-                    await core00.nodes(
-                        'test:str=mir-src $n=$node -> { test:str=mir-dst $lib.model.migration.fuse($n, $node) }')
+                    # count the computes so we can prove the mirror does not do one of its own
+                    computes = []
 
-                    await core01.sync()
+                    realedits = s_nodefuse.NodeFuser.getLayerEdits
+
+                    async def countedits(self, srcndef, dstndef):
+                        layeredits = await realedits(self, srcndef, dstndef)
+                        computes.append(layeredits)
+                        return layeredits
+
+                    with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', countedits):
+
+                        await core00.nodes(
+                            'test:str=mir-src $n=$node -> { test:str=mir-dst $lib.model.migration.fuse($n, $node) }')
+
+                        await core01.sync()
+
+                    # the leader computed once to get the edits and once more to confirm there
+                    # was nothing left to do. the mirror replayed the edits from the nexus log
+                    # rather than recomputing them, so it did not add a third.
+                    self.len(2, computes)
+                    self.true(len(computes[0]) > 0)
+                    self.eq([], computes[1])
 
                     for core in (core00, core01):
 
@@ -1453,12 +1575,23 @@ class StormlibModelTest(s_test.SynTest):
                 await core.nodes(
                     'test:str=shr-src $n=$node -> { test:str=shr-dst $lib.model.migration.fuse($n, $node) }')
 
-            # the shared base layer is written exactly once, not once per view. a layer records
-            # its node edit log entry at the nexus offset it was applied at, so applying twice
-            # within the one fuse operation would overwrite the first entry.
-            self.eq(1, counts[baselayr.iden])
+            # The shared base layer is written exactly once per application of the fuse
+            # operation, not once per view. A layer records its node edit log entry at the nexus
+            # offset it was applied at, so applying twice within the one fuse operation would
+            # overwrite the first entry.
+            #
+            # Under nexus replay the operation is applied twice, which is the whole point of the
+            # edits being in its payload: the replay re-applies those recorded edits rather than
+            # recomputing them. They are all no-ops the second time around, so the layer records
+            # no node edit log entry for the replay and the state below is unchanged.
+            expected = 1
+            if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
+                expected = 2
+
+            self.eq(expected, counts[baselayr.iden])
 
             self.len(0, await core.nodes('test:str=shr-src'))
+            self.eq('woot', (await core.nodes('test:str=shr-dst'))[0].get('hehe'))
 
     async def test_stormlib_model_migration_fuse_readonly(self):
 
@@ -1520,106 +1653,52 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, await core.nodes('test:str=mir-src'))
             self.none((await core.nodes('test:str=mir-dst'))[0].get('hehe'))
 
-    async def test_stormlib_model_migration_fuse_triggers(self):
+    async def test_stormlib_model_migration_fuse_no_triggers(self):
 
         async with self.getTestCore() as core:
 
-            await core.nodes('[ test:str=trig-src :hehe=srcval test:str=trig-dst ]')
+            await core.nodes('[ test:str=trig-src :hehe=srcval +#trigtag test:str=trig-dst ]')
 
             vdef = await core.view.fork()
             forkiden = vdef.get('iden')
             forkopts = {'view': forkiden}
 
-            # a prop:set trigger in each view, writing to a different form
-            tdef = {'cond': 'prop:set', 'prop': 'test:str:hehe', 'storm': '[ test:int=1000 ]'}
-            await core.callStorm('return($lib.trigger.add($tdef))', opts={'vars': {'tdef': tdef}})
+            await core.nodes('test:str=trig-src [ :tick=2020 ]', opts=forkopts)
 
-            tdef = {'cond': 'prop:set', 'prop': 'test:str:hehe', 'storm': '[ test:int=2000 ]'}
-            await core.callStorm('return($lib.trigger.add($tdef))',
-                                 opts={'vars': {'tdef': tdef}, 'view': forkiden})
+            # A fuse writes straight to each layer, so none of the Snap() write path callbacks
+            # run and no trigger fires for any of its edits. Cover every condition a fuse could
+            # plausibly trip, in both the base view and a fork which shares its layer.
+            tdefs = (
+                {'cond': 'node:add', 'form': 'test:str', 'storm': '$lib.queue.gen(trigq).put(add)'},
+                {'cond': 'node:del', 'form': 'test:str', 'storm': '$lib.queue.gen(trigq).put(del)'},
+                {'cond': 'prop:set', 'prop': 'test:str:hehe', 'storm': '$lib.queue.gen(trigq).put(set)'},
+                {'cond': 'tag:add', 'tag': 'trigtag', 'storm': '$lib.queue.gen(trigq).put(tagadd)'},
+                {'cond': 'tag:del', 'tag': 'trigtag', 'storm': '$lib.queue.gen(trigq).put(tagdel)'},
+            )
 
-            # a node:del trigger in the fork
-            tdef = {'cond': 'node:del', 'form': 'test:str', 'storm': '[ test:int=3000 ]'}
-            await core.callStorm('return($lib.trigger.add($tdef))',
-                                 opts={'vars': {'tdef': tdef}, 'view': forkiden})
+            for tdef in tdefs:
+                opts = {'vars': {'tdef': tdef}}
+                await core.callStorm('return($lib.trigger.add($tdef))', opts=opts)
 
-            await core.nodes(
-                'test:str=trig-src $n=$node -> { test:str=trig-dst $lib.model.migration.fuse($n, $node) }')
-
-            # each view's prop:set trigger fired, in its own view
-            self.len(1, await core.nodes('test:int=1000'))
-            self.len(0, await core.nodes('test:int=2000'))
-            self.len(1, await core.nodes('test:int=2000', opts=forkopts))
-
-            # the fork saw src disappear too, so its node:del trigger fired
-            self.len(1, await core.nodes('test:int=3000', opts=forkopts))
-
-    async def test_stormlib_model_migration_fuse_trigger_shadowed(self):
-
-        async with self.getTestCore() as core:
-
-            await core.nodes('[ test:str=shad-src :hehe=srcval test:str=shad-dst ]')
-
-            vdef = await core.view.fork()
-            forkiden = vdef.get('iden')
-            forkopts = {'view': forkiden}
-
-            # the fork's write layer already has its own :hehe on dst, which shadows
-            # whatever the base layer holds
-            await core.nodes('test:str=shad-dst [ :hehe=forkval ]', opts=forkopts)
-
-            # NOTE: the triggers filter to dst. Deleting src also emits a prop del for its
-            # :hehe, and a prop del fires prop:set handlers just as a delnode does, so an
-            # unfiltered trigger would fire for src's teardown in every view.
-            tdef = {'cond': 'prop:set', 'prop': 'test:str:hehe',
-                    'storm': 'if ($node.value() = "shad-dst") { [ test:int=1000 ] }'}
-            await core.callStorm('return($lib.trigger.add($tdef))', opts={'vars': {'tdef': tdef}})
-
-            tdef = {'cond': 'prop:set', 'prop': 'test:str:hehe',
-                    'storm': 'if ($node.value() = "shad-dst") { [ test:int=2000 ] }'}
-            await core.callStorm('return($lib.trigger.add($tdef))',
-                                 opts={'vars': {'tdef': tdef}, 'view': forkiden})
+                opts = {'vars': {'tdef': tdef}, 'view': forkiden}
+                await core.callStorm('return($lib.trigger.add($tdef))', opts=opts)
 
             await core.nodes(
-                'test:str=shad-src $n=$node -> { test:str=shad-dst $lib.model.migration.fuse($n, $node) }')
+                'test:str=trig-src $n=$node -> { test:str=trig-dst $lib.model.migration.fuse($n, $node) }',
+                opts=forkopts)
 
-            # src's :hehe was written to the base layer, so the base view observes dst
-            # gaining it and its trigger fires
-            self.len(1, await core.nodes('test:int=1000'))
-            self.eq('srcval', (await core.nodes('test:str=shad-dst'))[0].get('hehe'))
+            # the fuse itself landed
+            self.len(0, await core.nodes('test:str=trig-src', opts=forkopts))
 
-            # the fork's own write layer still shadows that value, so from the fork dst
-            # did not change and its trigger must not fire
-            self.eq('forkval', (await core.nodes('test:str=shad-dst', opts=forkopts))[0].get('hehe'))
-            self.len(0, await core.nodes('test:int=2000', opts=forkopts))
+            nodes = await core.nodes('test:str=trig-dst', opts=forkopts)
+            self.len(1, nodes)
+            self.eq('srcval', nodes[0].get('hehe'))
+            self.eq(s_time.parse('2020'), nodes[0].get('tick'))
+            self.isin('trigtag', nodes[0].tags)
 
-    async def test_stormlib_model_migration_fuse_trigger_nodeadd(self):
-
-        async with self.getTestCore() as core:
-
-            vdef = await core.view.fork()
-            forkiden = vdef.get('iden')
-            forkopts = {'view': forkiden}
-
-            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': '[ test:int=1000 ]'}
-            await core.callStorm('return($lib.trigger.add($tdef))', opts={'vars': {'tdef': tdef}})
-
-            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': '[ test:int=2000 ]'}
-            await core.callStorm('return($lib.trigger.add($tdef))',
-                                 opts={'vars': {'tdef': tdef}, 'view': forkiden})
-
-            # dst already exists in the base layer, so it is visible in both views and
-            # no node:add is observable anywhere
-            await core.nodes('[ test:str=na-src :hehe=woot test:str=na-dst ]')
-
-            await core.nodes('test:int | delnode')
-            await core.nodes('test:int | delnode', opts=forkopts)
-
-            await core.nodes(
-                'test:str=na-src $n=$node -> { test:str=na-dst $lib.model.migration.fuse($n, $node) }')
-
-            self.len(0, await core.nodes('test:int=1000'))
-            self.len(0, await core.nodes('test:int=2000', opts=forkopts))
+            # and not one trigger fired, in either view
+            self.eq(0, await core.callStorm('return($lib.queue.gen(trigq).size())'))
+            self.eq(0, await core.callStorm('return($lib.queue.gen(trigq).size())', opts=forkopts))
 
     async def test_stormlib_model_migration_fuse_recovery(self):
 
@@ -1658,3 +1737,221 @@ class StormlibModelTest(s_test.SynTest):
 
             self.len(0, await core.nodes('test:str=rec-src'))
             self.eq('srcval', (await core.nodes('test:str=rec-dst'))[0].get('hehe'))
+
+    async def test_stormlib_model_migration_fuse_settle(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=race-src :hehe=srcval test:str=race-dst ]')
+
+            q = 'test:str=race-src $n=$node -> { test:str=race-dst $lib.model.migration.fuse($n, $node) }'
+
+            # The edits are computed outside of the nexus operation which applies them, so a
+            # write can land in between. Simulate that by writing to src after its edits have
+            # been computed but before they are pushed.
+            computes = []
+
+            realedits = s_nodefuse.NodeFuser.getLayerEdits
+
+            async def raceedits(self, srcndef, dstndef):
+
+                layeredits = await realedits(self, srcndef, dstndef)
+                computes.append(layeredits)
+
+                if len(computes) == 1:
+                    await core.nodes('test:str=race-src [ :somestr=racedval ]')
+
+                return layeredits
+
+            offs = await core.nexsroot.index()
+
+            with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', raceedits):
+                mesgs = await core.stormlist(q)
+
+            self.stormHasNoWarnErr(mesgs)
+
+            # the first pass applied edits which were already stale, the second picked up the
+            # write which raced in, and the third confirmed there was nothing left to do
+            self.len(3, computes)
+            self.true(len(computes[0]) > 0)
+            self.true(len(computes[1]) > 0)
+            self.eq([], computes[2])
+
+            # the racing write, plus one nexus operation for each of the two applied passes
+            self.eq(3, await core.nexsroot.index() - offs)
+
+            # the racing write followed the node rather than being left behind on src
+            self.len(0, await core.nodes('test:str=race-src'))
+
+            nodes = await core.nodes('test:str=race-dst')
+            self.len(1, nodes)
+            self.eq('srcval', nodes[0].get('hehe'))
+            self.eq('racedval', nodes[0].get('somestr'))
+
+    async def test_stormlib_model_migration_fuse_nosettle(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=nos-src :hehe=srcval test:str=nos-dst ]')
+
+            q = 'test:str=nos-src $n=$node -> { test:str=nos-dst $lib.model.migration.fuse($n, $node) }'
+
+            # a write which lands after every compute never lets the fuse settle, so it gives
+            # up after a bounded number of passes and tells the caller to re-run
+            computes = []
+
+            realedits = s_nodefuse.NodeFuser.getLayerEdits
+
+            async def raceedits(self, srcndef, dstndef):
+
+                layeredits = await realedits(self, srcndef, dstndef)
+                computes.append(layeredits)
+
+                # a tag the edits which were just computed know nothing about, so applying them
+                # cannot tear it down and the next pass always has something left to do
+                await core.nodes(f'[ test:str=nos-src +#race.tag{len(computes)} ]')
+
+                return layeredits
+
+            with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', raceedits):
+                mesgs = await core.stormlist(q)
+
+            self.stormIsInWarn('did not settle after 3 passes', mesgs)
+            self.stormIsInWarn('Re-run fuse() with the same arguments', mesgs)
+
+            self.len(s_nodefuse.maxfusepasses, computes)
+
+    async def test_stormlib_model_migration_fuse_apply_readonly(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=arc-src :hehe=srcval test:str=arc-dst ]')
+
+            q = 'test:str=arc-src $n=$node -> { test:str=arc-dst $lib.model.migration.fuse($n, $node) }'
+
+            baselayr = core.getView().layers[0]
+
+            # A layer can stop being writable between its edits being computed and the nexus
+            # operation applying them, so the apply re-checks rather than writing to a layer it
+            # is no longer allowed to touch.
+            realedits = s_nodefuse.NodeFuser.getLayerEdits
+
+            async def roedits(self, srcndef, dstndef):
+
+                layeredits = await realedits(self, srcndef, dstndef)
+                if layeredits:
+                    await baselayr.setLayerInfo('readonly', True)
+
+                return layeredits
+
+            with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', roedits):
+                mesgs = await core.stormlist(q)
+
+            self.stormIsInWarn('because it became read only', mesgs)
+
+            await baselayr.setLayerInfo('readonly', False)
+
+            # the layer was not modified, so src is intact and dst did not gain anything
+            self.len(1, await core.nodes('test:str=arc-src'))
+            self.none((await core.nodes('test:str=arc-dst'))[0].get('hehe'))
+
+    def test_nodefuse_edit_chunks(self):
+
+        def mkedit(buid, count):
+            return (buid, 'test:str', [('edit', indx) for indx in range(count)])
+
+        # an empty plan yields nothing at all, so a no-op fuse pushes no nexus operation
+        self.eq([], list(s_nodefuse.iterEditChunks([])))
+
+        # a plan which fits stays as one chunk, whatever the layer count
+        plan = [('lyr0', [mkedit(b'a', 2)]), ('lyr1', [mkedit(b'b', 2)])]
+        self.eq([plan], list(s_nodefuse.iterEditChunks(plan, chunk=100)))
+
+        # 1. a nodeedit is never split, even when it alone exceeds the chunk size, because
+        #    the edits for one buid are order dependent
+        plan = [('lyr0', [mkedit(b'a', 5), mkedit(b'b', 5)])]
+        chunks = list(s_nodefuse.iterEditChunks(plan, chunk=2))
+
+        self.len(2, chunks)
+        self.eq([('lyr0', [mkedit(b'a', 5)])], chunks[0])
+        self.eq([('lyr0', [mkedit(b'b', 5)])], chunks[1])
+
+        # 2. the order of the nodeedits is preserved, so "dst gains" stays ahead of "src loses"
+        buids = [bytes([indx]) for indx in range(10)]
+        plan = [('lyr0', [mkedit(buid, 3) for buid in buids])]
+
+        chunks = list(s_nodefuse.iterEditChunks(plan, chunk=4))
+        self.true(len(chunks) > 1)
+
+        flat = [nodeedit for chunk in chunks for (_, nodeedits) in chunk for nodeedit in nodeedits]
+        self.eq(buids, [nodeedit[0] for nodeedit in flat])
+
+        # 3. a layer appears at most once per chunk, so it never records two node edit log
+        #    entries at the same nexus offset
+        plan = [(f'lyr{indx}', [mkedit(buid, 3) for buid in buids]) for indx in range(4)]
+
+        chunks = list(s_nodefuse.iterEditChunks(plan, chunk=4))
+
+        for chunk in chunks:
+            layridens = [layriden for (layriden, _) in chunk]
+            self.eq(sorted(set(layridens)), sorted(layridens))
+
+        # and nothing is dropped or duplicated across the chunks
+        for (layriden, nodeedits) in plan:
+            got = [nodeedit for chunk in chunks for (lyr, edits) in chunk if lyr == layriden
+                   for nodeedit in edits]
+            self.eq(nodeedits, got)
+
+    async def test_nodefuse_edit_order(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=ord-src :hehe=woot +#ordtag test:str=ord-dst ]')
+
+            # an inbound light edge and an inbound array property reference
+            await core.nodes('[ test:int=1 +(refs)> { test:str=ord-src } ]')
+            await core.nodes('[ test:arrayprop="*" :strs=(ord-src,) ]')
+
+            srcbuid = s_common.buid(('test:str', 'ord-src'))
+            dstbuid = s_common.buid(('test:str', 'ord-dst'))
+            edgebuid = s_common.buid(('test:int', 1))
+
+            fuser = s_nodefuse.NodeFuser(core, core.auth.rootuser.iden)
+            layeredits = await fuser.getLayerEdits(('test:str', 'ord-src'), ('test:str', 'ord-dst'))
+
+            self.true(len(layeredits) > 0)
+
+            for (layriden, nodeedits) in layeredits:
+
+                buids = [nodeedit[0] for nodeedit in nodeedits]
+
+                self.isin(srcbuid, buids)
+                self.isin(dstbuid, buids)
+
+                # a chunk boundary can fall between any two nodeedits, so everything which
+                # adds to dst or repoints a reference must be ordered before src is torn down
+                srcindx = buids.index(srcbuid)
+
+                self.lt(buids.index(dstbuid), srcindx)
+
+                # the inbound array reference is repointed before src is deleted, so it can
+                # never be left pointing at a node which no longer exists
+                refbuids = [buid for buid in buids if buid not in (srcbuid, dstbuid, edgebuid)]
+                self.true(len(refbuids) > 0)
+
+                for refbuid in refbuids:
+                    self.lt(buids.index(refbuid), srcindx)
+
+                # src is torn down last, and its own edits are one nodeedit which is never
+                # split, so the delete cannot be separated from the prop and tag removals
+                self.eq(len(buids) - 1, srcindx)
+
+                edits = [edit[0] for edit in nodeedits[srcindx][2]]
+                self.isin(s_layer.EDIT_NODE_DEL, edits)
+                self.isin(s_layer.EDIT_PROP_DEL, edits)
+                self.isin(s_layer.EDIT_TAG_DEL, edits)
+
+                # the light edge repoint is add-then-delete inside a single nodeedit, so it is
+                # applied atomically and the edge is never pointing at neither node
+                edgeedits = [edit[0] for edit in nodeedits[buids.index(edgebuid)][2]]
+                self.eq([s_layer.EDIT_EDGE_ADD, s_layer.EDIT_EDGE_DEL], edgeedits)

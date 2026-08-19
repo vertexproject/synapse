@@ -1423,8 +1423,11 @@ class LayerEditBatch:
     If chunk is None, edits accumulate until flush() is called explicitly. Otherwise a
     flush is triggered once chunk edits have been queued. Note that chunking gives up
     per-layer atomicity, since the edits for a layer then span multiple nexus items.
+
+    meta is the nodeedit meta to record when flushing, so it may be omitted by a caller
+    which only coalesces edits and drains them with popLayerEdits().
     '''
-    def __init__(self, core, meta, chunk=None, nolift=False):
+    def __init__(self, core, meta=None, chunk=None, nolift=False):
         self.core = core
         self.meta = meta
         self.chunk = chunk

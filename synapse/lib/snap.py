@@ -1369,7 +1369,7 @@ class Snap(s_base.Base):
 
         return saveoff, changes, nodes
 
-    async def _getEditCallbacks(self, node, postedits, useriden, bylayer=None):
+    async def _getEditCallbacks(self, node, postedits, useriden, bylayer):
         '''
         Apply a list of applied node edits to a Node() and return the callbacks to fire.
 
@@ -1377,10 +1377,7 @@ class Snap(s_base.Base):
             node (Node): The Node() to update.
             postedits (list): A list of edits which were actually applied.
             useriden (str): The iden of the user which made the edits.
-            bylayer (str): The layer iden to record as the source of each edit. If None, the
-                           Node() provenance in node.bylayer is left untouched. This is used
-                           when firing consequences for edits which were applied to a layer
-                           other than a view's write layer.
+            bylayer (str): The layer iden to record as the source of each edit.
 
         Returns:
             list: A list of (func, args) tuples to await.
@@ -1392,8 +1389,7 @@ class Snap(s_base.Base):
             etyp, parms, _ = edit
 
             if etyp == s_layer.EDIT_NODE_ADD:
-                if bylayer is not None:
-                    node.bylayer['ndef'] = bylayer
+                node.bylayer['ndef'] = bylayer
                 callbacks.append((node.form.wasAdded, (node,)))
                 callbacks.append((self.view.runNodeAdd, (node, useriden)))
                 continue
@@ -1413,8 +1409,7 @@ class Snap(s_base.Base):
                     continue
 
                 node.props[name] = valu
-                if bylayer is not None:
-                    node.bylayer['props'][name] = bylayer
+                node.bylayer['props'][name] = bylayer
 
                 callbacks.append((prop.wasSet, (node, oldv)))
                 callbacks.append((self.view.runPropSet, (node, prop, oldv, useriden)))
@@ -1430,8 +1425,7 @@ class Snap(s_base.Base):
                     continue
 
                 node.props.pop(name, None)
-                if bylayer is not None:
-                    node.bylayer['props'].pop(name, None)
+                node.bylayer['props'].pop(name, None)
 
                 callbacks.append((prop.wasDel, (node, oldv)))
                 callbacks.append((self.view.runPropSet, (node, prop, oldv, useriden)))
@@ -1442,8 +1436,7 @@ class Snap(s_base.Base):
                 (tag, valu, oldv) = parms
 
                 node.tags[tag] = valu
-                if bylayer is not None:
-                    node.bylayer['tags'][tag] = bylayer
+                node.bylayer['tags'][tag] = bylayer
 
                 callbacks.append((self.view.runTagAdd, (node, tag, valu, useriden,)))
                 continue
@@ -1453,8 +1446,7 @@ class Snap(s_base.Base):
                 (tag, oldv) = parms
 
                 node.tags.pop(tag, None)
-                if bylayer is not None:
-                    node.bylayer['tags'].pop(tag, None)
+                node.bylayer['tags'].pop(tag, None)
 
                 callbacks.append((self.view.runTagDel, (node, tag, oldv, useriden)))
                 continue
@@ -1463,23 +1455,19 @@ class Snap(s_base.Base):
                 (tag, prop, valu, oldv, stype) = parms
                 if tag not in node.tagprops:
                     node.tagprops[tag] = {}
-                    if bylayer is not None:
-                        node.bylayer['tagprops'][tag] = {}
+                    node.bylayer['tagprops'][tag] = {}
                 node.tagprops[tag][prop] = valu
-                if bylayer is not None:
-                    node.bylayer['tagprops'][tag][prop] = bylayer
+                node.bylayer['tagprops'][tag][prop] = bylayer
                 continue
 
             if etyp == s_layer.EDIT_TAGPROP_DEL:
                 (tag, prop, oldv, stype) = parms
                 if tag in node.tagprops:
                     node.tagprops[tag].pop(prop, None)
-                    if bylayer is not None:
-                        node.bylayer['tagprops'][tag].pop(prop, None)
+                    node.bylayer['tagprops'][tag].pop(prop, None)
                     if not node.tagprops[tag]:
                         node.tagprops.pop(tag, None)
-                        if bylayer is not None:
-                            node.bylayer['tagprops'].pop(tag, None)
+                        node.bylayer['tagprops'].pop(tag, None)
                 continue
 
             if etyp == s_layer.EDIT_NODEDATA_SET:

@@ -5,7 +5,6 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
-import synapse.lib.nodefuse as s_nodefuse
 import synapse.lib.stormtypes as s_stormtypes
 
 RISK_HASVULN_VULNPROPS = (
@@ -859,24 +858,32 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             warning is emitted for each one which held any of src's data, because that data
             remains and will still make src visible in any view which includes that layer.
 
-            Atomicity:
+            Concurrency:
 
-            A fuse is computed and applied as a single Cortex wide operation. The Cortex applies
-            one such operation at a time, so no other write can land between the reads which
-            decide what the fuse will do and the writes which apply it.
+            The edits which make up a fuse are computed by reading every layer, and are then
+            applied by Cortex wide operations which carry them.
 
-            The edits are still written with one call per layer, so a fuse is not transactional
-            across layers and a failure part way through can leave some layers updated. Re-running
-            fuse() with the same arguments completes an interrupted fuse.
+            Those reads are not serialized against other writes, so a write can land between
+            them and the apply. Anything which does is left behind on src rather than being
+            lost, and fuse() recomputes after applying to pick it up. A src node which is
+            being written to continuously may not settle, in which case a warning is emitted
+            and re-running fuse() completes it.
 
-            Because the whole fuse must be applied at once, it cannot be split into smaller
-            batches. A fuse which requires a very large number of edits is refused rather than
-            applied non-atomically.
+            A fuse is not transactional. The edits are written with one call per layer, and
+            fusing a heavily referenced node is applied in several operations rather than one,
+            so a failure part way through can leave some of the fuse applied. Nothing is
+            removed from src until dst holds it and the references to src have been repointed,
+            so an interruption cannot lose data or leave a reference pointing at a node which
+            no longer exists. Re-running fuse() with the same arguments completes it.
+
+            There is no limit on how many edits a fuse may make. A fuse of a very heavily
+            referenced node takes longer and spans more operations, but is not refused.
 
             Notes:
 
-            - Any triggers attached to the affected forms will fire, once per view in which
-              the edit is actually observable.
+            - Triggers do not fire for the edits a fuse makes. A fuse rewrites the same data
+              across every layer in the Cortex rather than making an analytical change in one
+              view, so there is no single view whose triggers are the right ones to run.
             - A light edge between src and dst becomes a self-edge on dst after the fuse.
             - Node objects which other running queries already hold for src become stale, so
               running a fuse during a maintenance window is recommended.
@@ -983,19 +990,17 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         srcndef = src.ndef
         dstndef = dst.ndef
 
-        conseq = await core.fuseNodes(srcndef, dstndef, runt.user.iden)
+        result = await core.fuseNodes(srcndef, dstndef, runt.user.iden)
 
-        # The fuse runs inside a nexus operation, which cannot warn into this runtime or fire
-        # trigger consequences of its own, so both are handled out here.
-        for mesg in conseq.get('warnings', ()):
+        # The fuse edits are applied inside a nexus operation, which a mirror replays with no
+        # Storm runtime to warn into, so the warnings are collected and emitted out here.
+        for mesg in result.get('warnings', ()):
             await runt.warn(mesg, log=False)
-
-        await s_nodefuse.runConsequences(core, runt.user.iden, conseq)
 
         # Node objects this snap is holding may now be stale
         await runt.snap.clearCache()
 
-        failed = conseq.get('failed')
+        failed = result.get('failed')
         if failed:
             mesg = '$lib.model.migration.fuse() failed to apply edits to some layers: '
             mesg += ', '.join([f'{iden} ({errm})' for iden, errm in failed])
