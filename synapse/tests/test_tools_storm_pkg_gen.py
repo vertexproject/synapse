@@ -134,6 +134,7 @@ class GenPkgTest(s_test.SynTest):
                 {'path': '/v1/test/one'},
                 {'path': '/v1/test/two', 'host': 'vertex.link'},
                 {'path': '/v1/test/three', 'desc': 'endpoint three'},
+                {'path': '/v1/test/four', 'url': 'https://vertex.link/api', 'desc': 'endpoint four'},
             ])
 
             self.eq(pdef['perms'][0]['perm'], ['power-ups', 'testpkg', 'user'])

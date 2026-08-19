@@ -960,6 +960,7 @@ _reqValidPkgdefSchema = {
                         'type': 'object',
                         'properties': {
                             'path': {'type': 'string'},
+                            'url': {'type': 'string'},
                             'host': {'type': 'string'},
                             'desc': {'type': 'string'},
                         },
