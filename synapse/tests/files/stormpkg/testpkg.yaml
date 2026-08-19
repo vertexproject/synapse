@@ -162,6 +162,9 @@ commands:
           host: vertex.link
         - path: /v1/test/three
           desc: endpoint three
+        - path: /v1/test/four
+          url: https://vertex.link/api
+          desc: endpoint four
       perms:
         - [ power-ups, testpkg, user ]
         - [ power-ups, testpkg, admin ]

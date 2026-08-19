@@ -207,9 +207,12 @@ class TestAutoDoc(s_t_utils.SynTest):
             rsttext = rst.getRstText()
 
             self.isin('    Endpoints:', rsttext)
-            self.isin('      /v1/test/one\n', rsttext)
-            self.isin('      /v1/test/two\n', rsttext)
-            self.isin('      /v1/test/three              : endpoint three', rsttext)
+            self.isin('      (user-configured base URL)\n', rsttext)
+            self.isin('        /v1/test/one\n', rsttext)
+            self.isin('        /v1/test/two\n', rsttext)
+            self.isin('        /v1/test/three            : endpoint three', rsttext)
+            self.isin('      https://vertex.link/api\n', rsttext)
+            self.isin('        /v1/test/four             : endpoint four', rsttext)
 
             self.isin('    Inputs:\n', rsttext)
             self.isin('      test:int                    : Some integer input\n', rsttext)
