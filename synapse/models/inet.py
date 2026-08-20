@@ -2426,6 +2426,8 @@ class InetModule(s_module.CoreModule):
                         ('response:headers', ('array', {'type': 'inet:http:response:header'}), {
                             'doc': 'An array of HTTP headers from the response.'}),
                         ('response:body', ('file:bytes', {}), {}),
+                        ('response:cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of HTTP cookie values parsed from the "Set-Cookie:" headers in the response.'}),
                         ('session', ('inet:http:session', {}), {
                             'doc': 'The HTTP session this request was part of.'}),
 
