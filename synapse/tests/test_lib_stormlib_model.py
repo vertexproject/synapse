@@ -1379,12 +1379,10 @@ class StormlibModelTest(s_test.SynTest):
 
                         await core01.sync()
 
-                    # the leader computed once to get the edits and once more to confirm there
-                    # was nothing left to do. the mirror replayed the edits from the nexus log
-                    # rather than recomputing them, so it did not add a third.
-                    self.len(2, computes)
+                    # the leader computed the edits once. the mirror replayed them from the
+                    # nexus log rather than recomputing them, so it did not add a second.
+                    self.len(1, computes)
                     self.true(len(computes[0]) > 0)
-                    self.eq([], computes[1])
 
                     for core in (core00, core01):
 
@@ -1738,7 +1736,59 @@ class StormlibModelTest(s_test.SynTest):
             self.len(0, await core.nodes('test:str=rec-src'))
             self.eq('srcval', (await core.nodes('test:str=rec-dst'))[0].get('hehe'))
 
-    async def test_stormlib_model_migration_fuse_settle(self):
+    async def test_stormlib_model_migration_fuse_race_ref(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=ir-src test:str=ir-dst ]')
+
+            q = 'test:str=ir-src $n=$node -> { test:str=ir-dst $lib.model.migration.fuse($n, $node) }'
+
+            # A node can start referencing src after the reference rewrites were computed, which
+            # leaves it pointing at a node which no longer exists. src itself is untouched by
+            # that write, so checking src alone would not notice.
+            realedits = s_nodefuse.NodeFuser.getLayerEdits
+            raced = []
+
+            async def refedits(self, srcndef, dstndef):
+
+                layeredits = await realedits(self, srcndef, dstndef)
+                if raced:
+                    return layeredits
+
+                raced.append(True)
+                await core.nodes('[ test:arrayprop=(late,) :strs=(ir-src,) ]')
+
+                return layeredits
+
+            with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', refedits):
+                mesgs = await core.stormlist(q)
+
+            self.stormIsInWarn("left a reference to test:str='ir-src'", mesgs)
+            self.stormIsInWarn("from property 'test:arrayprop:strs'", mesgs)
+            self.stormIsInWarn('points at a node which no longer exists', mesgs)
+
+            # src is gone, so nothing about src itself was left to warn about
+            self.stormNotInWarn('left state for', mesgs)
+
+            srcbuid = s_common.buid(('test:str', 'ir-src'))
+            for layer in core.layers.values():
+                self.false(bool(await layer.getStorNode(srcbuid)))
+
+            # the reference is still pointing at the deleted src
+            self.len(1, await core.nodes('test:arrayprop:strs*[=ir-src]'))
+            self.len(0, await core.nodes('test:arrayprop:strs*[=ir-dst]'))
+
+            # re-running repoints it and settles
+            result = await core.fuseNodes(('test:str', 'ir-src'), ('test:str', 'ir-dst'),
+                                          core.auth.rootuser.iden)
+            self.eq([], result['failed'])
+            self.eq([], result['warnings'])
+
+            self.len(0, await core.nodes('test:arrayprop:strs*[=ir-src]'))
+            self.len(1, await core.nodes('test:arrayprop:strs*[=ir-dst]'))
+
+    async def test_stormlib_model_migration_fuse_race(self):
 
         async with self.getTestCore() as core:
 
@@ -1758,8 +1808,7 @@ class StormlibModelTest(s_test.SynTest):
                 layeredits = await realedits(self, srcndef, dstndef)
                 computes.append(layeredits)
 
-                if len(computes) == 1:
-                    await core.nodes('test:str=race-src [ :somestr=racedval ]')
+                await core.nodes('test:str=race-src [ :somestr=racedval ]')
 
                 return layeredits
 
@@ -1768,58 +1817,39 @@ class StormlibModelTest(s_test.SynTest):
             with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', raceedits):
                 mesgs = await core.stormlist(q)
 
-            self.stormHasNoWarnErr(mesgs)
+            # the edits are computed and applied once rather than retried, so the write which
+            # raced in is left on src and the caller is told to re-run
+            self.len(1, computes)
+            self.stormIsInWarn("left state for test:str='race-src'", mesgs)
+            self.stormIsInWarn('Re-run fuse() with the same arguments', mesgs)
 
-            # the first pass applied edits which were already stale, the second picked up the
-            # write which raced in, and the third confirmed there was nothing left to do
-            self.len(3, computes)
-            self.true(len(computes[0]) > 0)
-            self.true(len(computes[1]) > 0)
-            self.eq([], computes[2])
+            # the racing write, plus one nexus operation to apply the edits
+            self.eq(2, await core.nexsroot.index() - offs)
 
-            # the racing write, plus one nexus operation for each of the two applied passes
-            self.eq(3, await core.nexsroot.index() - offs)
-
-            # the racing write followed the node rather than being left behind on src
+            # everything which was computed made it across, and src no longer lifts
             self.len(0, await core.nodes('test:str=race-src'))
 
             nodes = await core.nodes('test:str=race-dst')
             self.len(1, nodes)
             self.eq('srcval', nodes[0].get('hehe'))
+            self.none(nodes[0].get('somestr'))
+
+            # re-running the fuse picks up the write which was left behind and settles
+            srcndef = ('test:str', 'race-src')
+            dstndef = ('test:str', 'race-dst')
+
+            result = await core.fuseNodes(srcndef, dstndef, core.auth.rootuser.iden)
+            self.eq([], result['failed'])
+            self.eq([], result['warnings'])
+
+            nodes = await core.nodes('test:str=race-dst')
+            self.len(1, nodes)
             self.eq('racedval', nodes[0].get('somestr'))
 
-    async def test_stormlib_model_migration_fuse_nosettle(self):
-
-        async with self.getTestCore() as core:
-
-            await core.nodes('[ test:str=nos-src :hehe=srcval test:str=nos-dst ]')
-
-            q = 'test:str=nos-src $n=$node -> { test:str=nos-dst $lib.model.migration.fuse($n, $node) }'
-
-            # a write which lands after every compute never lets the fuse settle, so it gives
-            # up after a bounded number of passes and tells the caller to re-run
-            computes = []
-
-            realedits = s_nodefuse.NodeFuser.getLayerEdits
-
-            async def raceedits(self, srcndef, dstndef):
-
-                layeredits = await realedits(self, srcndef, dstndef)
-                computes.append(layeredits)
-
-                # a tag the edits which were just computed know nothing about, so applying them
-                # cannot tear it down and the next pass always has something left to do
-                await core.nodes(f'[ test:str=nos-src +#race.tag{len(computes)} ]')
-
-                return layeredits
-
-            with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', raceedits):
-                mesgs = await core.stormlist(q)
-
-            self.stormIsInWarn('did not settle after 3 passes', mesgs)
-            self.stormIsInWarn('Re-run fuse() with the same arguments', mesgs)
-
-            self.len(s_nodefuse.maxfusepasses, computes)
+            # nothing is left of src in any layer
+            srcbuid = s_common.buid(srcndef)
+            for layer in core.layers.values():
+                self.false(bool(await layer.getStorNode(srcbuid)))
 
     async def test_stormlib_model_migration_fuse_apply_readonly(self):
 
@@ -1854,6 +1884,21 @@ class StormlibModelTest(s_test.SynTest):
             # the layer was not modified, so src is intact and dst did not gain anything
             self.len(1, await core.nodes('test:str=arc-src'))
             self.none((await core.nodes('test:str=arc-dst'))[0].get('hehe'))
+
+            # A layer's edits can span several chunks, and each of them warns that the layer
+            # became read only. Those are deduplicated, so the caller is only warned once
+            # rather than once per chunk.
+            with mock.patch.object(s_nodefuse, 'maxchunkedits', 1):
+                with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', roedits):
+                    mesgs = await core.stormlist(q)
+
+            warns = [mesg for (mtyp, mesg) in mesgs
+                     if mtyp == 'warn' and 'because it became read only' in mesg['mesg']]
+            self.len(1, warns)
+
+            await baselayr.setLayerInfo('readonly', False)
+
+            self.len(1, await core.nodes('test:str=arc-src'))
 
     def test_nodefuse_edit_chunks(self):
 

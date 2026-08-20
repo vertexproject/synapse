@@ -864,10 +864,10 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             applied by Cortex wide operations which carry them.
 
             Those reads are not serialized against other writes, so a write can land between
-            them and the apply. Anything which does is left behind on src rather than being
-            lost, and fuse() recomputes after applying to pick it up. A src node which is
-            being written to continuously may not settle, in which case a warning is emitted
-            and re-running fuse() completes it.
+            them and the apply. The edits are computed and applied once rather than retried, so
+            a write which lands in that window is reported as a warning and requires fuse() to
+            be re-run to complete it. Two cases are reported: state left on src, and a node
+            left referencing src.
 
             A fuse is not transactional. The edits are written with one call per layer, and
             fusing a heavily referenced node is applied in several operations rather than one,

@@ -7255,10 +7255,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         therefore not transactional, and an interruption can leave part of it applied. See
         s_nodefuse.iterEditChunks() for the ordering which makes that recoverable.
 
-        Since the reads are not serialized against other writes, the edits are recomputed
-        after applying and re-applied if anything raced in. Note that this means a fuse
-        always costs at least one more read pass than it strictly needs, to confirm that
-        there is nothing left to do.
+        Since the reads are not serialized against other writes, a write which lands after the
+        edits are computed is generally left behind on src rather than picked up. The edits are
+        computed and applied once, and src is then checked so that the caller is told to re-run
+        rather than retrying here.
 
         Args:
             srcndef (tuple): The (form, valu) of the node to fuse from. It will be deleted.
@@ -7272,51 +7272,34 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # mirror record the same time in the layer node edit logs.
         tick = s_common.now()
 
-        maxpasses = s_nodefuse.maxfusepasses
-
         result = s_nodefuse.initResult()
 
-        for indx in range(maxpasses):
+        fuser = s_nodefuse.NodeFuser(self, useriden)
 
-            fuser = s_nodefuse.NodeFuser(self, useriden)
+        layeredits = await fuser.getLayerEdits(srcndef, dstndef)
 
-            layeredits = await fuser.getLayerEdits(srcndef, dstndef)
+        # merge even with nothing to apply, since computing the edits may have produced
+        # warnings of its own which the caller still needs to emit
+        s_nodefuse.mergeResult(result, fuser.getResult())
 
-            # merge even with nothing to apply, since computing the edits may have produced
-            # warnings of its own which the caller still needs to emit
-            s_nodefuse.mergeResult(result, fuser.getResult())
+        if not layeredits:
+            return result
 
-            if not layeredits:
-                break
+        for chunk in s_nodefuse.iterEditChunks(layeredits):
 
-            if indx > 0:
-                logger.info(f'fuseNodes() found more edits for {srcndef[0]}={srcndef[1]!r} after '
-                            f'applying, re-applying (pass {indx + 1} of {maxpasses}).')
+            retn = await self._push('model:fuse:edits', chunk, useriden, tick)
 
-            failed = False
+            s_nodefuse.mergeResult(result, retn)
 
-            for chunk in s_nodefuse.iterEditChunks(layeredits):
+            # A layer which failed is not retried here. The failure would simply repeat, and
+            # the warning already tells the caller to re-run once they have dealt with it.
+            # Stop pushing chunks rather than driving the rest of the fuse into it.
+            if retn['failed']:
+                return result
 
-                retn = await self._push('model:fuse:edits', chunk, useriden, tick)
-
-                s_nodefuse.mergeResult(result, retn)
-
-                # A layer which failed is not retried here. The failure would simply repeat,
-                # and the warning already tells the caller to re-run once they have dealt with
-                # it. Stop pushing chunks rather than driving the rest of the fuse into it.
-                if retn['failed']:
-                    failed = True
-                    break
-
-            if failed:
-                break
-
-        else:
-            mesg = (f'$lib.model.migration.fuse() did not settle after {maxpasses} passes '
-                    f'for {srcndef[0]}={srcndef[1]!r}. Edits are still arriving for it. Re-run '
-                    f'fuse() with the same arguments to complete it.')
-            logger.warning(mesg)
-            result['warnings'].append(mesg)
+        # Nothing failed, so every edit which was computed has been applied. Check that src
+        # is actually gone, to catch a write which landed while the fuse was being computed.
+        s_nodefuse.mergeResult(result, await s_nodefuse.checkFused(self, srcndef))
 
         return result
 

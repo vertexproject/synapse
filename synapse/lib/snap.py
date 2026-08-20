@@ -1359,7 +1359,111 @@ class Snap(s_base.Base):
             if postedits:
                 actualedits.append((buid, node.form.name, postedits))
 
-            callbacks.extend(await self._getEditCallbacks(node, postedits, useriden, bylayer=wlyr.iden))
+            for edit in postedits:
+
+                etyp, parms, _ = edit
+
+                if etyp == s_layer.EDIT_NODE_ADD:
+                    node.bylayer['ndef'] = wlyr.iden
+                    callbacks.append((node.form.wasAdded, (node,)))
+                    callbacks.append((self.view.runNodeAdd, (node, useriden)))
+                    continue
+
+                if etyp == s_layer.EDIT_NODE_DEL:
+                    callbacks.append((node.form.wasDeleted, (node,)))
+                    callbacks.append((self.view.runNodeDel, (node, useriden)))
+                    continue
+
+                if etyp == s_layer.EDIT_PROP_SET:
+
+                    (name, valu, oldv, stype) = parms
+
+                    prop = node.form.props.get(name)
+                    if prop is None:  # pragma: no cover
+                        logger.warning(f'applyNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form}')
+                        continue
+
+                    node.props[name] = valu
+                    node.bylayer['props'][name] = wlyr.iden
+
+                    callbacks.append((prop.wasSet, (node, oldv)))
+                    callbacks.append((self.view.runPropSet, (node, prop, oldv, useriden)))
+                    continue
+
+                if etyp == s_layer.EDIT_PROP_DEL:
+
+                    (name, oldv, stype) = parms
+
+                    prop = node.form.props.get(name)
+                    if prop is None:  # pragma: no cover
+                        logger.warning(f'applyNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form}')
+                        continue
+
+                    node.props.pop(name, None)
+                    node.bylayer['props'].pop(name, None)
+
+                    callbacks.append((prop.wasDel, (node, oldv)))
+                    callbacks.append((self.view.runPropSet, (node, prop, oldv, useriden)))
+                    continue
+
+                if etyp == s_layer.EDIT_TAG_SET:
+
+                    (tag, valu, oldv) = parms
+
+                    node.tags[tag] = valu
+                    node.bylayer['tags'][tag] = wlyr.iden
+
+                    callbacks.append((self.view.runTagAdd, (node, tag, valu, useriden,)))
+                    continue
+
+                if etyp == s_layer.EDIT_TAG_DEL:
+
+                    (tag, oldv) = parms
+
+                    node.tags.pop(tag, None)
+                    node.bylayer['tags'].pop(tag, None)
+
+                    callbacks.append((self.view.runTagDel, (node, tag, oldv, useriden)))
+                    continue
+
+                if etyp == s_layer.EDIT_TAGPROP_SET:
+                    (tag, prop, valu, oldv, stype) = parms
+                    if tag not in node.tagprops:
+                        node.tagprops[tag] = {}
+                        node.bylayer['tagprops'][tag] = {}
+                    node.tagprops[tag][prop] = valu
+                    node.bylayer['tagprops'][tag][prop] = wlyr.iden
+                    continue
+
+                if etyp == s_layer.EDIT_TAGPROP_DEL:
+                    (tag, prop, oldv, stype) = parms
+                    if tag in node.tagprops:
+                        node.tagprops[tag].pop(prop, None)
+                        node.bylayer['tagprops'][tag].pop(prop, None)
+                        if not node.tagprops[tag]:
+                            node.tagprops.pop(tag, None)
+                            node.bylayer['tagprops'].pop(tag, None)
+                    continue
+
+                if etyp == s_layer.EDIT_NODEDATA_SET:
+                    name, data, oldv = parms
+                    node.nodedata[name] = data
+                    continue
+
+                if etyp == s_layer.EDIT_NODEDATA_DEL:
+                    name, oldv = parms
+                    node.nodedata.pop(name, None)
+                    continue
+
+                if etyp == s_layer.EDIT_EDGE_ADD:
+                    verb, n2iden = parms
+                    n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
+                    callbacks.append((self.view.runEdgeAdd, (node, verb, n2, useriden)))
+
+                if etyp == s_layer.EDIT_EDGE_DEL:
+                    verb, n2iden = parms
+                    n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
+                    callbacks.append((self.view.runEdgeDel, (node, verb, n2, useriden)))
 
         for func, args in callbacks:
             await func(*args)
@@ -1368,129 +1472,6 @@ class Snap(s_base.Base):
             await self.fire('node:edits', edits=actualedits)
 
         return saveoff, changes, nodes
-
-    async def _getEditCallbacks(self, node, postedits, useriden, bylayer):
-        '''
-        Apply a list of applied node edits to a Node() and return the callbacks to fire.
-
-        Args:
-            node (Node): The Node() to update.
-            postedits (list): A list of edits which were actually applied.
-            useriden (str): The iden of the user which made the edits.
-            bylayer (str): The layer iden to record as the source of each edit.
-
-        Returns:
-            list: A list of (func, args) tuples to await.
-        '''
-        callbacks = []
-
-        for edit in postedits:
-
-            etyp, parms, _ = edit
-
-            if etyp == s_layer.EDIT_NODE_ADD:
-                node.bylayer['ndef'] = bylayer
-                callbacks.append((node.form.wasAdded, (node,)))
-                callbacks.append((self.view.runNodeAdd, (node, useriden)))
-                continue
-
-            if etyp == s_layer.EDIT_NODE_DEL:
-                callbacks.append((node.form.wasDeleted, (node,)))
-                callbacks.append((self.view.runNodeDel, (node, useriden)))
-                continue
-
-            if etyp == s_layer.EDIT_PROP_SET:
-
-                (name, valu, oldv, stype) = parms
-
-                prop = node.form.props.get(name)
-                if prop is None:  # pragma: no cover
-                    logger.warning(f'applyNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form}')
-                    continue
-
-                node.props[name] = valu
-                node.bylayer['props'][name] = bylayer
-
-                callbacks.append((prop.wasSet, (node, oldv)))
-                callbacks.append((self.view.runPropSet, (node, prop, oldv, useriden)))
-                continue
-
-            if etyp == s_layer.EDIT_PROP_DEL:
-
-                (name, oldv, stype) = parms
-
-                prop = node.form.props.get(name)
-                if prop is None:  # pragma: no cover
-                    logger.warning(f'applyNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form}')
-                    continue
-
-                node.props.pop(name, None)
-                node.bylayer['props'].pop(name, None)
-
-                callbacks.append((prop.wasDel, (node, oldv)))
-                callbacks.append((self.view.runPropSet, (node, prop, oldv, useriden)))
-                continue
-
-            if etyp == s_layer.EDIT_TAG_SET:
-
-                (tag, valu, oldv) = parms
-
-                node.tags[tag] = valu
-                node.bylayer['tags'][tag] = bylayer
-
-                callbacks.append((self.view.runTagAdd, (node, tag, valu, useriden,)))
-                continue
-
-            if etyp == s_layer.EDIT_TAG_DEL:
-
-                (tag, oldv) = parms
-
-                node.tags.pop(tag, None)
-                node.bylayer['tags'].pop(tag, None)
-
-                callbacks.append((self.view.runTagDel, (node, tag, oldv, useriden)))
-                continue
-
-            if etyp == s_layer.EDIT_TAGPROP_SET:
-                (tag, prop, valu, oldv, stype) = parms
-                if tag not in node.tagprops:
-                    node.tagprops[tag] = {}
-                    node.bylayer['tagprops'][tag] = {}
-                node.tagprops[tag][prop] = valu
-                node.bylayer['tagprops'][tag][prop] = bylayer
-                continue
-
-            if etyp == s_layer.EDIT_TAGPROP_DEL:
-                (tag, prop, oldv, stype) = parms
-                if tag in node.tagprops:
-                    node.tagprops[tag].pop(prop, None)
-                    node.bylayer['tagprops'][tag].pop(prop, None)
-                    if not node.tagprops[tag]:
-                        node.tagprops.pop(tag, None)
-                        node.bylayer['tagprops'].pop(tag, None)
-                continue
-
-            if etyp == s_layer.EDIT_NODEDATA_SET:
-                name, data, oldv = parms
-                node.nodedata[name] = data
-                continue
-
-            if etyp == s_layer.EDIT_NODEDATA_DEL:
-                name, oldv = parms
-                node.nodedata.pop(name, None)
-                continue
-
-            if etyp == s_layer.EDIT_EDGE_ADD:
-                verb, n2iden = parms
-                n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
-                callbacks.append((self.view.runEdgeAdd, (node, verb, n2, useriden)))
-
-            if etyp == s_layer.EDIT_EDGE_DEL:
-                verb, n2iden = parms
-                n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
-                callbacks.append((self.view.runEdgeDel, (node, verb, n2, useriden)))
-
-        return callbacks
 
     async def addNode(self, name, valu, props=None, norminfo=None):
         '''

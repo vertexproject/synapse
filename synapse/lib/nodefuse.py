@@ -19,12 +19,6 @@ logger = logging.getLogger(__name__)
 # of edits, so this bounds the size of a single nexus log entry rather than refusing the fuse.
 maxchunkedits = 1000
 
-# The edits which make up a fuse are computed outside of the nexus operation which applies
-# them, so another write may land in between. Cortex.fuseNodes() recomputes after applying to
-# pick up anything which raced in. This bounds how many times that is retried before giving
-# up and telling the caller to re-run.
-maxfusepasses = 3
-
 # stortypes which _editPropSet/_editTagPropSet union with the existing value rather than
 # overwrite it. Those are always transferred so the storage layer can merge them; every
 # other stortype is a plain overwrite, so dst's existing value wins on conflict.
@@ -56,9 +50,9 @@ class NodeFuser:
     heavily referenced node is slower rather than impossible.
 
     Because the reads happen outside the nexus lock, another write may land between computing
-    the edits and applying them. Every edit is expressed as "dst gains X" or "src loses X"
+    the edits and applying them. Most edits are expressed as "dst gains X" or "src loses X"
     against state which was actually read, so a racing write is left behind on src rather
-    than lost, and Cortex.fuseNodes() recomputes after applying to pick it up.
+    than lost, and checkFused() reports it so the caller can re-run.
 
     The edits are written straight to each layer, so none of the Snap() write path callbacks
     run and no triggers fire for a fuse. A fuse rewrites the same data across every layer in
@@ -87,6 +81,24 @@ class NodeFuser:
         self.sodes = {}         # buid -> {layriden: sode} as of before any edits
         self.visited = set()    # src buids which have already been fused
         self.warnings = []      # warnings for the caller to emit
+
+        self.nodeedits = {}     # layriden -> {buid: nodeedit} being accumulated
+
+    def _addEdit(self, layriden, buid, formname, edits):
+        '''
+        Queue a list of edits for the given buid in the given layer.
+
+        The edits are coalesced by (layer, buid) so that each buid appears exactly once in
+        the nodeedits list handed to a given layer, which iterEditChunks() relies on to
+        avoid splitting the order dependent edits for a single buid.
+        '''
+        layredits = self.nodeedits.setdefault(layriden, {})
+
+        nodeedit = layredits.get(buid)
+        if nodeedit is None:
+            layredits[buid] = nodeedit = (buid, formname, [])
+
+        nodeedit[2].extend(edits)
 
     async def warn(self, mesg):
         '''
@@ -161,9 +173,7 @@ class NodeFuser:
             self.layers.append(layer)
             self.layridens.add(layer.iden)
 
-        # the batch is only used to coalesce the edits by layer and buid. It is drained with
-        # popLayerEdits() rather than flushed, so it never writes and needs no meta.
-        batch = s_layer.LayerEditBatch(self.core)
+        self.nodeedits = {}
 
         todo = collections.deque()
         todo.append((srcndef, dstndef, None))
@@ -178,11 +188,11 @@ class NodeFuser:
 
             self.visited.add(srcbuid)
 
-            todo.extend(await self._fuseOne(nextsrc, nextdst, subs, batch))
+            todo.extend(await self._fuseOne(nextsrc, nextdst, subs))
 
         layeredits = []
 
-        for (layriden, layredits) in sorted(batch.popLayerEdits().items()):
+        for (layriden, layredits) in sorted(self.nodeedits.items()):
 
             # Order every edit which removes state from a node being fused away after every
             # edit which adds to dst or repoints a reference. A chunk boundary can fall between
@@ -272,7 +282,7 @@ class NodeFuser:
 
         return newlist
 
-    async def _fuseOne(self, srcndef, dstndef, subs, batch):
+    async def _fuseOne(self, srcndef, dstndef, subs):
         '''
         Queue the edits which fuse one src node into one dst node in every writable layer.
 
@@ -336,7 +346,7 @@ class NodeFuser:
             #    node which does not exist.
             if hasndef:
 
-                batch.addEdit(layriden, dstbuid, formname, (
+                self._addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_NODE_ADD, (dstndef[1], stortype), ()),
                 ))
 
@@ -350,14 +360,14 @@ class NodeFuser:
                             if prop is None:  # pragma: no cover
                                 continue
 
-                            batch.addEdit(layriden, dstbuid, formname, (
+                            self._addEdit(layriden, dstbuid, formname, (
                                 (s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype), ()),
                             ))
 
                     # .created is read only, so carry src's over when creating the node
                     created = srcsode.get('props', {}).get('.created')
                     if created is not None:
-                        batch.addEdit(layriden, dstbuid, formname, (
+                        self._addEdit(layriden, dstbuid, formname, (
                             (s_layer.EDIT_PROP_SET, ('.created', created[0], None, created[1]), ()),
                         ))
 
@@ -385,12 +395,12 @@ class NodeFuser:
                 if selfref is not None:
                     valu = self._swapSelfRef(valu, selfref[0], selfref[1], srcndef, dstndef)
 
-                batch.addEdit(layriden, dstbuid, formname, (
+                self._addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_PROP_SET, (name, valu, None, stype), ()),
                 ))
 
             for tag, valu in srcsode.get('tags', {}).items():
-                batch.addEdit(layriden, dstbuid, formname, (
+                self._addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_TAG_SET, (tag, valu, None), ()),
                 ))
 
@@ -405,7 +415,7 @@ class NodeFuser:
                     if stype not in mergetypes and name in dstpropdict:
                         continue
 
-                    batch.addEdit(layriden, dstbuid, formname, (
+                    self._addEdit(layriden, dstbuid, formname, (
                         (s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, stype), ()),
                     ))
 
@@ -417,7 +427,7 @@ class NodeFuser:
                     if name in dstdata:
                         continue
 
-                    batch.addEdit(layriden, dstbuid, formname, (
+                    self._addEdit(layriden, dstbuid, formname, (
                         (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
                     ))
 
@@ -430,7 +440,7 @@ class NodeFuser:
                 if n2iden == srciden:
                     n2iden = dstiden
 
-                batch.addEdit(layriden, dstbuid, formname, (
+                self._addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
                 ))
 
@@ -450,24 +460,24 @@ class NodeFuser:
                         f'a -({verb})> light edge to {formname}={srcndef[1]!r}; that edge is not moved.')
                     continue
 
-                batch.addEdit(layriden, n1buid, n1form, (
+                self._addEdit(layriden, n1buid, n1form, (
                     (s_layer.EDIT_EDGE_ADD, (verb, dstiden), ()),
                 ))
 
             # 4. tear src down in this layer
             for name, (valu, stype) in srcsode.get('props', {}).items():
-                batch.addEdit(layriden, srcbuid, formname, (
+                self._addEdit(layriden, srcbuid, formname, (
                     (s_layer.EDIT_PROP_DEL, (name, valu, stype), ()),
                 ))
 
             for tag, valu in srcsode.get('tags', {}).items():
-                batch.addEdit(layriden, srcbuid, formname, (
+                self._addEdit(layriden, srcbuid, formname, (
                     (s_layer.EDIT_TAG_DEL, (tag, valu), ()),
                 ))
 
             for tag, propdict in srcsode.get('tagprops', {}).items():
                 for name, (valu, stype) in propdict.items():
-                    batch.addEdit(layriden, srcbuid, formname, (
+                    self._addEdit(layriden, srcbuid, formname, (
                         (s_layer.EDIT_TAGPROP_DEL, (tag, name, valu, stype), ()),
                     ))
 
@@ -483,25 +493,25 @@ class NodeFuser:
                 if n1form is None:  # pragma: no cover
                     continue
 
-                batch.addEdit(layriden, n1buid, n1form, (
+                self._addEdit(layriden, n1buid, n1form, (
                     (s_layer.EDIT_EDGE_DEL, (verb, srciden), ()),
                 ))
 
             if hasndef:
                 # deleting the node also wipes its node data and its N1 light edges
-                batch.addEdit(layriden, srcbuid, formname, (
+                self._addEdit(layriden, srcbuid, formname, (
                     (s_layer.EDIT_NODE_DEL, (srcndef[1], stortype), ()),
                 ))
 
             else:
                 # src has no primary property here, so nothing will clean these up
                 for name, valu in nodedata:
-                    batch.addEdit(layriden, srcbuid, formname, (
+                    self._addEdit(layriden, srcbuid, formname, (
                         (s_layer.EDIT_NODEDATA_DEL, (name, valu), ()),
                     ))
 
                 for verb, n2iden in n1edges:
-                    batch.addEdit(layriden, srcbuid, formname, (
+                    self._addEdit(layriden, srcbuid, formname, (
                         (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
                     ))
 
@@ -510,55 +520,11 @@ class NodeFuser:
         #    keeps the referrer edits ordered after dst's node add for the case where the
         #    referrer *is* dst.
         for layer in self.layers:
-            todo.extend(await self._rewriteRefs(layer, srcndef, dstndef, batch))
+            todo.extend(await self._rewriteRefs(layer, srcndef, dstndef))
 
         return todo
 
-    async def _iterRefs(self, layer, srcndef):
-        '''
-        Yield (refbuid, prop, isarray, isndef) for props in this layer which point at src.
-        '''
-        formname = srcndef[0]
-        srcvalu = srcndef[1]
-        srcbuid = s_common.buid(srcndef)
-
-        # ndef typed refs, both scalar and array, come from the reverse index. one index
-        # scan per layer covers every ndef prop and cannot miss one.
-        async for (refbuid, abrv) in layer.getNdefRefs(srcbuid):
-
-            try:
-                (abrvform, abrvprop) = layer.getAbrvProp(abrv)
-            except s_exc.NoSuchAbrv:  # pragma: no cover
-                continue
-
-            refform = self.model.form(abrvform)
-            if refform is None:  # pragma: no cover
-                continue
-
-            prop = refform.props.get(abrvprop)
-            if prop is None:  # pragma: no cover
-                continue
-
-            yield refbuid, prop, prop.type.isarray, True
-
-        # form typed refs need a lift per prop of that type. norm() is deliberately not
-        # called, so the comparison values are built by hand.
-        for prop in self.model.getPropsByType(formname):
-            cmprvals = (('=', srcvalu, prop.type.stortype),)
-            async for _, refbuid, _ in layer.liftByPropValu(prop.form.name, prop.name, cmprvals):
-                if refbuid == srcbuid:
-                    continue
-                yield refbuid, prop, False, False
-
-        for prop in self.model.getArrayPropsByType(formname):
-            stortype = prop.type.stortype & (~s_layer.STOR_FLAG_ARRAY)
-            cmprvals = (('=', srcvalu, stortype),)
-            async for _, refbuid, _ in layer.liftByPropArray(prop.form.name, prop.name, cmprvals):
-                if refbuid == srcbuid:  # pragma: no cover
-                    continue
-                yield refbuid, prop, True, False
-
-    async def _rewriteRefs(self, layer, srcndef, dstndef, batch):
+    async def _rewriteRefs(self, layer, srcndef, dstndef):
         '''
         Queue the edits which repoint this layer's inbound refs from src to dst.
 
@@ -569,7 +535,7 @@ class NodeFuser:
 
         todo = []
 
-        async for (refbuid, prop, isarray, isndef) in self._iterRefs(layer, srcndef):
+        async for (refbuid, prop, isarray, isndef) in iterLayerRefs(self.model, layer, srcndef):
 
             if refbuid == srcbuid:
                 continue
@@ -582,7 +548,7 @@ class NodeFuser:
                 newv = dstndef[1]
 
             if prop.info.get('ro'):
-                task = await self._rewriteRoRef(layer, refbuid, prop, oldv, newv, batch)
+                task = await self._rewriteRoRef(layer, refbuid, prop, oldv, newv)
                 if task is not None:
                     todo.append(task)
                 continue
@@ -603,13 +569,13 @@ class NodeFuser:
             else:
                 setv = newv
 
-            batch.addEdit(layer.iden, refbuid, prop.form.name, (
+            self._addEdit(layer.iden, refbuid, prop.form.name, (
                 (s_layer.EDIT_PROP_SET, (prop.name, setv, None, stortype), ()),
             ))
 
         return todo
 
-    async def _rewriteRoRef(self, layer, refbuid, prop, oldv, newv, batch):
+    async def _rewriteRoRef(self, layer, refbuid, prop, oldv, newv):
         '''
         Handle a read-only prop which references src.
 
@@ -635,7 +601,7 @@ class NodeFuser:
 
             (curv, stortype) = curv
 
-            batch.addEdit(layer.iden, refbuid, refform.name, (
+            self._addEdit(layer.iden, refbuid, refform.name, (
                 (s_layer.EDIT_PROP_SET, (prop.name, newv, None, stortype), ()),
             ))
 
@@ -673,6 +639,61 @@ class NodeFuser:
 
         # renaming the comp is itself a fuse of the old comp node into the new one
         return ((refform.name, refvalu), (refform.name, newvalu), norminfo.get('subs'))
+
+async def iterLayerRefs(model, layer, srcndef):
+    '''
+    Yield (refbuid, prop, isarray, isndef) for props in this layer which point at src.
+
+    This is used both to rewrite the inbound references a fuse must repoint and, after the
+    fuse, to check that none are left pointing at a node which no longer exists.
+
+    Args:
+        model (Model): The data model to resolve forms and props against.
+        layer (Layer): The layer to scan.
+        srcndef (tuple): The (form, valu) of the node being referenced.
+
+    Yields:
+        tuple: (refbuid, prop, isarray, isndef) for each inbound reference.
+    '''
+    formname = srcndef[0]
+    srcvalu = srcndef[1]
+    srcbuid = s_common.buid(srcndef)
+
+    # ndef typed refs, both scalar and array, come from the reverse index. one index
+    # scan per layer covers every ndef prop and cannot miss one.
+    async for (refbuid, abrv) in layer.getNdefRefs(srcbuid):
+
+        try:
+            (abrvform, abrvprop) = layer.getAbrvProp(abrv)
+        except s_exc.NoSuchAbrv:  # pragma: no cover
+            continue
+
+        refform = model.form(abrvform)
+        if refform is None:  # pragma: no cover
+            continue
+
+        prop = refform.props.get(abrvprop)
+        if prop is None:  # pragma: no cover
+            continue
+
+        yield refbuid, prop, prop.type.isarray, True
+
+    # form typed refs need a lift per prop of that type. norm() is deliberately not
+    # called, so the comparison values are built by hand.
+    for prop in model.getPropsByType(formname):
+        cmprvals = (('=', srcvalu, prop.type.stortype),)
+        async for _, refbuid, _ in layer.liftByPropValu(prop.form.name, prop.name, cmprvals):
+            if refbuid == srcbuid:
+                continue
+            yield refbuid, prop, False, False
+
+    for prop in model.getArrayPropsByType(formname):
+        stortype = prop.type.stortype & (~s_layer.STOR_FLAG_ARRAY)
+        cmprvals = (('=', srcvalu, stortype),)
+        async for _, refbuid, _ in layer.liftByPropArray(prop.form.name, prop.name, cmprvals):
+            if refbuid == srcbuid:  # pragma: no cover
+                continue
+            yield refbuid, prop, True, False
 
 def iterEditChunks(layeredits, chunk=None):
     '''
@@ -799,6 +820,68 @@ async def applyLayerEdits(core, layeredits, meta, nexsitem):
 
     return {'failed': failed, 'warnings': warnings}
 
+async def checkFused(core, srcndef):
+    '''
+    Check that nothing is left of src in any layer a fuse may write to, and warn if there is.
+
+    The edits which make up a fuse are computed outside of the nexus operations which apply
+    them, so a write can land in between and be left behind. This is how the caller finds
+    out, rather than by fuse() retrying.
+
+    Two things are checked, because a raced write can leave state in two different places:
+
+    1. State on src itself. A prop, tag or tag property set on src after its edits were
+       computed is not in the computed deletes, so it survives.
+
+    2. References to src. A node which starts referencing src after the reference rewrites
+       were computed is not repointed, so it is left pointing at a node which no longer
+       exists. Note that this costs one more reference scan per layer on top of the one the
+       fuse itself already did.
+
+    Only layers which a fuse may write to are checked. src surviving in a read only or
+    mirrored layer is expected and NodeFuser already warns about those specifically.
+
+    Args:
+        core (Cortex): The Cortex the fuse was applied to.
+        srcndef (tuple): The (form, valu) of the node which was fused away.
+
+    Returns:
+        dict: The warnings to emit and the layers which failed, which is always empty.
+    '''
+    warnings = []
+
+    srcbuid = s_common.buid(srcndef)
+
+    def warn(mesg):
+        logger.warning(mesg)
+        warnings.append(mesg)
+
+    for layer in core.layers.values():
+
+        if layer.readonly or layer.ismirror:
+            continue
+
+        if await layer.getStorNode(srcbuid):
+            warn(f'$lib.model.migration.fuse() left state for {srcndef[0]}={srcndef[1]!r} in layer '
+                 f'{layer.iden}, because it was written to while the fuse was being computed. '
+                 f'Re-run fuse() with the same arguments to complete it.')
+
+        # A reference can be left behind in a layer which holds none of src's own state, so
+        # this is checked separately rather than only when src survived above.
+        async for (refbuid, prop, _, _) in iterLayerRefs(core.model, layer, srcndef):
+
+            if refbuid == srcbuid:  # pragma: no cover
+                continue
+
+            warn(f'$lib.model.migration.fuse() left a reference to {srcndef[0]}={srcndef[1]!r} in '
+                 f'layer {layer.iden} from property {prop.full!r} on {s_common.ehex(refbuid)}, '
+                 f'because it was created or updated while the fuse was being computed. That '
+                 f'reference points at a node which no longer exists. Re-run fuse() with the '
+                 f'same arguments to complete it.')
+            break
+
+    return {'failed': [], 'warnings': warnings}
+
 def initResult():
     '''
     Return an empty result dict for mergeResult() to accumulate into.
@@ -807,15 +890,16 @@ def initResult():
 
 def mergeResult(result, newresult):
     '''
-    Merge the result of one fuse pass into the accumulated result.
+    Merge the result of one step of a fuse into the accumulated result.
 
-    Every pass computes its warnings from scratch, so a condition which persists across
-    passes, such as a layer which cannot be modified, produces the same message each time.
-    Those are deduplicated so the caller emits each one once.
+    A condition which affects more than one step, such as a layer which cannot be modified,
+    produces the same message from each of them. Those are deduplicated so the caller emits
+    each one once.
 
     Args:
         result (dict): The accumulated result, from initResult(). Updated in place.
-        newresult (dict): The result of one pass, from NodeFuser.getResult().
+        newresult (dict): The result of one step, from NodeFuser.getResult(),
+                          applyLayerEdits() or checkFused().
 
     Returns:
         None
