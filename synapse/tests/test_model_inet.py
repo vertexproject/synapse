@@ -822,6 +822,11 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('cookies'), ('baz=faz', 'foo=bar'))
 
             nodes = await core.nodes('''
+                [ inet:http:request=* :response:cookies={[ inet:http:cookie="foo=bar; baz=faz;" ]} ]
+            ''')
+            self.eq(nodes[0].get('response:cookies'), ('baz=faz', 'foo=bar'))
+
+            nodes = await core.nodes('''
                 [ inet:http:session=* :cookies={[ inet:http:cookie="foo=bar; baz=faz;" ]} ]
             ''')
             self.eq(nodes[0].get('cookies'), ('baz=faz', 'foo=bar'))
@@ -890,6 +895,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :response:reason=OK
                 :response:headers=((baz, faz),)
                 :response:body=$p.body
+                :response:cookies={[ inet:http:cookie="sid=hehe; lang=en;" ]}
                 :client=1.2.3.4
                 :client:host=$p."client:host"
                 :server="5.5.5.5:443"
@@ -914,6 +920,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('response:reason'), 'OK')
             self.eq(node.get('response:headers'), (('baz', 'faz'),))
             self.eq(node.get('response:body'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('response:cookies'), ('lang=en', 'sid=hehe'))
             self.eq(node.get('session'), sess)
             self.eq(node.get('fetch'), fetch)
             self.eq(node.get('sandbox:file'), 'sha256:' + 64 * 'c')
@@ -927,6 +934,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:http:request -> inet:http:request:header'))
             self.len(1, await core.nodes('inet:http:request -> inet:http:response:header'))
+            self.len(2, await core.nodes('inet:http:request -> inet:http:cookie'))
 
             nodes = await core.nodes('inet:http:request -> inet:http:session [ :contact=* ]')
             self.len(1, nodes)
