@@ -210,6 +210,9 @@ class EconModule(s_module.CoreModule):
 
                     ('listing', ('biz:listing', {}), {
                         'doc': 'The purchase was made based on the given listing.'}),
+
+                    ('platform', ('inet:service:platform', {}), {
+                        'doc': 'The platform used to facilitate the purchase.'}),
                 )),
 
                 ('econ:receipt:item', {}, (
