@@ -62,11 +62,13 @@ class EconTest(s_utils.SynTest):
 
                     :settled=20180205
                     :listing = *
+                    :platform = *
             ]'''
 
             perc = (await core.nodes(text))[0]
 
             self.nn(perc.get('listing'))
+            self.nn(perc.get('platform'))
             self.eq('13.37', perc.get('price'))
             self.eq('usd', perc.get('currency'))
 

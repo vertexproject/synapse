@@ -1,0 +1,6 @@
+---
+desc: Added `:platform` as a secondary property to `econ:purchase`
+desc:literal: false
+prs: []
+type: model
+...
