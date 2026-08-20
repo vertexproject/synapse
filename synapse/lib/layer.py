@@ -2906,6 +2906,10 @@ class SodeEnvl:
     # unconditional True would also make an envl equal to None and to any other object.
     __hash__ = object.__hash__
 
+    # The generation this sode's edge counts were last read at, for a layer which
+    # invalidates them by generation rather than by nid.
+    n2gen = None
+
     def __init__(self, layriden, sode):
         self.layriden = layriden
         self.sode = sode

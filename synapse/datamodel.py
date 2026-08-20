@@ -28,6 +28,7 @@ PREFIX_CACHE_SIZE = 1000
 TYPESET_CACHE_SIZE = 1000
 CHILDFORM_CACHE_SIZE = 1000
 CHILDPROP_CACHE_SIZE = 1000
+PIVCHAIN_CACHE_SIZE = 1000
 
 _v2modelmap = None
 
@@ -667,6 +668,8 @@ class Model:
         self.childformcache = s_cache.LruDict(CHILDFORM_CACHE_SIZE)
         self.childpropcache = s_cache.LruDict(CHILDPROP_CACHE_SIZE)
 
+        self.pivchaincache = s_cache.LruDict(PIVCHAIN_CACHE_SIZE)
+
         self.formprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
 
         self._lookup_hints = None
@@ -939,6 +942,186 @@ class Model:
         exc = s_exc.NoSuchProp.init(name, mesg=mesg)
         if extra is not None:
             exc = extra(exc)
+
+        raise exc
+
+    def _getPivScanTypes(self, ptyps):
+        '''
+        Yield each candidate type and the concrete types a value of it may hold, which
+        together are the types a pivot chain resolves a name against.
+        '''
+        for ptyp in ptyps:
+
+            yield ptyp
+
+            if ptyp.ispoly:
+                yield from self.getTypeSet(types=ptyp.typeset, interfaces=ptyp.ifaces)
+                continue
+
+            if (form := self.form(ptyp.name)) is not None:
+                for name in self.getChildForms(form.name):
+                    yield self.form(name).type
+
+    def _getPivHopTypes(self, ptyps, piv):
+        '''
+        Return the types reachable from ptyps via a prop or virt named piv. An empty
+        result means no value of any candidate could supply that name.
+        '''
+        htyps = []
+
+        for ptyp in self._getPivScanTypes(ptyps):
+
+            if (vinfo := ptyp.virts.get(piv)) is not None:
+                htyps.append(vinfo[0])
+
+            if (form := self.form(ptyp.name)) is not None:
+                if (prop := form.props.get(piv)) is not None:
+                    htyps.append(prop.type)
+
+        # the hop carries every candidate forward, so they are keyed by identity rather
+        # than by name: every poly type is named "poly", and keying by name would
+        # collapse unrelated candidates into an arbitrary one.
+        return tuple({id(htyp): htyp for htyp in htyps}.values())
+
+    def _getPivFormNames(self, ptyp):
+        '''
+        Return the live form names a value of ptyp may reference. Only a poly type
+        declares them; any other type holds a plain value which names no form.
+        '''
+        if not ptyp.ispoly:
+            if self.form(ptyp.name) is not None:
+                return {ptyp.name}
+            return set()
+
+        names = set(ptyp.formtypes)
+        for iface in ptyp.ifaces:
+            names.update(self.formsbyiface.get(iface, ()))
+
+        return {name for name in names if self.form(name) is not None}
+
+    def _getPivVirtTypes(self, ptyps, virt):
+        '''
+        Return the types a virt named virt resolves to across ptyps. An empty result
+        means no candidate could supply that name.
+        '''
+        vtyps = []
+        for ptyp in self._getPivScanTypes(ptyps):
+            if (vinfo := ptyp.virts.get(virt)) is not None:
+                vtyps.append(vinfo[0])
+
+        # keyed by identity for the reason given in _getPivHopTypes()
+        return tuple({id(vtyp): vtyp for vtyp in vtyps}.values())
+
+    def _reqPivChain(self, ptyps, pivs, virt=None, cmpr=None, elem=False):
+        '''
+        Walk a "::" pivot chain against the model and raise if it could never resolve.
+
+        A hop is satisfiable when any candidate type can supply it, so a chain which is
+        valid for some forms and not others resolves quietly here and is filtered per
+        node at runtime. A chain rooted on a relative property seeds its candidates from
+        every property of that name, which is a superset of the ones the inbound node
+        could carry, so the same rule holds for it.
+        '''
+        cands = tuple(ptyps)
+        if not cands:
+            return
+
+        for indx, piv in enumerate(pivs):
+
+            # a hop may carry virtual property suffixes (eg "client.ip"), which resolve
+            # against the type the leading property name landed on.
+            name, *vnames = piv.split('.')
+
+            htyps = self._getPivHopTypes(cands, name)
+
+            if not htyps:
+                raise s_exc.NoSuchProp.init(piv)
+
+            for vname in vnames:
+                if not (vtyps := self._getPivVirtTypes(htyps, vname)):
+                    raise s_exc.NoSuchVirt.init(vname, htyps[0])
+
+                htyps = vtyps
+
+            # a non-terminal hop is pivoted through, so it must reach a live form. a hop
+            # which names no forms holds a plain value and has no node on the far side,
+            # and one which names only deleted forms has none left to reach. the names
+            # come from live form state rather than Type.hasforms, which is computed once
+            # when the type is constructed and stays True after the form it named is
+            # deleted.
+            if indx != len(pivs) - 1:
+                if not any(self._getPivFormNames(htyp) for htyp in htyps):
+                    raise s_exc.NoSuchForm.init(htyps[0].name)
+
+            cands = htyps
+
+        # an array filter compares the elements, so the virt below resolves against the
+        # element type rather than the array container.
+        if elem:
+            cands = tuple(ptyp.arraytype if ptyp.isarray else ptyp for ptyp in cands)
+
+        # a virt belongs to the declared type rather than the node, so it is checked
+        # the same way whether or not the root of the chain was statically known.
+        if virt is not None:
+            if not (vtyps := self._getPivVirtTypes(cands, virt)):
+                raise s_exc.NoSuchVirt.init(virt, cands[0])
+
+            cands = vtyps
+
+        if cmpr is not None:
+            if not any(ptyp.getCmprCtor(cmpr) is not None for ptyp in cands):
+                raise s_exc.NoSuchCmpr(cmpr=cmpr, name=cands[0].name)
+
+    def reqPivChain(self, props, pivs, virt=None, cmpr=None, elem=False, extra=None):
+        '''
+        Check a pivot chain rooted on a known property list. See _reqPivChain().
+        '''
+        props = tuple(props)
+        pivs = tuple(pivs)
+
+        key = ('prop', tuple(p.full for p in props), pivs, virt, cmpr, elem)
+        ptyps = tuple(p.type for p in props)
+
+        return self._reqPivChainCached(key, ptyps, pivs, virt, cmpr, elem, extra=extra)
+
+    def reqRelPivChain(self, pivs, virt=None, cmpr=None, elem=False, extra=None):
+        '''
+        Check a pivot chain rooted on a relative property, where the inbound form is
+        not known until runtime. See _reqPivChain().
+        '''
+        pivs = tuple(pivs)
+
+        key = ('rel', pivs, virt, cmpr, elem)
+
+        return self._reqPivChainCached(key, None, pivs[1:], virt, cmpr, elem,
+                                       name=pivs[0], extra=extra)
+
+    def _reqPivChainCached(self, key, ptyps, pivs, virt, cmpr, elem, name=None, extra=None):
+
+        # a valid chain caches as None. an invalid one caches the class and errinfo of
+        # its exception so a repeated parse re-raises without walking the model again.
+        if (info := self.pivchaincache.get(key, s_common.novalu)) is s_common.novalu:
+
+            if name is not None:
+                # a chain rooted on a relative name is seeded with every prop which
+                # declares it. that walk is only worth making on a cache miss.
+                ptyps = tuple(p.type for p in self.props.values()
+                              if not p.isform and p.name == name)
+
+            info = None
+            try:
+                self._reqPivChain(ptyps, pivs, virt=virt, cmpr=cmpr, elem=elem)
+            except s_exc.SynErr as e:
+                info = (e.__class__, dict(e.errinfo))
+
+            self.pivchaincache[key] = info
+
+        if info is None:
+            return
+
+        exc = info[0](**info[1])
+        if extra is not None:
+            raise extra(exc)
 
         raise exc
 
@@ -1558,6 +1741,7 @@ class Model:
         self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
+        self.pivchaincache.clear()
         self._lookup_hints = None
 
         return form
@@ -1671,6 +1855,7 @@ class Model:
         self.typesetcache.clear()
         self.childformcache.clear()
         self.formprefixcache.clear()
+        self.pivchaincache.clear()
         self._lookup_hints = None
 
         if parentform:
@@ -1826,6 +2011,7 @@ class Model:
             self.props[prop.full] = prop
 
         self.childpropcache.clear()
+        self.pivchaincache.clear()
         self._lookup_hints = None
 
         return prop
@@ -2037,6 +2223,7 @@ class Model:
                 self.delFormProp(kid, propname)
 
         self.childpropcache.clear()
+        self.pivchaincache.clear()
         self._lookup_hints = None
 
     def type(self, name):

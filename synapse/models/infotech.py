@@ -841,6 +841,7 @@ modeldefs = (
                 'template': {'title': 'host'},
                 'interfaces': (
                     ('it:component', {}),
+                    ('risk:targetable', {}),
                 ),
                 'props': (
                     ('name', ('it:hostname', {}), {

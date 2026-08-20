@@ -3710,23 +3710,20 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('test:virtiface:servers*[.newp*newp=127.0.0.1]')
 
-            # TODO check possible types and their virts to raise
-            # with self.raises(s_exc.NoSuchVirt):
-            #    await core.nodes('test:virtiface +:servers*[.newp*newp=127.0.0.1]')
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:virtiface +:servers*[.newp*newp=127.0.0.1]')
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:virtiface +:servers*[@=127.0.0.1]')
 
-            # TODO check possible types and their virts to raise
-            # with self.raises(s_exc.NoSuchVirt):
-            #    await core.nodes('inet:proto:request +inet:proto:request:server.newp*newp=newp')
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:proto:request +inet:proto:request:server.newp*newp=newp')
 
             with self.raises(s_exc.BadCmprType):
                 await core.nodes('inet:proto:request +:server*[newp=newp]')
 
-            # TODO check possible types and their virts to raise
-            # with self.raises(s_exc.NoSuchVirt):
-            #    await core.nodes('test:guid +test:guid:server.newp*newp=newp')
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:guid +test:guid:server.newp*newp=newp')
 
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:guid +.created.newp*newp=newp')
@@ -3744,19 +3741,32 @@ class LayerTest(s_t_utils.SynTest):
                 await core.nodes('test:virtiface:server*[.ip=127.0.0.1]')
             self.isin('Array syntax is invalid on non array type', exc.exception.get('mesg'))
 
-            # TODO check possible types and their virts to raise
-            # with self.raises(s_exc.NoSuchCmpr):
-            #    await core.nodes('test:virtiface:server +test:virtiface:server.ip*newp=newp')
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:virtiface:server +test:virtiface:server.ip*newp=newp')
 
             self.len(0, await core.nodes('$val = (null) test:guid.created +:server.ip=$val'))
-            self.len(0, await core.nodes('test:guid.created +:newp::servers.ip=127.0.0.1'))
-            self.len(0, await core.nodes('test:virtiface +:newp::servers*[.ip=127.0.0.1]'))
+
+            # a hop the inbound form does not declare is reported the same way the name
+            # the chain ends on is, rather than matching nothing
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:guid.created +:newp::servers.ip=127.0.0.1')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:virtiface +:newp::servers*[.ip=127.0.0.1]')
+
+            # ...while asking whether a node has one is still answered
             self.len(0, await core.nodes('test:guid.created +:server.newp'))
             self.len(0, await core.nodes('test:guid +test:str.created<now'))
             self.len(0, await core.nodes('test:guid +inet:server.ip=1.2.3.4'))
             self.len(0, await core.nodes('test:guid +inet:http:request:server.ip=1.2.3.4'))
 
-            self.none(await core.callStorm('test:guid.created return(:newp::servers)'))
+            # reading the value of a chain the form cannot express raises, the same way
+            # reading the value of a single property it does not declare does
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm('test:guid.created return(:newp::servers)')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm('test:guid.created return(:newp)')
 
             # getVirtIndx with invalid virt name
             ival = core.model.type('ival')

@@ -46,14 +46,12 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(info['tagprops'], {'foo': {'_score': (10, {'r': '10'}),
                                                '_note': ('this is a really cool tag!', {})}})
 
-            # Set a property on the node which is extra model and pack it.
-            # This situation can be encountered in a multi-layer situation
-            # where one Cortex can have model knowledge and set props
-            # that another Cortex (sitting on top of the first one) lifts
-            # a node which has props the second cortex doens't know about.
-            node.sodes[0]['props']['.newp'] = (1, 0)
-            node.sodes[0]['props']['newp'] = ((2, 3), 0)
-            node.sodes[0]['tagprops']['foo']['valu'] = (10, 0)
+            # A storage node may carry a name which this model does not define, when
+            # its data was written by a cortex whose model did define it. Such a value
+            # packs with neither a type nor a repr.
+            node.sodes[0]['props']['.newp'] = (1, 0, None)
+            node.sodes[0]['props']['newp'] = ((2, 3), 0, None)
+            node.sodes[0]['tagprops']['foo']['valu'] = (10, 0, None)
             iden, info = node.pack(dorepr=True)
             props = info.get('props')
             tagprops = info.get('tagprops')

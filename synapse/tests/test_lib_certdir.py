@@ -686,6 +686,10 @@ class CertDirTest(s_t_utils.SynTest):
 
             ctx = cdir.getServerSSLContext(hostname)
             self.eq(ctx.verify_mode, ssl.VerifyMode.CERT_NONE)
+            self.eq(ctx.minimum_version, ssl.TLSVersion.TLSv1_3)
+            # A client which abandons a TLS session without a close_notify reads as a
+            # clean EOF. See test_cell_https_tls_sess_abandon for why that matters.
+            self.true(ctx.options & ssl.OP_IGNORE_UNEXPECTED_EOF)
 
             with self.raises(s_exc.NoCertKey):
                 cdir.getServerSSLContext('haha.newp.com')

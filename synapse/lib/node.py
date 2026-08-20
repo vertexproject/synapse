@@ -228,9 +228,10 @@ class NodeBase:
 
         return retn
 
-    def _packTagProps(self, tagprops, dorepr=False):
+    def _packTagProps(self, tagprops, dorepr=False, dovirts=False):
         '''
-        Return the packed tag property envelopes.
+        Return the packed tag property envelopes for a set of storage tag property
+        tuples.
 
         A tag property envelope carries no ``t``, since a tag property name is
         globally unique and names its own type within the model.
@@ -241,11 +242,18 @@ class NodeBase:
 
             packed = retn[tag] = {}
 
-            for name, valu in propdict.items():
+            for name, valt in propdict.items():
 
+                valu = valt[0]
                 info = {}
 
-                if dorepr and (prop := self.form.modl.tagprop(name)) is not None:
+                # as with a property above, an undefined name carries no type
+                prop = self.form.modl.tagprop(name)
+
+                if dovirts and prop is not None and valt[2] is not None:
+                    info['v'] = {vname: (vvalu, {}) for (vname, (vvalu, _)) in valt[2].items()}
+
+                if dorepr and prop is not None:
 
                     rval = prop.type.repr(valu)
                     if rval is not None and rval != valu:
@@ -274,7 +282,8 @@ class NodeBase:
 
             prop = self.form.prop(name)
             if prop is None:
-                # extra model data from a lower layer has no type or repr.
+                # a name the model does not define has no type, and so no repr. its
+                # data may have been written by a cortex whose model did define it.
                 retn[name] = (valt[0], {})
                 continue
 
@@ -564,7 +573,7 @@ class Node(NodeBase):
             'meta': self.getMetaDict(),
             'tags': self._packTags(self._getTagsDict(), dorepr=dorepr),
             'props': self._packProps(self._getStorProps(), dorepr=dorepr, dovirts=virts),
-            'tagprops': self._packTagProps(self._getTagPropsDict(), dorepr=dorepr),
+            'tagprops': self._packTagProps(self._getStorTagProps(), dorepr=dorepr, dovirts=virts),
         })
 
         pode[1]['n1verbs'] = self.getEdgeCounts()

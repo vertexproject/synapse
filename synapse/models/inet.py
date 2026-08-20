@@ -1884,6 +1884,10 @@ modeldefs = (
 
                     ('body', ('file:bytes', {}), {
                         'doc': 'The HTTP response body received.'}),
+
+                    ('cookies', ('inet:http:cookie', {}), {
+                        'array': {},
+                        'doc': 'An array of HTTP cookie values parsed from the "Set-Cookie:" headers in the response.'}),
                 ),
                 'doc': 'An HTTP response returned by a server.'}),
 
@@ -1987,6 +1991,7 @@ modeldefs = (
             ('inet:url:redir', ('comp', {'fields': (('source', 'inet:url'), ('target', 'inet:url'))}), {
                 'template': {'title': 'URL redirection'},
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                 ),
                 'ex': '(http://foo.com/,http://bar.com/)',
@@ -2320,6 +2325,7 @@ modeldefs = (
             ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
                 'template': {'title': 'email header'},
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                 ),
                 'props': (
@@ -2676,6 +2682,7 @@ modeldefs = (
 
             ('inet:service:message', ('guid', {}), {
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('inet:service:action', {}),
                 ),
                 'props': (

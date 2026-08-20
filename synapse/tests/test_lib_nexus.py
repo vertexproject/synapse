@@ -11,6 +11,7 @@ import synapse.common as s_common
 import synapse.lib.auth as s_auth
 import synapse.lib.cell as s_cell
 import synapse.lib.nexus as s_nexus
+import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tools.service.backup as s_backup
@@ -511,7 +512,8 @@ class NexusTest(s_t_utils.SynTest):
                 # mirror's current release (PEP 440: 3.1.0a1 > 3.0.0).
                 async def getHigherPreRelVersion():
                     info = await getCellInfo()
-                    info['cell']['version'] = '3.1.0a1'
+                    version = s_version.parse(info['cell']['version'])
+                    info['cell']['version'] = f'{version.major}.{version.minor + 1}.{version.micro}a1'
                     return info
 
                 path = s_common.genpath(dirn, 'backups', 'cell01')

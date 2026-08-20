@@ -14,9 +14,23 @@ class InetModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             forms = ('inet:ip', 'inet:url', 'inet:fqdn', 'inet:email',
-                     'inet:urlfile', 'inet:email:message', 'inet:service:platform')
+                     'inet:urlfile', 'inet:url:redir', 'inet:email:header',
+                     'inet:email:message', 'inet:service:message', 'inet:service:platform')
             for name in forms:
                 self.true(core.model.form(name).implements('meta:usable'))
+
+            # meta:usable lets an actor or an action record having used the node
+            nodes = await core.nodes('''
+                [ risk:threat=* :name=apt1 ]
+                [ +(used)> { [ inet:url:redir=(http://foo.com/, http://bar.com/) ] } ]
+                [ +(used)> { [ inet:email:header=(subject, "hi there") ] } ]
+                [ +(used)> { [ inet:service:message=* ] } ]
+            ''')
+            self.len(1, nodes)
+            self.len(3, await core.nodes('risk:threat:name=apt1 -(used)> meta:usable'))
+            self.len(1, await core.nodes('inet:url:redir <(used)- risk:threat'))
+            self.len(1, await core.nodes('inet:email:header <(used)- risk:threat'))
+            self.len(1, await core.nodes('inet:service:message <(used)- risk:threat'))
 
     async def test_mode_inet_basics(self):
 
@@ -818,6 +832,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'cookies', ('baz=faz', 'foo=bar'))
 
             nodes = await core.nodes('''
+                [ inet:http:response=* :cookies={[ inet:http:cookie="foo=bar; baz=faz;" ]} ]
+            ''')
+            self.propeq(nodes[0], 'cookies', ('baz=faz', 'foo=bar'))
+
+            self.len(2, await core.nodes('inet:http:response -> inet:http:cookie'))
+
+            nodes = await core.nodes('''
                 [ inet:http:session=*
                     :cookies={[ inet:http:cookie="foo=bar; baz=faz;" ]}
                     :period=(2024/01/01, 2024/01/02)
@@ -906,6 +927,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :reason=OK
                 :headers=((baz, faz),)
                 :body=$p.body as file:bytes
+                :cookies={[ inet:http:cookie="sid=hehe; lang=en;" ]}
                 :client=1.2.3.4
                 :server="5.5.5.5:443"
             ]'''
@@ -919,6 +941,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.propeq(resp, 'reason', 'OK')
             self.propeq(resp, 'headers', (('baz', 'faz'),))
             self.propeq(resp, 'body', body)
+            self.propeq(resp, 'cookies', ('lang=en', 'sid=hehe'))
             self.propeq(resp, 'client', 'tcp://1.2.3.4')
             self.propeq(resp, 'server', 'tcp://5.5.5.5:443')
 

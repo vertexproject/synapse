@@ -9293,6 +9293,7 @@ The base type for the form can be found at [`inet:http:response`](datamodel_type
 | `:reason` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('str',)` | The HTTP response reason phrase received. |  |
 | `:headers` | array of [`inet:http:response:header`](datamodel_types.md#dm-type-inet-http-response-header)<br>uniq: `False`<br>sorted: `False` | An array of HTTP headers from the response. |  |
 | `:body` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('file:bytes',)` | The HTTP response body received. |  |
+| `:cookies` | array of [`inet:http:cookie`](datamodel_types.md#dm-type-inet-http-cookie) | An array of HTTP cookie values parsed from the "Set-Cookie:" headers in the response. |  |
 | `:flow` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('inet:flow',)` | The network flow which contained the HTTP response. |  |
 | `:time` | [`poly`](datamodel_types.md#dm-type-poly)<br>types: `('time',)` | The time that the HTTP response occurred. | virts: `(('precision', ('timeprecision', {}), {'doc': 'The precision for display and rounding the time.'}),)` |
 | `:activity` | [`poly`](datamodel_types.md#dm-type-poly)<br>interfaces: `('base:activity',)` | A parent activity which includes this HTTP response. |  |

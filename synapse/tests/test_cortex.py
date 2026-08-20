@@ -3103,8 +3103,10 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('entity:contact +:email::fqdn')
             self.len(1, nodes)
 
-            nodes = await core.nodes('entity:contact +:org::url::host::notaprop')
-            self.len(0, nodes)
+            # no property named "org" reaches a form which declares a "url", so the
+            # chain is unreachable whatever the inbound form turns out to be
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('entity:contact +:org::url::host::notaprop')
 
             # test pivprop with an extmodel prop
             await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})
@@ -3121,16 +3123,15 @@ class CortexTest(s_t_utils.SynTest):
             # try to pivot to a node that no longer exists
             await core.nodes('inet:asn | delnode --force')
 
-            nodes = await core.nodes('inet:ip +:asn::name')
+            nodes = await core.nodes('inet:ip +:asn::registrant:name')
             self.len(0, nodes)
 
             # try to pivot to deleted form/props for coverage
             self.len(1, await core.nodes('[ inet:asn=200 :_pivo=10 ]'))
 
             core.model.delForm('_hehe:haha')
-            # TODO: add a cached lookup for whether this could be possible with the current model and raise
-            # with self.raises(s_exc.NoSuchForm):
-            #    await core.nodes('inet:ip +:asn::_pivo::notaprop')
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('inet:ip +:asn::_pivo::notaprop')
 
             await core.nodes('[ou:position=* :contact={[entity:contact=* :email=a@v.lk]}]')
             await core.nodes('[ou:position=* :contact={[entity:contact=* :email=b@v.lk]}]')
@@ -3225,9 +3226,8 @@ class CortexTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('test:str', node.ndef[0])
 
-            # TODO: add a cached lookup for whether this could be possible with the current model and raise
-            # with self.raises(s_exc.NoSuchProp):
-            #    nodes = await core.nodes('entity:contact:email::newp=a')
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('entity:contact:email::newp=a')
 
             await core.nodes('[it:exec:fetch=* :request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://1.2.3.4]} ]}]')
             await core.nodes('[it:exec:fetch=* :request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://5.6.7.8]} ]}]')
@@ -3259,7 +3259,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:exec:fetch:request::flow::client.ip::asn::registrant::titles*[=manager]'))
 
             # embed lift through virt with no value
-            self.len(0, await core.nodes('it:exec:fetch:request::flow::client.port::asn=5'))
+            self.len(0, await core.nodes('it:exec:fetch:request::flow::server.ip::asn=5'))
 
             # embed lift through virt with no node
             await core.nodes('[it:exec:fetch=* :request={[inet:http:request=* :flow={[inet:flow=* :client=tcp://9.9.9.9]} ]}]')
@@ -3317,13 +3317,18 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:str:bar::seen*[=tcp]'))
             self.len(0, await core.nodes('test:str:bar::seen>2020'))
 
+            # a name which none of the candidate types could supply is another matter,
+            # since no value of any of them resolves it
             await core.nodes('[test:str=newp :bar={[test:str=newp :hehe=newp]}]')
-            self.len(0, await core.nodes('test:str:bar::hehe::foo=baz'))
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:str:bar::hehe::foo=baz')
 
-            # test pivprop through a non-form type raises NoSuchForm
+            # test pivprop through a non-form type raises NoSuchForm. the name it ends on
+            # is supplied by another form named by the same relative property, so the
+            # chain reaches the node and raises there rather than at query plan time.
             await core.nodes('[test:str=hehe :hehe=notaform]')
             with self.raises(s_exc.NoSuchForm):
-                await core.nodes('test:str=hehe +:hehe::tick=2020')
+                await core.nodes('test:str=hehe +:hehe::loc=us')
 
 class CortexBasicTest(s_t_utils.SynTest):
     '''
@@ -4917,6 +4922,45 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData([pode])
             nodes = await core1.nodes('test:int=6')
             self.eq((('test:int', 1), ('test:lower', 'foo')), nodes[0].getTagProp('beep.beep', '_comp'))
+
+            # a packed node carrying virtual property values replays them, so a value
+            # which was set with one arrives with it rather than with the default
+            await core1.addTagProp('_seen', ('ival', {}), {})
+
+            q = '''[ test:str=virts :tick=2020 +#beep.beep:_seen=(2020, 2021) ]
+                   [ :tick.precision=year +#beep.beep:_seen.precision=year ]
+                   return($node.pack())'''
+
+            pode = await core1.callStorm(q)
+            self.eq(4, pode[1]['props']['tick'][1]['v']['precision'][0])
+            self.eq(4, pode[1]['tagprops']['beep.beep']['_seen'][1]['v']['precision'][0])
+
+            pode = (('test:str', 'virts2'), pode[1])
+            await core1.addFeedData([pode])
+
+            nodes = await core1.nodes('test:str=virts2')
+            self.len(1, nodes)
+
+            self.eq(4, nodes[0].get('tick.precision'))
+            valu, virts = nodes[0].getTagPropWithVirts('beep.beep', '_seen')
+            self.eq(4, virts['precision'][0])
+
+            # a virtual property which names a node adds it when it is replayed
+            q = '''[ econ:balance=(virts,) :amount=100 :amount.currency=usd ]
+                   return($node.pack())'''
+
+            pode = await core1.callStorm(q)
+
+            await core1.nodes('econ:balance=(virts,) | delnode')
+            await core1.nodes('econ:currency=usd | delnode')
+            self.len(0, await core1.nodes('econ:currency=usd'))
+
+            await core1.addFeedData([pode])
+
+            nodes = await core1.nodes('econ:balance=(virts,)')
+            self.len(1, nodes)
+            self.eq('USD', nodes[0].get('amount.currency'))
+            self.len(1, await core1.nodes('econ:currency=usd'))
 
             # Put bad data in
             data = [(('test:str', 'newp'), {'tags': {'test.newp': ('newp', {})}})]
@@ -7899,7 +7943,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(2, email[1]['tagprops'])
                 self.eq(email[1]['tagprops'], {'foo.bar': {'_user': ('vertex', {})}, 'visi.woot': {'_rank': (43, {})}})
                 self.len(2, news[1]['tagprops'])
-                self.eq(news[1]['tagprops'], {'visi': {'_file': ('/foo/bar/baz', {})}, 'visi.woot': {'_rank': (1, {})}})
+                # the export carries the virts, so a value set with one is restored with it
+                self.eq(news[1]['tagprops'], {'visi': {'_file': ('/foo/bar/baz',
+                                                                {'v': {'base': ('baz', {}),
+                                                                       'dir': ('/foo/bar', {})}})},
+                                              'visi.woot': {'_rank': (1, {})}})
                 self.len(1, news[1]['edges'])
                 self.eq(news[1]['edges'][0], ('refs', ('inet:email', 'visi@vertex.link')))
 
@@ -8116,16 +8164,20 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core0:
 
             await core0.addTagProp('_score', ('int', {}), {})
+            await core0.addTagProp('_when', ('ival', {}), {})
 
             q = '''[
                 test:str=roundtrip
                     :tick=(12345)
                     :bar={[ test:int=7 ]}
                     :seen=(2020, 2021)
+                    :seen.precision=year
                     :polyarry={[ test:str=foo test:int=5 ]}
                     +#hehe
                     +#haha=(2016, 2019)
                     +#haha:_score=42
+                    +#haha:_when=(2021, 2022)
+                    +#haha:_when.precision=year
             ]'''
             nodes = await core0.nodes(q)
             self.len(1, nodes)
@@ -8139,6 +8191,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore() as core1:
 
                 await core1.addTagProp('_score', ('int', {}), {})
+                await core1.addTagProp('_when', ('ival', {}), {})
                 await core1.addFeedData(podes[1:])
 
                 nodes1 = await core1.nodes('test:str=roundtrip')

@@ -1,5 +1,42 @@
 # Synapse Changelog
 
+## v3.1.0 - 2026-08-20
+
+### Model Changes
+
+- Added `:platform` as a secondary property to `econ:purchase`.
+- Added ``inet:http:response:cookies`` to record the cookies set by an HTTP
+  response.
+- Updated the ``inet:email:header``, ``inet:service:message``, and
+  ``inet:url:redir`` forms to implement the ``meta:usable`` interface.
+- Updated the ``it:host`` form and its subforms to implement the
+  ``risk:targetable`` interface.
+- Updated the ``crypto:hash:md5``, ``crypto:hash:sha1``,
+  ``crypto:hash:sha256``, ``crypto:hash:sha384``, and ``crypto:hash:sha512``
+  forms to implement the ``meta:usable`` interface.
+
+### Features and Enhancements
+
+- Updated ``$node.pack()`` to include virtual property values and the
+  ``syn.nodes`` feed to replay the virtual property values a packed node
+  carries, so a value which was set with one is restored with it.
+- Updated the ``syn.nodes`` export to carry virtual property values, so a value
+  which was set with one is restored with it when the export is fed back in.
+
+### Bugfixes
+
+- Fixed an issue where a filter which compared a virtual property or a cast
+  value could match no nodes when it followed a lift.
+- Storm filters and value reads which name a property the inbound node form
+  does not declare now consistently raise, including through a ``::`` pivot.
+- Set ``ssl.OP_IGNORE_UNEXPECTED_EOF`` on service listener SSL contexts, so a
+  TLS session which a client abandons without a ``close_notify`` leaves other
+  TLS connections in the service alone.
+- Fixed a bug where a View which had a ``desc`` set could not have a ``quorum``
+  configured, since the View definition schema did not allow the ``desc`` key.
+- A Storm embed property chain or virtual property name which cannot resolve
+  against the data model now raises at query time.
+
 ## v3.0.0 - 2026-08-13
 
 ### Model Changes

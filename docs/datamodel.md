@@ -308,6 +308,23 @@ An individual crypto currency block record on the blockchain.
 | `:offset` | `int` | The index of this block. |
 | `:time` | `time` | Time timestamp embedded in the block by the miner. |
 
+### `crypto:currency:bridge:swap`
+
+A cross-chain swap which bridges value between two transactions on different chains.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:matched` | `bool` | Set to true if the two transactions were matched together by an external observer. |
+| `:name` | `base:name` | The name of the bridge protocol which executed the swap. |
+| `:source:address` | `crypto:currency:address` | The address which sent the bridged value. |
+| `:source:amount` | `hugenum` | The amount of tokens or currency sent. |
+| `:source:contract` | `crypto:smart:contract` | The contract which defines the sent tokens. This is not set if the sent value was a native currency. |
+| `:source:transaction` | `crypto:currency:transaction` | The transaction which sent the bridged value. |
+| `:target:address` | `crypto:currency:address` | The address which received the bridged value. |
+| `:target:amount` | `hugenum` | The amount of tokens or currency received. |
+| `:target:contract` | `crypto:smart:contract` | The contract which defines the received tokens. This is not set if the received value was a native currency. |
+| `:target:transaction` | `crypto:currency:transaction` | The transaction which received the bridged value. |
+
 ### `crypto:currency:chain`
 
 A crypto currency chain.
@@ -363,6 +380,7 @@ A hex encoded MD5 hash.
 |-----------|
 | `crypto:hash` |
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -376,6 +394,7 @@ A hex encoded SHA1 hash.
 |-----------|
 | `crypto:hash` |
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -389,6 +408,7 @@ A hex encoded SHA256 hash.
 |-----------|
 | `crypto:hash` |
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -402,6 +422,7 @@ A hex encoded SHA384 hash.
 |-----------|
 | `crypto:hash` |
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -415,6 +436,7 @@ A hex encoded SHA512 hash.
 |-----------|
 | `crypto:hash` |
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -552,6 +574,16 @@ A secret key with an optional initialiation vector.
 | `:seen` | `ival` | The secret key was observed during the time interval. |
 | `:value` | `hex` | The hex encoded secret key. |
 
+### `crypto:payment:fee`
+
+A fee paid to execute a transaction.
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:address` | `crypto:currency:address` | The address which paid the fee. |
+| `:transaction` | `crypto:currency:transaction` | The transaction the fee was paid for. |
+| `:value` | `econ:price` | The value of the fee paid to execute the transaction. |
+
 ### `crypto:payment:input`
 
 A payment made into a transaction.
@@ -633,6 +665,22 @@ A smart contract effect which increases or decreases the supply of a fungible to
 | `:totalsupply` | `hugenum` | The total supply of tokens after this modification. |
 | `:transaction` | `crypto:currency:transaction` | The transaction where the smart contract was called. |
 
+### `crypto:smart:effect:freeze`
+
+A smart contract effect which freezes or unfreezes an address on an issuer blocklist.
+
+| Interface |
+|-----------|
+| `crypto:smart:effect` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:address` | `crypto:currency:address` | The address which was frozen or unfrozen. |
+| `:contract` | `crypto:smart:contract` | The contract which enforces the freeze. |
+| `:frozen` | `bool` | Set to true if the address was frozen or false if it was unfrozen. |
+| `:index` | `int` | The order of the effect within the effects of one transaction. |
+| `:transaction` | `crypto:currency:transaction` | The transaction where the smart contract was called. |
+
 ### `crypto:smart:effect:minttoken`
 
 A smart contract effect which creates a new non-fungible token.
@@ -695,6 +743,41 @@ A smart contract effect which grants a non-owner address the ability to manipula
 | `:index` | `int` | The order of the effect within the effects of one transaction. |
 | `:owner` | `crypto:currency:address` | The address granting proxy authority to manipulate fungible tokens. |
 | `:proxy` | `crypto:currency:address` | The address granted proxy authority to manipulate fungible tokens. |
+| `:transaction` | `crypto:currency:transaction` | The transaction where the smart contract was called. |
+
+### `crypto:smart:effect:seize`
+
+A smart contract effect which destroys the tokens held by an address.
+
+| Interface |
+|-----------|
+| `crypto:smart:effect` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:address` | `crypto:currency:address` | The address whose tokens were destroyed. |
+| `:amount` | `hugenum` | The amount of tokens destroyed. |
+| `:contract` | `crypto:smart:contract` | The contract which defines the tokens. |
+| `:index` | `int` | The order of the effect within the effects of one transaction. |
+| `:transaction` | `crypto:currency:transaction` | The transaction where the smart contract was called. |
+
+### `crypto:smart:effect:swaptokens`
+
+A smart contract effect which swaps one token or currency for another.
+
+| Interface |
+|-----------|
+| `crypto:smart:effect` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:address` | `crypto:currency:address` | The address which swapped the tokens. |
+| `:contract` | `crypto:smart:contract` | The pool or router contract which executed the swap. |
+| `:index` | `int` | The order of the effect within the effects of one transaction. |
+| `:received:amount` | `hugenum` | The amount of tokens or currency received by the address. |
+| `:received:contract` | `crypto:smart:contract` | The contract which defines the received tokens. This is not set if the received value was a native currency. |
+| `:sent:amount` | `hugenum` | The amount of tokens or currency sent by the address. |
+| `:sent:contract` | `crypto:smart:contract` | The contract which defines the sent tokens. This is not set if the sent value was a native currency. |
 | `:transaction` | `crypto:currency:transaction` | The transaction where the smart contract was called. |
 
 ### `crypto:smart:effect:transfertoken`
@@ -1114,6 +1197,7 @@ A financial account which contains a balance of funds.
 | Interface |
 |-----------|
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -1447,6 +1531,7 @@ An event where an actor made a purchase.
 | `:place:latlong:accuracy` | `phys:distance` | The accuracy of the latlong where the purchase was located. |
 | `:place:loc` | `loc` | The geopolitical location where the purchase was located. |
 | `:place:name` | `geo:name` | The name of the place where the purchase was located. |
+| `:platform` | `inet:service:platform` | The platform used to facilitate the purchase. |
 | `:price` | `econ:price` | The price of the purchase. |
 | `:seller` | `entity:actor` | The actor who sold the items. |
 | `:seller:name` | `entity:name` | The name of the actor who sold the items. |
@@ -3594,6 +3679,7 @@ A unique email message header.
 | Interface |
 |-----------|
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -3776,6 +3862,7 @@ An HTTP response returned by a server.
 | `:client:host` | `it:host` | The client host which initiated the HTTP response. |
 | `:client:proc` | `it:exec:proc` | The client process which initiated the HTTP response. |
 | `:code` | `int` | The HTTP response code received. |
+| `:cookies` | `array of inet:http:cookie` | An array of HTTP cookie values parsed from the "Set-Cookie:" headers in the response. |
 | `:flow` | `inet:flow` | The network flow which contained the HTTP response. |
 | `:headers` | `array of inet:http:response:header` | An array of HTTP headers from the response. |
 | `:reason` | `str` | The HTTP response reason phrase received. |
@@ -4395,6 +4482,7 @@ A message or post created by an account.
 | `inet:service:action` |
 | `inet:service:base` |
 | `meta:causal` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -5046,6 +5134,7 @@ A URL that redirects to another URL, such as via a URL shortening service or an 
 | Interface |
 |-----------|
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -5473,6 +5562,7 @@ A virtual host instance which runs within a cloud service platform.
 | `meta:havable` |
 | `meta:observable` |
 | `risk:exploitable` |
+| `risk:targetable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -6426,6 +6516,7 @@ A GUID that represents a host or system.
 | `meta:havable` |
 | `meta:observable` |
 | `risk:exploitable` |
+| `risk:targetable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -6989,6 +7080,7 @@ A host which consists of dedicated physical hardware.
 | `phys:object` |
 | `phys:tangible` |
 | `risk:exploitable` |
+| `risk:targetable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -7414,6 +7506,7 @@ A host which runs as a virtualized instance.
 | `meta:havable` |
 | `meta:observable` |
 | `risk:exploitable` |
+| `risk:targetable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -11291,10 +11384,13 @@ Properties common to the effects of a crypto smart contract transaction.
 |------|
 | `crypto:smart:effect:burntoken` |
 | `crypto:smart:effect:edittokensupply` |
+| `crypto:smart:effect:freeze` |
 | `crypto:smart:effect:minttoken` |
 | `crypto:smart:effect:proxytoken` |
 | `crypto:smart:effect:proxytokenall` |
 | `crypto:smart:effect:proxytokens` |
+| `crypto:smart:effect:seize` |
+| `crypto:smart:effect:swaptokens` |
 | `crypto:smart:effect:transfertoken` |
 | `crypto:smart:effect:transfertokens` |
 
@@ -12549,15 +12645,24 @@ An interface implemented by forms which can be used by an actor.
 
 | Form |
 |------|
+| `crypto:hash:md5` |
+| `crypto:hash:sha1` |
+| `crypto:hash:sha256` |
+| `crypto:hash:sha384` |
+| `crypto:hash:sha512` |
+| `econ:account` |
 | `file:attachment` |
 | `file:base` |
 | `file:bytes` |
 | `inet:email` |
+| `inet:email:header` |
 | `inet:email:message` |
 | `inet:fqdn` |
 | `inet:ip` |
+| `inet:service:message` |
 | `inet:service:platform` |
 | `inet:url` |
+| `inet:url:redir` |
 | `inet:urlfile` |
 | `it:app:snort:rule` |
 | `it:app:suricata:rule` |
@@ -12666,6 +12771,10 @@ An interface implemented by forms which are targets of threats.
 | `ind:industry` |
 | `inet:service:account` |
 | `inet:service:platform` |
+| `it:cloud:host` |
+| `it:host` |
+| `it:physical:host` |
+| `it:virtual:host` |
 | `meta:topic` |
 | `ou:org` |
 | `pol:country` |

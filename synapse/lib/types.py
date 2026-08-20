@@ -238,7 +238,10 @@ class Type:
         lifts = self.storlifts
 
         if virt is not None:
+            # a virt with no lifts of its own is lifted from the virtual index, which
+            # getVirtIndx() requires it to have.
             if (lifts := self.virtlifts.get(virt)) is None:
+                self.getVirtIndx(virt)
                 return await self.getVirtType(virt).getStorCmprs(cmpr, valu)
 
         func = lifts.get(cmpr)

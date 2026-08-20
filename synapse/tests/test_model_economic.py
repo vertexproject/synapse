@@ -53,6 +53,8 @@ class EconTest(s_utils.SynTest):
                     :place:loc=us.ny.brooklyn
 
                     :paid=20180202
+
+                    :platform={[ inet:service:platform=* ]}
             ]'''
 
             perc = (await core.nodes(text))[0]
@@ -61,6 +63,7 @@ class EconTest(s_utils.SynTest):
 
             self.len(1, await core.nodes('econ:purchase :actor -> entity:contact'))
             self.len(1, await core.nodes('econ:purchase :seller -> entity:contact'))
+            self.len(1, await core.nodes('econ:purchase :platform -> inet:service:platform'))
 
             self.len(1, await core.nodes('econ:purchase:price=13.37'))
             self.len(1, await core.nodes('econ:purchase:price=13.370'))
@@ -284,6 +287,21 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:account -> ou:org'))
             self.len(1, await core.nodes('econ:account -> entity:name'))
             self.len(1, await core.nodes('econ:account -> econ:account:type:taxonomy'))
+
+            # meta:usable lets an actor or an activity record having used the account.
+            self.true(core.model.form('econ:account').implements('meta:usable'))
+            q = f'''
+                [ risk:threat=({{"name": "scammer", "reporter:name": "cybera"}}) ]
+                [ +(used)> {{ econ:account={acct.ndef[1]} }} ]
+            '''
+            self.len(1, await core.nodes(q))
+            q = f'''
+                [ risk:attack=({{"name": "mule campaign", "reporter:name": "cybera"}}) ]
+                [ +(used)> {{ econ:account={acct.ndef[1]} }} ]
+            '''
+            self.len(1, await core.nodes(q))
+            self.len(1, await core.nodes('econ:account <(used)- risk:threat'))
+            self.len(1, await core.nodes('econ:account <(used)- risk:attack'))
 
             # Routing identifier for the comp must be passed as a node /
             # NodeRef: the comp's routing field is poly-typed by the

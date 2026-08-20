@@ -6315,7 +6315,12 @@ class Node(Prim):
         {'name': 'ndef', 'desc': 'Get the form and primary property of the Node.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorNodeNdef',
                   'returns': {'type': 'list', 'desc': 'A tuple of the form and primary property.', }}},
-        {'name': 'pack', 'desc': 'Return the serializable/packed version of the Node.',
+        {'name': 'pack', 'desc': '''
+            Return the serializable/packed version of the Node.
+
+            The packed node carries the virtual property values of the node, which a
+            feed replays to rebuild them.
+            ''',
          'type': {'type': 'function', '_funcname': '_methNodePack',
                   'args': (
                       {'name': 'dorepr', 'type': 'boolean', 'default': False,
@@ -6480,7 +6485,7 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodePack(self, dorepr=False):
-        return self.valu.pack(dorepr=dorepr)
+        return self.valu.pack(dorepr=dorepr, virts=True)
 
     @stormfunc(readonly=True)
     async def _methNodeEdges(self, verb=None, reverse=False):

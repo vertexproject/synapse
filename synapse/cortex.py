@@ -5681,7 +5681,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
                     nodec = 0
 
                     async for node, path in runt.execute():
-                        await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
+                        # the virts ride along so that a value which was set with one is
+                        # restored with it when the export is fed back in
+                        await spooldict.set(node.nid, (node.lastlayr(), node.pack(virts=True)))
                         forms[node.form.name] += 1
                         nodec += 1
 

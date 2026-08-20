@@ -1477,8 +1477,9 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[ test:str=woot :tick=2001] [ test:int=$node.is(test:str) ] +test:int')
             self.eq(1, nodes[0].ndef[1])
 
+            # $node.pack() carries the virts, so the streamed node is asked for them too
             q = 'test:str=woot $lib.fire(name=pode, pode=$node.pack(dorepr=True))'
-            msgs = await core.stormlist(q, opts={'node:opts': {'repr': True}})
+            msgs = await core.stormlist(q, opts={'node:opts': {'repr': True, 'virts': True}})
             pode = [m[1] for m in msgs if m[0] == 'node'][0]
             apode = [m[1].get('data').get('pode') for m in msgs if m[0] == 'storm:fire'][0]
             self.eq(pode[0], ('test:str', 'woot'))

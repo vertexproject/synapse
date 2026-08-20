@@ -1684,7 +1684,7 @@ The example below illustrates the use of embedded property syntax in a filter ex
 Filter the current working set of IP addresses (`inet:ip` nodes) to exclude any IP associated with an Autonomous System (AS) whose registrant name starts with `makonix`:
 
 ```mdstorm --hide
-[ ( inet:ip=185.86.150.67 :asn=52173 ) ( inet:asn=52173 :registrant:name="makonix, lv" ) ] -:asn::registrant:name ^= makonix
+[ inet:ip=185.86.150.67 :asn={[ inet:asn=52173 :registrant:name="makonix, lv" ]} ] -:asn::registrant:name ^= makonix
 ```
 
 ``` text

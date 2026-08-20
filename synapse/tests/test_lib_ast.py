@@ -1132,6 +1132,11 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('$t=test:str test:str=castme +:poly as $t = 42')
             self.len(1, nodes)
 
+            # a filter which may hint the lift compares the cast value
+            await core.nodes('[test:str=fqdncast :hehe=www.foo.com]')
+            nodes = await core.nodes('test:str +:hehe as inet:fqdn = WWW.FOO.COM')
+            self.len(1, nodes)
+
             # valueas with a poly target type
             nodes = await core.nodes('[test:str=polycast :poly=42 as test:poly]')
             self.len(1, nodes)
@@ -3411,7 +3416,10 @@ class AstTest(s_test.SynTest):
                 yield node
 
         async def checkValu(self, name, cmpr, valu, reverse=False, virt=None):
-            calls.append(('valu', name, cmpr, valu))
+            if virt is None:
+                calls.append(('valu', name, cmpr, valu))
+            else:
+                calls.append(('virtvalu', name, virt, cmpr, valu))
             async for node in origvalu(self, name, cmpr, valu, reverse=reverse, virt=virt):
                 yield node
 
@@ -3438,6 +3446,12 @@ class AstTest(s_test.SynTest):
                     nodes = await core.nodes('test:int +:loc')
                     self.len(2, nodes)
                     self.eq(calls, [('prop', 'test:int:loc')])
+                    calls = []
+
+                    # an "and" offers the hints from both sides
+                    nodes = await core.nodes('test:int +(.created and :loc=us)')
+                    self.len(1, nodes)
+                    self.eq(calls, [('valu', 'test:int:loc', '=', 'us')])
                     calls = []
 
                     nodes = await core.nodes('$loc=us test:int +:loc=$loc')
@@ -3469,6 +3483,12 @@ class AstTest(s_test.SynTest):
                     nodes = await core.nodes('test:int +:seen')
                     self.len(4, nodes)
                     self.eq(calls, [('prop', 'test:int:seen')])
+                    calls = []
+
+                    # a filter on a virt lifts by the value of the virt
+                    nodes = await core.nodes('test:int +:seen.min=20200101')
+                    self.len(4, nodes)
+                    self.eq(calls, [('virtvalu', 'test:int:seen', 'min', '=', '20200101')])
                     calls = []
 
                     # Should optimize both lifts
@@ -3533,6 +3553,82 @@ class AstTest(s_test.SynTest):
                     #    ('valu', 'test:str:somestr', '=', 'bar'),
                     #    ('valu', 'test:int:type', '=', 'foo')
                     # ])
+
+    async def test_ast_pivchain_form_scope(self):
+        '''
+        A chain is resolved against the form of the node it runs on, so a hop which that
+        form does not declare is reported the way the name the chain ends on would be.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:asn=5 :registrant:name=visi ]')
+            await core.nodes('[ inet:ip=1.2.3.4 :asn=5 ]')
+            await core.nodes('[ inet:ip=5.6.7.8 ]')
+            await core.nodes('[ test:str=a ]')
+
+            # a chain the inbound form declares resolves, whether or not the filter is
+            # folded into the lift. an oper between the two prevents the fold, so both
+            # forms of every case below are checked.
+            self.len(1, await core.nodes('inet:ip +:asn::registrant:name=visi'))
+            self.len(1, await core.nodes('inet:ip limit 10 | +:asn::registrant:name=visi'))
+
+            # reading a value through a hop the form does not declare raises, the same
+            # way reading it through a property the form does not declare does
+            for query in ('test:str limit 10 | +:asn::registrant:name=visi',
+                          'test:str limit 10 | $x=:asn::registrant:name',
+                          'test:str limit 10 | +:asn=5'):
+
+                with self.raises(s_exc.NoSuchProp) as ectx:
+                    await core.nodes(query)
+
+                self.eq('test:str', ectx.exception.get('form'))
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm('test:str limit 10 | return(:asn::registrant:name)')
+
+            # ...while asking whether the node has one is answered rather than raised
+            self.len(0, await core.nodes('test:str limit 10 | +:asn::registrant:name'))
+            self.len(1, await core.nodes('test:str limit 10 | -:asn::registrant:name'))
+
+            # a hop the form declares but the node has unset is an ordinary miss, as is
+            # one which names a node that is gone
+            self.len(0, await core.nodes('inet:ip=5.6.7.8 | +:asn::registrant:name=visi'))
+
+            await core.nodes('inet:asn=5 | delnode --force')
+            self.len(0, await core.nodes('inet:ip=1.2.3.4 | +:asn::registrant:name=visi'))
+
+            # a stream carrying a form which cannot express the chain raises on reaching
+            # it, rather than yielding only the nodes whose form can
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('inet:ip test:str limit 10 | +:asn::registrant:name=visi')
+
+            # a filter which follows the lift is folded into it. the fold narrows which
+            # nodes are lifted and must not change what the filter would have answered,
+            # so a property the form does not declare is reported either way.
+            for query in ('test:str +:asn=5',
+                          'test:str | +:asn=5',
+                          'test:str +(:asn=5)',
+                          'test:str +:asn::registrant:name=visi'):
+
+                with self.raises(s_exc.NoSuchProp):
+                    await core.nodes(query)
+
+            # ...while a filter which only asks whether the node has the property is
+            # answered for a form which has no such node without lifting it at all
+            lifts = []
+            origprop = s_view.View.nodesByProp
+
+            async def nodesByProp(self, name, reverse=False):
+                lifts.append(name)
+                async for node in origprop(self, name, reverse=reverse):
+                    yield node
+
+            with mock.patch('synapse.lib.view.View.nodesByProp', nodesByProp):
+                self.len(0, await core.nodes('test:str +:asn'))
+                self.len(0, lifts)
+
+                self.len(0, await core.nodes('test:str +:asn::registrant:name'))
+                self.len(0, lifts)
 
     async def test_ast_tag_optimization(self):
         calls = []
@@ -4382,6 +4478,9 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('entity:campaign.created +#(tag).duration=?'))
             self.len(1, await core.nodes('entity:campaign.created +#tag:_ival.min=2020'))
             self.len(1, await core.nodes('entity:campaign.created +:period.began=2020'))
+
+            # a filter which may hint the lift compares the value of the virt
+            self.len(1, await core.nodes('entity:campaign +:period.began=2020'))
             self.len(1, await core.nodes('entity:campaign.created +entity:campaign:period.began=2020'))
             self.len(1, await core.nodes('test:hasiface +test:interface:seen.min=2020'))
 
@@ -4470,6 +4569,10 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('entity:campaign $lib.print(:period.newp)')
+
+            # a virt with no index of its own has no rows to lift by value
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('it:exec:query:time.precision=day')
 
             self.eq(s_time.PREC_MICRO, await core.callStorm('[ it:exec:query=* :time=now ] return(:time.precision)'))
             self.eq(s_time.PREC_MICRO, await core.callStorm('it:exec:query  [ :time.precision?=newp ] return(:time.precision)'))

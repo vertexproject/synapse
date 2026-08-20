@@ -371,6 +371,26 @@ tuple (it normalizes and stores as a `(min, max, duration)` triple):
 [ inet:fqdn=woot.com +#cno.threat.t20=(2020/01/01, 2020/06/01) ]   // a tag time window
 ```
 
+Each end is also a virtual property, `.min` and `.max`, which is how to set the two ends
+independently -- for example when a source supplies a first-seen and a last-seen field and
+either may be absent. An end left unset stays open rather than being pinned to the other:
+
+```storm
+[ inet:dns:a=(woot.com, 1.2.3.4) :seen.min?=$firstSeen :seen.max?=$lastSeen ]
+```
+
+Do **not** set the property twice to do this. Assigning a single time makes a one-tick
+interval, and the second assignment merges with the first rather than replacing it:
+
+```storm
+[ inet:dns:a=(woot.com, 1.2.3.4) :seen?=$firstSeen :seen?=$lastSeen ]   // WRONG
+```
+
+With both values that overshoots the max by one tick; with only `$firstSeen` it leaves a
+one-tick window at that time, asserting the thing was seen for a microsecond rather than
+seen from then onward. Some forms rename the virts -- `it:lifespan` exposes `.created` and
+`.deleted` -- and those behave identically.
+
 The `@=` comparator compares an interval property against a single time (matches when the time
 falls within the property's window) or another interval (matches on ANY overlap):
 

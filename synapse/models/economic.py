@@ -173,6 +173,9 @@ modeldefs = (
 
                     ('price', ('econ:price', {}), {
                         'doc': 'The price of the purchase.'}),
+
+                    ('platform', ('inet:service:platform', {}), {
+                        'doc': 'The platform used to facilitate the purchase.'}),
                 ),
                 'doc': 'An event where an actor made a purchase.'}),
 
@@ -470,6 +473,7 @@ modeldefs = (
             ('econ:account', ('guid', {}), {
                 'template': {'title': 'financial account'},
                 'interfaces': (
+                    ('meta:usable', {}),
                     ('meta:observable', {}),
                 ),
                 'props': (

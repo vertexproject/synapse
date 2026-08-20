@@ -2737,6 +2737,39 @@ class View(s_nexus.Pusher):  # type: ignore
 
             await asyncio.sleep(0)
 
+    async def _replayPodeVirts(self, tobj, valu, norminfo, envl):
+        """
+        Replay the virtual property values carried by a packed node envelope onto a
+        value which has already been normed.
+
+        The envelope renders every virtual property, including the ones derived from
+        the value rather than set on it, so one which cannot be set on its own (an
+        ival duration, say) is skipped. Those already hold the value they describe.
+        """
+        virts = envl[1].get('v')
+        if virts is None:
+            return valu, norminfo
+
+        norminfo = dict(norminfo)
+
+        for vname, vitem in virts.items():
+
+            try:
+                valu, vinfo = await tobj.normVirt(vname, valu, vitem[0], oldvirts=norminfo.get('virts'))
+
+            except (s_exc.BadTypeValu, s_exc.NoSuchVirt):
+                continue
+
+            for vkey, vvalu in vinfo.items():
+                if vkey == 'adds':
+                    adds = list(norminfo.get('adds') or [])
+                    adds.extend(vvalu)
+                    norminfo['adds'] = adds
+                else:
+                    norminfo[vkey] = vvalu
+
+        return valu, norminfo
+
     async def _addNodeDef(self, nodedefn, user, runt=None):
 
         (formname, formvalu), forminfo = nodedefn
@@ -2774,6 +2807,8 @@ class View(s_nexus.Pusher):  # type: ignore
                         typedvalu = s_node.getPodeTval(protonode.form, prop, propvalu)
 
                         norm, norminfo = await prop.type.normFromTypedValu(typedvalu, opts=self.normopts)
+                        norm, norminfo = await self._replayPodeVirts(prop.type, norm, norminfo, propvalu)
+
                         await protonode.set(propname, norm, norminfo=norminfo)
                     except Exception as e:
                         if runt is not None:
@@ -2837,6 +2872,7 @@ class View(s_nexus.Pusher):  # type: ignore
                             norminfo = None
                             if (tprop := self.core.model.tagprop(name)) is not None:
                                 valu, norminfo = await tprop.type.normFromTypedValu(valu, opts=self.normopts)
+                                valu, norminfo = await self._replayPodeVirts(tprop.type, valu, norminfo, envl)
 
                             await protonode.setTagProp(tag, name, valu, norminfo=norminfo)
                         except Exception as e:

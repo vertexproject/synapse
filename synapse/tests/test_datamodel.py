@@ -1991,3 +1991,143 @@ class DataModelTest(s_t_utils.SynTest):
             self.eq(norm, ('int', 7))
             self.none(info.get('adds'))
             self.none(info.get('skipadd'))
+
+    async def test_datamodel_pivchain(self):
+        '''
+        A pivot chain which could never resolve against the model raises at query time
+        rather than quietly matching no nodes.
+        '''
+        async with self.getTestCore() as core:
+
+            model = core.model
+
+            # a chain rooted on a known property is checked hop by hop
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('entity:contact:email::newp=a')
+
+            # ...as is one rooted on a relative property, whose candidates are every
+            # property of that name. that is a superset of the ones the inbound node
+            # could carry, so a name none of them supplies is unreachable whatever the
+            # inbound form turns out to be.
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('inet:ip +:asn::name')
+
+            # the chain below dies at "url" rather than at the name it ends on, since
+            # no property named "org" reaches a form which declares one
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('entity:contact +:org::url::host::notaprop')
+
+            # ...while a relative chain whose name some candidate does supply stays
+            # quiet, and is filtered per node at runtime
+            self.len(0, await core.nodes('inet:ip +:asn::registrant:name=newp'))
+
+            # a chain through mixed types is checked against every candidate, so it
+            # raises only when none of them could supply the name. test:str:bar spans
+            # eleven forms, of which two have a "hehe" prop, and neither of the types
+            # those land on has a "foo".
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:str:bar::hehe::foo=baz')
+
+            # ...while a name one of them does supply stays quiet
+            self.len(0, await core.nodes('test:str:bar::hehe=newp'))
+
+            # a hop may carry a virtual property suffix
+            self.len(0, await core.nodes('it:exec:fetch:request::flow::client.ip::asn=5'))
+            self.len(0, await core.nodes('inet:ip +:asn::registrant:name'))
+
+            # a hop which holds a plain value has no node on the far side to pivot to
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('it:exec:fetch:request::flow::client.port::asn=5')
+
+            # a virtual property belongs to the type, so an unknown name raises whether
+            # or not the root of the chain was statically known
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:guid +test:guid:server.newp*newp=newp')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:virtiface +:servers*[.newp*newp=127.0.0.1]')
+
+            # a known virt with an unusable comparator names the comparator
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:virtiface:server +test:virtiface:server.ip*newp=newp')
+
+            # a valid virt on an array element is left alone
+            self.len(0, await core.nodes('test:virtiface +:servers*[.ip=127.0.0.1]'))
+
+            # a non-constant property name is resolved per node, so it is not checked here
+            opts = {'vars': {'prop': 'asn::name'}}
+            self.len(0, await core.nodes('inet:ip +:$prop', opts=opts))
+
+            # the model caches the result, and adding the missing property clears it
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('entity:contact:email::_newp=a')
+
+            await core.addFormProp('inet:email', '_newp', ('str', {}), {})
+            self.len(0, await core.nodes('entity:contact:email::_newp=a'))
+
+            await core.delFormProp('inet:email', '_newp')
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('entity:contact:email::_newp=a')
+
+            # a hop which names forms that have all been deleted can never be traversed.
+            # Type.hasforms is computed when the type is built, so this checks live state.
+            await core.addForm('_hehe:haha', 'int', {}, {'doc': 'The hehe:haha form.'})
+            await core.addFormProp('inet:asn', '_pivo', ('_hehe:haha', {}), {})
+            await core.addFormProp('_hehe:haha', '_tick', ('time', {}), {})
+
+            self.len(0, await core.nodes('inet:ip +:asn::_pivo::_tick'))
+            self.true(model.prop('inet:asn:_pivo').type.hasforms)
+
+            # the hop is checked before the name it leads to, so the chain still names
+            # the deleted form once the property it ended on is gone as well
+            await core.delFormProp('_hehe:haha', '_tick')
+            model.delForm('_hehe:haha')
+            self.true(model.prop('inet:asn:_pivo').type.hasforms)
+
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('inet:ip +:asn::_pivo::_tick')
+
+    async def test_datamodel_pivchain_cands(self):
+        '''
+        The candidate types a pivot chain carries are seeded from its root, expanded
+        by virts and child forms, and deduplicated by identity.
+        '''
+        async with self.getTestCore() as core:
+
+            model = core.model
+
+            props = model.reqPropList('entity:contact:email')
+            self.raises(s_exc.NoSuchProp, model.reqPivChain, props, ('newp',))
+
+            # a hop may be supplied by a virtual property rather than a secondary
+            # property, and may carry a virt suffix of its own
+            forms = model.reqPropList('test:virtiface')
+            self.none(model.reqPivChain(forms, ('server.ip',)))
+            self.none(model.reqPivChain(forms, ('server', 'ip')))
+
+            self.raises(s_exc.NoSuchVirt, model.reqPivChain, forms, ('server.newp',))
+            self.raises(s_exc.NoSuchVirt, model.reqPivChain, forms, ('server.newp', 'asn'))
+
+            # a hop may also be supplied by a virt on the candidate type itself, rather
+            # than on one of the concrete types a poly resolves to
+            servers = model.reqPropList('inet:server')
+            self.eq(('ip', 'port'), tuple(sorted(servers[0].type.virts)))
+            self.none(model.reqPivChain(servers, ('ip',)))
+            self.none(model.reqPivChain(servers, ('ip', 'asn')))
+
+            # ...including when it supplies the trailing virt of the chain
+            self.none(model.reqPivChain(servers, (), virt='ip'))
+            self.none(model.reqPivChain(servers, (), virt='ip', cmpr='='))
+            self.raises(s_exc.NoSuchVirt, model.reqPivChain, servers, (), 'newp')
+
+            # a relative chain rooted on a name no form declares has nothing to check
+            self.none(model.reqRelPivChain(('newpnewpnewp',), virt='newp'))
+            self.none(model.reqRelPivChain(('newpnewpnewp', 'newp')))
+
+            # every poly type shares the name "poly", so candidates must be carried
+            # across a hop by identity or unrelated branches collapse into one. keying
+            # by name drops one of these two and the second hop then raises.
+            props = (model.prop('test:str:bar'), model.prop('inet:ip:asn'))
+            self.eq('poly', props[0].type.name)
+            self.eq('poly', props[1].type.name)
+            self.none(model.reqPivChain(props, ('name', 'bar')))

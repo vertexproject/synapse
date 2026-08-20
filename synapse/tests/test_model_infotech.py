@@ -731,6 +731,13 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.true(core.model.form('it:cloud:host').implements('geo:locatable'))
             self.true(core.model.form('it:cloud:host').implements('meta:observable'))
 
+            # risk:targetable is declared on it:host and reaches all of the subforms
+            self.true(core.model.form('it:host').implements('risk:targetable'))
+            self.true(core.model.form('it:physical:host').implements('risk:targetable'))
+            self.true(core.model.form('it:virtual:host').implements('risk:targetable'))
+            self.true(core.model.form('it:cloud:host').implements('risk:targetable'))
+            self.false(core.model.form('it:host:tenancy').implements('risk:targetable'))
+
             # it:component supplies :hardware, :serial, :parent, and :period to it:host
             host = core.model.form('it:host')
             self.nn(host.prop('hardware'))
@@ -801,6 +808,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('it:virtual:host'))
             self.len(1, await core.nodes('it:cloud:host'))
             self.len(1, await core.nodes('it:cloud:host :platform -> inet:service:platform'))
+
+            # risk:targetable allows an actor to be linked to a host with a targeted edge
+            nodes = await core.nodes('[ risk:threat=* :name=apt1 ] [ +(targeted)> { it:host } ]')
+            self.len(1, nodes)
+            self.len(5, await core.nodes('risk:threat:name=apt1 -(targeted)> risk:targetable'))
+            self.len(5, await core.nodes('it:host <(targeted)- risk:threat'))
 
             # it:host:tenancy keeps its own props (incl. :period) but not the inet:service:object props
             nodes = await core.nodes('''

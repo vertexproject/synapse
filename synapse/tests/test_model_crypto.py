@@ -229,6 +229,13 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.propeq(payees[0], 'index', 0)
             self.propeq(payees[0], 'address', (btciden, '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
+            payfees = await core.nodes('[ crypto:payment:fee=(t1, feepayer) :transaction=(t1,) as crypto:currency:transaction :address=({[crypto:currency:chain=({"symbol": "btc", "id": "bip122:000000000019d6689c085ae165831e93"})]}, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=0.0001 ]')
+            self.len(1, payfees)
+            self.propeq(payfees[0], 'value', '0.0001')
+            self.propeq(payfees[0], 'address', (btciden, '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.len(1, await core.nodes('crypto:payment:fee -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:payment:fee -> crypto:currency:address'))
+
             payor = payors[0].ndef[1]
             payee = payees[0].ndef[1]
 
@@ -469,6 +476,116 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [
+                    crypto:smart:effect:freeze=*
+                        :index=0
+                        :transaction=* as crypto:currency:transaction
+                        :contract=* as crypto:smart:contract
+                        :address=({[crypto:currency:chain=({"symbol": "eth", "id": "eip155:1"})]}, 0xd73d44149deb8aabd4b53197654a286dedfda827)
+                        :frozen=true
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.propeq(node, 'index', 0)
+            self.nn(node.get('contract'))
+            self.nn(node.get('address'))
+            self.true(node.get('frozen'))
+            self.len(1, await core.nodes('crypto:smart:effect:freeze -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:freeze -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:freeze -> crypto:smart:contract'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:seize=*
+                        :index=0
+                        :transaction=* as crypto:currency:transaction
+                        :contract=* as crypto:smart:contract
+                        :address=({[crypto:currency:chain=({"symbol": "eth", "id": "eip155:1"})]}, 0xd73d44149deb8aabd4b53197654a286dedfda827)
+                        :amount=960007.90
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.propeq(node, 'index', 0)
+            self.nn(node.get('contract'))
+            self.nn(node.get('address'))
+            self.propeq(node, 'amount', '960007.9')
+            self.len(1, await core.nodes('crypto:smart:effect:seize -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:seize -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:seize -> crypto:smart:contract'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:swaptokens=*
+                        :index=179
+                        :transaction=* as crypto:currency:transaction
+                        :contract=* as crypto:smart:contract
+                        :address=({[crypto:currency:chain=({"symbol": "eth", "id": "eip155:1"})]}, 0x241ebd14e40899ddb1191c140f85c37917b0505b)
+                        :sent:contract=* as crypto:smart:contract
+                        :sent:amount=0.025194371619325567
+                        :received:contract=* as crypto:smart:contract
+                        :received:amount=22574.721
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.propeq(node, 'index', 179)
+            self.nn(node.get('contract'))
+            self.nn(node.get('address'))
+            self.nn(node.get('sent:contract'))
+            self.propeq(node, 'sent:amount', '0.025194371619325567')
+            self.nn(node.get('received:contract'))
+            self.propeq(node, 'received:amount', '22574.721')
+            self.len(1, await core.nodes('crypto:smart:effect:swaptokens -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:swaptokens -> crypto:currency:transaction'))
+            self.len(3, await core.nodes('crypto:smart:effect:swaptokens -> crypto:smart:contract'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:currency:bridge:swap=(bridge1,)
+                        :name="deBridge.finance"
+                        :matched=true
+                        :source:transaction=(otxn,) as crypto:currency:transaction
+                        :source:address=({[crypto:currency:chain=({"symbol": "eth", "id": "eip155:1"})]}, 0xaaaa)
+                        :source:contract=* as crypto:smart:contract
+                        :source:amount=1.5
+                        :target:transaction=(dtxn,) as crypto:currency:transaction
+                        :target:address=({[crypto:currency:chain=({"symbol": "bsc", "id": "eip155:56"})]}, 0xbbbb)
+                        :target:contract=* as crypto:smart:contract
+                        :target:amount=1490.0
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.propeq(node, 'name', 'deBridge.finance')
+            self.propeq(node, 'matched', True)
+            self.nn(node.get('source:contract'))
+            self.propeq(node, 'source:amount', '1.5')
+            self.nn(node.get('target:contract'))
+            self.propeq(node, 'target:amount', '1490')
+
+            # the swap is reachable from either leg via its indexed transaction prop, and bridges to the other leg
+            self.len(1, await core.nodes('crypto:currency:bridge:swap:source:transaction=(otxn,)'))
+            self.len(1, await core.nodes('crypto:currency:bridge:swap:target:transaction=(dtxn,)'))
+            self.len(2, await core.nodes('crypto:currency:bridge:swap=(bridge1,) -> crypto:currency:transaction'))
+            nodes = await core.nodes('crypto:currency:bridge:swap:source:transaction=(otxn,) :target:transaction -> crypto:currency:transaction')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('crypto:currency:transaction', s_common.guid(('dtxn',))))
+
+            # is:matched does not imply the target leg is populated
+            nodes = await core.nodes('''
+                [
+                    crypto:currency:bridge:swap=(bridge2,)
+                        :matched=true
+                        :source:transaction=(otxn2,) as crypto:currency:transaction
+                        :source:amount=2.0
+                        :target:transaction=(dtxn2,) as crypto:currency:transaction
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.nn(node.get('target:transaction'))
+            self.none(node.get('target:address'))
+            self.none(node.get('target:contract'))
+            self.none(node.get('target:amount'))
+
+            nodes = await core.nodes('''
+                [
                     crypto:smart:token=({[crypto:smart:contract=2bdea834252a220b61aadf592cc0de66]}, 30)
                         :owner=({[crypto:currency:chain=({"symbol": "eth", "id": "eip155:1"})]}, aaaa)
                         :nft:url = https://coin.vertex.link/nfts/30
@@ -578,30 +695,35 @@ class CryptoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[crypto:hash:md5=$valu]', opts={'vars': {'valu': TEST_MD5.upper()}})
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('crypto:hash:md5', TEST_MD5))
+            self.true(nodes[0].form.implements('meta:usable'))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[crypto:hash:md5=$valu]', opts={'vars': {'valu': TEST_SHA1}})
 
             nodes = await core.nodes('[crypto:hash:sha1=$valu]', opts={'vars': {'valu': TEST_SHA1.upper()}})
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('crypto:hash:sha1', TEST_SHA1))
+            self.true(nodes[0].form.implements('meta:usable'))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[crypto:hash:sha1=$valu]', opts={'vars': {'valu': TEST_SHA256}})
 
             nodes = await core.nodes('[crypto:hash:sha256=$valu]', opts={'vars': {'valu': TEST_SHA256.upper()}})
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('crypto:hash:sha256', TEST_SHA256))
+            self.true(nodes[0].form.implements('meta:usable'))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[crypto:hash:sha256=$valu]', opts={'vars': {'valu': TEST_SHA384}})
 
             nodes = await core.nodes('[crypto:hash:sha384=$valu]', opts={'vars': {'valu': TEST_SHA384.upper()}})
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('crypto:hash:sha384', TEST_SHA384))
+            self.true(nodes[0].form.implements('meta:usable'))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[crypto:hash:sha384=$valu]', opts={'vars': {'valu': TEST_SHA512}})
 
             nodes = await core.nodes('[crypto:hash:sha512=$valu]', opts={'vars': {'valu': TEST_SHA512.upper()}})
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('crypto:hash:sha512', TEST_SHA512))
+            self.true(nodes[0].form.implements('meta:usable'))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[crypto:hash:sha512=$valu]', opts={'vars': {'valu': TEST_MD5}})
 
@@ -609,6 +731,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[(crypto:hash:ssdeep=$valu)]', opts={'vars': {'valu': ssdeep_hash}})
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('crypto:hash:ssdeep', ssdeep_hash))
+            self.false(nodes[0].form.implements('meta:usable'))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[(crypto:hash:ssdeep=$valu)]', opts={'vars': {'valu': 'notanssdeep'}})
 

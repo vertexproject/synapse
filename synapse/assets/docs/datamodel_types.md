@@ -2694,6 +2694,7 @@ The `crypto:hash:md5` type is derived from the base type: [`hex`](#dm-type-hex).
 This type implements the following interfaces:
 
 - `('crypto:hash', {})`
+- `('meta:usable', {})`
 - `('meta:observable', {})`
 
 An example of `crypto:hash:md5`:
@@ -2715,6 +2716,7 @@ The `crypto:hash:sha1` type is derived from the base type: [`hex`](#dm-type-hex)
 This type implements the following interfaces:
 
 - `('crypto:hash', {})`
+- `('meta:usable', {})`
 - `('meta:observable', {})`
 
 An example of `crypto:hash:sha1`:
@@ -2736,6 +2738,7 @@ The `crypto:hash:sha256` type is derived from the base type: [`hex`](#dm-type-he
 This type implements the following interfaces:
 
 - `('crypto:hash', {})`
+- `('meta:usable', {})`
 - `('meta:observable', {})`
 
 An example of `crypto:hash:sha256`:
@@ -2757,6 +2760,7 @@ The `crypto:hash:sha384` type is derived from the base type: [`hex`](#dm-type-he
 This type implements the following interfaces:
 
 - `('crypto:hash', {})`
+- `('meta:usable', {})`
 - `('meta:observable', {})`
 
 An example of `crypto:hash:sha384`:
@@ -2778,6 +2782,7 @@ The `crypto:hash:sha512` type is derived from the base type: [`hex`](#dm-type-he
 This type implements the following interfaces:
 
 - `('crypto:hash', {})`
+- `('meta:usable', {})`
 - `('meta:observable', {})`
 
 An example of `crypto:hash:sha512`:
@@ -7021,6 +7026,7 @@ The `inet:url:redir` type is derived from the base type: [`comp`](#dm-type-comp)
 
 This type implements the following interfaces:
 
+- `('meta:usable', {})`
 - `('meta:observable', {})`
 
 An example of `inet:url:redir`:
@@ -7198,6 +7204,7 @@ The `inet:email:header` type is derived from the base type: [`comp`](#dm-type-co
 
 This type implements the following interfaces:
 
+- `('meta:usable', {})`
 - `('meta:observable', {})`
 
 This type has the following options set:
@@ -7480,6 +7487,7 @@ The `inet:service:message` type is derived from the base type: [`guid`](#dm-type
 
 This type implements the following interfaces:
 
+- `('meta:usable', {})`
 - `('inet:service:action', {})`
 
 <a id="dm-type-inet-service-message-type-taxonomy"></a>
@@ -8014,6 +8022,7 @@ The `it:host` type is derived from the base type: [`guid`](#dm-type-guid).
 This type implements the following interfaces:
 
 - `('it:component', {})`
+- `('risk:targetable', {})`
 
 <a id="dm-type-it-physical-host"></a>
 
@@ -8025,6 +8034,7 @@ The `it:physical:host` type is derived from the base type: [`it:host`](#dm-type-
 This type implements the following interfaces:
 
 - `('it:component', {})`
+- `('risk:targetable', {})`
 - `('phys:object', {})`
 - `('biz:manufactured', {})`
 
@@ -8038,6 +8048,7 @@ The `it:virtual:host` type is derived from the base type: [`it:host`](#dm-type-i
 This type implements the following interfaces:
 
 - `('it:component', {})`
+- `('risk:targetable', {})`
 
 <a id="dm-type-it-cloud-host"></a>
 
@@ -8049,6 +8060,7 @@ The `it:cloud:host` type is derived from the base type: [`it:virtual:host`](#dm-
 This type implements the following interfaces:
 
 - `('it:component', {})`
+- `('risk:targetable', {})`
 - `('inet:service:object', {})`
 
 <a id="dm-type-it-log-event-type-taxonomy"></a>

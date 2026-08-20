@@ -1553,6 +1553,10 @@ class LiftOper(Oper):
                 prop = props[-1].reqProp(pivname, extra=self.kids[0].addExcInfo)
                 props = runt.model.getChildProps(prop)
 
+            # the chain is rooted on a known property, so every hop is checkable here
+            # rather than one node at a time in the runtime.
+            runt.model.reqPivChain(props, pivs, extra=self.kids[0].addExcInfo)
+
             return props, pivs
 
         if lookup:
@@ -2208,17 +2212,28 @@ class LiftProp(LiftOper):
                     relpropname = hint[1].get('name')
                     fullname = ':'.join([prop.full, relpropname])
 
-                    prop = runt.model.prop(fullname)
-                    if prop is None:
-                        return
+                    if runt.model.prop(fullname) is None:
+
+                        # a form which does not declare the property the filter names
+                        # has no node which could have it, so a filter which only asks
+                        # whether the node has it skips the form entirely.
+                        if hint[1].get('has'):
+                            return
+
+                        # any other filter answers from the value of that property, and
+                        # reports it missing when it reaches a node. lift the form whole
+                        # so it answers exactly as it would have without the hint.
+                        continue
 
                     cmpr = hint[1].get('cmpr')
                     valu = hint[1].get('valu')
+                    virt = hint[1].get('virt')
 
                     if cmpr is not None and valu is not None:
                         try:
-                            # try lifting by valu but no guarantee a cmpr is available
-                            async for node in runt.view.nodesByPropValu(fullname, cmpr, valu, reverse=self.reverse):
+                            # try lifting by valu but no guarantee a cmpr or a virt index
+                            # is available
+                            async for node in runt.view.nodesByPropValu(fullname, cmpr, valu, reverse=self.reverse, virt=virt):
                                 yield node
                             return
                         except Exception as e:
@@ -3224,7 +3239,7 @@ class Value(AstNode):
         raise self.addExcInfo(s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()'))
 
     async def getLiftHints(self, runt, path):
-        return []
+        return ()
 
     async def getCondEval(self, runt):
         '''
@@ -3415,7 +3430,7 @@ class AndCond(Cond):
     '''
     async def getLiftHints(self, runt, path):
         h0 = await self.kids[0].getLiftHints(runt, path)
-        h1 = await self.kids[0].getLiftHints(runt, path)
+        h1 = await self.kids[1].getLiftHints(runt, path)
         return h0 + h1
 
     async def getCondEval(self, runt):
@@ -3454,11 +3469,8 @@ class TagCond(Cond):
 
         kid = self.kids[0]
 
-        if not isinstance(kid, TagMatch):
-            return []
-
         if kid.hasglob():
-            return []
+            return ()
 
         if kid.isconst:
             return (
@@ -3472,7 +3484,7 @@ class TagCond(Cond):
                     ('tag', {'name': name}),
                 )
 
-        return []
+        return ()
 
     async def getCondEval(self, runt):
 
@@ -3502,6 +3514,10 @@ class HasRelPropCond(Cond):
         if len(self.kids) == 2:
             virt = await self.kids[1].compute(runt, None)
 
+        # only the chain is checked here: "+:foo.bar" asks whether the node has that
+        # virtual property, so an unknown name answers False rather than raising.
+        self.kids[0].reqPivChain(runt)
+
         async def cond(node, path):
             return await self.hasProp(node, runt, path, virt=virt)
 
@@ -3509,7 +3525,10 @@ class HasRelPropCond(Cond):
 
     async def hasProp(self, node, runt, path, virt=None):
 
-        realnode, name, _ = await self.kids[0].resolvePivs(node, runt, path)
+        # asking whether a node has a property is answered rather than raised, so a
+        # chain which this form cannot express answers False the same way the last
+        # name of the chain does below.
+        realnode, name, _ = await self.kids[0].resolvePivs(node, runt, path, strict=False)
         if realnode is None:
             return False
 
@@ -3546,15 +3565,18 @@ class HasRelPropCond(Cond):
 
         relprop = self.kids[0]
 
+        # "has" marks a filter which only asks whether the node has the property, so a
+        # form which does not declare it has no node to yield and need not be lifted.
         name = await relprop.compute(runt, path)
         ispiv = name.find('::') != -1
         if ispiv:
             return (
-                ('relprop', {'name': name.split('::')[0]}),
+                ('relprop', {'name': name.split('::')[0], 'has': True}),
             )
 
         hint = {
             'name': name,
+            'has': True,
         }
 
         return (
@@ -3720,6 +3742,14 @@ class ArrayCond(Cond):
         relprop = self.kids[0]
         cmpr = self.kids[offs + 1].value()
         valukid = self.kids[offs + 2]
+
+        # the virt below is resolved from each node's value, so reject a name which no
+        # candidate element type could supply rather than matching nothing.
+        virt = None
+        if vkid is not None:
+            virt = vkid.const
+
+        relprop.reqPivChain(runt, virt=virt, elem=True)
 
         async def cond(node, path):
 
@@ -3915,6 +3945,14 @@ class AbsVirtPropCond(Cond):
 
             return cond
 
+        # a poly resolves its virt from the value's type, so the checks below happen per
+        # node and never run when no node carries the prop. a virt belongs to the declared
+        # type rather than the node, so reject names no candidate type could supply. the
+        # virt is checked on its own first so that it reports against the virt name and
+        # the comparison reports against the comparison.
+        runt.model.reqPivChain(props, (), virt=virt, extra=self.kids[1].addExcInfo)
+        runt.model.reqPivChain(props, (), virt=virt, cmpr=cmpr, extra=self.kids[2].addExcInfo)
+
         async def cond(node, path):
             if node.ndef[0] not in forms:
                 return False
@@ -4054,6 +4092,8 @@ class RelPropCond(Cond):
         cmpr = self.kids[1].value()
         valukid = self.kids[2]
 
+        self.kids[0].reqPivChain(runt)
+
         async def cond(node, path):
             # keep the poly type unresolved so the comparison validates the value
             # against the whole type set and tolerates per-value type mismatches.
@@ -4074,20 +4114,26 @@ class RelPropCond(Cond):
 
     async def getLiftHints(self, runt, path):
 
-        relprop = self.kids[0].kids[0]
+        propvalu = self.kids[0]
 
-        name = await relprop.compute(runt, path)
+        name = await propvalu.kids[0].compute(runt, path)
         ispiv = name.find('::') != -1
         if ispiv:
             return (
                 ('relprop', {'name': name.split('::')[0]}),
             )
 
-        hint = {
-            'name': name,
-            'cmpr': await self.kids[1].compute(runt, path),
-            'valu': await self.kids[2].compute(runt, path),
-        }
+        hint = {'name': name}
+
+        # a cast compares the property value as another type, so the lift may only use
+        # the presence of the property.
+        if not propvalu.cast:
+
+            hint['cmpr'] = await self.kids[1].compute(runt, path)
+            hint['valu'] = await self.kids[2].compute(runt, path)
+
+            if propvalu.virt is not None:
+                hint['virt'] = await propvalu.virt.compute(runt, path)
 
         return (
             ('relprop', hint),
@@ -4144,7 +4190,7 @@ class FiltOper(Oper):
     async def getLiftHints(self, runt, path):
 
         if await self.kids[0].compute(None, None) != '+':
-            return []
+            return ()
 
         return await self.kids[1].getLiftHints(runt, path)
 
@@ -4212,6 +4258,10 @@ class PropValue(Value):
     def isRuntSafeAtom(self, runt):
         return False
 
+    def reqPivChain(self, runt):
+        if isinstance(self.kids[0], PropName):
+            self.kids[0].reqPivChain(runt, virt=self.constvirt)
+
     async def getTypeValuProp(self, runt, path, strict=True, resolvepoly=True):
         ptyp, valu, _, fullname = await self._getTypeValuVirts(runt, path, strict=strict, resolvepoly=resolvepoly)
         return ptyp, valu, fullname
@@ -4220,7 +4270,7 @@ class PropValue(Value):
         if not path:
             return None, None, None, None
 
-        node, realprop, fullname = await self.kids[0].resolvePivs(path.node, runt, path)
+        node, realprop, fullname = await self.kids[0].resolvePivs(path.node, runt, path, strict=strict)
         if node is None:
             return None, None, None, None
 
@@ -4934,6 +4984,20 @@ class List(Value):
 
 class PropName(Value):
 
+    def reqPivChain(self, runt, virt=None, elem=False):
+        '''
+        Check that this chain could resolve against the model. Called once per query
+        run rather than at init, since an initialised query is cached for the life of
+        the Cortex and the model may change under it.
+        '''
+        if not self.isconst:
+            return
+
+        if len(self.pivs) == 1 and virt is None:
+            return
+
+        runt.model.reqRelPivChain(self.pivs, virt=virt, elem=elem, extra=self.kids[0].addExcInfo)
+
     def prepare(self):
         self.isconst = isinstance(self.kids[0], Const)
         if self.isconst:
@@ -4943,7 +5007,16 @@ class PropName(Value):
     async def compute(self, runt, path):
         return await self.kids[0].compute(runt, path)
 
-    async def resolvePivs(self, node, runt, path):
+    async def resolvePivs(self, node, runt, path, strict=True):
+        '''
+        Walk the chain from node and return the node the last name belongs to.
+
+        A hop which the form does not declare is reported the same way the last name
+        of the chain is: a caller which reads a value raises, since the chain names a
+        property this form has no way to reach, while one which asks whether the node
+        has it answers False. A hop which the form declares but the node has unset, or
+        which points at a node that is gone, is an ordinary miss for either caller.
+        '''
         if self.isconst:
             pivs = self.pivs
             name = self.name
@@ -4956,6 +5029,10 @@ class PropName(Value):
 
         for name in pivs[:-1]:
             if (prop := node.form.props.get(name)) is None:
+                if strict:
+                    exc = s_exc.NoSuchProp(mesg=f'No property named {name}.', name=name, form=node.form.name)
+                    raise self.addExcInfo(exc)
+
                 return None, None, None
 
             if (valu := node.get(name)) is None:
