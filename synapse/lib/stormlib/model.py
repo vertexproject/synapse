@@ -992,8 +992,8 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         result = await core.fuseNodes(srcndef, dstndef, runt.user.iden)
 
-        # The fuse edits are applied inside a nexus operation, which a mirror replays with no
-        # Storm runtime to warn into, so the warnings are collected and emitted out here.
+        # A fuse is computed and applied down in the Cortex, with no Storm runtime to warn
+        # into, so the warnings are collected and emitted out here.
         for mesg in result.get('warnings', ()):
             await runt.warn(mesg, log=False)
 

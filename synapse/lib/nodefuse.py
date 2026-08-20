@@ -13,10 +13,11 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-# The edits which make up a fuse are carried in the payload of the nexus operations which
-# apply them, so a fuse is applied in chunks of no more than this many edits rather than as
-# one unbounded operation. A fuse of a heavily referenced node can need a very large number
-# of edits, so this bounds the size of a single nexus log entry rather than refusing the fuse.
+# The edits which make up a fuse are carried in the payload of the layer nexus operations
+# which apply them, so a layer's edits are applied in chunks of no more than this many edits
+# rather than as one unbounded operation. A fuse of a heavily referenced node can need a very
+# large number of edits, so this bounds the size of a single nexus log entry rather than
+# refusing the fuse.
 maxchunkedits = 1000
 
 # stortypes which _editPropSet/_editTagPropSet union with the existing value rather than
@@ -39,9 +40,10 @@ class NodeFuser:
     then deleted from every writable layer which held it.
 
     A fuse happens in two steps. getLayerEdits() reads the current state of every layer and
-    computes the edits, outside of any nexus operation. Those edits are then split into chunks
-    by iterEditChunks() and each chunk is carried in the payload of one Cortex nexus operation
-    which applies it, via applyLayerEdits().
+    computes the edits, before any of them are applied. applyLayerEdits() then hands each
+    layer its own edits with Layer.storNodeEditsNoLift(), split into chunks by
+    iterEditChunks() so that each chunk is the payload of one of that layer's nexus
+    operations.
 
     Keeping the edits in the payload means the nexus log holds the edits themselves rather
     than a request to recompute them. A mirror applies exactly the edits the leader computed,
@@ -49,10 +51,10 @@ class NodeFuser:
     this code. Chunking bounds how large a single nexus log entry can get, so fusing a
     heavily referenced node is slower rather than impossible.
 
-    Because the reads happen outside the nexus lock, another write may land between computing
-    the edits and applying them. Most edits are expressed as "dst gains X" or "src loses X"
-    against state which was actually read, so a racing write is left behind on src rather
-    than lost, and checkFused() reports it so the caller can re-run.
+    Because the reads happen before any of the edits are applied, another write may land in
+    between. Most edits are expressed as "dst gains X" or "src loses X" against state which
+    was actually read, so a racing write is left behind on src rather than lost, and
+    checkFused() reports it so the caller can re-run.
 
     The edits are written straight to each layer, so none of the Snap() write path callbacks
     run and no triggers fire for a fuse. A fuse rewrites the same data across every layer in
@@ -60,8 +62,8 @@ class NodeFuser:
     whose triggers are the right ones to run, and firing them per view would mean running
     Storm for edits which are only bookkeeping.
 
-    NOTE: A fuse is not transactional. The edits are applied with one call per layer, and a
-          large fuse spans several nexus operations, so a failure part way through can leave
+    NOTE: A fuse is not transactional. Each layer is written separately, and a large fuse
+          spans several nexus operations per layer, so a failure part way through can leave
           some of it applied. Within each layer the edits which add to dst and repoint
           references are ordered ahead of the edits which remove state from src, and the
           storage layer no-ops edits which have already been applied. An interruption
@@ -89,8 +91,8 @@ class NodeFuser:
         Queue a list of edits for the given buid in the given layer.
 
         The edits are coalesced by (layer, buid) so that each buid appears exactly once in
-        the nodeedits list handed to a given layer, which iterEditChunks() relies on to
-        avoid splitting the order dependent edits for a single buid.
+        the nodeedits list handed to a given layer, which lets iterEditChunks() avoid
+        splitting the order dependent edits for a single buid.
         '''
         layredits = self.nodeedits.setdefault(layriden, {})
 
@@ -142,8 +144,8 @@ class NodeFuser:
         '''
         Compute the per-layer node edits which fuse the src node into the dst node.
 
-        This only reads, so it deliberately runs outside of the nexus operations which apply
-        the edits. Pass the result to iterEditChunks() to get those operations' payloads.
+        This only reads, so it deliberately runs before any of the edits are applied. Pass
+        the result to applyLayerEdits() to apply them.
 
         The edits for a single buid are returned in the order they must be applied. Within each
         layer, every edit which adds to dst or repoints a reference is ordered ahead of every
@@ -156,7 +158,7 @@ class NodeFuser:
 
         Returns:
             list: A list of (layriden, nodeedits) tuples, or an empty list if there is
-                  nothing to do. Sorted by layer iden so that the payloads do not depend on
+                  nothing to do. Sorted by layer iden so that the edits do not depend on
                   layer iteration order.
         '''
         self.layers = []
@@ -446,8 +448,8 @@ class NodeFuser:
 
             for verb, n1iden in n2edges:
 
-                # src's edge to itself is already transferred by the N1 pass above, and
-                # adding it here would put an edge on the src node we are about to delete
+                # src's edge to itself is already transferred by the N1 pass above, and it is
+                # removed along with src below, so it is not re-pointed here
                 if n1iden == srciden:
                     continue
 
@@ -460,8 +462,11 @@ class NodeFuser:
                         f'a -({verb})> light edge to {formname}={srcndef[1]!r}; that edge is not moved.')
                     continue
 
+                # the add is queued ahead of the del so the edge is never absent, and both
+                # land in the one coalesced nodeedit for n1buid, which is never split
                 self._addEdit(layriden, n1buid, n1form, (
                     (s_layer.EDIT_EDGE_ADD, (verb, dstiden), ()),
+                    (s_layer.EDIT_EDGE_DEL, (verb, srciden), ()),
                 ))
 
             # 4. tear src down in this layer
@@ -480,22 +485,6 @@ class NodeFuser:
                     self._addEdit(layriden, srcbuid, formname, (
                         (s_layer.EDIT_TAGPROP_DEL, (tag, name, valu, stype), ()),
                     ))
-
-            for verb, n1iden in n2edges:
-
-                # src's edge to itself is removed along with src below
-                if n1iden == srciden:
-                    continue
-
-                n1buid = s_common.uhex(n1iden)
-
-                n1form = await self._getFormName(n1buid)
-                if n1form is None:  # pragma: no cover
-                    continue
-
-                self._addEdit(layriden, n1buid, n1form, (
-                    (s_layer.EDIT_EDGE_DEL, (verb, srciden), ()),
-                ))
 
             if hasndef:
                 # deleting the node also wipes its node data and its N1 light edges
@@ -695,14 +684,14 @@ async def iterLayerRefs(model, layer, srcndef):
                 continue
             yield refbuid, prop, True, False
 
-def iterEditChunks(layeredits, chunk=None):
+def iterEditChunks(nodeedits, chunk=None):
     '''
-    Yield the edits from getLayerEdits() as chunks of no more than chunk edits.
+    Yield one layer's nodeedits as chunks of no more than chunk edits.
 
-    Each chunk becomes the payload of one nexus operation, which bounds how large a single
-    nexus log entry can get without capping how large a fuse may be.
+    Each chunk becomes the payload of one of that layer's nexus operations, which bounds how
+    large a single nexus log entry can get without capping how large a fuse may be.
 
-    Three properties are load bearing, and test_nodefuse_edit_chunks() covers each of them:
+    Two properties are load bearing, and test_nodefuse_edit_chunks() covers each of them:
 
     1. A nodeedit is never split. The edits for one buid are order dependent: dst's
        EDIT_NODE_ADD must be applied before any prop set for that buid, otherwise the sode
@@ -713,74 +702,55 @@ def iterEditChunks(layeredits, chunk=None):
        to dst or repoints a reference ahead of every edit which removes state from src, so an
        interruption cannot lose state or leave a reference pointing at a deleted node.
 
-    3. A layer appears at most once per chunk. A layer records its node edit log entry at the
-       nexus offset it was applied at, so two entries for one layer at the same offset would
-       overwrite each other. Spanning chunks is fine, because each chunk is its own offset.
-
     Args:
-        layeredits (list): The (layriden, nodeedits) tuples from getLayerEdits().
+        nodeedits (list): One layer's nodeedits from getLayerEdits().
         chunk (int): The maximum edits per chunk. Defaults to maxchunkedits.
 
     Yields:
-        list: A list of (layriden, nodeedits) tuples to apply as one nexus operation.
+        list: A list of nodeedits to apply with one call to Layer.storNodeEditsNoLift().
     '''
     if chunk is None:
         chunk = maxchunkedits
 
-    todo = []   # the (layriden, nodeedits) tuples for the chunk being built
+    todo = []   # the nodeedits for the chunk being built
     count = 0   # how many edits that chunk holds
 
-    for (layriden, nodeedits) in layeredits:
+    for nodeedit in nodeedits:
 
-        pend = []
+        if count >= chunk:
 
-        for nodeedit in nodeedits:
+            yield todo
 
-            if count >= chunk:
+            todo = []
+            count = 0
 
-                # flush what this layer has contributed so far, so that the layer appears
-                # in this chunk exactly once and the rest of it lands in the next one
-                if pend:
-                    todo.append((layriden, pend))
-                    pend = []
-
-                yield todo
-
-                todo = []
-                count = 0
-
-            pend.append(nodeedit)
-            count += len(nodeedit[2])
-
-        if pend:
-            todo.append((layriden, pend))
+        todo.append(nodeedit)
+        count += len(nodeedit[2])
 
     if todo:
         yield todo
 
-async def applyLayerEdits(core, layeredits, meta, nexsitem):
+async def applyLayerEdits(core, layeredits, meta):
     '''
-    Apply one chunk of the edits computed by NodeFuser.getLayerEdits(), one call per layer.
+    Apply the edits computed by NodeFuser.getLayerEdits(), one layer at a time.
 
-    This must be called from within the Cortex nexus operation which carries the chunk. The
-    edits are handed straight to each layer rather than going through Layer.saveNodeEdits()
-    because pushing a second nexus operation from in here would deadlock on the cell wide
-    nexus lock. That does not hide the edits from the nexus log: they are already in it, as
-    the payload of the operation which is being applied.
+    Each layer's edits are handed to it with Layer.storNodeEditsNoLift(), so a fuse writes to
+    a layer the same way anything else does and gets the same checks, rather than through a
+    Cortex level nexus operation of its own. The edits are the payload of those layer nexus
+    operations, so the nexus log holds the edits which were computed here rather than a
+    request for a mirror to recompute them.
 
-    Each layer is applied at most once per chunk. A layer records its node edit log entry at
-    the nexus offset it was applied at, so applying to the same layer twice within one nexus
-    operation would overwrite the first entry. iterEditChunks() guarantees that.
+    A layer's edits are split by iterEditChunks() into one nexus operation each, which bounds
+    how large a single nexus log entry can get.
 
     Args:
         core (Cortex): The Cortex to apply the edits to.
-        layeredits (list): One chunk of (layriden, nodeedits) tuples from iterEditChunks().
-        meta (dict): The nodeedit meta to record, built from the pushed useriden and tick.
-        nexsitem (tuple): The (offs, mesg) tuple of the nexus operation applying the fuse.
+        layeredits (list): The (layriden, nodeedits) tuples from NodeFuser.getLayerEdits().
+        meta (dict): The nodeedit meta to record, built from the useriden and tick.
 
     Returns:
-        dict: The layers which failed and any warnings, to be passed to
-              NodeFuser.getResult().
+        dict: The layers which failed and any warnings, in the shape mergeResult()
+              accumulates.
     '''
     failed = []
     warnings = []
@@ -796,9 +766,9 @@ async def applyLayerEdits(core, layeredits, meta, nexsitem):
         if layer is None:  # pragma: no cover
             continue
 
-        # The edits were computed outside this operation, so re-check that the layer is still
-        # one we may write to. Both flags come from the layer definition, which is replicated,
-        # so this decides the same way here and on every mirror.
+        # The edits were computed before any of them were applied, so re-check that the layer
+        # is still one we may write to. A read only layer would raise, and writing to a
+        # mirrored layer here would apply the edits locally rather than via its upstream.
         if layer.readonly or layer.ismirror:
             why = 'read only' if layer.readonly else 'a mirror'
             warn(f'$lib.model.migration.fuse() did not modify layer {layriden} because it became '
@@ -806,7 +776,8 @@ async def applyLayerEdits(core, layeredits, meta, nexsitem):
             continue
 
         try:
-            await layer._storNodeEdits(nodeedits, meta, nexsitem=nexsitem)
+            for editchunk in iterEditChunks(nodeedits):
+                await layer.storNodeEditsNoLift(editchunk, meta)
 
         except asyncio.CancelledError:  # pragma: no cover
             raise
@@ -815,7 +786,8 @@ async def applyLayerEdits(core, layeredits, meta, nexsitem):
             errm = str(e)
             failed.append((layriden, errm))
             warn(f'$lib.model.migration.fuse() failed to apply edits to layer {layriden}: {errm}. '
-                 f'That layer was not modified. Re-run fuse() with the same arguments to complete it.')
+                 f'That layer may be only partly modified. Re-run fuse() with the same arguments '
+                 f'to complete it.')
             continue
 
     return {'failed': failed, 'warnings': warnings}
@@ -824,9 +796,9 @@ async def checkFused(core, srcndef):
     '''
     Check that nothing is left of src in any layer a fuse may write to, and warn if there is.
 
-    The edits which make up a fuse are computed outside of the nexus operations which apply
-    them, so a write can land in between and be left behind. This is how the caller finds
-    out, rather than by fuse() retrying.
+    The edits which make up a fuse are computed before any of them are applied, so a write
+    can land in between and be left behind. This is how the caller finds out, rather than by
+    fuse() retrying.
 
     Two things are checked, because a raced write can leave state in two different places:
 
@@ -892,9 +864,8 @@ def mergeResult(result, newresult):
     '''
     Merge the result of one step of a fuse into the accumulated result.
 
-    A condition which affects more than one step, such as a layer which cannot be modified,
-    produces the same message from each of them. Those are deduplicated so the caller emits
-    each one once.
+    Each step warns at most once per layer, so a layer which cannot be modified is warned
+    about once by each step which noticed rather than once per edit it could not apply.
 
     Args:
         result (dict): The accumulated result, from initResult(). Updated in place.
@@ -905,11 +876,4 @@ def mergeResult(result, newresult):
         None
     '''
     result['failed'].extend(newresult['failed'])
-
-    warnings = set(result['warnings'])
-    for mesg in newresult['warnings']:
-        if mesg in warnings:
-            continue
-
-        warnings.add(mesg)
-        result['warnings'].append(mesg)
+    result['warnings'].extend(newresult['warnings'])
