@@ -326,6 +326,7 @@ testmodel = {
 
         ('test:arrayprop', ('guid', {}), {}),
         ('test:arrayform', ('array', {'type': 'int'}), {}),
+        ('test:rostr', ('guid', {}), {}),
 
         ('test:comp', ('comp', {'fields': (
             ('hehe', 'test:int'),
@@ -489,6 +490,10 @@ testmodel = {
         ('test:zeropad', {}, ()),
         ('test:ival', {}, (
             ('interval', ('ival', {}), {}),
+        )),
+
+        ('test:rostr', {}, (
+            ('strref', ('test:str', {}), {'ro': True}),
         )),
 
         ('test:pivtarg', {}, (

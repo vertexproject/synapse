@@ -810,6 +810,94 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                       {'name': 'dst', 'type': 'node', 'desc': 'The node to copy extended props to.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'fuse', 'desc': '''
+            Merge one node into another node of the same form, then delete the source node.
+
+            This operates on the whole Cortex rather than the current view. Every layer is
+            processed, so after the fuse the source node no longer exists in any view.
+
+            The following are transferred from src to dst. dst is the survivor, so its
+            existing value wins wherever both nodes hold a conflicting value:
+
+            - Secondary properties (dst values win on conflict).
+            - Extended properties (dst values win on conflict).
+            - Tags (additive; tag intervals are always unioned).
+            - Tag properties (dst values win on conflict).
+            - Light edges (additive; both N1 and N2 edges are moved to dst).
+            - Node data (dst values win on conflict).
+
+            The following special cases apply regardless of the conflict policy:
+
+            - The .created property on dst is always preserved.
+            - Interval-typed properties and tag properties, and the .seen interval, are
+              always unioned as (min(start), max(end)) rather than one value winning.
+            - Read-only secondary properties on dst are skipped, since they are derived from
+              dst's own primary property.
+            - Inbound references (props on other nodes which point at src) are rewritten to
+              point at dst. This includes form-typed, ndef-typed, and array-typed properties.
+              A read-only comp-form sub-property which references src causes that comp form
+              node to be renamed, which is applied as a further fuse.
+            - A read-only secondary property which is not a comp sub-property is rewritten in
+              place. The referring node keeps its own primary property, so that read-only
+              property will no longer match the value it was derived from.
+            - A reference src holds to itself, whether a property or a light edge, follows the
+              node and becomes a reference dst holds to itself.
+
+            Requirements and restrictions:
+
+            - The caller must be a global admin.
+            - src and dst must be the same form.
+            - src and dst may not be runt nodes.
+
+            Layer behavior:
+
+            Each property, tag, tag property, light edge and node data value is written to the
+            same layer it was already stored in, so a fuse does not move data between layers.
+            One consequence is that property merges only happen within a layer. Where src and
+            dst hold the same property in different layers, the value visible in any given view
+            is decided by that view's normal layer precedence.
+
+            Read-only and mirrored layers cannot be written to. Those layers are skipped and a
+            warning is emitted for each one which held any of src's data, because that data
+            remains and will still make src visible in any view which includes that layer.
+
+            Concurrency:
+
+            The edits which make up a fuse are computed by reading every layer, and are then
+            applied by Cortex wide operations which carry them.
+
+            Those reads are not serialized against other writes, so a write can land between
+            them and the apply. The edits are computed and applied once rather than retried, so
+            a write which lands in that window is reported as a warning. Two cases are reported:
+            state left on src, and a node left referencing src. Completing the fuse means
+            re-creating src and running fuse() again, since src no longer has a primary
+            property and so cannot be lifted on its own.
+
+            A fuse is not transactional. The edits are written with one call per layer, and
+            fusing a heavily referenced node is applied in several operations rather than one,
+            so a failure part way through can leave some of the fuse applied. Nothing is
+            removed from src until dst holds it and the references to src have been repointed,
+            so an interruption cannot lose data or leave a reference pointing at a node which
+            no longer exists. Re-running fuse() with the same arguments completes it.
+
+            There is no limit on how many edits a fuse may make. A fuse of a very heavily
+            referenced node takes longer and spans more operations, but is not refused.
+
+            Notes:
+
+            - Triggers do not fire for the edits a fuse makes. A fuse rewrites the same data
+              across every layer in the Cortex rather than making an analytical change in one
+              view, so there is no single view whose triggers are the right ones to run.
+            - A light edge between src and dst becomes a self-edge on dst after the fuse.
+            - Node objects which other running queries already hold for src become stale, so
+              running a fuse during a maintenance window is recommended.
+        ''',
+         'type': {'type': 'function', '_funcname': '_methFuse',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to merge from (will be deleted).', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to merge into (will be kept).', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('model', 'migration')
 
@@ -819,6 +907,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
             'copyExtProps': self._methCopyExtProps,
+            'fuse': self._methFuse,
         }
 
     async def _methCopyData(self, src, dst, overwrite=False):
@@ -874,6 +963,52 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         async with snap.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyExtProps(src, proto)
+
+    async def _methFuse(self, src, dst):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.fuse() src argument must be a node.')
+
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.fuse() dst argument must be a node.')
+
+        # TODO - 3.0.0: with form inheritance, relax to allow fusing compatible (parent/child) forms.
+        if src.form is not dst.form:
+            raise s_exc.BadArg(mesg='$lib.model.migration.fuse() requires src and dst to share the same form.')
+
+        if src.form.isrunt:
+            raise s_exc.IsRuntForm(mesg='$lib.model.migration.fuse() cannot fuse runt nodes.',
+                                   form=src.form.full)
+
+        if src.buid == dst.buid:
+            await self.runt.warn('$lib.model.migration.fuse() src and dst are the same node, skipping.')
+            return
+
+        # fuse() writes to every layer in the Cortex, well outside the scope of any
+        # single view's permissions, so it requires a global admin.
+        self.runt.reqAdmin(mesg='$lib.model.migration.fuse() requires global admin.')
+
+        runt = self.runt
+        core = runt.snap.core
+
+        srcndef = src.ndef
+        dstndef = dst.ndef
+
+        result = await core.fuseNodes(srcndef, dstndef, runt.user.iden)
+
+        # A fuse is computed and applied down in the Cortex, with no Storm runtime to warn
+        # into, so the warnings are collected and emitted out here.
+        for mesg in result.get('warnings', ()):
+            await runt.warn(mesg, log=False)
+
+        # Node objects this snap is holding may now be stale
+        await runt.snap.clearCache()
+
+        failed = result.get('failed')
+        if failed:
+            mesg = '$lib.model.migration.fuse() failed to apply edits to some layers: '
+            mesg += ', '.join([f'{iden} ({errm})' for iden, errm in failed])
+            raise s_exc.SynErr(mesg=mesg, layers=[iden for iden, _ in failed])
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):

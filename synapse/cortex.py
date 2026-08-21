@@ -46,6 +46,7 @@ import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
+import synapse.lib.nodefuse as s_nodefuse
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -7237,6 +7238,62 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.migration = True
             yield
             self.migration = False
+
+    async def fuseNodes(self, srcndef, dstndef, useriden):
+        '''
+        Fuse the src node into the dst node across every layer in the Cortex.
+
+        Node fusion writes to arbitrary layers rather than a single view's write layer, and
+        the edits it makes depend on the state it reads. The edits are computed here, before
+        any of them are applied, and are then handed to each layer with
+        Layer.storNodeEditsNoLift(). That keeps the edits themselves in the nexus log, so a
+        mirror applies exactly the edits which were computed here rather than recomputing them
+        from its own state.
+
+        A fuse of a heavily referenced node can need a very large number of edits, so each
+        layer's edits are applied in chunks of one nexus operation each rather than all at
+        once. A fuse is therefore not transactional, and an interruption can leave part of it
+        applied. See NodeFuser.getLayerEdits() for the ordering which makes that recoverable.
+
+        Since the reads are not serialized against other writes, a write which lands after the
+        edits are computed is generally left behind on src rather than picked up. The edits are
+        computed and applied once, and src is then checked so that the caller is told to re-run
+        rather than retrying here.
+
+        Args:
+            srcndef (tuple): The (form, valu) of the node to fuse from. It will be deleted.
+            dstndef (tuple): The (form, valu) of the node to fuse into. It will be kept.
+            useriden (str): The iden of the user running the fuse.
+
+        Returns:
+            dict: The warnings to emit and the layers which failed.
+        '''
+        # tick is sampled once and carried in the nodeedit meta, so that the leader and every
+        # mirror record the same time in the layer node edit logs.
+        meta = {'time': s_common.now(), 'user': useriden}
+
+        # the fuser owns the spooled state the edits are accumulated in, so it stays open
+        # until they have all been applied
+        async with await s_nodefuse.NodeFuser.anit(self, useriden) as fuser:
+
+            await fuser.getLayerEdits(srcndef, dstndef)
+
+            if fuser.touchedlayers:
+
+                await fuser.applyLayerEdits(meta)
+
+                # A layer which failed is not retried here. The failure would simply repeat,
+                # and the warning already tells the caller to re-run once they have dealt
+                # with it.
+                if not fuser.failed:
+                    # Nothing failed, so every edit which was computed has been applied. Check
+                    # that src is actually gone, to catch a write which landed while the fuse
+                    # was being computed.
+                    await fuser.checkFused(srcndef)
+
+            # returned even with nothing to apply, since computing the edits may have produced
+            # warnings of its own which the caller still needs to emit
+            return fuser.getResult()
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''
