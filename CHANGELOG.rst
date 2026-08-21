@@ -6,6 +6,35 @@
 Synapse Changelog
 *****************
 
+v2.250.0 - 2026-08-21
+=====================
+
+Model Changes
+-------------
+- Added the ``inet:http:request:response:cookies`` property to record the
+  cookies set by the HTTP response.
+  (`#5003 <https://github.com/vertexproject/synapse/pull/5003>`_)
+- Added `:platform` as a secondary property to `econ:purchase`
+  (`#5004 <https://github.com/vertexproject/synapse/pull/5004>`_)
+- See :ref:`userguide_model_v2_250_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added support for a ``url`` field on Storm command ``endpoints`` definitions
+  to declare the base URL an endpoint is served from. Command help now groups
+  endpoints by base URL.
+  (`#5002 <https://github.com/vertexproject/synapse/pull/5002>`_)
+
+Bugfixes
+--------
+- Set ``ssl.OP_IGNORE_UNEXPECTED_EOF`` on server SSL contexts, so a TLS session
+  which a client abandons without a ``close_notify`` leaves other TLS
+  connections in the service alone.
+  (`#5001 <https://github.com/vertexproject/synapse/pull/5001>`_)
+- Fixed a bug in ``synapse.lib.scrape`` where the ``it:sec:cve`` rule dropped
+  every other CVE in a comma- or space-delimited list of CVEs.
+  (`#5005 <https://github.com/vertexproject/synapse/pull/5005>`_)
+
 v2.249.0 - 2026-08-04
 =====================
 
