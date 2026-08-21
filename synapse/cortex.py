@@ -7253,7 +7253,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         A fuse of a heavily referenced node can need a very large number of edits, so each
         layer's edits are applied in chunks of one nexus operation each rather than all at
         once. A fuse is therefore not transactional, and an interruption can leave part of it
-        applied. See s_nodefuse.getLayerEdits() for the ordering which makes that recoverable.
+        applied. See NodeFuser.getLayerEdits() for the ordering which makes that recoverable.
 
         Since the reads are not serialized against other writes, a write which lands after the
         edits are computed is generally left behind on src rather than picked up. The edits are
@@ -7272,33 +7272,28 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # mirror record the same time in the layer node edit logs.
         meta = {'time': s_common.now(), 'user': useriden}
 
-        result = s_nodefuse.initResult()
+        # the fuser owns the spooled state the edits are accumulated in, and the computed
+        # edits are generators over it, so it stays open until they have all been applied
+        async with await s_nodefuse.NodeFuser.anit(self, useriden) as fuser:
 
-        fuser = s_nodefuse.NodeFuser(self, useriden)
+            layeredits = await fuser.getLayerEdits(srcndef, dstndef)
 
-        layeredits = await fuser.getLayerEdits(srcndef, dstndef)
+            if layeredits:
 
-        # merge even with nothing to apply, since computing the edits may have produced
-        # warnings of its own which the caller still needs to emit
-        s_nodefuse.mergeResult(result, fuser.getResult())
+                await fuser.applyLayerEdits(layeredits, meta)
 
-        if not layeredits:
-            return result
+                # A layer which failed is not retried here. The failure would simply repeat,
+                # and the warning already tells the caller to re-run once they have dealt
+                # with it.
+                if not fuser.failed:
+                    # Nothing failed, so every edit which was computed has been applied. Check
+                    # that src is actually gone, to catch a write which landed while the fuse
+                    # was being computed.
+                    await fuser.checkFused(srcndef)
 
-        retn = await s_nodefuse.applyLayerEdits(self, layeredits, meta)
-
-        s_nodefuse.mergeResult(result, retn)
-
-        # A layer which failed is not retried here. The failure would simply repeat, and the
-        # warning already tells the caller to re-run once they have dealt with it.
-        if retn['failed']:
-            return result
-
-        # Nothing failed, so every edit which was computed has been applied. Check that src
-        # is actually gone, to catch a write which landed while the fuse was being computed.
-        s_nodefuse.mergeResult(result, await s_nodefuse.checkFused(self, srcndef))
-
-        return result
+            # returned even with nothing to apply, since computing the edits may have produced
+            # warnings of its own which the caller still needs to emit
+            return fuser.getResult()
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''

@@ -5,6 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.spooled as s_spooled
 import synapse.lib.nodefuse as s_nodefuse
 
 import synapse.tools.backup as s_tools_backup
@@ -898,7 +899,10 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('ref-scalar-dst', nodes[0].get('name'))
 
-            # --- Form-typed array ref rewrite + dedup ---
+            # --- Form-typed array ref rewrite ---
+            # test:arrayprop:strsnosplit is neither uniq nor sorted, so each reference to src
+            # is swapped in place and the array keeps its length and its element order. A
+            # uniq array would collapse the duplicate; this one has opted out of that.
 
             opts = {'vars': {'r2src': 'arr-src', 'r2dst': 'arr-dst', 'r2ap': s_common.guid()}}
             await core.nodes('[ test:str=$r2src test:str=$r2dst ]', opts=opts)
@@ -912,7 +916,7 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, nodes)
             arrv = nodes[0].get('strsnosplit')
             self.notin('arr-src', arrv)
-            self.isin('arr-dst', arrv)
+            self.eq(('arr-dst', 'arr-dst'), arrv)
 
             # --- Form-typed array ref rewrite (src only, dst appended) ---
 
@@ -960,10 +964,11 @@ class StormlibModelTest(s_test.SynTest):
             self.notin(('test:str', 'ndefa-src'), ndefs)
             self.isin(('test:str', 'ndefa-dst'), ndefs)
 
-            # --- Non-comp read-only ref is rewritten with a warning ---
+            # --- Non-comp read-only ref is rewritten in place ---
             # test:rostr:strref is test:str-typed and read-only but not a comp sub-prop.
             # There is no read-only enforcement in the storage layer, so it is rewritten
-            # rather than left dangling at a deleted node.
+            # rather than left dangling at a deleted node. This is documented fuse()
+            # behavior and is not warned about.
 
             opts = {'vars': {'nc1src': 'ncomp-src', 'nc1dst': 'ncomp-dst', 'nc1guid': s_common.guid()}}
             await core.nodes('[ test:str=$nc1src test:str=$nc1dst ]', opts=opts)
@@ -972,7 +977,7 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist(
                 'test:str=$nc1src $n=$node -> { test:str=$nc1dst $lib.model.migration.fuse($n, $node) }',
                 opts=opts)
-            self.stormIsInWarn('rewrote read-only property', mesgs)
+            self.stormNotInWarn('rewrote read-only property', mesgs)
 
             self.len(0, await core.nodes('test:str=$nc1src', opts=opts))
 
@@ -1447,6 +1452,174 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq((('test:str', 'arr-other'),), nodes[0].get('ndefs'))
 
+    async def test_stormlib_model_migration_fuse_array_norm(self):
+
+        # An array type may be uniq and/or sorted, and the storage layer stores what it is
+        # given rather than re-normalizing it. A rewritten array reference therefore has to be
+        # re-normalized, or the node stops lifting by its own array value.
+        async with self.getTestCore() as core:
+
+            # --- inbound reference into a uniq and sorted array ---
+
+            opts = {'vars': {'ap': s_common.guid()}}
+
+            await core.nodes('[ test:strregex="#aab" test:strregex="#mmm" ]')
+            await core.nodes('[ test:arrayprop=$ap :strregexs=("#bbb", "#mmm", "#zzz") ]', opts=opts)
+
+            await core.nodes(
+                'test:strregex="#mmm" $n=$node -> { test:strregex="#aab" $lib.model.migration.fuse($n, $node) }')
+
+            nodes = await core.nodes('test:arrayprop=$ap', opts=opts)
+            self.len(1, nodes)
+            self.eq(('#aab', '#bbb', '#zzz'), nodes[0].get('strregexs'))
+
+            # the whole-array index is built from the stored value, so an array which was not
+            # re-normalized cannot be lifted by its own value
+            self.len(1, await core.nodes('test:arrayprop:strregexs=("#aab", "#bbb", "#zzz")'))
+            self.len(1, await core.nodes('test:arrayprop:strregexs*[="#aab"]'))
+
+            # --- self reference in a uniq and sorted array ---
+            # the test model has no uniq/sorted array of its own form, so one is added here
+
+            await core.addFormProp('test:str', '_selfs',
+                                   ('array', {'type': 'test:str', 'uniq': True, 'sorted': True}), {})
+
+            await core.nodes('[ test:str=aaa-dst ]')
+            await core.nodes('[ test:str=mmm-src :_selfs=(zzz-other, mmm-src) ]')
+
+            await core.nodes(
+                'test:str=mmm-src $n=$node -> { test:str=aaa-dst $lib.model.migration.fuse($n, $node) }')
+
+            self.len(0, await core.nodes('test:str=mmm-src'))
+
+            nodes = await core.nodes('test:str=aaa-dst')
+            self.len(1, nodes)
+            self.eq(('aaa-dst', 'zzz-other'), nodes[0].get('_selfs'))
+
+            self.len(1, await core.nodes('test:str:_selfs=(aaa-dst, zzz-other)'))
+
+            # --- an array which cannot be re-normalized is warned about, and the reference is
+            #     still repointed rather than left pointing at a node which no longer exists ---
+
+            opts = {'vars': {'ap2': s_common.guid()}}
+
+            await core.nodes('[ test:strregex="#nnn" test:strregex="#ooo" ]')
+            await core.nodes('[ test:arrayprop=$ap2 :strregexs=("#nnn",) ]', opts=opts)
+
+            arraytype = core.model.prop('test:arrayprop:strregexs').type
+
+            def badnorm(valu):
+                raise s_exc.BadTypeValu(mesg='array norm go boom')
+
+            with mock.patch.object(arraytype, 'norm', badnorm):
+                mesgs = await core.stormlist(
+                    'test:strregex="#nnn" $n=$node -> { test:strregex="#ooo" $lib.model.migration.fuse($n, $node) }')
+
+            self.stormIsInWarn('cannot re-normalize array property', mesgs)
+
+            nodes = await core.nodes('test:arrayprop=$ap2', opts=opts)
+            self.len(1, nodes)
+            self.isin('#ooo', nodes[0].get('strregexs'))
+
+    async def test_stormlib_model_migration_fuse_spooled(self):
+
+        # The computed edits are accumulated in spooled dicts, so a large fuse spills to disk
+        # rather than being held whole in memory. The coalescing and ordering guarantees must
+        # survive the msgpack round trip that spilling puts each nodeedit through.
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=spool-src :hehe=woot +#spooltag test:str=spool-dst ]')
+            await core.nodes('[ test:int=1 +(refs)> { test:str=spool-src } ]')
+            await core.nodes('[ test:int=1 +(seen)> { test:str=spool-src } ]')
+            await core.nodes('[ test:arrayprop="*" :strs=(spool-src,) ]')
+
+            srcbuid = s_common.buid(('test:str', 'spool-src'))
+            dstbuid = s_common.buid(('test:str', 'spool-dst'))
+            edgebuid = s_common.buid(('test:int', 1))
+
+            orig = s_spooled.Spooled.__anit__
+
+            async def __anit__(self, dirn=None, size=s_spooled.MAX_SPOOL_SIZE, cell=None):
+                await orig(self, dirn=dirn, size=1, cell=cell)
+
+            with mock.patch('synapse.lib.spooled.Spooled.__anit__', __anit__):
+
+                async with await s_nodefuse.NodeFuser.anit(core, core.auth.rootuser.iden) as fuser:
+
+                    layeredits = await fuser.getLayerEdits(('test:str', 'spool-src'), ('test:str', 'spool-dst'))
+                    self.true(len(layeredits) > 0)
+
+                    for (layriden, nodeedits) in layeredits:
+
+                        nodeedits = list(nodeedits)
+                        buids = [nodeedit[0] for nodeedit in nodeedits]
+
+                        # the accumulator spilled, and dst is still ordered ahead of src
+                        self.true(fuser.nodeedits[layriden].fallback)
+                        self.lt(buids.index(dstbuid), buids.index(srcbuid))
+
+                        # both of the one referrer's edges are still coalesced into a single
+                        # nodeedit, each add still ahead of its own del
+                        edgeedits = [(edit[0], edit[1][0]) for edit in nodeedits[buids.index(edgebuid)][2]]
+                        self.eq([
+                            (s_layer.EDIT_EDGE_ADD, 'refs'),
+                            (s_layer.EDIT_EDGE_DEL, 'refs'),
+                            (s_layer.EDIT_EDGE_ADD, 'seen'),
+                            (s_layer.EDIT_EDGE_DEL, 'seen'),
+                        ], edgeedits)
+
+                # and the fuse still applies correctly with the accumulator spilled
+                await core.nodes(
+                    'test:str=spool-src $n=$node -> { test:str=spool-dst $lib.model.migration.fuse($n, $node) }')
+
+            self.len(0, await core.nodes('test:str=spool-src'))
+            self.len(1, await core.nodes('test:str=spool-dst <(refs)- test:int'))
+            self.len(1, await core.nodes('test:str=spool-dst <(seen)- test:int'))
+            self.len(1, await core.nodes('test:arrayprop:strs*[=spool-dst]'))
+
+    async def test_stormlib_model_migration_fuse_check_gate(self):
+
+        # checkFused() only looks at the layers which something else may have written to, so a
+        # fuse which nothing raced does not pay for the reference scan at all.
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=gate-src test:str=gate-dst ]')
+            await core.nodes('[ test:arrayprop="*" :strs=(gate-src,) ]')
+
+            checked = []
+
+            realraced = s_nodefuse.NodeFuser._layerRaced
+
+            async def counted(self, layer):
+                retn = await realraced(self, layer)
+                checked.append(retn)
+                return retn
+
+            with mock.patch.object(s_nodefuse.NodeFuser, '_layerRaced', counted):
+                mesgs = await core.stormlist(
+                    'test:str=gate-src $n=$node -> { test:str=gate-dst $lib.model.migration.fuse($n, $node) }')
+
+            self.stormHasNoWarnErr(mesgs)
+
+            # every writable layer was considered, and none of them needed to be checked
+            self.true(len(checked) > 0)
+            self.false(any(checked))
+
+            # a layer which does not log its edits has no index to compare, so it is always
+            # checked rather than being assumed clean
+            await core.addLayer({'logedits': False})
+
+            await core.nodes('[ test:str=gate2-src test:str=gate2-dst ]')
+
+            checked.clear()
+
+            with mock.patch.object(s_nodefuse.NodeFuser, '_layerRaced', counted):
+                mesgs = await core.stormlist(
+                    'test:str=gate2-src $n=$node -> { test:str=gate2-dst $lib.model.migration.fuse($n, $node) }')
+
+            self.stormHasNoWarnErr(mesgs)
+            self.true(any(checked))
+
     async def test_stormlib_model_migration_fuse_selfedge(self):
 
         async with self.getTestCore() as core:
@@ -1815,7 +1988,9 @@ class StormlibModelTest(s_test.SynTest):
             # raced in is left on src and the caller is told to re-run
             self.len(1, computes)
             self.stormIsInWarn("left state for test:str='race-src'", mesgs)
-            self.stormIsInWarn('Re-run fuse() with the same arguments', mesgs)
+            # src's valu has been deleted, so it does not lift from Storm and re-running the
+            # same query is a no-op. The remediation has to re-create it first.
+            self.stormIsInWarn("Re-create test:str='race-src' and re-run fuse()", mesgs)
 
             # the racing write, plus one nexus operation to apply the edits
             self.eq(2, await core.nexsroot.index() - offs)
@@ -1940,52 +2115,56 @@ class StormlibModelTest(s_test.SynTest):
             dstbuid = s_common.buid(('test:str', 'ord-dst'))
             edgebuid = s_common.buid(('test:int', 1))
 
-            fuser = s_nodefuse.NodeFuser(core, core.auth.rootuser.iden)
-            layeredits = await fuser.getLayerEdits(('test:str', 'ord-src'), ('test:str', 'ord-dst'))
+            async with await s_nodefuse.NodeFuser.anit(core, core.auth.rootuser.iden) as fuser:
 
-            self.true(len(layeredits) > 0)
+                layeredits = await fuser.getLayerEdits(('test:str', 'ord-src'), ('test:str', 'ord-dst'))
 
-            for (layriden, nodeedits) in layeredits:
+                self.true(len(layeredits) > 0)
 
-                buids = [nodeedit[0] for nodeedit in nodeedits]
+                for (layriden, nodeedits) in layeredits:
 
-                self.isin(srcbuid, buids)
-                self.isin(dstbuid, buids)
+                    # the edits are a generator over the fuser's spooled state
+                    nodeedits = list(nodeedits)
 
-                # a chunk boundary can fall between any two nodeedits, so everything which
-                # adds to dst or repoints a reference must be ordered before src is torn down
-                srcindx = buids.index(srcbuid)
+                    buids = [nodeedit[0] for nodeedit in nodeedits]
 
-                self.lt(buids.index(dstbuid), srcindx)
+                    self.isin(srcbuid, buids)
+                    self.isin(dstbuid, buids)
 
-                # the inbound array reference is repointed before src is deleted, so it can
-                # never be left pointing at a node which no longer exists
-                refbuids = [buid for buid in buids if buid not in (srcbuid, dstbuid, edgebuid)]
-                self.true(len(refbuids) > 0)
+                    # a chunk boundary can fall between any two nodeedits, so everything which
+                    # adds to dst or repoints a reference must be ordered before src is torn down
+                    srcindx = buids.index(srcbuid)
 
-                for refbuid in refbuids:
-                    self.lt(buids.index(refbuid), srcindx)
+                    self.lt(buids.index(dstbuid), srcindx)
 
-                # src is torn down last, and its own edits are one nodeedit which is never
-                # split, so the delete cannot be separated from the prop and tag removals
-                self.eq(len(buids) - 1, srcindx)
+                    # the inbound array reference is repointed before src is deleted, so it can
+                    # never be left pointing at a node which no longer exists
+                    refbuids = [buid for buid in buids if buid not in (srcbuid, dstbuid, edgebuid)]
+                    self.true(len(refbuids) > 0)
 
-                edits = [edit[0] for edit in nodeedits[srcindx][2]]
-                self.isin(s_layer.EDIT_NODE_DEL, edits)
-                self.isin(s_layer.EDIT_PROP_DEL, edits)
-                self.isin(s_layer.EDIT_TAG_DEL, edits)
+                    for refbuid in refbuids:
+                        self.lt(buids.index(refbuid), srcindx)
 
-                # Each light edge repoint is add-then-delete inside a single nodeedit, so it is
-                # applied atomically and the edge is never pointing at neither node. All of one
-                # referrer's edges are coalesced into that one nodeedit, so a node with several
-                # edges to src has them all repointed together.
-                edgeedits = [(edit[0], edit[1][0]) for edit in nodeedits[buids.index(edgebuid)][2]]
-                self.eq([
-                    (s_layer.EDIT_EDGE_ADD, 'refs'),
-                    (s_layer.EDIT_EDGE_DEL, 'refs'),
-                    (s_layer.EDIT_EDGE_ADD, 'seen'),
-                    (s_layer.EDIT_EDGE_DEL, 'seen'),
-                ], edgeedits)
+                    # src is torn down last, and its own edits are one nodeedit which is never
+                    # split, so the delete cannot be separated from the prop and tag removals
+                    self.eq(len(buids) - 1, srcindx)
+
+                    edits = [edit[0] for edit in nodeedits[srcindx][2]]
+                    self.isin(s_layer.EDIT_NODE_DEL, edits)
+                    self.isin(s_layer.EDIT_PROP_DEL, edits)
+                    self.isin(s_layer.EDIT_TAG_DEL, edits)
+
+                    # Each light edge repoint is add-then-delete inside a single nodeedit, so it is
+                    # applied atomically and the edge is never pointing at neither node. All of one
+                    # referrer's edges are coalesced into that one nodeedit, so a node with several
+                    # edges to src has them all repointed together.
+                    edgeedits = [(edit[0], edit[1][0]) for edit in nodeedits[buids.index(edgebuid)][2]]
+                    self.eq([
+                        (s_layer.EDIT_EDGE_ADD, 'refs'),
+                        (s_layer.EDIT_EDGE_DEL, 'refs'),
+                        (s_layer.EDIT_EDGE_ADD, 'seen'),
+                        (s_layer.EDIT_EDGE_DEL, 'seen'),
+                    ], edgeedits)
 
             # and applying them repoints both edges and leaves none behind on src
             await core.nodes(

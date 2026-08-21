@@ -837,6 +837,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
               point at dst. This includes form-typed, ndef-typed, and array-typed properties.
               A read-only comp-form sub-property which references src causes that comp form
               node to be renamed, which is applied as a further fuse.
+            - A read-only secondary property which is not a comp sub-property is rewritten in
+              place. The referring node keeps its own primary property, so that read-only
+              property will no longer match the value it was derived from.
             - A reference src holds to itself, whether a property or a light edge, follows the
               node and becomes a reference dst holds to itself.
 
@@ -865,9 +868,10 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
             Those reads are not serialized against other writes, so a write can land between
             them and the apply. The edits are computed and applied once rather than retried, so
-            a write which lands in that window is reported as a warning and requires fuse() to
-            be re-run to complete it. Two cases are reported: state left on src, and a node
-            left referencing src.
+            a write which lands in that window is reported as a warning. Two cases are reported:
+            state left on src, and a node left referencing src. Completing the fuse means
+            re-creating src and running fuse() again, since src no longer has a primary
+            property and so cannot be lifted on its own.
 
             A fuse is not transactional. The edits are written with one call per layer, and
             fusing a heavily referenced node is applied in several operations rather than one,

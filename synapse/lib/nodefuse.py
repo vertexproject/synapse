@@ -8,8 +8,11 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.types as s_types
 import synapse.lib.layer as s_layer
+import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +28,7 @@ maxchunkedits = 1000
 # other stortype is a plain overwrite, so dst's existing value wins on conflict.
 mergetypes = (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
 
-class NodeFuser:
+class NodeFuser(s_base.Base):
     '''
     Fuse a source node into a destination node across every layer in a Cortex.
 
@@ -51,16 +54,27 @@ class NodeFuser:
     this code. Chunking bounds how large a single nexus log entry can get, so fusing a
     heavily referenced node is slower rather than impossible.
 
+    The computed edits are accumulated in spooled dicts, one per layer, so that a fuse of a
+    heavily referenced node spills to disk rather than being held whole in memory.
+
     Because the reads happen before any of the edits are applied, another write may land in
     between. Most edits are expressed as "dst gains X" or "src loses X" against state which
     was actually read, so a racing write is left behind on src rather than lost, and
     checkFused() reports it so the caller can re-run.
+
+    Node data and N1 light edges are the exception. Those are not removed by edits derived
+    from what was read; they go with src's EDIT_NODE_DEL, which wipes them by buid. One
+    written in that window is therefore destroyed rather than left behind, and no post-hoc
+    read can find it, so checkFused() cannot report it and a re-run cannot recover it.
 
     The edits are written straight to each layer, so none of the Snap() write path callbacks
     run and no triggers fire for a fuse. A fuse rewrites the same data across every layer in
     the Cortex rather than making an analytical change in one view, so there is no single view
     whose triggers are the right ones to run, and firing them per view would mean running
     Storm for edits which are only bookkeeping.
+
+    A NodeFuser is single use. It owns the spooled state it accumulates, so it must be run
+    inside an "async with" and a second fuse needs a new instance.
 
     NOTE: A fuse is not transactional. Each layer is written separately, and a large fuse
           spans several nexus operations per layer, so a failure part way through can leave
@@ -71,7 +85,9 @@ class NodeFuser:
           re-running the fuse completes it.
     '''
 
-    def __init__(self, core, useriden):
+    async def __anit__(self, core, useriden):
+
+        await s_base.Base.__anit__(self)
 
         self.core = core
         self.model = core.model
@@ -80,27 +96,45 @@ class NodeFuser:
         self.layers = []        # the layers we may write to
         self.layridens = set()
 
-        self.sodes = {}         # buid -> {layriden: sode} as of before any edits
-        self.visited = set()    # src buids which have already been fused
+        self.failed = []        # (layriden, errm) for each layer which could not be written
         self.warnings = []      # warnings for the caller to emit
 
-        self.nodeedits = {}     # layriden -> {buid: nodeedit} being accumulated
+        self.nodeedits = {}     # layriden -> spooled {buid: nodeedit} being accumulated
 
-    def _addEdit(self, layriden, buid, formname, edits):
+        # src buids which have already been fused. spooled, because a fuse of a heavily
+        # referenced comp form discovers one rename per referring node.
+        self.visited = await s_spooled.Set.anit(dirn=core.dirn, cell=core)
+        self.onfini(self.visited)
+
+        # layriden -> nodeedit log index sampled before any of the state was read, and again
+        # once this fuse's own edits had been applied. checkFused() uses the pair to skip the
+        # layers which nothing else wrote to. See _layerRaced().
+        self.editoffs = {}
+        self.applyoffs = {}
+        self.raced = set()
+
+    async def _addEdit(self, layriden, buid, formname, edits):
         '''
         Queue a list of edits for the given buid in the given layer.
 
         The edits are coalesced by (layer, buid) so that each buid appears exactly once in
-        the nodeedits list handed to a given layer, which lets iterEditChunks() avoid
-        splitting the order dependent edits for a single buid.
+        the nodeedits handed to a given layer, which lets iterEditChunks() avoid splitting
+        the order dependent edits for a single buid.
         '''
-        layredits = self.nodeedits.setdefault(layriden, {})
+        layredits = self.nodeedits.get(layriden)
+        if layredits is None:
+            layredits = await s_spooled.Dict.anit(dirn=self.core.dirn, cell=self.core)
+            self.nodeedits[layriden] = layredits
+            self.onfini(layredits)
 
         nodeedit = layredits.get(buid)
         if nodeedit is None:
-            layredits[buid] = nodeedit = (buid, formname, [])
+            await layredits.set(buid, (buid, formname, list(edits)))
+            return
 
-        nodeedit[2].extend(edits)
+        # the nodeedit may have made a msgpack round trip if the dict has spilled, which
+        # returns the edits as a tuple, so it is rebuilt rather than extended in place.
+        await layredits.set(buid, (buid, formname, list(nodeedit[2]) + list(edits)))
 
     async def warn(self, mesg):
         '''
@@ -114,18 +148,21 @@ class NodeFuser:
 
     async def _getSodes(self, buid):
         '''
-        Return (and cache) a {layriden: sode} mapping for the given buid.
+        Return a {layriden: sode} mapping for the given buid.
 
-        Computing a fuse reads the same buids repeatedly, both across layers and across the
-        comp renames it discovers, so these are cached for the life of the compute pass.
+        Every layer in the Cortex is read, including the ones a fuse may not write to, so that
+        state which only exists in a read only or mirrored layer is still seen.
+
+        This is deliberately uncached. The compute pass must see the state as it was before
+        any edits were applied, and checkFused() must see it as it is afterwards, so a cache
+        which spanned the two would hand one of them the wrong answer.
         '''
-        sodes = self.sodes.get(buid)
-        if sodes is None:
-            sodes = self.sodes[buid] = {}
-            for layer in self.core.layers.values():
-                sode = await layer.getStorNode(buid)
-                if sode:
-                    sodes[layer.iden] = sode
+        sodes = {}
+
+        for layer in self.core.layers.values():
+            sode = await layer.getStorNode(buid)
+            if sode:
+                sodes[layer.iden] = sode
 
         return sodes
 
@@ -159,11 +196,9 @@ class NodeFuser:
         Returns:
             list: A list of (layriden, nodeedits) tuples, or an empty list if there is
                   nothing to do. Sorted by layer iden so that the edits do not depend on
-                  layer iteration order.
+                  layer iteration order. The nodeedits are generators over spooled state
+                  owned by this NodeFuser, so they must be consumed before it is fini'd.
         '''
-        self.layers = []
-        self.layridens = set()
-
         # A read-only layer cannot be written to, and a mirrored layer would forward our
         # edits to its upstream. Both are skipped, and _fuseOne() warns for each one which
         # actually held any of src's state.
@@ -175,7 +210,9 @@ class NodeFuser:
             self.layers.append(layer)
             self.layridens.add(layer.iden)
 
-        self.nodeedits = {}
+            # sampled before anything is read, so applyLayerEdits() can tell whether anything
+            # else wrote to this layer while the fuse was being computed
+            self.editoffs[layer.iden] = await layer.getEditIndx()
 
         todo = collections.deque()
         todo.append((srcndef, dstndef, None))
@@ -185,54 +222,52 @@ class NodeFuser:
             (nextsrc, nextdst, subs) = todo.popleft()
 
             srcbuid = s_common.buid(nextsrc)
-            if srcbuid in self.visited:
+            if self.visited.has(srcbuid):
                 continue
 
-            self.visited.add(srcbuid)
+            await self.visited.add(srcbuid)
 
             todo.extend(await self._fuseOne(nextsrc, nextdst, subs))
 
-        layeredits = []
+        return [(layriden, self._iterNodeEdits(self.nodeedits[layriden]))
+                for layriden in sorted(self.nodeedits.keys())]
 
-        for (layriden, layredits) in sorted(self.nodeedits.items()):
+    def _iterNodeEdits(self, layredits):
+        '''
+        Yield one layer's nodeedits, with every edit which removes state from a node being
+        fused away ordered after every edit which adds to dst or repoints a reference.
 
-            # Order every edit which removes state from a node being fused away after every
-            # edit which adds to dst or repoints a reference. A chunk boundary can fall between
-            # two nodeedits, so without this a fuse could be interrupted after src had been
-            # deleted but before an inbound reference to it had been repointed at dst.
-            #
-            # self.visited holds the buid of every node being fused away. A buid which is both
-            # fused away and fused into keeps its adds and removes in one coalesced nodeedit,
-            # which is never split, so it is safe on either side.
-            gains = []
-            losses = []
+        A chunk boundary can fall between two nodeedits, so without this a fuse could be
+        interrupted after src had been deleted but before an inbound reference to it had been
+        repointed at dst.
 
-            for nodeedit in layredits.values():
-                if nodeedit[0] in self.visited:
-                    losses.append(nodeedit)
-                else:
-                    gains.append(nodeedit)
+        self.visited holds the buid of every node being fused away. A buid which is both
+        fused away and fused into keeps its adds and removes in one coalesced nodeedit,
+        which is never split, so it is safe on either side.
+        '''
+        for (buid, nodeedit) in layredits.items():
+            if not self.visited.has(buid):
+                yield nodeedit
 
-            layeredits.append((layriden, gains + losses))
-
-        return layeredits
+        for (buid, nodeedit) in layredits.items():
+            if self.visited.has(buid):
+                yield nodeedit
 
     def getResult(self):
         '''
-        Return the warnings recorded while computing the edits, in the shape mergeResult()
-        accumulates. Computing never fails a layer, so the failed list is always empty.
+        Return the warnings recorded and the layers which could not be written.
 
         Returns:
             dict: The warnings to emit and the layers which failed.
         '''
-        return {'failed': [], 'warnings': self.warnings}
+        return {'failed': self.failed, 'warnings': self.warnings}
 
     def _getSelfRefs(self, form):
         '''
         Return a {propname: (isarray, isndef)} mapping of the props on the given form which
         can reference a node of that same form.
 
-        This mirrors what _iterRefs() treats as an inbound reference, so that a reference
+        This mirrors what _iterLayerRefs() treats as an inbound reference, so that a reference
         src holds to itself is recognised as one when it is transferred to dst.
         '''
         retn = {}
@@ -254,7 +289,32 @@ class NodeFuser:
 
         return retn
 
-    def _swapSelfRef(self, valu, isarray, isndef, srcndef, dstndef):
+    async def _swapArrayValu(self, prop, buid, valu, oldv, newv):
+        '''
+        Return valu with each element which is oldv replaced by newv, re-normalized.
+
+        The elements are swapped in place and the array is then re-normalized, because an
+        array type may be uniq and/or sorted. Rebuilding the value by hand would produce one
+        which the type would never have produced, and the storage layer stores what it is
+        given rather than re-normalizing it, so the node would no longer lift by its own
+        array value.
+        '''
+        newvalu = [newv if item == oldv else item for item in valu]
+
+        try:
+            return prop.type.norm(newvalu)[0]
+
+        except Exception as e:
+            # the reference is still repointed, because leaving it pointing at a node which is
+            # about to be deleted is worse than leaving the array un-normalized
+            await self.warn(
+                f'$lib.model.migration.fuse() cannot re-normalize array property {prop.full!r} on '
+                f'{s_common.ehex(buid)}: {e}. That reference is rewritten but the array is not '
+                f'normalized.')
+
+            return tuple(newvalu)
+
+    async def _swapSelfRef(self, prop, valu, isarray, isndef, srcndef, dstndef):
         '''
         Return valu with any reference to src replaced by a reference to dst.
 
@@ -278,11 +338,7 @@ class NodeFuser:
         if oldv not in valu:
             return valu
 
-        newlist = [item for item in valu if item != oldv]
-        if newv not in newlist:
-            newlist.append(newv)
-
-        return newlist
+        return await self._swapArrayValu(prop, s_common.buid(dstndef), valu, oldv, newv)
 
     async def _fuseOne(self, srcndef, dstndef, subs):
         '''
@@ -334,13 +390,6 @@ class NodeFuser:
             srcsode = srcsodes.get(layriden, {})
             dstsode = dstsodes.get(layriden, {})
 
-            nodedata = [item async for item in layer.iterNodeData(srcbuid)]
-            n1edges = [item async for item in layer.iterNodeEdgesN1(srcbuid)]
-            n2edges = [item async for item in layer.iterNodeEdgesN2(srcbuid)]
-
-            if not srcsode and not nodedata and not n1edges and not n2edges:
-                continue
-
             hasndef = srcsode.get('valu') is not None
 
             # 1. create dst in the same layer that src lives in. this must precede any
@@ -348,7 +397,7 @@ class NodeFuser:
             #    node which does not exist.
             if hasndef:
 
-                self._addEdit(layriden, dstbuid, formname, (
+                await self._addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_NODE_ADD, (dstndef[1], stortype), ()),
                 ))
 
@@ -362,14 +411,14 @@ class NodeFuser:
                             if prop is None:  # pragma: no cover
                                 continue
 
-                            self._addEdit(layriden, dstbuid, formname, (
+                            await self._addEdit(layriden, dstbuid, formname, (
                                 (s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype), ()),
                             ))
 
                     # .created is read only, so carry src's over when creating the node
                     created = srcsode.get('props', {}).get('.created')
                     if created is not None:
-                        self._addEdit(layriden, dstbuid, formname, (
+                        await self._addEdit(layriden, dstbuid, formname, (
                             (s_layer.EDIT_PROP_SET, ('.created', created[0], None, created[1]), ()),
                         ))
 
@@ -382,27 +431,32 @@ class NodeFuser:
             for name, (valu, stype) in srcsode.get('props', {}).items():
 
                 prop = form.props.get(name)
-                if prop is None:  # pragma: no cover
-                    continue
 
                 # read only props on dst are derived from dst's own primary value. .created
                 # is read only and is handled above.
-                if prop.info.get('ro'):
+                #
+                # A prop which is no longer in the model can still hold a value in the sode.
+                # It has no derivation on dst and cannot be a self reference, so it is
+                # transferred as-is: the teardown below removes every prop it finds, so
+                # skipping it here would delete it from src without moving it to dst.
+                if prop is not None and prop.info.get('ro'):
                     continue
 
                 if stype not in mergetypes and name in dstprops:
                     continue
 
+                # selfrefs is keyed off the form's props, so this is never set for a prop
+                # which is no longer in the model
                 selfref = selfrefs.get(name)
                 if selfref is not None:
-                    valu = self._swapSelfRef(valu, selfref[0], selfref[1], srcndef, dstndef)
+                    valu = await self._swapSelfRef(prop, valu, selfref[0], selfref[1], srcndef, dstndef)
 
-                self._addEdit(layriden, dstbuid, formname, (
+                await self._addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_PROP_SET, (name, valu, None, stype), ()),
                 ))
 
             for tag, valu in srcsode.get('tags', {}).items():
-                self._addEdit(layriden, dstbuid, formname, (
+                await self._addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_TAG_SET, (tag, valu, None), ()),
                 ))
 
@@ -417,36 +471,36 @@ class NodeFuser:
                     if stype not in mergetypes and name in dstpropdict:
                         continue
 
-                    self._addEdit(layriden, dstbuid, formname, (
+                    await self._addEdit(layriden, dstbuid, formname, (
                         (s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, stype), ()),
                     ))
 
-            if nodedata:
-                dstdata = {name async for name in layer.iterNodeDataKeys(dstbuid)}
+            # node data values are arbitrary blobs and a node may hold any number of them, so
+            # these are streamed rather than read into memory. dst keeping its own value on a
+            # conflict is a probe per name rather than a full listing of dst's keys.
+            async for name, valu in s_coro.pause(layer.iterNodeData(srcbuid)):
 
-                for name, valu in nodedata:
+                if await layer.hasNodeData(dstbuid, name):
+                    continue
 
-                    if name in dstdata:
-                        continue
-
-                    self._addEdit(layriden, dstbuid, formname, (
-                        (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
-                    ))
+                await self._addEdit(layriden, dstbuid, formname, (
+                    (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
+                ))
 
             # 3. transfer light edges. N1 edges move to dst, and for N2 edges the edge is
             #    stored under the n1 node, so it is re-pointed there.
-            for verb, n2iden in n1edges:
+            async for verb, n2iden in s_coro.pause(layer.iterNodeEdgesN1(srcbuid)):
 
                 # an edge from src to itself must follow the node and become an edge from
                 # dst to itself, for the same reason a self referencing property does
                 if n2iden == srciden:
                     n2iden = dstiden
 
-                self._addEdit(layriden, dstbuid, formname, (
+                await self._addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
                 ))
 
-            for verb, n1iden in n2edges:
+            async for verb, n1iden in s_coro.pause(layer.iterNodeEdgesN2(srcbuid)):
 
                 # src's edge to itself is already transferred by the N1 pass above, and it is
                 # removed along with src below, so it is not re-pointed here
@@ -464,43 +518,44 @@ class NodeFuser:
 
                 # the add is queued ahead of the del so the edge is never absent, and both
                 # land in the one coalesced nodeedit for n1buid, which is never split
-                self._addEdit(layriden, n1buid, n1form, (
+                await self._addEdit(layriden, n1buid, n1form, (
                     (s_layer.EDIT_EDGE_ADD, (verb, dstiden), ()),
                     (s_layer.EDIT_EDGE_DEL, (verb, srciden), ()),
                 ))
 
             # 4. tear src down in this layer
             for name, (valu, stype) in srcsode.get('props', {}).items():
-                self._addEdit(layriden, srcbuid, formname, (
+                await self._addEdit(layriden, srcbuid, formname, (
                     (s_layer.EDIT_PROP_DEL, (name, valu, stype), ()),
                 ))
 
             for tag, valu in srcsode.get('tags', {}).items():
-                self._addEdit(layriden, srcbuid, formname, (
+                await self._addEdit(layriden, srcbuid, formname, (
                     (s_layer.EDIT_TAG_DEL, (tag, valu), ()),
                 ))
 
             for tag, propdict in srcsode.get('tagprops', {}).items():
                 for name, (valu, stype) in propdict.items():
-                    self._addEdit(layriden, srcbuid, formname, (
+                    await self._addEdit(layriden, srcbuid, formname, (
                         (s_layer.EDIT_TAGPROP_DEL, (tag, name, valu, stype), ()),
                     ))
 
             if hasndef:
                 # deleting the node also wipes its node data and its N1 light edges
-                self._addEdit(layriden, srcbuid, formname, (
+                await self._addEdit(layriden, srcbuid, formname, (
                     (s_layer.EDIT_NODE_DEL, (srcndef[1], stortype), ()),
                 ))
 
             else:
-                # src has no primary property here, so nothing will clean these up
-                for name, valu in nodedata:
-                    self._addEdit(layriden, srcbuid, formname, (
-                        (s_layer.EDIT_NODEDATA_DEL, (name, valu), ()),
+                # src has no primary property here, so nothing will clean these up. the edit
+                # handler fills the value in from what it pops, so it is not carried here.
+                async for name, _ in s_coro.pause(layer.iterNodeData(srcbuid)):
+                    await self._addEdit(layriden, srcbuid, formname, (
+                        (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
                     ))
 
-                for verb, n2iden in n1edges:
-                    self._addEdit(layriden, srcbuid, formname, (
+                async for verb, n2iden in s_coro.pause(layer.iterNodeEdgesN1(srcbuid)):
+                    await self._addEdit(layriden, srcbuid, formname, (
                         (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
                     ))
 
@@ -520,14 +575,9 @@ class NodeFuser:
         Returns:
             list: (srcndef, dstndef, subs) tasks for comp forms which must be renamed.
         '''
-        srcbuid = s_common.buid(srcndef)
-
         todo = []
 
-        async for (refbuid, prop, isarray, isndef) in iterLayerRefs(self.model, layer, srcndef):
-
-            if refbuid == srcbuid:
-                continue
+        async for (refbuid, prop, isarray, isndef) in self._iterLayerRefs(layer, srcndef):
 
             if isndef:
                 oldv = srcndef
@@ -542,7 +592,7 @@ class NodeFuser:
                     todo.append(task)
                 continue
 
-            refsode = (await self._getSodes(refbuid)).get(layer.iden, {})
+            refsode = await layer.getStorNode(refbuid)
 
             curv = refsode.get('props', {}).get(prop.name)
             if curv is None:  # pragma: no cover
@@ -551,14 +601,11 @@ class NodeFuser:
             (curv, stortype) = curv
 
             if isarray:
-                newlist = [item for item in curv if item != oldv]
-                if newv not in newlist:
-                    newlist.append(newv)
-                setv = newlist
+                setv = await self._swapArrayValu(prop, refbuid, curv, oldv, newv)
             else:
                 setv = newv
 
-            self._addEdit(layer.iden, refbuid, prop.form.name, (
+            await self._addEdit(layer.iden, refbuid, prop.form.name, (
                 (s_layer.EDIT_PROP_SET, (prop.name, setv, None, stortype), ()),
             ))
 
@@ -581,8 +628,10 @@ class NodeFuser:
         if not isinstance(refform.type, s_types.Comp) or prop.compoffs is None:
 
             # read-only is enforced when setting a property, not by the storage layer, so
-            # this can be rewritten. A stale but valid reference beats a dangling one.
-            refsode = (await self._getSodes(refbuid)).get(layer.iden, {})
+            # this can be rewritten. A stale but valid reference beats a dangling one. The
+            # referring node keeps its own primary property, so that property no longer
+            # matches the value it was derived from; this is documented as fuse() behavior.
+            refsode = await layer.getStorNode(refbuid)
 
             curv = refsode.get('props', {}).get(prop.name)
             if curv is None:  # pragma: no cover
@@ -590,14 +639,9 @@ class NodeFuser:
 
             (curv, stortype) = curv
 
-            self._addEdit(layer.iden, refbuid, refform.name, (
+            await self._addEdit(layer.iden, refbuid, refform.name, (
                 (s_layer.EDIT_PROP_SET, (prop.name, newv, None, stortype), ()),
             ))
-
-            await self.warn(
-                f'$lib.model.migration.fuse() rewrote read-only property {prop.full!r} on '
-                f'{s_common.ehex(refbuid)} because it referenced the node being fused away. '
-                f'{refform.name!r} is not a comp form, so its primary property is unchanged.')
 
             return None
 
@@ -629,60 +673,211 @@ class NodeFuser:
         # renaming the comp is itself a fuse of the old comp node into the new one
         return ((refform.name, refvalu), (refform.name, newvalu), norminfo.get('subs'))
 
-async def iterLayerRefs(model, layer, srcndef):
-    '''
-    Yield (refbuid, prop, isarray, isndef) for props in this layer which point at src.
+    async def _iterLayerRefs(self, layer, srcndef):
+        '''
+        Yield (refbuid, prop, isarray, isndef) for props in this layer which point at src.
 
-    This is used both to rewrite the inbound references a fuse must repoint and, after the
-    fuse, to check that none are left pointing at a node which no longer exists.
+        This is used both to rewrite the inbound references a fuse must repoint and, after the
+        fuse, to check that none are left pointing at a node which no longer exists.
 
-    Args:
-        model (Model): The data model to resolve forms and props against.
-        layer (Layer): The layer to scan.
-        srcndef (tuple): The (form, valu) of the node being referenced.
+        A reference src holds to itself is never yielded. Those follow the node rather than
+        being repointed in place, so _fuseOne() transfers them to dst along with the rest of
+        src's state; queueing an edit for them here would target a buid which is being torn
+        down in the same pass.
 
-    Yields:
-        tuple: (refbuid, prop, isarray, isndef) for each inbound reference.
-    '''
-    formname = srcndef[0]
-    srcvalu = srcndef[1]
-    srcbuid = s_common.buid(srcndef)
+        Args:
+            layer (Layer): The layer to scan.
+            srcndef (tuple): The (form, valu) of the node being referenced.
 
-    # ndef typed refs, both scalar and array, come from the reverse index. one index
-    # scan per layer covers every ndef prop and cannot miss one.
-    async for (refbuid, abrv) in layer.getNdefRefs(srcbuid):
+        Yields:
+            tuple: (refbuid, prop, isarray, isndef) for each inbound reference.
+        '''
+        formname = srcndef[0]
+        srcvalu = srcndef[1]
+        srcbuid = s_common.buid(srcndef)
 
-        try:
-            (abrvform, abrvprop) = layer.getAbrvProp(abrv)
-        except s_exc.NoSuchAbrv:  # pragma: no cover
-            continue
+        # ndef typed refs, both scalar and array, come from the reverse index. one index
+        # scan per layer covers every ndef prop and cannot miss one.
+        async for (refbuid, abrv) in s_coro.pause(layer.getNdefRefs(srcbuid)):
 
-        refform = model.form(abrvform)
-        if refform is None:  # pragma: no cover
-            continue
-
-        prop = refform.props.get(abrvprop)
-        if prop is None:  # pragma: no cover
-            continue
-
-        yield refbuid, prop, prop.type.isarray, True
-
-    # form typed refs need a lift per prop of that type. norm() is deliberately not
-    # called, so the comparison values are built by hand.
-    for prop in model.getPropsByType(formname):
-        cmprvals = (('=', srcvalu, prop.type.stortype),)
-        async for _, refbuid, _ in layer.liftByPropValu(prop.form.name, prop.name, cmprvals):
             if refbuid == srcbuid:
                 continue
-            yield refbuid, prop, False, False
 
-    for prop in model.getArrayPropsByType(formname):
-        stortype = prop.type.stortype & (~s_layer.STOR_FLAG_ARRAY)
-        cmprvals = (('=', srcvalu, stortype),)
-        async for _, refbuid, _ in layer.liftByPropArray(prop.form.name, prop.name, cmprvals):
-            if refbuid == srcbuid:  # pragma: no cover
+            try:
+                (abrvform, abrvprop) = layer.getAbrvProp(abrv)
+            except s_exc.NoSuchAbrv:  # pragma: no cover
                 continue
-            yield refbuid, prop, True, False
+
+            refform = self.model.form(abrvform)
+            if refform is None:  # pragma: no cover
+                continue
+
+            prop = refform.props.get(abrvprop)
+            if prop is None:  # pragma: no cover
+                continue
+
+            yield refbuid, prop, prop.type.isarray, True
+
+        # form typed refs need a lift per prop of that type. norm() is deliberately not
+        # called, so the comparison values are built by hand.
+        for prop in self.model.getPropsByType(formname):
+            cmprvals = (('=', srcvalu, prop.type.stortype),)
+            async for _, refbuid, _ in s_coro.pause(layer.liftByPropValu(prop.form.name, prop.name, cmprvals)):
+                if refbuid == srcbuid:
+                    continue
+                yield refbuid, prop, False, False
+
+        for prop in self.model.getArrayPropsByType(formname):
+            stortype = prop.type.stortype & (~s_layer.STOR_FLAG_ARRAY)
+            cmprvals = (('=', srcvalu, stortype),)
+            async for _, refbuid, _ in s_coro.pause(layer.liftByPropArray(prop.form.name, prop.name, cmprvals)):
+                if refbuid == srcbuid:
+                    continue
+                yield refbuid, prop, True, False
+
+    async def applyLayerEdits(self, layeredits, meta):
+        '''
+        Apply the edits computed by getLayerEdits(), one layer at a time.
+
+        Each layer's edits are handed to it with Layer.storNodeEditsNoLift(), so a fuse writes
+        to a layer the same way anything else does and gets the same checks, rather than
+        through a Cortex level nexus operation of its own. The edits are the payload of those
+        layer nexus operations, so the nexus log holds the edits which were computed here
+        rather than a request for a mirror to recompute them.
+
+        A layer's edits are split by iterEditChunks() into one nexus operation each, which
+        bounds how large a single nexus log entry can get.
+
+        Args:
+            layeredits (list): The (layriden, nodeedits) tuples from getLayerEdits().
+            meta (dict): The nodeedit meta to record, built from the useriden and tick.
+
+        Returns:
+            None. The warnings and the layers which failed are recorded on this NodeFuser and
+            returned together by getResult().
+        '''
+        # apply one layer at a time so that one failing layer cannot lose the others
+        for (layriden, nodeedits) in layeredits:
+
+            layer = self.core.getLayer(layriden)
+            if layer is None:  # pragma: no cover
+                continue
+
+            # The edits were computed before any of them were applied, so re-check that the layer
+            # is still one we may write to. A read only layer would raise, and writing to a
+            # mirrored layer here would apply the edits locally rather than via its upstream.
+            if layer.readonly or layer.ismirror:
+                why = 'read only' if layer.readonly else 'a mirror'
+                await self.warn(
+                    f'$lib.model.migration.fuse() did not modify layer {layriden} because it became '
+                    f'{why} while the fuse was being computed. Re-run fuse() with the same arguments.')
+                continue
+
+            # anything which landed here since the state was read was not seen by the compute
+            # pass, so this layer has to be checked even if it ends up where we leave it
+            if await layer.getEditIndx() != self.editoffs.get(layriden):
+                self.raced.add(layriden)
+
+            try:
+                for editchunk in iterEditChunks(nodeedits):
+                    await layer.storNodeEditsNoLift(editchunk, meta)
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception as e:
+                errm = str(e)
+                self.failed.append((layriden, errm))
+                await self.warn(
+                    f'$lib.model.migration.fuse() failed to apply edits to layer {layriden}: {errm}. '
+                    f'That layer may be only partly modified. Re-run fuse() with the same arguments '
+                    f'to complete it.')
+                continue
+
+            self.applyoffs[layriden] = await layer.getEditIndx()
+
+    async def _layerRaced(self, layer):
+        '''
+        Return whether anything other than this fuse may have written to the given layer.
+
+        The nodeedit log index is sampled before any state is read and again once this fuse's
+        own edits have been applied, so a layer whose index is still exactly where this fuse
+        left it cannot be holding a write which raced the compute pass. A layer which does not
+        log its edits has no index to compare, so it is always checked.
+        '''
+        if not layer.logedits:
+            return True
+
+        if layer.iden in self.raced:
+            return True
+
+        offs = self.applyoffs.get(layer.iden)
+        if offs is None:
+            # nothing of ours was applied here, so compare against the pre-compute sample
+            offs = self.editoffs.get(layer.iden)
+            if offs is None:  # pragma: no cover
+                # a layer which did not exist when the edits were computed, so there is
+                # nothing to compare it against
+                return True
+
+        return await layer.getEditIndx() != offs
+
+    async def checkFused(self, srcndef):
+        '''
+        Check that nothing is left of src in any layer a fuse may write to, and warn if there is.
+
+        The edits which make up a fuse are computed before any of them are applied, so a write
+        can land in between and be left behind. This is how the caller finds out, rather than by
+        fuse() retrying.
+
+        Two things are checked, because a raced write can leave state in two different places:
+
+        1. State on src itself. A prop, tag or tag property set on src after its edits were
+           computed is not in the computed deletes, so it survives.
+
+        2. References to src. A node which starts referencing src after the reference rewrites
+           were computed is not repointed, so it is left pointing at a node which no longer
+           exists.
+
+        Only the layers which something else may have written to are checked, so a fuse which
+        nothing raced pays nothing for this. See _layerRaced().
+
+        Only layers which a fuse may write to are checked. src surviving in a read only or
+        mirrored layer is expected and _fuseOne() already warns about those specifically.
+
+        Args:
+            srcndef (tuple): The (form, valu) of the node which was fused away.
+
+        Returns:
+            None. The warnings are recorded on this NodeFuser and returned by getResult().
+        '''
+        srcbuid = s_common.buid(srcndef)
+
+        for layer in self.core.layers.values():
+
+            if layer.readonly or layer.ismirror:
+                continue
+
+            if not await self._layerRaced(layer):
+                continue
+
+            if await layer.getStorNode(srcbuid):
+                await self.warn(
+                    f'$lib.model.migration.fuse() left state for {srcndef[0]}={srcndef[1]!r} in layer '
+                    f'{layer.iden}, because it was written to while the fuse was being computed. '
+                    f'Re-create {srcndef[0]}={srcndef[1]!r} and re-run fuse() to complete it.')
+
+            # A reference can be left behind in a layer which holds none of src's own state, so
+            # this is checked separately rather than only when src survived above.
+            async for (refbuid, prop, _, _) in self._iterLayerRefs(layer, srcndef):
+
+                await self.warn(
+                    f'$lib.model.migration.fuse() left a reference to {srcndef[0]}={srcndef[1]!r} in '
+                    f'layer {layer.iden} from property {prop.full!r} on {s_common.ehex(refbuid)}, '
+                    f'because it was created or updated while the fuse was being computed. That '
+                    f'reference points at a node which no longer exists. Re-create '
+                    f'{srcndef[0]}={srcndef[1]!r} and re-run fuse() to complete it.')
+                break
 
 def iterEditChunks(nodeedits, chunk=None):
     '''
@@ -698,12 +893,13 @@ def iterEditChunks(nodeedits, chunk=None):
        has props but no valu and reads as a node which does not exist. A chunk therefore
        overshoots rather than splitting a buid, so chunk is a floor and not a ceiling.
 
-    2. The order of the nodeedits is preserved. getLayerEdits() orders every edit which adds
-       to dst or repoints a reference ahead of every edit which removes state from src, so an
-       interruption cannot lose state or leave a reference pointing at a deleted node.
+    2. The order of the nodeedits is preserved. NodeFuser._iterNodeEdits() orders every edit
+       which adds to dst or repoints a reference ahead of every edit which removes state from
+       src, so an interruption cannot lose state or leave a reference pointing at a deleted
+       node.
 
     Args:
-        nodeedits (list): One layer's nodeedits from getLayerEdits().
+        nodeedits (iterable): One layer's nodeedits from NodeFuser.getLayerEdits().
         chunk (int): The maximum edits per chunk. Defaults to maxchunkedits.
 
     Yields:
@@ -729,151 +925,3 @@ def iterEditChunks(nodeedits, chunk=None):
 
     if todo:
         yield todo
-
-async def applyLayerEdits(core, layeredits, meta):
-    '''
-    Apply the edits computed by NodeFuser.getLayerEdits(), one layer at a time.
-
-    Each layer's edits are handed to it with Layer.storNodeEditsNoLift(), so a fuse writes to
-    a layer the same way anything else does and gets the same checks, rather than through a
-    Cortex level nexus operation of its own. The edits are the payload of those layer nexus
-    operations, so the nexus log holds the edits which were computed here rather than a
-    request for a mirror to recompute them.
-
-    A layer's edits are split by iterEditChunks() into one nexus operation each, which bounds
-    how large a single nexus log entry can get.
-
-    Args:
-        core (Cortex): The Cortex to apply the edits to.
-        layeredits (list): The (layriden, nodeedits) tuples from NodeFuser.getLayerEdits().
-        meta (dict): The nodeedit meta to record, built from the useriden and tick.
-
-    Returns:
-        dict: The layers which failed and any warnings, in the shape mergeResult()
-              accumulates.
-    '''
-    failed = []
-    warnings = []
-
-    def warn(mesg):
-        logger.warning(mesg)
-        warnings.append(mesg)
-
-    # apply one layer at a time so that one failing layer cannot lose the others
-    for (layriden, nodeedits) in layeredits:
-
-        layer = core.getLayer(layriden)
-        if layer is None:  # pragma: no cover
-            continue
-
-        # The edits were computed before any of them were applied, so re-check that the layer
-        # is still one we may write to. A read only layer would raise, and writing to a
-        # mirrored layer here would apply the edits locally rather than via its upstream.
-        if layer.readonly or layer.ismirror:
-            why = 'read only' if layer.readonly else 'a mirror'
-            warn(f'$lib.model.migration.fuse() did not modify layer {layriden} because it became '
-                 f'{why} while the fuse was being computed. Re-run fuse() with the same arguments.')
-            continue
-
-        try:
-            for editchunk in iterEditChunks(nodeedits):
-                await layer.storNodeEditsNoLift(editchunk, meta)
-
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
-
-        except Exception as e:
-            errm = str(e)
-            failed.append((layriden, errm))
-            warn(f'$lib.model.migration.fuse() failed to apply edits to layer {layriden}: {errm}. '
-                 f'That layer may be only partly modified. Re-run fuse() with the same arguments '
-                 f'to complete it.')
-            continue
-
-    return {'failed': failed, 'warnings': warnings}
-
-async def checkFused(core, srcndef):
-    '''
-    Check that nothing is left of src in any layer a fuse may write to, and warn if there is.
-
-    The edits which make up a fuse are computed before any of them are applied, so a write
-    can land in between and be left behind. This is how the caller finds out, rather than by
-    fuse() retrying.
-
-    Two things are checked, because a raced write can leave state in two different places:
-
-    1. State on src itself. A prop, tag or tag property set on src after its edits were
-       computed is not in the computed deletes, so it survives.
-
-    2. References to src. A node which starts referencing src after the reference rewrites
-       were computed is not repointed, so it is left pointing at a node which no longer
-       exists. Note that this costs one more reference scan per layer on top of the one the
-       fuse itself already did.
-
-    Only layers which a fuse may write to are checked. src surviving in a read only or
-    mirrored layer is expected and NodeFuser already warns about those specifically.
-
-    Args:
-        core (Cortex): The Cortex the fuse was applied to.
-        srcndef (tuple): The (form, valu) of the node which was fused away.
-
-    Returns:
-        dict: The warnings to emit and the layers which failed, which is always empty.
-    '''
-    warnings = []
-
-    srcbuid = s_common.buid(srcndef)
-
-    def warn(mesg):
-        logger.warning(mesg)
-        warnings.append(mesg)
-
-    for layer in core.layers.values():
-
-        if layer.readonly or layer.ismirror:
-            continue
-
-        if await layer.getStorNode(srcbuid):
-            warn(f'$lib.model.migration.fuse() left state for {srcndef[0]}={srcndef[1]!r} in layer '
-                 f'{layer.iden}, because it was written to while the fuse was being computed. '
-                 f'Re-run fuse() with the same arguments to complete it.')
-
-        # A reference can be left behind in a layer which holds none of src's own state, so
-        # this is checked separately rather than only when src survived above.
-        async for (refbuid, prop, _, _) in iterLayerRefs(core.model, layer, srcndef):
-
-            if refbuid == srcbuid:  # pragma: no cover
-                continue
-
-            warn(f'$lib.model.migration.fuse() left a reference to {srcndef[0]}={srcndef[1]!r} in '
-                 f'layer {layer.iden} from property {prop.full!r} on {s_common.ehex(refbuid)}, '
-                 f'because it was created or updated while the fuse was being computed. That '
-                 f'reference points at a node which no longer exists. Re-run fuse() with the '
-                 f'same arguments to complete it.')
-            break
-
-    return {'failed': [], 'warnings': warnings}
-
-def initResult():
-    '''
-    Return an empty result dict for mergeResult() to accumulate into.
-    '''
-    return {'failed': [], 'warnings': []}
-
-def mergeResult(result, newresult):
-    '''
-    Merge the result of one step of a fuse into the accumulated result.
-
-    Each step warns at most once per layer, so a layer which cannot be modified is warned
-    about once by each step which noticed rather than once per edit it could not apply.
-
-    Args:
-        result (dict): The accumulated result, from initResult(). Updated in place.
-        newresult (dict): The result of one step, from NodeFuser.getResult(),
-                          applyLayerEdits() or checkFused().
-
-    Returns:
-        None
-    '''
-    result['failed'].extend(newresult['failed'])
-    result['warnings'].extend(newresult['warnings'])
