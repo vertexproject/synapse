@@ -1,7 +1,0 @@
----
-desc: Added the ``inet:http:request:response:cookies`` property to record the cookies
-  set by the HTTP response.
-desc:literal: false
-prs: []
-type: model
-...
