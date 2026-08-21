@@ -54,8 +54,10 @@ class NodeFuser(s_base.Base):
     this code. Chunking bounds how large a single nexus log entry can get, so fusing a
     heavily referenced node is slower rather than impossible.
 
-    The computed edits are accumulated in spooled dicts, one per layer, so that a fuse of a
-    heavily referenced node spills to disk rather than being held whole in memory.
+    The computed edits are accumulated in a single spooled dict shared by every layer, keyed by
+    (layriden, buid), so that a fuse of a heavily referenced node spills to disk rather than
+    being held whole in memory, and a Cortex with many layers never needs more than one spool's
+    worth of slabs no matter how many of them this fuse touches.
 
     Because the reads happen before any of the edits are applied, another write may land in
     between. Most edits are expressed as "dst gains X" or "src loses X" against state which
@@ -99,7 +101,13 @@ class NodeFuser(s_base.Base):
         self.failed = []        # (layriden, errm) for each layer which could not be written
         self.warnings = []      # warnings for the caller to emit
 
-        self.nodeedits = {}     # layriden -> spooled {buid: nodeedit} being accumulated
+        # (layriden, buid) -> nodeedit being accumulated. One accumulator for the whole fuse
+        # rather than one per layer, so a Cortex with many layers can never need more than one
+        # spooled dict's worth of slabs, no matter how many of those layers this fuse touches.
+        self.nodeedits = await s_spooled.Dict.anit(dirn=core.dirn, cell=core)
+        self.onfini(self.nodeedits)
+
+        self.touchedlayers = set()  # every layriden which has at least one nodeedit queued
 
         # src buids which have already been fused. spooled, because a fuse of a heavily
         # referenced comp form discovers one rename per referring node.
@@ -121,20 +129,18 @@ class NodeFuser(s_base.Base):
         the nodeedits handed to a given layer, which lets iterEditChunks() avoid splitting
         the order dependent edits for a single buid.
         '''
-        layredits = self.nodeedits.get(layriden)
-        if layredits is None:
-            layredits = await s_spooled.Dict.anit(dirn=self.core.dirn, cell=self.core)
-            self.nodeedits[layriden] = layredits
-            self.onfini(layredits)
+        self.touchedlayers.add(layriden)
 
-        nodeedit = layredits.get(buid)
+        key = (layriden, buid)
+
+        nodeedit = self.nodeedits.get(key)
         if nodeedit is None:
-            await layredits.set(buid, (buid, formname, list(edits)))
+            await self.nodeedits.set(key, (buid, formname, list(edits)))
             return
 
         # the nodeedit may have made a msgpack round trip if the dict has spilled, which
         # returns the edits as a tuple, so it is rebuilt rather than extended in place.
-        await layredits.set(buid, (buid, formname, list(nodeedit[2]) + list(edits)))
+        await self.nodeedits.set(key, (buid, formname, list(nodeedit[2]) + list(edits)))
 
     async def warn(self, mesg):
         '''
@@ -181,23 +187,23 @@ class NodeFuser(s_base.Base):
         '''
         Compute the per-layer node edits which fuse the src node into the dst node.
 
-        This only reads, so it deliberately runs before any of the edits are applied. Pass
-        the result to applyLayerEdits() to apply them.
+        This only reads, so it deliberately runs before any of the edits are applied. The
+        computed edits are left on self.nodeedits for applyLayerEdits() to read directly,
+        rather than being returned for the caller to hold and hand back.
 
-        The edits for a single buid are returned in the order they must be applied. Within each
-        layer, every edit which adds to dst or repoints a reference is ordered ahead of every
-        edit which removes state from src, so no state is removed from src in a layer until dst
-        has gained it and every inbound reference in that layer points at dst.
+        The edits for a single buid are applied in the order they must be, which
+        applyLayerEdits() gets from self._iterNodeEdits(). Within each layer, every edit which
+        adds to dst or repoints a reference is ordered ahead of every edit which removes state
+        from src, so no state is removed from src in a layer until dst has gained it and every
+        inbound reference in that layer points at dst.
 
         Args:
             srcndef (tuple): The (form, valu) of the node to fuse from. It will be deleted.
             dstndef (tuple): The (form, valu) of the node to fuse into. It will be kept.
 
         Returns:
-            list: A list of (layriden, nodeedits) tuples, or an empty list if there is
-                  nothing to do. Sorted by layer iden so that the edits do not depend on
-                  layer iteration order. The nodeedits are generators over spooled state
-                  owned by this NodeFuser, so they must be consumed before it is fini'd.
+            None. Call applyLayerEdits() to apply what was computed, or check
+            self.touchedlayers to see whether there is anything to apply.
         '''
         # A read-only layer cannot be written to, and a mirrored layer would forward our
         # edits to its upstream. Both are skipped, and _fuseOne() warns for each one which
@@ -229,10 +235,7 @@ class NodeFuser(s_base.Base):
 
             todo.extend(await self._fuseOne(nextsrc, nextdst, subs))
 
-        return [(layriden, self._iterNodeEdits(self.nodeedits[layriden]))
-                for layriden in sorted(self.nodeedits.keys())]
-
-    def _iterNodeEdits(self, layredits):
+    def _iterNodeEdits(self, layriden):
         '''
         Yield one layer's nodeedits, with every edit which removes state from a node being
         fused away ordered after every edit which adds to dst or repoints a reference.
@@ -245,11 +248,11 @@ class NodeFuser(s_base.Base):
         fused away and fused into keeps its adds and removes in one coalesced nodeedit,
         which is never split, so it is safe on either side.
         '''
-        for (buid, nodeedit) in layredits.items():
+        for ((_, buid), nodeedit) in self.nodeedits.itemsByPref(layriden):
             if not self.visited.has(buid):
                 yield nodeedit
 
-        for (buid, nodeedit) in layredits.items():
+        for ((_, buid), nodeedit) in self.nodeedits.itemsByPref(layriden):
             if self.visited.has(buid):
                 yield nodeedit
 
@@ -735,9 +738,12 @@ class NodeFuser(s_base.Base):
                     continue
                 yield refbuid, prop, True, False
 
-    async def applyLayerEdits(self, layeredits, meta):
+    async def applyLayerEdits(self, meta):
         '''
         Apply the edits computed by getLayerEdits(), one layer at a time.
+
+        The edits are read directly from self.nodeedits, the single spooled accumulator
+        getLayerEdits() left on this instance, rather than being handed in.
 
         Each layer's edits are handed to it with Layer.storNodeEditsNoLift(), so a fuse writes
         to a layer the same way anything else does and gets the same checks, rather than
@@ -749,7 +755,6 @@ class NodeFuser(s_base.Base):
         bounds how large a single nexus log entry can get.
 
         Args:
-            layeredits (list): The (layriden, nodeedits) tuples from getLayerEdits().
             meta (dict): The nodeedit meta to record, built from the useriden and tick.
 
         Returns:
@@ -757,7 +762,9 @@ class NodeFuser(s_base.Base):
             returned together by getResult().
         '''
         # apply one layer at a time so that one failing layer cannot lose the others
-        for (layriden, nodeedits) in layeredits:
+        for layriden in sorted(self.touchedlayers):
+
+            nodeedits = self._iterNodeEdits(layriden)
 
             layer = self.core.getLayer(layriden)
             if layer is None:  # pragma: no cover
@@ -899,7 +906,7 @@ def iterEditChunks(nodeedits, chunk=None):
        node.
 
     Args:
-        nodeedits (iterable): One layer's nodeedits from NodeFuser.getLayerEdits().
+        nodeedits (iterable): One layer's nodeedits from NodeFuser._iterNodeEdits().
         chunk (int): The maximum edits per chunk. Defaults to maxchunkedits.
 
     Yields:

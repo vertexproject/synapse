@@ -1378,9 +1378,8 @@ class StormlibModelTest(s_test.SynTest):
                     realedits = s_nodefuse.NodeFuser.getLayerEdits
 
                     async def countedits(self, srcndef, dstndef):
-                        layeredits = await realedits(self, srcndef, dstndef)
-                        computes.append(layeredits)
-                        return layeredits
+                        await realedits(self, srcndef, dstndef)
+                        computes.append(len(self.nodeedits))
 
                     with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', countedits):
 
@@ -1392,7 +1391,7 @@ class StormlibModelTest(s_test.SynTest):
                     # the leader computed the edits once. the mirror replayed them from the
                     # nexus log rather than recomputing them, so it did not add a second.
                     self.len(1, computes)
-                    self.true(len(computes[0]) > 0)
+                    self.true(computes[0] > 0)
 
                     for core in (core00, core01):
 
@@ -1523,9 +1522,10 @@ class StormlibModelTest(s_test.SynTest):
 
     async def test_stormlib_model_migration_fuse_spooled(self):
 
-        # The computed edits are accumulated in spooled dicts, so a large fuse spills to disk
-        # rather than being held whole in memory. The coalescing and ordering guarantees must
-        # survive the msgpack round trip that spilling puts each nodeedit through.
+        # The computed edits are accumulated in one spooled dict shared by every layer, so a
+        # large fuse spills to disk rather than being held whole in memory. The coalescing and
+        # ordering guarantees must survive the msgpack round trip that spilling puts each
+        # nodeedit through.
         async with self.getTestCore() as core:
 
             await core.nodes('[ test:str=spool-src :hehe=woot +#spooltag test:str=spool-dst ]')
@@ -1546,16 +1546,18 @@ class StormlibModelTest(s_test.SynTest):
 
                 async with await s_nodefuse.NodeFuser.anit(core, core.auth.rootuser.iden) as fuser:
 
-                    layeredits = await fuser.getLayerEdits(('test:str', 'spool-src'), ('test:str', 'spool-dst'))
-                    self.true(len(layeredits) > 0)
+                    await fuser.getLayerEdits(('test:str', 'spool-src'), ('test:str', 'spool-dst'))
+                    self.true(len(fuser.touchedlayers) > 0)
 
-                    for (layriden, nodeedits) in layeredits:
+                    # the one shared accumulator spilled
+                    self.true(fuser.nodeedits.fallback)
 
-                        nodeedits = list(nodeedits)
+                    for layriden in sorted(fuser.touchedlayers):
+
+                        nodeedits = list(fuser._iterNodeEdits(layriden))
                         buids = [nodeedit[0] for nodeedit in nodeedits]
 
-                        # the accumulator spilled, and dst is still ordered ahead of src
-                        self.true(fuser.nodeedits[layriden].fallback)
+                        # dst is still ordered ahead of src
                         self.lt(buids.index(dstbuid), buids.index(srcbuid))
 
                         # both of the one referrer's edges are still coalesced into a single
@@ -1919,14 +1921,12 @@ class StormlibModelTest(s_test.SynTest):
 
             async def refedits(self, srcndef, dstndef):
 
-                layeredits = await realedits(self, srcndef, dstndef)
+                await realedits(self, srcndef, dstndef)
                 if raced:
-                    return layeredits
+                    return
 
                 raced.append(True)
                 await core.nodes('[ test:arrayprop=(late,) :strs=(ir-src,) ]')
-
-                return layeredits
 
             with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', refedits):
                 mesgs = await core.stormlist(q)
@@ -1972,12 +1972,10 @@ class StormlibModelTest(s_test.SynTest):
 
             async def raceedits(self, srcndef, dstndef):
 
-                layeredits = await realedits(self, srcndef, dstndef)
-                computes.append(layeredits)
+                await realedits(self, srcndef, dstndef)
+                computes.append(len(self.nodeedits))
 
                 await core.nodes('test:str=race-src [ :somestr=racedval ]')
-
-                return layeredits
 
             offs = await core.nexsroot.index()
 
@@ -2037,11 +2035,9 @@ class StormlibModelTest(s_test.SynTest):
 
             async def roedits(self, srcndef, dstndef):
 
-                layeredits = await realedits(self, srcndef, dstndef)
-                if layeredits:
+                await realedits(self, srcndef, dstndef)
+                if self.touchedlayers:
                     await baselayr.setLayerInfo('readonly', True)
-
-                return layeredits
 
             with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', roedits):
                 mesgs = await core.stormlist(q)
@@ -2117,14 +2113,14 @@ class StormlibModelTest(s_test.SynTest):
 
             async with await s_nodefuse.NodeFuser.anit(core, core.auth.rootuser.iden) as fuser:
 
-                layeredits = await fuser.getLayerEdits(('test:str', 'ord-src'), ('test:str', 'ord-dst'))
+                await fuser.getLayerEdits(('test:str', 'ord-src'), ('test:str', 'ord-dst'))
 
-                self.true(len(layeredits) > 0)
+                self.true(len(fuser.touchedlayers) > 0)
 
-                for (layriden, nodeedits) in layeredits:
+                for layriden in sorted(fuser.touchedlayers):
 
-                    # the edits are a generator over the fuser's spooled state
-                    nodeedits = list(nodeedits)
+                    # the edits are read directly off the fuser's spooled state
+                    nodeedits = list(fuser._iterNodeEdits(layriden))
 
                     buids = [nodeedit[0] for nodeedit in nodeedits]
 

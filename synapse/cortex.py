@@ -7272,15 +7272,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # mirror record the same time in the layer node edit logs.
         meta = {'time': s_common.now(), 'user': useriden}
 
-        # the fuser owns the spooled state the edits are accumulated in, and the computed
-        # edits are generators over it, so it stays open until they have all been applied
+        # the fuser owns the spooled state the edits are accumulated in, so it stays open
+        # until they have all been applied
         async with await s_nodefuse.NodeFuser.anit(self, useriden) as fuser:
 
-            layeredits = await fuser.getLayerEdits(srcndef, dstndef)
+            await fuser.getLayerEdits(srcndef, dstndef)
 
-            if layeredits:
+            if fuser.touchedlayers:
 
-                await fuser.applyLayerEdits(layeredits, meta)
+                await fuser.applyLayerEdits(meta)
 
                 # A layer which failed is not retried here. The failure would simply repeat,
                 # and the warning already tells the caller to re-run once they have dealt

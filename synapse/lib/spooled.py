@@ -209,3 +209,21 @@ class Dict(Spooled):
 
         for item in list(self.realdict.items()):
             yield item
+
+    def itemsByPref(self, prefixval):
+        '''
+        Yield (key, val) pairs for keys which are (prefixval, ...) 2-tuples.
+
+        Lets a caller keyed on 2-tuples iterate only the entries under one first element,
+        without a full scan of the dict. Every such key msgpack encodes as a fixarray(2)
+        header followed by the first element's own encoding, so that header plus encoding is
+        a fixed-width byte prefix regardless of what the second element is.
+        '''
+        if self.fallback:
+            pref = b'\x92' + s_msgpack.en(prefixval)
+            for lkey, lval in self.slab.scanByPref(pref):
+                yield s_msgpack.un(lkey), s_msgpack.un(lval)
+
+        for key, val in list(self.realdict.items()):
+            if key[0] == prefixval:
+                yield key, val
