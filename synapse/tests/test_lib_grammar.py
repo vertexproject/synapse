@@ -5,6 +5,7 @@ import synapse.data as s_data
 
 import synapse.lib.parser as s_parser
 import synapse.lib.grammar as s_grammar
+import synapse.lib.stormbin as s_stormbin
 
 import synapse.tests.utils as s_t_utils
 
@@ -1894,6 +1895,23 @@ class GrammarTest(s_t_utils.SynTest):
         q = parser.query()
         embed = q.kids[0].kids[1]
         self.eq(embq, embed.getAstText())
+
+    async def test_compiled_parser(self):
+        self.maxDiff = None
+        for i, query in enumerate(Queries):
+            result = _ParseResults[i]
+            # EmbedQuery nodes are compiled and do not compare.
+            if 'EmbedQuery' in result:
+                continue
+            # stormbin decodes msgpack arrays as lists (use_list=True), so
+            # parser-emitted empty tuples (e.g. stormcmd with no args) come
+            # back as empty lists. Functionally identical; skip the string
+            # compare.
+            if 'Const: ()' in result:
+                continue
+            compiled = s_stormbin.compile(query)
+            tree = s_stormbin.load(compiled)
+            self.eq(str(tree), result)
 
 def gen_parse_list():
     '''

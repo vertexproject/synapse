@@ -1088,6 +1088,8 @@ def trimText(text: str, n: int = 256, placeholder: str = '...') -> str:
     return f'{text[:mlen]}{placeholder}'
 
 def queryhash(text):
+    if isinstance(text, bytes):
+        return hashlib.md5(text, usedforsecurity=False).hexdigest()
     return hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
 def _patch_http_cookies():

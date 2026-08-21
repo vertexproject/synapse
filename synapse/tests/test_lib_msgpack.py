@@ -1,3 +1,5 @@
+import decimal
+
 import msgpack
 
 import synapse.exc as s_exc
@@ -60,6 +62,12 @@ class MsgPackTest(s_t_utils.SynTest):
         negbytes = s_msgpack.en(negitem)
         self.eq(negitem, s_msgpack.un(negbytes))
         self.eq(negbytes, s_msgpack._fallback_en(negitem))
+
+    def test_msgpack_ext_decimal(self):
+        for valu in (decimal.Decimal('3.14'), decimal.Decimal('-2.71828'), decimal.Decimal('0')):
+            byts = s_msgpack.en(valu)
+            self.eq(valu, s_msgpack.un(byts))
+            self.eq(byts, s_msgpack._fallback_en(valu))
 
     def test_msgpack_un(self):
         item = s_msgpack.un(b'\x92\xa4hehe\n')

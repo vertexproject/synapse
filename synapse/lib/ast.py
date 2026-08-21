@@ -17,6 +17,7 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
@@ -42,13 +43,42 @@ logger = logging.getLogger(__name__)
 def parseNumber(x):
     return s_stormtypes.Number(x) if '.' in x else s_stormtypes.intify(x)
 
-class AstNode:
+# Map _bin_id -> AST class. Populated by AstRegistry as each AstNode
+# subclass is defined; consumed by synapse.lib.stormbin's un().
+idToClass = {}
+
+class AstRegistry(type):
+    '''
+    Metaclass that registers any AstNode subclass declaring a non-novalu
+    _bin_id in the idToClass mapping as the class is defined, and rejects
+    duplicate ids before the class is created.
+    '''
+    def __new__(mcs, name, bases, namespace):
+
+        binid = namespace.get('_bin_id', s_common.novalu)
+
+        if binid is not s_common.novalu and binid in idToClass:
+            existing = idToClass[binid]
+            mesg = f'Duplicate _bin_id {binid}: {name} and {existing.__name__}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        cls = super().__new__(mcs, name, bases, namespace)
+
+        if binid is not s_common.novalu:
+            idToClass[binid] = cls
+
+        return cls
+
+class AstNode(metaclass=AstRegistry):
     '''
     Base class for all nodes in the Storm abstract syntax tree.
     '''
     # set to True if recursive runt-safety checks should *not* recurse
     # into children of this node.
     runtopaque = False
+
+    _bin_id = s_common.novalu
+    _bin_attrs = ()
 
     def __init__(self, astinfo, kids=()):
         self.kids = []
@@ -57,7 +87,39 @@ class AstNode:
         [self.addKid(k) for k in kids]
 
     def getAstText(self):
+        # The astinfo offsets are meaningful only for original Storm source.
+        # If text happens to be a compiled stormbin payload, slicing it would
+        # return garbage; return an empty string instead.
+        if self.astinfo.text.startswith(s_const.STORMBIN_BASE64_PREFIX):
+            return ''
         return self.astinfo.text[self.astinfo.soff:self.astinfo.eoff]
+
+    def hydrate(self):
+        '''
+        Called by stormbin.un() after construction. Override on subclasses
+        that need to populate a derived attribute (e.g., a compiled-form
+        text representation of this subtree) that isn't carried via
+        _bin_attrs.
+        '''
+        pass
+
+    def dehydrate(self):
+        '''
+        Return the {key: value} dict to serialize for this node. The
+        default emits each _bin_attrs entry whose live value differs
+        from its declared default. Subclasses override to transform
+        values before msgpack encoding.
+        '''
+        attrdict = {}
+
+        for attrname, key, default in self._bin_attrs:
+
+            val = getattr(self, attrname, default)
+
+            if val != default:
+                attrdict[key] = val
+
+        return attrdict
 
     def getPosInfo(self):
         return {
@@ -197,9 +259,12 @@ class AstNode:
     def hasVarName(self, name):
         return any(k.hasVarName(name) for k in self.kids)
 
-class LookList(AstNode): pass
+class LookList(AstNode):
+    _bin_id = 68
 
 class Query(AstNode):
+
+    _bin_id = 86
 
     def __init__(self, astinfo, kids=()):
 
@@ -208,6 +273,10 @@ class Query(AstNode):
         # for options parsed from the query itself
         self.opts = {}
         self.text = self.getAstText()
+
+    def hydrate(self):
+        import synapse.lib.stormbin as s_stormbin
+        self.text = s_stormbin.dump(self, ascii=True)
 
     async def run(self, runt, genr):
 
@@ -244,6 +313,9 @@ class Lookup(Query):
     '''
     When storm input mode is "lookup"
     '''
+    _bin_id = 69
+    _bin_attrs = (('autoadd', 'a', False),)
+
     def __init__(self, astinfo, kids, autoadd=False):
         Query.__init__(self, astinfo, kids=kids)
         self.autoadd = autoadd
@@ -290,6 +362,8 @@ class Lookup(Query):
             yield node, path
 
 class Search(Query):
+
+    _bin_id = 92
 
     async def run(self, runt, genr):
 
@@ -696,6 +770,8 @@ class SubGraph:
 
 class Oper(AstNode):
 
+    _bin_id = 75
+
     async def yieldFromValu(self, runt, valu, vkid):
 
         viewiden = runt.snap.view.iden
@@ -784,14 +860,22 @@ class Oper(AstNode):
 
 class SubQuery(Oper):
 
-    def __init__(self, astinfo, kids=()):
+    _bin_id = 96
+    _bin_attrs = (('hasyield', 'y', False),)
+
+    def __init__(self, astinfo, kids=(), hasyield=False):
         Oper.__init__(self, astinfo, kids)
-        self.hasyield = False
+        self.hasyield = hasyield
         self.hasretn = self.hasAstClass(Return)
 
         self.text = ''
         if len(kids):
             self.text = kids[0].getAstText()
+
+    def hydrate(self):
+        if self.kids:
+            import synapse.lib.stormbin as s_stormbin
+            self.text = s_stormbin.dump(self.kids[0], ascii=True)
 
     def isRuntSafe(self, runt):
         return True
@@ -881,6 +965,8 @@ class InitBlock(AstNode):
 
     '''
 
+    _bin_id = 57
+
     async def run(self, runt, genr):
 
         subq = self.kids[0]
@@ -918,6 +1004,8 @@ class EmptyBlock(AstNode):
                 // there is a node in the pipeline so this block will not run
             }
     '''
+    _bin_id = 34
+
     async def run(self, runt, genr):
 
         subq = self.kids[0]
@@ -948,6 +1036,8 @@ class FiniBlock(AstNode):
 
     '''
 
+    _bin_id = 43
+
     async def run(self, runt, genr):
 
         subq = self.kids[0]
@@ -959,6 +1049,8 @@ class FiniBlock(AstNode):
             yield innr
 
 class TryCatch(AstNode):
+
+    _bin_id = 107
 
     async def run(self, runt, genr):
 
@@ -1007,6 +1099,8 @@ class TryCatch(AstNode):
 
 class CatchBlock(AstNode):
 
+    _bin_id = 10
+
     def _hasAstClass(self, clss):
         return self.kids[1].hasAstClass(clss)
 
@@ -1042,6 +1136,8 @@ class CatchBlock(AstNode):
         raise self.kids[0].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=etyp))
 
 class ForLoop(Oper):
+
+    _bin_id = 44
 
     def _hasAstClass(self, clss):
         return self.kids[2].hasAstClass(clss)
@@ -1209,6 +1305,8 @@ class ForLoop(Oper):
 
 class WhileLoop(Oper):
 
+    _bin_id = 116
+
     def _hasAstClass(self, clss):
         return self.kids[1].hasAstClass(clss)
 
@@ -1283,6 +1381,8 @@ async def pullone(genr):
 
 class CmdOper(Oper):
 
+    _bin_id = 12
+
     async def run(self, runt, genr):
 
         name = self.kids[0].value()
@@ -1329,6 +1429,8 @@ class CmdOper(Oper):
             await genr.aclose()
 
 class SetVarOper(Oper):
+
+    _bin_id = 94
 
     async def run(self, runt, genr):
 
@@ -1378,6 +1480,8 @@ class SetItemOper(Oper):
     $foo."bar baz" = faz
     $foo.$bar = baz
     '''
+    _bin_id = 93
+
     async def run(self, runt, genr):
 
         count = 0
@@ -1420,6 +1524,8 @@ class SetItemOper(Oper):
                     raise self.kids[0].addExcInfo(e)
 
 class VarListSetOper(Oper):
+
+    _bin_id = 114
 
     async def run(self, runt, genr):
 
@@ -1471,6 +1577,8 @@ class VarEvalOper(Oper):
     Facilitate a stand-alone operator that evaluates a var.
     $foo.bar("baz")
     '''
+    _bin_id = 112
+
     async def run(self, runt, genr):
 
         anynodes = False
@@ -1488,6 +1596,8 @@ class VarEvalOper(Oper):
                     await asyncio.sleep(0)
 
 class SwitchCase(Oper):
+
+    _bin_id = 98
 
     def _hasAstClass(self, clss):
 
@@ -1544,15 +1654,23 @@ class SwitchCase(Oper):
                 yield item
 
 class CaseEntry(AstNode):
+    _bin_id = 9
+    _bin_attrs = (('defcase', 'd', False),)
+
     def __init__(self, astinfo, kids=(), defcase=False):
         AstNode.__init__(self, astinfo, kids=kids)
         self.defcase = defcase
 
 class LiftOper(Oper):
 
-    def __init__(self, astinfo, kids=()):
+    _bin_id = 61
+    # reverse is set after __init__ via reverseLift() when the parser sees
+    # the reverse-lift sigil, so it needs to round-trip via _bin_attrs.
+    _bin_attrs = (('reverse', 'r', False),)
+
+    def __init__(self, astinfo, kids=(), reverse=False):
         Oper.__init__(self, astinfo, kids=kids)
-        self.reverse = False
+        self.reverse = reverse
 
     def reverseLift(self, astinfo):
         self.astinfo = astinfo
@@ -1610,6 +1728,8 @@ class LiftOper(Oper):
 
 class YieldValu(Oper):
 
+    _bin_id = 117
+
     async def run(self, runt, genr):
 
         node = None
@@ -1629,6 +1749,8 @@ class YieldValu(Oper):
                     yield subn, runt.initPath(subn)
 
 class LiftTag(LiftOper):
+
+    _bin_id = 64
 
     async def lift(self, runt, path):
 
@@ -1651,6 +1773,8 @@ class LiftByArray(LiftOper):
     '''
     :prop*[range=(200, 400)]
     '''
+    _bin_id = 58
+
     async def lift(self, runt, path):
 
         name = await self.kids[0].compute(runt, path)
@@ -1708,6 +1832,8 @@ class LiftTagProp(LiftOper):
     '''
     #foo.bar:baz [ = x ]
     '''
+    _bin_id = 65
+
     async def lift(self, runt, path):
 
         tag, prop = await self.kids[0].compute(runt, path)
@@ -1729,6 +1855,8 @@ class LiftFormTagProp(LiftOper):
     '''
     hehe:haha#foo.bar:baz [ = x ]
     '''
+
+    _bin_id = 60
 
     async def lift(self, runt, path):
 
@@ -1761,6 +1889,8 @@ class LiftTagTag(LiftOper):
     '''
     ##foo.bar
     '''
+
+    _bin_id = 66
 
     async def lift(self, runt, path):
 
@@ -1803,6 +1933,8 @@ class LiftTagTag(LiftOper):
 
 class LiftFormTag(LiftOper):
 
+    _bin_id = 59
+
     async def lift(self, runt, path):
 
         formname = await self.kids[0].compute(runt, path)
@@ -1827,6 +1959,8 @@ class LiftFormTag(LiftOper):
                 yield node
 
 class LiftProp(LiftOper):
+
+    _bin_id = 62
 
     async def lift(self, runt, path):
 
@@ -1926,6 +2060,8 @@ class LiftProp(LiftOper):
 
 class LiftPropBy(LiftOper):
 
+    _bin_id = 63
+
     async def lift(self, runt, path):
         name = await self.kids[0].compute(runt, path)
         cmpr = await self.kids[1].compute(runt, path)
@@ -1985,6 +2121,9 @@ class LiftPropBy(LiftOper):
 
 class PivotOper(Oper):
 
+    _bin_id = 79
+    _bin_attrs = (('isjoin', 'j', False),)
+
     def __init__(self, astinfo, kids=(), isjoin=False):
         Oper.__init__(self, astinfo, kids=kids)
         self.isjoin = isjoin
@@ -1999,6 +2138,8 @@ class RawPivot(PivotOper):
     '''
     -> { <varsfrompath> }
     '''
+    _bin_id = 87
+
     async def run(self, runt, genr):
         query = self.kids[0]
         async for node, path in genr:
@@ -2010,6 +2151,8 @@ class PivotOut(PivotOper):
     '''
     -> *
     '''
+    _bin_id = 80
+
     async def run(self, runt, genr):
 
         async for node, path in genr:
@@ -2091,6 +2234,8 @@ class PivotOut(PivotOper):
 
 class N1WalkNPivo(PivotOut):
 
+    _bin_id = 71
+
     async def run(self, runt, genr):
 
         async for node, path in genr:
@@ -2113,6 +2258,8 @@ class PivotToTags(PivotOper):
     -> #cno.*           pivot to all tag nodes which match cno.*
     -> #foo.bar         pivot to the tag node foo.bar if present
     '''
+    _bin_id = 81
+
     async def run(self, runt, genr):
 
         leaf = False
@@ -2178,6 +2325,8 @@ class PivotIn(PivotOper):
     <- *
     '''
 
+    _bin_id = 77
+
     async def run(self, runt, genr):
 
         async for node, path in genr:
@@ -2221,6 +2370,8 @@ class PivotIn(PivotOper):
 
 class N2WalkNPivo(PivotIn):
 
+    _bin_id = 73
+
     async def run(self, runt, genr):
 
         async for node, path in genr:
@@ -2240,6 +2391,8 @@ class PivotInFrom(PivotOper):
     '''
     <- foo:edge
     '''
+
+    _bin_id = 78
 
     async def run(self, runt, genr):
 
@@ -2291,6 +2444,8 @@ class FormPivot(PivotOper):
     '''
     -> foo:bar
     '''
+
+    _bin_id = 47
 
     def pivogenr(self, runt, prop):
 
@@ -2526,6 +2681,8 @@ class PropPivotOut(PivotOper):
     '''
     :prop -> *
     '''
+    _bin_id = 84
+
     async def run(self, runt, genr):
 
         warned = False
@@ -2601,6 +2758,8 @@ class PropPivot(PivotOper):
     '''
     :foo -> bar:foo
     '''
+
+    _bin_id = 83
 
     def pivogenr(self, runt, prop):
 
@@ -2747,11 +2906,15 @@ class Cond(Value):
     '''
     A condition that is evaluated to filter nodes.
     '''
+    _bin_id = 13
+
     # Keeping the distinction of Cond as a subclass of Value
     # due to the fact that Cond instances may always presume
     # they are being evaluated per node.
 
 class SubqCond(Cond):
+
+    _bin_id = 97
 
     def __init__(self, astinfo, kids=()):
         Cond.__init__(self, astinfo, kids=kids)
@@ -2902,6 +3065,8 @@ class OrCond(Cond):
     '''
     <cond> or <cond>
     '''
+    _bin_id = 76
+
     async def getCondEval(self, runt):
 
         cond0 = await self.kids[0].getCondEval(runt)
@@ -2920,6 +3085,8 @@ class AndCond(Cond):
     '''
     <cond> and <cond>
     '''
+    _bin_id = 1
+
     async def getLiftHints(self, runt, path):
         h0 = await self.kids[0].getLiftHints(runt, path)
         h1 = await self.kids[0].getLiftHints(runt, path)
@@ -2944,6 +3111,8 @@ class NotCond(Cond):
     not <cond>
     '''
 
+    _bin_id = 74
+
     async def getCondEval(self, runt):
 
         kidcond = await self.kids[0].getCondEval(runt)
@@ -2957,6 +3126,8 @@ class TagCond(Cond):
     '''
     #foo.bar
     '''
+    _bin_id = 99
+
     async def getLiftHints(self, runt, path):
 
         kid = self.kids[0]
@@ -3000,6 +3171,8 @@ class TagCond(Cond):
         return cond
 
 class HasRelPropCond(Cond):
+
+    _bin_id = 53
 
     async def getCondEval(self, runt):
 
@@ -3079,6 +3252,8 @@ class HasRelPropCond(Cond):
 
 class HasTagPropCond(Cond):
 
+    _bin_id = 54
+
     async def getCondEval(self, runt):
 
         async def cond(node, path):
@@ -3099,6 +3274,8 @@ class HasTagPropCond(Cond):
         return cond
 
 class HasAbsPropCond(Cond):
+
+    _bin_id = 52
 
     async def getCondEval(self, runt):
 
@@ -3156,6 +3333,8 @@ class HasAbsPropCond(Cond):
 
 class ArrayCond(Cond):
 
+    _bin_id = 3
+
     async def getCondEval(self, runt):
 
         cmpr = await self.kids[1].compute(runt, None)
@@ -3187,6 +3366,8 @@ class ArrayCond(Cond):
         return cond
 
 class AbsPropCond(Cond):
+
+    _bin_id = 0
 
     async def getCondEval(self, runt):
 
@@ -3250,6 +3431,8 @@ class AbsPropCond(Cond):
 
 class TagValuCond(Cond):
 
+    _bin_id = 105
+
     async def getCondEval(self, runt):
 
         lnode, cnode, rnode = self.kids
@@ -3297,6 +3480,8 @@ class RelPropCond(Cond):
     '''
     (:foo:bar or .univ) <cmpr> <value>
     '''
+    _bin_id = 89
+
     async def getCondEval(self, runt):
 
         cmpr = await self.kids[1].compute(runt, None)
@@ -3348,6 +3533,8 @@ class RelPropCond(Cond):
 
 class TagPropCond(Cond):
 
+    _bin_id = 103
+
     async def getCondEval(self, runt):
 
         cmpr = await self.kids[2].compute(runt, None)
@@ -3382,6 +3569,8 @@ class TagPropCond(Cond):
 
 class FiltOper(Oper):
 
+    _bin_id = 42
+
     async def getLiftHints(self, runt, path):
 
         if await self.kids[0].compute(None, None) != '+':
@@ -3407,7 +3596,11 @@ class FiltByArray(FiltOper):
     +:foo*[^=visi]
     '''
 
+    _bin_id = 41
+
 class ArgvQuery(Value):
+
+    _bin_id = 2
 
     runtopaque = True
 
@@ -3423,6 +3616,8 @@ class ArgvQuery(Value):
         return self.kids[0].text
 
 class PropValue(Value):
+
+    _bin_id = 85
 
     def prepare(self):
         self.isconst = isinstance(self.kids[0], Const)
@@ -3494,12 +3689,18 @@ class PropValue(Value):
         return valu
 
 class RelPropValue(PropValue):
+    _bin_id = 90
+
     pass
 
 class UnivPropValue(PropValue):
+    _bin_id = 110
+
     pass
 
 class TagValue(Value):
+
+    _bin_id = 106
 
     def isRuntSafe(self, runt):
         return False
@@ -3513,12 +3714,16 @@ class TagValue(Value):
 
 class TagProp(Value):
 
+    _bin_id = 102
+
     async def compute(self, runt, path):
         tag = await self.kids[0].compute(runt, path)
         prop = await self.kids[1].compute(runt, path)
         return (tag, prop)
 
 class FormTagProp(Value):
+
+    _bin_id = 48
 
     async def compute(self, runt, path):
         form = await self.kids[0].compute(runt, path)
@@ -3527,22 +3732,32 @@ class FormTagProp(Value):
         return (form, tag, prop)
 
 class TagPropValue(Value):
+    _bin_id = 104
+
     async def compute(self, runt, path):
         tag, prop = await self.kids[0].compute(runt, path)
         return path.node.getTagProp(tag, prop)
 
 class CallArgs(Value):
 
+    _bin_id = 6
+
     async def compute(self, runt, path):
         return [await k.compute(runt, path) for k in self.kids]
 
 class CallKwarg(CallArgs):
+    _bin_id = 7
+
     pass
 
 class CallKwargs(CallArgs):
+    _bin_id = 8
+
     pass
 
 class VarValue(Value):
+
+    _bin_id = 115
 
     def validate(self, runt):
 
@@ -3586,6 +3801,8 @@ class VarValue(Value):
 
 class VarDeref(Value):
 
+    _bin_id = 111
+
     async def compute(self, runt, path):
 
         base = await self.kids[0].compute(runt, path)
@@ -3603,6 +3820,8 @@ class VarDeref(Value):
                 raise self.kids[1].addExcInfo(e)
 
 class FuncCall(Value):
+
+    _bin_id = 50
 
     async def compute(self, runt, path):
 
@@ -3644,6 +3863,8 @@ class DollarExpr(Value):
     '''
     Top level node for $(...) expressions
     '''
+    _bin_id = 18
+
     async def compute(self, runt, path):
         return await self.kids[0].compute(runt, path)
 
@@ -3728,6 +3949,8 @@ class UnaryExprNode(Value):
     '''
     A unary (i.e. single-argument) expression node
     '''
+    _bin_id = 108
+
     def prepare(self):
         assert len(self.kids) == 2
         assert isinstance(self.kids[0], Const)
@@ -3742,6 +3965,8 @@ class ExprNode(Value):
     '''
     A binary (i.e. two argument) expression node
     '''
+    _bin_id = 39
+
     def prepare(self):
 
         assert len(self.kids) == 3
@@ -3763,6 +3988,8 @@ class ExprNode(Value):
             raise self.addExcInfo(exc)
 
 class ExprOrNode(Value):
+    _bin_id = 40
+
     async def compute(self, runt, path):
         parm1 = await self.kids[0].compute(runt, path)
         if await tobool(parm1):
@@ -3771,6 +3998,8 @@ class ExprOrNode(Value):
         return await tobool(parm2)
 
 class ExprAndNode(Value):
+    _bin_id = 36
+
     async def compute(self, runt, path):
         parm1 = await self.kids[0].compute(runt, path)
         if not await tobool(parm1):
@@ -3779,6 +4008,8 @@ class ExprAndNode(Value):
         return await tobool(parm2)
 
 class TagName(Value):
+
+    _bin_id = 101
 
     def prepare(self):
         self.isconst = not self.kids or all(isinstance(k, Const) for k in self.kids)
@@ -3861,6 +4092,8 @@ class TagMatch(TagName):
     '''
     Like TagName, but can have asterisks
     '''
+    _bin_id = 100
+
     def hasglob(self):
         assert self.kids
         # TODO support vars with asterisks?
@@ -3894,10 +4127,29 @@ class TagMatch(TagName):
 
 class Const(Value):
 
-    def __init__(self, astinfo, valu, kids=()):
+    _bin_id = 15
+    _bin_attrs = (('valu', 'v', s_common.novalu),)
+
+    def __init__(self, astinfo, valu=s_common.novalu, kids=()):
         Value.__init__(self, astinfo, kids=kids)
         self.isconst = True
         self.valu = valu
+
+    def hydrate(self):
+        # dehydrate() unwraps Number to its inner Decimal so msgpack can
+        # encode it; on load the Decimal comes back via ext code 2, so we
+        # rewrap it here to match the parser's Number-typed valu.
+        if isinstance(self.valu, decimal.Decimal):
+            self.valu = s_stormtypes.Number(self.valu)
+
+    def dehydrate(self):
+        attrdict = super().dehydrate()
+
+        valu = attrdict.get('v')
+        if isinstance(valu, s_stormtypes.Number):
+            attrdict['v'] = valu.valu
+
+        return attrdict
 
     def repr(self):
         return f'{self.__class__.__name__}: {self.valu}'
@@ -3912,6 +4164,8 @@ class Const(Value):
         return self.valu
 
 class ExprDict(Value):
+
+    _bin_id = 37
 
     def prepare(self):
         self.const = None
@@ -3943,6 +4197,8 @@ class ExprDict(Value):
 
 class ExprList(Value):
 
+    _bin_id = 38
+
     def prepare(self):
         self.const = None
         if all(isinstance(k, Const) and not isinstance(k, EmbedQuery) for k in self.kids):
@@ -3955,6 +4211,8 @@ class ExprList(Value):
 
 class FormatString(Value):
 
+    _bin_id = 45
+
     def prepare(self):
         self.isconst = not self.kids or (len(self.kids) == 1 and isinstance(self.kids[0], Const))
         self.constval = self.kids[0].value() if self.isconst and self.kids else ''
@@ -3966,17 +4224,34 @@ class FormatString(Value):
         return ''.join(reprs)
 
 class VarList(Const):
+    _bin_id = 113
+
     pass
 
 class Cmpr(Const):
+    _bin_id = 11
+
     pass
 
 class Bool(Const):
+    _bin_id = 4
+
     pass
 
 class EmbedQuery(Const):
 
+    _bin_id = 35
+    # valu is the source text of the embedded query, which gets synthesized
+    # to an ASCII-encoded stormbin payload at load time so consumers can pass
+    # it back through getStormQuery without re-parsing.
+    _bin_attrs = ()
+
     runtopaque = True
+
+    def hydrate(self):
+        if self.kids:
+            import synapse.lib.stormbin as s_stormbin
+            self.valu = s_stormbin.dump(self.kids[0], ascii=True)
 
     def validate(self, runt):
         # var scope validation occurs in the sub-runtime
@@ -4002,6 +4277,8 @@ class EmbedQuery(Const):
 
 class List(Value):
 
+    _bin_id = 67
+
     def prepare(self):
         self.isconst = all(isinstance(k, Const) for k in self.kids)
 
@@ -4013,6 +4290,8 @@ class List(Value):
 
 class PropName(Value):
 
+    _bin_id = 82
+
     def prepare(self):
         self.isconst = isinstance(self.kids[0], Const)
 
@@ -4021,10 +4300,14 @@ class PropName(Value):
 
 class FormName(Value):
 
+    _bin_id = 46
+
     async def compute(self, runt, path):
         return await self.kids[0].compute(runt, path)
 
 class DerefProps(Value):
+    _bin_id = 17
+
     async def compute(self, runt, path):
         valu = await toprim(await self.kids[0].compute(runt, path))
         if (exc := await s_stormtypes.typeerr(valu, str)) is not None:
@@ -4032,9 +4315,13 @@ class DerefProps(Value):
         return valu
 
 class RelProp(PropName):
+    _bin_id = 88
+
     pass
 
 class UnivProp(RelProp):
+    _bin_id = 109
+
     async def compute(self, runt, path):
         valu = await tostr(await self.kids[0].compute(runt, path))
         if self.isconst:
@@ -4042,9 +4329,13 @@ class UnivProp(RelProp):
         return '.' + valu
 
 class Edit(Oper):
+    _bin_id = 19
+
     pass
 
 class EditParens(Edit):
+
+    _bin_id = 24
 
     async def run(self, runt, genr):
 
@@ -4094,6 +4385,8 @@ class EditParens(Edit):
                     yield item
 
 class EditNodeAdd(Edit):
+
+    _bin_id = 23
 
     def prepare(self):
 
@@ -4207,6 +4500,9 @@ class EditNodeAdd(Edit):
                 yield item
 
 class CondSetOper(Oper):
+    _bin_id = 14
+    _bin_attrs = (('errok', 'e', False),)
+
     def __init__(self, astinfo, kids, errok=False):
         Value.__init__(self, astinfo, kids=kids)
         self.errok = errok
@@ -4230,6 +4526,8 @@ class CondSetOper(Oper):
         raise self.addExcInfo(exc)
 
 class EditCondPropSet(Edit):
+
+    _bin_id = 20
 
     async def run(self, runt, genr):
 
@@ -4275,6 +4573,8 @@ class EditCondPropSet(Edit):
             await asyncio.sleep(0)
 
 class EditPropSet(Edit):
+
+    _bin_id = 26
 
     async def run(self, runt, genr):
 
@@ -4369,6 +4669,8 @@ class EditPropSet(Edit):
 
 class EditPropSetMulti(Edit):
 
+    _bin_id = 27
+
     async def run(self, runt, genr):
 
         self.reqNotReadOnly(runt)
@@ -4446,6 +4748,8 @@ class EditPropSetMulti(Edit):
 
 class EditPropDel(Edit):
 
+    _bin_id = 25
+
     async def run(self, runt, genr):
 
         self.reqNotReadOnly(runt)
@@ -4471,6 +4775,8 @@ class EditPropDel(Edit):
             await asyncio.sleep(0)
 
 class EditUnivDel(Edit):
+
+    _bin_id = 32
 
     async def run(self, runt, genr):
 
@@ -4505,6 +4811,9 @@ class EditUnivDel(Edit):
             await asyncio.sleep(0)
 
 class N1Walk(Oper):
+
+    _bin_id = 70
+    _bin_attrs = (('isjoin', 'j', False),)
 
     def __init__(self, astinfo, kids=(), isjoin=False, reverse=False):
         Oper.__init__(self, astinfo, kids=kids)
@@ -4634,6 +4943,8 @@ class N1Walk(Oper):
 
 class N2Walk(N1Walk):
 
+    _bin_id = 72
+
     def __init__(self, astinfo, kids=(), isjoin=False):
         N1Walk.__init__(self, astinfo, kids=kids, isjoin=isjoin, reverse=True)
 
@@ -4645,6 +4956,9 @@ class N2Walk(N1Walk):
                 yield verb, walknode
 
 class EditEdgeAdd(Edit):
+
+    _bin_id = 21
+    _bin_attrs = (('n2', 'n', False),)
 
     def __init__(self, astinfo, kids=(), n2=False):
         Edit.__init__(self, astinfo, kids=kids)
@@ -4725,6 +5039,9 @@ class EditEdgeAdd(Edit):
 
 class EditEdgeDel(Edit):
 
+    _bin_id = 22
+    _bin_attrs = (('n2', 'n', False),)
+
     def __init__(self, astinfo, kids=(), n2=False):
         Edit.__init__(self, astinfo, kids=kids)
         self.n2 = n2
@@ -4804,6 +5121,8 @@ class EditEdgeDel(Edit):
 
 class EditTagAdd(Edit):
 
+    _bin_id = 28
+
     async def run(self, runt, genr):
 
         self.reqNotReadOnly(runt)
@@ -4865,6 +5184,8 @@ class EditTagAdd(Edit):
 
 class EditTagDel(Edit):
 
+    _bin_id = 29
+
     async def run(self, runt, genr):
 
         self.reqNotReadOnly(runt)
@@ -4889,6 +5210,8 @@ class EditTagPropSet(Edit):
     '''
     [ #foo.bar:baz=10 ]
     '''
+    _bin_id = 31
+
     async def run(self, runt, genr):
 
         self.reqNotReadOnly(runt)
@@ -4923,6 +5246,8 @@ class EditTagPropDel(Edit):
     '''
     [ -#foo.bar:baz ]
     '''
+    _bin_id = 30
+
     async def run(self, runt, genr):
 
         self.reqNotReadOnly(runt)
@@ -4943,6 +5268,8 @@ class EditTagPropDel(Edit):
 
 class BreakOper(AstNode):
 
+    _bin_id = 5
+
     async def run(self, runt, genr):
 
         # we must be a genr...
@@ -4956,6 +5283,8 @@ class BreakOper(AstNode):
 
 class ContinueOper(AstNode):
 
+    _bin_id = 16
+
     async def run(self, runt, genr):
 
         # we must be a genr...
@@ -4968,9 +5297,13 @@ class ContinueOper(AstNode):
         raise self.addExcInfo(s_stormctrl.StormContinue())
 
 class IfClause(AstNode):
+    _bin_id = 55
+
     pass
 
 class IfStmt(Oper):
+
+    _bin_id = 56
 
     def _hasAstClass(self, clss):
 
@@ -5046,6 +5379,8 @@ class IfStmt(Oper):
 
 class Return(Oper):
 
+    _bin_id = 91
+
     async def run(self, runt, genr):
 
         # fake out a generator...
@@ -5067,6 +5402,8 @@ class Return(Oper):
 
 class Emit(Oper):
 
+    _bin_id = 33
+
     async def run(self, runt, genr):
 
         count = 0
@@ -5087,6 +5424,8 @@ class Emit(Oper):
 
 class Stop(Oper):
 
+    _bin_id = 95
+
     async def run(self, runt, genr):
         for _ in (): yield _
         async for node, path in genr:
@@ -5097,6 +5436,8 @@ class FuncArgs(AstNode):
     '''
     Represents the function arguments in a function definition
     '''
+
+    _bin_id = 49
 
     async def compute(self, runt, path):
         retn = []
@@ -5131,6 +5472,8 @@ class Function(AstNode):
 
     $foo = $bar(10, v=20)
     '''
+    _bin_id = 51
+
     runtopaque = True
     def prepare(self):
         assert isinstance(self.kids[0], Const)

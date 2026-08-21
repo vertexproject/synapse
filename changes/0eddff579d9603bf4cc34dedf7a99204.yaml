@@ -1,0 +1,7 @@
+---
+desc: Added a pre-compiled Storm query binary format and a ``--compiled`` option to
+  ``synapse.tools.storm.pkg.gen`` to pre-compile Storm packages.
+desc:literal: false
+prs: []
+type: feat
+...
