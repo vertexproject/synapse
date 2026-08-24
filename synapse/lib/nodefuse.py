@@ -248,11 +248,11 @@ class NodeFuser(s_base.Base):
         fused away and fused into keeps its adds and removes in one coalesced nodeedit,
         which is never split, so it is safe on either side.
         '''
-        for ((_, buid), nodeedit) in self.nodeedits.itemsByPref(layriden):
+        for ((_, buid), nodeedit) in self.nodeedits.itemsByTuplePref(layriden):
             if not self.visited.has(buid):
                 yield nodeedit
 
-        for ((_, buid), nodeedit) in self.nodeedits.itemsByPref(layriden):
+        for ((_, buid), nodeedit) in self.nodeedits.itemsByTuplePref(layriden):
             if self.visited.has(buid):
                 yield nodeedit
 

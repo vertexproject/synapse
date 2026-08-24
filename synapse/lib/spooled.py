@@ -210,7 +210,7 @@ class Dict(Spooled):
         for item in list(self.realdict.items()):
             yield item
 
-    def itemsByPref(self, prefixval):
+    def itemsByTuplePref(self, prefixval):
         '''
         Yield (key, val) pairs for keys which are (prefixval, ...) 2-tuples.
 
