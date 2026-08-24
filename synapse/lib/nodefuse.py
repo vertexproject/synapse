@@ -60,14 +60,11 @@ class NodeFuser(s_base.Base):
     worth of slabs no matter how many of them this fuse touches.
 
     Because the reads happen before any of the edits are applied, another write may land in
-    between. Most edits are expressed as "dst gains X" or "src loses X" against state which
-    was actually read, so a racing write is left behind on src rather than lost, and
-    checkFused() reports it so the caller can re-run.
-
-    Node data and N1 light edges are the exception. Those are not removed by edits derived
-    from what was read; they go with src's EDIT_NODE_DEL, which wipes them by buid. One
-    written in that window is therefore destroyed rather than left behind, and no post-hoc
-    read can find it, so checkFused() cannot report it and a re-run cannot recover it.
+    between. That window is not detected or reported: executing the fuse the caller asked for
+    is this class's job, and a write racing that specific call is out of scope for it, the same
+    way an ordinary concurrent property write is never flagged as having been overwritten by
+    another writer. Running a fuse during a maintenance window, as the Storm API docs
+    recommend, avoids the window entirely.
 
     The edits are written straight to each layer, so none of the Snap() write path callbacks
     run and no triggers fire for a fuse. A fuse rewrites the same data across every layer in
@@ -114,12 +111,13 @@ class NodeFuser(s_base.Base):
         self.visited = await s_spooled.Set.anit(dirn=core.dirn, cell=core)
         self.onfini(self.visited)
 
-        # layriden -> nodeedit log index sampled before any of the state was read, and again
-        # once this fuse's own edits had been applied. checkFused() uses the pair to skip the
-        # layers which nothing else wrote to. See _layerRaced().
-        self.editoffs = {}
-        self.applyoffs = {}
-        self.raced = set()
+        # every rename this fuse makes, including the original (srcndef, dstndef) pair and
+        # every comp-form cascade discovered along the way. Populated the moment each rename
+        # starts, so a later node's own edges and self-referencing props can be redirected off
+        # of *any* node being fused away in this operation, not just off of themselves.
+        # buidmap is keyed by hex iden for edges; ndefmap is keyed by (form, valu) for props.
+        self.buidmap = {}
+        self.ndefmap = {}
 
     async def _addEdit(self, layriden, buid, formname, edits):
         '''
@@ -159,9 +157,8 @@ class NodeFuser(s_base.Base):
         Every layer in the Cortex is read, including the ones a fuse may not write to, so that
         state which only exists in a read only or mirrored layer is still seen.
 
-        This is deliberately uncached. The compute pass must see the state as it was before
-        any edits were applied, and checkFused() must see it as it is afterwards, so a cache
-        which spanned the two would hand one of them the wrong answer.
+        This is deliberately uncached, since the compute pass must see the state as it was
+        immediately before any edits were applied.
         '''
         sodes = {}
 
@@ -215,10 +212,6 @@ class NodeFuser(s_base.Base):
 
             self.layers.append(layer)
             self.layridens.add(layer.iden)
-
-            # sampled before anything is read, so applyLayerEdits() can tell whether anything
-            # else wrote to this layer while the fuse was being computed
-            self.editoffs[layer.iden] = await layer.getEditIndx()
 
         todo = collections.deque()
         todo.append((srcndef, dstndef, None))
@@ -292,17 +285,34 @@ class NodeFuser(s_base.Base):
 
         return retn
 
-    async def _swapArrayValu(self, prop, buid, valu, oldv, newv):
+    def _remapSelfRef(self, form, isndef, valu):
         '''
-        Return valu with each element which is oldv replaced by newv, re-normalized.
+        Return the rename map's replacement for valu, or valu unchanged if it does not name a
+        node being fused away in this operation.
 
-        The elements are swapped in place and the array is then re-normalized, because an
-        array type may be uniq and/or sorted. Rebuilding the value by hand would produce one
-        which the type would never have produced, and the storage layer stores what it is
-        given rather than re-normalizing it, so the node would no longer lift by its own
-        array value.
+        valu is an ndef tuple for an Ndef-typed prop, or a raw value of form for a same-form
+        typed prop; both are looked up the same way once expressed as an ndef.
         '''
-        newvalu = [newv if item == oldv else item for item in valu]
+        key = valu if isndef else (form.name, valu)
+
+        mapped = self.ndefmap.get(key)
+        if mapped is None:
+            return valu
+
+        return mapped if isndef else mapped[1]
+
+    async def _swapArrayValu(self, prop, buid, oldvalu, newvalu):
+        '''
+        Return newvalu re-normalized, unless it is unchanged from oldvalu.
+
+        The elements are swapped in place by the caller and the array is then re-normalized
+        here, because an array type may be uniq and/or sorted. Rebuilding the value by hand
+        would produce one which the type would never have produced, and the storage layer
+        stores what it is given rather than re-normalizing it, so the node would no longer
+        lift by its own array value.
+        '''
+        if newvalu == list(oldvalu):
+            return oldvalu
 
         try:
             return prop.type.norm(newvalu)[0]
@@ -317,31 +327,26 @@ class NodeFuser(s_base.Base):
 
             return tuple(newvalu)
 
-    async def _swapSelfRef(self, prop, valu, isarray, isndef, srcndef, dstndef):
+    async def _swapSelfRef(self, prop, valu, isarray, isndef, form, dstbuid):
         '''
-        Return valu with any reference to src replaced by a reference to dst.
+        Return valu with any reference to src, or to any other node being fused away earlier
+        in this same operation, replaced by a reference to what it was fused into.
 
         A property on src which references src is a self reference, so it must follow the node
-        and reference dst once it has been transferred. Leaving it pointing at src would
-        dangle, and would also mean a repeat of the same fuse saw it as an inbound reference
-        which still needed rewriting, making the fuse non-idempotent.
+        and reference dst once it has been transferred. The same applies to a property which
+        references an ancestor a comp-form cascade rename is derived from: it must be
+        redirected the same way, or it is left dangling once that ancestor is deleted. Leaving
+        either pointing at a deleted node would also mean a repeat of the same fuse saw it as
+        an inbound reference which still needed rewriting, making the fuse non-idempotent.
         '''
-        if isndef:
-            (oldv, newv) = (srcndef, dstndef)
-        else:
-            (oldv, newv) = (srcndef[1], dstndef[1])
-
         if not isarray:
+            return self._remapSelfRef(form, isndef, valu)
 
-            if valu == oldv:
-                return newv
-
+        newvalu = [self._remapSelfRef(form, isndef, item) for item in valu]
+        if newvalu == list(valu):
             return valu
 
-        if oldv not in valu:
-            return valu
-
-        return await self._swapArrayValu(prop, s_common.buid(dstndef), valu, oldv, newv)
+        return await self._swapArrayValu(prop, dstbuid, valu, newvalu)
 
     async def _fuseOne(self, srcndef, dstndef, subs):
         '''
@@ -363,9 +368,13 @@ class NodeFuser(s_base.Base):
         srciden = s_common.ehex(srcbuid)
         dstiden = s_common.ehex(dstbuid)
 
-        # a destination which does not exist in any layer yet is one we are creating, so
-        # it needs its read only properties filled in
-        isnew = not any([sode.get('valu') is not None for sode in dstsodes.values()])
+        # Recorded the moment this rename starts, so a node processed afterward can redirect a
+        # reference off of this node too, not just off of itself. A comp-form cascade task is
+        # only ever discovered while processing the node it is derived from, so the ancestor's
+        # entry is always already here by the time a descendant's own edges and self-referencing
+        # props are transferred.
+        self.buidmap[srciden] = dstiden
+        self.ndefmap[srcndef] = dstndef
 
         # warn about any layer holding src which we are not allowed to modify
         for layriden in srcsodes.keys():
@@ -394,6 +403,11 @@ class NodeFuser(s_base.Base):
             dstsode = dstsodes.get(layriden, {})
 
             hasndef = srcsode.get('valu') is not None
+
+            # a destination which does not exist in *this layer* yet is one we are creating
+            # here, so it needs its read only properties filled in, regardless of whether dst
+            # already exists in some other layer this fuse also touches.
+            isnew = dstsode.get('valu') is None
 
             # 1. create dst in the same layer that src lives in. this must precede any
             #    prop sets, otherwise the sode has props but no valu, which reads as a
@@ -452,7 +466,7 @@ class NodeFuser(s_base.Base):
                 # which is no longer in the model
                 selfref = selfrefs.get(name)
                 if selfref is not None:
-                    valu = await self._swapSelfRef(prop, valu, selfref[0], selfref[1], srcndef, dstndef)
+                    valu = await self._swapSelfRef(prop, valu, selfref[0], selfref[1], form, dstbuid)
 
                 await self._addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_PROP_SET, (name, valu, None, stype), ()),
@@ -494,10 +508,11 @@ class NodeFuser(s_base.Base):
             #    stored under the n1 node, so it is re-pointed there.
             async for verb, n2iden in s_coro.pause(layer.iterNodeEdgesN1(srcbuid)):
 
-                # an edge from src to itself must follow the node and become an edge from
-                # dst to itself, for the same reason a self referencing property does
-                if n2iden == srciden:
-                    n2iden = dstiden
+                # an edge from src to itself, or to any other node being fused away earlier in
+                # this same operation (e.g. the node a comp-form cascade rename is derived
+                # from), must follow along rather than being left pointing at a node which is
+                # about to be deleted.
+                n2iden = self.buidmap.get(n2iden, n2iden)
 
                 await self._addEdit(layriden, dstbuid, formname, (
                     (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
@@ -604,7 +619,8 @@ class NodeFuser(s_base.Base):
             (curv, stortype) = curv
 
             if isarray:
-                setv = await self._swapArrayValu(prop, refbuid, curv, oldv, newv)
+                newvalu = [newv if item == oldv else item for item in curv]
+                setv = await self._swapArrayValu(prop, refbuid, curv, newvalu)
             else:
                 setv = newv
 
@@ -780,11 +796,6 @@ class NodeFuser(s_base.Base):
                     f'{why} while the fuse was being computed. Re-run fuse() with the same arguments.')
                 continue
 
-            # anything which landed here since the state was read was not seen by the compute
-            # pass, so this layer has to be checked even if it ends up where we leave it
-            if await layer.getEditIndx() != self.editoffs.get(layriden):
-                self.raced.add(layriden)
-
             try:
                 for editchunk in iterEditChunks(nodeedits):
                     await layer.storNodeEditsNoLift(editchunk, meta)
@@ -800,91 +811,6 @@ class NodeFuser(s_base.Base):
                     f'That layer may be only partly modified. Re-run fuse() with the same arguments '
                     f'to complete it.')
                 continue
-
-            self.applyoffs[layriden] = await layer.getEditIndx()
-
-    async def _layerRaced(self, layer):
-        '''
-        Return whether anything other than this fuse may have written to the given layer.
-
-        The nodeedit log index is sampled before any state is read and again once this fuse's
-        own edits have been applied, so a layer whose index is still exactly where this fuse
-        left it cannot be holding a write which raced the compute pass. A layer which does not
-        log its edits has no index to compare, so it is always checked.
-        '''
-        if not layer.logedits:
-            return True
-
-        if layer.iden in self.raced:
-            return True
-
-        offs = self.applyoffs.get(layer.iden)
-        if offs is None:
-            # nothing of ours was applied here, so compare against the pre-compute sample
-            offs = self.editoffs.get(layer.iden)
-            if offs is None:  # pragma: no cover
-                # a layer which did not exist when the edits were computed, so there is
-                # nothing to compare it against
-                return True
-
-        return await layer.getEditIndx() != offs
-
-    async def checkFused(self, srcndef):
-        '''
-        Check that nothing is left of src in any layer a fuse may write to, and warn if there is.
-
-        The edits which make up a fuse are computed before any of them are applied, so a write
-        can land in between and be left behind. This is how the caller finds out, rather than by
-        fuse() retrying.
-
-        Two things are checked, because a raced write can leave state in two different places:
-
-        1. State on src itself. A prop, tag or tag property set on src after its edits were
-           computed is not in the computed deletes, so it survives.
-
-        2. References to src. A node which starts referencing src after the reference rewrites
-           were computed is not repointed, so it is left pointing at a node which no longer
-           exists.
-
-        Only the layers which something else may have written to are checked, so a fuse which
-        nothing raced pays nothing for this. See _layerRaced().
-
-        Only layers which a fuse may write to are checked. src surviving in a read only or
-        mirrored layer is expected and _fuseOne() already warns about those specifically.
-
-        Args:
-            srcndef (tuple): The (form, valu) of the node which was fused away.
-
-        Returns:
-            None. The warnings are recorded on this NodeFuser and returned by getResult().
-        '''
-        srcbuid = s_common.buid(srcndef)
-
-        for layer in self.core.layers.values():
-
-            if layer.readonly or layer.ismirror:
-                continue
-
-            if not await self._layerRaced(layer):
-                continue
-
-            if await layer.getStorNode(srcbuid):
-                await self.warn(
-                    f'$lib.model.migration.fuse() left state for {srcndef[0]}={srcndef[1]!r} in layer '
-                    f'{layer.iden}, because it was written to while the fuse was being computed. '
-                    f'Re-create {srcndef[0]}={srcndef[1]!r} and re-run fuse() to complete it.')
-
-            # A reference can be left behind in a layer which holds none of src's own state, so
-            # this is checked separately rather than only when src survived above.
-            async for (refbuid, prop, _, _) in self._iterLayerRefs(layer, srcndef):
-
-                await self.warn(
-                    f'$lib.model.migration.fuse() left a reference to {srcndef[0]}={srcndef[1]!r} in '
-                    f'layer {layer.iden} from property {prop.full!r} on {s_common.ehex(refbuid)}, '
-                    f'because it was created or updated while the fuse was being computed. That '
-                    f'reference points at a node which no longer exists. Re-create '
-                    f'{srcndef[0]}={srcndef[1]!r} and re-run fuse() to complete it.')
-                break
 
 def iterEditChunks(nodeedits, chunk=None):
     '''

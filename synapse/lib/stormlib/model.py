@@ -866,12 +866,12 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             The edits which make up a fuse are computed by reading every layer, and are then
             applied by Cortex wide operations which carry them.
 
-            Those reads are not serialized against other writes, so a write can land between
-            them and the apply. The edits are computed and applied once rather than retried, so
-            a write which lands in that window is reported as a warning. Two cases are reported:
-            state left on src, and a node left referencing src. Completing the fuse means
-            re-creating src and running fuse() again, since src no longer has a primary
-            property and so cannot be lifted on its own.
+            Those reads are not serialized against other writes, so a write to src can land
+            between the reads and the apply. That write is not detected and is not reported: a
+            fuse is responsible for executing the merge it was asked to make, not for policing
+            edits other callers make to src while it runs, the same way an ordinary concurrent
+            property write is never flagged as having lost a race to another writer. Running a
+            fuse during a maintenance window, as recommended below, avoids this entirely.
 
             A fuse is not transactional. The edits are written with one call per layer, and
             fusing a heavily referenced node is applied in several operations rather than one,

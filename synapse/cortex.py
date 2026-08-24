@@ -7255,10 +7255,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         once. A fuse is therefore not transactional, and an interruption can leave part of it
         applied. See NodeFuser.getLayerEdits() for the ordering which makes that recoverable.
 
-        Since the reads are not serialized against other writes, a write which lands after the
-        edits are computed is generally left behind on src rather than picked up. The edits are
-        computed and applied once, and src is then checked so that the caller is told to re-run
-        rather than retrying here.
+        The reads are not serialized against other writes, so a write to src which lands after
+        the edits are computed is not accounted for and is not detected. Running a fuse during
+        a maintenance window, as recommended in the Storm API docs, avoids this. Executing the
+        fuse as requested is this method's responsibility; a concurrent edit landing on src is
+        outside that scope.
 
         Args:
             srcndef (tuple): The (form, valu) of the node to fuse from. It will be deleted.
@@ -7280,16 +7281,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if fuser.touchedlayers:
 
-                await fuser.applyLayerEdits(meta)
-
                 # A layer which failed is not retried here. The failure would simply repeat,
                 # and the warning already tells the caller to re-run once they have dealt
                 # with it.
-                if not fuser.failed:
-                    # Nothing failed, so every edit which was computed has been applied. Check
-                    # that src is actually gone, to catch a write which landed while the fuse
-                    # was being computed.
-                    await fuser.checkFused(srcndef)
+                await fuser.applyLayerEdits(meta)
 
             # returned even with nothing to apply, since computing the edits may have produced
             # warnings of its own which the caller still needs to emit

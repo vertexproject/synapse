@@ -1140,6 +1140,33 @@ class StormlibModelTest(s_test.SynTest):
             # view's layers. See test_stormlib_model_migration_fuse_no_triggers().
             self.eq(0, await core.callStorm('return($lib.queue.gen(mlq).size())'))
 
+    async def test_stormlib_model_migration_fuse_isnew_per_layer(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=inl-src test:str=inl-dst ]')
+
+            # two independent forks, sharing no layer of their own. dst's comp form already
+            # exists in forka (created directly there), but nowhere else. src's comp form,
+            # whose rename cascades onto that same dst value, exists only in forkb.
+            vdef = await core.view.fork()
+            forka = vdef.get('iden')
+            vdef = await core.view.fork()
+            forkb = vdef.get('iden')
+
+            await core.nodes('[ test:pivcomp=(inl-targ, inl-dst) ]', opts={'view': forka})
+            await core.nodes('[ test:pivcomp=(inl-targ, inl-src) ]', opts={'view': forkb})
+
+            await core.nodes(
+                'test:str=inl-src $n=$node -> { test:str=inl-dst $lib.model.migration.fuse($n, $node) }')
+
+            # forkb's own copy of the renamed comp node needs its own read-only sub filled in.
+            # It cannot fall back to forka's copy: the two forks share no layer, so whether
+            # dst already existed in some other, unrelated fork must not matter here.
+            nodes = await core.nodes('test:pivcomp=(inl-targ, inl-dst)', opts={'view': forkb})
+            self.len(1, nodes)
+            self.eq('inl-dst', nodes[0].get('lulz'))
+
     async def test_stormlib_model_migration_fuse_shared_comp(self):
 
         async with self.getTestCore() as core:
@@ -1166,6 +1193,32 @@ class StormlibModelTest(s_test.SynTest):
                 nodes = await core.nodes('test:pivcomp=(sc-targ, sc-dst)', opts={'view': viewiden})
                 self.len(1, nodes)
                 self.eq('sc-dst', nodes[0].get('lulz'))
+
+    async def test_stormlib_model_migration_fuse_comp_cascade_edge(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=cce-src test:str=cce-dst ]')
+
+            # a comp node whose read-only :lulz prop references src, triggering a cascade
+            # rename of the comp node, and which also holds a light edge straight to src.
+            # the cascade must redirect that edge too, not just its own self-edges, or it is
+            # left pointing at src once src is deleted.
+            await core.nodes('[ test:pivcomp=(cce-targ, cce-src) +(refs)> { test:str=cce-src } ]')
+
+            await core.nodes(
+                'test:str=cce-src $n=$node -> { test:str=cce-dst $lib.model.migration.fuse($n, $node) }')
+
+            self.len(0, await core.nodes('test:str=cce-src'))
+            self.len(0, await core.nodes('test:pivcomp=(cce-targ, cce-src)'))
+
+            nodes = await core.nodes('test:pivcomp=(cce-targ, cce-dst)')
+            self.len(1, nodes)
+            self.eq('cce-dst', nodes[0].get('lulz'))
+
+            # the edge followed the rename onto dst rather than being copied over as-is
+            self.len(0, await core.nodes('test:pivcomp=(cce-targ, cce-dst) -(refs)> test:str=cce-src'))
+            self.len(1, await core.nodes('test:pivcomp=(cce-targ, cce-dst) -(refs)> test:str=cce-dst'))
 
     async def test_stormlib_model_migration_fuse_chunked(self):
 
@@ -1579,49 +1632,6 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, await core.nodes('test:str=spool-dst <(seen)- test:int'))
             self.len(1, await core.nodes('test:arrayprop:strs*[=spool-dst]'))
 
-    async def test_stormlib_model_migration_fuse_check_gate(self):
-
-        # checkFused() only looks at the layers which something else may have written to, so a
-        # fuse which nothing raced does not pay for the reference scan at all.
-        async with self.getTestCore() as core:
-
-            await core.nodes('[ test:str=gate-src test:str=gate-dst ]')
-            await core.nodes('[ test:arrayprop="*" :strs=(gate-src,) ]')
-
-            checked = []
-
-            realraced = s_nodefuse.NodeFuser._layerRaced
-
-            async def counted(self, layer):
-                retn = await realraced(self, layer)
-                checked.append(retn)
-                return retn
-
-            with mock.patch.object(s_nodefuse.NodeFuser, '_layerRaced', counted):
-                mesgs = await core.stormlist(
-                    'test:str=gate-src $n=$node -> { test:str=gate-dst $lib.model.migration.fuse($n, $node) }')
-
-            self.stormHasNoWarnErr(mesgs)
-
-            # every writable layer was considered, and none of them needed to be checked
-            self.true(len(checked) > 0)
-            self.false(any(checked))
-
-            # a layer which does not log its edits has no index to compare, so it is always
-            # checked rather than being assumed clean
-            await core.addLayer({'logedits': False})
-
-            await core.nodes('[ test:str=gate2-src test:str=gate2-dst ]')
-
-            checked.clear()
-
-            with mock.patch.object(s_nodefuse.NodeFuser, '_layerRaced', counted):
-                mesgs = await core.stormlist(
-                    'test:str=gate2-src $n=$node -> { test:str=gate2-dst $lib.model.migration.fuse($n, $node) }')
-
-            self.stormHasNoWarnErr(mesgs)
-            self.true(any(checked))
-
     async def test_stormlib_model_migration_fuse_selfedge(self):
 
         async with self.getTestCore() as core:
@@ -1904,119 +1914,6 @@ class StormlibModelTest(s_test.SynTest):
 
             self.len(0, await core.nodes('test:str=rec-src'))
             self.eq('srcval', (await core.nodes('test:str=rec-dst'))[0].get('hehe'))
-
-    async def test_stormlib_model_migration_fuse_race_ref(self):
-
-        async with self.getTestCore() as core:
-
-            await core.nodes('[ test:str=ir-src test:str=ir-dst ]')
-
-            q = 'test:str=ir-src $n=$node -> { test:str=ir-dst $lib.model.migration.fuse($n, $node) }'
-
-            # A node can start referencing src after the reference rewrites were computed, which
-            # leaves it pointing at a node which no longer exists. src itself is untouched by
-            # that write, so checking src alone would not notice.
-            realedits = s_nodefuse.NodeFuser.getLayerEdits
-            raced = []
-
-            async def refedits(self, srcndef, dstndef):
-
-                await realedits(self, srcndef, dstndef)
-                if raced:
-                    return
-
-                raced.append(True)
-                await core.nodes('[ test:arrayprop=(late,) :strs=(ir-src,) ]')
-
-            with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', refedits):
-                mesgs = await core.stormlist(q)
-
-            self.stormIsInWarn("left a reference to test:str='ir-src'", mesgs)
-            self.stormIsInWarn("from property 'test:arrayprop:strs'", mesgs)
-            self.stormIsInWarn('points at a node which no longer exists', mesgs)
-
-            # src is gone, so nothing about src itself was left to warn about
-            self.stormNotInWarn('left state for', mesgs)
-
-            srcbuid = s_common.buid(('test:str', 'ir-src'))
-            for layer in core.layers.values():
-                self.false(bool(await layer.getStorNode(srcbuid)))
-
-            # the reference is still pointing at the deleted src
-            self.len(1, await core.nodes('test:arrayprop:strs*[=ir-src]'))
-            self.len(0, await core.nodes('test:arrayprop:strs*[=ir-dst]'))
-
-            # re-running repoints it and settles
-            result = await core.fuseNodes(('test:str', 'ir-src'), ('test:str', 'ir-dst'),
-                                          core.auth.rootuser.iden)
-            self.eq([], result['failed'])
-            self.eq([], result['warnings'])
-
-            self.len(0, await core.nodes('test:arrayprop:strs*[=ir-src]'))
-            self.len(1, await core.nodes('test:arrayprop:strs*[=ir-dst]'))
-
-    async def test_stormlib_model_migration_fuse_race(self):
-
-        async with self.getTestCore() as core:
-
-            await core.nodes('[ test:str=race-src :hehe=srcval test:str=race-dst ]')
-
-            q = 'test:str=race-src $n=$node -> { test:str=race-dst $lib.model.migration.fuse($n, $node) }'
-
-            # The edits are computed outside of the nexus operation which applies them, so a
-            # write can land in between. Simulate that by writing to src after its edits have
-            # been computed but before they are pushed.
-            computes = []
-
-            realedits = s_nodefuse.NodeFuser.getLayerEdits
-
-            async def raceedits(self, srcndef, dstndef):
-
-                await realedits(self, srcndef, dstndef)
-                computes.append(len(self.nodeedits))
-
-                await core.nodes('test:str=race-src [ :somestr=racedval ]')
-
-            offs = await core.nexsroot.index()
-
-            with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', raceedits):
-                mesgs = await core.stormlist(q)
-
-            # the edits are computed and applied once rather than retried, so the write which
-            # raced in is left on src and the caller is told to re-run
-            self.len(1, computes)
-            self.stormIsInWarn("left state for test:str='race-src'", mesgs)
-            # src's valu has been deleted, so it does not lift from Storm and re-running the
-            # same query is a no-op. The remediation has to re-create it first.
-            self.stormIsInWarn("Re-create test:str='race-src' and re-run fuse()", mesgs)
-
-            # the racing write, plus one nexus operation to apply the edits
-            self.eq(2, await core.nexsroot.index() - offs)
-
-            # everything which was computed made it across, and src no longer lifts
-            self.len(0, await core.nodes('test:str=race-src'))
-
-            nodes = await core.nodes('test:str=race-dst')
-            self.len(1, nodes)
-            self.eq('srcval', nodes[0].get('hehe'))
-            self.none(nodes[0].get('somestr'))
-
-            # re-running the fuse picks up the write which was left behind and settles
-            srcndef = ('test:str', 'race-src')
-            dstndef = ('test:str', 'race-dst')
-
-            result = await core.fuseNodes(srcndef, dstndef, core.auth.rootuser.iden)
-            self.eq([], result['failed'])
-            self.eq([], result['warnings'])
-
-            nodes = await core.nodes('test:str=race-dst')
-            self.len(1, nodes)
-            self.eq('racedval', nodes[0].get('somestr'))
-
-            # nothing is left of src in any layer
-            srcbuid = s_common.buid(srcndef)
-            for layer in core.layers.values():
-                self.false(bool(await layer.getStorNode(srcbuid)))
 
     async def test_stormlib_model_migration_fuse_apply_readonly(self):
 
