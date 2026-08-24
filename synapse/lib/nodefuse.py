@@ -231,8 +231,14 @@ class NodeFuser(s_base.Base):
             self.layers.append(layer)
             self.layridens.add(layer.iden)
 
+        subs = None
+        form = self.model.reqForm(srcndef[0])
+        if isinstance(form.type, s_types.Comp):
+            (_, norminfo) = form.type.norm(dstndef[1])
+            subs = norminfo.get('subs')
+
         todo = collections.deque()
-        todo.append((srcndef, dstndef, None))
+        todo.append((srcndef, dstndef, subs))
 
         while todo:
 

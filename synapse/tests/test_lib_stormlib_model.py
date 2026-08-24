@@ -1167,6 +1167,40 @@ class StormlibModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('inl-dst', nodes[0].get('lulz'))
 
+    async def test_stormlib_model_migration_fuse_comp_toplevel_isnew(self):
+
+        # When the fuse's own (srcndef, dstndef) pair is itself a comp form - not a comp
+        # rename reached via a cascade - a freshly created dst in some layer still needs its
+        # read-only subs filled in from dst's own primary value. getLayerEdits() seeds the
+        # initial rename with subs=None, since only _discoverCascades() computes subs, and
+        # only for the cascades it finds - not for the fuse's own top-level rename.
+        async with self.getTestCore() as core:
+
+            # dst lives only in base. src lives only in a fork of base, so applyLayerEdits()
+            # must create dst fresh when it processes the fork's own layer.
+            await core.nodes('[ test:pivcomp=(tl-targ, tl-dst) ]')
+
+            vdef = await core.view.fork()
+            forkiden = vdef.get('iden')
+            forklayr = core.getView(forkiden).layers[0]
+
+            await core.nodes('[ test:pivcomp=(tl-targ, tl-src) ]', opts={'view': forkiden})
+
+            # both nodes are visible from the fork's view - src directly, dst inherited from
+            # base - so the fork is where this query runs.
+            await core.nodes(
+                '''test:pivcomp=(tl-targ, tl-src) $n=$node ->
+                    { test:pivcomp=(tl-targ, tl-dst) $lib.model.migration.fuse($n, $node) }''',
+                opts={'view': forkiden})
+
+            # read the fork's own layer directly rather than the merged view: the merged view
+            # would fall back to base's already-correct copy of these props and hide a fork
+            # layer which is missing them.
+            dstbuid = s_common.buid(('test:pivcomp', ('tl-targ', 'tl-dst')))
+            sode = await forklayr.getStorNode(dstbuid)
+            self.eq('tl-targ', sode['props']['targ'][0])
+            self.eq('tl-dst', sode['props']['lulz'][0])
+
     async def test_stormlib_model_migration_fuse_shared_comp(self):
 
         async with self.getTestCore() as core:
