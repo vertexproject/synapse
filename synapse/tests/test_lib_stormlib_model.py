@@ -1432,7 +1432,7 @@ class StormlibModelTest(s_test.SynTest):
 
                     async def countedits(self, srcndef, dstndef):
                         await realedits(self, srcndef, dstndef)
-                        computes.append(len(self.nodeedits))
+                        computes.append(len(self.renames))
 
                     with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', countedits):
 
@@ -1575,9 +1575,9 @@ class StormlibModelTest(s_test.SynTest):
 
     async def test_stormlib_model_migration_fuse_spooled(self):
 
-        # The computed edits are accumulated in one spooled dict shared by every layer, so a
-        # large fuse spills to disk rather than being held whole in memory. The coalescing and
-        # ordering guarantees must survive the msgpack round trip that spilling puts each
+        # Each layer's computed edits are accumulated in a spooled dict scoped to that layer,
+        # so a large fuse spills to disk rather than being held whole in memory. The coalescing
+        # and ordering guarantees must survive the msgpack round trip that spilling puts each
         # nodeedit through.
         async with self.getTestCore() as core:
 
@@ -1595,37 +1595,51 @@ class StormlibModelTest(s_test.SynTest):
             async def __anit__(self, dirn=None, size=s_spooled.MAX_SPOOL_SIZE, cell=None):
                 await orig(self, dirn=dirn, size=1, cell=cell)
 
+            captured = []
+
+            realiter = s_nodefuse.NodeFuser._iterNodeEdits
+
+            def capture(self):
+                # this layer's per-layer spool is fully populated by the time
+                # applyLayerEdits() calls this, right before it applies it, so this is the
+                # moment to check it spilled and to capture the ordering it produced.
+                fellback = self.nodeedits.fallback
+                nodeedits = list(realiter(self))
+                captured.append((fellback, nodeedits))
+                return iter(nodeedits)
+
             with mock.patch('synapse.lib.spooled.Spooled.__anit__', __anit__):
+                with mock.patch.object(s_nodefuse.NodeFuser, '_iterNodeEdits', capture):
 
-                async with await s_nodefuse.NodeFuser.anit(core, core.auth.rootuser.iden) as fuser:
+                    # and the fuse still applies correctly with the accumulator spilled
+                    await core.nodes(
+                        'test:str=spool-src $n=$node -> '
+                        '{ test:str=spool-dst $lib.model.migration.fuse($n, $node) }')
 
-                    await fuser.getLayerEdits(('test:str', 'spool-src'), ('test:str', 'spool-dst'))
-                    self.true(len(fuser.touchedlayers) > 0)
+            self.true(len(captured) > 0)
 
-                    # the one shared accumulator spilled
-                    self.true(fuser.nodeedits.fallback)
+            for (fellback, nodeedits) in captured:
 
-                    for layriden in sorted(fuser.touchedlayers):
+                if not nodeedits:
+                    continue
 
-                        nodeedits = list(fuser._iterNodeEdits(layriden))
-                        buids = [nodeedit[0] for nodeedit in nodeedits]
+                # the layer's accumulator spilled
+                self.true(fellback)
 
-                        # dst is still ordered ahead of src
-                        self.lt(buids.index(dstbuid), buids.index(srcbuid))
+                buids = [nodeedit[0] for nodeedit in nodeedits]
 
-                        # both of the one referrer's edges are still coalesced into a single
-                        # nodeedit, each add still ahead of its own del
-                        edgeedits = [(edit[0], edit[1][0]) for edit in nodeedits[buids.index(edgebuid)][2]]
-                        self.eq([
-                            (s_layer.EDIT_EDGE_ADD, 'refs'),
-                            (s_layer.EDIT_EDGE_DEL, 'refs'),
-                            (s_layer.EDIT_EDGE_ADD, 'seen'),
-                            (s_layer.EDIT_EDGE_DEL, 'seen'),
-                        ], edgeedits)
+                # dst is still ordered ahead of src
+                self.lt(buids.index(dstbuid), buids.index(srcbuid))
 
-                # and the fuse still applies correctly with the accumulator spilled
-                await core.nodes(
-                    'test:str=spool-src $n=$node -> { test:str=spool-dst $lib.model.migration.fuse($n, $node) }')
+                # both of the one referrer's edges are still coalesced into a single
+                # nodeedit, each add still ahead of its own del
+                edgeedits = [(edit[0], edit[1][0]) for edit in nodeedits[buids.index(edgebuid)][2]]
+                self.eq([
+                    (s_layer.EDIT_EDGE_ADD, 'refs'),
+                    (s_layer.EDIT_EDGE_DEL, 'refs'),
+                    (s_layer.EDIT_EDGE_ADD, 'seen'),
+                    (s_layer.EDIT_EDGE_DEL, 'seen'),
+                ], edgeedits)
 
             self.len(0, await core.nodes('test:str=spool-src'))
             self.len(1, await core.nodes('test:str=spool-dst <(refs)- test:int'))
@@ -1933,7 +1947,7 @@ class StormlibModelTest(s_test.SynTest):
             async def roedits(self, srcndef, dstndef):
 
                 await realedits(self, srcndef, dstndef)
-                if self.touchedlayers:
+                if self.renames:
                     await baselayr.setLayerInfo('readonly', True)
 
             with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', roedits):
@@ -2008,60 +2022,70 @@ class StormlibModelTest(s_test.SynTest):
             dstbuid = s_common.buid(('test:str', 'ord-dst'))
             edgebuid = s_common.buid(('test:int', 1))
 
-            async with await s_nodefuse.NodeFuser.anit(core, core.auth.rootuser.iden) as fuser:
+            captured = []
 
-                await fuser.getLayerEdits(('test:str', 'ord-src'), ('test:str', 'ord-dst'))
+            realiter = s_nodefuse.NodeFuser._iterNodeEdits
 
-                self.true(len(fuser.touchedlayers) > 0)
+            def capture(self):
+                # this is called from applyLayerEdits() right before it applies this layer's
+                # edits, once its per-layer spool is fully populated, so this is the moment
+                # to capture the ordering it produced.
+                nodeedits = list(realiter(self))
+                captured.append(nodeedits)
+                return iter(nodeedits)
 
-                for layriden in sorted(fuser.touchedlayers):
+            with mock.patch.object(s_nodefuse.NodeFuser, '_iterNodeEdits', capture):
 
-                    # the edits are read directly off the fuser's spooled state
-                    nodeedits = list(fuser._iterNodeEdits(layriden))
+                # applying them repoints both edges and leaves none behind on src
+                await core.nodes(
+                    'test:str=ord-src $n=$node -> { test:str=ord-dst $lib.model.migration.fuse($n, $node) }')
 
-                    buids = [nodeedit[0] for nodeedit in nodeedits]
+            self.true(len(captured) > 0)
 
-                    self.isin(srcbuid, buids)
-                    self.isin(dstbuid, buids)
+            for nodeedits in captured:
 
-                    # a chunk boundary can fall between any two nodeedits, so everything which
-                    # adds to dst or repoints a reference must be ordered before src is torn down
-                    srcindx = buids.index(srcbuid)
+                if not nodeedits:
+                    continue
 
-                    self.lt(buids.index(dstbuid), srcindx)
+                buids = [nodeedit[0] for nodeedit in nodeedits]
 
-                    # the inbound array reference is repointed before src is deleted, so it can
-                    # never be left pointing at a node which no longer exists
-                    refbuids = [buid for buid in buids if buid not in (srcbuid, dstbuid, edgebuid)]
-                    self.true(len(refbuids) > 0)
+                self.isin(srcbuid, buids)
+                self.isin(dstbuid, buids)
 
-                    for refbuid in refbuids:
-                        self.lt(buids.index(refbuid), srcindx)
+                # a chunk boundary can fall between any two nodeedits, so everything which
+                # adds to dst or repoints a reference must be ordered before src is torn down
+                srcindx = buids.index(srcbuid)
 
-                    # src is torn down last, and its own edits are one nodeedit which is never
-                    # split, so the delete cannot be separated from the prop and tag removals
-                    self.eq(len(buids) - 1, srcindx)
+                self.lt(buids.index(dstbuid), srcindx)
 
-                    edits = [edit[0] for edit in nodeedits[srcindx][2]]
-                    self.isin(s_layer.EDIT_NODE_DEL, edits)
-                    self.isin(s_layer.EDIT_PROP_DEL, edits)
-                    self.isin(s_layer.EDIT_TAG_DEL, edits)
+                # the inbound array reference is repointed before src is deleted, so it can
+                # never be left pointing at a node which no longer exists
+                refbuids = [buid for buid in buids if buid not in (srcbuid, dstbuid, edgebuid)]
+                self.true(len(refbuids) > 0)
 
-                    # Each light edge repoint is add-then-delete inside a single nodeedit, so it is
-                    # applied atomically and the edge is never pointing at neither node. All of one
-                    # referrer's edges are coalesced into that one nodeedit, so a node with several
-                    # edges to src has them all repointed together.
-                    edgeedits = [(edit[0], edit[1][0]) for edit in nodeedits[buids.index(edgebuid)][2]]
-                    self.eq([
-                        (s_layer.EDIT_EDGE_ADD, 'refs'),
-                        (s_layer.EDIT_EDGE_DEL, 'refs'),
-                        (s_layer.EDIT_EDGE_ADD, 'seen'),
-                        (s_layer.EDIT_EDGE_DEL, 'seen'),
-                    ], edgeedits)
+                for refbuid in refbuids:
+                    self.lt(buids.index(refbuid), srcindx)
 
-            # and applying them repoints both edges and leaves none behind on src
-            await core.nodes(
-                'test:str=ord-src $n=$node -> { test:str=ord-dst $lib.model.migration.fuse($n, $node) }')
+                # src is torn down last, and its own edits are one nodeedit which is never
+                # split, so the delete cannot be separated from the prop and tag removals
+                self.eq(len(buids) - 1, srcindx)
+
+                edits = [edit[0] for edit in nodeedits[srcindx][2]]
+                self.isin(s_layer.EDIT_NODE_DEL, edits)
+                self.isin(s_layer.EDIT_PROP_DEL, edits)
+                self.isin(s_layer.EDIT_TAG_DEL, edits)
+
+                # Each light edge repoint is add-then-delete inside a single nodeedit, so it is
+                # applied atomically and the edge is never pointing at neither node. All of one
+                # referrer's edges are coalesced into that one nodeedit, so a node with several
+                # edges to src has them all repointed together.
+                edgeedits = [(edit[0], edit[1][0]) for edit in nodeedits[buids.index(edgebuid)][2]]
+                self.eq([
+                    (s_layer.EDIT_EDGE_ADD, 'refs'),
+                    (s_layer.EDIT_EDGE_DEL, 'refs'),
+                    (s_layer.EDIT_EDGE_ADD, 'seen'),
+                    (s_layer.EDIT_EDGE_DEL, 'seen'),
+                ], edgeedits)
 
             self.len(0, await core.nodes('test:str=ord-src'))
 

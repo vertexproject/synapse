@@ -42,11 +42,22 @@ class NodeFuser(s_base.Base):
     Inbound references are rewritten in the layer which holds them, and the source is
     then deleted from every writable layer which held it.
 
-    A fuse happens in two steps. getLayerEdits() reads the current state of every layer and
-    computes the edits, before any of them are applied. applyLayerEdits() then hands each
-    layer its own edits with Layer.storNodeEditsNoLift(), split into chunks by
-    iterEditChunks() so that each chunk is the payload of one of that layer's nexus
-    operations.
+    A fuse happens in two steps. getLayerEdits() discovers every rename this fuse makes -
+    the original (srcndef, dstndef) pair, plus every comp-form cascade reachable from it -
+    before any edits are computed or applied anywhere. Discovery only resolves identity: a
+    comp node's primary value, or which layers hold a given buid, are cortex-wide concepts
+    read fresh across every layer, not per-layer ones. applyLayerEdits() then computes and
+    applies each layer's actual edits, one layer at a time, using the now-complete rename
+    map, and hands each layer its own edits with Layer.storNodeEditsNoLift(), split into
+    chunks by iterEditChunks() so that each chunk is the payload of one of that layer's
+    nexus operations.
+
+    Doing discovery in full before any edit is computed matters for more than tidiness: a
+    comp-form cascade discovered from the same parent as an earlier sibling - not just an
+    ancestor further up the chain - would not yet be in the rename map if edits were
+    computed as each rename was found, and a self reference or edge on that earlier
+    sibling could be copied over rather than redirected. Finishing discovery first means
+    every rename this fuse will ever make is known before any of them are transferred.
 
     Keeping the edits in the payload means the nexus log holds the edits themselves rather
     than a request to recompute them. A mirror applies exactly the edits the leader computed,
@@ -54,10 +65,11 @@ class NodeFuser(s_base.Base):
     this code. Chunking bounds how large a single nexus log entry can get, so fusing a
     heavily referenced node is slower rather than impossible.
 
-    The computed edits are accumulated in a single spooled dict shared by every layer, keyed by
-    (layriden, buid), so that a fuse of a heavily referenced node spills to disk rather than
-    being held whole in memory, and a Cortex with many layers never needs more than one spool's
-    worth of slabs no matter how many of them this fuse touches.
+    Each layer's edits are accumulated in a spooled dict scoped to that layer alone: created,
+    applied, and finalized before moving on to the next layer, so a fuse of a heavily
+    referenced node spills to disk rather than being held whole in memory, and a Cortex with
+    many layers never needs more than one layer's worth of spooled state at a time, no matter
+    how many of them this fuse touches.
 
     Because the reads happen before any of the edits are applied, another write may land in
     between. That window is not detected or reported: executing the fuse the caller asked for
@@ -98,47 +110,49 @@ class NodeFuser(s_base.Base):
         self.failed = []        # (layriden, errm) for each layer which could not be written
         self.warnings = []      # warnings for the caller to emit
 
-        # (layriden, buid) -> nodeedit being accumulated. One accumulator for the whole fuse
-        # rather than one per layer, so a Cortex with many layers can never need more than one
-        # spooled dict's worth of slabs, no matter how many of those layers this fuse touches.
-        self.nodeedits = await s_spooled.Dict.anit(dirn=core.dirn, cell=core)
-        self.onfini(self.nodeedits)
+        # every rename this fuse makes, including the original (srcndef, dstndef) pair and
+        # every comp-form cascade discovered along the way. Populated in full by
+        # getLayerEdits(), before applyLayerEdits() computes or applies anything.
+        self.renames = []
 
-        self.touchedlayers = set()  # every layriden which has at least one nodeedit queued
+        # buidmap is keyed by hex iden for edges; ndefmap is keyed by (form, valu) for props.
+        # Both are populated alongside self.renames, at discovery time, so a self reference
+        # or an edge to any node being fused away in this operation - not just the one
+        # currently being transferred - is always redirected correctly regardless of which
+        # order the renames were discovered in.
+        self.buidmap = {}
+        self.ndefmap = {}
 
-        # src buids which have already been fused. spooled, because a fuse of a heavily
+        # buid -> nodeedit, scoped to whichever one layer applyLayerEdits() is currently
+        # processing. Created fresh and finalized for each layer in turn, so a Cortex with
+        # many layers never needs more than one layer's worth of spooled state at a time,
+        # no matter how many of them this fuse touches. None outside that scope.
+        self.nodeedits = None
+
+        # src buids which have already been discovered. spooled, because a fuse of a heavily
         # referenced comp form discovers one rename per referring node.
         self.visited = await s_spooled.Set.anit(dirn=core.dirn, cell=core)
         self.onfini(self.visited)
 
-        # every rename this fuse makes, including the original (srcndef, dstndef) pair and
-        # every comp-form cascade discovered along the way. Populated the moment each rename
-        # starts, so a later node's own edges and self-referencing props can be redirected off
-        # of *any* node being fused away in this operation, not just off of themselves.
-        # buidmap is keyed by hex iden for edges; ndefmap is keyed by (form, valu) for props.
-        self.buidmap = {}
-        self.ndefmap = {}
-
-    async def _addEdit(self, layriden, buid, formname, edits):
+    async def _addEdit(self, buid, formname, edits):
         '''
-        Queue a list of edits for the given buid in the given layer.
+        Queue a list of edits for the given buid in the layer applyLayerEdits() is
+        currently processing.
 
-        The edits are coalesced by (layer, buid) so that each buid appears exactly once in
-        the nodeedits handed to a given layer, which lets iterEditChunks() avoid splitting
-        the order dependent edits for a single buid.
+        self.nodeedits is scoped to that one layer, so buid alone is a unique key here -
+        every call while it is open targets the same layer. The edits are coalesced by
+        buid so that each buid appears exactly once in the nodeedits handed to that layer,
+        which lets iterEditChunks() avoid splitting the order dependent edits for a single
+        buid.
         '''
-        self.touchedlayers.add(layriden)
-
-        key = (layriden, buid)
-
-        nodeedit = self.nodeedits.get(key)
+        nodeedit = self.nodeedits.get(buid)
         if nodeedit is None:
-            await self.nodeedits.set(key, (buid, formname, list(edits)))
+            await self.nodeedits.set(buid, (buid, formname, list(edits)))
             return
 
         # the nodeedit may have made a msgpack round trip if the dict has spilled, which
         # returns the edits as a tuple, so it is rebuilt rather than extended in place.
-        await self.nodeedits.set(key, (buid, formname, list(nodeedit[2]) + list(edits)))
+        await self.nodeedits.set(buid, (buid, formname, list(nodeedit[2]) + list(edits)))
 
     async def warn(self, mesg):
         '''
@@ -182,30 +196,34 @@ class NodeFuser(s_base.Base):
 
     async def getLayerEdits(self, srcndef, dstndef):
         '''
-        Compute the per-layer node edits which fuse the src node into the dst node.
+        Discover every rename this fuse makes: the original (srcndef, dstndef) pair, plus
+        every comp-form cascade reachable from it.
 
-        This only reads, so it deliberately runs before any of the edits are applied. The
-        computed edits are left on self.nodeedits for applyLayerEdits() to read directly,
-        rather than being returned for the caller to hold and hand back.
-
-        The edits for a single buid are applied in the order they must be, which
-        applyLayerEdits() gets from self._iterNodeEdits(). Within each layer, every edit which
-        adds to dst or repoints a reference is ordered ahead of every edit which removes state
-        from src, so no state is removed from src in a layer until dst has gained it and every
-        inbound reference in that layer points at dst.
+        This only resolves identity - a comp node's primary value, and which layers hold a
+        given buid - which are cortex-wide concepts read fresh across every layer, before
+        any edits are computed or applied anywhere. No edits are queued here.
+        applyLayerEdits() computes and applies each layer's actual edits once every rename
+        in self.renames is known, so that a reference is redirected off of any node this
+        fuse is fusing away, not just off of the one whose own discovery found it: a comp
+        cascade found from the same parent as an earlier sibling would not yet be known if
+        edits were computed as each rename was discovered, rather than after discovery
+        finishes.
 
         Args:
             srcndef (tuple): The (form, valu) of the node to fuse from. It will be deleted.
             dstndef (tuple): The (form, valu) of the node to fuse into. It will be kept.
 
         Returns:
-            None. Call applyLayerEdits() to apply what was computed, or check
-            self.touchedlayers to see whether there is anything to apply.
+            None. self.renames holds the discovered work for applyLayerEdits().
         '''
         # A read-only layer cannot be written to, and a mirrored layer would forward our
-        # edits to its upstream. Both are skipped, and _fuseOne() warns for each one which
-        # actually held any of src's state.
-        for layer in self.core.layers.values():
+        # edits to its upstream. Both are skipped, and a rename which finds any of its own
+        # state stranded there warns below.
+        #
+        # Sorted by iden so applyLayerEdits() pushes one nexus operation per layer in a
+        # deterministic order, rather than one which depends on how self.core.layers - a
+        # plain dict - happens to iterate.
+        for layer in sorted(self.core.layers.values(), key=lambda layer: layer.iden):
 
             if layer.readonly or layer.ismirror:
                 continue
@@ -226,12 +244,97 @@ class NodeFuser(s_base.Base):
 
             await self.visited.add(srcbuid)
 
-            todo.extend(await self._fuseOne(nextsrc, nextdst, subs))
+            srciden = s_common.ehex(srcbuid)
+            dstiden = s_common.ehex(s_common.buid(nextdst))
 
-    def _iterNodeEdits(self, layriden):
+            # Recorded the moment this rename is discovered, well before applyLayerEdits()
+            # ever transfers anything, so a sibling rename discovered from the same parent
+            # - not just an ancestor further up the chain - is always already here too.
+            self.buidmap[srciden] = dstiden
+            self.ndefmap[nextsrc] = nextdst
+            self.renames.append((nextsrc, nextdst, subs))
+
+            # warn about any layer holding this node which we are not allowed to modify
+            for layriden in (await self._getSodes(srcbuid)).keys():
+
+                if layriden in self.layridens:
+                    continue
+
+                badlayer = self.core.getLayer(layriden)
+                why = 'read only' if badlayer.readonly else 'a mirror'
+
+                await self.warn(
+                    f'$lib.model.migration.fuse() cannot modify layer {layriden} because it is {why}. '
+                    f'{nextsrc[0]}={nextsrc[1]!r} will not be removed from it, and will still be visible '
+                    f'in any view which includes that layer.')
+
+            for layer in self.layers:
+                todo.extend(await self._discoverCascades(layer, nextsrc, nextdst))
+
+    async def _discoverCascades(self, layer, srcndef, dstndef):
         '''
-        Yield one layer's nodeedits, with every edit which removes state from a node being
-        fused away ordered after every edit which adds to dst or repoints a reference.
+        Find every comp-form cascade this layer's references to srcndef require.
+
+        A comp form's primary value embeds srcndef's value, so a read-only sub-property
+        referencing srcndef means the comp node's own buid is changing too - that is
+        itself a rename this fuse must make, discovered here so getLayerEdits() can walk
+        it like any other. A read-only reference which is *not* part of a comp key is not
+        a rename: it is deferred to _rewriteRefs(), which rewrites it in place once every
+        rename is known.
+
+        This only reads and warns; it queues no edits.
+
+        Returns:
+            list: (srcndef, dstndef, subs) cascade tasks discovered in this layer.
+        '''
+        todo = []
+
+        async for (refbuid, prop, isarray, isndef) in self._iterLayerRefs(layer, srcndef):
+
+            if not prop.info.get('ro'):
+                continue
+
+            refform = prop.form
+            if not isinstance(refform.type, s_types.Comp) or prop.compoffs is None:
+                continue
+
+            newv = dstndef if isndef else dstndef[1]
+
+            refvalu = None
+            for sode in (await self._getSodes(refbuid)).values():
+                valt = sode.get('valu')
+                if valt is not None:
+                    refvalu = valt[0]
+                    break
+
+            if refvalu is None:  # pragma: no cover
+                continue
+
+            newcomp = list(refvalu)
+            newcomp[prop.compoffs] = newv
+
+            try:
+                (newvalu, norminfo) = refform.type.norm(tuple(newcomp))
+
+            except Exception as e:
+                await self.warn(
+                    f'$lib.model.migration.fuse() cannot re-normalize comp form {refform.name!r} '
+                    f'for {s_common.ehex(refbuid)}: {e}. That reference is not rewritten.')
+                continue
+
+            if newvalu == refvalu:  # pragma: no cover
+                continue
+
+            # renaming the comp is itself a fuse of the old comp node into the new one
+            todo.append(((refform.name, refvalu), (refform.name, newvalu), norminfo.get('subs')))
+
+        return todo
+
+    def _iterNodeEdits(self):
+        '''
+        Yield the current layer's nodeedits, with every edit which removes state from a
+        node being fused away ordered after every edit which adds to dst or repoints a
+        reference.
 
         A chunk boundary can fall between two nodeedits, so without this a fuse could be
         interrupted after src had been deleted but before an inbound reference to it had been
@@ -241,11 +344,11 @@ class NodeFuser(s_base.Base):
         fused away and fused into keeps its adds and removes in one coalesced nodeedit,
         which is never split, so it is safe on either side.
         '''
-        for ((_, buid), nodeedit) in self.nodeedits.itemsByTuplePref(layriden):
+        for (buid, nodeedit) in self.nodeedits.items():
             if not self.visited.has(buid):
                 yield nodeedit
 
-        for ((_, buid), nodeedit) in self.nodeedits.itemsByTuplePref(layriden):
+        for (buid, nodeedit) in self.nodeedits.items():
             if self.visited.has(buid):
                 yield nodeedit
 
@@ -301,19 +404,19 @@ class NodeFuser(s_base.Base):
 
         return mapped if isndef else mapped[1]
 
-    async def _swapArrayValu(self, prop, buid, oldvalu, newvalu):
+    async def _swapArrayValu(self, prop, buid, newvalu):
         '''
-        Return newvalu re-normalized, unless it is unchanged from oldvalu.
+        Return newvalu re-normalized.
 
         The elements are swapped in place by the caller and the array is then re-normalized
         here, because an array type may be uniq and/or sorted. Rebuilding the value by hand
         would produce one which the type would never have produced, and the storage layer
         stores what it is given rather than re-normalizing it, so the node would no longer
         lift by its own array value.
-        '''
-        if newvalu == list(oldvalu):
-            return oldvalu
 
+        Callers only reach here once they have already determined newvalu differs from the
+        array's current value, so that is not re-checked.
+        '''
         try:
             return prop.type.norm(newvalu)[0]
 
@@ -346,14 +449,15 @@ class NodeFuser(s_base.Base):
         if newvalu == list(valu):
             return valu
 
-        return await self._swapArrayValu(prop, dstbuid, valu, newvalu)
+        return await self._swapArrayValu(prop, dstbuid, newvalu)
 
-    async def _fuseOne(self, srcndef, dstndef, subs):
+    async def _fuseOneLayer(self, layer, srcndef, dstndef, subs):
         '''
-        Queue the edits which fuse one src node into one dst node in every writable layer.
+        Queue this one layer's edits for one rename discovered by getLayerEdits().
 
-        Returns:
-            list: Additional (srcndef, dstndef, subs) tasks discovered for comp renames.
+        buidmap/ndefmap are already complete by the time this runs, so a self reference or
+        an edge to any node being fused away in this operation - not just this one - is
+        redirected correctly regardless of which order the renames are processed in.
         '''
         formname = srcndef[0]
         form = self.model.reqForm(formname)
@@ -362,239 +466,210 @@ class NodeFuser(s_base.Base):
         srcbuid = s_common.buid(srcndef)
         dstbuid = s_common.buid(dstndef)
 
-        srcsodes = await self._getSodes(srcbuid)
-        dstsodes = await self._getSodes(dstbuid)
+        srcsode = await layer.getStorNode(srcbuid) or {}
+        dstsode = await layer.getStorNode(dstbuid) or {}
 
         srciden = s_common.ehex(srcbuid)
         dstiden = s_common.ehex(dstbuid)
 
-        # Recorded the moment this rename starts, so a node processed afterward can redirect a
-        # reference off of this node too, not just off of itself. A comp-form cascade task is
-        # only ever discovered while processing the node it is derived from, so the ancestor's
-        # entry is always already here by the time a descendant's own edges and self-referencing
-        # props are transferred.
-        self.buidmap[srciden] = dstiden
-        self.ndefmap[srcndef] = dstndef
+        hasndef = srcsode.get('valu') is not None
 
-        # warn about any layer holding src which we are not allowed to modify
-        for layriden in srcsodes.keys():
-
-            if layriden in self.layridens:
-                continue
-
-            layer = self.core.getLayer(layriden)
-            why = 'read only' if layer.readonly else 'a mirror'
-
-            await self.warn(
-                f'$lib.model.migration.fuse() cannot modify layer {layriden} because it is {why}. '
-                f'{formname}={srcndef[1]!r} will not be removed from it, and will still be visible '
-                f'in any view which includes that layer.')
+        # a destination which does not exist in *this layer* yet is one we are creating
+        # here, so it needs its read only properties filled in, regardless of whether dst
+        # already exists in some other layer this fuse also touches.
+        isnew = dstsode.get('valu') is None
 
         # props on src's own form which may hold a reference to src itself
         selfrefs = self._getSelfRefs(form)
 
-        todo = []
+        # 1. create dst in the same layer that src lives in. this must precede any
+        #    prop sets, otherwise the sode has props but no valu, which reads as a
+        #    node which does not exist.
+        if hasndef:
 
-        for layer in self.layers:
+            await self._addEdit(dstbuid, formname, (
+                (s_layer.EDIT_NODE_ADD, (dstndef[1], stortype), ()),
+            ))
 
-            layriden = layer.iden
+            if isnew:
+                # a freshly created node needs its read only subs, which are derived
+                # from its own primary value rather than copied from src.
+                if subs is not None:
+                    for name, valu in subs.items():
 
-            srcsode = srcsodes.get(layriden, {})
-            dstsode = dstsodes.get(layriden, {})
+                        prop = form.props.get(name)
+                        if prop is None:  # pragma: no cover
+                            continue
 
-            hasndef = srcsode.get('valu') is not None
-
-            # a destination which does not exist in *this layer* yet is one we are creating
-            # here, so it needs its read only properties filled in, regardless of whether dst
-            # already exists in some other layer this fuse also touches.
-            isnew = dstsode.get('valu') is None
-
-            # 1. create dst in the same layer that src lives in. this must precede any
-            #    prop sets, otherwise the sode has props but no valu, which reads as a
-            #    node which does not exist.
-            if hasndef:
-
-                await self._addEdit(layriden, dstbuid, formname, (
-                    (s_layer.EDIT_NODE_ADD, (dstndef[1], stortype), ()),
-                ))
-
-                if isnew:
-                    # a freshly created node needs its read only subs, which are derived
-                    # from its own primary value rather than copied from src.
-                    if subs is not None:
-                        for name, valu in subs.items():
-
-                            prop = form.props.get(name)
-                            if prop is None:  # pragma: no cover
-                                continue
-
-                            await self._addEdit(layriden, dstbuid, formname, (
-                                (s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype), ()),
-                            ))
-
-                    # .created is read only, so carry src's over when creating the node
-                    created = srcsode.get('props', {}).get('.created')
-                    if created is not None:
-                        await self._addEdit(layriden, dstbuid, formname, (
-                            (s_layer.EDIT_PROP_SET, ('.created', created[0], None, created[1]), ()),
+                        await self._addEdit(dstbuid, formname, (
+                            (s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype), ()),
                         ))
 
-            # 2. transfer props, tags, tagprops and node data. dst is the survivor, so its
-            #    existing value wins wherever both nodes hold a conflicting value in this
-            #    layer. ival/mintime/maxtime values are unioned by the storage layer rather
-            #    than overwritten, so those are always transferred regardless of conflict.
-            dstprops = dstsode.get('props', {})
-
-            for name, (valu, stype) in srcsode.get('props', {}).items():
-
-                prop = form.props.get(name)
-
-                # read only props on dst are derived from dst's own primary value. .created
-                # is read only and is handled above.
-                #
-                # A prop which is no longer in the model can still hold a value in the sode.
-                # It has no derivation on dst and cannot be a self reference, so it is
-                # transferred as-is: the teardown below removes every prop it finds, so
-                # skipping it here would delete it from src without moving it to dst.
-                if prop is not None and prop.info.get('ro'):
-                    continue
-
-                if stype not in mergetypes and name in dstprops:
-                    continue
-
-                # selfrefs is keyed off the form's props, so this is never set for a prop
-                # which is no longer in the model
-                selfref = selfrefs.get(name)
-                if selfref is not None:
-                    valu = await self._swapSelfRef(prop, valu, selfref[0], selfref[1], form, dstbuid)
-
-                await self._addEdit(layriden, dstbuid, formname, (
-                    (s_layer.EDIT_PROP_SET, (name, valu, None, stype), ()),
-                ))
-
-            for tag, valu in srcsode.get('tags', {}).items():
-                await self._addEdit(layriden, dstbuid, formname, (
-                    (s_layer.EDIT_TAG_SET, (tag, valu, None), ()),
-                ))
-
-            dsttagprops = dstsode.get('tagprops', {})
-
-            for tag, propdict in srcsode.get('tagprops', {}).items():
-
-                dstpropdict = dsttagprops.get(tag, {})
-
-                for name, (valu, stype) in propdict.items():
-
-                    if stype not in mergetypes and name in dstpropdict:
-                        continue
-
-                    await self._addEdit(layriden, dstbuid, formname, (
-                        (s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, stype), ()),
+                # .created is read only, so carry src's over when creating the node
+                created = srcsode.get('props', {}).get('.created')
+                if created is not None:
+                    await self._addEdit(dstbuid, formname, (
+                        (s_layer.EDIT_PROP_SET, ('.created', created[0], None, created[1]), ()),
                     ))
 
-            # node data values are arbitrary blobs and a node may hold any number of them, so
-            # these are streamed rather than read into memory. dst keeping its own value on a
-            # conflict is a probe per name rather than a full listing of dst's keys.
-            async for name, valu in s_coro.pause(layer.iterNodeData(srcbuid)):
+        # 2. transfer props, tags, tagprops and node data. dst is the survivor, so its
+        #    existing value wins wherever both nodes hold a conflicting value in this
+        #    layer. ival/mintime/maxtime values are unioned by the storage layer rather
+        #    than overwritten, so those are always transferred regardless of conflict.
+        dstprops = dstsode.get('props', {})
 
-                if await layer.hasNodeData(dstbuid, name):
+        for name, (valu, stype) in srcsode.get('props', {}).items():
+
+            prop = form.props.get(name)
+
+            # read only props on dst are derived from dst's own primary value. .created
+            # is read only and is handled above.
+            #
+            # A prop which is no longer in the model can still hold a value in the sode.
+            # It has no derivation on dst and cannot be a self reference, so it is
+            # transferred as-is: the teardown below removes every prop it finds, so
+            # skipping it here would delete it from src without moving it to dst.
+            if prop is not None and prop.info.get('ro'):
+                continue
+
+            if stype not in mergetypes and name in dstprops:
+                continue
+
+            # selfrefs is keyed off the form's props, so this is never set for a prop
+            # which is no longer in the model
+            selfref = selfrefs.get(name)
+            if selfref is not None:
+                valu = await self._swapSelfRef(prop, valu, selfref[0], selfref[1], form, dstbuid)
+
+            await self._addEdit(dstbuid, formname, (
+                (s_layer.EDIT_PROP_SET, (name, valu, None, stype), ()),
+            ))
+
+        for tag, valu in srcsode.get('tags', {}).items():
+            await self._addEdit(dstbuid, formname, (
+                (s_layer.EDIT_TAG_SET, (tag, valu, None), ()),
+            ))
+
+        dsttagprops = dstsode.get('tagprops', {})
+
+        for tag, propdict in srcsode.get('tagprops', {}).items():
+
+            dstpropdict = dsttagprops.get(tag, {})
+
+            for name, (valu, stype) in propdict.items():
+
+                if stype not in mergetypes and name in dstpropdict:
                     continue
 
-                await self._addEdit(layriden, dstbuid, formname, (
-                    (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
+                await self._addEdit(dstbuid, formname, (
+                    (s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, stype), ()),
                 ))
 
-            # 3. transfer light edges. N1 edges move to dst, and for N2 edges the edge is
-            #    stored under the n1 node, so it is re-pointed there.
+        # node data values are arbitrary blobs and a node may hold any number of them, so
+        # these are streamed rather than read into memory. dst keeping its own value on a
+        # conflict is a probe per name rather than a full listing of dst's keys.
+        async for name, valu in s_coro.pause(layer.iterNodeData(srcbuid)):
+
+            if await layer.hasNodeData(dstbuid, name):
+                continue
+
+            await self._addEdit(dstbuid, formname, (
+                (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
+            ))
+
+        # 3. transfer light edges. N1 edges move to dst, and for N2 edges the edge is
+        #    stored under the n1 node, so it is re-pointed there.
+        async for verb, n2iden in s_coro.pause(layer.iterNodeEdgesN1(srcbuid)):
+
+            # an edge from src to itself, or to any other node being fused away in this
+            # same operation (e.g. the node a comp-form cascade rename is derived from),
+            # must follow along rather than being left pointing at a node which is about
+            # to be deleted.
+            n2iden = self.buidmap.get(n2iden, n2iden)
+
+            await self._addEdit(dstbuid, formname, (
+                (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
+            ))
+
+        async for verb, n1iden in s_coro.pause(layer.iterNodeEdgesN2(srcbuid)):
+
+            # src's edge to itself is already transferred by the N1 pass above, and it is
+            # removed along with src below, so it is not re-pointed here
+            if n1iden == srciden:
+                continue
+
+            n1buid = s_common.uhex(n1iden)
+
+            n1form = await self._getFormName(n1buid)
+            if n1form is None:  # pragma: no cover
+                await self.warn(
+                    f'$lib.model.migration.fuse() cannot find the form for node {n1iden} which has '
+                    f'a -({verb})> light edge to {formname}={srcndef[1]!r}; that edge is not moved.')
+                continue
+
+            # the add is queued ahead of the del so the edge is never absent, and both
+            # land in the one coalesced nodeedit for n1buid, which is never split
+            await self._addEdit(n1buid, n1form, (
+                (s_layer.EDIT_EDGE_ADD, (verb, dstiden), ()),
+                (s_layer.EDIT_EDGE_DEL, (verb, srciden), ()),
+            ))
+
+        # 4. tear src down in this layer
+        for name, (valu, stype) in srcsode.get('props', {}).items():
+            await self._addEdit(srcbuid, formname, (
+                (s_layer.EDIT_PROP_DEL, (name, valu, stype), ()),
+            ))
+
+        for tag, valu in srcsode.get('tags', {}).items():
+            await self._addEdit(srcbuid, formname, (
+                (s_layer.EDIT_TAG_DEL, (tag, valu), ()),
+            ))
+
+        for tag, propdict in srcsode.get('tagprops', {}).items():
+            for name, (valu, stype) in propdict.items():
+                await self._addEdit(srcbuid, formname, (
+                    (s_layer.EDIT_TAGPROP_DEL, (tag, name, valu, stype), ()),
+                ))
+
+        if hasndef:
+            # deleting the node also wipes its node data and its N1 light edges
+            await self._addEdit(srcbuid, formname, (
+                (s_layer.EDIT_NODE_DEL, (srcndef[1], stortype), ()),
+            ))
+
+        else:
+            # src has no primary property here, so nothing will clean these up. the edit
+            # handler fills the value in from what it pops, so it is not carried here.
+            async for name, _ in s_coro.pause(layer.iterNodeData(srcbuid)):
+                await self._addEdit(srcbuid, formname, (
+                    (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
+                ))
+
             async for verb, n2iden in s_coro.pause(layer.iterNodeEdgesN1(srcbuid)):
-
-                # an edge from src to itself, or to any other node being fused away earlier in
-                # this same operation (e.g. the node a comp-form cascade rename is derived
-                # from), must follow along rather than being left pointing at a node which is
-                # about to be deleted.
-                n2iden = self.buidmap.get(n2iden, n2iden)
-
-                await self._addEdit(layriden, dstbuid, formname, (
-                    (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
+                await self._addEdit(srcbuid, formname, (
+                    (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
                 ))
 
-            async for verb, n1iden in s_coro.pause(layer.iterNodeEdgesN2(srcbuid)):
-
-                # src's edge to itself is already transferred by the N1 pass above, and it is
-                # removed along with src below, so it is not re-pointed here
-                if n1iden == srciden:
-                    continue
-
-                n1buid = s_common.uhex(n1iden)
-
-                n1form = await self._getFormName(n1buid)
-                if n1form is None:  # pragma: no cover
-                    await self.warn(
-                        f'$lib.model.migration.fuse() cannot find the form for node {n1iden} which has '
-                        f'a -({verb})> light edge to {formname}={srcndef[1]!r}; that edge is not moved.')
-                    continue
-
-                # the add is queued ahead of the del so the edge is never absent, and both
-                # land in the one coalesced nodeedit for n1buid, which is never split
-                await self._addEdit(layriden, n1buid, n1form, (
-                    (s_layer.EDIT_EDGE_ADD, (verb, dstiden), ()),
-                    (s_layer.EDIT_EDGE_DEL, (verb, srciden), ()),
-                ))
-
-            # 4. tear src down in this layer
-            for name, (valu, stype) in srcsode.get('props', {}).items():
-                await self._addEdit(layriden, srcbuid, formname, (
-                    (s_layer.EDIT_PROP_DEL, (name, valu, stype), ()),
-                ))
-
-            for tag, valu in srcsode.get('tags', {}).items():
-                await self._addEdit(layriden, srcbuid, formname, (
-                    (s_layer.EDIT_TAG_DEL, (tag, valu), ()),
-                ))
-
-            for tag, propdict in srcsode.get('tagprops', {}).items():
-                for name, (valu, stype) in propdict.items():
-                    await self._addEdit(layriden, srcbuid, formname, (
-                        (s_layer.EDIT_TAGPROP_DEL, (tag, name, valu, stype), ()),
-                    ))
-
-            if hasndef:
-                # deleting the node also wipes its node data and its N1 light edges
-                await self._addEdit(layriden, srcbuid, formname, (
-                    (s_layer.EDIT_NODE_DEL, (srcndef[1], stortype), ()),
-                ))
-
-            else:
-                # src has no primary property here, so nothing will clean these up. the edit
-                # handler fills the value in from what it pops, so it is not carried here.
-                async for name, _ in s_coro.pause(layer.iterNodeData(srcbuid)):
-                    await self._addEdit(layriden, srcbuid, formname, (
-                        (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
-                    ))
-
-                async for verb, n2iden in s_coro.pause(layer.iterNodeEdgesN1(srcbuid)):
-                    await self._addEdit(layriden, srcbuid, formname, (
-                        (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
-                    ))
-
-        # 5. rewrite inbound references. This is a separate pass because a layer may hold
-        #    a reference to src without holding any of src's own state, and because it
-        #    keeps the referrer edits ordered after dst's node add for the case where the
-        #    referrer *is* dst.
-        for layer in self.layers:
-            todo.extend(await self._rewriteRefs(layer, srcndef, dstndef))
-
-        return todo
+        # 5. rewrite this layer's inbound refs to src. This is a separate pass because a
+        #    layer may hold a reference to src without holding any of src's own state, and
+        #    because it keeps the referrer edits ordered after dst's node add for the case
+        #    where the referrer *is* dst. Every comp-form cascade was already discovered by
+        #    getLayerEdits(), so no new task is returned here.
+        await self._rewriteRefs(layer, srcndef, dstndef)
 
     async def _rewriteRefs(self, layer, srcndef, dstndef):
         '''
-        Queue the edits which repoint this layer's inbound refs from src to dst.
+        Queue this layer's edits which repoint inbound refs from src to dst.
 
-        Returns:
-            list: (srcndef, dstndef, subs) tasks for comp forms which must be renamed.
+        Every comp-key cascade rename was already discovered by getLayerEdits(), so a
+        read-only reference is always rewritten here rather than returning a new task: if
+        it is a true comp-key reference, the comp node it belongs to already has its own
+        entry in self.renames, discovered by _discoverCascades(), and is handled by its own
+        call to this method. A read-only reference which is *not* part of a comp key is
+        rewritten in place - a stale but valid reference beats a dangling one, at the cost
+        of the referring node's own primary property no longer matching it, which is
+        documented as fuse() behavior.
         '''
-        todo = []
-
         async for (refbuid, prop, isarray, isndef) in self._iterLayerRefs(layer, srcndef):
 
             if isndef:
@@ -605,9 +680,22 @@ class NodeFuser(s_base.Base):
                 newv = dstndef[1]
 
             if prop.info.get('ro'):
-                task = await self._rewriteRoRef(layer, refbuid, prop, oldv, newv)
-                if task is not None:
-                    todo.append(task)
+
+                refform = prop.form
+                if isinstance(refform.type, s_types.Comp) and prop.compoffs is not None:
+                    continue
+
+                refsode = await layer.getStorNode(refbuid)
+
+                curv = refsode.get('props', {}).get(prop.name)
+                if curv is None:  # pragma: no cover
+                    continue
+
+                (curv, stortype) = curv
+
+                await self._addEdit(refbuid, refform.name, (
+                    (s_layer.EDIT_PROP_SET, (prop.name, newv, None, stortype), ()),
+                ))
                 continue
 
             refsode = await layer.getStorNode(refbuid)
@@ -620,89 +708,25 @@ class NodeFuser(s_base.Base):
 
             if isarray:
                 newvalu = [newv if item == oldv else item for item in curv]
-                setv = await self._swapArrayValu(prop, refbuid, curv, newvalu)
+                setv = await self._swapArrayValu(prop, refbuid, newvalu)
             else:
                 setv = newv
 
-            await self._addEdit(layer.iden, refbuid, prop.form.name, (
+            await self._addEdit(refbuid, prop.form.name, (
                 (s_layer.EDIT_PROP_SET, (prop.name, setv, None, stortype), ()),
             ))
-
-        return todo
-
-    async def _rewriteRoRef(self, layer, refbuid, prop, oldv, newv):
-        '''
-        Handle a read-only prop which references src.
-
-        A read-only sub-property of a comp form cannot be rewritten in place, because the
-        comp's primary value embeds src's value, so renaming the sub-property changes the
-        comp's buid. That is expressed as another fuse of the old comp node into the new
-        one, which is returned for the caller's worklist.
-
-        Returns:
-            tuple: A (srcndef, dstndef, subs) task, or None.
-        '''
-        refform = prop.form
-
-        if not isinstance(refform.type, s_types.Comp) or prop.compoffs is None:
-
-            # read-only is enforced when setting a property, not by the storage layer, so
-            # this can be rewritten. A stale but valid reference beats a dangling one. The
-            # referring node keeps its own primary property, so that property no longer
-            # matches the value it was derived from; this is documented as fuse() behavior.
-            refsode = await layer.getStorNode(refbuid)
-
-            curv = refsode.get('props', {}).get(prop.name)
-            if curv is None:  # pragma: no cover
-                return None
-
-            (curv, stortype) = curv
-
-            await self._addEdit(layer.iden, refbuid, refform.name, (
-                (s_layer.EDIT_PROP_SET, (prop.name, newv, None, stortype), ()),
-            ))
-
-            return None
-
-        refvalu = None
-        for sode in (await self._getSodes(refbuid)).values():
-            valt = sode.get('valu')
-            if valt is not None:
-                refvalu = valt[0]
-                break
-
-        if refvalu is None:  # pragma: no cover
-            return None
-
-        newcomp = list(refvalu)
-        newcomp[prop.compoffs] = newv
-
-        try:
-            (newvalu, norminfo) = refform.type.norm(tuple(newcomp))
-
-        except Exception as e:
-            await self.warn(
-                f'$lib.model.migration.fuse() cannot re-normalize comp form {refform.name!r} '
-                f'for {s_common.ehex(refbuid)}: {e}. That reference is not rewritten.')
-            return None
-
-        if newvalu == refvalu:  # pragma: no cover
-            return None
-
-        # renaming the comp is itself a fuse of the old comp node into the new one
-        return ((refform.name, refvalu), (refform.name, newvalu), norminfo.get('subs'))
 
     async def _iterLayerRefs(self, layer, srcndef):
         '''
         Yield (refbuid, prop, isarray, isndef) for props in this layer which point at src.
 
-        This is used both to rewrite the inbound references a fuse must repoint and, after the
-        fuse, to check that none are left pointing at a node which no longer exists.
+        This is used both to discover which comp-form references require a cascade rename,
+        and to rewrite every inbound reference once every rename this fuse makes is known.
 
         A reference src holds to itself is never yielded. Those follow the node rather than
-        being repointed in place, so _fuseOne() transfers them to dst along with the rest of
-        src's state; queueing an edit for them here would target a buid which is being torn
-        down in the same pass.
+        being repointed in place, so _fuseOneLayer() transfers them to dst along with the
+        rest of src's state; queueing an edit for them here would target a buid which is
+        being torn down in the same pass.
 
         Args:
             layer (Layer): The layer to scan.
@@ -756,19 +780,19 @@ class NodeFuser(s_base.Base):
 
     async def applyLayerEdits(self, meta):
         '''
-        Apply the edits computed by getLayerEdits(), one layer at a time.
+        Compute and apply every layer's edits, one layer at a time.
 
-        The edits are read directly from self.nodeedits, the single spooled accumulator
-        getLayerEdits() left on this instance, rather than being handed in.
+        getLayerEdits() must already have discovered every rename this fuse makes
+        (self.renames) and fully populated buidmap/ndefmap before this runs, since
+        computing a layer's edits here uses that map to redirect a reference off of any
+        node being fused away in this operation, not just off of the one currently being
+        processed - see getLayerEdits() for why a partial map is not enough.
 
-        Each layer's edits are handed to it with Layer.storNodeEditsNoLift(), so a fuse writes
-        to a layer the same way anything else does and gets the same checks, rather than
-        through a Cortex level nexus operation of its own. The edits are the payload of those
-        layer nexus operations, so the nexus log holds the edits which were computed here
-        rather than a request for a mirror to recompute them.
-
-        A layer's edits are split by iterEditChunks() into one nexus operation each, which
-        bounds how large a single nexus log entry can get.
+        Each layer's edits are queued into a spool scoped to that layer alone: created,
+        applied, and finalized before moving on to the next layer, so a fuse touching many
+        layers never needs more than one layer's worth of spooled state at a time - the
+        same bound a single spool shared across the whole operation used to provide, just
+        realized one layer at a time instead.
 
         Args:
             meta (dict): The nodeedit meta to record, built from the useriden and tick.
@@ -777,18 +801,15 @@ class NodeFuser(s_base.Base):
             None. The warnings and the layers which failed are recorded on this NodeFuser and
             returned together by getResult().
         '''
-        # apply one layer at a time so that one failing layer cannot lose the others
-        for layriden in sorted(self.touchedlayers):
+        for layer in self.layers:
 
-            nodeedits = self._iterNodeEdits(layriden)
+            layriden = layer.iden
 
-            layer = self.core.getLayer(layriden)
-            if layer is None:  # pragma: no cover
-                continue
-
-            # The edits were computed before any of them were applied, so re-check that the layer
-            # is still one we may write to. A read only layer would raise, and writing to a
-            # mirrored layer here would apply the edits locally rather than via its upstream.
+            # The renames were discovered before any of them were applied, so re-check that
+            # the layer is still one we may write to. A read only layer would raise, and
+            # writing to a mirrored layer here would apply the edits locally rather than via
+            # its upstream. Checked before computing anything for this layer, so a layer
+            # which is no longer writable does not pay for the computation either.
             if layer.readonly or layer.ismirror:
                 why = 'read only' if layer.readonly else 'a mirror'
                 await self.warn(
@@ -796,21 +817,27 @@ class NodeFuser(s_base.Base):
                     f'{why} while the fuse was being computed. Re-run fuse() with the same arguments.')
                 continue
 
-            try:
-                for editchunk in iterEditChunks(nodeedits):
-                    await layer.storNodeEditsNoLift(editchunk, meta)
+            async with await s_spooled.Dict.anit(dirn=self.core.dirn, cell=self.core) as nodeedits:
 
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
+                self.nodeedits = nodeedits
 
-            except Exception as e:
-                errm = str(e)
-                self.failed.append((layriden, errm))
-                await self.warn(
-                    f'$lib.model.migration.fuse() failed to apply edits to layer {layriden}: {errm}. '
-                    f'That layer may be only partly modified. Re-run fuse() with the same arguments '
-                    f'to complete it.')
-                continue
+                for (srcndef, dstndef, subs) in self.renames:
+                    await self._fuseOneLayer(layer, srcndef, dstndef, subs)
+
+                try:
+                    for editchunk in iterEditChunks(self._iterNodeEdits()):
+                        await layer.storNodeEditsNoLift(editchunk, meta)
+
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+
+                except Exception as e:
+                    errm = str(e)
+                    self.failed.append((layriden, errm))
+                    await self.warn(
+                        f'$lib.model.migration.fuse() failed to apply edits to layer {layriden}: {errm}. '
+                        f'That layer may be only partly modified. Re-run fuse() with the same arguments '
+                        f'to complete it.')
 
 def iterEditChunks(nodeedits, chunk=None):
     '''

@@ -7279,14 +7279,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             await fuser.getLayerEdits(srcndef, dstndef)
 
-            if fuser.touchedlayers:
+            # A layer which failed is not retried here. The failure would simply repeat,
+            # and the warning already tells the caller to re-run once they have dealt
+            # with it.
+            await fuser.applyLayerEdits(meta)
 
-                # A layer which failed is not retried here. The failure would simply repeat,
-                # and the warning already tells the caller to re-run once they have dealt
-                # with it.
-                await fuser.applyLayerEdits(meta)
-
-            # returned even with nothing to apply, since computing the edits may have produced
+            # returned even with nothing to apply, since discovery may have produced
             # warnings of its own which the caller still needs to emit
             return fuser.getResult()
 
