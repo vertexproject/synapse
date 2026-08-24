@@ -1220,6 +1220,77 @@ class StormlibModelTest(s_test.SynTest):
             self.len(0, await core.nodes('test:pivcomp=(cce-targ, cce-dst) -(refs)> test:str=cce-src'))
             self.len(1, await core.nodes('test:pivcomp=(cce-targ, cce-dst) -(refs)> test:str=cce-dst'))
 
+    async def test_stormlib_model_migration_fuse_cascade_array(self):
+
+        # A comp-form cascade discovered from the fuse's own rename means self.renames holds
+        # more than one rename for this single fuse() call. An array property elsewhere which
+        # references *both* of the nodes being fused away must end up with every stale entry
+        # repointed, not just whichever one the currently processed rename happens to be -
+        # otherwise the second rename's rewrite of that same array, computed from a fresh read
+        # of the still-unmodified array, clobbers the first rename's fix with a stale entry.
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'src': 'casc-src', 'dst': 'casc-dst', 'targ': 'casc-targ', 'other': 'casc-other'}}
+
+            await core.nodes('[ test:str=$src test:str=$dst test:str=$other ]', opts=opts)
+
+            # test:pivcomp:lulz is test:str-typed and read-only, so fusing $src into $dst
+            # cascades into a rename of this comp node too.
+            await core.nodes('[ test:pivcomp=($targ, $src) ]', opts=opts)
+
+            # $other's array references both nodes this one fuse() call fuses away: $src
+            # itself, and the pivcomp node the cascade renames.
+            await core.nodes(
+                'test:str=$other [ :ndefs=((test:str, $src), (test:pivcomp, ($targ, $src))) ]', opts=opts)
+
+            await core.nodes(
+                'test:str=$src $n=$node -> { test:str=$dst $lib.model.migration.fuse($n, $node) }', opts=opts)
+
+            self.len(0, await core.nodes('test:str=$src', opts=opts))
+            self.len(0, await core.nodes('test:pivcomp=($targ, $src)', opts=opts))
+            self.len(1, await core.nodes('test:pivcomp=($targ, $dst)', opts=opts))
+
+            nodes = await core.nodes('test:str=$other', opts=opts)
+            self.len(1, nodes)
+            ndefs = nodes[0].get('ndefs')
+
+            # every stale reference is gone...
+            self.notin(('test:str', 'casc-src'), ndefs)
+            self.notin(('test:pivcomp', ('casc-targ', 'casc-src')), ndefs)
+
+            # ...and both were repointed at what they were fused into
+            self.isin(('test:str', 'casc-dst'), ndefs)
+            self.isin(('test:pivcomp', ('casc-targ', 'casc-dst')), ndefs)
+
+    async def test_stormlib_model_migration_fuse_readonly_array(self):
+
+        # A read-only array reference which is not part of a comp key is rewritten in place,
+        # same as a mutable array reference - every stale item must be remapped rather than
+        # the whole array being overwritten with a single scalar value.
+        async with self.getTestCore() as core:
+
+            await core.addFormProp('test:str', '_rorefs', ('array', {'type': 'ndef'}), {'ro': True})
+
+            opts = {'vars': {'src': 'ro-arr-src', 'dst': 'ro-arr-dst', 'other': 'ro-arr-other',
+                              'ref': 'ro-arr-ref'}}
+
+            await core.nodes('[ test:str=$src test:str=$dst test:str=$other ]', opts=opts)
+            await core.nodes(
+                '[ test:str=$ref :_rorefs=((test:str, $src), (test:str, $other)) ]', opts=opts)
+
+            await core.nodes(
+                'test:str=$src $n=$node -> { test:str=$dst $lib.model.migration.fuse($n, $node) }', opts=opts)
+
+            self.len(0, await core.nodes('test:str=$src', opts=opts))
+
+            nodes = await core.nodes('test:str=$ref', opts=opts)
+            self.len(1, nodes)
+            rorefs = nodes[0].get('_rorefs')
+
+            self.isin(('test:str', 'ro-arr-dst'), rorefs)
+            self.isin(('test:str', 'ro-arr-other'), rorefs)
+            self.notin(('test:str', 'ro-arr-src'), rorefs)
+
     async def test_stormlib_model_migration_fuse_chunked(self):
 
         async with self.getTestCore() as core:

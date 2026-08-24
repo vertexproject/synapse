@@ -669,33 +669,24 @@ class NodeFuser(s_base.Base):
         rewritten in place - a stale but valid reference beats a dangling one, at the cost
         of the referring node's own primary property no longer matching it, which is
         documented as fuse() behavior.
+
+        An array is rewritten via the ndefmap rather than by swapping only this call's own
+        (srcndef, dstndef) pair, because a comp-form cascade means more than one rename can
+        share this same fuse() call. Each rename's pass over a given layer reads the array
+        fresh, before any of this fuse's edits have been applied to storage, so a pass which
+        only patched the one item it was looking for would clobber an earlier pass's fix to
+        a different item in that same array with a stale copy of it. Remapping every item
+        through the ndefmap fixes every stale item on every pass, so whichever pass's edit
+        ends up applied last still leaves the array fully correct.
         '''
+        formname = srcndef[0]
+        form = self.model.reqForm(formname)
+
         async for (refbuid, prop, isarray, isndef) in self._iterLayerRefs(layer, srcndef):
 
-            if isndef:
-                oldv = srcndef
-                newv = dstndef
-            else:
-                oldv = srcndef[1]
-                newv = dstndef[1]
+            refform = prop.form
 
-            if prop.info.get('ro'):
-
-                refform = prop.form
-                if isinstance(refform.type, s_types.Comp) and prop.compoffs is not None:
-                    continue
-
-                refsode = await layer.getStorNode(refbuid)
-
-                curv = refsode.get('props', {}).get(prop.name)
-                if curv is None:  # pragma: no cover
-                    continue
-
-                (curv, stortype) = curv
-
-                await self._addEdit(refbuid, refform.name, (
-                    (s_layer.EDIT_PROP_SET, (prop.name, newv, None, stortype), ()),
-                ))
+            if prop.info.get('ro') and isinstance(refform.type, s_types.Comp) and prop.compoffs is not None:
                 continue
 
             refsode = await layer.getStorNode(refbuid)
@@ -707,12 +698,12 @@ class NodeFuser(s_base.Base):
             (curv, stortype) = curv
 
             if isarray:
-                newvalu = [newv if item == oldv else item for item in curv]
+                newvalu = [self._remapSelfRef(form, isndef, item) for item in curv]
                 setv = await self._swapArrayValu(prop, refbuid, newvalu)
             else:
-                setv = newv
+                setv = dstndef if isndef else dstndef[1]
 
-            await self._addEdit(refbuid, prop.form.name, (
+            await self._addEdit(refbuid, refform.name, (
                 (s_layer.EDIT_PROP_SET, (prop.name, setv, None, stortype), ()),
             ))
 
