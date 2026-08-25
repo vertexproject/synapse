@@ -1201,6 +1201,45 @@ class StormlibModelTest(s_test.SynTest):
             self.eq('tl-targ', sode['props']['targ'][0])
             self.eq('tl-dst', sode['props']['lulz'][0])
 
+    async def test_stormlib_model_migration_fuse_toplevel_subs_noncomp(self):
+
+        # subs are not exclusive to comp forms - any type's norm() may derive read-only subs,
+        # not just Comp.norm(). test:ndef is ndef-typed, not a comp, and Ndef.norm() derives
+        # a read-only :form sub from its own primary value. A fuse whose own top-level
+        # (srcndef, dstndef) pair is such a non-comp form still needs that sub filled in for
+        # a dst which is new to some layer.
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'form': 'test:str', 'src': 'tns-src', 'dst': 'tns-dst'}}
+
+            # dst lives only in base. src lives only in a fork of base, so applyLayerEdits()
+            # must create dst fresh when it processes the fork's own layer.
+            await core.nodes('[ test:str=$dst ]', opts=opts)
+            await core.nodes('test:str=$dst $n=$node { [ test:ndef=$n ] }', opts=opts)
+
+            vdef = await core.view.fork()
+            forkiden = vdef.get('iden')
+            forklayr = core.getView(forkiden).layers[0]
+
+            forkopts = {'view': forkiden, 'vars': opts['vars']}
+
+            await core.nodes('[ test:str=$src ]', opts=forkopts)
+            await core.nodes('test:str=$src $n=$node { [ test:ndef=$n ] }', opts=forkopts)
+
+            # both nodes are visible from the fork's view - src directly, dst inherited from
+            # base - so the fork is where this query runs.
+            await core.nodes(
+                '''test:ndef=($form, $src) $n=$node ->
+                    { test:ndef=($form, $dst) $lib.model.migration.fuse($n, $node) }''',
+                opts=forkopts)
+
+            # read the fork's own layer directly rather than the merged view: the merged view
+            # would fall back to base's already-correct copy of this prop and hide a fork
+            # layer which is missing it.
+            dstbuid = s_common.buid(('test:ndef', ('test:str', 'tns-dst')))
+            sode = await forklayr.getStorNode(dstbuid)
+            self.eq('test:str', sode['props']['form'][0])
+
     async def test_stormlib_model_migration_fuse_shared_comp(self):
 
         async with self.getTestCore() as core:
@@ -1295,6 +1334,37 @@ class StormlibModelTest(s_test.SynTest):
             # ...and both were repointed at what they were fused into
             self.isin(('test:str', 'casc-dst'), ndefs)
             self.isin(('test:pivcomp', ('casc-targ', 'casc-dst')), ndefs)
+
+    async def test_stormlib_model_migration_fuse_selfref_other_form(self):
+
+        # A mutable prop on src, typed as some other form entirely (not src's own form, and
+        # not ndef), can still hold a reference to a node this same fuse cascades away, since
+        # the ndefmap this fuse populates is not scoped to renames of src's own form. That
+        # reference must follow along the same way a literal self reference does.
+        async with self.getTestCore() as core:
+
+            await core.addFormProp('test:str', '_pivref', ('test:pivcomp', {}), {})
+
+            opts = {'vars': {'src': 'orf-src', 'dst': 'orf-dst', 'targ': 'orf-targ'}}
+
+            await core.nodes('[ test:str=$dst ]', opts=opts)
+
+            # test:pivcomp:lulz is test:str-typed and read-only, so fusing $src into $dst
+            # cascades into a rename of this comp node too. $src's own _pivref, typed as
+            # test:pivcomp rather than test:str, points at that same comp node - which this
+            # fuse is about to rename out from under it.
+            await core.nodes('[ test:pivcomp=($targ, $src) ]', opts=opts)
+            await core.nodes('[ test:str=$src :_pivref=($targ, $src) ]', opts=opts)
+
+            await core.nodes(
+                'test:str=$src $n=$node -> { test:str=$dst $lib.model.migration.fuse($n, $node) }', opts=opts)
+
+            self.len(0, await core.nodes('test:str=$src', opts=opts))
+            self.len(0, await core.nodes('test:pivcomp=($targ, $src)', opts=opts))
+
+            nodes = await core.nodes('test:str=$dst', opts=opts)
+            self.len(1, nodes)
+            self.eq(('orf-targ', 'orf-dst'), nodes[0].get('_pivref'))
 
     async def test_stormlib_model_migration_fuse_readonly_array(self):
 

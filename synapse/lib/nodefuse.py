@@ -231,11 +231,15 @@ class NodeFuser(s_base.Base):
             self.layers.append(layer)
             self.layridens.add(layer.iden)
 
-        subs = None
+        # subs are not exclusive to comp forms - any type's norm() may derive read-only subs
+        # from the primary value, and only a comp-form cascade rename ever gets a chance to
+        # discover them elsewhere (_discoverCascades() only ever finds comp-form renames, so
+        # every entry queued by anything other than this initial seed is already a comp).
+        # This initial seed can be any form the caller asked to fuse, so it is normed the
+        # same way here regardless of its type.
         form = self.model.reqForm(srcndef[0])
-        if isinstance(form.type, s_types.Comp):
-            (_, norminfo) = form.type.norm(dstndef[1])
-            subs = norminfo.get('subs')
+        (_, norminfo) = form.type.norm(dstndef[1])
+        subs = norminfo.get('subs')
 
         todo = collections.deque()
         todo.append((srcndef, dstndef, subs))
@@ -369,11 +373,20 @@ class NodeFuser(s_base.Base):
 
     def _getSelfRefs(self, form):
         '''
-        Return a {propname: (isarray, isndef)} mapping of the props on the given form which
-        can reference a node of that same form.
+        Return a {propname: (isarray, isndef, refform)} mapping of the props on the given
+        form which can hold a value this fuse's ndefmap may need to remap.
+
+        This is not limited to props typed as this same form: the ndefmap this fuse
+        populates can hold renames of more than one form in the same operation - a
+        comp-form cascade renames whatever form held the read-only reference, not
+        necessarily src's own - so a prop on src typed as any one of them can hold a stale
+        reference which must follow along the same way a literal self reference does.
+        refform is None for an ndef-typed prop, since an ndef value already carries its own
+        form.
 
         This mirrors what _iterLayerRefs() treats as an inbound reference, so that a reference
-        src holds to itself is recognised as one when it is transferred to dst.
+        src holds to itself, or to any other node being fused away in this operation, is
+        recognised as one when it is transferred to dst.
         '''
         retn = {}
 
@@ -386,11 +399,12 @@ class NodeFuser(s_base.Base):
                 ptyp = ptyp.arraytype
 
             if isinstance(ptyp, s_types.Ndef):
-                retn[prop.name] = (isarray, True)
+                retn[prop.name] = (isarray, True, None)
                 continue
 
-            if ptyp.name == form.name:
-                retn[prop.name] = (isarray, False)
+            refform = self.model.form(ptyp.name)
+            if refform is not None:
+                retn[prop.name] = (isarray, False, refform)
 
         return retn
 
@@ -399,8 +413,10 @@ class NodeFuser(s_base.Base):
         Return the rename map's replacement for valu, or valu unchanged if it does not name a
         node being fused away in this operation.
 
-        valu is an ndef tuple for an Ndef-typed prop, or a raw value of form for a same-form
-        typed prop; both are looked up the same way once expressed as an ndef.
+        valu is an ndef tuple for an Ndef-typed prop, or a raw value of form for a form typed
+        prop; both are looked up the same way once expressed as an ndef. form is whatever form
+        the prop is typed as - src's own form for a self reference, but not necessarily, since
+        a prop may just as well be typed as some other form this same fuse is also renaming.
         '''
         key = valu if isndef else (form.name, valu)
 
@@ -443,10 +459,8 @@ class NodeFuser(s_base.Base):
 
         A property on src which references src is a self reference, so it must follow the node
         and reference dst once it has been transferred. The same applies to a property which
-        references an ancestor a comp-form cascade rename is derived from: it must be
-        redirected the same way, or it is left dangling once that ancestor is deleted. Leaving
-        either pointing at a deleted node would also mean a repeat of the same fuse saw it as
-        an inbound reference which still needed rewriting, making the fuse non-idempotent.
+        references an ancestor a comp-form cascade rename is derived from, or any other node
+        this same fuse is renaming: it must be redirected the same way.
         '''
         if not isarray:
             return self._remapSelfRef(form, isndef, valu)
@@ -545,7 +559,8 @@ class NodeFuser(s_base.Base):
             # which is no longer in the model
             selfref = selfrefs.get(name)
             if selfref is not None:
-                valu = await self._swapSelfRef(prop, valu, selfref[0], selfref[1], form, dstbuid)
+                (isarray, isndef, refform) = selfref
+                valu = await self._swapSelfRef(prop, valu, isarray, isndef, refform, dstbuid)
 
             await self._addEdit(dstbuid, formname, (
                 (s_layer.EDIT_PROP_SET, (name, valu, None, stype), ()),
