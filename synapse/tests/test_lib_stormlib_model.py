@@ -1050,7 +1050,7 @@ class StormlibModelTest(s_test.SynTest):
             self.eq('cycle3-dst', nodes[0].get('somestr'))
             self.eq(('test:str', 'cycle3-dst'), nodes[0].get('bar'))
 
-            # --- A comp form which cannot be re-normalized is warned about ---
+            # --- A comp form which cannot be re-normalized refuses the fuse ---
 
             opts = {'vars': {'bnsrc': 'badnorm-src', 'bndst': 'badnorm-dst', 'bntarg': 'badnorm-targ'}}
             await core.nodes('[ test:str=$bnsrc test:str=$bndst ]', opts=opts)
@@ -1061,15 +1061,23 @@ class StormlibModelTest(s_test.SynTest):
             def badnorm(valu):
                 raise s_exc.BadTypeValu(mesg='comp norm go boom')
 
+            # Every destination is computed before a single edit is queued, so this refuses
+            # the fuse outright. Skipping just that one rename would delete src anyway and
+            # leave the comp node's own primary value naming it, since _rewriteRefs() defers
+            # a comp key reference to the cascade which just failed.
             with mock.patch.object(comptype, 'norm', badnorm):
-                mesgs = await core.stormlist(
-                    'test:str=$bnsrc $n=$node -> { test:str=$bndst $lib.model.migration.fuse($n, $node) }',
-                    opts=opts)
+                with self.raises(s_exc.BadTypeValu) as cm:
+                    await core.nodes(
+                        'test:str=$bnsrc $n=$node -> { test:str=$bndst $lib.model.migration.fuse($n, $node) }',
+                        opts=opts)
 
-            self.stormIsInWarn('cannot re-normalize comp form', mesgs)
+            self.isin('cannot re-normalize comp form', cm.exception.get('mesg'))
 
-            # the old comp is left alone rather than being half renamed
+            # nothing was applied at all - src, dst and the comp are as they were
+            self.len(1, await core.nodes('test:str=$bnsrc', opts=opts))
+            self.len(1, await core.nodes('test:str=$bndst', opts=opts))
             self.len(1, await core.nodes('test:pivcomp=($bntarg, $bnsrc)', opts=opts))
+            self.len(0, await core.nodes('test:pivcomp=($bntarg, $bndst)', opts=opts))
 
     async def test_stormlib_model_migration_fuse_ival_merge(self):
 

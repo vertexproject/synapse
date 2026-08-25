@@ -432,7 +432,7 @@ class NodeFuser(s_base.Base):
 
             changed = False
 
-            for (nextsrc, rename) in list(self.ndefmap.items()):
+            async for (nextsrc, rename) in s_coro.pause(self.ndefmap.items()):
 
                 if nextsrc == srcndef:
                     continue
@@ -447,14 +447,12 @@ class NodeFuser(s_base.Base):
                     (newvalu, norminfo) = refform.type.norm(newvalu)
 
                 except Exception as e:
-                    # left unresolved rather than half applied. applyLayerEdits() skips a
-                    # rename with no destination, so this comp keeps its own value and its
-                    # reference is reported rather than silently rewritten to something the
-                    # type would never have produced.
-                    await self.warn(
-                        f'$lib.model.migration.fuse() cannot re-normalize comp form {refform.name!r} '
-                        f'for {nextsrc[0]}={nextsrc[1]!r}: {e}. That reference is not rewritten.')
-                    continue
+                    # This runs before any edit has been queued, let alone applied, so
+                    # raising here leaves the Cortex untouched and the operator can fix the
+                    # offending node and re-run fuse.
+                    mesg = (f'$lib.model.migration.fuse() cannot re-normalize comp form '
+                            f'{refform.name!r} for {nextsrc[0]}={nextsrc[1]!r}: {e}')
+                    raise s_exc.BadTypeValu(mesg=mesg, form=refform.name) from e
 
                 newndef = (refform.name, newvalu)
 
@@ -471,14 +469,18 @@ class NodeFuser(s_base.Base):
         # nodes this fuse deletes, so it can never itself be one of the values this fuse
         # renames away. _remapSelfRef() and buidmap therefore resolve in a single hop, and
         # this asserts the property they rely on rather than leaving it to be inferred.
-        for (nextsrc, rename) in self.ndefmap.items():
+        # Every rename is resolved by the time this runs. A comp is only ever discovered
+        # because one of its read only comp key slots named another rename, and such a slot
+        # is always form or ndef typed - so _getSelfRefs() reports it and _remapCompSlots()
+        # remaps it as soon as its own referent resolves, which either happens or the
+        # re-normalize above refuses the fuse. There is no unresolved entry left to skip.
+        async for (nextsrc, rename) in s_coro.pause(self.ndefmap.items()):
 
-            if rename is None:
-                continue
+            (dstndef, _) = rename
 
-            if self.ndefmap.get(rename[0]) is not None:  # pragma: no cover
+            if self.ndefmap.get(dstndef) is not None:  # pragma: no cover
                 mesg = (f'$lib.model.migration.fuse() computed a rename of {nextsrc[0]}={nextsrc[1]!r} '
-                        f'to {rename[0][0]}={rename[0][1]!r}, which is itself being renamed.')
+                        f'to {dstndef[0]}={dstndef[1]!r}, which is itself being renamed.')
                 raise s_exc.SynErr(mesg=mesg)
 
     async def _setRename(self, srcndef, dstndef, subs):
@@ -1025,13 +1027,9 @@ class NodeFuser(s_base.Base):
 
                 self.nodeedits = nodeedits
 
+                # getLayerEdits() resolves every rename before it returns, or refuses the
+                # fuse, so each of these carries a destination - see _computeRenames().
                 for (srcndef, rename) in self.ndefmap.items():
-
-                    # a rename _computeRenames() could not resolve has already been warned
-                    # about. Leaving it alone keeps this comp node and its own reference as
-                    # they are, rather than applying half of a rename.
-                    if rename is None:
-                        continue
 
                     (dstndef, subs) = rename
 

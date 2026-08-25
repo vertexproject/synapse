@@ -840,7 +840,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
               node to be renamed, which is applied as a further fuse. Where a comp form
               embeds src in more than one of its read-only sub-properties, every one of them
               is remapped by that single rename, so the renamed node never keeps a slot
-              naming a node the fuse deleted.
+              naming a node the fuse deleted. Those renames are all computed before any edit
+              is applied, so if one of them cannot be re-normalized the fuse is refused and
+              nothing is changed.
             - A read-only secondary property which is not a comp sub-property is rewritten in
               place. The referring node keeps its own primary property, so that read-only
               property will no longer match the value it was derived from.
