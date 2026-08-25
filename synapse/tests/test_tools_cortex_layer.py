@@ -115,6 +115,199 @@ class LayerTest(s_test.SynTest):
                 state = s_common.yamlload(dirn, statefile)
                 self.eq(state, {'offset:next': eoffs + 256})
 
+    async def test_tools_layer_dump_single_edit(self):
+
+        async with self.getTestCore() as core:
+
+            url = core.getLocalUrl()
+
+            layr00 = await core.addLayer()
+            layr00iden = layr00.get('iden')
+            view00 = await core.addView({'layers': [layr00iden]})
+
+            layr01 = await core.addLayer()
+            layr01iden = layr01.get('iden')
+            view01 = await core.addView({'layers': [layr01iden]})
+
+            soffs = await core.getNexsIndx()
+
+            opts = {'view': view00.get('iden')}
+            nodes = await core.nodes('[test:int=1]', opts=opts)
+            self.len(1, nodes)
+
+            # A single node edit landed at soffs
+            self.eq(soffs, await core.getLayer(layr00iden).getEditOffs())
+
+            with self.getTestDir() as dirn:
+
+                argv = (
+                    '--url', url,
+                    layr00iden,
+                    dirn,
+                )
+
+                outp = self.getTestOutp()
+                self.eq(0, await s_t_dump.main(argv, outp=outp))
+                outp.expect(f'Successfully exported layer {layr00iden}.')
+
+                path = s_common.genpath(dirn, f'{core.iden}.{layr00iden}.{soffs}-{soffs}.nodeedits')
+                self.true(os.path.exists(path))
+
+                msgs = list(s_msgpack.iterfile(path))
+                self.len(3, msgs)
+
+                self.eq(msgs[0][0], 'init')
+                self.eq(msgs[0][1].get('offset'), soffs)
+
+                self.eq(msgs[1][0], 'edit')
+
+                self.eq(msgs[2][0], 'fini')
+                self.eq(msgs[2][1].get('offset'), soffs)
+
+                state = s_common.yamlload(dirn, f'{core.iden}.{layr00iden}.yaml')
+                self.eq(state, {'offset:next': soffs + 1})
+
+                # The single edit export is valid input for the load tool
+                argv = (
+                    '--url', url,
+                    layr01iden,
+                    path,
+                )
+
+                outp = self.getTestOutp()
+                self.eq(0, await s_t_load.main(argv, outp=outp))
+                outp.expect(f'Successfully loaded {path} with 1 edits ({soffs} - {soffs}).')
+
+                opts = {'view': view01.get('iden')}
+                nodes = await core.nodes('test:int', opts=opts)
+                self.len(1, nodes)
+
+    async def test_tools_layer_dump_incremental(self):
+
+        async with self.getTestCore() as core:
+
+            url = core.getLocalUrl()
+
+            layr00 = await core.addLayer()
+            layr00iden = layr00.get('iden')
+            view00 = await core.addView({'layers': [layr00iden]})
+
+            soffs = await core.getNexsIndx()
+
+            opts = {'view': view00.get('iden'), 'vars': {'n': 4}}
+            nodes = await core.nodes('for $i in $lib.range($n) { [test:int=$i] }', opts=opts)
+            self.len(4, nodes)
+
+            with self.getTestDir() as dirn:
+
+                argv = (
+                    '--url', url,
+                    layr00iden,
+                    dirn,
+                )
+
+                outp = self.getTestOutp()
+                self.eq(0, await s_t_dump.main(argv, outp=outp))
+                outp.expect(f'Successfully exported layer {layr00iden}.')
+
+                statefile = s_common.genpath(dirn, f'{core.iden}.{layr00iden}.yaml')
+                self.eq(s_common.yamlload(statefile), {'offset:next': soffs + 4})
+
+                # A single new edit leaves the next offset sitting on the last edit
+                nodes = await core.nodes('[test:str=newp]', opts=opts)
+                self.len(1, nodes)
+
+                self.eq(soffs + 4, await core.getLayer(layr00iden).getEditOffs())
+
+                outp = self.getTestOutp()
+                self.eq(0, await s_t_dump.main(argv, outp=outp))
+                outp.expect(f'Successfully exported layer {layr00iden}.')
+
+                path = s_common.genpath(dirn, f'{core.iden}.{layr00iden}.{soffs + 4}-{soffs + 4}.nodeedits')
+                self.true(os.path.exists(path))
+
+                self.eq(s_common.yamlload(statefile), {'offset:next': soffs + 5})
+
+    async def test_tools_layer_dump_chunks(self):
+
+        async with self.getTestCore() as core:
+
+            url = core.getLocalUrl()
+
+            chunksize = 10
+
+            # The final chunk holds a single edit
+            layr00 = await core.addLayer()
+            layr00iden = layr00.get('iden')
+            view00 = await core.addView({'layers': [layr00iden]})
+
+            soffs = await core.getNexsIndx()
+
+            opts = {'view': view00.get('iden'), 'vars': {'n': 11}}
+            nodes = await core.nodes('for $i in $lib.range($n) { [test:int=$i] }', opts=opts)
+            self.len(11, nodes)
+
+            with self.getTestDir() as dirn:
+
+                argv = (
+                    '--url', url,
+                    '--chunksize', str(chunksize),
+                    layr00iden,
+                    dirn,
+                )
+
+                outp = self.getTestOutp()
+                self.eq(0, await s_t_dump.main(argv, outp=outp))
+                outp.expect(f'Successfully exported layer {layr00iden}.')
+
+                path = s_common.genpath(dirn, f'{core.iden}.{layr00iden}.{soffs}-{soffs + 9}.nodeedits')
+                self.true(os.path.exists(path))
+
+                path = s_common.genpath(dirn, f'{core.iden}.{layr00iden}.{soffs + 10}-{soffs + 10}.nodeedits')
+                self.true(os.path.exists(path))
+
+                msgs = list(s_msgpack.iterfile(path))
+                self.len(3, msgs)
+
+                self.eq(msgs[0][1].get('offset'), soffs + 10)
+
+                self.eq(msgs[2][0], 'fini')
+                self.eq(msgs[2][1].get('offset'), soffs + 10)
+
+                state = s_common.yamlload(dirn, f'{core.iden}.{layr00iden}.yaml')
+                self.eq(state, {'offset:next': soffs + 11})
+
+            # The edit count is an exact multiple of the chunk size
+            layr01 = await core.addLayer()
+            layr01iden = layr01.get('iden')
+            view01 = await core.addView({'layers': [layr01iden]})
+
+            soffs = await core.getNexsIndx()
+
+            opts = {'view': view01.get('iden'), 'vars': {'n': 10}}
+            nodes = await core.nodes('for $i in $lib.range($n) { [test:int=$i] }', opts=opts)
+            self.len(10, nodes)
+
+            with self.getTestDir() as dirn:
+
+                argv = (
+                    '--url', url,
+                    '--chunksize', str(chunksize),
+                    layr01iden,
+                    dirn,
+                )
+
+                outp = self.getTestOutp()
+                self.eq(0, await s_t_dump.main(argv, outp=outp))
+                outp.expect(f'Successfully exported layer {layr01iden}.')
+
+                files = [k for k in os.listdir(dirn) if k.endswith('.nodeedits')]
+                self.len(1, files)
+                self.eq(files[0], f'{core.iden}.{layr01iden}.{soffs}-{soffs + 9}.nodeedits')
+
+                state = s_common.yamlload(dirn, f'{core.iden}.{layr01iden}.yaml')
+                self.eq(state, {'offset:next': soffs + 10})
+
     async def test_tools_layer_dump_errors(self):
 
         # Non-cortex cell
