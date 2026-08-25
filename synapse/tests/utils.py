@@ -336,6 +336,10 @@ testmodel = {
             ('comp1', 'test:comp'),
             ('comp2', 'test:comp'))
         }), {}),
+        ('test:arraycomp', ('comp', {'fields': (
+            ('ints', ('array', {'type': 'test:int'})),
+            ('name', 'test:lower'))
+        }), {'doc': 'A comp type with an array field.'}),
         ('test:complexcomp', ('comp', {'fields': (
             ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
@@ -416,6 +420,11 @@ testmodel = {
         ('test:compcomp', {}, (
             ('comp1', ('test:comp', {}), {'ro': True}),
             ('comp2', ('test:comp', {}), {'ro': True}),
+        )),
+
+        ('test:arraycomp', {}, (
+            ('ints', ('array', {'type': 'test:int'}), {'ro': True}),
+            ('name', ('test:lower', {}), {'ro': True}),
         )),
 
         ('test:complexcomp', {}, (

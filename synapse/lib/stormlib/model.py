@@ -821,7 +821,8 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
             - Secondary properties (dst values win on conflict).
             - Extended properties (dst values win on conflict).
-            - Tags (additive; tag intervals are always unioned).
+            - Tags (additive; two intervals are unioned, and an interval on dst is never
+              replaced by an unbounded tag on src).
             - Tag properties (dst values win on conflict).
             - Light edges (additive; both N1 and N2 edges are moved to dst).
             - Node data (dst values win on conflict).
@@ -836,7 +837,10 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             - Inbound references (props on other nodes which point at src) are rewritten to
               point at dst. This includes form-typed, ndef-typed, and array-typed properties.
               A read-only comp-form sub-property which references src causes that comp form
-              node to be renamed, which is applied as a further fuse.
+              node to be renamed, which is applied as a further fuse. Where a comp form
+              embeds src in more than one of its read-only sub-properties, every one of them
+              is remapped by that single rename, so the renamed node never keeps a slot
+              naming a node the fuse deleted.
             - A read-only secondary property which is not a comp sub-property is rewritten in
               place. The referring node keeps its own primary property, so that read-only
               property will no longer match the value it was derived from.
@@ -966,6 +970,8 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
     async def _methFuse(self, src, dst):
 
+        self.runt.reqAdmin(mesg='$lib.model.migration.fuse() requires global admin.')
+
         if not isinstance(src, s_node.Node):
             raise s_exc.BadArg(mesg='$lib.model.migration.fuse() src argument must be a node.')
 
@@ -983,10 +989,6 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         if src.buid == dst.buid:
             await self.runt.warn('$lib.model.migration.fuse() src and dst are the same node, skipping.')
             return
-
-        # fuse() writes to every layer in the Cortex, well outside the scope of any
-        # single view's permissions, so it requires a global admin.
-        self.runt.reqAdmin(mesg='$lib.model.migration.fuse() requires global admin.')
 
         runt = self.runt
         core = runt.snap.core

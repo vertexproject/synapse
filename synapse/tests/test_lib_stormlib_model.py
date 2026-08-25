@@ -1295,7 +1295,7 @@ class StormlibModelTest(s_test.SynTest):
 
     async def test_stormlib_model_migration_fuse_cascade_array(self):
 
-        # A comp-form cascade discovered from the fuse's own rename means self.renames holds
+        # A comp-form cascade discovered from the fuse's own rename means self.ndefmap holds
         # more than one rename for this single fuse() call. An array property elsewhere which
         # references *both* of the nodes being fused away must end up with every stale entry
         # repointed, not just whichever one the currently processed rename happens to be -
@@ -1334,6 +1334,165 @@ class StormlibModelTest(s_test.SynTest):
             # ...and both were repointed at what they were fused into
             self.isin(('test:str', 'casc-dst'), ndefs)
             self.isin(('test:pivcomp', ('casc-targ', 'casc-dst')), ndefs)
+
+    async def test_stormlib_model_migration_fuse_comp_multislot(self):
+
+        # A comp form may embed more than one node a single fuse renames: test:compcomp has
+        # two read only test:comp slots, and fusing a test:int cascades both of them when
+        # both comps are built on that same int. Discovery is deduped on the comp's own
+        # value, which is identical whichever slot found it, so a comp's destination cannot
+        # be derived from the one slot which happened to find it first - every slot has to
+        # be remapped, or the surviving node's own primary value still names a node this
+        # fuse deleted.
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:int=10 test:int=20 ]')
+            await core.nodes('[ test:comp=(10, aaa) test:comp=(10, bbb) ]')
+            await core.nodes('[ test:compcomp=((10, aaa), (10, bbb)) ]')
+
+            await core.nodes('test:int=10 $n=$node -> { test:int=20 $lib.model.migration.fuse($n, $node) }')
+
+            # both comps cascaded
+            self.len(0, await core.nodes('test:comp=(10, aaa)'))
+            self.len(0, await core.nodes('test:comp=(10, bbb)'))
+            self.len(1, await core.nodes('test:comp=(20, aaa)'))
+            self.len(1, await core.nodes('test:comp=(20, bbb)'))
+
+            # ...and the comp of comps had *both* of its slots remapped
+            self.len(0, await core.nodes('test:compcomp=((10, aaa), (10, bbb))'))
+
+            nodes = await core.nodes('test:compcomp')
+            self.len(1, nodes)
+            self.eq(((20, 'aaa'), (20, 'bbb')), nodes[0].ndef[1])
+
+            # the read only subs are derived from the destination's own value, so they
+            # follow the fully remapped value rather than a half remapped one
+            self.eq((20, 'aaa'), nodes[0].get('comp1'))
+            self.eq((20, 'bbb'), nodes[0].get('comp2'))
+
+    async def test_stormlib_model_migration_fuse_comp_array_slot(self):
+
+        # A comp key slot may itself be an array of a form, in which case the slot's value
+        # is the whole array. Remapping it means replacing the one element which names the
+        # node being fused, not overwriting the slot with that node's replacement, which
+        # would discard every other member of the array.
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:int=10 test:int=20 test:int=99 ]')
+            await core.nodes('[ test:arraycomp=((10, 99), zzz) ]')
+
+            await core.nodes('test:int=10 $n=$node -> { test:int=20 $lib.model.migration.fuse($n, $node) }')
+
+            self.len(0, await core.nodes('test:arraycomp=((10, 99), zzz)'))
+
+            nodes = await core.nodes('test:arraycomp')
+            self.len(1, nodes)
+
+            # only the element which named the fused node moved, and the array is still
+            # normalized by its own type rather than rebuilt by hand
+            self.eq(((20, 99), 'zzz'), nodes[0].ndef[1])
+            self.eq((20, 99), nodes[0].get('ints'))
+
+    async def test_stormlib_model_migration_fuse_tag_bounds(self):
+
+        # dst is the survivor, so an unbounded tag on src must not overwrite an interval
+        # dst already holds. Layer._editTagSet() only unions two tag values when both are
+        # real intervals, and otherwise stores whatever the edit carries.
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=tb-src +#foo +#bar=(2015, 2016) ]')
+            await core.nodes('[ test:str=tb-dst +#foo=(2018, 2022) +#bar ]')
+
+            bounds = (await core.nodes('test:str=tb-dst'))[0].getTag('foo')
+            self.nn(bounds[0])
+
+            await core.nodes('test:str=tb-src $n=$node -> { test:str=tb-dst $lib.model.migration.fuse($n, $node) }')
+
+            nodes = await core.nodes('test:str=tb-dst')
+            self.len(1, nodes)
+
+            # src's unbounded #foo did not wipe dst's interval...
+            self.eq(bounds, nodes[0].getTag('foo'))
+
+            # ...and src's real interval still transferred onto dst's unbounded #bar
+            self.eq(s_time.parse('2015'), nodes[0].getTag('bar')[0])
+
+    async def test_stormlib_model_migration_fuse_cascade_doomed_refs(self):
+
+        # A node which is itself being fused away in this same operation must not be written
+        # to by any other rename's pass: its own transfer already redirects everything it
+        # holds, and the storage layer does not no-op an edit against a node which has
+        # already been torn down earlier in that same coalesced nodeedit. A prop set would
+        # leave a sode holding props with no valu, and an edge add would strand edge rows
+        # under a buid which no longer resolves to a node - neither reachable by any lift,
+        # and neither cleaned up by re-running the fuse.
+        #
+        # The cascade is nested two deep on purpose. Renames are discovered breadth first,
+        # so test:compcomp is always processed after the test:comp nodes its own value is
+        # built from, which makes the ordering that exposes this deterministic rather than
+        # dependent on the order two sibling comps happen to lift in.
+        async with self.getTestCore() as core:
+
+            await core.addFormProp('test:comp', '_cc', ('test:compcomp', {}), {})
+
+            # only one slot of each comp names the node being fused, so this exercises the
+            # ordering on its own rather than also depending on multi-slot remapping
+            await core.nodes('[ test:int=10 test:int=20 test:int=99 ]')
+            await core.nodes('[ test:comp=(10, aaa) test:comp=(99, zzz) ]')
+            await core.nodes('[ test:compcomp=((10, aaa), (99, zzz)) ]')
+
+            # a mutable reference from the shallower rename to the deeper one, and a light
+            # edge in the same direction. Both are found while the deeper rename is being
+            # processed, by which point the shallower node has already been torn down.
+            await core.nodes('test:comp=(10, aaa) [ :_cc=((10, aaa), (99, zzz)) ]')
+            await core.nodes('test:comp=(10, aaa) [ +(refs)> { test:compcomp } ]')
+
+            layr = core.getView().layers[0]
+
+            oldaaa = s_common.buid(('test:comp', (10, 'aaa')))
+            oldcc = s_common.buid(('test:compcomp', ((10, 'aaa'), (99, 'zzz'))))
+
+            await core.nodes('test:int=10 $n=$node -> { test:int=20 $lib.model.migration.fuse($n, $node) }')
+
+            # no torn down buid was left holding anything at all: this is what the missing
+            # guards produced - a props-but-no-valu sode from the prop set, and stranded
+            # edge rows from the edge add
+            for buid in (oldaaa, oldcc):
+                self.false(bool(await layr.getStorNode(buid)))
+                self.len(0, [edge async for edge in layr.iterNodeEdgesN1(buid)])
+                self.len(0, [edge async for edge in layr.iterNodeEdgesN2(buid)])
+
+            # the reference and the edge both followed the cascade
+            nodes = await core.nodes('test:comp=(20, aaa)')
+            self.len(1, nodes)
+            self.eq(((20, 'aaa'), (99, 'zzz')), nodes[0].get('_cc'))
+
+            self.len(1, await core.nodes('test:comp=(20, aaa) -(refs)> test:compcomp'))
+
+    async def test_stormlib_model_migration_fuse_admin_first(self):
+
+        # fuse() writes to every layer in the Cortex, so a caller without global admin is
+        # denied before the arguments are validated rather than being told anything about
+        # the model or about the nodes they named.
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=af-src test:str=af-dst ]')
+
+            user = await core.auth.addUser('affuser')
+            await user.addRule((True, ('node',)))
+
+            opts = {'user': user.iden}
+
+            # fusing a node into itself is a warn-and-return no-op for an admin, but a
+            # caller without permission is still denied rather than reaching it
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('test:str=af-src $n=$node $lib.model.migration.fuse($n, $n)', opts=opts)
+
+            self.isin('requires global admin', cm.exception.get('mesg'))
+
+            # ...and so is a caller who passes something which is not a node at all
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.model.migration.fuse(newp, newp)', opts=opts)
 
     async def test_stormlib_model_migration_fuse_selfref_other_form(self):
 
@@ -1607,7 +1766,7 @@ class StormlibModelTest(s_test.SynTest):
 
                     async def countedits(self, srcndef, dstndef):
                         await realedits(self, srcndef, dstndef)
-                        computes.append(len(self.renames))
+                        computes.append(len(self.ndefmap))
 
                     with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', countedits):
 
@@ -2122,7 +2281,7 @@ class StormlibModelTest(s_test.SynTest):
             async def roedits(self, srcndef, dstndef):
 
                 await realedits(self, srcndef, dstndef)
-                if self.renames:
+                if len(self.ndefmap):
                     await baselayr.setLayerInfo('readonly', True)
 
             with mock.patch.object(s_nodefuse.NodeFuser, 'getLayerEdits', roedits):

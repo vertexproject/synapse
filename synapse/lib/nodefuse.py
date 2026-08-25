@@ -52,12 +52,32 @@ class NodeFuser(s_base.Base):
     chunks by iterEditChunks() so that each chunk is the payload of one of that layer's
     nexus operations.
 
-    Doing discovery in full before any edit is computed matters for more than tidiness: a
-    comp-form cascade discovered from the same parent as an earlier sibling - not just an
+    Discovery is itself in two parts, for a reason worth stating plainly. Which nodes this
+    fuse renames is found first, breadth first over inbound read-only comp key references.
+    What each of them renames to is worked out afterwards by _computeRenames(), iterated to
+    a fixpoint. They cannot be one pass, because a comp form may embed more than one node
+    this same fuse renames - inet:web:mesg has two inet:web:acct slots - and a comp is only
+    discovered once however many of its slots name a renamed node. Deriving its new value
+    from whichever slot found it first left every other slot naming a node this fuse then
+    deleted, which corrupts the surviving node's own identity rather than merely leaving a
+    stale reference behind.
+
+    Finishing discovery before any edit is computed matters for the same family of reasons:
+    a comp-form cascade discovered from the same parent as an earlier sibling - not just an
     ancestor further up the chain - would not yet be in the rename map if edits were
     computed as each rename was found, and a self reference or edge on that earlier
     sibling could be copied over rather than redirected. Finishing discovery first means
     every rename this fuse will ever make is known before any of them are transferred.
+
+    Because the rename map is complete before anything is transferred, no rename needs to
+    write to a node another rename is fusing away: that node's own pass redirects what it
+    holds. Both places which would otherwise queue an edit against another rename's buid -
+    _rewriteRefs() and the N2 light edge pass in _fuseOneLayer() - therefore skip it. That
+    is not merely an optimisation. An edit queued against a buid whose teardown was queued
+    by an earlier rename lands after it, in the one coalesced nodeedit for that buid, and
+    the storage layer does not no-op it: a prop set leaves a sode holding props with no
+    valu, and an edge add strands edge rows under a buid which no longer resolves to a
+    node. Neither is reachable by any lift, and neither is cleaned up by re-running.
 
     Keeping the edits in the payload means the nexus log holds the edits themselves rather
     than a request to recompute them. A mirror applies exactly the edits the leader computed,
@@ -110,18 +130,27 @@ class NodeFuser(s_base.Base):
         self.failed = []        # (layriden, errm) for each layer which could not be written
         self.warnings = []      # warnings for the caller to emit
 
-        # every rename this fuse makes, including the original (srcndef, dstndef) pair and
-        # every comp-form cascade discovered along the way. Populated in full by
-        # getLayerEdits(), before applyLayerEdits() computes or applies anything.
-        self.renames = []
+        # Every rename this fuse makes, including the original (srcndef, dstndef) pair and
+        # every comp-form cascade discovered along the way. Keyed by the (form, valu) each
+        # rename is from, and valued with a (dstndef, subs) tuple - or None between the
+        # point a rename is discovered by getLayerEdits() and the point _computeRenames()
+        # works out what it renames to.
+        #
+        # Populated in full before applyLayerEdits() computes or applies anything, so that
+        # a self reference or an edge to any node being fused away in this operation - not
+        # just the one currently being transferred - is redirected correctly no matter
+        # which order the renames are processed in.
+        #
+        # Spooled for the same reason self.visited is: a fuse of a heavily referenced comp
+        # form discovers one rename per referring node, so this scales with the size of the
+        # fuse rather than with the two nodes the caller actually named.
+        self.ndefmap = await s_spooled.Dict.anit(dirn=core.dirn, cell=core)
+        self.onfini(self.ndefmap)
 
-        # buidmap is keyed by hex iden for edges; ndefmap is keyed by (form, valu) for props.
-        # Both are populated alongside self.renames, at discovery time, so a self reference
-        # or an edge to any node being fused away in this operation - not just the one
-        # currently being transferred - is always redirected correctly regardless of which
-        # order the renames were discovered in.
-        self.buidmap = {}
-        self.ndefmap = {}
+        # the same renames keyed by hex iden rather than by ndef, for redirecting light
+        # edges, which name their far end by iden rather than by value.
+        self.buidmap = await s_spooled.Dict.anit(dirn=core.dirn, cell=core)
+        self.onfini(self.buidmap)
 
         # buid -> nodeedit, scoped to whichever one layer applyLayerEdits() is currently
         # processing. Created fresh and finalized for each layer in turn, so a Cortex with
@@ -203,7 +232,7 @@ class NodeFuser(s_base.Base):
         given buid - which are cortex-wide concepts read fresh across every layer, before
         any edits are computed or applied anywhere. No edits are queued here.
         applyLayerEdits() computes and applies each layer's actual edits once every rename
-        in self.renames is known, so that a reference is redirected off of any node this
+        in self.ndefmap is known, so that a reference is redirected off of any node this
         fuse is fusing away, not just off of the one whose own discovery found it: a comp
         cascade found from the same parent as an earlier sibling would not yet be known if
         edits were computed as each rename was discovered, rather than after discovery
@@ -214,7 +243,7 @@ class NodeFuser(s_base.Base):
             dstndef (tuple): The (form, valu) of the node to fuse into. It will be kept.
 
         Returns:
-            None. self.renames holds the discovered work for applyLayerEdits().
+            None. self.ndefmap holds the resolved renames for applyLayerEdits().
         '''
         # A read-only layer cannot be written to, and a mirrored layer would forward our
         # edits to its upstream. Both are skipped, and a rename which finds any of its own
@@ -231,22 +260,23 @@ class NodeFuser(s_base.Base):
             self.layers.append(layer)
             self.layridens.add(layer.iden)
 
-        # subs are not exclusive to comp forms - any type's norm() may derive read-only subs
-        # from the primary value, and only a comp-form cascade rename ever gets a chance to
-        # discover them elsewhere (_discoverCascades() only ever finds comp-form renames, so
-        # every entry queued by anything other than this initial seed is already a comp).
-        # This initial seed can be any form the caller asked to fuse, so it is normed the
-        # same way here regardless of its type.
-        form = self.model.reqForm(srcndef[0])
-        (_, norminfo) = form.type.norm(dstndef[1])
-        subs = norminfo.get('subs')
-
+        # Which nodes this fuse renames is discovered first, and what each of them renames
+        # to is computed afterwards by _computeRenames(). The two are separable because a
+        # cascade is discovered by scanning inbound references to a node's *stored* value,
+        # which does not depend on what anything is being renamed to.
+        #
+        # They must be separate because a comp form may embed more than one node this same
+        # fuse renames - inet:web:mesg has two inet:web:acct slots, so fusing an inet:fqdn
+        # cascades both accounts of a message between two accounts on that site. Deriving a
+        # comp's new value from the single slot whose reference happened to be discovered
+        # first, and then treating the dedup below as final, left every other slot naming a
+        # node this fuse deletes.
         todo = collections.deque()
-        todo.append((srcndef, dstndef, subs))
+        todo.append(srcndef)
 
         while todo:
 
-            (nextsrc, nextdst, subs) = todo.popleft()
+            nextsrc = todo.popleft()
 
             srcbuid = s_common.buid(nextsrc)
             if self.visited.has(srcbuid):
@@ -254,15 +284,9 @@ class NodeFuser(s_base.Base):
 
             await self.visited.add(srcbuid)
 
-            srciden = s_common.ehex(srcbuid)
-            dstiden = s_common.ehex(s_common.buid(nextdst))
-
-            # Recorded the moment this rename is discovered, well before applyLayerEdits()
-            # ever transfers anything, so a sibling rename discovered from the same parent
-            # - not just an ancestor further up the chain - is always already here too.
-            self.buidmap[srciden] = dstiden
-            self.ndefmap[nextsrc] = nextdst
-            self.renames.append((nextsrc, nextdst, subs))
+            # recorded with no destination yet, so that _computeRenames() has the full set
+            # of renames to resolve against however deep the cascade turns out to be
+            await self.ndefmap.set(nextsrc, None)
 
             # warn about any layer holding this node which we are not allowed to modify
             for layriden in (await self._getSodes(srcbuid)).keys():
@@ -279,23 +303,30 @@ class NodeFuser(s_base.Base):
                     f'in any view which includes that layer.')
 
             for layer in self.layers:
-                todo.extend(await self._discoverCascades(layer, nextsrc, nextdst))
+                todo.extend(await self._discoverCascadeSrcs(layer, nextsrc))
 
-    async def _discoverCascades(self, layer, srcndef, dstndef):
+        await self._computeRenames(srcndef, dstndef)
+
+    async def _discoverCascadeSrcs(self, layer, srcndef):
         '''
-        Find every comp-form cascade this layer's references to srcndef require.
+        Find every comp node in this layer whose own primary value embeds srcndef, and is
+        therefore itself renamed by this fuse.
 
         A comp form's primary value embeds srcndef's value, so a read-only sub-property
-        referencing srcndef means the comp node's own buid is changing too - that is
-        itself a rename this fuse must make, discovered here so getLayerEdits() can walk
-        it like any other. A read-only reference which is *not* part of a comp key is not
-        a rename: it is deferred to _rewriteRefs(), which rewrites it in place once every
-        rename is known.
+        referencing srcndef means the comp node's own buid is changing too - that is itself
+        a rename this fuse must make, discovered here so getLayerEdits() can walk it like
+        any other. A read-only reference which is *not* part of a comp key is not a rename:
+        it is deferred to _rewriteRefs(), which rewrites it in place once every rename is
+        known.
 
-        This only reads and warns; it queues no edits.
+        Only the identity of the comp node is resolved here. What it renames *to* is left to
+        _computeRenames(), because that depends on every other rename this fuse makes and so
+        cannot be known while discovery is still running.
+
+        This only reads; it queues no edits and emits no warnings.
 
         Returns:
-            list: (srcndef, dstndef, subs) cascade tasks discovered in this layer.
+            list: The (form, valu) of each comp node this layer's references require.
         '''
         todo = []
 
@@ -308,8 +339,6 @@ class NodeFuser(s_base.Base):
             if not isinstance(refform.type, s_types.Comp) or prop.compoffs is None:
                 continue
 
-            newv = dstndef if isndef else dstndef[1]
-
             refvalu = None
             for sode in (await self._getSodes(refbuid)).values():
                 valt = sode.get('valu')
@@ -320,25 +349,145 @@ class NodeFuser(s_base.Base):
             if refvalu is None:  # pragma: no cover
                 continue
 
-            newcomp = list(refvalu)
-            newcomp[prop.compoffs] = newv
-
-            try:
-                (newvalu, norminfo) = refform.type.norm(tuple(newcomp))
-
-            except Exception as e:
-                await self.warn(
-                    f'$lib.model.migration.fuse() cannot re-normalize comp form {refform.name!r} '
-                    f'for {s_common.ehex(refbuid)}: {e}. That reference is not rewritten.')
-                continue
-
-            if newvalu == refvalu:  # pragma: no cover
-                continue
-
-            # renaming the comp is itself a fuse of the old comp node into the new one
-            todo.append(((refform.name, refvalu), (refform.name, newvalu), norminfo.get('subs')))
+            todo.append((refform.name, refvalu))
 
         return todo
+
+    def _remapCompSlots(self, form, valu):
+        '''
+        Return (changed, newvalu) for a comp value with every read-only comp key slot which
+        names a node being fused away in this operation remapped to what it is fused into.
+
+        Every slot is remapped, rather than only the one whose own reference happened to
+        find this node, because a comp form may embed more than one node this same fuse
+        renames. A slot which is itself an array is remapped element by element, since the
+        slot's value is the whole array and replacing it wholesale with a single element
+        would discard every other member.
+
+        Slots typed as something other than a form or an ndef cannot name a node, so
+        _getSelfRefs() does not report them and they are left alone.
+        '''
+        newcomp = list(valu)
+        changed = False
+
+        selfrefs = self._getSelfRefs(form)
+
+        for prop in form.props.values():
+
+            if prop.compoffs is None or not prop.info.get('ro'):
+                continue
+
+            selfref = selfrefs.get(prop.name)
+            if selfref is None:
+                continue
+
+            (isarray, isndef, refform) = selfref
+
+            curv = newcomp[prop.compoffs]
+
+            if isarray:
+                newv = tuple(self._remapSelfRef(refform, isndef, item) for item in curv)
+            else:
+                newv = self._remapSelfRef(refform, isndef, curv)
+
+            if newv != curv:
+                newcomp[prop.compoffs] = newv
+                changed = True
+
+        return changed, tuple(newcomp)
+
+    async def _computeRenames(self, srcndef, dstndef):
+        '''
+        Work out what each rename discovered by getLayerEdits() renames to.
+
+        The seed's destination is the one the caller named. Every other rename is a comp
+        node whose new value is its stored value with each of its read-only comp key slots
+        remapped through the renames this fuse makes - which is why this cannot run until
+        discovery has finished, and why it is iterated to a fixpoint rather than computed in
+        one pass: a comp's slot may name another comp which is itself still being resolved,
+        to any depth.
+
+        Each pass recomputes every destination from the node's own stored value rather than
+        from the previous pass's result, so a pass is idempotent and cannot accumulate a
+        partially remapped value. The renames form a DAG - a comp's slots are discovered
+        before the comp, and no comp can embed itself - so the number of passes needed is
+        bounded by the depth of the deepest cascade.
+
+        Args:
+            srcndef (tuple): The (form, valu) of the node the caller is fusing from.
+            dstndef (tuple): The (form, valu) of the node the caller is fusing into.
+
+        Returns:
+            None. self.ndefmap and self.buidmap hold the resolved renames.
+        '''
+        # subs are not exclusive to comp forms - any type's norm() may derive read-only subs
+        # from the primary value - and the seed can be any form the caller asked to fuse, so
+        # it is normed here regardless of its type. Every other rename is a comp.
+        form = self.model.reqForm(srcndef[0])
+        (_, norminfo) = form.type.norm(dstndef[1])
+
+        await self._setRename(srcndef, dstndef, norminfo.get('subs'))
+
+        while True:
+
+            changed = False
+
+            for (nextsrc, rename) in list(self.ndefmap.items()):
+
+                if nextsrc == srcndef:
+                    continue
+
+                refform = self.model.reqForm(nextsrc[0])
+
+                (slotchanged, newvalu) = self._remapCompSlots(refform, nextsrc[1])
+                if not slotchanged:
+                    continue
+
+                try:
+                    (newvalu, norminfo) = refform.type.norm(newvalu)
+
+                except Exception as e:
+                    # left unresolved rather than half applied. applyLayerEdits() skips a
+                    # rename with no destination, so this comp keeps its own value and its
+                    # reference is reported rather than silently rewritten to something the
+                    # type would never have produced.
+                    await self.warn(
+                        f'$lib.model.migration.fuse() cannot re-normalize comp form {refform.name!r} '
+                        f'for {nextsrc[0]}={nextsrc[1]!r}: {e}. That reference is not rewritten.')
+                    continue
+
+                newndef = (refform.name, newvalu)
+
+                if rename is not None and rename[0] == newndef:
+                    continue
+
+                await self._setRename(nextsrc, newndef, norminfo.get('subs'))
+                changed = True
+
+            if not changed:
+                break
+
+        # A destination is only ever a value with every slot already remapped off of the
+        # nodes this fuse deletes, so it can never itself be one of the values this fuse
+        # renames away. _remapSelfRef() and buidmap therefore resolve in a single hop, and
+        # this asserts the property they rely on rather than leaving it to be inferred.
+        for (nextsrc, rename) in self.ndefmap.items():
+
+            if rename is None:
+                continue
+
+            if self.ndefmap.get(rename[0]) is not None:  # pragma: no cover
+                mesg = (f'$lib.model.migration.fuse() computed a rename of {nextsrc[0]}={nextsrc[1]!r} '
+                        f'to {rename[0][0]}={rename[0][1]!r}, which is itself being renamed.')
+                raise s_exc.SynErr(mesg=mesg)
+
+    async def _setRename(self, srcndef, dstndef, subs):
+        '''
+        Record what srcndef renames to, keyed both by ndef and by hex iden.
+        '''
+        await self.ndefmap.set(srcndef, (dstndef, subs))
+        await self.buidmap.set(s_common.ehex(s_common.buid(srcndef)),
+                               s_common.ehex(s_common.buid(dstndef)))
 
     def _iterNodeEdits(self):
         '''
@@ -350,9 +499,16 @@ class NodeFuser(s_base.Base):
         interrupted after src had been deleted but before an inbound reference to it had been
         repointed at dst.
 
-        self.visited holds the buid of every node being fused away. A buid which is both
-        fused away and fused into keeps its adds and removes in one coalesced nodeedit,
-        which is never split, so it is safe on either side.
+        self.visited holds the buid of every node being fused away, so this splits the
+        nodeedits into the ones which build dst up and the ones which tear src down, and
+        emits them in that order. Within a single buid the order _addEdit() coalesced them
+        in is preserved, and a nodeedit is never split by iterEditChunks(), so a buid whose
+        adds and removes are both queued keeps them in the right order either way.
+
+        No nodeedit here mixes another rename's teardown with this one's adds: a rename
+        never queues an edit against a buid another rename is fusing away, because that
+        node's own pass redirects what it holds. See the class docstring for why an edit
+        which landed after such a teardown was not simply redundant.
         '''
         for (buid, nodeedit) in self.nodeedits.items():
             if not self.visited.has(buid):
@@ -420,11 +576,16 @@ class NodeFuser(s_base.Base):
         '''
         key = valu if isndef else (form.name, valu)
 
+        # None covers both a value this fuse does not rename and one which has been
+        # discovered but not yet resolved, which is what lets _computeRenames() iterate:
+        # an unresolved slot is left alone and picked up by a later pass.
         mapped = self.ndefmap.get(key)
         if mapped is None:
             return valu
 
-        return mapped if isndef else mapped[1]
+        (dstndef, _) = mapped
+
+        return dstndef if isndef else dstndef[1]
 
     async def _swapArrayValu(self, prop, buid, newvalu):
         '''
@@ -566,7 +727,18 @@ class NodeFuser(s_base.Base):
                 (s_layer.EDIT_PROP_SET, (name, valu, None, stype), ()),
             ))
 
+        dsttags = dstsode.get('tags', {})
+
         for tag, valu in srcsode.get('tags', {}).items():
+
+            # dst is the survivor, so an unbounded tag on src must not overwrite a real
+            # interval dst already holds. Layer._editTagSet() only unions two tag values
+            # when *both* are real intervals, and otherwise stores whatever the edit
+            # carries, so letting (None, None) through would silently discard dst's bounds.
+            # This mirrors the guard Snap.addTag() applies on the ordinary write path.
+            if valu == (None, None) and tag in dsttags:
+                continue
+
             await self._addEdit(dstbuid, formname, (
                 (s_layer.EDIT_TAG_SET, (tag, valu, None), ()),
             ))
@@ -620,6 +792,16 @@ class NodeFuser(s_base.Base):
                 continue
 
             n1buid = s_common.uhex(n1iden)
+
+            # an n1 which is itself being fused away in this operation transfers its own N1
+            # edges in its own pass, remapping the far end through buidmap, so this edge is
+            # already moved. Queueing it here as well would append an edge add after that
+            # buid's own EDIT_NODE_DEL in the one coalesced nodeedit for it. EDIT_NODE_DEL
+            # leaves the in-memory sode's 'form' key in place, so Layer._editNodeEdgeAdd()
+            # skips both its byform re-add and its setSodeDirty() yet still writes the edge
+            # index rows, stranding an edge under a buid which no longer resolves to a node.
+            if self.visited.has(n1buid):
+                continue
 
             n1form = await self._getFormName(n1buid)
             if n1form is None:  # pragma: no cover
@@ -685,7 +867,7 @@ class NodeFuser(s_base.Base):
         Every comp-key cascade rename was already discovered by getLayerEdits(), so a
         read-only reference is always rewritten here rather than returning a new task: if
         it is a true comp-key reference, the comp node it belongs to already has its own
-        entry in self.renames, discovered by _discoverCascades(), and is handled by its own
+        entry in self.ndefmap, discovered by _discoverCascadeSrcs(), and is handled by its own
         call to this method. A read-only reference which is *not* part of a comp key is
         rewritten in place - a stale but valid reference beats a dangling one, at the cost
         of the referring node's own primary property no longer matching it, which is
@@ -708,6 +890,16 @@ class NodeFuser(s_base.Base):
             refform = prop.form
 
             if prop.info.get('ro') and isinstance(refform.type, s_types.Comp) and prop.compoffs is not None:
+                continue
+
+            # a referrer which is itself being fused away in this operation has its own
+            # transfer pass, which reads this same prop and redirects it through ndefmap
+            # (see _swapSelfRef()), so the redirect is already accounted for. Queueing it
+            # here as well would append a prop set after that buid's own EDIT_NODE_DEL in
+            # the one coalesced nodeedit for it, and the storage layer does not no-op a
+            # prop set against a deleted node: it would leave a sode holding props with no
+            # valu, which no lift can reach and no re-run of this fuse can clean up.
+            if self.visited.has(refbuid):
                 continue
 
             refsode = await layer.getStorNode(refbuid)
@@ -794,8 +986,8 @@ class NodeFuser(s_base.Base):
         '''
         Compute and apply every layer's edits, one layer at a time.
 
-        getLayerEdits() must already have discovered every rename this fuse makes
-        (self.renames) and fully populated buidmap/ndefmap before this runs, since
+        getLayerEdits() must already have discovered every rename this fuse makes and
+        resolved every destination into ndefmap/buidmap before this runs, since
         computing a layer's edits here uses that map to redirect a reference off of any
         node being fused away in this operation, not just off of the one currently being
         processed - see getLayerEdits() for why a partial map is not enough.
@@ -833,7 +1025,16 @@ class NodeFuser(s_base.Base):
 
                 self.nodeedits = nodeedits
 
-                for (srcndef, dstndef, subs) in self.renames:
+                for (srcndef, rename) in self.ndefmap.items():
+
+                    # a rename _computeRenames() could not resolve has already been warned
+                    # about. Leaving it alone keeps this comp node and its own reference as
+                    # they are, rather than applying half of a rename.
+                    if rename is None:
+                        continue
+
+                    (dstndef, subs) = rename
+
                     await self._fuseOneLayer(layer, srcndef, dstndef, subs)
 
                 try:

@@ -7253,7 +7253,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         A fuse of a heavily referenced node can need a very large number of edits, so each
         layer's edits are applied in chunks of one nexus operation each rather than all at
         once. A fuse is therefore not transactional, and an interruption can leave part of it
-        applied. See NodeFuser.getLayerEdits() for the ordering which makes that recoverable.
+        applied. See NodeFuser._iterNodeEdits() for the ordering which makes that recoverable.
 
         The reads are not serialized against other writes, so a write to src which lands after
         the edits are computed is not accounted for and is not detected. Running a fuse during
@@ -7279,9 +7279,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             await fuser.getLayerEdits(srcndef, dstndef)
 
-            # A layer which failed is not retried here. The failure would simply repeat,
-            # and the warning already tells the caller to re-run once they have dealt
-            # with it.
             await fuser.applyLayerEdits(meta)
 
             # returned even with nothing to apply, since discovery may have produced
