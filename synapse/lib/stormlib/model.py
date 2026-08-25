@@ -832,8 +832,21 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             - The .created property on dst is always preserved.
             - Interval-typed properties and tag properties, and the .seen interval, are
               always unioned as (min(start), max(end)) rather than one value winning.
-            - Read-only secondary properties on dst are skipped, since they are derived from
-              dst's own primary property.
+            - Read-only secondary properties are never copied from src. A read-only property
+              restates the node's own primary property rather than being data src can hand
+              over, so after the fuse it must describe dst. Where dst's type derives it, it is
+              set from dst's own value. Where dst's type derives it one way - a guid form
+              built from a tuple of its inputs, such as
+              ``it:mitre:attack:data:component``, keeps those inputs as read-only properties
+              because nothing can recover them from the guid - it is left alone, since src's
+              value would name something dst's own guid is not built from.
+
+              One consequence is worth noting: a read-only property a form populates from a
+              callback rather than from normalization, such as the ``inet:passwd``
+              md5/sha1/sha256 hashes, is not recomputed either, because a fuse writes to
+              layers directly and runs no form callbacks. This only applies to a layer in
+              which the fuse creates dst, since dst retains its own read-only properties in
+              the layer it was created in.
             - Inbound references (props on other nodes which point at src) are rewritten to
               point at dst. This includes form-typed, ndef-typed, and array-typed properties.
               A read-only comp-form sub-property which references src causes that comp form

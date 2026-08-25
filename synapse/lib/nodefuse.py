@@ -705,8 +705,32 @@ class NodeFuser(s_base.Base):
 
             prop = form.props.get(name)
 
-            # read only props on dst are derived from dst's own primary value. .created
-            # is read only and is handled above.
+            # A read only prop belongs to the node's own identity rather than being an
+            # analytical value src can hand over, so src's is never transferred. Where dst's
+            # own type derives the prop from its primary value it is already set above from
+            # dst's subs. Where it does not, src's value would contradict dst's primary value
+            # rather than fill a gap in it, because such a prop is a decomposition of the
+            # value rather than data of its own: fusing inet:url=https://visi@vertex.link/
+            # into inet:url=https://vertex.link/ would put :user=visi on a URL which contains
+            # no user, so the node would lift by inet:url:user=visi while its own primary
+            # value says otherwise. .created is read only and is carried over above.
+            #
+            # A prop whose derivation is one way rather than invertible is skipped for the
+            # same reason, even though dst's own norm cannot re-derive it. Guid._normPyList()
+            # hashes its inputs and returns no subs at all, so a guid form built from a tuple
+            # keeps those inputs as read only props because nothing can recover them from the
+            # guid - it:mitre:attack:data:component=(datasource, name) is the model's example.
+            # Those props are still a restatement of the node's identity, so copying src's
+            # would claim a name dst's own guid is not the hash of, and no later read could
+            # detect the mismatch. Absent subs means the derivation is one way, not that the
+            # prop is independent data src could hand over.
+            #
+            # The same holds for a read only prop a form populates from an onAdd callback
+            # rather than from norm(), such as the inet:passwd md5/sha1/sha256 hashes: those
+            # are computed from the primary value too, so copying src's would give dst the
+            # hashes of src's value. A fuse writes to layers directly and runs no callbacks,
+            # so they are simply not recomputed for the layer this fuse creates dst in - dst
+            # keeps them in whatever layer it was created in.
             #
             # A prop which is no longer in the model can still hold a value in the sode.
             # It has no derivation on dst and cannot be a self reference, so it is
