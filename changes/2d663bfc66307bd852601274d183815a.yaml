@@ -1,0 +1,7 @@
+---
+desc: Fixed a bug in ``synapse.tools.cortex.layer.dump`` where exporting a chunk containing
+  a single node edit recorded an incorrect ending offset.
+desc:literal: false
+prs: []
+type: bug
+...
