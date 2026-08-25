@@ -1370,6 +1370,48 @@ class StormlibModelTest(s_test.SynTest):
             self.eq((20, 'aaa'), nodes[0].get('comp1'))
             self.eq((20, 'bbb'), nodes[0].get('comp2'))
 
+    async def test_stormlib_model_migration_fuse_cascade_fixpoint(self):
+
+        # _computeRenames() resolves each rename's destination by remapping its comp key
+        # slots through the renames already resolved, so a rename whose own slots name a
+        # comp which is not resolved yet has nothing to remap on that pass and is left for
+        # a later one. Recording it as-is instead would record a node renaming to itself.
+        #
+        # Discovery is breadth first, so insertion order always reaches a comp's slots
+        # before the comp. That inverts once the rename map spills to disk and iterates in
+        # key order instead, which is the case a fuse large enough to spill actually hits -
+        # so the spool is forced to spill here, and test:acomp is named to sort ahead of the
+        # shallower test:comp and test:compcomp it is built from.
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:int=10 test:int=20 test:int=99 ]')
+            await core.nodes('[ test:comp=(10, aaa) test:comp=(99, zzz) ]')
+            await core.nodes('[ test:compcomp=((10, aaa), (99, zzz)) ]')
+            await core.nodes('[ test:acomp=(((10, aaa), (99, zzz)), nnn) ]')
+
+            orig = s_spooled.Spooled.__anit__
+
+            async def __anit__(self, dirn=None, size=s_spooled.MAX_SPOOL_SIZE, cell=None):
+                await orig(self, dirn=dirn, size=1, cell=cell)
+
+            with mock.patch('synapse.lib.spooled.Spooled.__anit__', __anit__):
+                await core.nodes(
+                    'test:int=10 $n=$node -> { test:int=20 $lib.model.migration.fuse($n, $node) }')
+
+            # every level of the chain was remapped, however many passes that took
+            self.len(0, await core.nodes('test:comp=(10, aaa)'))
+            self.len(1, await core.nodes('test:comp=(20, aaa)'))
+
+            self.len(0, await core.nodes('test:compcomp=((10, aaa), (99, zzz))'))
+            self.len(1, await core.nodes('test:compcomp=((20, aaa), (99, zzz))'))
+
+            nodes = await core.nodes('test:acomp')
+            self.len(1, nodes)
+            self.eq((((20, 'aaa'), (99, 'zzz')), 'nnn'), nodes[0].ndef[1])
+
+            # and the deepest node's read only sub follows the fully resolved value
+            self.eq(((20, 'aaa'), (99, 'zzz')), nodes[0].get('cc'))
+
     async def test_stormlib_model_migration_fuse_comp_array_slot(self):
 
         # A comp key slot may itself be an array of a form, in which case the slot's value

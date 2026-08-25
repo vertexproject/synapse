@@ -340,6 +340,12 @@ testmodel = {
             ('ints', ('array', {'type': 'test:int'})),
             ('name', 'test:lower'))
         }), {'doc': 'A comp type with an array field.'}),
+        # deliberately named to sort before test:comp and test:compcomp, so a cascade
+        # through it is discovered last but iterates first once a spool has spilled
+        ('test:acomp', ('comp', {'fields': (
+            ('cc', 'test:compcomp'),
+            ('name', 'test:lower'))
+        }), {'doc': 'A comp type nesting a comp of comps.'}),
         ('test:complexcomp', ('comp', {'fields': (
             ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
@@ -424,6 +430,11 @@ testmodel = {
 
         ('test:arraycomp', {}, (
             ('ints', ('array', {'type': 'test:int'}), {'ro': True}),
+            ('name', ('test:lower', {}), {'ro': True}),
+        )),
+
+        ('test:acomp', {}, (
+            ('cc', ('test:compcomp', {}), {'ro': True}),
             ('name', ('test:lower', {}), {'ro': True}),
         )),
 
