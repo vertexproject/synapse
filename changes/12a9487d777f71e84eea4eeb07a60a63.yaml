@@ -1,0 +1,8 @@
+---
+desc: Added a new Storm API, ``$lib.model.migration.fuse()``, to merge one node into
+  another node of the same form and delete the source node. This requires global admin
+  permissions and operates on the entire Cortex.
+desc:literal: false
+prs: []
+type: feat
+...

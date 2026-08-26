@@ -326,6 +326,7 @@ testmodel = {
 
         ('test:arrayprop', ('guid', {}), {}),
         ('test:arrayform', ('array', {'type': 'int'}), {}),
+        ('test:rostr', ('guid', {}), {}),
 
         ('test:comp', ('comp', {'fields': (
             ('hehe', 'test:int'),
@@ -335,6 +336,16 @@ testmodel = {
             ('comp1', 'test:comp'),
             ('comp2', 'test:comp'))
         }), {}),
+        ('test:arraycomp', ('comp', {'fields': (
+            ('ints', ('array', {'type': 'test:int'})),
+            ('name', 'test:lower'))
+        }), {'doc': 'A comp type with an array field.'}),
+        # deliberately named to sort before test:comp and test:compcomp, so a cascade
+        # through it is discovered last but iterates first once a spool has spilled
+        ('test:acomp', ('comp', {'fields': (
+            ('cc', 'test:compcomp'),
+            ('name', 'test:lower'))
+        }), {'doc': 'A comp type nesting a comp of comps.'}),
         ('test:complexcomp', ('comp', {'fields': (
             ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
@@ -417,6 +428,16 @@ testmodel = {
             ('comp2', ('test:comp', {}), {'ro': True}),
         )),
 
+        ('test:arraycomp', {}, (
+            ('ints', ('array', {'type': 'test:int'}), {'ro': True}),
+            ('name', ('test:lower', {}), {'ro': True}),
+        )),
+
+        ('test:acomp', {}, (
+            ('cc', ('test:compcomp', {}), {'ro': True}),
+            ('name', ('test:lower', {}), {'ro': True}),
+        )),
+
         ('test:complexcomp', {}, (
             ('foo', ('test:int', {}), {'ro': True}),
             ('bar', ('str', {'lower': 1}), {'ro': True})
@@ -489,6 +510,10 @@ testmodel = {
         ('test:zeropad', {}, ()),
         ('test:ival', {}, (
             ('interval', ('ival', {}), {}),
+        )),
+
+        ('test:rostr', {}, (
+            ('strref', ('test:str', {}), {'ro': True}),
         )),
 
         ('test:pivtarg', {}, (
