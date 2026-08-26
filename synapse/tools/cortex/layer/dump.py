@@ -61,8 +61,6 @@ async def exportLayer(opts, outp):
     if (soffs := opts.offset) is None:
         soffs = state.get('offset:next', 0)
 
-    eoffs = None
-
     async with await s_telepath.openurl(opts.url, name=f'*/layer/{opts.iden}') as layer:
 
         # Handle no edits to export
@@ -81,10 +79,10 @@ async def exportLayer(opts, outp):
             try:
                 # Pull the first edit so we can get the starting offset
                 first = await anext(nodeiter)
-            except StopAsyncIteration: # pragma: no cover
+            except StopAsyncIteration:
                 break
 
-            soffs = first[0]
+            soffs = eoffs = first[0]
 
             with _tmpfile(dirn=opts.outdir, prefix='layer.dump') as (fd, tmppath):
 
