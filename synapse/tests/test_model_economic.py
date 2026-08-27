@@ -330,6 +330,23 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:bank:swift:bic -> ou:org +:name="deutsche bank"'))
             self.len(1, await core.nodes('econ:bank:swift:bic -> ps:contact'))
 
+            # the 8 character head-office form of a BIC is valid
+            nodes = await core.nodes('[ econ:bank:swift:bic=TRWIBEB1 ]')
+            self.len(1, nodes)
+            self.eq(('econ:bank:swift:bic', 'TRWIBEB1'), nodes[0].ndef)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:swift:bic=DEUTDEF ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:swift:bic=DEUTDEFFX ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:swift:bic=DEUTDEFFXX ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:swift:bic=DEUTDEFFXXXXX ]')
+
             nodes = await core.nodes('''[
                 econ:bank:balance=*
                     :account={econ:bank:account | limit 1}
