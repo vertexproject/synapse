@@ -2115,3 +2115,62 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq(4, nodes[0].get('mii'))
             self.eq(402400, nodes[0].get('iin'))
+
+    async def test_modelrev_0_2_37(self):
+
+        badbic = 'DEUTDEFFXXXXX'
+        forkbic = 'BNPAFRPPXXXjunk'
+
+        # the pre-migration econ:bank:swift:bic regex was anchored only at the
+        # start, so it accepted trailing characters after a valid BIC.
+        async with self.getRegrCore('model-0.2.37', maxvers=(0, 2, 36)) as core:
+
+            views = {view.info.get('name'): view for view in core.listViews()}
+            self.len(2, views)
+            infork = {'view': views.get('fork00').iden}
+
+            self.sorteq(('DEUTDEFFXXX', badbic, 'TRWIBEB1XXXjunk'),
+                        [k.ndef[1] for k in await core.nodes('econ:bank:swift:bic')])
+
+            self.sorteq(('DEUTDEFFXXX', badbic, forkbic, 'TRWIBEB1XXXjunk'),
+                        [k.ndef[1] for k in await core.nodes('econ:bank:swift:bic', opts=infork)])
+
+        async with self.getRegrCore('model-0.2.37') as core:
+
+            self.eq((0, 2, 37), await core.getLayer().getModelVers())
+
+            views = {view.info.get('name'): view for view in core.listViews()}
+            infork = {'view': views.get('fork00').iden}
+
+            nodes = await core.nodes('econ:bank:swift:bic')
+            self.eq([('econ:bank:swift:bic', 'DEUTDEFFXXX')], [k.ndef for k in nodes])
+            self.nn(nodes[0].get('business'))
+
+            # the invalid BIC in the forked view is migrated out of its own layer
+            self.eq([('econ:bank:swift:bic', 'DEUTDEFFXXX')],
+                    [k.ndef for k in await core.nodes('econ:bank:swift:bic', opts=infork)])
+
+            # nodes referenced by a removed BIC are not removed along with it
+            self.len(2, await core.nodes('ou:org'))
+            self.len(1, await core.nodes('inet:fqdn=vertex.link'))
+            self.len(0, await core.nodes('inet:fqdn=vertex.link <(refs)- *'))
+
+            items = [item async for item in core.coreQueueGets('model_0_2_37:nodes', 0, cull=False, wait=False)]
+            self.len(3, items)
+
+            byvalu = {item.get('formvalu'): item for _, item in items}
+            self.sorteq((badbic, forkbic, 'TRWIBEB1XXXjunk'), byvalu.keys())
+            self.eq('econ:bank:swift:bic', byvalu.get(forkbic).get('formname'))
+
+            # the quarantined record carries everything needed to rebuild the node
+            item = byvalu.get(badbic)
+            self.eq('econ:bank:swift:bic', item.get('formname'))
+
+            sodes = list(item.get('sodes').values())
+            self.len(1, sodes)
+            self.sorteq(('business', 'office'), sodes[0].get('props').keys())
+            self.isin('some.tag', sodes[0].get('tags'))
+
+            self.eq((('woot', 'hehe'),), list(item.get('nodedata').values())[0])
+            self.eq((('refs', s_common.ehex(s_common.buid(('inet:fqdn', 'vertex.link')))),),
+                    list(item.get('n1edges').values())[0])
