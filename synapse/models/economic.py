@@ -89,10 +89,10 @@ class EconModule(s_module.CoreModule):
                 ('econ:bank:statement', ('guid', {}), {
                     'doc': 'A statement of bank account payment activity over a period of time.'}),
 
-                ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
+                ('econ:bank:aba:rtn', ('str', {'regex': '^[0-9]{9}$'}), {
                     'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
 
-                ('econ:bank:iban', ('str', {'regex': '[A-Z]{2}[0-9]{2}[a-zA-Z0-9]{1,30}'}), {
+                ('econ:bank:iban', ('str', {'regex': '^[A-Z]{2}[0-9]{2}[a-zA-Z0-9]{1,30}$'}), {
                     'doc': 'An International Bank Account Number.'}),
 
                 ('econ:bank:swift:bic', ('str', {'regex': '^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$'}), {

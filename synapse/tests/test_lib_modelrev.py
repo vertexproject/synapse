@@ -2120,9 +2120,11 @@ class ModelRevTest(s_tests.SynTest):
 
         badbic = 'DEUTDEFFXXXXX'
         forkbic = 'BNPAFRPPXXXjunk'
+        badrtn = '1234567890'
+        badiban = 'GB29NWBK60161331926819!!'
 
-        # the pre-migration econ:bank:swift:bic regex was anchored only at the
-        # start, so it accepted trailing characters after a valid BIC.
+        # the pre-migration regexes were anchored only at the start, so they
+        # accepted trailing characters after an otherwise valid value.
         async with self.getRegrCore('model-0.2.37', maxvers=(0, 2, 36)) as core:
 
             views = {view.info.get('name'): view for view in core.listViews()}
@@ -2134,6 +2136,17 @@ class ModelRevTest(s_tests.SynTest):
 
             self.sorteq(('DEUTDEFFXXX', badbic, forkbic, 'TRWIBEB1XXXjunk'),
                         [k.ndef[1] for k in await core.nodes('econ:bank:swift:bic', opts=infork)])
+
+            self.sorteq(('123456789junk', '987654321', badrtn),
+                        [k.ndef[1] for k in await core.nodes('econ:bank:aba:rtn')])
+
+            self.sorteq(('VV09WootWoot', badiban),
+                        [k.ndef[1] for k in await core.nodes('econ:bank:iban')])
+
+            nodes = await core.nodes('econ:bank:account')
+            self.len(1, nodes)
+            self.eq(badrtn, nodes[0].get('aba:rtn'))
+            self.eq(badiban, nodes[0].get('iban'))
 
         async with self.getRegrCore('model-0.2.37') as core:
 
@@ -2150,17 +2163,48 @@ class ModelRevTest(s_tests.SynTest):
             self.eq([('econ:bank:swift:bic', 'DEUTDEFFXXX')],
                     [k.ndef for k in await core.nodes('econ:bank:swift:bic', opts=infork)])
 
-            # nodes referenced by a removed BIC are not removed along with it
-            self.len(2, await core.nodes('ou:org'))
+            self.eq([('econ:bank:aba:rtn', '987654321')],
+                    [k.ndef for k in await core.nodes('econ:bank:aba:rtn')])
+
+            self.eq([('econ:bank:iban', 'VV09WootWoot')],
+                    [k.ndef for k in await core.nodes('econ:bank:iban')])
+
+            # neither referring property is read-only, so the account survives with
+            # the properties deleted rather than being removed along with them
+            nodes = await core.nodes('econ:bank:account')
+            self.len(1, nodes)
+            self.none(nodes[0].get('aba:rtn'))
+            self.none(nodes[0].get('iban'))
+            self.eq('12345', nodes[0].get('number'))
+
+            # nodes referenced by a removed node are not removed along with it
+            self.len(3, await core.nodes('ou:org'))
             self.len(1, await core.nodes('inet:fqdn=vertex.link'))
             self.len(0, await core.nodes('inet:fqdn=vertex.link <(refs)- *'))
 
             items = [item async for item in core.coreQueueGets('model_0_2_37:nodes', 0, cull=False, wait=False)]
-            self.len(3, items)
+            self.len(6, items)
 
             byvalu = {item.get('formvalu'): item for _, item in items}
-            self.sorteq((badbic, forkbic, 'TRWIBEB1XXXjunk'), byvalu.keys())
+            self.sorteq((badbic, badiban, badrtn, forkbic, '123456789junk', 'TRWIBEB1XXXjunk'),
+                        byvalu.keys())
             self.eq('econ:bank:swift:bic', byvalu.get(forkbic).get('formname'))
+            self.eq('econ:bank:aba:rtn', byvalu.get(badrtn).get('formname'))
+            self.eq('econ:bank:iban', byvalu.get(badiban).get('formname'))
+
+            # the account which referenced a removed value is recorded, along with
+            # the property which pointed at it, so an operator can repair it
+            acctiden = s_common.ehex((await core.nodes('econ:bank:account'))[0].buid)
+
+            for valu, propname in ((badrtn, 'aba:rtn'), (badiban, 'iban')):
+                reflists = list(byvalu.get(valu).get('refs').values())
+                self.len(1, reflists)
+                self.len(1, reflists[0])
+                (refiden, refinfo) = reflists[0][0]
+                self.eq(acctiden, refiden)
+                self.eq(('econ:bank:account', propname), refinfo[:2])
+
+            self.eq({}, byvalu.get('123456789junk').get('refs'))
 
             # the quarantined record carries everything needed to rebuild the node
             item = byvalu.get(badbic)

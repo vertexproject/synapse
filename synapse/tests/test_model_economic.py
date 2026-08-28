@@ -380,6 +380,18 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> ou:name'))
             self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> ou:org +:name="deutsche bank"'))
 
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:aba:rtn=1234567890 ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:aba:rtn=123456789junk ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:iban=GB29NWBK60161331926819!! ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(f'[ econ:bank:iban=AB12{"x" * 31} ]')
+
             nodes = await core.nodes('''[
                 econ:acct:receipt=*
                     :amount=99

@@ -1,8 +1,0 @@
----
-desc: Migrated ``econ:bank:swift:bic`` nodes whose primary value is no longer valid.
-  The type now anchors the end of the BIC pattern, so values with trailing characters
-  after a valid BIC are removed and recorded in the ``model_0_2_37:nodes`` queue.
-desc:literal: false
-prs: []
-type: migration
-...

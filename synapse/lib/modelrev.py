@@ -2410,42 +2410,45 @@ class ModelMigration_0_2_37(ModelMigrationBase):
 
     async def revModel_0_2_37(self):
 
-        formname = 'econ:bank:swift:bic'
-        form = self.core.model.form(formname)
+        formnames = ('econ:bank:aba:rtn', 'econ:bank:iban', 'econ:bank:swift:bic')
+        formstr = ','.join(formnames)
 
-        logger.info(f'Collecting invalid {formname} nodes in {len(self.layers)} layers')
+        logger.info(f'Collecting invalid {formstr} nodes in {len(self.layers)} layers')
 
-        for idx, layer in enumerate(self.layers):
-            logger.debug('Scanning %s nodes in layer %s %s', formname, idx, layer.iden)
+        for formname in formnames:
+            form = self.core.model.form(formname)
 
-            async for buid, sode in layer.getStorNodesByForm(formname):
+            for idx, layer in enumerate(self.layers):
+                logger.debug('Scanning %s nodes in layer %s %s', formname, idx, layer.iden)
 
-                if (formvalu := sode.get('valu')) is None:
-                    continue
+                async for buid, sode in layer.getStorNodesByForm(formname):
 
-                formvalu = formvalu[0]
+                    if (formvalu := sode.get('valu')) is None:
+                        continue
 
-                try:
-                    form.type.norm(formvalu)
+                    formvalu = formvalu[0]
 
-                except s_exc.BadTypeValu:
-                    pass
+                    try:
+                        form.type.norm(formvalu)
 
-                else:
-                    continue
+                    except s_exc.BadTypeValu:
+                        pass
 
-                node = self.getNode(buid)
-                node['formvalu'] = formvalu
-                node['formname'] = formname
-                node['verdict'] = 'remove'
-                layers = list(node['layers'])
-                layers.append(layer.iden)
-                node['layers'] = layers
+                    else:
+                        continue
 
-                await self.nodes.set(buid, node)
+                    node = self.getNode(buid)
+                    node['formvalu'] = formvalu
+                    node['formname'] = formname
+                    node['verdict'] = 'remove'
+                    layers = list(node['layers'])
+                    layers.append(layer.iden)
+                    node['layers'] = layers
+
+                    await self.nodes.set(buid, node)
 
         invalid = len(self.nodes)
-        logger.info(f'Processing {invalid} invalid {formname} nodes in {len(self.layers)} layers')
+        logger.info(f'Processing {invalid} invalid {formstr} nodes in {len(self.layers)} layers')
 
         if invalid == 0:
             await self.todos.fini()
@@ -2458,6 +2461,7 @@ class ModelMigration_0_2_37(ModelMigrationBase):
             for buid, node in self.nodes.items():
                 await self._loadNode(layer, buid, node=node)
 
+                formname = node.get('formname')
                 formvalu = node.get('formvalu')
                 formndef = (formname, formvalu)
 
@@ -2480,10 +2484,10 @@ class ModelMigration_0_2_37(ModelMigrationBase):
 
                 await self.nodes.set(buid, node)
 
-        logger.info(f'Processing invalid {formname} node references (this may happen multiple times)')
+        logger.info(f'Processing invalid {formstr} node references (this may happen multiple times)')
         await self._collectReferences()
 
-        logger.info(f'Removing {invalid} invalid {formname} nodes')
+        logger.info(f'Removing {invalid} invalid {formstr} nodes')
 
         removed = 0
         for buid, node in self.nodes.items():
@@ -2491,18 +2495,18 @@ class ModelMigration_0_2_37(ModelMigrationBase):
             if node.get('verdict') != 'remove':
                 continue
 
-            logger.warning('Removing invalid node valu: %s=%s iden=%s', formname,
+            logger.warning('Removing invalid node valu: %s=%s iden=%s', node.get('formname'),
                            node.get('formvalu'), s_common.ehex(buid))
 
             await self.removeNode(buid)
 
             removed += 1
             if removed % 1000 == 0: # pragma: no cover
-                logger.info(f'Processed {removed} {formname} nodes')
+                logger.info(f'Processed {removed} {formstr} nodes')
 
         await self._flushEdits()
 
-        logger.info(f'Finished processing {formname} nodes: {removed} removed')
+        logger.info(f'Finished processing {formstr} nodes: {removed} removed')
 
         await self.todos.fini()
         await self.nodes.fini()

@@ -1,0 +1,9 @@
+---
+desc: Migrated ``econ:bank:aba:rtn``, ``econ:bank:iban`` and ``econ:bank:swift:bic``
+  nodes whose primary value is no longer valid. These types now anchor the end of
+  their patterns, so values with trailing characters are removed and recorded in the
+  ``model_0_2_37:nodes`` queue.
+desc:literal: false
+prs: []
+type: migration
+...
