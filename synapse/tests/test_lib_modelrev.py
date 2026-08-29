@@ -1666,7 +1666,7 @@ class ModelRevTest(s_tests.SynTest):
                     self.stormHasNoWarnErr(msgs)
 
                     # Repair node should be idempotent
-                    msgs = await core.stormlist(f'$lib.model.migration.s.model_0_2_31.repairNode(({cpeidx}), "{newcpe}", $lib.true)')
+                    msgs = await core.stormlist(f'$lib.model.migration.s.model_0_2_31.repairNode(({cpeidx}), "{newcpe}", (true))')
                     self.stormHasNoWarnErr(msgs)
 
                     nodes = await core.nodes('it:sec:cpe:vendor=openbsd +:version="8.2p1"', opts=infork00)
@@ -1738,7 +1738,7 @@ class ModelRevTest(s_tests.SynTest):
 
                     valu = ('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'))
                     iden = '81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d'
-                    q = f'$lib.model.migration.s.model_0_2_31.repairNode(({metaidx}), $valu, $lib.true)'
+                    q = f'$lib.model.migration.s.model_0_2_31.repairNode(({metaidx}), $valu, (true))'
 
                     opts = {'vars': {'iden': iden, 'valu': valu}}
                     msgs = await core.stormlist(q, opts=opts)
@@ -2148,6 +2148,8 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(badrtn, nodes[0].get('aba:rtn'))
             self.eq(badiban, nodes[0].get('iban'))
 
+            self.len(1, await core.nodes('meta:seen'))
+
         async with self.getRegrCore('model-0.2.37') as core:
 
             self.eq((0, 2, 37), await core.getLayer().getModelVers())
@@ -2183,28 +2185,91 @@ class ModelRevTest(s_tests.SynTest):
             self.len(0, await core.nodes('inet:fqdn=vertex.link <(refs)- *'))
 
             items = [item async for item in core.coreQueueGets('model_0_2_37:nodes', 0, cull=False, wait=False)]
-            self.len(6, items)
+            self.len(7, items)
 
-            byvalu = {item.get('formvalu'): item for _, item in items}
+            byvalu = {item.get('formvalu'): item for _, item in items
+                      if item.get('formname') != 'meta:seen'}
             self.sorteq((badbic, badiban, badrtn, forkbic, '123456789junk', 'TRWIBEB1XXXjunk'),
                         byvalu.keys())
             self.eq('econ:bank:swift:bic', byvalu.get(forkbic).get('formname'))
             self.eq('econ:bank:aba:rtn', byvalu.get(badrtn).get('formname'))
             self.eq('econ:bank:iban', byvalu.get(badiban).get('formname'))
 
-            # the account which referenced a removed value is recorded, along with
-            # the property which pointed at it, so an operator can repair it
+            # the referring node is recorded, along with the property which
+            # pointed at it, so an operator can repair it
             acctiden = s_common.ehex((await core.nodes('econ:bank:account'))[0].buid)
 
-            for valu, propname in ((badrtn, 'aba:rtn'), (badiban, 'iban')):
+            def refsof(valu):
                 reflists = list(byvalu.get(valu).get('refs').values())
                 self.len(1, reflists)
-                self.len(1, reflists[0])
-                (refiden, refinfo) = reflists[0][0]
-                self.eq(acctiden, refiden)
-                self.eq(('econ:bank:account', propname), refinfo[:2])
+                return {info[:2]: iden for (iden, info) in reflists[0]}
 
+            self.eq({('econ:bank:account', 'aba:rtn'): acctiden}, refsof(badrtn))
             self.eq({}, byvalu.get('123456789junk').get('refs'))
+
+            # meta:seen:node is a read-only ndef, so the meta:seen node referencing
+            # the invalid IBAN is removed along with it and queued under its own
+            # record rather than being left as a dangling reference
+            ibanrefs = refsof(badiban)
+            self.eq(acctiden, ibanrefs.get(('econ:bank:account', 'iban')))
+            self.isin(('meta:seen', 'node'), ibanrefs)
+
+            self.len(0, await core.nodes('meta:seen'))
+
+            seen = [item for _, item in items if item.get('formname') == 'meta:seen']
+            self.len(1, seen)
+            self.eq(('9e9a0e4d3e2b4b1e8f0a1c2d3e4f5a6b', ('econ:bank:iban', badiban)),
+                    seen[0].get('formvalu'))
+
+            # the cascade does not reach the source the meta:seen pointed at
+            self.len(1, await core.nodes('meta:source'))
+
+            # the queue filters by form, which a single form migration cannot use
+            q = '''
+                $ret = ([])
+                for $entry in $lib.model.migration.s.model_0_2_37.listNodes(form=econ:bank:aba:rtn) {
+                    $ret.append($entry)
+                }
+                return($ret)
+            '''
+            self.eq(((0, 'econ:bank:aba:rtn', badrtn, ()),
+                     (1, 'econ:bank:aba:rtn', '123456789junk', ())),
+                    await core.callStorm(q))
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_37.printNode((2))')
+            self.stormIsInPrint(f'econ:bank:iban={badiban!r}', msgs)
+            self.stormIsInPrint('econ:bank:account:iban', msgs)
+
+            # repairing re-creates the node and re-points the account which
+            # referenced it, which is the whole reason the refs are recorded
+            q = '$lib.model.migration.s.model_0_2_37.repairNode((0), "123456789", (true))'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint(f'Repairing node at offset 0 from {badrtn} -> 123456789', msgs)
+
+            self.sorteq(('123456789', '987654321'),
+                        [k.ndef[1] for k in await core.nodes('econ:bank:aba:rtn')])
+
+            nodes = await core.nodes('econ:bank:account')
+            self.len(1, nodes)
+            self.eq('123456789', nodes[0].get('aba:rtn'))
+            self.none(nodes[0].get('iban'))
+
+            items = [item async for item in core.coreQueueGets('model_0_2_37:nodes', 0, cull=False, wait=False)]
+            self.len(6, items)
+
+        # the helpers report cleanly on a Cortex which never had anything to migrate
+        async with self.getTestCore() as core:
+
+            msgs = await core.stormlist('''
+                for $entry in $lib.model.migration.s.model_0_2_37.listNodes() { $lib.print($entry) }
+            ''')
+            self.stormIsInPrint('Queue model_0_2_37:nodes not found, no nodes to list.', msgs)
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_37.printNode((0))')
+            self.stormIsInPrint('Queue model_0_2_37:nodes not found, no nodes to print.', msgs)
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_37.repairNode((0), newp)')
+            self.stormIsInPrint('Queue model_0_2_37:nodes not found, no nodes to repair.', msgs)
 
             # the quarantined record carries everything needed to rebuild the node
             item = byvalu.get(badbic)
