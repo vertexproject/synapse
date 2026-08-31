@@ -1635,8 +1635,8 @@ class ModelRevTest(s_tests.SynTest):
                               - _ext:model:form:cpe (iden: 16e3289346a258c3e3073affad490c1d6ebf1d01295aacc489cdb24658ebc6e7)
                               - inet:flow:dst:cpes (iden: 7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7)
                               - inet:flow:src:cpes (iden: 7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7)
-                              - meta:seen:node (iden: 81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d)
-                              - meta:seen:node (iden: 85bfc442d87a64a8e75d4ff2831281fb156317767612eef9b75c271ff162c4d9)
+                              - meta:seen:node (iden: 81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d) (read-only, repair separately)
+                              - meta:seen:node (iden: 85bfc442d87a64a8e75d4ff2831281fb156317767612eef9b75c271ff162c4d9) (read-only, repair separately)
                             layer: {fork00layr}
                               - risk:vulnerable:node (iden: 5fddf1b5fa06aa8a39a1eb297712cecf9ca146764c4d6e5c79296b9e9978d2c3)
                           edges:
@@ -1666,7 +1666,7 @@ class ModelRevTest(s_tests.SynTest):
                     self.stormHasNoWarnErr(msgs)
 
                     # Repair node should be idempotent
-                    msgs = await core.stormlist(f'$lib.model.migration.s.model_0_2_31.repairNode(({cpeidx}), "{newcpe}", (true))')
+                    msgs = await core.stormlist(f'$lib.model.migration.s.model_0_2_31.repairNode(({cpeidx}), "{newcpe}", $lib.true)')
                     self.stormHasNoWarnErr(msgs)
 
                     nodes = await core.nodes('it:sec:cpe:vendor=openbsd +:version="8.2p1"', opts=infork00)
@@ -1738,7 +1738,7 @@ class ModelRevTest(s_tests.SynTest):
 
                     valu = ('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'))
                     iden = '81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d'
-                    q = f'$lib.model.migration.s.model_0_2_31.repairNode(({metaidx}), $valu, (true))'
+                    q = f'$lib.model.migration.s.model_0_2_31.repairNode(({metaidx}), $valu, $lib.true)'
 
                     opts = {'vars': {'iden': iden, 'valu': valu}}
                     msgs = await core.stormlist(q, opts=opts)
@@ -2239,6 +2239,8 @@ class ModelRevTest(s_tests.SynTest):
             msgs = await core.stormlist('$lib.model.migration.s.model_0_2_37.printNode((2))')
             self.stormIsInPrint(f'econ:bank:iban={badiban!r}', msgs)
             self.stormIsInPrint('econ:bank:account:iban', msgs)
+            self.stormIsInPrint('meta:seen:node', msgs)
+            self.stormIsInPrint('(read-only, repair separately)', msgs)
 
             # repairing re-creates the node and re-points the account which
             # referenced it, which is the whole reason the refs are recorded
@@ -2275,11 +2277,26 @@ class ModelRevTest(s_tests.SynTest):
             item = byvalu.get(badbic)
             self.eq('econ:bank:swift:bic', item.get('formname'))
 
-            sodes = list(item.get('sodes').values())
-            self.len(1, sodes)
-            self.sorteq(('business', 'office'), sodes[0].get('props').keys())
-            self.isin('some.tag', sodes[0].get('tags'))
+            # the node has data in the base layer and in the fork's own layer, so
+            # the record carries a sode and nodedata for each. The fork layer holds
+            # no primary value for it, which is why the migration tolerates a sode
+            # without one.
+            sodes = item.get('sodes')
+            self.len(2, sodes)
 
-            self.eq((('woot', 'hehe'),), list(item.get('nodedata').values())[0])
+            props, tags = {}, {}
+            for sode in sodes.values():
+                props.update(sode.get('props') or {})
+                tags.update(sode.get('tags') or {})
+
+            self.sorteq(('business', 'office'), props.keys())
+            self.isin('some.tag', tags)
+            self.isin('fork.only', tags)
+
+            nodedata = {}
+            for pairs in item.get('nodedata').values():
+                nodedata.update(dict(pairs))
+
+            self.eq({'woot': 'hehe', 'forkdata': 'yep'}, nodedata)
             self.eq((('refs', s_common.ehex(s_common.buid(('inet:fqdn', 'vertex.link')))),),
                     list(item.get('n1edges').values())[0])

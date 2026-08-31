@@ -1336,8 +1336,13 @@ class LibModelMigrationsQueue(s_stormtypes.Lib):
             for layriden, reflist in noderefs.items():
                 await self.runt.printf(f'    layer: {layriden}')
                 for iden, refinfo in reflist:
-                    form, prop, *_ = refinfo
-                    await self.runt.printf(f'      - {form}:{prop} (iden: {iden})')
+                    form, prop, _, _, isro = refinfo
+                    mesg = f'      - {form}:{prop} (iden: {iden})'
+                    if isro:
+                        # repairNode() cannot re-point a read-only property, so the
+                        # referring node was removed and queued under its own entry.
+                        mesg += ' (read-only, repair separately)'
+                    await self.runt.printf(mesg)
 
         n1edges = node['n1edges']
         n2edges = node['n2edges']
