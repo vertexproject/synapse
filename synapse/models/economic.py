@@ -506,6 +506,9 @@ class EconModule(s_module.CoreModule):
                     ('aba:rtn', ('econ:bank:aba:rtn', {}), {
                         'doc': 'The ABA routing transit number for the bank which issued the account.'}),
 
+                    ('swift:bic', ('econ:bank:swift:bic', {}), {
+                        'doc': 'The SWIFT BIC for the bank which issued the account.'}),
+
                     ('number', ('str', {'regex': '[0-9]+'}), {
                         'doc': 'The account number.'}),
 

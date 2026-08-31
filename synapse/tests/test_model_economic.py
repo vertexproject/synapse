@@ -297,6 +297,7 @@ class EconTest(s_utils.SynTest):
                     :number=1234
                     :type=checking
                     :aba:rtn=123456789
+                    :swift:bic=DEUTDEFFXXX
                     :iban=VV09WootWoot
                     :issuer={ gen.ou.org "bank of visi" }
                     :issuer:name="bank of visi"
@@ -313,10 +314,12 @@ class EconTest(s_utils.SynTest):
             self.eq('usd', nodes[0].get('currency'))
             self.eq('checking.', nodes[0].get('type'))
             self.eq('VV09WootWoot', nodes[0].get('iban'))
+            self.eq('DEUTDEFFXXX', nodes[0].get('swift:bic'))
             self.eq('bank of visi', nodes[0].get('issuer:name'))
             self.len(1, await core.nodes('econ:bank:account -> ou:org'))
             self.len(1, await core.nodes('econ:bank:account -> ou:name'))
             self.len(1, await core.nodes('econ:bank:account -> econ:bank:aba:rtn'))
+            self.len(1, await core.nodes('econ:bank:account -> econ:bank:swift:bic'))
             self.len(1, await core.nodes('econ:bank:account -> econ:bank:balance'))
             self.len(1, await core.nodes('econ:bank:account -> ps:contact +:name=visi'))
             self.len(1, await core.nodes('econ:bank:account -> econ:bank:account:type:taxonomy'))
