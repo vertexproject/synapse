@@ -1428,13 +1428,13 @@ class ModelMigrationBase:
 
     def getNode(self, buid):
         node = self.nodes.get(buid, {})
-        if not node:
-            node.setdefault('refs', {})
-            node.setdefault('sodes', {})
-            node.setdefault('layers', [])
-            node.setdefault('n1edges', {})
-            node.setdefault('n2edges', {})
-            node.setdefault('nodedata', {})
+        # unconditional: editNodeAdd() can store a node with only some of these
+        node.setdefault('refs', {})
+        node.setdefault('sodes', {})
+        node.setdefault('layers', [])
+        node.setdefault('n1edges', {})
+        node.setdefault('n2edges', {})
+        node.setdefault('nodedata', {})
         return node
 
     async def _loadNode(self, layer, buid, node=None):
@@ -2020,14 +2020,14 @@ class ModelMigration_0_2_31(ModelMigrationBase):
 
     def getNode(self, buid):
         node = self.nodes.get(buid, {})
-        if not node:
-            node.setdefault('refs', {})
-            node.setdefault('sodes', {})
-            node.setdefault('layers', [])
-            node.setdefault('n1edges', {})
-            node.setdefault('n2edges', {})
-            node.setdefault('verdict', None)
-            node.setdefault('nodedata', {})
+        # unconditional: editNodeAdd() can store a node with only some of these
+        node.setdefault('refs', {})
+        node.setdefault('sodes', {})
+        node.setdefault('layers', [])
+        node.setdefault('n1edges', {})
+        node.setdefault('n2edges', {})
+        node.setdefault('verdict', None)
+        node.setdefault('nodedata', {})
         return node
 
     def _prepareStoreItem(self, item):
@@ -2395,14 +2395,14 @@ class ModelMigration_0_2_37(ModelMigrationBase):
 
     def getNode(self, buid):
         node = self.nodes.get(buid, {})
-        if not node:
-            node.setdefault('refs', {})
-            node.setdefault('sodes', {})
-            node.setdefault('layers', [])
-            node.setdefault('n1edges', {})
-            node.setdefault('n2edges', {})
-            node.setdefault('verdict', None)
-            node.setdefault('nodedata', {})
+        # unconditional: editNodeAdd() can store a node with only some of these
+        node.setdefault('refs', {})
+        node.setdefault('sodes', {})
+        node.setdefault('layers', [])
+        node.setdefault('n1edges', {})
+        node.setdefault('n2edges', {})
+        node.setdefault('verdict', None)
+        node.setdefault('nodedata', {})
         return node
 
     def _prepareStoreItem(self, item):
