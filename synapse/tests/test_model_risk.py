@@ -107,7 +107,15 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(node.get('reporter'))
 
             self.len(1, await core.nodes('risk:attack -> risk:attacktype'))
+
+            # :actor is an entity:actor ndef, so any of its forms may be the attacker
+            self.eq('risk:threat', node.get('actor')[0])
             self.len(1, await core.nodes('risk:attack :actor -> risk:threat +:name=vtx-scammer'))
+
+            nodes = await core.nodes('[ risk:attack=* :actor={ gen.ou.org "acme corp" } ]')
+            self.len(1, nodes)
+            self.eq('ou:org', nodes[0].get('actor')[0])
+            self.len(1, await core.nodes('risk:attack:actor -> ou:org +:name="acme corp"'))
 
             node = await addNode(f'''[
                 risk:vuln={vuln}

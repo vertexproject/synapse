@@ -1016,8 +1016,8 @@ class RiskModule(s_module.CoreModule):
                     ('prev', ('risk:attack', {}), {
                         'doc': 'The previous/parent attack in a list or hierarchy.'}),
 
-                    ('actor', ('risk:threat', {}), {
-                        'doc': 'The threat cluster which conducted the attack.'}),
+                    ('actor', ('entity:actor', {}), {
+                        'doc': 'The actor which conducted the attack.'}),
 
                     ('actor:org', ('ou:org', {}), {
                         'deprecated': True,
