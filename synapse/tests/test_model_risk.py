@@ -433,8 +433,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :merged:time = 20230111
                     :merged:isnow = {[ risk:threat=* ]}
                     :mitre:attack:group=G0001
-                    :ext:id=" CYBERA-001 "
-                    :ext:ids=(" CYBERA-003 ", " CYBERA-002 ")
+                    :ext:id=" REPORT-001 "
+                    :ext:ids=(" REPORT-003 ", " REPORT-002 ")
                 ]
             ''')
             self.len(1, nodes)
@@ -458,8 +458,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(1643673600000, nodes[0].get('reporter:discovered'))
             self.eq(1675209600000, nodes[0].get('reporter:published'))
             self.eq('G0001', nodes[0].get('mitre:attack:group'))
-            self.eq('CYBERA-001', nodes[0].get('ext:id'))
-            self.eq(('CYBERA-002', 'CYBERA-003'), nodes[0].get('ext:ids'))
+            self.eq('REPORT-001', nodes[0].get('ext:id'))
+            self.eq(('REPORT-002', 'REPORT-003'), nodes[0].get('ext:ids'))
 
             self.len(1, nodes[0].get('goals'))
             self.len(1, nodes[0].get('techniques'))
@@ -472,7 +472,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, nodes := await core.nodes('[ risk:threat=({"org:name": "comment crew"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
 
-            self.len(1, nodes := await core.nodes('[ risk:threat=({"ext:id": "CYBERA-002"}) ]'))
+            self.len(1, nodes := await core.nodes('[ risk:threat=({"ext:id": "REPORT-002"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
 
             nodes = await core.nodes('''[ risk:leak=*
