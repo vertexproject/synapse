@@ -6,6 +6,42 @@
 Synapse Changelog
 *****************
 
+v2.251.0 - 2026-09-02
+=====================
+
+Automatic Migrations
+--------------------
+- Migrated ``econ:bank:aba:rtn``, ``econ:bank:iban`` and
+  ``econ:bank:swift:bic`` nodes whose primary value is no longer valid. These
+  types now anchor the end of their patterns, so values with trailing
+  characters are removed, along with any read-only node referencing them, and
+  the ``econ:bank:account:aba:rtn`` and ``econ:bank:account:iban`` properties
+  which pointed at them are cleared. Each removed node is recorded in the
+  ``model_0_2_37:nodes`` queue and may be restored with
+  ``$lib.model.migration.s.model_0_2_37.repairNode()``.
+  (`#5008 <https://github.com/vertexproject/synapse/pull/5008>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_251_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added a new Storm API, ``$lib.model.migration.fuse()``, to merge one node
+  into another node of the same form and delete the source node. This requires
+  global admin permissions and operates on the entire Cortex.
+  (`#4948 <https://github.com/vertexproject/synapse/pull/4948>`_)
+- Added the ``$lib.model.migration.s.model_0_2_37`` Storm library to list,
+  print and repair nodes quarantined by the 0.2.37 model migration.
+  (`#5008 <https://github.com/vertexproject/synapse/pull/5008>`_)
+
+Bugfixes
+--------
+- Fixed a bug in ``synapse.tools.cortex.layer.dump`` where exporting a chunk
+  containing a single node edit recorded an incorrect ending offset.
+  (`#5007 <https://github.com/vertexproject/synapse/pull/5007>`_)
+
 v2.250.0 - 2026-08-21
 =====================
 
