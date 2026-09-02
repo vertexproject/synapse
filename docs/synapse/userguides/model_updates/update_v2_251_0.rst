@@ -39,27 +39,18 @@ Updated Types
 *************
 
 ``econ:bank:aba:rtn``
-  The type has been modified from {'enums': None, 'globsuffix': False, 'lower':
-  False, 'onespace': False, 'regex': '[0-9]{9}', 'replace': [], 'strip': False}
-  to {'enums': None, 'globsuffix': False, 'lower': False, 'onespace': False,
-  'regex': '^[0-9]{9}$', 'replace': [], 'strip': False}.
+  The regex for the type has been modified from ``[0-9]{9}`` to
+  ``^[0-9]{9}$``.
 
 
 ``econ:bank:iban``
-  The type has been modified from {'enums': None, 'globsuffix': False, 'lower':
-  False, 'onespace': False, 'regex': '[A-Z]{2}[0-9]{2}[a-zA-Z0-9]{1,30}',
-  'replace': [], 'strip': False} to {'enums': None, 'globsuffix': False,
-  'lower': False, 'onespace': False, 'regex':
-  '^[A-Z]{2}[0-9]{2}[a-zA-Z0-9]{1,30}$', 'replace': [], 'strip': False}.
-
+  The regex for the type has been modified from
+  ``[A-Z]{2}[0-9]{2}[a-zA-Z0-9]{1,30}`` to
+  ``^[A-Z]{2}[0-9]{2}[a-zA-Z0-9]{1,30}$``.
 
 ``econ:bank:swift:bic``
-  The type has been modified from {'enums': None, 'globsuffix': False, 'lower':
-  False, 'onespace': False, 'regex': '[A-Z]{6}[A-Z0-9]{5}', 'replace': [],
-  'strip': False} to {'enums': None, 'globsuffix': False, 'lower': False,
-  'onespace': False, 'regex': '^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$', 'replace':
-  [], 'strip': False}.
-
+  The regex for the type has been modified from ``[A-Z]{6}[A-Z0-9]{5}``
+  to ``^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$``.
 
 
 ******************
