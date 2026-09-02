@@ -297,6 +297,7 @@ class EconTest(s_utils.SynTest):
                     :number=1234
                     :type=checking
                     :aba:rtn=123456789
+                    :swift:bic=DEUTDEFFXXX
                     :iban=VV09WootWoot
                     :issuer={ gen.ou.org "bank of visi" }
                     :issuer:name="bank of visi"
@@ -313,10 +314,12 @@ class EconTest(s_utils.SynTest):
             self.eq('usd', nodes[0].get('currency'))
             self.eq('checking.', nodes[0].get('type'))
             self.eq('VV09WootWoot', nodes[0].get('iban'))
+            self.eq('DEUTDEFFXXX', nodes[0].get('swift:bic'))
             self.eq('bank of visi', nodes[0].get('issuer:name'))
             self.len(1, await core.nodes('econ:bank:account -> ou:org'))
             self.len(1, await core.nodes('econ:bank:account -> ou:name'))
             self.len(1, await core.nodes('econ:bank:account -> econ:bank:aba:rtn'))
+            self.len(1, await core.nodes('econ:bank:account -> econ:bank:swift:bic'))
             self.len(1, await core.nodes('econ:bank:account -> econ:bank:balance'))
             self.len(1, await core.nodes('econ:bank:account -> ps:contact +:name=visi'))
             self.len(1, await core.nodes('econ:bank:account -> econ:bank:account:type:taxonomy'))
@@ -329,6 +332,23 @@ class EconTest(s_utils.SynTest):
             self.len(1, nodes)
             self.len(1, await core.nodes('econ:bank:swift:bic -> ou:org +:name="deutsche bank"'))
             self.len(1, await core.nodes('econ:bank:swift:bic -> ps:contact'))
+
+            # the 8 character head-office form of a BIC is valid
+            nodes = await core.nodes('[ econ:bank:swift:bic=TRWIBEB1 ]')
+            self.len(1, nodes)
+            self.eq(('econ:bank:swift:bic', 'TRWIBEB1'), nodes[0].ndef)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:swift:bic=DEUTDEF ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:swift:bic=DEUTDEFFX ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:swift:bic=DEUTDEFFXX ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:swift:bic=DEUTDEFFXXXXX ]')
 
             nodes = await core.nodes('''[
                 econ:bank:balance=*
@@ -362,6 +382,18 @@ class EconTest(s_utils.SynTest):
             self.len(1, nodes)
             self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> ou:name'))
             self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> ou:org +:name="deutsche bank"'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:aba:rtn=1234567890 ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:aba:rtn=123456789junk ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ econ:bank:iban=GB29NWBK60161331926819!! ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(f'[ econ:bank:iban=AB12{"x" * 31} ]')
 
             nodes = await core.nodes('''[
                 econ:acct:receipt=*

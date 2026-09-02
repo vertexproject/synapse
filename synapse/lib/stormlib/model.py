@@ -1212,11 +1212,14 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
         return retidens
 
-@s_stormtypes.registry.registerLib
-class LibModelMigrations_0_2_31(s_stormtypes.Lib):
+class LibModelMigrationsQueue(s_stormtypes.Lib):
     '''
-    A Storm library with helper functions for the 0.2.31 model it:sec:cpe migration.
+    Base class for the model migration queue helper libraries.
+
+    Subclasses set ``queuename`` to select which migration queue they operate on.
     '''
+    queuename = None
+
     _storm_locals = (
         {'name': 'listNodes', 'desc': 'Yield queued nodes.',
          'type': {'type': 'function', '_funcname': '_methListNodes',
@@ -1248,7 +1251,6 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'dict', 'desc': 'The queue node information'}}},
     )
-    _storm_lib_path = ('model', 'migration', 's', 'model_0_2_31')
 
     def getObjLocals(self):
         return {
@@ -1264,17 +1266,17 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
         except s_exc.NoSuchName:
             return False
 
-    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
+    async def _implListNodes(self, form=None, source=None, offset=0, size=None):
         form = await s_stormtypes.tostr(form, noneok=True)
         source = await s_stormtypes.tostr(source, noneok=True)
         offset = await s_stormtypes.toint(offset)
         size = await s_stormtypes.toint(size, noneok=True)
 
-        if not await self._hasCoreQueue('model_0_2_31:nodes'):
-            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to list.')
+        if not await self._hasCoreQueue(self.queuename):
+            await self.runt.printf(f'Queue {self.queuename} not found, no nodes to list.')
             return
 
-        nodes = self.runt.snap.core.coreQueueGets('model_0_2_31:nodes', offs=offset, cull=False, size=size)
+        nodes = self.runt.snap.core.coreQueueGets(self.queuename, offs=offset, cull=False, size=size)
         async for offs, node in nodes:
             if form is not None and node['formname'] != form:
                 continue
@@ -1284,14 +1286,14 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
             yield (offs, node['formname'], node['formvalu'], node['sources'])
 
-    async def _methPrintNode(self, offset):
+    async def _implPrintNode(self, offset):
         offset = await s_stormtypes.toint(offset)
 
-        if not await self._hasCoreQueue('model_0_2_31:nodes'):
-            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to print.')
+        if not await self._hasCoreQueue(self.queuename):
+            await self.runt.printf(f'Queue {self.queuename} not found, no nodes to print.')
             return
 
-        node = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes', offs=offset, cull=False)
+        node = await self.runt.snap.core.coreQueueGet(self.queuename, offs=offset, cull=False)
         if not node:
             await self.runt.warn(f'Queued node with offset {offset} not found.')
             return
@@ -1334,8 +1336,13 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
             for layriden, reflist in noderefs.items():
                 await self.runt.printf(f'    layer: {layriden}')
                 for iden, refinfo in reflist:
-                    form, prop, *_ = refinfo
-                    await self.runt.printf(f'      - {form}:{prop} (iden: {iden})')
+                    form, prop, _, _, isro = refinfo
+                    mesg = f'      - {form}:{prop} (iden: {iden})'
+                    if isro:
+                        # repairNode() cannot re-point a read-only property, so the
+                        # referring node was removed and queued under its own entry.
+                        mesg += ' (read-only, repair separately)'
+                    await self.runt.printf(mesg)
 
         n1edges = node['n1edges']
         n2edges = node['n2edges']
@@ -1352,7 +1359,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                 await self.runt.printf(f'    <({verb})- {iden}')
 
     async def _repairNode(self, offset, newvalu):
-        item = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes', offset, cull=False)
+        item = await self.runt.snap.core.coreQueueGet(self.queuename, offset, cull=False)
         if item is None:
             await self.runt.warn(f'Queued node with offset {offset} not found.')
             return False
@@ -1512,11 +1519,11 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         return True
 
-    async def _methRepairNode(self, offset, newvalu, remove=False):
+    async def _implRepairNode(self, offset, newvalu, remove=False):
         ok = False
 
-        if not await self._hasCoreQueue('model_0_2_31:nodes'):
-            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to repair.')
+        if not await self._hasCoreQueue(self.queuename):
+            await self.runt.printf(f'Queue {self.queuename} not found, no nodes to repair.')
             return False
 
         try:
@@ -1527,6 +1534,43 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         if ok and remove:
             await self.runt.printf(f'Removing queued node: {offset}.')
-            await self.runt.snap.core.coreQueuePop('model_0_2_31:nodes', offset)
+            await self.runt.snap.core.coreQueuePop(self.queuename, offset)
 
         return ok
+
+
+@s_stormtypes.registry.registerLib
+class LibModelMigrations_0_2_31(LibModelMigrationsQueue):
+    '''
+    A Storm library with helper functions for the 0.2.31 model it:sec:cpe migration.
+    '''
+    queuename = 'model_0_2_31:nodes'
+    _storm_lib_path = ('model', 'migration', 's', 'model_0_2_31')
+
+    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
+        async for item in self._implListNodes(form=form, source=source, offset=offset, size=size):
+            yield item
+
+    async def _methPrintNode(self, offset):
+        return await self._implPrintNode(offset)
+
+    async def _methRepairNode(self, offset, newvalu, remove=False):
+        return await self._implRepairNode(offset, newvalu, remove=remove)
+
+@s_stormtypes.registry.registerLib
+class LibModelMigrations_0_2_37(LibModelMigrationsQueue):
+    '''
+    A Storm library with helper functions for the 0.2.37 model bank identifier migration.
+    '''
+    queuename = 'model_0_2_37:nodes'
+    _storm_lib_path = ('model', 'migration', 's', 'model_0_2_37')
+
+    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
+        async for item in self._implListNodes(form=form, source=source, offset=offset, size=size):
+            yield item
+
+    async def _methPrintNode(self, offset):
+        return await self._implPrintNode(offset)
+
+    async def _methRepairNode(self, offset, newvalu, remove=False):
+        return await self._implRepairNode(offset, newvalu, remove=remove)

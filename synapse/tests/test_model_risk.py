@@ -45,6 +45,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :desc=wootwoot
                     :campaign={camp}
                     :prev={attk}
+                    :actor={{[ risk:threat=* :name=vtx-scammer ]}}
                     :actor:org={org0}
                     :actor:person={pers}
                     :target = *
@@ -98,6 +99,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('severity'), 10)
             self.eq(node.get('url'), 'https://vertex.link/attacks/CASE-2022-03')
             self.eq(node.get('ext:id'), 'CASE-2022-03')
+            self.nn(node.get('actor'))
             self.nn(node.get('used:file'))
             self.nn(node.get('goal'))
             self.nn(node.get('target'))
@@ -105,6 +107,15 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(node.get('reporter'))
 
             self.len(1, await core.nodes('risk:attack -> risk:attacktype'))
+
+            # :actor is an entity:actor ndef, so any of its forms may be the attacker
+            self.eq('risk:threat', node.get('actor')[0])
+            self.len(1, await core.nodes('risk:attack :actor -> risk:threat +:name=vtx-scammer'))
+
+            nodes = await core.nodes('[ risk:attack=* :actor={ gen.ou.org "acme corp" } ]')
+            self.len(1, nodes)
+            self.eq('ou:org', nodes[0].get('actor')[0])
+            self.len(1, await core.nodes('risk:attack:actor -> ou:org +:name="acme corp"'))
 
             node = await addNode(f'''[
                 risk:vuln={vuln}
@@ -430,6 +441,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :merged:time = 20230111
                     :merged:isnow = {[ risk:threat=* ]}
                     :mitre:attack:group=G0001
+                    :ext:id=" REPORT-001 "
+                    :ext:ids=(" REPORT-003 ", " REPORT-002 ")
                 ]
             ''')
             self.len(1, nodes)
@@ -453,6 +466,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(1643673600000, nodes[0].get('reporter:discovered'))
             self.eq(1675209600000, nodes[0].get('reporter:published'))
             self.eq('G0001', nodes[0].get('mitre:attack:group'))
+            self.eq('REPORT-001', nodes[0].get('ext:id'))
+            self.eq(('REPORT-002', 'REPORT-003'), nodes[0].get('ext:ids'))
 
             self.len(1, nodes[0].get('goals'))
             self.len(1, nodes[0].get('techniques'))
@@ -463,6 +478,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:threat:name=vtx-apt1 -(uses)> inet:service:platform'))
 
             self.len(1, nodes := await core.nodes('[ risk:threat=({"org:name": "comment crew"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
+
+            self.len(1, nodes := await core.nodes('[ risk:threat=({"ext:id": "REPORT-002"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
 
             nodes = await core.nodes('''[ risk:leak=*

@@ -1,0 +1,11 @@
+---
+desc: Migrated ``econ:bank:aba:rtn``, ``econ:bank:iban`` and ``econ:bank:swift:bic``
+  nodes whose primary value is no longer valid. These types now anchor the end of
+  their patterns, so values with trailing characters are removed, along with any read-only
+  node referencing them, and the ``econ:bank:account:aba:rtn`` and ``econ:bank:account:iban``
+  properties which pointed at them are cleared. Each removed node is recorded in the
+  ``model_0_2_37:nodes`` queue and may be restored with ``$lib.model.migration.s.model_0_2_37.repairNode()``.
+desc:literal: false
+prs: []
+type: migration
+...

@@ -16,7 +16,7 @@ import synapse.models.infotech as s_infotech
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 36)
+maxvers = (0, 2, 37)
 
 class ModelRev:
 
@@ -58,6 +58,7 @@ class ModelRev:
             ((0, 2, 34), self.revModel_0_2_34),
             ((0, 2, 35), self.revModel_0_2_35),
             ((0, 2, 36), self.revModel_0_2_36),
+            ((0, 2, 37), self.revModel_0_2_37),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -841,6 +842,10 @@ class ModelRev:
     async def revModel_0_2_36(self, layers):
         await self._typeToForm(layers, 'econ:pay:pan', 'econ:pay:pan')
 
+    async def revModel_0_2_37(self, layers):
+        migr = await ModelMigration_0_2_37.anit(self.core, layers)
+        await migr.revModel_0_2_37()
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -1423,13 +1428,13 @@ class ModelMigrationBase:
 
     def getNode(self, buid):
         node = self.nodes.get(buid, {})
-        if not node:
-            node.setdefault('refs', {})
-            node.setdefault('sodes', {})
-            node.setdefault('layers', [])
-            node.setdefault('n1edges', {})
-            node.setdefault('n2edges', {})
-            node.setdefault('nodedata', {})
+        # unconditional: editNodeAdd() can store a node with only some of these
+        node.setdefault('refs', {})
+        node.setdefault('sodes', {})
+        node.setdefault('layers', [])
+        node.setdefault('n1edges', {})
+        node.setdefault('n2edges', {})
+        node.setdefault('nodedata', {})
         return node
 
     async def _loadNode(self, layer, buid, node=None):
@@ -2015,14 +2020,14 @@ class ModelMigration_0_2_31(ModelMigrationBase):
 
     def getNode(self, buid):
         node = self.nodes.get(buid, {})
-        if not node:
-            node.setdefault('refs', {})
-            node.setdefault('sodes', {})
-            node.setdefault('layers', [])
-            node.setdefault('n1edges', {})
-            node.setdefault('n2edges', {})
-            node.setdefault('verdict', None)
-            node.setdefault('nodedata', {})
+        # unconditional: editNodeAdd() can store a node with only some of these
+        node.setdefault('refs', {})
+        node.setdefault('sodes', {})
+        node.setdefault('layers', [])
+        node.setdefault('n1edges', {})
+        node.setdefault('n2edges', {})
+        node.setdefault('verdict', None)
+        node.setdefault('nodedata', {})
         return node
 
     def _prepareStoreItem(self, item):
@@ -2383,3 +2388,125 @@ class ModelMigration_0_2_35(ModelMigrationBase):
         await self._flushEdits()
 
         logger.info(f'Finished processing bare IPv6 address nodes: {migrated} migrated, {removed} removed')
+
+class ModelMigration_0_2_37(ModelMigrationBase):
+
+    queuename = 'model_0_2_37:nodes'
+
+    def getNode(self, buid):
+        node = self.nodes.get(buid, {})
+        # unconditional: editNodeAdd() can store a node with only some of these
+        node.setdefault('refs', {})
+        node.setdefault('sodes', {})
+        node.setdefault('layers', [])
+        node.setdefault('n1edges', {})
+        node.setdefault('n2edges', {})
+        node.setdefault('verdict', None)
+        node.setdefault('nodedata', {})
+        return node
+
+    def _prepareStoreItem(self, item):
+        item.pop('verdict', None)
+
+    async def revModel_0_2_37(self):
+
+        formnames = ('econ:bank:aba:rtn', 'econ:bank:iban', 'econ:bank:swift:bic')
+        formstr = ','.join(formnames)
+
+        logger.info(f'Collecting invalid {formstr} nodes in {len(self.layers)} layers')
+
+        for formname in formnames:
+            form = self.core.model.form(formname)
+
+            for idx, layer in enumerate(self.layers):
+                logger.debug('Scanning %s nodes in layer %s %s', formname, idx, layer.iden)
+
+                async for buid, sode in layer.getStorNodesByForm(formname):
+
+                    if (formvalu := sode.get('valu')) is None:
+                        continue
+
+                    formvalu = formvalu[0]
+
+                    try:
+                        form.type.norm(formvalu)
+
+                    except s_exc.BadTypeValu:
+                        pass
+
+                    else:
+                        continue
+
+                    node = self.getNode(buid)
+                    node['formvalu'] = formvalu
+                    node['formname'] = formname
+                    node['verdict'] = 'remove'
+                    layers = list(node['layers'])
+                    layers.append(layer.iden)
+                    node['layers'] = layers
+
+                    await self.nodes.set(buid, node)
+
+        invalid = len(self.nodes)
+        logger.info(f'Processing {invalid} invalid {formstr} nodes in {len(self.layers)} layers')
+
+        if invalid == 0:
+            await self.todos.fini()
+            await self.nodes.fini()
+            return
+
+        for idx, layer in enumerate(self.layers):
+            logger.debug('Processing nodes in layer %s %s', idx, layer.iden)
+
+            for buid, node in self.nodes.items():
+                await self._loadNode(layer, buid, node=node)
+
+                formname = node.get('formname')
+                formvalu = node.get('formvalu')
+                formndef = (formname, formvalu)
+
+                refs = node['refs'].get(layer.iden, [])
+
+                for refinfo in self.getRefInfo(formname):
+                    (refform, refprop, reftype, isarray, isro) = refinfo
+
+                    if reftype == 'ndef':
+                        propvalu = formndef
+                    else:
+                        propvalu = formvalu
+
+                    async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
+                        refs.append((s_common.ehex(refbuid), refinfo))
+                        await self.todos.add(('getvalu', (refbuid, True)))
+
+                if refs:
+                    node['refs'][layer.iden] = refs
+
+                await self.nodes.set(buid, node)
+
+        logger.info(f'Processing invalid {formstr} node references (this may happen multiple times)')
+        await self._collectReferences()
+
+        logger.info(f'Removing {invalid} invalid {formstr} nodes')
+
+        removed = 0
+        for buid, node in self.nodes.items():
+
+            if node.get('verdict') != 'remove':
+                continue
+
+            logger.warning('Removing invalid node valu: %s=%s iden=%s', node.get('formname'),
+                           node.get('formvalu'), s_common.ehex(buid))
+
+            await self.removeNode(buid)
+
+            removed += 1
+            if removed % 1000 == 0: # pragma: no cover
+                logger.info(f'Processed {removed} {formstr} nodes')
+
+        await self._flushEdits()
+
+        logger.info(f'Finished processing {formstr} nodes: {removed} removed')
+
+        await self.todos.fini()
+        await self.nodes.fini()

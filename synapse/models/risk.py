@@ -380,7 +380,11 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A mapping to a MITRE ATT&CK group if applicable.'}),
 
                     ('ext:id', ('str', {'strip': True}), {
+                        'alts': ('ext:ids',),
                         'doc': 'An external identifier for the threat.'}),
+
+                    ('ext:ids', ('array', {'type': 'str', 'uniq': True, 'sorted': True, 'typeopts': {'strip': True}}), {
+                        'doc': 'An array of alternate external identifiers for the threat.'}),
                 )),
                 ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
@@ -1011,6 +1015,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('prev', ('risk:attack', {}), {
                         'doc': 'The previous/parent attack in a list or hierarchy.'}),
+
+                    ('actor', ('entity:actor', {}), {
+                        'doc': 'The actor which conducted the attack.'}),
 
                     ('actor:org', ('ou:org', {}), {
                         'deprecated': True,

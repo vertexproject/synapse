@@ -1635,8 +1635,8 @@ class ModelRevTest(s_tests.SynTest):
                               - _ext:model:form:cpe (iden: 16e3289346a258c3e3073affad490c1d6ebf1d01295aacc489cdb24658ebc6e7)
                               - inet:flow:dst:cpes (iden: 7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7)
                               - inet:flow:src:cpes (iden: 7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7)
-                              - meta:seen:node (iden: 81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d)
-                              - meta:seen:node (iden: 85bfc442d87a64a8e75d4ff2831281fb156317767612eef9b75c271ff162c4d9)
+                              - meta:seen:node (iden: 81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d) (read-only, repair separately)
+                              - meta:seen:node (iden: 85bfc442d87a64a8e75d4ff2831281fb156317767612eef9b75c271ff162c4d9) (read-only, repair separately)
                             layer: {fork00layr}
                               - risk:vulnerable:node (iden: 5fddf1b5fa06aa8a39a1eb297712cecf9ca146764c4d6e5c79296b9e9978d2c3)
                           edges:
@@ -2115,3 +2115,188 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq(4, nodes[0].get('mii'))
             self.eq(402400, nodes[0].get('iin'))
+
+    async def test_modelrev_0_2_37(self):
+
+        badbic = 'DEUTDEFFXXXXX'
+        forkbic = 'BNPAFRPPXXXjunk'
+        badrtn = '1234567890'
+        badiban = 'GB29NWBK60161331926819!!'
+
+        # the pre-migration regexes were anchored only at the start, so they
+        # accepted trailing characters after an otherwise valid value.
+        async with self.getRegrCore('model-0.2.37', maxvers=(0, 2, 36)) as core:
+
+            views = {view.info.get('name'): view for view in core.listViews()}
+            self.len(2, views)
+            infork = {'view': views.get('fork00').iden}
+
+            self.sorteq(('DEUTDEFFXXX', badbic, 'TRWIBEB1XXXjunk'),
+                        [k.ndef[1] for k in await core.nodes('econ:bank:swift:bic')])
+
+            self.sorteq(('DEUTDEFFXXX', badbic, forkbic, 'TRWIBEB1XXXjunk'),
+                        [k.ndef[1] for k in await core.nodes('econ:bank:swift:bic', opts=infork)])
+
+            self.sorteq(('123456789junk', '987654321', badrtn),
+                        [k.ndef[1] for k in await core.nodes('econ:bank:aba:rtn')])
+
+            self.sorteq(('VV09WootWoot', badiban),
+                        [k.ndef[1] for k in await core.nodes('econ:bank:iban')])
+
+            nodes = await core.nodes('econ:bank:account')
+            self.len(1, nodes)
+            self.eq(badrtn, nodes[0].get('aba:rtn'))
+            self.eq(badiban, nodes[0].get('iban'))
+
+            self.len(1, await core.nodes('meta:seen'))
+
+        async with self.getRegrCore('model-0.2.37') as core:
+
+            self.eq((0, 2, 37), await core.getLayer().getModelVers())
+
+            views = {view.info.get('name'): view for view in core.listViews()}
+            infork = {'view': views.get('fork00').iden}
+
+            nodes = await core.nodes('econ:bank:swift:bic')
+            self.eq([('econ:bank:swift:bic', 'DEUTDEFFXXX')], [k.ndef for k in nodes])
+            self.nn(nodes[0].get('business'))
+
+            # the invalid BIC in the forked view is migrated out of its own layer
+            self.eq([('econ:bank:swift:bic', 'DEUTDEFFXXX')],
+                    [k.ndef for k in await core.nodes('econ:bank:swift:bic', opts=infork)])
+
+            self.eq([('econ:bank:aba:rtn', '987654321')],
+                    [k.ndef for k in await core.nodes('econ:bank:aba:rtn')])
+
+            self.eq([('econ:bank:iban', 'VV09WootWoot')],
+                    [k.ndef for k in await core.nodes('econ:bank:iban')])
+
+            # neither referring property is read-only, so the account survives with
+            # the properties deleted rather than being removed along with them
+            nodes = await core.nodes('econ:bank:account')
+            self.len(1, nodes)
+            self.none(nodes[0].get('aba:rtn'))
+            self.none(nodes[0].get('iban'))
+            self.eq('12345', nodes[0].get('number'))
+
+            # nodes referenced by a removed node are not removed along with it
+            self.len(3, await core.nodes('ou:org'))
+            self.len(1, await core.nodes('inet:fqdn=vertex.link'))
+            self.len(0, await core.nodes('inet:fqdn=vertex.link <(refs)- *'))
+
+            items = [item async for item in core.coreQueueGets('model_0_2_37:nodes', 0, cull=False, wait=False)]
+            self.len(7, items)
+
+            byvalu = {item.get('formvalu'): item for _, item in items
+                      if item.get('formname') != 'meta:seen'}
+            self.sorteq((badbic, badiban, badrtn, forkbic, '123456789junk', 'TRWIBEB1XXXjunk'),
+                        byvalu.keys())
+            self.eq('econ:bank:swift:bic', byvalu.get(forkbic).get('formname'))
+            self.eq('econ:bank:aba:rtn', byvalu.get(badrtn).get('formname'))
+            self.eq('econ:bank:iban', byvalu.get(badiban).get('formname'))
+
+            # the referring node is recorded, along with the property which
+            # pointed at it, so an operator can repair it
+            acctiden = s_common.ehex((await core.nodes('econ:bank:account'))[0].buid)
+
+            def refsof(valu):
+                reflists = list(byvalu.get(valu).get('refs').values())
+                self.len(1, reflists)
+                return {info[:2]: iden for (iden, info) in reflists[0]}
+
+            self.eq({('econ:bank:account', 'aba:rtn'): acctiden}, refsof(badrtn))
+            self.eq({}, byvalu.get('123456789junk').get('refs'))
+
+            # meta:seen:node is a read-only ndef, so the meta:seen node referencing
+            # the invalid IBAN is removed along with it and queued under its own
+            # record rather than being left as a dangling reference
+            ibanrefs = refsof(badiban)
+            self.eq(acctiden, ibanrefs.get(('econ:bank:account', 'iban')))
+            self.isin(('meta:seen', 'node'), ibanrefs)
+
+            self.len(0, await core.nodes('meta:seen'))
+
+            seen = [item for _, item in items if item.get('formname') == 'meta:seen']
+            self.len(1, seen)
+            self.eq(('9e9a0e4d3e2b4b1e8f0a1c2d3e4f5a6b', ('econ:bank:iban', badiban)),
+                    seen[0].get('formvalu'))
+
+            # the cascade does not reach the source the meta:seen pointed at
+            self.len(1, await core.nodes('meta:source'))
+
+            # the queue filters by form, which a single form migration cannot use
+            q = '''
+                $ret = ([])
+                for $entry in $lib.model.migration.s.model_0_2_37.listNodes(form=econ:bank:aba:rtn) {
+                    $ret.append($entry)
+                }
+                return($ret)
+            '''
+            self.eq(((0, 'econ:bank:aba:rtn', badrtn, ()),
+                     (1, 'econ:bank:aba:rtn', '123456789junk', ())),
+                    await core.callStorm(q))
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_37.printNode((2))')
+            self.stormIsInPrint(f'econ:bank:iban={badiban!r}', msgs)
+            self.stormIsInPrint('econ:bank:account:iban', msgs)
+            self.stormIsInPrint('meta:seen:node', msgs)
+            self.stormIsInPrint('(read-only, repair separately)', msgs)
+
+            # repairing re-creates the node and re-points the account which
+            # referenced it, which is the whole reason the refs are recorded
+            q = '$lib.model.migration.s.model_0_2_37.repairNode((0), "123456789", (true))'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint(f'Repairing node at offset 0 from {badrtn} -> 123456789', msgs)
+
+            self.sorteq(('123456789', '987654321'),
+                        [k.ndef[1] for k in await core.nodes('econ:bank:aba:rtn')])
+
+            nodes = await core.nodes('econ:bank:account')
+            self.len(1, nodes)
+            self.eq('123456789', nodes[0].get('aba:rtn'))
+            self.none(nodes[0].get('iban'))
+
+            items = [item async for item in core.coreQueueGets('model_0_2_37:nodes', 0, cull=False, wait=False)]
+            self.len(6, items)
+
+        # the helpers report cleanly on a Cortex which never had anything to migrate
+        async with self.getTestCore() as core:
+
+            msgs = await core.stormlist('''
+                for $entry in $lib.model.migration.s.model_0_2_37.listNodes() { $lib.print($entry) }
+            ''')
+            self.stormIsInPrint('Queue model_0_2_37:nodes not found, no nodes to list.', msgs)
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_37.printNode((0))')
+            self.stormIsInPrint('Queue model_0_2_37:nodes not found, no nodes to print.', msgs)
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_37.repairNode((0), newp)')
+            self.stormIsInPrint('Queue model_0_2_37:nodes not found, no nodes to repair.', msgs)
+
+            # the quarantined record carries everything needed to rebuild the node
+            item = byvalu.get(badbic)
+            self.eq('econ:bank:swift:bic', item.get('formname'))
+
+            # the node has data in the base layer and in the fork's own layer, so
+            # the record carries a sode and nodedata for each. The fork layer holds
+            # no primary value for it, which is why the migration tolerates a sode
+            # without one.
+            sodes = item.get('sodes')
+            self.len(2, sodes)
+
+            props, tags = {}, {}
+            for sode in sodes.values():
+                props.update(sode.get('props') or {})
+                tags.update(sode.get('tags') or {})
+
+            self.sorteq(('business', 'office'), props.keys())
+            self.isin('some.tag', tags)
+            self.isin('fork.only', tags)
+
+            nodedata = {}
+            for pairs in item.get('nodedata').values():
+                nodedata.update(dict(pairs))
+
+            self.eq({'woot': 'hehe', 'forkdata': 'yep'}, nodedata)
+            self.eq((('refs', s_common.ehex(s_common.buid(('inet:fqdn', 'vertex.link')))),),
+                    list(item.get('n1edges').values())[0])
