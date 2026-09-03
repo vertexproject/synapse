@@ -7265,6 +7265,75 @@ class CortexBasicTest(s_t_utils.SynTest):
                 mesg = f'Storm package {pkgname} requires Synapse {minver} but Cortex is running {s_version.version}'
                 self.eq(cm.exception.errinfo.get('mesg'), mesg)
 
+    async def test_stormpkg_logs(self):
+        '''
+        Loading and unloading a Storm package logs an operator-visible message
+        carrying the package name and version as structured log fields.
+        '''
+        def pkgmsgs(stream):
+            return [m for m in stream.jsonlines() if 'Storm package: ' in m['message']]
+
+        pkgdef = {
+            'name': 'pkglogs',
+            'version': '0.0.1',
+            'synapse_version': '>=2.8.0,<3.0.0',
+        }
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+
+                # loading a package logs a structured message an operator can
+                # watch for, carrying the package name and version
+                with self.getLoggerStream('synapse.cortex') as stream:
+                    await core.addStormPkg(pkgdef)
+
+                msgs = pkgmsgs(stream)
+                self.len(1, msgs)
+                self.eq('Loaded Storm package: pkglogs@0.0.1.', msgs[0]['message'])
+                self.eq({'pkg': 'pkglogs', 'vers': '0.0.1'}, msgs[0]['params'])
+
+                # re-adding an identical def bounces before load/unload and logs nothing
+                with self.getLoggerStream('synapse.cortex') as stream:
+                    await core.addStormPkg(pkgdef)
+
+                self.len(0, pkgmsgs(stream))
+
+                # adding a changed def for the same package unloads the old
+                # version and loads the new one
+                newpkgdef = copy.deepcopy(pkgdef)
+                newpkgdef['version'] = '0.0.2'
+
+                with self.getLoggerStream('synapse.cortex') as stream:
+                    await core.addStormPkg(newpkgdef)
+
+                msgs = pkgmsgs(stream)
+                self.len(2, msgs)
+                self.eq('Unloaded Storm package: pkglogs@0.0.1.', msgs[0]['message'])
+                self.eq({'pkg': 'pkglogs', 'vers': '0.0.1'}, msgs[0]['params'])
+                self.eq('Loaded Storm package: pkglogs@0.0.2.', msgs[1]['message'])
+                self.eq({'pkg': 'pkglogs', 'vers': '0.0.2'}, msgs[1]['params'])
+
+                # dropping the package logs the unload
+                with self.getLoggerStream('synapse.cortex') as stream:
+                    await core.delStormPkg('pkglogs')
+
+                msgs = pkgmsgs(stream)
+                self.len(1, msgs)
+                self.eq('Unloaded Storm package: pkglogs@0.0.2.', msgs[0]['message'])
+                self.eq({'pkg': 'pkglogs', 'vers': '0.0.2'}, msgs[0]['params'])
+
+                # a package stored from a prior run logs its load again at boot
+                await core.addStormPkg(newpkgdef)
+
+            with self.getLoggerStream('synapse.cortex') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    pass
+
+            msgs = pkgmsgs(stream)
+            self.len(1, msgs)
+            self.eq('Loaded Storm package: pkglogs@0.0.2.', msgs[0]['message'])
+            self.eq({'pkg': 'pkglogs', 'vers': '0.0.2'}, msgs[0]['params'])
+
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
