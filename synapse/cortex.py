@@ -3173,7 +3173,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self._initEasyPerm(gdef)
             self.pkggraphs[gdef['iden']] = gdef
 
-        extra = self.getLogExtra(pkg=name, vers=pkgvers)
         logger.info(f'Loaded Storm package: {name}@{pkgvers}.', extra=self.getLogExtra(pkg=name, vers=pkgvers))
 
     def _runStormPkgOnload(self, pkgdef):
@@ -3305,8 +3304,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.stormpkgs.pop(pkgname, None)
 
-        extra = self.getLogExtra(pkg=pkgname, vers=pkgvers)
-        logger.info(f'Unloaded Storm package: {pkgname}@{pkgvers}.', extra=extra)
+        logger.info(f'Unloaded Storm package: {pkgname}@{pkgvers}.', extra=self.getLogExtra(pkg=pkgname, vers=pkgvers))
 
     def getStormSvc(self, name):
 
