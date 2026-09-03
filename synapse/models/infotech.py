@@ -1043,6 +1043,12 @@ class ItModule(s_module.CoreModule):
                 ('it:app:yara:procmatch', ('guid', {}), {
                     'doc': 'An instance of a YARA rule match to a process.',
                 }),
+                ('it:app:sigma:rule', ('guid', {}), {
+                    'doc': 'A Sigma rule.',
+                }),
+                ('it:app:sigma:matched', ('guid', {}), {
+                    'doc': 'An instance of a Sigma rule hit.',
+                }),
                 ('it:app:snort:rule', ('guid', {}), {
                     'doc': 'A snort rule.',
                 }),
@@ -1123,6 +1129,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'The software uses the vulnerability.'}),
                 (('it:exec:query', 'found', None), {
                     'doc': 'The target node was returned as a result of running the query.'}),
+                (('it:app:sigma:rule', 'detects', None), {
+                    'doc': 'The Sigma rule is intended for use in detecting the target node.'}),
                 (('it:app:snort:rule', 'detects', None), {
                     'doc': 'The snort rule is intended for use in detecting the target node.'}),
                 (('it:app:suricata:rule', 'detects', None), {
@@ -3143,6 +3151,59 @@ class ItModule(s_module.CoreModule):
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
+                )),
+
+                ('it:app:sigma:rule', {}, (
+
+                    ('id', ('str', {}), {
+                        'doc': 'The Sigma rule id.'}),
+
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text', 'syntax': 'yaml'},
+                        'doc': 'The Sigma rule text.'}),
+
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the Sigma rule.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief description of the Sigma rule.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the Sigma rule.'}),
+
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The current version of the rule.'}),
+
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'Contact info for the author of the rule.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time the rule was created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the rule was most recently modified.'}),
+
+                    ('enabled', ('bool', {}), {
+                        'doc': 'The rule enabled status to be used for Sigma evaluation engines.'}),
+                )),
+
+                ('it:app:sigma:matched', {}, (
+
+                    ('rule', ('it:app:sigma:rule', {}), {
+                        'doc': 'The Sigma rule that matched the log event.'}),
+
+                    ('target', ('it:log:event', {}), {
+                        'doc': 'The it:log:event that matched the Sigma rule.'}),
+
+                    ('sensor', ('it:host', {}), {
+                        'doc': 'The sensor host node that produced the hit.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the match occurred.'}),
+
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The version of the rule at the time of match.'}),
                 )),
 
                 ('it:app:snort:rule', {}, (

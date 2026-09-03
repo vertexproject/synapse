@@ -1720,6 +1720,61 @@ class InfotechModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[it:app:yara:netmatch=* :node=(it:dev:str, foo)]')
 
+    async def test_it_app_sigma(self):
+
+        async with self.getTestCore() as core:
+
+            hit = s_common.guid()
+            rule = s_common.guid()
+            log = s_common.guid()
+            host = s_common.guid()
+            opts = {'vars': {'rule': rule, 'log': log, 'host': host, 'hit': hit}}
+
+            nodes = await core.nodes('''
+            [ it:app:sigma:rule=$rule
+                :id=SIGMA-001
+                :text="title: Suspicious PowerShell"
+                :name="Suspicious PowerShell"
+                :desc="Detects suspicious PowerShell invocation."
+                :url=https://vertex.link/sigma/SIGMA-001
+                :author = {[ ps:contact=* :name=visi ]}
+                :created = 20240101
+                :updated = 20250101
+                :enabled=1
+                :version=1.2.3
+                +(detects)> {[ it:prod:softname=woot ]}
+            ]
+            ''', opts=opts)
+
+            self.len(1, nodes)
+            self.eq('SIGMA-001', nodes[0].get('id'))
+            self.eq('Suspicious PowerShell', nodes[0].get('name'))
+            self.eq('title: Suspicious PowerShell', nodes[0].get('text'))
+            self.eq('Detects suspicious PowerShell invocation.', nodes[0].get('desc'))
+            self.eq('https://vertex.link/sigma/SIGMA-001', nodes[0].get('url'))
+            self.eq(True, nodes[0].get('enabled'))
+            self.eq(0x10000200003, nodes[0].get('version'))
+            self.eq(1704067200000, nodes[0].get('created'))
+            self.eq(1735689600000, nodes[0].get('updated'))
+            self.nn(nodes[0].get('author'))
+
+            self.len(1, await core.nodes('it:app:sigma:rule -> ps:contact'))
+            self.len(1, await core.nodes('it:app:sigma:rule -(detects)> it:prod:softname'))
+
+            nodes = await core.nodes('''[ it:app:sigma:matched=$hit
+                :rule=$rule :target=$log :time=2015 :sensor=$host
+                :version=1.2.3 ]''', opts=opts)
+            self.len(1, nodes)
+            self.eq(rule, nodes[0].get('rule'))
+            self.eq(log, nodes[0].get('target'))
+            self.eq(host, nodes[0].get('sensor'))
+            self.eq(1420070400000, nodes[0].get('time'))
+            self.eq(0x10000200003, nodes[0].get('version'))
+
+            self.len(1, await core.nodes('it:app:sigma:matched -> it:app:sigma:rule'))
+            self.len(1, await core.nodes('it:app:sigma:matched :target -> it:log:event'))
+            self.len(1, await core.nodes('it:app:sigma:matched :sensor -> it:host'))
+
     async def test_it_app_snort(self):
 
         async with self.getTestCore() as core:
