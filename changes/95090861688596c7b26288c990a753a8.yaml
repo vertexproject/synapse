@@ -2,6 +2,7 @@
 desc: The Cortex now logs a message when a Storm package is loaded or unloaded, including
   the package name and version as structured log fields.
 desc:literal: false
-prs: []
+prs:
+- 5011
 type: feat
 ...
