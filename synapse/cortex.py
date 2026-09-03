@@ -3174,7 +3174,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.pkggraphs[gdef['iden']] = gdef
 
         extra = self.getLogExtra(pkg=name, vers=pkgvers)
-        logger.info(f'Loaded Storm package: {name}@{pkgvers}.', extra=extra)
+        logger.info(f'Loaded Storm package: {name}@{pkgvers}.', extra=self.getLogExtra(pkg=name, vers=pkgvers))
 
     def _runStormPkgOnload(self, pkgdef):
         name = pkgdef.get('name')
