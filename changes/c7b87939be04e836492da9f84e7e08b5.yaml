@@ -1,0 +1,6 @@
+---
+desc: Added the ``it:os:windows:task`` form to model Windows Scheduled Task entries.
+desc:literal: false
+prs: []
+type: model
+...
