@@ -2612,6 +2612,50 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('[ it:exec:proc=* :windows:service={ it:os:windows:service } ] -> it:os:windows:service'))
 
+    async def test_infotech_windows_task(self):
+
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'uri': '\\Microsoft\\Windows\\Woot\\Telemetry'}}
+
+            nodes = await core.nodes('''
+                [ it:os:windows:task=*
+                    :host=*
+                    :cmds=("cmd.exe /c woot.bat", "PowerShell.exe -Enc ZgBvAG8A", "cmd.exe /c woot.bat")
+                    :account=*
+                    :period=(2020-01-01, 2021-01-01)
+                    :desc="Daily telemetry upload"
+                    :uri=$uri
+                    :path=c:/windows/system32/tasks/woot.xml
+                    :file=*
+                ]
+            ''', opts=opts)
+
+            self.len(1, nodes)
+            self.eq(nodes[0].get('desc'), 'Daily telemetry upload')
+            self.eq(nodes[0].get('uri'), 'microsoft/windows/woot/telemetry')
+            self.eq(nodes[0].get('path'), 'c:/windows/system32/tasks/woot.xml')
+            self.eq(nodes[0].get('period'), (1577836800000, 1609459200000))
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('account'))
+            self.nn(nodes[0].get('file'))
+
+            # the commands stay in order and the repeat is preserved, so the
+            # pivot walks three entries but resolves only two distinct nodes
+            self.eq(nodes[0].get('cmds'), ('cmd.exe /c woot.bat',
+                                           'PowerShell.exe -Enc ZgBvAG8A',
+                                           'cmd.exe /c woot.bat'))
+
+            self.len(1, await core.nodes('it:os:windows:task -> it:host'))
+            self.len(3, await core.nodes('it:os:windows:task -> it:cmd'))
+            self.len(2, await core.nodes('it:cmd'))
+            self.len(1, await core.nodes('it:os:windows:task -> it:account'))
+            self.len(1, await core.nodes('it:os:windows:task -> file:bytes'))
+            self.len(2, await core.nodes('it:os:windows:task -> file:path'))
+            self.len(1, await core.nodes('it:os:windows:task:desc="Daily telemetry upload"'))
+            self.len(1, await core.nodes('it:os:windows:task:period@=2020'))
+            self.len(1, await core.nodes('it:os:windows:task:cmds*[="cmd.exe /c woot.bat"]'))
+
     async def test_infotech_posix_cron(self):
 
         async with self.getTestCore() as core:
