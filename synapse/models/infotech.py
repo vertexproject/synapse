@@ -854,9 +854,8 @@ class ItModule(s_module.CoreModule):
                 ('it:os:windows:service', ('guid', {}), {
                     'doc': 'A Microsoft Windows service configuration on a host.'}),
 
-                # TODO
-                # ('it:os:windows:task', ('guid', {}), {
-                #     'doc': 'A Microsoft Windows scheduled task configuration.'}),
+                ('it:os:windows:task', ('guid', {}), {
+                    'doc': 'A Windows Scheduled Task entry.'}),
 
                 ('it:os:posix:cron', ('guid', {}), {
                     'doc': 'A cron job entry configured on a host.'}),
@@ -2667,6 +2666,33 @@ class ItModule(s_module.CoreModule):
 
                     ('imagepath', ('file:path', {}), {
                         'doc': 'The path to the service binary from the ImagePath registry key.'}),
+                )),
+
+                ('it:os:windows:task', {}, (
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host on which the task was configured.'}),
+
+                    ('cmds', ('array', {'type': 'it:cmd', 'sorted': False, 'uniq': False}), {
+                        'doc': 'A set of ordered commands executed by the task.'}),
+
+                    ('account', ('it:account', {}), {
+                        'doc': 'The account which the task runs as.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period when the task entry existed.'}),
+
+                    ('desc', ('str', {}), {
+                        'doc': 'The description of the task.'}),
+
+                    ('uri', ('file:path', {}), {
+                        'doc': 'The location of the task within the Windows Task Scheduler.'}),
+
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path of the task metadata file.'}),
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file containing the task metadata.'}),
                 )),
 
                 ('it:os:posix:cron', {}, (
