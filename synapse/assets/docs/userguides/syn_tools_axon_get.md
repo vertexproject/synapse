@@ -8,7 +8,7 @@ The Synapse `axon.get` command can be used to retrieve (download) one or more fi
 
 `axon.get` is executed from an operating system command shell. The command usage is as follows:
 
-``` text
+```text
 usage: synapse.tools.axon.get [-h] -a AXON [-o OUTPUT] [-l HASHES]
 ```
 
@@ -48,7 +48,7 @@ options:
 
 Download the two files with the specified SHA256 hashes from the specified Axon to the local `/home/user/Documents` directory (replace the Axon path below with the path to your Axon. Note that the command is wrapped for readability):
 
-``` text
+```text
 python -m synapse.tools.axon.get -a aha://axon...
   -o /home/user/Documents
   -l 229cdde419ba9549023de39c6a0ca8af74b45fade2d7a22cdc4105a75cd40ab0
@@ -57,7 +57,7 @@ python -m synapse.tools.axon.get -a aha://axon...
 
 Executing the command will result in various status messages showing the query and successful retrieval of the file(s):
 
-``` text
+```text
 Fetching 229cdde419ba9549023de39c6a0ca8af74b45fade2d7a22cdc4105a75cd40ab0 to file
 Fetched 229cdde419ba9549023de39c6a0ca8af74b45fade2d7a22cdc4105a75cd40ab0 to file
 Fetching 52c672f45adacca4878461c1bdd5800af8518e675819a0bdcd5c64a72075a478 to file

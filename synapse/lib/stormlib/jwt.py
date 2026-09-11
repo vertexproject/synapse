@@ -184,7 +184,7 @@ def _splitToken(text):
     '''
     Split a JWS into its (protected, payload, signature) base64url segments, accepting
     either the compact serialization or the flattened JWS JSON serialization. Raises
-    BadArg on a JWE (5-segment compact or a JSON object carrying ``ciphertext``) and on
+    BadArg on a JWE (5-segment compact or a JSON object carrying `ciphertext`) and on
     the general (multi-signature) JSON serialization.
     '''
     stripped = text.lstrip()
@@ -531,7 +531,7 @@ class LibJwt(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'generate', 'desc': '''
-        Construct a new unsigned ``crypto:jwt`` object.
+        Construct a new unsigned `crypto:jwt` object.
 
         Examples:
             Construct a token, set a claim, and sign it::
@@ -549,21 +549,21 @@ class LibJwt(s_stormtypes.Lib):
                   'returns': {'type': 'crypto:jwt', 'desc': 'The newly constructed crypto:jwt object.'}}},
 
         {'name': 'verify', 'desc': '''
-        Verify a JWT and return a ``crypto:jwt`` object.
+        Verify a JWT and return a `crypto:jwt` object.
 
-        The ``algorithms`` list is a required allowlist. The algorithm named in the token header must be
+        The `algorithms` list is a required allowlist. The algorithm named in the token header must be
         present in the allowlist or verification fails. This is the primary mitigation against JWT algorithm
-        confusion attacks. The ``none`` algorithm is never supported. Both the compact and the flattened
+        confusion attacks. The `none` algorithm is never supported. Both the compact and the flattened
         JWS JSON serializations are accepted.
 
-        The ``exp``, ``nbf``, and ``iat`` claims are validated automatically whenever they are present. The
-        ``audience``, ``issuer``, and ``subject`` claims are validated when a corresponding expected value
-        is provided. Each of these checks may be disabled via the ``options`` dictionary.
+        The `exp`, `nbf`, and `iat` claims are validated automatically whenever they are present. The
+        `audience`, `issuer`, and `subject` claims are validated when a corresponding expected value
+        is provided. Each of these checks may be disabled via the `options` dictionary.
 
-        The ``key`` may be a PEM key, an HMAC secret, a crypto:rsa:key / crypto:ecc:key object, or a JWK /
-        JWKS dictionary (a JWKS is selected by the token ``kid``). If ``key`` is null and a ``jwks_uri`` is
-        provided, the key set is fetched over HTTPS (respecting ``ssl_opts`` and ``proxy``) and cached. The
-        token header ``jku`` / ``x5u`` / ``jwk`` are never followed.
+        The `key` may be a PEM key, an HMAC secret, a crypto:rsa:key / crypto:ecc:key object, or a JWK /
+        JWKS dictionary (a JWKS is selected by the token `kid`). If `key` is null and a `jwks_uri` is
+        provided, the key set is fetched over HTTPS (respecting `ssl_opts` and `proxy`) and cached. The
+        token header `jku` / `x5u` / `jwk` are never followed.
 
         Examples:
             Verify a token and use the returned object::
@@ -617,7 +617,7 @@ class LibJwt(s_stormtypes.Lib):
                       {'name': 'token', 'type': 'str', 'desc': 'The compact or JSON serialized token.'},
                   ),
                   'returns': {'type': 'dict',
-                              'desc': 'A dictionary with ``typ`` ("JWS" or "JWE") and the decoded ``header``.'}}},
+                              'desc': 'A dictionary with `typ` ("JWS" or "JWE") and the decoded `header`.'}}},
 
         {'name': 'algorithms', 'desc': 'The list of JWS algorithms supported by the JWT functionality.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorAlgorithms',
@@ -670,7 +670,8 @@ class LibJwt(s_stormtypes.Lib):
 
         timeout = aiohttp.ClientTimeout(total=JWKS_TIMEOUT)
 
-        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as sess:
+        sesshdrs = {'User-Agent': self.runt.view.core.getUserAgent()}
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout, headers=sesshdrs) as sess:
             async with sess.get(url, ssl=sslctx, allow_redirects=False) as resp:
 
                 if resp.status != 200:
@@ -880,8 +881,8 @@ class Jwt(s_stormtypes.StormType):
          'desc': '''
          The claims payload of the JWT.
 
-         While the token is being constructed, individual claims may be set (e.g. ``$token.payload.sub = "foo"``).
-         Once the token has been signed or loaded via ``$lib.crypto.jwt.verify()``, the payload becomes immutable.
+         While the token is being constructed, individual claims may be set (e.g. `$token.payload.sub = "foo"`).
+         Once the token has been signed or loaded via `$lib.crypto.jwt.verify()`, the payload becomes immutable.
          ''',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorPayload',
                   'returns': {'type': 'crypto:jwt:dict', 'desc': 'The JWT claims payload.'}}},
@@ -890,16 +891,16 @@ class Jwt(s_stormtypes.StormType):
          'desc': '''
          The JOSE header of the JWT.
 
-         Header parameters (e.g. ``kid``, ``cty``) may be set while the token is being constructed. The
-         ``alg`` and ``typ`` parameters are set by ``sign()``; a caller-set ``alg`` is always overridden by
-         the ``sign()`` algorithm argument. Once the token has been signed or loaded the header becomes
+         Header parameters (e.g. `kid`, `cty`) may be set while the token is being constructed. The
+         `alg` and `typ` parameters are set by `sign()`; a caller-set `alg` is always overridden by
+         the `sign()` algorithm argument. Once the token has been signed or loaded the header becomes
          immutable.
          ''',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorHeader',
                   'returns': {'type': 'crypto:jwt:dict', 'desc': 'The JWT JOSE header.'}}},
 
         {'name': 'signature', 'type': 'bytes',
-         'desc': 'The raw signature bytes of the token, or ``$lib.null`` if it has not been signed or verified.'},
+         'desc': 'The raw signature bytes of the token, or `$lib.null` if it has not been signed or verified.'},
 
         {'name': 'sign',
          'desc': '''

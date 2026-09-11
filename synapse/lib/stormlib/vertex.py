@@ -116,7 +116,7 @@ stormcmds = (
 
 async def _hubResp(runt, meth, path, json=None, params=None):
     '''
-    Make a request to the Vertex Hub and return an ``(code, data)`` tuple where
+    Make a request to the Vertex Hub and return an `(code, data)` tuple where
     data is the parsed JSON body (or None). Every request is tagged with the
     running Synapse version.
     '''
@@ -143,7 +143,7 @@ async def _hubResp(runt, meth, path, json=None, params=None):
 
 async def _hubReq(runt, meth, path, json=None, params=None):
     '''
-    Make a request to the Vertex Hub and return the ``result`` of a REST response.
+    Make a request to the Vertex Hub and return the `result` of a REST response.
     '''
     code, data = await _hubResp(runt, meth, path, json=json, params=params)
     return s_httpapi.result(code, data)
@@ -168,8 +168,8 @@ class LibVertex(s_stormtypes.Lib):
             used to authenticate subsequent Vertex Hub requests. The email address
             must belong to an existing Vertex Hub account.
 
-            If this deployment is already registered, this raises unless ``reset``
-            is set. Passing ``reset`` creates a NEW deployment which may have
+            If this deployment is already registered, this raises unless `reset`
+            is set. Passing `reset` creates a NEW deployment which may have
             different available power-ups.''',
          'type': {'type': 'function', '_funcname': '_register',
                   'args': (
@@ -188,7 +188,7 @@ class LibVertex(s_stormtypes.Lib):
             Requires admin privileges.''',
          'type': {'type': 'gtor', '_gtorfunc': '_deployment',
                   'returns': {'type': 'dict',
-                              'desc': 'A dict with the deployment ``iden`` and ``pubkey``, or null if not registered.'}}},
+                              'desc': 'A dict with the deployment `iden` and `pubkey`, or null if not registered.'}}},
     )
     _storm_lib_path = ('vertex',)
     _storm_lib_perms = (

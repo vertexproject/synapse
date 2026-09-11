@@ -98,11 +98,11 @@ The return type is `null`.
 Fire an event onto the runtime.
 
 Notes:
-    This fires events as ``storm:fire`` event types. The name of the event is placed into a ``type`` key,
-    and any additional keyword arguments are added to a dictionary under the ``data`` key.
+    This fires events as `storm:fire` event types. The name of the event is placed into a `type` key,
+    and any additional keyword arguments are added to a dictionary under the `data` key.
 
 Examples:
-    Fire an event called ``demo`` with some data::
+    Fire an event called `demo` with some data::
 
         storm> $foo='bar' $lib.fire('demo', foo=$foo, knight='ni')
         ...
@@ -148,7 +148,7 @@ Import a Storm module.
 
 
 **Returns:**
-A ``lib`` instance representing the imported package. The return type is `lib`.
+A `lib` instance representing the imported package. The return type is `lib`.
 
 <a id="stormlibs-lib-len"></a>
 
@@ -233,9 +233,9 @@ Examples:
 
     Use values off of a node to format and print string::
 
-        storm> inet:ipv4:asn
+        storm> inet:ip:asn
              $lib.print(`node: {$node.ndef}, asn: {:asn}`) | spin
-        node: ('inet:ipv4', 16909060), asn: 1138
+        node: ('inet:ip', 16909060), asn: 1138
 
 Notes:
     Arbitrary objects can be printed as well. They will have their Python __repr()__ printed.
@@ -282,7 +282,7 @@ Examples:
         ('storm:fire', {'type': 'test', 'data': {'index': 2, 'valu': 2}})
 
 Notes:
-    The range behavior is the same as the Python3 ``range()`` builtin Sequence type.
+    The range behavior is the same as the Python3 `range()` builtin Sequence type.
 
 
 **Args:**
@@ -355,7 +355,7 @@ Attempt to normalize a value and return status and the normalized value.
 Examples:
     Do something if the value is a valid IPV4::
 
-        ($ok, $ipv4) = $lib.trycast(inet:ipv4, 1.2.3.4)
+        ($ok, $ipv4) = $lib.trycast(inet:ip, 1.2.3.4)
         if $ok { $dostuff($ipv4) }
 
 
@@ -542,7 +542,7 @@ Get information about an AHA service.
 
 
 **Returns:**
-The AHA service information dictionary, or ``(null))``. The return type may be one of the following: `null`, [`dict`](stormtypes_prims.md#stormprims-dict-f527).
+The AHA service information dictionary, or `(null))`. The return type may be one of the following: `null`, [`dict`](stormtypes_prims.md#stormprims-dict-f527).
 
 <a id="stormlibs-lib-aha-list"></a>
 
@@ -733,7 +733,7 @@ A Storm Library for interacting with Auth Gates in the Cortex.
 
 ### $lib.auth.gates.get(iden)
 
-Get a specific Gate by iden.
+Get a specific Auth Gate by iden.
 
 **Args:**
 
@@ -741,16 +741,16 @@ Get a specific Gate by iden.
 
 
 **Returns:**
-The ``auth:gate`` if it exists, otherwise null. The return type may be one of the following: `null`, [`auth:gate`](stormtypes_prims.md#stormprims-auth-gate-f527).
+The `auth:gate` if it exists, otherwise null. The return type may be one of the following: `null`, [`auth:gate`](stormtypes_prims.md#stormprims-auth-gate-f527).
 
 <a id="stormlibs-lib-auth-gates-list"></a>
 
 ### $lib.auth.gates.list()
 
-Get a list of Gates in the Cortex.
+Get a list of Auth Gates in the Cortex.
 
 **Returns:**
-A list of ``auth:gate`` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+A list of `auth:gate` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
 
 <a id="stormlibs-lib-auth-roles"></a>
 
@@ -814,7 +814,7 @@ Get a specific Role by iden.
 
 
 **Returns:**
-The ``auth:role`` object; or null if the role does not exist. The return type may be one of the following: `null`, [`auth:role`](stormtypes_prims.md#stormprims-auth-role-f527).
+The `auth:role` object; or null if the role does not exist. The return type may be one of the following: `null`, [`auth:role`](stormtypes_prims.md#stormprims-auth-role-f527).
 
 <a id="stormlibs-lib-auth-roles-list"></a>
 
@@ -823,7 +823,7 @@ The ``auth:role`` object; or null if the role does not exist. The return type ma
 Get a list of Roles in the Cortex.
 
 **Returns:**
-A list of ``auth:role`` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+A list of `auth:role` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
 
 <a id="stormlibs-lib-auth-users"></a>
 
@@ -847,7 +847,7 @@ Add a User to the Cortex.
 
 
 **Returns:**
-The ``auth:user`` object for the new user. The return type is [`auth:user`](stormtypes_prims.md#stormprims-auth-user-f527).
+The `auth:user` object for the new user. The return type is [`auth:user`](stormtypes_prims.md#stormprims-auth-user-f527).
 
 <a id="stormlibs-lib-auth-users-byemail"></a>
 
@@ -861,7 +861,7 @@ Get a specific user by email address.
 
 
 **Returns:**
-The ``auth:user`` object, or null if the user does not exist. The return type may be one of the following: `null`, [`auth:user`](stormtypes_prims.md#stormprims-auth-user-f527).
+The `auth:user` object, or null if the user does not exist. The return type may be one of the following: `null`, [`auth:user`](stormtypes_prims.md#stormprims-auth-user-f527).
 
 <a id="stormlibs-lib-auth-users-byname"></a>
 
@@ -875,7 +875,7 @@ Get a specific user by name.
 
 
 **Returns:**
-The ``auth:user`` object, or null if the user does not exist. The return type may be one of the following: `null`, [`auth:user`](stormtypes_prims.md#stormprims-auth-user-f527).
+The `auth:user` object, or null if the user does not exist. The return type may be one of the following: `null`, [`auth:user`](stormtypes_prims.md#stormprims-auth-user-f527).
 
 <a id="stormlibs-lib-auth-users-del"></a>
 
@@ -903,7 +903,7 @@ Get a specific User by iden.
 
 
 **Returns:**
-The ``auth:user`` object, or null if the user does not exist. The return type may be one of the following: `null`, [`auth:user`](stormtypes_prims.md#stormprims-auth-user-f527).
+The `auth:user` object, or null if the user does not exist. The return type may be one of the following: `null`, [`auth:user`](stormtypes_prims.md#stormprims-auth-user-f527).
 
 <a id="stormlibs-lib-auth-users-list"></a>
 
@@ -912,7 +912,7 @@ The ``auth:user`` object, or null if the user does not exist. The return type ma
 Get a list of Users in the Cortex.
 
 **Returns:**
-A list of ``auth:user`` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+A list of `auth:user` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
 
 <a id="stormlibs-lib-axon"></a>
 
@@ -930,9 +930,16 @@ For APIs that accept an ssl argument, the dictionary may contain the following v
 
 For APIs that accept a proxy argument, the following values are supported::
 
-    ``(true)``: Use the proxy defined by the http:proxy configuration option if set.
-    ``(false)``: Do not use the proxy defined by the http:proxy configuration option if set.
+    `(true)`: Use the proxy defined by the http:proxy configuration option if set.
+    `(false)`: Do not use the proxy defined by the http:proxy configuration option if set.
     <str>: A proxy URL string.
+
+Notes:
+    When no User-Agent header is specified, the request sent to the Axon carries the
+    Cortex's own default User-Agent, so a Storm-initiated fetch has one consistent origin
+    identity regardless of which service actually sends the request. A User-Agent header
+    provided in the headers argument always overrides the default, regardless of casing,
+    and persists across the request to the Axon.
 
 
 <a id="stormlibs-lib-axon-csvrows"></a>
@@ -1019,14 +1026,12 @@ Check if the Axon the Cortex is configured to use has a given sha256 value.
 Examples:
     Check if the Axon has a given file::
 
-        # This example assumes the Axon does have the bytes
+        // This example assumes the Axon does have the bytes
         storm> if $lib.axon.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
                 $lib.print("Has bytes")
             } else {
                 $lib.print("Does not have bytes")
             }
-
-        Has bytes
 
 
 **Args:**
@@ -1044,7 +1049,7 @@ True if the Axon has the file, false if it does not. The return type is [`boolea
 Return additional hashes of the bytes stored in the Axon for the given sha256.
 
 Examples:
-    Get the md5 hash for a file given a variable named ``$sha256``::
+    Get the md5 hash for a file given a variable named `$sha256`::
 
         $hashset = $lib.axon.hashset($sha256)
         $md5 = $hashset.md5
@@ -1205,7 +1210,7 @@ A line of text from the file. The return type is [`str`](stormtypes_prims.md#sto
 Return the size of the bytes stored in the Axon for the given sha256.
 
 Examples:
-    Get the size for a file given a variable named ``$sha256``::
+    Get the size for a file given a variable named `$sha256`::
 
         $size = $lib.axon.size($sha256)
 
@@ -1216,7 +1221,7 @@ Examples:
 
 
 **Returns:**
-The size of the file or ``null`` if the file is not found. The return type may be one of the following: `int`, `null`.
+The size of the file or `null` if the file is not found. The return type may be one of the following: `int`, `null`.
 
 <a id="stormlibs-lib-axon-unpack"></a>
 
@@ -1253,6 +1258,10 @@ Upload a stream of bytes to the Axon as a file.
 Examples:
     Upload bytes from a generator::
 
+        function getBytesChunks() {
+            emit $lib.base64.decode(Zm9vYmFy)
+        }
+
         ($size, $sha256) = $lib.axon.upload($getBytesChunks())
 
 
@@ -1271,17 +1280,17 @@ A tuple of the file size and sha256 value. The return type is [`list`](stormtype
 Retrieve the target URL using the wget() function and construct an inet:urlfile node from the response.
 
 Notes:
-    This accepts the same arguments as ``$lib.axon.wget()``.
+    This accepts the same arguments as `$lib.axon.wget()`.
     
 
 **Args:**
 
-- `*args` (`any`): Args from ``$lib.axon.wget()``.
-- `**kwargs` (`any`): Args from ``$lib.axon.wget()``.
+- `*args` (`any`): Args from `$lib.axon.wget()`.
+- `**kwargs` (`any`): Args from `$lib.axon.wget()`.
 
 
 **Returns:**
-The ``inet:urlfile`` node on success,  ``null`` on error. The return type may be one of the following: [`node`](stormtypes_prims.md#stormprims-node-f527), `null`.
+The `inet:urlfile` node on success,  `null` on error. The return type may be one of the following: [`node`](stormtypes_prims.md#stormprims-node-f527), `null`.
 
 <a id="stormlibs-lib-axon-wget"></a>
 
@@ -1290,7 +1299,7 @@ The ``inet:urlfile`` node on success,  ``null`` on error. The return type may be
 A method to download an HTTP(S) resource into the Cortex's Axon.
 
 Notes:
-    The response body will be stored regardless of the status code. See the ``Axon.wget()`` API
+    The response body will be stored regardless of the status code. See the `Axon.wget()` API
     documentation to see the complete structure of the response dictionary.
 
 Example:
@@ -1466,7 +1475,7 @@ in the current execution context. A special variable, $cache_key, will be set
 to the key argument provided to .get().
 
 The callback Storm query must contain a return statement, and if it does not return a value
-when executed with the input, ``(null)`` will be set as the value.
+when executed with the input, `(null)` will be set as the value.
 
 The fixed cache uses FIFO to evict items once the maximum size is reached.
 
@@ -1508,7 +1517,7 @@ Examples::
 
 
 **Returns:**
-A new ``cache:fixed`` object. The return type is [`cache:fixed`](stormtypes_prims.md#stormprims-cache-fixed-f527).
+A new `cache:fixed` object. The return type is [`cache:fixed`](stormtypes_prims.md#stormprims-cache-fixed-f527).
 
 <a id="stormlibs-lib-cell"></a>
 
@@ -1842,7 +1851,7 @@ Example:
 
 
 **Returns:**
-A new ``http:api`` object. The return type is [`http:api`](stormtypes_prims.md#stormprims-http-api-f527).
+A new `http:api` object. The return type is [`http:api`](stormtypes_prims.md#stormprims-http-api-f527).
 
 <a id="stormlibs-lib-cortex-httpapi-del"></a>
 
@@ -1862,7 +1871,7 @@ The return type is `null`.
 
 ### $lib.cortex.httpapi.get(iden)
 
-Get an Extended ``http:api`` object.
+Get an Extended `http:api` object.
 
 **Args:**
 
@@ -1870,13 +1879,13 @@ Get an Extended ``http:api`` object.
 
 
 **Returns:**
-The ``http:api`` object. The return type is [`http:api`](stormtypes_prims.md#stormprims-http-api-f527).
+The `http:api` object. The return type is [`http:api`](stormtypes_prims.md#stormprims-http-api-f527).
 
 <a id="stormlibs-lib-cortex-httpapi-getByPath"></a>
 
 ### $lib.cortex.httpapi.getByPath(path)
 
-Get an Extended ``http:api`` object by path.
+Get an Extended `http:api` object by path.
 
 Notes:
     The path argument is evaluated as a regular expression input, and will be
@@ -1889,7 +1898,7 @@ Notes:
 
 
 **Returns:**
-The ``http:api`` object or ``(null)`` if there is no match. The return type may be one of the following: [`http:api`](stormtypes_prims.md#stormprims-http-api-f527), `null`.
+The `http:api` object or `(null)` if there is no match. The return type may be one of the following: [`http:api`](stormtypes_prims.md#stormprims-http-api-f527), `null`.
 
 <a id="stormlibs-lib-cortex-httpapi-index"></a>
 
@@ -1913,7 +1922,7 @@ The new index location of the API. The return type is `int`.
 Get all the Extended HTTP APIs on the Cortex
 
 **Returns:**
-A list of ``http:api`` objects The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+A list of `http:api` objects The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
 
 <a id="stormlibs-lib-cortex-httpapi-response"></a>
 
@@ -1971,7 +1980,7 @@ The new Cron Job. The return type is [`cronjob`](stormtypes_prims.md#stormprims-
 
 ### $lib.cron.del(prefix)
 
-Delete a CronJob from the Cortex.
+Delete a Cron Job from the Cortex.
 
 **Args:**
 
@@ -1985,7 +1994,7 @@ The return type is `null`.
 
 ### $lib.cron.get(prefix)
 
-Get a CronJob in the Cortex.
+Get a Cron Job in the Cortex.
 
 **Args:**
 
@@ -1999,16 +2008,16 @@ The requested cron job. The return type is [`cronjob`](stormtypes_prims.md#storm
 
 ### $lib.cron.list()
 
-List CronJobs in the Cortex.
+List Cron Jobs in the Cortex.
 
 **Returns:**
-A list of ``cronjob`` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+A list of `cronjob` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
 
 <a id="stormlibs-lib-cron-mod"></a>
 
 ### $lib.cron.mod(prefix, edits)
 
-Modify a CronJob in the Cortex.
+Modify a Cron Job in the Cortex.
 
 **Args:**
 
@@ -2017,7 +2026,7 @@ Modify a CronJob in the Cortex.
 
 
 **Returns:**
-The iden of the CronJob which was modified. The return type is [`str`](stormtypes_prims.md#stormprims-str-f527).
+The iden of the Cron Job which was modified. The return type is [`str`](stormtypes_prims.md#stormprims-str-f527).
 
 <a id="stormlibs-lib-crypto-coin-ethereum"></a>
 
@@ -2066,7 +2075,7 @@ Examples:
 
 
 **Returns:**
-A new ``crypto:ecc:key`` containing the generated private key. The return type is [`crypto:ecc:key`](stormtypes_prims.md#stormprims-crypto-ecc-key-f527).
+A new `crypto:ecc:key` containing the generated private key. The return type is [`crypto:ecc:key`](stormtypes_prims.md#stormprims-crypto-ecc-key-f527).
 
 <a id="stormlibs-lib-crypto-ecc-load"></a>
 
@@ -2089,7 +2098,7 @@ Examples:
 
 
 **Returns:**
-A new ``crypto:ecc:key`` containing the loaded key. The return type is [`crypto:ecc:key`](stormtypes_prims.md#stormprims-crypto-ecc-key-f527).
+A new `crypto:ecc:key` containing the loaded key. The return type is [`crypto:ecc:key`](stormtypes_prims.md#stormprims-crypto-ecc-key-f527).
 
 <a id="stormlibs-lib-crypto-hashes"></a>
 
@@ -2203,7 +2212,7 @@ A list of the supported JWS algorithm names. The return type is [`list`](stormty
 
 ### $lib.crypto.jwt.generate(payload=(null))
 
-Construct a new unsigned ``crypto:jwt`` object.
+Construct a new unsigned `crypto:jwt` object.
 
 Examples:
     Construct a token, set a claim, and sign it::
@@ -2236,27 +2245,27 @@ its protected header. This performs no signature verification and no decryption.
 
 
 **Returns:**
-A dictionary with ``typ`` ("JWS" or "JWE") and the decoded ``header``. The return type is [`dict`](stormtypes_prims.md#stormprims-dict-f527).
+A dictionary with `typ` ("JWS" or "JWE") and the decoded `header`. The return type is [`dict`](stormtypes_prims.md#stormprims-dict-f527).
 
 <a id="stormlibs-lib-crypto-jwt-verify"></a>
 
 ### $lib.crypto.jwt.verify(token, key, algorithms, audience=(null), issuer=(null), subject=(null), leeway=(0), typ=(null), requiredclaims=(null), options=(null), jwks_uri=(null), ssl_opts=(null), proxy=(true), allowinternal=(false))
 
-Verify a JWT and return a ``crypto:jwt`` object.
+Verify a JWT and return a `crypto:jwt` object.
 
-The ``algorithms`` list is a required allowlist. The algorithm named in the token header must be
+The `algorithms` list is a required allowlist. The algorithm named in the token header must be
 present in the allowlist or verification fails. This is the primary mitigation against JWT algorithm
-confusion attacks. The ``none`` algorithm is never supported. Both the compact and the flattened
+confusion attacks. The `none` algorithm is never supported. Both the compact and the flattened
 JWS JSON serializations are accepted.
 
-The ``exp``, ``nbf``, and ``iat`` claims are validated automatically whenever they are present. The
-``audience``, ``issuer``, and ``subject`` claims are validated when a corresponding expected value
-is provided. Each of these checks may be disabled via the ``options`` dictionary.
+The `exp`, `nbf`, and `iat` claims are validated automatically whenever they are present. The
+`audience`, `issuer`, and `subject` claims are validated when a corresponding expected value
+is provided. Each of these checks may be disabled via the `options` dictionary.
 
-The ``key`` may be a PEM key, an HMAC secret, a crypto:rsa:key / crypto:ecc:key object, or a JWK /
-JWKS dictionary (a JWKS is selected by the token ``kid``). If ``key`` is null and a ``jwks_uri`` is
-provided, the key set is fetched over HTTPS (respecting ``ssl_opts`` and ``proxy``) and cached. The
-token header ``jku`` / ``x5u`` / ``jwk`` are never followed.
+The `key` may be a PEM key, an HMAC secret, a crypto:rsa:key / crypto:ecc:key object, or a JWK /
+JWKS dictionary (a JWKS is selected by the token `kid`). If `key` is null and a `jwks_uri` is
+provided, the key set is fetched over HTTPS (respecting `ssl_opts` and `proxy`) and cached. The
+token header `jku` / `x5u` / `jwk` are never followed.
 
 Examples:
     Verify a token and use the returned object::
@@ -2312,7 +2321,7 @@ Examples:
 
 
 **Returns:**
-A new ``crypto:rsa:key`` containing the generated private key. The return type is [`crypto:rsa:key`](stormtypes_prims.md#stormprims-crypto-rsa-key-f527).
+A new `crypto:rsa:key` containing the generated private key. The return type is [`crypto:rsa:key`](stormtypes_prims.md#stormprims-crypto-rsa-key-f527).
 
 <a id="stormlibs-lib-crypto-rsa-load"></a>
 
@@ -2335,7 +2344,7 @@ Examples:
 
 
 **Returns:**
-A new ``crypto:rsa:key`` containing the loaded key. The return type is [`crypto:rsa:key`](stormtypes_prims.md#stormprims-crypto-rsa-key-f527).
+A new `crypto:rsa:key` containing the loaded key. The return type is [`crypto:rsa:key`](stormtypes_prims.md#stormprims-crypto-rsa-key-f527).
 
 <a id="stormlibs-lib-csv"></a>
 
@@ -2348,11 +2357,11 @@ A Storm Library for interacting with csvtool.
 
 ### $lib.csv.emit(*args, table=(null))
 
-Emit a ``csv:row`` event to the Storm runtime for the given args.
+Emit a `csv:row` event to the Storm runtime for the given args.
 
 **Args:**
 
-- `*args` (`any`): Items which are emitted as a ``csv:row`` event.
+- `*args` (`any`): Items which are emitted as a `csv:row` event.
 - `table` (`str`): The name of the table to emit data too. Optional.
 
 
@@ -2491,7 +2500,7 @@ Restart the Dmon.
 
 **Args:**
 
-- `iden` (`str`): The GUID of the dmon to restart.
+- `iden` (`str`): The iden of the Storm Dmon to restart.
 
 
 **Returns:**
@@ -2556,11 +2565,11 @@ Start a storm dmon.
 
 **Args:**
 
-- `iden` (`str`): The GUID of the dmon to start.
+- `iden` (`str`): The iden of the Storm Dmon to start.
 
 
 **Returns:**
-``(true)`` unless the dmon does not exist or was already started. The return type is [`boolean`](stormtypes_prims.md#stormprims-boolean-f527).
+`(true)` unless the dmon does not exist or was already started. The return type is [`boolean`](stormtypes_prims.md#stormprims-boolean-f527).
 
 <a id="stormlibs-lib-dmon-stop"></a>
 
@@ -2570,11 +2579,11 @@ Stop a Storm Dmon.
 
 **Args:**
 
-- `iden` (`str`): The GUID of the Dmon to stop.
+- `iden` (`str`): The iden of the Storm Dmon to stop.
 
 
 **Returns:**
-``(true)`` unless the dmon does not exist or was already stopped. The return type is [`boolean`](stormtypes_prims.md#stormprims-boolean-f527).
+`(true)` unless the dmon does not exist or was already stopped. The return type is [`boolean`](stormtypes_prims.md#stormprims-boolean-f527).
 
 <a id="stormlibs-lib-export"></a>
 
@@ -2988,6 +2997,11 @@ For APIs that accept a proxy argument, the following values are supported::
     (false): Do not use the proxy defined by the http:proxy configuration option if set.
     <str>: A proxy URL string.
 
+Notes:
+    When no User-Agent header is specified, the Cortex sends its own default User-Agent
+    (see the "Outbound HTTP User-Agent" section of the devops guide). A User-Agent header
+    provided in the headers argument always overrides the default, regardless of casing.
+
 
 <a id="stormlibs-lib-inet-http-codereason"></a>
 
@@ -3161,6 +3175,26 @@ Examples:
 **Returns:**
 The urlencoded string. The return type is [`str`](stormtypes_prims.md#stormprims-str-f527).
 
+<a id="stormlibs-lib-inet-http-useragent"></a>
+
+### $lib.inet.http.useragent
+
+The Cortex's default outbound HTTP User-Agent.
+
+This is the User-Agent sent when a request specifies none of its own. It is
+exposed so a caller may build on it rather than replace it -- a package which
+wants to identify itself can append to it and pass the result as a header.
+
+Examples:
+    Send a request identifying the package as well as the Cortex::
+
+        $ua = `{$lib.inet.http.useragent} Foo/Bar`
+        $resp = $lib.inet.http.get($url, headers=({"User-Agent": $ua}))
+
+
+**Returns:**
+The type is [`str`](stormtypes_prims.md#stormprims-str-f527).
+
 <a id="stormlibs-lib-inet-http-oauth-v1"></a>
 
 ## $lib.inet.http.oauth.v1
@@ -3260,7 +3294,7 @@ Example:
 
         $lib.inet.http.oauth.v2.addProvider($conf)
 
-    If the ``client_id`` value should come from the AZURE_CLIENT_ID environment variable, use the
+    If the `client_id` value should come from the AZURE_CLIENT_ID environment variable, use the
     following configuration::
 
         $conf = ({
@@ -3281,8 +3315,8 @@ Example:
 
     Add a new provider which uses a custom Storm callback to obtain the client_assertion data. These
     callbacks are executed as the user who is performing the authorization_code workflow. The Storm
-    callback must return data in a tuple of ``boolean`` and a dictionary containing the assertion in the
-    key ``token``. Error messages should be in the key ``error``::
+    callback must return data in a tuple of `boolean` and a dictionary containing the assertion in the
+    key `token`. Error messages should be in the key `error`::
 
         $iden = $lib.guid(callstormexample, provider, oauth)
 
@@ -3461,7 +3495,7 @@ Open a connection to an IMAP server.
 If the port is 993, SSL/TLS is enabled by default with verification.
 
 This method will wait for a "hello" response from the server
-before returning the ``inet:imap:server`` instance.
+before returning the `inet:imap:server` instance.
 
 
 **Args:**
@@ -3473,7 +3507,7 @@ before returning the ``inet:imap:server`` instance.
 
 
 **Returns:**
-A new ``inet:imap:server`` instance. The return type is [`inet:imap:server`](stormtypes_prims.md#stormprims-inet-imap-server-f527).
+A new `inet:imap:server` instance. The return type is [`inet:imap:server`](stormtypes_prims.md#stormprims-inet-imap-server-f527).
 
 <a id="stormlibs-lib-inet-ipv6"></a>
 
@@ -3788,7 +3822,7 @@ Return a stored JSON object or object property.
 
 
 **Returns:**
-The previously stored value or ``(null)``. The return type is `prim`.
+The previously stored value or `(null)`. The return type is `prim`.
 
 <a id="stormlibs-lib-jsonstor-iter"></a>
 
@@ -3839,7 +3873,7 @@ Add a layer to the Cortex.
 
 
 **Returns:**
-A ``layer`` object representing the new layer. The return type is [`layer`](stormtypes_prims.md#stormprims-layer-f527).
+A `layer` object representing the new layer. The return type is [`layer`](stormtypes_prims.md#stormprims-layer-f527).
 
 <a id="stormlibs-lib-layer-del"></a>
 
@@ -3859,7 +3893,7 @@ The return type is `null`.
 
 ### $lib.layer.get(iden=(null))
 
-Get a Layer from the Cortex. Raises ``NoSuchIden`` if no such layer exists or the user cannot read it.
+Get a Layer from the Cortex. Raises `NoSuchIden` if no such layer exists or the user cannot read it.
 
 **Args:**
 
@@ -3876,7 +3910,7 @@ The storm layer object. The return type is [`layer`](stormtypes_prims.md#stormpr
 List the layers in a Cortex.
 
 **Returns:**
-List of ``layer`` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+List of `layer` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
 
 <a id="stormlibs-lib-lift"></a>
 
@@ -3989,7 +4023,7 @@ Yields syn:tag nodes with the given prefix. The return type is [`node`](stormtyp
 ## $lib.log
 
 A Storm library which implements server side logging. These messages are logged to the
-``synapse.storm.log`` logger.
+`synapse.storm.log` logger.
 
 
 <a id="stormlibs-lib-log-debug"></a>
@@ -3999,7 +4033,7 @@ A Storm library which implements server side logging. These messages are logged 
 Log a message to the Cortex at the debug log level.
 
 Notes:
-    This requires the ``log.debug`` permission to use.
+    This requires the `log.debug` permission to use.
 
 Examples:
     Log a debug message::
@@ -4026,7 +4060,7 @@ The return type is `null`.
 Log a message to the Cortex at the error log level.
 
 Notes:
-    This requires the ``log.error`` permission to use.
+    This requires the `log.error` permission to use.
 
 Examples:
     Log an error message::
@@ -4053,7 +4087,7 @@ The return type is `null`.
 Log a message to the Cortex at the info log level.
 
 Notes:
-    This requires the ``log.info`` permission to use.
+    This requires the `log.info` permission to use.
 
 Examples:
     Log an info message::
@@ -4080,7 +4114,7 @@ The return type is `null`.
 Log a message to the Cortex at the warning log level.
 
 Notes:
-    This requires the ``log.warning`` permission to use.
+    This requires the `log.warning` permission to use.
 
 Examples:
     Log a warning message::
@@ -4159,7 +4193,7 @@ The return type is `null`.
 Get a list of Storm Macros in the Cortex.
 
 **Returns:**
-A list of ``dict`` objects containing Macro definitions. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+A list of `dict` objects containing Macro definitions. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
 
 <a id="stormlibs-lib-macro-mod"></a>
 
@@ -4262,7 +4296,7 @@ Get an edge object by name.
 
 
 **Returns:**
-The ``model:edge`` instance of the edge if present or null. The return type may be one of the following: [`model:edge`](stormtypes_prims.md#stormprims-model-edge-f527), `null`.
+The `model:edge` instance of the edge if present or null. The return type may be one of the following: [`model:edge`](stormtypes_prims.md#stormprims-model-edge-f527), `null`.
 
 <a id="stormlibs-lib-model-form"></a>
 
@@ -4276,7 +4310,7 @@ Get a form object by name.
 
 
 **Returns:**
-The ``model:form`` instance if the form is present or null. The return type may be one of the following: [`model:form`](stormtypes_prims.md#stormprims-model-form-f527), `null`.
+The `model:form` instance if the form is present or null. The return type may be one of the following: [`model:form`](stormtypes_prims.md#stormprims-model-form-f527), `null`.
 
 <a id="stormlibs-lib-model-prop"></a>
 
@@ -4290,7 +4324,7 @@ Get a prop object by name.
 
 
 **Returns:**
-The ``model:property`` instance if the type if present or null. The return type may be one of the following: [`model:property`](stormtypes_prims.md#stormprims-model-property-f527), `null`.
+The `model:property` instance if the type if present or null. The return type may be one of the following: [`model:property`](stormtypes_prims.md#stormprims-model-property-f527), `null`.
 
 <a id="stormlibs-lib-model-tagprop"></a>
 
@@ -4304,7 +4338,7 @@ Get a tag property object by name.
 
 
 **Returns:**
-The ``model:tagprop`` instance of the tag prop if present or null. The return type may be one of the following: [`model:tagprop`](stormtypes_prims.md#stormprims-model-tagprop-f527), `null`.
+The `model:tagprop` instance of the tag prop if present or null. The return type may be one of the following: [`model:tagprop`](stormtypes_prims.md#stormprims-model-tagprop-f527), `null`.
 
 <a id="stormlibs-lib-model-type"></a>
 
@@ -4318,7 +4352,7 @@ Get a type object by name.
 
 
 **Returns:**
-The ``model:type`` instance if the type if present on the form or null. The return type may be one of the following: [`model:type`](stormtypes_prims.md#stormprims-model-type-f527), `null`.
+The `model:type` instance if the type if present on the form or null. The return type may be one of the following: [`model:type`](stormtypes_prims.md#stormprims-model-type-f527), `null`.
 
 <a id="stormlibs-lib-model-deprecated"></a>
 
@@ -4609,6 +4643,176 @@ Copy tags, tag timestamps, and tag props from the src node to the dst node.
 **Returns:**
 The return type is `null`.
 
+<a id="stormlibs-lib-model-migration-fuse"></a>
+
+### $lib.model.migration.fuse(src, dst)
+
+Merge one node into another node, then delete the source node.
+
+This operates on the whole Cortex rather than the current view. Every layer is
+processed, so after the fuse the source node no longer exists in any view.
+
+The following are transferred from src to dst. dst is the survivor, so its
+existing value wins wherever both nodes hold a conflicting value:
+
+- Secondary properties (dst values win on conflict).
+- Extended properties (dst values win on conflict).
+- Tags (additive; two intervals are unioned, and an interval on dst is never
+  replaced by an unbounded tag on src).
+- Tag properties (dst values win on conflict).
+- Light edges (additive; both N1 and N2 edges are moved to dst).
+- Node data (dst values win on conflict).
+
+The following special cases apply regardless of the conflict policy:
+
+- The `.created` node meta property on dst is always the earlier of the two.
+- A property whose type merges rather than overwrites is merged rather than
+  having one value win. That covers interval typed properties and tag
+  properties, the `:seen` interval, and minimum and maximum time properties.
+- Computed secondary properties are never copied from src. A computed property
+  restates the node's own primary property rather than being data src can hand
+  over, so after the fuse it must describe dst. dst keeps its own, which are
+  copied from whichever layer already holds them when the fuse creates dst in a
+  layer it did not previously exist in.
+
+  One consequence is worth noting: a computed property a form populates from a
+  callback rather than from normalization is not recomputed either, because a
+  fuse writes to layers directly and runs no form callbacks. This only applies
+  to a layer in which the fuse creates dst, since dst retains its own computed
+  properties in the layer it was created in.
+- Inbound references (properties on other nodes which point at src) are
+  rewritten to point at dst. This includes typed value (poly) properties and
+  array properties. A property which is declared for one of src's ancestor
+  forms may have filed its reference under that ancestor rather than under
+  src's own form; such a reference keeps the ancestor it was filed under.
+- A computed comp key sub-property which references src causes that comp form
+  node to be renamed, which is applied as a further fuse. Where a comp form
+  embeds src in more than one of its computed sub-properties, every one of them
+  is remapped by that single rename, so the renamed node never keeps a slot
+  naming a node the fuse deleted. Those renames are all computed before any
+  edit is applied, so if one of them cannot be re-normalized the fuse is
+  refused and nothing is changed.
+- A computed secondary property which is not a comp sub-property is rewritten
+  in place. The referring node keeps its own primary property, so that computed
+  property will no longer match the value it was derived from.
+- A reference src holds to itself, whether a property or a light edge, follows
+  the node and becomes a reference dst holds to itself.
+
+Requirements and restrictions:
+
+- The caller must be a global admin.
+- src and dst must be the same form, or one form must inherit from the other.
+- src and dst may not be runt nodes.
+
+Form inheritance:
+
+Where src and dst are not the same form, one must be an ancestor of the other.
+dst's own form is the one which survives; a fuse never reclassifies a node.
+
+Because properties are inherited from a parent form by its children and never
+the other way around, fusing a child form node into a parent form node can find
+a property src holds which dst's form does not declare. There is nowhere to put
+such a value, so it is discarded and a warning naming the property and both
+forms is emitted.
+
+An inbound reference is refused rather than rewritten where the referring
+property cannot hold dst's form - a typed value property declared for src's
+child form cannot hold a parent form node. That is detected while the fuse is
+still being computed, so the fuse is refused and nothing is changed.
+
+Layer behavior:
+
+Each property, tag, tag property, light edge and node data value is written to the
+same layer it was already stored in, so a fuse does not move data between layers.
+One consequence is that property merges only happen within a layer. Where src and
+dst hold the same property in different layers, the value visible in any given view
+is decided by that view's normal layer precedence.
+
+Read only layers cannot be written to. Those layers are skipped and a warning is
+emitted for each one which held any of src's data, because that data remains and
+will still make src visible in any view which includes that layer. A fuse does
+not write a tombstone into a layer above such a layer to hide it.
+
+State src holds only as a tombstone in a layer is treated as absent and is not
+transferred. Where dst holds a tombstone which would mask a value being
+transferred to it, that tombstone is removed so the transferred value is
+visible.
+
+Concurrency:
+
+The edits which make up a fuse are computed by reading every layer, and are then
+applied by Cortex wide operations which carry them.
+
+Those reads are not serialized against other writes, so a write to src can land
+between the reads and the apply. That write is not detected and is not reported: a
+fuse is responsible for executing the merge it was asked to make, not for policing
+edits other callers make to src while it runs, the same way an ordinary concurrent
+property write is never flagged as having lost a race to another writer. Running a
+fuse during a maintenance window, as recommended below, avoids this entirely.
+
+A fuse is not transactional. The edits are written with one call per layer, and
+fusing a heavily referenced node is applied in several operations rather than one,
+so a failure part way through can leave some of the fuse applied. Nothing is
+removed from src until dst holds it and the references to src have been repointed,
+so an interruption cannot lose data or leave a reference pointing at a node which
+no longer exists. Re-running fuse() with the same arguments completes it.
+
+There is no limit on how many edits a fuse may make. A fuse of a very heavily
+referenced node takes longer and spans more operations, but is not refused.
+
+Notes:
+
+- Triggers do not fire for the edits a fuse makes. A fuse rewrites the same data
+  across every layer in the Cortex rather than making an analytical change in one
+  view, so there is no single view whose triggers are the right ones to run.
+- A light edge between src and dst becomes a self-edge on dst after the fuse.
+- Node objects which other running queries already hold for src become stale, so
+  running a fuse during a maintenance window is recommended.
+
+Known gaps:
+
+- Inbound tag property references are not rewritten. A tag property may be typed
+  as a form, and a tag property which references src is left pointing at a node
+  the fuse deleted.
+- A guid form whose primary value is constructed from a deconfliction set of its
+  own properties is not renamed when one of those properties references src.
+  That property is rewritten in place, so the node's guid is no longer the hash
+  of its own current property values. Nothing records which properties a guid
+  was deconflicted on, so the fuse cannot re-derive the value and rename the
+  node the way it renames a comp form.
+
+  The node itself remains usable. Guid deconfliction falls back to lifting by
+  the deconfliction properties when the exact guid is not found, so a
+  construction from the node's current values - the deconfliction set with the
+  fused value substituted in - still deconflicts to it. Only the stale primary
+  value is left behind, and only a construction from the pre-fuse value is
+  affected by it.
+
+  Such a construction no longer deconflicts to the node, because the
+  deconfliction re-check sees the rewritten property. A second node is created
+  with a new guid instead, and re-creates src along with it. The fused node
+  keeps the analytical data and the new node holds only the deconfliction
+  properties, so the two are then divergent records of the same thing. This
+  settles at one extra node rather than adding one per attempt, since the new
+  node is found by property deconfliction afterwards.
+
+  This is reached by ordinary use of the Synapse data model rather than only by
+  an extended form: any guid form deconflicted on a property which references
+  another node qualifies, since a deconfliction set is chosen when the node is
+  constructed and is not a property of the form. A power-up which re-ingests
+  the same source data on a schedule will therefore re-create a node which was
+  fused away, along with a duplicate of whatever referenced it.
+
+
+**Args:**
+
+- `src` (`node`): The node to merge from (will be deleted).
+- `dst` (`node`): The node to merge into (will be kept).
+
+
+**Returns:**
+The return type is `null`.
+
 <a id="stormlibs-lib-model-migration-s"></a>
 
 ## $lib.model.migration.s
@@ -4630,7 +4834,7 @@ A Storm Library for interacting with tag specifications in the Cortex Data Model
 Delete a tag model specification.
 
 Examples:
-    Delete the tag model specification for ``cno.threat``::
+    Delete the tag model specification for `cno.threat`::
 
         $lib.model.tags.del(cno.threat)
 
@@ -4649,7 +4853,7 @@ The return type is `null`.
 Retrieve a tag model specification.
 
 Examples:
-    Get the tag model specification for ``cno.threat``::
+    Get the tag model specification for `cno.threat`::
 
         $dict = $lib.model.tags.get(cno.threat)
 
@@ -4684,7 +4888,7 @@ List of tuples containing the tag name and model definition The return type is [
 Pop and return a tag model property.
 
 Examples:
-    Remove the regex list from the ``cno.threat`` tag model::
+    Remove the regex list from the `cno.threat` tag model::
 
         $regxlist = $lib.model.tags.pop(cno.threat, regex)
 
@@ -4704,7 +4908,7 @@ The value of the property. The return type is `prim`.
 Set a tag model property for a tag.
 
 Examples:
-    Create a tag model for the ``cno.cve`` tag::
+    Create a tag model for the `cno.cve` tag::
 
         $regx = ([(null), (null), "[0-9]{4}", "[0-9]{5}"])
         $lib.model.tags.set(cno.cve, regex, $regx)
@@ -4955,7 +5159,7 @@ Get an existing Queue object by name.
 
 
 **Returns:**
-A ``queue`` object. The return type is [`queue`](stormtypes_prims.md#stormprims-queue-f527).
+A `queue` object. The return type is [`queue`](stormtypes_prims.md#stormprims-queue-f527).
 
 <a id="stormlibs-lib-queue-del"></a>
 
@@ -4997,7 +5201,7 @@ Get an existing Queue object by iden.
 
 
 **Returns:**
-A ``queue`` object. The return type is [`queue`](stormtypes_prims.md#stormprims-queue-f527).
+A `queue` object. The return type is [`queue`](stormtypes_prims.md#stormprims-queue-f527).
 
 <a id="stormlibs-lib-queue-list"></a>
 
@@ -5206,7 +5410,7 @@ Note:
     In order to get the matching groups, patterns must use parentheses
     to indicate the start and stop of the regex to return portions of.
     If groups are not used, a successful match will return a empty list
-    and a unsuccessful match will return ``(null)``.
+    and a unsuccessful match will return `(null)`.
 
 Example:
     Extract the matching groups from a piece of text::
@@ -5240,7 +5444,7 @@ A Storm Library for providing helpers for scraping nodes from text.
 Attempt to scrape information from a blob of text, getting the context information about the values found.
 
 Notes:
-    This does call the ``scrape`` Storm interface if that behavior is enabled on the Cortex.
+    This does call the `scrape` Storm interface if that behavior is enabled on the Cortex.
 
 Examples:
     Scrape some text and make nodes out of it::
@@ -5268,8 +5472,8 @@ It accepts the text, a regex pattern, and produce results that can easily be use
 nodes.
 
 Notes:
-    The pattern must have a named regular expression match for the key ``valu`` using the
-    named group syntax. For example ``(somekey\s)(?P<valu>[a-z0-9]+)\s``.
+    The pattern must have a named regular expression match for the key `valu` using the
+    named group syntax. For example `(somekey\s)(?P<valu>[a-z0-9]+)\s`.
 
 Examples:
     A scrape implementation with a regex that matches name keys in text::
@@ -5389,7 +5593,7 @@ True if the service exists in the Cortex, False if it does not. The return type 
 List the Storm Service definitions for the Cortex.
 
 Notes:
-    The definition dictionaries have an additional ``ready`` key added to them to
+    The definition dictionaries have an additional `ready` key added to them to
     indicate if the Cortex is currently connected to the Storm Service or not.
 
 
@@ -5610,7 +5814,7 @@ Note:
 
 
 **Returns:**
-A new ``stix:bundle`` instance. The return type is [`stix:bundle`](stormtypes_prims.md#stormprims-stix-bundle-f527).
+A new `stix:bundle` instance. The return type is [`stix:bundle`](stormtypes_prims.md#stormprims-stix-bundle-f527).
 
 <a id="stormlibs-lib-stix-export-config"></a>
 
@@ -5665,10 +5869,10 @@ pre-3.x globally-deconflicted behavior, pass a fully customized config dict.
 
 Return an editable copy of the default STIX ingest config.
 
-The returned dict may be modified and passed back to ``ingest()`` to override
-individual object handlers or add a ``reporter`` name. The ``reporter`` key,
+The returned dict may be modified and passed back to `ingest()` to override
+individual object handlers or add a `reporter` name. The `reporter` key,
 when set to a non-null string, is threaded into every Storm snippet as
-``$reporter`` and applied to reporter-scoped nodes via ``:reporter:name ?=``.
+`$reporter` and applied to reporter-scoped nodes via `:reporter:name ?=`.
 
 
 **Returns:**
@@ -5682,8 +5886,8 @@ Import nodes from a STIX bundle.
 
 Each STIX Domain Object is mapped to a reporter-scoped Synapse form and
 deconflicted per-bundle via a gutor $salt derived from the bundle id. The
-optional ``config`` dict may override individual handler Storm snippets or
-supply a ``reporter`` string to populate ``:reporter:name`` on created nodes.
+optional `config` dict may override individual handler Storm snippets or
+supply a `reporter` string to populate `:reporter:name` on created nodes.
 
 
 **Args:**
@@ -5840,7 +6044,7 @@ Examples:
 
 **Args:**
 
-- `names` (`list`): A list of syn:tag:part values to normalize and prefix. If ``(null)``, this is a no-op and an empty list is returned.
+- `names` (`list`): A list of syn:tag:part values to normalize and prefix. If `(null)`, this is a no-op and an empty list is returned.
 - `prefix` (`str`): The string prefix to add to the syn:tag:part values.
 - `ispart` (`boolean`): Whether the names have already been normalized. Normalization will be skipped if set to true.
 
@@ -5970,7 +6174,7 @@ The index of the day within year. The return type is `int`.
 
 ### $lib.time.format(valu, format)
 
-Format a Synapse timestamp into a string value using ``datetime.strftime()``.
+Format a Synapse timestamp into a string value using `datetime.strftime()`.
 
 Examples:
     Format a timestamp into a string::
@@ -6125,7 +6329,7 @@ Epoch time in microseconds. The return type is `int`.
 
 ### $lib.time.parse(valu, format, errok=(false))
 
-Parse a timestamp string using ``datetime.strptime()`` into an epoch timestamp.
+Parse a timestamp string using `datetime.strptime()` into an epoch timestamp.
 
 Examples:
     Parse a string as for its month/day/year value into a timestamp::
@@ -6138,7 +6342,7 @@ Examples:
 
 - `valu` (`str`): The timestamp string to parse.
 - `format` (`str`): The format string to use for parsing.
-- `errok` (`boolean`): If set, parsing errors will return ``(null)`` instead of raising an exception.
+- `errok` (`boolean`): If set, parsing errors will return `(null)` instead of raising an exception.
 
 
 **Returns:**
@@ -6268,7 +6472,7 @@ Get a Trigger in the Cortex.
 
 
 **Returns:**
-The requested ``trigger`` object. The return type is [`trigger`](stormtypes_prims.md#stormprims-trigger-f527).
+The requested `trigger` object. The return type is [`trigger`](stormtypes_prims.md#stormprims-trigger-f527).
 
 <a id="stormlibs-lib-trigger-list"></a>
 
@@ -6282,7 +6486,7 @@ Get a list of Triggers in the current view or every view.
 
 
 **Returns:**
-A list of ``trigger`` objects the user is allowed to access. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+A list of `trigger` objects the user is allowed to access. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
 
 <a id="stormlibs-lib-trigger-mod"></a>
 
@@ -6354,7 +6558,7 @@ Create a new vault.
 
 - `name` (`str`): The name of the new vault.
 - `vtype` (`str`): The type of this vault.
-- `scope` (`str`): Scope for this vault. One of "user", "role", "global", or ``(null)`` for unscoped vaults.
+- `scope` (`str`): Scope for this vault. One of "user", "role", "global", or `(null)` for unscoped vaults.
 - `owner` (`str`): User/role iden for this vault if scope is "user" or "role". None for "global" scope vaults.
 - `secrets` (`dict`): The initial secret data to store in this vault.
 - `configs` (`dict`): The initial config data to store in this vault.
@@ -6391,11 +6595,11 @@ Get a vault for a specified vault type.
 **Args:**
 
 - `vtype` (`str`): The vault type to retrieved.
-- `scope` (`str`): The scope for the specified type. If ``(null)``, then getByType will search.
+- `scope` (`str`): The scope for the specified type. If `(null)`, then getByType will search.
 
 
 **Returns:**
-Vault or ``(null)`` if the vault could not be retrieved. The return type is [`vault`](stormtypes_prims.md#stormprims-vault-f527).
+Vault or `(null)` if the vault could not be retrieved. The return type is [`vault`](stormtypes_prims.md#stormprims-vault-f527).
 
 <a id="stormlibs-lib-vault-get"></a>
 
@@ -6608,7 +6812,7 @@ This deployment's Vertex Hub registration info.
 Requires admin privileges.
 
 **Returns:**
-A dict with the deployment ``iden`` and ``pubkey``, or null if not registered. The return type is [`dict`](stormtypes_prims.md#stormprims-dict-f527).
+A dict with the deployment `iden` and `pubkey`, or null if not registered. The return type is [`dict`](stormtypes_prims.md#stormprims-dict-f527).
 
 <a id="stormlibs-lib-vertex-register"></a>
 
@@ -6621,8 +6825,8 @@ deployment's cryptographic identity. The returned deployment iden is
 used to authenticate subsequent Vertex Hub requests. The email address
 must belong to an existing Vertex Hub account.
 
-If this deployment is already registered, this raises unless ``reset``
-is set. Passing ``reset`` creates a NEW deployment which may have
+If this deployment is already registered, this raises unless `reset`
+is set. Passing `reset` creates a NEW deployment which may have
 different available power-ups.
 
 **Args:**
@@ -6719,7 +6923,7 @@ Add a View to the Cortex.
 
 
 **Returns:**
-A ``view`` object representing the new View. The return type is [`view`](stormtypes_prims.md#stormprims-view-f527).
+A `view` object representing the new View. The return type is [`view`](stormtypes_prims.md#stormprims-view-f527).
 
 <a id="stormlibs-lib-view-del"></a>
 
@@ -6739,7 +6943,7 @@ The return type is `null`.
 
 ### $lib.view.get(iden=(null))
 
-Get a View from the Cortex. Raises ``NoSuchView`` if no such view exists or the user cannot read it.
+Get a View from the Cortex. Raises `NoSuchView` if no such view exists or the user cannot read it.
 
 **Args:**
 
@@ -6761,7 +6965,7 @@ List the Views in the Cortex.
 
 
 **Returns:**
-List of ``view`` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+List of `view` objects. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
 
 <a id="stormlibs-lib-xml"></a>
 

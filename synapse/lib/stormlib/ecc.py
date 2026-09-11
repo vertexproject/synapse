@@ -26,7 +26,7 @@ class LibEcc(s_stormtypes.Lib):
                        'desc': 'The named curve to use (P-256, P-384, or P-521).'},
                   ),
                   'returns': {'type': 'crypto:ecc:key',
-                              'desc': 'A new ``crypto:ecc:key`` containing the generated private key.'}}},
+                              'desc': 'A new `crypto:ecc:key` containing the generated private key.'}}},
         {'name': 'load', 'desc': '''
         Load an ECC public or private key.
 
@@ -44,7 +44,7 @@ class LibEcc(s_stormtypes.Lib):
                        'desc': 'A DER or PEM encoded ECC public or private key. May be a str (PEM) or bytes.'},
                   ),
                   'returns': {'type': 'crypto:ecc:key',
-                              'desc': 'A new ``crypto:ecc:key`` containing the loaded key.'}}},
+                              'desc': 'A new `crypto:ecc:key` containing the loaded key.'}}},
     )
     _storm_lib_path = ('crypto', 'ecc')
 
@@ -86,14 +86,14 @@ class CryptoEccKey(s_cryptoutils.CryptoKey):
          'desc': 'True if the object contains a private key and can sign, otherwise False.'},
 
         {'name': 'pubkey', 'desc': '''
-        Return a new ``crypto:ecc:key`` containing only the public key.
+        Return a new `crypto:ecc:key` containing only the public key.
 
         This raises if the key is already a public-only key.
         ''',
          'type': {'type': 'function', '_funcname': '_methPubkey',
                   'args': (),
                   'returns': {'type': 'crypto:ecc:key',
-                              'desc': 'A new ``crypto:ecc:key`` containing only the public key.'}}},
+                              'desc': 'A new `crypto:ecc:key` containing only the public key.'}}},
 
         {'name': 'sign', 'desc': '''
         Compute the ECDSA signature for the given bytes.

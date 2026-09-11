@@ -983,6 +983,21 @@ class ScrapeTest(s_t_utils.SynTest):
         txt = f'hehe {email[0]} {fqdn[0]} haha'
         self.eq({email[0], 'bar.io', fqdn[0], }, {n[1] for n in s_scrape.scrape(txt)})
 
+        cve = ('CVE-2021-44228', 'CVE-2021-45046', 'CVE-2024-3333',)
+        cwe = ('CWE-79', 'CWE-89', 'CWE-120',)
+
+        txt = f'hehe {cve[0]},{cve[1]},{cve[2]} haha'
+        self.eq({cve[0], cve[1], cve[2], }, {n[1] for n in s_scrape.scrape(txt)})
+
+        txt = f'hehe {cve[0]} {cve[1]} {cve[2]} haha'
+        self.eq({cve[0], cve[1], cve[2], }, {n[1] for n in s_scrape.scrape(txt)})
+
+        txt = f'hehe {cwe[0]},{cwe[1]},{cwe[2]} haha'
+        self.eq({cwe[0], cwe[1], cwe[2], }, {n[1] for n in s_scrape.scrape(txt)})
+
+        txt = f'hehe {cwe[0]} {cwe[1]} {cwe[2]} haha'
+        self.eq({cwe[0], cwe[1], cwe[2], }, {n[1] for n in s_scrape.scrape(txt)})
+
         # ensure extra-iana tlds included as tld
         txt = 'hehe woot.onion woot.bit haha'
         self.eq({'woot.onion', 'woot.bit', }, {n[1] for n in s_scrape.scrape(txt)})
@@ -1146,6 +1161,14 @@ class ScrapeTest(s_t_utils.SynTest):
             offs = r.get('offset')
             fv = data3[offs:offs + len(erv)]
             self.eq(erv, fv)
+
+        # A comma-delimited CVE list yields correct per-item offsets
+        text = 'a CVE-2024-1111,CVE-2024-2222 b'
+        infos = list(s_scrape.contextScrape(text))
+        self.eq(infos, [
+            {'form': 'it:sec:cve', 'match': 'CVE-2024-1111', 'offset': 2, 'valu': 'CVE-2024-1111'},
+            {'form': 'it:sec:cve', 'match': 'CVE-2024-2222', 'offset': 16, 'valu': 'CVE-2024-2222'},
+        ])
 
     def test_scrape_cpe(self):
 

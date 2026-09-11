@@ -17,7 +17,7 @@ What you need to do
 
 :   Replace any read of a macro's `user` field with `creator`. Manage who can use or edit a macro with the `macro.grant` command (or `$lib.macro.grant()`) instead of relying on an owning user. See [Permission Changes](admin-permissions.md#vtx_300_admin-permissions) for the related change moving the macro admin / edit permissions out of the `storm.*` namespace.
 
-    ``` text
+    ```text
     // 2.x -- read the owning user iden from the macro definition
     $mdef = $lib.macro.get(mymacro)
     $owner = $mdef.user

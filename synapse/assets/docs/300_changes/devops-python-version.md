@@ -19,7 +19,7 @@ What you need to do
 
 :   Provision Python 3.14 (specifically the 3.14.x line) wherever you run Synapse or its client libraries; venvs, CI runners, and any host importing the `synapse` package. Rebuild any custom images on a 3.14 base. The official images already ship 3.14.
 
-    ``` bash
+    ```bash
     # 2.x
     $ python --version
     Python 3.11.x  # supported

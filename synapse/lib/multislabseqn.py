@@ -222,11 +222,11 @@ class MultiSlabSeqn(s_base.Base):
 
     async def setTailSlab(self, indx: int) -> None:
         '''
-        Adopt a tail slab that a storage-owning writer created at ``indx`` via a
+        Adopt a tail slab that a storage-owning writer created at `indx` via a
         rotation.
 
         A readonly reader shares the writer's files but must not run rotate() itself.
-        Instead, when the reader's follower replays the writer's ``nexslog:rotate``
+        Instead, when the reader's follower replays the writer's `nexslog:rotate`
         event, it calls this to adopt the writer's already-created new tail slab.
 
         Notes:

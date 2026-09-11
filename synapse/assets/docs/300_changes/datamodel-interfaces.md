@@ -21,7 +21,7 @@ What you need to do
 
 :   When a property you expect (`:seen`, `:period`, `:reporter`) is not declared directly on a form, check which interfaces it implements -- the property likely comes from one of them. Note that `.seen` was a universal property in 2.x (set with the leading dot) and is now the secondary property `:seen` supplied by the `meta:observable` interface, so only forms implementing that interface carry it. For edges or properties that target an interface, any form implementing that interface is a valid target.
 
-    ``` text
+    ```text
     // 2.x: .seen was a universal property present on every node
     [ inet:fqdn=vertex.link .seen=2023 ]
 
@@ -44,7 +44,7 @@ What you need to do
 
 :   Set `:id` (or `:name`); `alts` relates it to `:ids`/`:names` for you. A 2.x `risk:vuln` that carried its CVE in `:cve` now records it via the `meta:reported`-style `:id` property (`risk:vuln` declares its own `:id` with the same `alts=('ids',)` behavior), and a list of identifiers maps to setting `:id`/`:name` plus the `:ids`/`:names` array companion.
 
-    ``` text
+    ```text
     // 2.x: the CVE lived in the risk:vuln :cve property
     [ risk:vuln=* :cve=CVE-2021-44228 ]
 
@@ -66,7 +66,7 @@ What you need to do
 
 :   Use `syn:interface` to enumerate model interfaces and pivot or inspect them; lift `syn:form` and read `:interfaces` to see which interfaces a form implements.
 
-    ``` text
+    ```text
     // 3.x: enumerate a specific interface
     syn:interface=meta:observable
 

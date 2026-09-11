@@ -24,7 +24,7 @@ The pipe character ( `|` ) is used with Storm commands to:
 
 For example:
 
-``` text
+```storm
 inet:fqdn=woot.com | nettools.whois | nettools.dns --type A AAAA NS | -> inet:dns:a
 ```
 
@@ -68,6 +68,7 @@ Help for a specific Storm command can be displayed with `<command> --help`.
 - [auth](storm_ref_cmd.md#storm-auth)
 - [background](storm_ref_cmd.md#storm-background)
 - [batch](storm_ref_cmd.md#storm-batch)
+- [colorize](storm_ref_cmd.md#storm-colorize)
 - [copyto](storm_ref_cmd.md#storm-copyto)
 - [cortex.httpapi](storm_ref_cmd.md#storm-cortex-httpapi)
 - [count](storm_ref_cmd.md#storm-count)
@@ -79,6 +80,7 @@ Help for a specific Storm command can be displayed with `<command> --help`.
 - [edges](storm_ref_cmd.md#storm-edges)
 - [gen](storm_ref_cmd.md#storm-gen)
 - [graph](storm_ref_cmd.md#storm-graph)
+- [index.count.prop](storm_ref_cmd.md#storm-index-count-prop)
 - [intersect](storm_ref_cmd.md#storm-intersect)
 - [layer](storm_ref_cmd.md#storm-layer)
 - [lift](storm_ref_cmd.md#storm-lift)
@@ -96,13 +98,16 @@ Help for a specific Storm command can be displayed with `<command> --help`.
 - [parallel](storm_ref_cmd.md#storm-parallel)
 - [pkg](storm_ref_cmd.md#storm-pkg)
 - [queue](storm_ref_cmd.md#storm-queue)
+- [quorum.merge.list](storm_ref_cmd.md#storm-quorum-merge-list)
 - [runas](storm_ref_cmd.md#storm-runas)
 - [scrape](storm_ref_cmd.md#storm-scrape)
 - [service](storm_ref_cmd.md#storm-service)
 - [sleep](storm_ref_cmd.md#storm-sleep)
 - [spin](storm_ref_cmd.md#storm-spin)
 - [stats](storm_ref_cmd.md#storm-stats)
+- [storm.exec](storm_ref_cmd.md#storm-storm-exec)
 - [tag](storm_ref_cmd.md#storm-tag)
+- [task](storm_ref_cmd.md#storm-task)
 - [tee](storm_ref_cmd.md#storm-tee)
 - [tree](storm_ref_cmd.md#storm-tree)
 - [trigger](storm_ref_cmd.md#storm-trigger)
@@ -110,6 +115,7 @@ Help for a specific Storm command can be displayed with `<command> --help`.
 - [uptime](storm_ref_cmd.md#storm-uptime)
 - [vault](storm_ref_cmd.md#storm-vault)
 - [version](storm_ref_cmd.md#storm-version)
+- [vertex](storm_ref_cmd.md#storm-vertex)
 - [view](storm_ref_cmd.md#storm-view)
 - [wget](storm_ref_cmd.md#storm-wget)
 
@@ -149,6 +155,7 @@ help --help
 Storm includes `aha.*` commands that allow you to work with Synapse's [AHA service](../deploymentguide.md#deploy-aha-service).
 
 - [aha.svc.list](storm_ref_cmd.md#storm-aha-svc-list)
+- [aha.svc.mirror](storm_ref_cmd.md#storm-aha-svc-mirror)
 - [aha.svc.stat](storm_ref_cmd.md#storm-aha-svc-stat)
 
 Help for individual `aha.*` commands can be displayed using:
@@ -166,6 +173,19 @@ The `aha.svc.list` command lists AHA services.
 
 ```mdstorm
 aha.svc.list --help
+```
+
+<a id="storm-aha-svc-mirror"></a>
+
+
+### aha.svc.mirror
+
+The `aha.svc.mirror` command queries the AHA services and their mirror relationships. Services which are not mirrors are not displayed.
+
+**Syntax:**
+
+```mdstorm
+aha.svc.mirror --help
 ```
 
 <a id="storm-aha-svc-stat"></a>
@@ -484,6 +504,19 @@ Note that in most cases, Storm queries are meant to operate in a "streaming" man
 
 ```mdstorm
 batch --help
+```
+
+<a id="storm-colorize"></a>
+
+
+## colorize
+
+The `colorize` command adds metadata to nodes which can be used to colorize them when they are displayed.
+
+**Syntax:**
+
+```mdstorm
+colorize --help
 ```
 
 <a id="storm-copyto"></a>
@@ -1024,6 +1057,19 @@ The `graph` command generates a subgraph based on a specified set of nodes and p
 
 ```mdstorm
 graph --help
+```
+
+<a id="storm-index-count-prop"></a>
+
+
+## index.count.prop
+
+The `index.count.prop` command displays the number of properties, or the number of property values, in the view. Counts come from the index rather than from lifting the nodes, so the command does not yield nodes into the pipeline.
+
+**Syntax:**
+
+```mdstorm
+index.count.prop --help
 ```
 
 <a id="storm-intersect"></a>
@@ -1819,6 +1865,19 @@ The `queue.del` command removes a queue from the Cortex.
 queue.del --help
 ```
 
+<a id="storm-quorum-merge-list"></a>
+
+
+## quorum.merge.list
+
+The `quorum.merge.list` command lists all the views which currently have a pending merge request.
+
+**Syntax:**
+
+```mdstorm
+quorum.merge.list --help
+```
+
 <a id="storm-runas"></a>
 
 
@@ -2016,6 +2075,19 @@ The `stats.countby` command allows you to query and display a bar chart of talli
 stats.countby --help
 ```
 
+<a id="storm-storm-exec"></a>
+
+
+## storm.exec
+
+The `storm.exec` command executes text, or an embedded query object, as Storm in the current pipeline. This allows a query held in a variable to be run against the nodes already in the pipeline.
+
+**Syntax:**
+
+```mdstorm
+storm.exec --help
+```
+
 <a id="storm-tag"></a>
 
 
@@ -2043,6 +2115,9 @@ The `tag.prune` command will delete the tags from incoming nodes, as well as all
 ```mdstorm
 tag.prune --help
 ```
+
+<a id="storm-task"></a>
+
 
 ## task
 
@@ -2248,7 +2323,7 @@ Lift all of the unique IP addresses that domains associated with the Fancy Bear 
 inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ip | uniq
 ```
 
-``` text
+```storm
 inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ip | uniq
 ```
 
@@ -2262,7 +2337,7 @@ Lift a set of network flow (`inet:flow`) nodes and unique (de-duplicate) them ba
 inet:flow | uniq :client.ip
 ```
 
-``` text
+```storm
 inet:flow | uniq :client.ip
 ```
 
@@ -2272,7 +2347,7 @@ Lift a set of network flow nodes and de-duplicate them based on each unique comb
 inet:flow | uniq ( :client, :server )
 ```
 
-``` text
+```storm
 inet:flow | uniq ( :client, :server )
 ```
 
@@ -2286,7 +2361,7 @@ Nodes can be uniqued based on variables. Alert (`risk:alert`) nodes can be categ
 risk:alert:priority +:severity $pri=:priority $sev=:severity $value=( $pri, $sev ) | uniq $value
 ```
 
-``` text
+```storm
 risk:alert:priority +:severity $pri=:priority $sev=:severity $value=( $pri, $sev ) | uniq $value
 ```
 
@@ -2412,6 +2487,74 @@ The `version` command displays the current version of Synapse and associated met
 version --help
 ```
 
+<a id="storm-vertex"></a>
+
+
+## vertex
+
+Storm includes `vertex.*` commands that allow you to register a deployment with the Vertex Hub and to install the packages it makes available.
+
+- [vertex.packages.install](storm_ref_cmd.md#storm-vertex-packages-install)
+- [vertex.packages.list](storm_ref_cmd.md#storm-vertex-packages-list)
+- [vertex.packages.versions](storm_ref_cmd.md#storm-vertex-packages-versions)
+- [vertex.register](storm_ref_cmd.md#storm-vertex-register)
+
+Help for individual `vertex.*` commands can be displayed using:
+
+> `<command> --help`
+
+<a id="storm-vertex-packages-install"></a>
+
+
+### vertex.packages.install
+
+The `vertex.packages.install` command installs a package from the Vertex Hub.
+
+**Syntax:**
+
+```mdstorm
+vertex.packages.install --help
+```
+
+<a id="storm-vertex-packages-list"></a>
+
+
+### vertex.packages.list
+
+The `vertex.packages.list` command lists the packages available to this deployment from the Vertex Hub.
+
+**Syntax:**
+
+```mdstorm
+vertex.packages.list --help
+```
+
+<a id="storm-vertex-packages-versions"></a>
+
+
+### vertex.packages.versions
+
+The `vertex.packages.versions` command lists the available versions of a package from the Vertex Hub.
+
+**Syntax:**
+
+```mdstorm
+vertex.packages.versions --help
+```
+
+<a id="storm-vertex-register"></a>
+
+
+### vertex.register
+
+The `vertex.register` command registers this deployment with the Vertex Hub.
+
+**Syntax:**
+
+```mdstorm
+vertex.register --help
+```
+
 <a id="storm-view"></a>
 
 
@@ -2510,7 +2653,7 @@ The `view.exec` command creates its own execution environment (sub-runtime) to e
 
 Variables declared before the `view.exec` are accessible in the destination view (including assignment). The interactive help example demonstrates this behavior:
 
-``` text
+```storm
 // Move some tagged nodes to another view
 inet:fqdn#foo.bar $fqdn=$node.value | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
 ```

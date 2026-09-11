@@ -1,6 +1,7 @@
 import unittest.mock as mock
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.json as s_json
@@ -1799,6 +1800,36 @@ class DataModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.isinstance(node.get('bar.type'), str)
             self.isinstance(node.get('bar.value'), str)
+
+            # the .value virtual property is deprecated and logs when it is used.
+            # s_common.deprdate() is memoized, so each case clears it first.
+            deprmesg = '.value is deprecated and will be removed on 2026-09-24.'
+
+            # a prop read and a filter reach Poly._getValue()
+            s_common.deprdate.cache_clear()
+            with self.getLoggerStream('synapse.common') as stream:
+                msgs = await core.stormlist('test:str=foo $lib.print(:bar.value)')
+            self.stormIsInPrint('vertex.link', msgs)
+            self.isin(deprmesg, stream.getvalue())
+
+            s_common.deprdate.cache_clear()
+            with self.getLoggerStream('synapse.common') as stream:
+                self.len(1, await core.nodes('test:str=foo +:bar.value=vertex.link'))
+            self.isin(deprmesg, stream.getvalue())
+
+            # ...while a Valu resolves .value from its own tuple
+            s_common.deprdate.cache_clear()
+            with self.getLoggerStream('synapse.common') as stream:
+                msgs = await core.stormlist('test:str=foo $valu=:bar $lib.print($valu.value)')
+            self.stormIsInPrint('vertex.link', msgs)
+            self.isin(deprmesg, stream.getvalue())
+
+            # ...and the other virtual properties are unaffected
+            s_common.deprdate.cache_clear()
+            with self.getLoggerStream('synapse.common') as stream:
+                msgs = await core.stormlist('test:str=foo $lib.print(:bar.type)')
+            self.stormIsInPrint('test:str', msgs)
+            self.notin(deprmesg, stream.getvalue())
 
             # NodeRef.exists optimization works when reusing the same ref
             await core.nodes('[test:str=src :bar=vertex.link]')

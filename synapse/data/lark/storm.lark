@@ -47,7 +47,8 @@ _editblock: "[" _editoper* "]"
 // A single edit operation
 _editoper: editnodeadd
             | editpropset | edittagpropset | edittagadd | editcondpropset
-            | editvirtpropset | edittagvirtset | edittagpropvirtset
+            | editvirtpropset | editvirtcondpropset | edittagvirtset | edittagvirtcondset
+            | edittagpropvirtset
             | editpropsetmulti | editpropdel | edittagpropdel | edittagdel
             | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
 
@@ -59,10 +60,14 @@ edittagadd: "+" tagname [(EQSPACE | EQNOSPACE | TRYSET) _valu]
 edittagvirtset: "+" tagnamevirt virtprop (EQSPACE | EQNOSPACE | TRYSET) _valu
               | "+" "?" tagnamevirt virtprop (EQSPACE | EQNOSPACE | TRYSET) _valu -> edittagvirttryset
 
+edittagvirtcondset: "+" tagnamevirt virtprop condsetoper _valu
+                  | "+" "?" tagnamevirt virtprop condsetoper _valu -> edittagvirtcondtryset
+
 edittagdel: EXPRMINUS tagname
 editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 editcondpropset: relprop condsetoper _valu
 editvirtpropset: relprop virtprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
+editvirtcondpropset: relprop virtprop condsetoper _valu
 editpropsetmulti: relprop (MODSETMULTI | TRYMODSETMULTI) _valu
 editpropdel: EXPRMINUS relprop
 editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
@@ -77,9 +82,11 @@ MODSETMULTI.5: "++=" | "--="
 TRYMODSETMULTI.1: "?++=" | "?--="
 TRYSET.1: "?="
 
-condsetoper: ("*" UNSET | _DEREF "$" _condvarvaluatom) "="
-    | ("*" UNSET | _DEREF "$" _condvarvaluatom) "?=" -> condtrysetoper
+condsetoper: ("*" (UNSET | CONDMIN | CONDMAX) | _DEREF "$" _condvarvaluatom) "="
+    | ("*" (UNSET | CONDMIN | CONDMAX) | _DEREF "$" _condvarvaluatom) "?=" -> condtrysetoper
 UNSET: "unset"
+CONDMIN: "min"
+CONDMAX: "max"
 _condvarvaluatom: condvarvalue | condvarderef | condfunccall
 condvarvalue: VARTOKN -> varvalue
 

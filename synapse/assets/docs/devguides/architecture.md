@@ -82,7 +82,7 @@ The Telepath RPC protocol is a lightweight RPC protocol used in Synapse. The ser
 
 The base Telepath client is the `Proxy` class, this is used to connect to the Daemon. The `Proxy` intercepts attribute lookups to make and set remote method helpers at runtime, and sends those requests to the Daemon to be serviced. A *very* brief example of this is the following:
 
-``` text
+```text
 import synapse.telepath as s_telepath
 
 url = 'tcp://user:secret@1.2.3.4:27492/someObject'

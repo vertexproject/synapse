@@ -95,7 +95,7 @@ The return type is `null`.
 Return a list of auth gates that the role has rules for.
 
 **Returns:**
-A list of ``auth:gates`` that the role has rules for. The return type is [`list`](#stormprims-list-f527).
+A list of `auth:gates` that the role has rules for. The return type is [`list`](#stormprims-list-f527).
 
 <a id="stormprims-auth-role-get"></a>
 
@@ -280,7 +280,7 @@ When this is used to set the value, it does not have a return type.
 Return a list of auth gates that the user has rules for.
 
 **Returns:**
-A list of ``auth:gates`` that the user has rules for. The return type is [`list`](#stormprims-list-f527).
+A list of `auth:gates` that the user has rules for. The return type is [`list`](#stormprims-list-f527).
 
 <a id="stormprims-auth-user-genApiKey"></a>
 
@@ -488,7 +488,7 @@ The return type is `null`.
 Get the Roles for the User.
 
 **Returns:**
-A list of ``auth:roles`` which the user is a member of. The return type is [`list`](#stormprims-list-f527).
+A list of `auth:roles` which the user is a member of. The return type is [`list`](#stormprims-list-f527).
 
 <a id="stormprims-auth-user-setAdmin"></a>
 
@@ -851,7 +851,7 @@ Pop an item from the cache.
 
 
 **Returns:**
-The value from the cache, or ``(null)`` if it does not exist The return type is `any`.
+The value from the cache, or `(null)` if it does not exist The return type is `any`.
 
 <a id="stormprims-cache-fixed-put"></a>
 
@@ -1034,13 +1034,13 @@ The type is [`boolean`](#stormprims-boolean-f527).
 
 ### pubkey()
 
-Return a new ``crypto:ecc:key`` containing only the public key.
+Return a new `crypto:ecc:key` containing only the public key.
 
 This raises if the key is already a public-only key.
 
 
 **Returns:**
-A new ``crypto:ecc:key`` containing only the public key. The return type is [`crypto:ecc:key`](#stormprims-crypto-ecc-key-f527).
+A new `crypto:ecc:key` containing only the public key. The return type is [`crypto:ecc:key`](#stormprims-crypto-ecc-key-f527).
 
 <a id="stormprims-crypto-ecc-key-sign"></a>
 
@@ -1089,9 +1089,9 @@ A JSON Web Token (JWT) to construct, sign, and verify.
 
 The JOSE header of the JWT.
 
-Header parameters (e.g. ``kid``, ``cty``) may be set while the token is being constructed. The
-``alg`` and ``typ`` parameters are set by ``sign()``; a caller-set ``alg`` is always overridden by
-the ``sign()`` algorithm argument. Once the token has been signed or loaded the header becomes
+Header parameters (e.g. `kid`, `cty`) may be set while the token is being constructed. The
+`alg` and `typ` parameters are set by `sign()`; a caller-set `alg` is always overridden by
+the `sign()` algorithm argument. Once the token has been signed or loaded the header becomes
 immutable.
 
 
@@ -1104,8 +1104,8 @@ The JWT JOSE header. The return type is [`crypto:jwt:dict`](#stormprims-crypto-j
 
 The claims payload of the JWT.
 
-While the token is being constructed, individual claims may be set (e.g. ``$token.payload.sub = "foo"``).
-Once the token has been signed or loaded via ``$lib.crypto.jwt.verify()``, the payload becomes immutable.
+While the token is being constructed, individual claims may be set (e.g. `$token.payload.sub = "foo"`).
+Once the token has been signed or loaded via `$lib.crypto.jwt.verify()`, the payload becomes immutable.
 
 
 **Returns:**
@@ -1135,7 +1135,7 @@ The signed JWT string. The return type is [`str`](#stormprims-str-f527).
 
 ### signature
 
-The raw signature bytes of the token, or ``$lib.null`` if it has not been signed or verified.
+The raw signature bytes of the token, or `$lib.null` if it has not been signed or verified.
 
 **Returns:**
 The type is [`bytes`](#stormprims-bytes-f527).
@@ -1181,13 +1181,13 @@ The type is [`boolean`](#stormprims-boolean-f527).
 
 ### pubkey()
 
-Return a new ``crypto:rsa:key`` containing only the public key.
+Return a new `crypto:rsa:key` containing only the public key.
 
 This raises if the key is already a public-only key.
 
 
 **Returns:**
-A new ``crypto:rsa:key`` containing only the public key. The return type is [`crypto:rsa:key`](#stormprims-crypto-rsa-key-f527).
+A new `crypto:rsa:key` containing only the public key. The return type is [`crypto:rsa:key`](#stormprims-crypto-rsa-key-f527).
 
 <a id="stormprims-crypto-rsa-key-sign"></a>
 
@@ -1742,7 +1742,7 @@ Notes:
     This can only be called once.
 
     If the response body is not bytes, this method will serialize the body as JSON
-    and set the ``Content-Type`` and ``Content-Length`` response headers.
+    and set the `Content-Type` and `Content-Length` response headers.
 
 
 **Args:**
@@ -1945,7 +1945,7 @@ The type is [`dict`](#stormprims-dict-f527).
 A list of response objects representing the history of the response. This is populated when responses are redirected.
 
 **Returns:**
-A list of ``inet:http:resp`` objects. The return type is [`list`](#stormprims-list-f527).
+A list of `inet:http:resp` objects. The return type is [`list`](#stormprims-list-f527).
 
 <a id="stormprims-inet-http-resp-json"></a>
 
@@ -2078,10 +2078,10 @@ An ($ok, $valu) tuple. The return type is [`list`](#stormprims-list-f527).
 
 Fetch a message by UID in RFC822 format.
 
-The message is saved to the Axon, and a ``file:bytes`` node is returned.
+The message is saved to the Axon, and a `file:bytes` node is returned.
 
 Examples:
-    Fetch a message, save to the Axon, and yield ``file:bytes`` node::
+    Fetch a message, save to the Axon, and yield `file:bytes` node::
 
         yield $server.fetch("8182")
 
@@ -2177,7 +2177,7 @@ Examples:
 **Args:**
 
 - `*args` (`str`): A set of search criteria to use.
-- `charset`: The CHARSET used for the search. May be set to ``(null)`` to disable CHARSET. The input type may be one of the following: `str`, `null`.
+- `charset`: The CHARSET used for the search. May be set to `(null)` to disable CHARSET. The input type may be one of the following: `str`, `null`.
 
 
 **Returns:**
@@ -2440,8 +2440,8 @@ Delete a tombstone stored in the layer.
 
 May only be called on the write layer of the current view. Removing a
 tombstone makes the value it masks visible again, so it requires the "add"
-permission for that value (``node.add``, ``node.prop.set``, ``node.tag.add``,
-``node.data.set``, or ``node.edge.add``) rather than the "del" permission.
+permission for that value (`node.add`, `node.prop.set`, `node.tag.add`,
+`node.data.set`, or `node.edge.add`) rather than the "del" permission.
 
 
 **Args:**
@@ -2500,7 +2500,7 @@ Tuple of n1nid, verb, n2nid. The return type is [`list`](#stormprims-list-f527).
 Yield (n1nid, verb, n2nid, istombstone) tuples for any light edges in the layer.
 
 Example:
-    Iterate the light edges in ``$layer``::
+    Iterate the light edges in `$layer`::
 
         for ($n1nid, $verb, $n2nid, $tomb) in $layer.getEdges() {
             if $tomb {
@@ -2522,7 +2522,7 @@ Yields (<n1nid>, <verb>, <n2nid>) tuples The return type is [`list`](#stormprims
 Yield (verb, n2nid, istombstone) tuples for any light edges in the layer for the source node id.
 
 Example:
-    Iterate the N1 edges for ``$node``::
+    Iterate the N1 edges for `$node`::
 
         for ($verb, $n2nid, $tomb) in $layer.getEdgesByN1($node) {
             if $tomb {
@@ -2550,7 +2550,7 @@ Yields (<verb>, <n2nid>, <istombstone>) tuples The return type is [`list`](#stor
 Yield (verb, n1nid, istombstone) tuples for any light edges in the layer for the target node id.
 
 Example:
-    Iterate the N2 edges for ``$node``::
+    Iterate the N2 edges for `$node`::
 
         for ($verb, $n1nid) in $layer.getEdgesByN2($node) {
             if $tomb {
@@ -2591,7 +2591,7 @@ Dictionary containing form names and the count of the nodes in the Layer. The re
 Yield (name, valu, istombstone) tuples for any node data in the layer for the target node nid.
 
 Example:
-    Iterate the node data for ``$node``::
+    Iterate the node data for `$node`::
 
         for ($name, $valu, $tomb) in $layer.getNodeData($node.nid) {
             if $tomb {
@@ -2731,9 +2731,9 @@ Tuple of nid, sode values. The return type is [`list`](#stormprims-list-f527).
 Return the number of tag rows in the layer for the given tag and optional form.
 
 Examples:
-    Get the number of ``inet:ipv4`` nodes with the ``$foo.bar`` tag::
+    Get the number of `inet:ip` nodes with the `$foo.bar` tag::
 
-        $count = $lib.layer.get().getTagCount(foo.bar, formname=inet:ipv4)
+        $count = $lib.layer.get().getTagCount(foo.bar, formname=inet:ip)
 
 **Args:**
 
@@ -2824,15 +2824,15 @@ Yields nodes. The return type is [`node`](#stormprims-node-f527).
 Lift and yield nodes with the property and optional value set within the layer.
 
 Example:
-    Yield all nodes with the property ``ou:org:name`` set in the top layer::
+    Yield all nodes with the property `ou:org:name` set in the top layer::
 
         yield $lib.layer.get().liftByProp(ou:org:name)
 
-    Yield all nodes with the property ``ou:org:name=woot`` in the top layer::
+    Yield all nodes with the property `ou:org:name=woot` in the top layer::
 
         yield $lib.layer.get().liftByProp(ou:org:name, woot)
 
-    Yield all nodes with the property ``ou:org:name^=woot`` in the top layer::
+    Yield all nodes with the property `ou:org:name^=woot` in the top layer::
 
         yield $lib.layer.get().liftByProp(ou:org:name, woot, "^=")
 
@@ -2974,7 +2974,7 @@ The return type is `null`.
 
 ### extend(valu)
 
-Extend a list using another iterable. If ``(null)`` is provided, this is a no-op.
+Extend a list using another iterable. If `(null)` is provided, this is a no-op.
 
 Examples:
     Populate a list by extending it with other lists::
@@ -2998,7 +2998,7 @@ Examples:
 
 **Args:**
 
-- `valu` (`list`): A list or other iterable. If ``(null)``, this is a no-op.
+- `valu` (`list`): A list or other iterable. If `(null)`, this is a no-op.
 
 
 **Returns:**
@@ -3190,7 +3190,7 @@ Get a Property on the Form.
 
 
 **Returns:**
-The ``model:property`` instance if the property if present on the form or null. The return type may be one of the following: [`model:property`](#stormprims-model-property-f527), `null`.
+The `model:property` instance if the property if present on the form or null. The return type may be one of the following: [`model:property`](#stormprims-model-property-f527), `null`.
 
 <a id="stormprims-model-form-props"></a>
 
@@ -3267,7 +3267,7 @@ The type is [`str`](#stormprims-str-f527).
 Get the types allowed for the property.
 
 **Returns:**
-A list of ``model:type`` objects for the types allowed in the property. The return type is [`list`](#stormprims-list-f527).
+A list of `model:type` objects for the types allowed in the property. The return type is [`list`](#stormprims-list-f527).
 
 <a id="stormprims-model-tagprop-f527"></a>
 
@@ -3512,6 +3512,10 @@ The integer node id, or null if the node has no nid. The return type may be one 
 ### pack(dorepr=(false))
 
 Return the serializable/packed version of the Node.
+
+The packed node carries the virtual property values of the node, which a
+feed replays to rebuild them.
+
 
 **Args:**
 
@@ -3795,6 +3799,9 @@ The type is [`str`](#stormprims-str-f527).
 <a id="stormprims-noderef-value"></a>
 
 ### value
+
+> **Warning:**
+> `$noderef.value` has been deprecated and will be removed on or after 2026-09-24.
 
 Get the valu of the tuple.
 
@@ -4142,7 +4149,7 @@ Get an existing Queue.
 
 
 **Returns:**
-A ``pkg:queue`` object. The return type is [`pkg:queue`](#stormprims-pkg-queue-f527).
+A `pkg:queue` object. The return type is [`pkg:queue`](#stormprims-pkg-queue-f527).
 
 <a id="stormprims-pkg-queues-list"></a>
 
@@ -4596,7 +4603,7 @@ Implements the Storm API for creating and packing a STIX bundle for v2.1
 Make one or more STIX objects from a node, and add it to the bundle.
 
 Examples:
-    Example Storm which would be called remotely via the ``callStorm()`` API::
+    Example Storm which would be called remotely via the `callStorm()` API::
 
         init { $bundle = $lib.stix.bundle() }
         #aka.feye.thr.apt1
@@ -4636,8 +4643,8 @@ A storm primitive representing an embedded query.
 Execute the Query in a sub-runtime.
 
 Notes:
-    The ``.exec()`` method can return a value if the Storm query
-    contains a ``return( ... )`` statement in it.
+    The `.exec()` method can return a value if the Storm query
+    contains a `return( ... )` statement in it.
 
 **Returns:**
 A value specified with a return statement, or none. The return type may be one of the following: `null`, `any`.
@@ -4655,6 +4662,15 @@ Execute the Query in a sub-runtime and return the number of nodes yielded.
 
 **Returns:**
 The number of nodes yielded by the query. The return type is `int`.
+
+<a id="stormprims-storm-query-text"></a>
+
+### text
+
+The Storm text of the embedded query.
+
+**Returns:**
+The type is [`str`](#stormprims-str-f527).
 
 <a id="stormprims-str-f527"></a>
 
@@ -4698,7 +4714,7 @@ True if the text ends with the string, false otherwise. The return type is [`boo
 Find the offset of a given string within another.
 
 Examples:
-    Find values in the string ``asdf``::
+    Find values in the string `asdf`::
 
         $x = asdf
         $x.find(d) // returns 2
@@ -5068,7 +5084,7 @@ The row string. The return type is [`str`](#stormprims-str-f527).
 
 Implements the Storm API for a Telepath proxy.
 
-These can be created via ``$lib.telepath.open()``. Storm Service objects
+These can be created via `$lib.telepath.open()`. Storm Service objects
 are also Telepath proxy objects.
 
 Methods called off of these objects are executed like regular Telepath RMI
@@ -5305,6 +5321,9 @@ The type is [`str`](#stormprims-str-f527).
 
 ### value
 
+> **Warning:**
+> `$valu.value` has been deprecated and will be removed on or after 2026-09-24.
+
 Get the valu of the tuple.
 
 **Returns:**
@@ -5343,7 +5362,7 @@ When this is used to set the value, it does not have a return type.
 Delete the Vault.
 
 **Returns:**
-``(true)`` if the vault was deleted, ``(false)`` otherwise. The return type is [`boolean`](#stormprims-boolean-f527).
+`(true)` if the vault was deleted, `(false)` otherwise. The return type is [`boolean`](#stormprims-boolean-f527).
 
 <a id="stormprims-vault-iden"></a>
 
@@ -5410,11 +5429,11 @@ Set easy permissions on the Vault.
 **Args:**
 
 - `iden` (`str`): The user or role to modify.
-- `level` (`str`): The easyperm level for the iden. ``(null)`` to remove an existing permission.
+- `level` (`str`): The easyperm level for the iden. `(null)` to remove an existing permission.
 
 
 **Returns:**
-``(true)`` if the permission was set, ``(false)`` otherwise. The return type is [`boolean`](#stormprims-boolean-f527).
+`(true)` if the permission was set, `(false)` otherwise. The return type is [`boolean`](#stormprims-boolean-f527).
 
 <a id="stormprims-vault-type"></a>
 
@@ -5537,7 +5556,7 @@ Fork a View in the Cortex.
 
 
 **Returns:**
-The ``view`` object for the new View. The return type is [`view`](#stormprims-view-f527).
+The `view` object for the new View. The return type is [`view`](#stormprims-view-f527).
 
 <a id="stormprims-view-get"></a>
 
@@ -5659,8 +5678,8 @@ Notes:
    This is a fast approximate count calculated by summing the number of
    nodes with the property value in each layer of the view. Property values
    which are overwritten by different values in higher layers will still
-   be included in the count. When ``valu`` is provided, only the ``=`` (exact)
-   and ``^=`` (prefix) comparators are supported.
+   be included in the count. When `valu` is provided, only the `=` (exact)
+   and `^=` (prefix) comparators are supported.
 
 
 **Args:**
@@ -5681,8 +5700,8 @@ The count of nodes. The return type is `int`.
 Yield unique property values in the view for the given form or property name.
 
 Notes:
-    When ``valu`` is provided, only the ``=`` (exact) and ``^=`` (prefix) comparators are
-    supported. For a polymorphic property, ``type`` restricts the results to a single
+    When `valu` is provided, only the `=` (exact) and `^=` (prefix) comparators are
+    supported. For a polymorphic property, `type` restricts the results to a single
     member type.
 
 
@@ -5697,6 +5716,33 @@ Notes:
 
 **Yields:**
 Unique property values. The return type is `any`.
+
+<a id="stormprims-view-getTagCount"></a>
+
+### getTagCount(tagname, formname=(null))
+
+Get the number of tag rows in the View for a specific tag and optional form.
+
+Notes:
+   This is a fast approximate count calculated by summing the number of tag
+   rows in each layer of the view. Tags which are present in more than one
+   layer will still be included in the count for each layer, and a tag removed
+   in a higher layer is not subtracted. A tag or form name which does not exist
+   counts zero rather than raising, and neither name is normalized.
+
+Example:
+    Get the number of nodes with the `foo.bar` tag in the current View::
+
+        $count = $lib.view.get().getTagCount(foo.bar)
+
+**Args:**
+
+- `tagname` (`str`): The name of the tag to look up.
+- `formname` (`str`): The form to constrain the look up by.
+
+
+**Returns:**
+The count of tag rows. The return type is `int`.
 
 <a id="stormprims-view-getTagPropCount"></a>
 
@@ -5743,13 +5789,13 @@ Insert a new View between a forked View and its parent.
 
 
 **Returns:**
-The ``view`` object for the new View. The return type is [`view`](#stormprims-view-f527).
+The `view` object for the new View. The return type is [`view`](#stormprims-view-f527).
 
 <a id="stormprims-view-layers"></a>
 
 ### layers
 
-The ``layer`` objects associated with the ``view``.
+The `layer` objects associated with the `view`.
 
 **Returns:**
 The type is [`list`](#stormprims-list-f527).
@@ -5778,7 +5824,7 @@ The newly created merge info. The return type is [`dict`](#stormprims-dict-f527)
 
 ### parent
 
-The parent View. Will be ``(null)`` if the view is not a fork.
+The parent View. Will be `(null)` if the view is not a fork.
 
 **Returns:**
 The type is [`str`](#stormprims-str-f527).
@@ -5810,7 +5856,7 @@ Current runtime updatable view options include:
         The parent View iden.
 
     protected (bool)
-        Setting to ``(true)`` will prevent the layer from being merged or deleted.
+        Setting to `(true)` will prevent the layer from being merged or deleted.
 
     layers (list(str))
         Set the list of layer idens for a non-forked view. Layers are specified
@@ -5919,7 +5965,7 @@ The return type is `null`.
 
 ### triggers
 
-The ``trigger`` objects associated with the ``view``.
+The `trigger` objects associated with the `view`.
 
 **Returns:**
 The type is [`list`](#stormprims-list-f527).
@@ -5958,7 +6004,7 @@ Find all nested elements with the specified tag name.
 **Args:**
 
 - `name` (`str`): The name of the XML tag.
-- `nested` (`boolean`): Set to ``(false)`` to only find direct children.
+- `nested` (`boolean`): Set to `(false)` to only find direct children.
 
 
 **Returns:**
@@ -5976,7 +6022,7 @@ Get a single child element by XML tag name.
 
 
 **Returns:**
-The child XML element or ``(null)``. The return type is [`xml:element`](#stormprims-xml-element-f527).
+The child XML element or `(null)`. The return type is [`xml:element`](#stormprims-xml-element-f527).
 
 <a id="stormprims-xml-element-name"></a>
 

@@ -8,7 +8,7 @@
 
 **Storm** is the query language used to interact with data in Synapse. Storm allows you to ask about, retrieve, annotate, add, modify, and delete data within a Synapse Cortex. If you are using the [open source](https://github.com/vertexproject/synapse) or [Quickstart](https://github.com/vertexproject/synapse-quickstart) versions of Synapse, you will access Synapse via the Storm command-line interface (**Storm CLI**) (see [storm](syn_tools_storm.md#syn-tools-storm)):
 
-``` text
+```text
 storm> <query>
 ```
 
@@ -89,7 +89,7 @@ Most objects in Synapse are **nodes**. Most Storm operations start by **lifting*
 
 Users commonly interact with data (nodes) in Synapse using operations such as lift, filter, and pivot. Storm allows multiple operations to be **chained** together to form longer queries:
 
-``` text
+```storm
 storm> inet:fqdn=vertex.link
 
 storm> inet:fqdn=vertex.link -> inet:dns:a
@@ -197,7 +197,7 @@ When entering a query/command in Storm, one or more whitespace characters are **
 inet:whois:record:fqdn=vertex.link | max :created
 ```
 
-``` text
+```storm
 storm> inet:whois:record:fqdn=vertex.link | max :created
 ```
 
@@ -215,7 +215,7 @@ inet:email:fqdn=vertex.link | count
 inet:email=support@vertex.link -> *
 ```
 
-``` text
+```storm
 storm> inet:email:fqdn=vertex.link | count
 
 storm> inet:email=support@vertex.link -> *
@@ -237,7 +237,7 @@ inet:ip=192.168.0.1
 inet:ip = 192.168.0.1
 ```
 
-``` text
+```storm
 storm> inet:ip=192.168.0.1
 
 storm> inet:ip = 192.168.0.1
@@ -265,7 +265,7 @@ inet:ip=8.8.8.8 [:asn=15169]
 inet:ip=8.8.8.8 [:asn = 15169]
 ```
 
-``` text
+```storm
 storm> [inet:fqdn=vertex.link]
 
 storm> [inet:fqdn = vertex.link]
@@ -301,7 +301,7 @@ entity:contact:name='ron the cat' [:org={ou:org:name='the vertex project'}]
 entity:contact:name='ron the cat' [ :org={ ou:org:name='the vertex project' } ]
 ```
 
-``` text
+```storm
 storm> [inet:fqdn=vertex.link]
 
 storm> [ inet:fqdn=vertex.link ]
@@ -327,7 +327,7 @@ Whitespace characters **cannot** be used between reserved characters when perfor
 inet:ip=192.168.0.1 [ -#oldtag +#newtag ]
 ```
 
-``` text
+```storm
 storm> inet:ip=192.168.0.1 [ -#oldtag +#newtag ]
 ```
 

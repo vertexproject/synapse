@@ -17,7 +17,6 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
-import synapse.lib.types as s_types
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormctrl as s_stormctrl
@@ -28,12 +27,20 @@ from synapse.lib.stormtypes import tobool, toprim, tostr, tonumber, tocmprvalu, 
 SET_ALWAYS = 0
 SET_UNSET = 1
 SET_NEVER = 2
+SET_MIN = 3
+SET_MAX = 4
 
 COND_EDIT_SET = {
     'always': SET_ALWAYS,
     'unset': SET_UNSET,
     'never': SET_NEVER,
+    'min': SET_MIN,
+    'max': SET_MAX,
 }
+
+# conditional set opers which combine the new value with the current one rather
+# than gating whether the set happens at all
+COND_EDIT_COMBINE = (SET_MIN, SET_MAX)
 
 logger = logging.getLogger(__name__)
 
@@ -5341,6 +5348,96 @@ class CondSetOper(Oper):
         exc = s_exc.StormRuntimeError(mesg=mesg)
         raise self.addExcInfo(exc)
 
+async def getUnkValu(atype):
+    '''
+    Return the type's "unknown" sentinel (what it norms ``?`` to), or None when
+    the type has no such value. Used so *min/*max treat an unknown end as absent
+    rather than comparing its near-maxint storage value.
+
+    Memoized on the type since it is constant for one, and a type belongs to a
+    model. Norming per edit is not free, and for a type with no unknown value it
+    means constructing and catching a BadTypeValu on every node.
+    '''
+    unkv = getattr(atype, '_storm_unkvalu', s_common.novalu)
+    if unkv is s_common.novalu:
+        try:
+            unkv = (await atype.norm('?'))[0]
+        except (s_exc.BadTypeValu, s_exc.NoSuchFunc):
+            unkv = None
+
+        atype._storm_unkvalu = unkv
+
+    return unkv
+
+async def condCombine(atype, oper, oldv, newv, ctor):
+    '''
+    Combine the current and new values for a *min/*max conditional set oper.
+    An unknown sentinel on either side is treated as absent, which reproduces
+    the asymmetry in Ival.merge: an unknown end is replaced by a real value, and
+    an incoming unknown never overwrites one.
+
+    Both values must be in the shape the type's comparator expects: a typed
+    value for a poly type, the stored value otherwise. The ctor comes from
+    reqCondCombine so the comparator is resolved once per node rather than twice.
+    '''
+    # nothing to compare against, and no reason to norm the unknown sentinel
+    if oldv is None:
+        return newv
+
+    unkv = await getUnkValu(atype)
+
+    if oldv == unkv:
+        return newv
+
+    if newv == unkv:
+        return oldv
+
+    # a poly comparator answers False for a stored member type it built no comparison
+    # for, which is indistinguishable from a real "not greater". Poly.getCmprCtor
+    # builds one per member type that accepts THIS right hand value, so asking the
+    # stored type whether it supports '>' at all is the wrong question -- a type which
+    # does, but cannot take this value, still lands on that ambiguous False. Ask the
+    # same question the comparator does, and reject the pair instead, so it behaves
+    # the same in both directions and stays suppressible with the try oper rather
+    # than silently replacing a value.
+    if atype.ispoly:
+        tctor = atype.modl.reqType(oldv[0]).getCmprCtor('>')
+        if tctor is None:
+            mesg = f'The *min and *max edit operators require a comparable type, the stored {oldv[0]} value is not.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=atype.name)
+
+        try:
+            await tctor(newv[1])
+        except s_exc.BadTypeValu:
+            mesg = f'The *min and *max edit operators cannot compare a stored {oldv[0]} value with a {newv[0]} value.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=atype.name) from None
+
+    # compare through the type rather than with the python opers. storage order
+    # is not compare order for every comparable type (hugenum stores a decimal
+    # string) and a poly value must be compared by its concrete member type. the
+    # ctor takes a bare right hand side, while the returned cmpr takes the left
+    # hand side in stored shape.
+    cmpr = await ctor(newv[1] if atype.ispoly else newv)
+
+    if await cmpr(oldv):
+        return oldv if oper == SET_MAX else newv
+
+    return newv if oper == SET_MAX else oldv
+
+def reqCondCombine(oper, atype, name, extra):
+    '''
+    Return the type's greater-than ctor for a *min/*max oper, or None when the
+    oper does not combine. Raises when the oper cannot work on the type.
+    '''
+    if oper not in COND_EDIT_COMBINE:
+        return None
+
+    if (ctor := atype.getCmprCtor('>')) is None:
+        mesg = f'The *min and *max edit operators require a comparable type, {name} is not.'
+        raise extra(s_exc.BadArg(mesg=mesg, name=name))
+
+    return ctor
+
 class EditCondPropSet(Edit):
 
     async def run(self, runt, genr):
@@ -5358,10 +5455,18 @@ class EditCondPropSet(Edit):
             prop = node.form.reqProp(name, extra=self.kids[0].addExcInfo)
 
             oper = await self.kids[1].compute(runt, path)
-            if oper == SET_NEVER or (oper == SET_UNSET and (oldv := node.get(name)) is not None):
+
+            oldv = node.get(name)
+
+            if oper == SET_NEVER or (oper == SET_UNSET and oldv is not None):
                 yield node, path
                 await asyncio.sleep(0)
                 continue
+
+            # resolved ahead of the value so a prop whose type cannot be ordered is
+            # reported even when the value would not norm either: the try oper is for
+            # bad data, not for a prop the oper cannot work on.
+            ctor = reqCondCombine(oper, prop.type, prop.full, self.kids[1].addExcInfo)
 
             if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
@@ -5371,11 +5476,97 @@ class EditCondPropSet(Edit):
                 valu = await rval.compute(runt, path)
                 valu = await s_stormtypes.tostor(valu)
 
-                if isinstance(prop.type, s_types.Ival) and oldv is not None:
-                    valu, _ = await prop.type.norm(valu)
-                    valu = prop.type.merge(oldv, valu)
+                doset = True
+                norminfo = None
 
-                await node.set(name, valu)
+                if oper in COND_EDIT_COMBINE:
+                    valu, norminfo = await prop.type.norm(valu)
+                    # when the value already on the node wins there is nothing to
+                    # set, and its norminfo is not ours to reconstruct
+                    doset = await condCombine(prop.type, oper, oldv, valu, ctor) == valu
+
+                    # the oper has decided, so do not let the editor merge on top of
+                    # it. a type carrying ismin/ismax would otherwise apply its own
+                    # extreme and could invert the one asked for. the virt store
+                    # paths clear this for the same reason.
+                    norminfo['merge'] = False
+
+                if doset:
+                    await node.set(name, valu, norminfo=norminfo)
+
+            except excignore:
+                pass
+
+            except s_exc.BadTypeValu as e:
+                raise rval.addExcInfo(e)
+
+            yield node, path
+
+            await asyncio.sleep(0)
+
+class EditVirtCondPropSet(Edit):
+
+    async def run(self, runt, genr):
+
+        self.reqNotReadOnly(runt)
+
+        excignore = (s_exc.BadTypeValu,) if self.kids[2].errok else ()
+        rval = self.kids[3]
+
+        async for node, path in genr:
+
+            propname = await self.kids[0].compute(runt, path)
+            name = await tostr(propname)
+
+            prop = node.form.reqProp(name, extra=self.kids[0].addExcInfo)
+
+            virt = await self.kids[1].compute(runt, path)
+            oper = await self.kids[2].compute(runt, path)
+
+            oldv, oldvirts = node.getWithVirts(name)
+
+            vtype = prop.type.getVirtType(virt)
+
+            # let the node resolve the getter, since it holds the storage tuple the
+            # getters expect and the shape differs by virt
+            oldvirt = node.get(f'{name}.{virt}')
+
+            if oper == SET_NEVER or (oper == SET_UNSET and oldvirt is not None
+                                     and oldvirt != await getUnkValu(vtype)):
+                yield node, path
+                await asyncio.sleep(0)
+                continue
+
+            # resolved ahead of the value so a prop whose type cannot be ordered is
+            # reported even when the value would not norm either: the try oper is for
+            # bad data, not for a prop the oper cannot work on.
+            ctor = reqCondCombine(oper, vtype, f'{prop.full}.{virt}', self.kids[2].addExcInfo)
+
+            if not node.form.isrunt:
+                # runt node property permissions are enforced by the callback
+                runt.confirmPropSet(prop)
+
+            try:
+                valu = await rval.compute(runt, path)
+                valu = await s_stormtypes.tostor(valu)
+
+                doset = True
+                if oper in COND_EDIT_COMBINE:
+                    # compare with a normed copy but hand normVirt the original, so
+                    # the virt store path sees exactly what a plain set gives it
+                    normv, _ = await vtype.norm(valu)
+                    doset = await condCombine(vtype, oper, oldvirt, normv, ctor) == normv
+
+                if doset:
+                    newv, norminfo = await prop.type.normVirt(virt, oldv, valu, oldvirts=oldvirts)
+                    if oper in COND_EDIT_COMBINE:
+                        # the oper picked this value; do not let the editor merge over
+                        # it. only the combining opers need that -- the rest decide
+                        # whether the set happens, so they must land where a plain set
+                        # would rather than diverge from it.
+                        norminfo['merge'] = False
+
+                    await node.set(name, newv, norminfo=norminfo)
 
             except excignore:
                 pass
@@ -5512,12 +5703,6 @@ class EditPropSet(Edit):
                                 pass
 
                     valu, norminfo = await prop.type.norm(arry, opts={'view': runt.view, 'newinfos': newinfos})
-
-                if isinstance(prop.type, s_types.Ival):
-                    oldv = node.get(name)
-                    if oldv is not None:
-                        valu, _ = await prop.type.norm(valu)
-                        valu = prop.type.merge(oldv, valu)
 
                 if node.form.isrunt:
                     await node.set(name, valu)
@@ -6068,7 +6253,12 @@ class EditTagVirtSet(Edit):
                     await asyncio.sleep(0)
 
                     try:
+                        # a tag with no timestamps reads as (None, None, None), which the
+                        # virt store path cannot compare against
                         oldv = node.getTag(name)
+                        if oldv is not None and oldv[0] is None:
+                            oldv = None
+
                         newv, norminfo = await ival.normVirt(virt, oldv, valu)
                     except self.tryset_ignore:
                         newv = (None, None, None)
@@ -6080,6 +6270,115 @@ class EditTagVirtSet(Edit):
                     try:
                         await node.addTag(name, valu=newv, norminfo=norminfo)
                     except self.excignore:
+                        pass
+                    except s_exc.BadTypeValu as e:  # pragma: no cover
+                        raise namekid.addExcInfo(e)
+
+            yield node, path
+            await asyncio.sleep(0)
+
+class EditTagVirtCondSet(Edit):
+    '''
+    A tag timestamp virt set through a conditional oper, e.g.
+    ``+?#(foo.published).min*min=$created``.
+    '''
+    def __init__(self, astinfo, kids=(), istry=False):
+        Edit.__init__(self, astinfo, kids=kids)
+        self.excignore = ()
+        if istry:
+            self.excignore = (s_exc.BadTypeValu,)
+
+    async def run(self, runt, genr):
+
+        self.reqNotReadOnly(runt)
+
+        namekid = self.kids[0]
+        virtkid = self.kids[1]
+        operkid = self.kids[2]
+        valukid = self.kids[3]
+
+        tryset_ignore = (s_exc.BadTypeValu,) if operkid.errok else ()
+
+        ival = runt.model.type('ival')
+
+        async for node, path in genr:
+
+            try:
+                names = await namekid.computeTagArray(runt, path, excignore=self.excignore)
+            except self.excignore:
+                yield node, path
+                await asyncio.sleep(0)
+                continue
+
+            if node.form.isrunt:
+                raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.', form=node.form.full, tag=names[0])
+
+            for name in names:
+                parts = name.split('.')
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
+
+            virt = await virtkid.compute(runt, path)
+            oper = await operkid.compute(runt, path)
+
+            vtype, vgetr = ival.getVirtInfo(virt)
+
+            # the virt getters take a storage property tuple. a tag ival carries no
+            # storvirts, so a virt derived from those (precision) reads as unset.
+
+            # hoisted for the same reason as the prop paths, and because the ctor is
+            # used once per tag name below
+            ctor = reqCondCombine(oper, vtype, f'tag timestamp virt {virt}', operkid.addExcInfo)
+
+            if oper == SET_NEVER:
+                yield node, path
+                await asyncio.sleep(0)
+                continue
+
+            valu = await valukid.compute(runt, path)
+            valu = await s_stormtypes.toprim(valu)
+
+            async with node.view.getEditor() as editor:
+                editor.loadNode(node)
+                for name in names:
+                    await asyncio.sleep(0)
+
+                    # a tag with no timestamps reads as (None, None, None), which neither
+                    # the comparison nor the virt store path can handle
+                    oldv = node.getTag(name)
+                    if oldv is not None and oldv[0] is None:
+                        oldv = None
+
+                    oldvirt = vgetr((oldv, None, None)) if oldv is not None else None
+
+                    if oper == SET_UNSET and oldvirt is not None \
+                            and oldvirt != await getUnkValu(vtype):
+                        continue
+
+                    try:
+                        if oper in COND_EDIT_COMBINE:
+                            # compare with a normed copy but hand normVirt the
+                            # original, as a plain set would
+                            normv, _ = await vtype.norm(valu)
+                            if await condCombine(vtype, oper, oldvirt, normv, ctor) != normv:
+                                continue
+
+                        newv, norminfo = await ival.normVirt(virt, oldv, valu)
+                        # the oper has decided; do not let the editor merge over it. the
+                        # min/max/duration virt stores clear this themselves, precision does not.
+                        if oper in COND_EDIT_COMBINE:
+                            norminfo['merge'] = False
+
+                    except tryset_ignore:
+                        newv = (None, None, None)
+                        norminfo = None
+                    except self.excignore:
+                        continue
+                    except s_exc.BadTypeValu as e:
+                        raise valukid.addExcInfo(e)
+
+                    try:
+                        await node.addTag(name, valu=newv, norminfo=norminfo)
+                    except self.excignore:  # pragma: no cover
                         pass
                     except s_exc.BadTypeValu as e:
                         raise namekid.addExcInfo(e)

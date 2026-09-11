@@ -12,8 +12,8 @@ Variables can also be used that are defined outside the definition.
 Examples:
     macro.set foobar ${ [+#foo] }
 
-    # Use variable from parent scope
-    macro.set bam ${ [ inet:ipv4=$val ] }
+    // Use variable from parent scope
+    macro.set bam ${ [ inet:ip=$val ] }
     $val=1.2.3.4 macro.exec bam
 '''
 
@@ -95,7 +95,7 @@ class MacroExecCmd(s_storm.Cmd):
 
     Example:
 
-        inet:ipv4#cno.threat.t80 | macro.exec enrich_foo
+        inet:ip#cno.threat.t80 | macro.exec enrich_foo
 
     '''
 
@@ -150,7 +150,7 @@ class LibMacro(s_stormtypes.Lib):
                   'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a list of Storm Macros in the Cortex.',
          'type': {'type': 'function', '_funcname': '_funcMacroList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``dict`` objects containing Macro definitions.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of `dict` objects containing Macro definitions.', }}},
         {'name': 'mod', 'desc': 'Modify user editable properties of a Storm Macro.',
          'type': {'type': 'function', '_funcname': '_funcMacroMod',
                   'args': (

@@ -37,13 +37,21 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.stormctrl as s_stormctrl
+import synapse.lib.httpclient as s_httpclient
 
 logger = logging.getLogger(__name__)
 
 class Undef:
     _storm_typename = 'undef'
-    async def stormrepr(self):
+
+    # a singleton sentinel, so give it a stable repr: the default object repr
+    # carries a memory address, which renders into generated command help and
+    # makes that documentation differ on every build.
+    def __repr__(self):
         return '$lib.undef'
+
+    async def stormrepr(self):
+        return repr(self)
 
 undef = Undef()
 
@@ -370,6 +378,10 @@ class StormTypesRegistry:
                 'path': ('lib',) + slib._storm_lib_path,
                 'deprecated': slib._storm_lib_deprecation,
             }
+
+            if slib._cortex_edition is not None:
+                tdoc['edition'] = slib._cortex_edition
+
             for info in sorted(slib._storm_locals, key=lambda x: x.get('name')):
                 info = s_msgpack.deepcopy(info)
                 self._validateInfo(slib, info, sname)
@@ -416,6 +428,10 @@ class StormTypesRegistry:
                 'locals': locs,
                 'path': (styp._storm_typename,),
             }
+
+            if styp._cortex_edition is not None:
+                tdoc['edition'] = styp._cortex_edition
+
             for info in sorted(styp._storm_locals, key=lambda x: x.get('name')):
                 info = s_msgpack.deepcopy(info)
                 self._validateInfo(styp, info, sname)
@@ -513,6 +529,10 @@ class StormType:
     _storm_locals = ()  # type: Any # To be overridden for deref constants that need documentation
     _ismutable = True
     _storm_typename = 'unknown'
+    # The edition which provides this library or type, for one that is not part
+    # of every Cortex. None ( the default ) means it is always available, and no
+    # edition is recorded for it in generated docs or the Cortex APIs.
+    _cortex_edition = None
 
     def __init__(self, path=None):
         self.path = path
@@ -534,7 +554,7 @@ class StormType:
 
     def getObjLocals(self):
         '''
-        Get the default list of key-value pairs which may be added to the object ``.locls`` dictionary.
+        Get the default list of key-value pairs which may be added to the object `.locls` dictionary.
 
         Returns:
             dict: A key/value pairs.
@@ -722,24 +742,24 @@ class LibDmon(Lib):
         {'name': 'bump', 'desc': 'Restart the Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonBump',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to restart.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to restart.'},
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the Dmon is restarted; False if the iden does not exist.'}}},
         {'name': 'stop', 'desc': 'Stop a Storm Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStop',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the Dmon to stop.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to stop.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': '``(true)`` unless the dmon does not exist or was already stopped.'}}},
+                              'desc': '`(true)` unless the dmon does not exist or was already stopped.'}}},
         {'name': 'start', 'desc': 'Start a storm dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStart',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to start.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to start.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': '``(true)`` unless the dmon does not exist or was already started.'}}},
+                              'desc': '`(true)` unless the dmon does not exist or was already started.'}}},
     )
     _storm_lib_path = ('dmon',)
 
@@ -906,7 +926,7 @@ class LibService(Lib):
             List the Storm Service definitions for the Cortex.
 
             Notes:
-                The definition dictionaries have an additional ``ready`` key added to them to
+                The definition dictionaries have an additional `ready` key added to them to
                 indicate if the Cortex is currently connected to the Storm Service or not.
             ''',
          'type': {'type': 'function', '_funcname': '_libSvcList',
@@ -1024,7 +1044,7 @@ class LibTags(Lib):
                   'args': (
                       {'name': 'names', 'type': 'list',
                        'desc': 'A list of syn:tag:part values to normalize and prefix. '
-                               'If ``(null)``, this is a no-op and an empty list is returned.'},
+                               'If `(null)`, this is a no-op and an empty list is returned.'},
                       {'name': 'prefix', 'type': 'str', 'desc': 'The string prefix to add to the syn:tag:part values.'},
                       {'name': 'ispart', 'type': 'boolean', 'default': False,
                        'desc': 'Whether the names have already been normalized. Normalization will be skipped if set to true.'},
@@ -1112,11 +1132,11 @@ class LibBase(Lib):
             Fire an event onto the runtime.
 
             Notes:
-                This fires events as ``storm:fire`` event types. The name of the event is placed into a ``type`` key,
-                and any additional keyword arguments are added to a dictionary under the ``data`` key.
+                This fires events as `storm:fire` event types. The name of the event is placed into a `type` key,
+                and any additional keyword arguments are added to a dictionary under the `data` key.
 
             Examples:
-                Fire an event called ``demo`` with some data::
+                Fire an event called `demo` with some data::
 
                     storm> $foo='bar' $lib.fire('demo', foo=$foo, knight='ni')
                     ...
@@ -1193,9 +1213,9 @@ class LibBase(Lib):
 
                 Use values off of a node to format and print string::
 
-                    storm> inet:ipv4:asn
+                    storm> inet:ip:asn
                          $lib.print(`node: {$node.ndef}, asn: {:asn}`) | spin
-                    node: ('inet:ipv4', 16909060), asn: 1138
+                    node: ('inet:ip', 16909060), asn: 1138
 
             Notes:
                 Arbitrary objects can be printed as well. They will have their Python __repr()__ printed.
@@ -1219,7 +1239,7 @@ class LibBase(Lib):
                 ('storm:fire', {'type': 'test', 'data': {'index': 2, 'valu': 2}})
 
         Notes:
-            The range behavior is the same as the Python3 ``range()`` builtin Sequence type.
+            The range behavior is the same as the Python3 `range()` builtin Sequence type.
         ''',
          'type': {'type': 'function', '_funcname': '_range',
                   'args': (
@@ -1254,7 +1274,7 @@ class LibBase(Lib):
                        'desc': 'Version requirement for the imported module.', },
                   ),
                   'returns': {'type': 'lib',
-                              'desc': 'A ``lib`` instance representing the imported package.', }}},
+                              'desc': 'A `lib` instance representing the imported package.', }}},
 
         {'name': 'trycast', 'desc': '''
             Attempt to normalize a value and return status and the normalized value.
@@ -1262,7 +1282,7 @@ class LibBase(Lib):
             Examples:
                 Do something if the value is a valid IPV4::
 
-                    ($ok, $ipv4) = $lib.trycast(inet:ipv4, 1.2.3.4)
+                    ($ok, $ipv4) = $lib.trycast(inet:ip, 1.2.3.4)
                     if $ok { $dostuff($ipv4) }
          ''',
          'type': {'type': 'function', '_funcname': 'trycast',
@@ -1860,16 +1880,23 @@ class LibAxon(Lib):
 
     For APIs that accept a proxy argument, the following values are supported::
 
-        ``(true)``: Use the proxy defined by the http:proxy configuration option if set.
-        ``(false)``: Do not use the proxy defined by the http:proxy configuration option if set.
+        `(true)`: Use the proxy defined by the http:proxy configuration option if set.
+        `(false)`: Do not use the proxy defined by the http:proxy configuration option if set.
         <str>: A proxy URL string.
+
+    Notes:
+        When no User-Agent header is specified, the request sent to the Axon carries the
+        Cortex's own default User-Agent, so a Storm-initiated fetch has one consistent origin
+        identity regardless of which service actually sends the request. A User-Agent header
+        provided in the headers argument always overrides the default, regardless of casing,
+        and persists across the request to the Axon.
     '''
     _storm_locals = (
         {'name': 'wget', 'desc': """
             A method to download an HTTP(S) resource into the Cortex's Axon.
 
             Notes:
-                The response body will be stored regardless of the status code. See the ``Axon.wget()`` API
+                The response body will be stored regardless of the status code. See the `Axon.wget()` API
                 documentation to see the complete structure of the response dictionary.
 
             Example:
@@ -1930,15 +1957,15 @@ class LibAxon(Lib):
             Retrieve the target URL using the wget() function and construct an inet:urlfile node from the response.
 
             Notes:
-                This accepts the same arguments as ``$lib.axon.wget()``.
+                This accepts the same arguments as `$lib.axon.wget()`.
                 ''',
          'type': {'type': 'function', '_funcname': 'urlfile',
                   'args': (
-                      {'name': '*args', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.'},
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.'},
+                      {'name': '*args', 'type': 'any', 'desc': 'Args from `$lib.axon.wget()`.'},
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Args from `$lib.axon.wget()`.'},
                   ),
                   'returns': {'type': ['node', 'null'],
-                              'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.'}}},
+                              'desc': 'The `inet:urlfile` node on success,  `null` on error.'}}},
         {'name': 'del', 'desc': '''
             Remove the bytes from the Cortex's Axon by sha256.
 
@@ -2095,14 +2122,12 @@ class LibAxon(Lib):
             Examples:
                 Check if the Axon has a given file::
 
-                    # This example assumes the Axon does have the bytes
+                    // This example assumes the Axon does have the bytes
                     storm> if $lib.axon.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
                             $lib.print("Has bytes")
                         } else {
                             $lib.print("Does not have bytes")
                         }
-
-                    Has bytes
             ''',
          'type': {'type': 'function', '_funcname': 'has',
                   'args': (
@@ -2113,7 +2138,7 @@ class LibAxon(Lib):
             Return the size of the bytes stored in the Axon for the given sha256.
 
             Examples:
-                Get the size for a file given a variable named ``$sha256``::
+                Get the size for a file given a variable named `$sha256`::
 
                     $size = $lib.axon.size($sha256)
             ''',
@@ -2122,12 +2147,12 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
                   ),
                   'returns': {'type': ['int', 'null'],
-                              'desc': 'The size of the file or ``null`` if the file is not found.', }}},
+                              'desc': 'The size of the file or `null` if the file is not found.', }}},
         {'name': 'hashset', 'desc': '''
             Return additional hashes of the bytes stored in the Axon for the given sha256.
 
             Examples:
-                Get the md5 hash for a file given a variable named ``$sha256``::
+                Get the md5 hash for a file given a variable named `$sha256`::
 
                     $hashset = $lib.axon.hashset($sha256)
                     $md5 = $hashset.md5
@@ -2186,6 +2211,10 @@ class LibAxon(Lib):
 
             Examples:
                 Upload bytes from a generator::
+
+                    function getBytesChunks() {
+                        emit $lib.base64.decode(Zm9vYmFy)
+                    }
 
                     ($size, $sha256) = $lib.axon.upload($getBytesChunks())
             ''',
@@ -2279,6 +2308,11 @@ class LibAxon(Lib):
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
+        # a Storm-supplied User-Agent must persist to the Axon; when absent, the Cortex's
+        # own default is used so the request has one consistent origin identity regardless
+        # of which cell actually sends the request
+        headers = s_httpclient.setDefaultUserAgent(headers, self.runt.view.core.getUserAgent())
+
         kwargs = {
             'proxy': await resolveAxonProxyArg(proxy)
         }
@@ -2292,7 +2326,11 @@ class LibAxon(Lib):
     async def wput(self, sha256, url, headers=None, params=None, method='PUT',
                    ssl=None, timeout=None, proxy=True):
 
+        # reading the blob and sending it out are separate capabilities; the Axon
+        # requires axon.wput of its own callers, and $lib.inet.http.request confirms
+        # it for the equivalent sha256 field path
         self.runt.confirm(('axon', 'get'))
+        self.runt.confirm(('axon', 'wput'))
 
         url = await tostr(url)
         ssl = await toprim(ssl)
@@ -2306,6 +2344,11 @@ class LibAxon(Lib):
 
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
+
+        # a Storm-supplied User-Agent must persist to the Axon; when absent, the Cortex's
+        # own default is used so the request has one consistent origin identity regardless
+        # of which cell actually sends the request
+        headers = s_httpclient.setDefaultUserAgent(headers, self.runt.view.core.getUserAgent())
 
         kwargs = {
             'proxy': await resolveAxonProxyArg(proxy)
@@ -2766,7 +2809,7 @@ class LibTime(Lib):
                   ),
                   'returns': {'type': 'int', 'desc': 'The normalized time in microseconds.', }}},
         {'name': 'parse', 'desc': '''
-            Parse a timestamp string using ``datetime.strptime()`` into an epoch timestamp.
+            Parse a timestamp string using `datetime.strptime()` into an epoch timestamp.
 
             Examples:
                 Parse a string as for its month/day/year value into a timestamp::
@@ -2779,11 +2822,11 @@ class LibTime(Lib):
                       {'name': 'valu', 'type': 'str', 'desc': 'The timestamp string to parse.', },
                       {'name': 'format', 'type': 'str', 'desc': 'The format string to use for parsing.', },
                       {'name': 'errok', 'type': 'boolean', 'default': False,
-                       'desc': 'If set, parsing errors will return ``(null)`` instead of raising an exception.'}
+                       'desc': 'If set, parsing errors will return `(null)` instead of raising an exception.'}
                   ),
                   'returns': {'type': 'int', 'desc': 'The epoch timestamp for the string.', }}},
         {'name': 'format', 'desc': '''
-            Format a Synapse timestamp into a string value using ``datetime.strftime()``.
+            Format a Synapse timestamp into a string value using `datetime.strftime()`.
 
             Examples:
                 Format a timestamp into a string::
@@ -3127,7 +3170,7 @@ class LibRegx(Lib):
                 In order to get the matching groups, patterns must use parentheses
                 to indicate the start and stop of the regex to return portions of.
                 If groups are not used, a successful match will return a empty list
-                and a unsuccessful match will return ``(null)``.
+                and a unsuccessful match will return `(null)`.
 
             Example:
                 Extract the matching groups from a piece of text::
@@ -3312,10 +3355,10 @@ class LibCsv(Lib):
     A Storm Library for interacting with csvtool.
     '''
     _storm_locals = (
-        {'name': 'emit', 'desc': 'Emit a ``csv:row`` event to the Storm runtime for the given args.',
+        {'name': 'emit', 'desc': 'Emit a `csv:row` event to the Storm runtime for the given args.',
          'type': {'type': 'function', '_funcname': '_libCsvEmit',
                   'args': (
-                      {'name': '*args', 'type': 'any', 'desc': 'Items which are emitted as a ``csv:row`` event.', },
+                      {'name': '*args', 'type': 'any', 'desc': 'Items which are emitted as a `csv:row` event.', },
                       {'name': 'table', 'type': 'str', 'default': None,
                        'desc': 'The name of the table to emit data too. Optional.', },
                   ),
@@ -3680,13 +3723,13 @@ class LibQueue(Lib):
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Queue to get.', },
                   ),
-                  'returns': {'type': 'queue', 'desc': 'A ``queue`` object.', }}},
+                  'returns': {'type': 'queue', 'desc': 'A `queue` object.', }}},
         {'name': 'byname', 'desc': 'Get an existing Queue object by name.',
          'type': {'type': 'function', '_funcname': '_methQueueGetByName',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.', },
                   ),
-                  'returns': {'type': 'queue', 'desc': 'A ``queue`` object.', }}},
+                  'returns': {'type': 'queue', 'desc': 'A `queue` object.', }}},
         {'name': 'list', 'desc': 'Get a list of the Queues in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methQueueList',
                   'returns': {'type': 'list',
@@ -3974,7 +4017,7 @@ class Proxy(StormType):
     '''
     Implements the Storm API for a Telepath proxy.
 
-    These can be created via ``$lib.telepath.open()``. Storm Service objects
+    These can be created via `$lib.telepath.open()`. Storm Service objects
     are also Telepath proxy objects.
 
     Methods called off of these objects are executed like regular Telepath RMI
@@ -4398,7 +4441,7 @@ class Str(Prim):
             Find the offset of a given string within another.
 
             Examples:
-                Find values in the string ``asdf``::
+                Find values in the string `asdf`::
 
                     $x = asdf
                     $x.find(d) // returns 2
@@ -5191,7 +5234,7 @@ class List(Prim):
                   'returns': {'type': 'list', 'desc': 'The slice of the list.'}}},
 
         {'name': 'extend', 'desc': '''
-            Extend a list using another iterable. If ``(null)`` is provided, this is a no-op.
+            Extend a list using another iterable. If `(null)` is provided, this is a no-op.
 
             Examples:
                 Populate a list by extending it with other lists::
@@ -5214,7 +5257,7 @@ class List(Prim):
             ''',
          'type': {'type': 'function', '_funcname': '_methListExtend',
                   'args': (
-                      {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable. If ``(null)``, this is a no-op.'},
+                      {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable. If `(null)`, this is a no-op.'},
                   ),
                   'returns': {'type': 'null'}}},
         {'name': 'unique', 'desc': 'Get a copy of the list containing unique items.',
@@ -5799,8 +5842,8 @@ class Query(Prim):
             Execute the Query in a sub-runtime.
 
             Notes:
-                The ``.exec()`` method can return a value if the Storm query
-                contains a ``return( ... )`` statement in it.''',
+                The `.exec()` method can return a value if the Storm query
+                contains a `return( ... )` statement in it.''',
          'type': {'type': 'function', '_funcname': '_methQueryExec',
                   'returns': {'type': ['null', 'any'],
                               'desc': 'A value specified with a return statement, or none.', }}},
@@ -5813,6 +5856,7 @@ class Query(Prim):
                   ),
                   'returns': {'type': 'int',
                               'desc': 'The number of nodes yielded by the query.', }}},
+        {'name': 'text', 'desc': 'The Storm text of the embedded query.', 'type': 'str', },
     )
 
     _storm_typename = 'storm:query'
@@ -5832,6 +5876,7 @@ class Query(Prim):
         return {
             'exec': self._methQueryExec,
             'size': self._methQuerySize,
+            'text': self.text,
         }
 
     def __str__(self):
@@ -6112,6 +6157,9 @@ _FlipCmpr = {
     '<=': '>=',
 }
 
+# the .value virtual property was deprecated during the 3.0.0 development cycle.
+VALUVIRTDEPR = {'eoldate': '2026-09-24'}
+
 @registry.registerType
 class Valu(Prim):
     '''
@@ -6125,6 +6173,7 @@ class Valu(Prim):
         {'name': 'type', 'desc': 'Get the type of the tuple.',
          'type': 'str'},
         {'name': 'value', 'desc': 'Get the valu of the tuple.',
+         'deprecated': VALUVIRTDEPR,
          'type': 'any'},
         {'name': 'is', 'desc': 'Check if the type in the tuple is a given type.',
          'type': {'type': 'function', '_funcname': '_methIsType',
@@ -6182,7 +6231,6 @@ class Valu(Prim):
     def getObjLocals(self):
         return {
             'type': self.valu[0],
-            'value': self.valu[1],
             'is': self._methIsType,
         }
 
@@ -6261,6 +6309,11 @@ class Valu(Prim):
     @stormfunc(readonly=True)
     async def _derefGet(self, name):
         name = await tostr(name)
+
+        if name == 'value':
+            # a Valu resolves .value from its own tuple, so it never reaches Poly._getValue()
+            s_common.deprdate('.value', VALUVIRTDEPR['eoldate'])
+            return self.valu[1]
 
         if self.virts is not None:
             if (valu := self.virts.get(name)) is not None:
@@ -6811,14 +6864,14 @@ class LibLayer(Lib):
                       {'name': 'ldef', 'type': 'dict', 'desc': 'The layer definition dictionary.', 'default': None, },
                   ),
                   'returns': {'type': 'layer',
-                              'desc': 'A ``layer`` object representing the new layer.', }}},
+                              'desc': 'A `layer` object representing the new layer.', }}},
         {'name': 'del', 'desc': 'Delete a layer from the Cortex.',
          'type': {'type': 'function', '_funcname': '_libLayerDel',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the layer to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get a Layer from the Cortex. Raises ``NoSuchIden`` if no '
+        {'name': 'get', 'desc': 'Get a Layer from the Cortex. Raises `NoSuchIden` if no '
                                 'such layer exists or the user cannot read it.',
          'type': {'type': 'function', '_funcname': '_libLayerGet',
                   'args': (
@@ -6829,7 +6882,7 @@ class LibLayer(Lib):
                   'returns': {'type': 'layer', 'desc': 'The storm layer object.', }}},
         {'name': 'list', 'desc': 'List the layers in a Cortex.',
          'type': {'type': 'function', '_funcname': '_libLayerList',
-                  'returns': {'type': 'list', 'desc': 'List of ``layer`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'List of `layer` objects.', }}},
     )
 
     def getObjLocals(self):
@@ -6968,9 +7021,9 @@ class Layer(Prim):
             Return the number of tag rows in the layer for the given tag and optional form.
 
             Examples:
-                Get the number of ``inet:ipv4`` nodes with the ``$foo.bar`` tag::
+                Get the number of `inet:ip` nodes with the `$foo.bar` tag::
 
-                    $count = $lib.layer.get().getTagCount(foo.bar, formname=inet:ipv4)''',
+                    $count = $lib.layer.get().getTagCount(foo.bar, formname=inet:ip)''',
          'type': {'type': 'function', '_funcname': '_methGetTagCount',
                   'args': (
                       {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag to look up.', },
@@ -7136,15 +7189,15 @@ class Layer(Prim):
             Lift and yield nodes with the property and optional value set within the layer.
 
             Example:
-                Yield all nodes with the property ``ou:org:name`` set in the top layer::
+                Yield all nodes with the property `ou:org:name` set in the top layer::
 
                     yield $lib.layer.get().liftByProp(ou:org:name)
 
-                Yield all nodes with the property ``ou:org:name=woot`` in the top layer::
+                Yield all nodes with the property `ou:org:name=woot` in the top layer::
 
                     yield $lib.layer.get().liftByProp(ou:org:name, woot)
 
-                Yield all nodes with the property ``ou:org:name^=woot`` in the top layer::
+                Yield all nodes with the property `ou:org:name^=woot` in the top layer::
 
                     yield $lib.layer.get().liftByProp(ou:org:name, woot, "^=")
 
@@ -7208,7 +7261,7 @@ class Layer(Prim):
             Yield (n1nid, verb, n2nid, istombstone) tuples for any light edges in the layer.
 
             Example:
-                Iterate the light edges in ``$layer``::
+                Iterate the light edges in `$layer`::
 
                     for ($n1nid, $verb, $n2nid, $tomb) in $layer.getEdges() {
                         if $tomb {
@@ -7228,7 +7281,7 @@ class Layer(Prim):
             Yield (verb, n2nid, istombstone) tuples for any light edges in the layer for the source node id.
 
             Example:
-                Iterate the N1 edges for ``$node``::
+                Iterate the N1 edges for `$node`::
 
                     for ($verb, $n2nid, $tomb) in $layer.getEdgesByN1($node) {
                         if $tomb {
@@ -7251,7 +7304,7 @@ class Layer(Prim):
             Yield (verb, n1nid, istombstone) tuples for any light edges in the layer for the target node id.
 
             Example:
-                Iterate the N2 edges for ``$node``::
+                Iterate the N2 edges for `$node`::
 
                     for ($verb, $n1nid) in $layer.getEdgesByN2($node) {
                         if $tomb {
@@ -7288,8 +7341,8 @@ class Layer(Prim):
 
             May only be called on the write layer of the current view. Removing a
             tombstone makes the value it masks visible again, so it requires the "add"
-            permission for that value (``node.add``, ``node.prop.set``, ``node.tag.add``,
-            ``node.data.set``, or ``node.edge.add``) rather than the "del" permission.
+            permission for that value (`node.add`, `node.prop.set`, `node.tag.add`,
+            `node.data.set`, or `node.edge.add`) rather than the "del" permission.
             ''',
          'type': {'type': 'function', '_funcname': 'delTombstone',
                   'args': (
@@ -7303,7 +7356,7 @@ class Layer(Prim):
             Yield (name, valu, istombstone) tuples for any node data in the layer for the target node nid.
 
             Example:
-                Iterate the node data for ``$node``::
+                Iterate the node data for `$node`::
 
                     for ($name, $valu, $tomb) in $layer.getNodeData($node.nid) {
                         if $tomb {
@@ -7961,14 +8014,14 @@ class LibView(Lib):
                       {'name': 'layers', 'type': 'list', 'desc': 'A list of layer idens which make up the view.', },
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the view.', 'default': None, },
                   ),
-                  'returns': {'type': 'view', 'desc': 'A ``view`` object representing the new View.', }}},
+                  'returns': {'type': 'view', 'desc': 'A `view` object representing the new View.', }}},
         {'name': 'del', 'desc': 'Delete a View from the Cortex.',
          'type': {'type': 'function', '_funcname': '_methViewDel',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the View to delete.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get a View from the Cortex. Raises ``NoSuchView`` if no '
+        {'name': 'get', 'desc': 'Get a View from the Cortex. Raises `NoSuchView` if no '
                                 'such view exists or the user cannot read it.',
          'type': {'type': 'function', '_funcname': '_methViewGet',
                   'args': (
@@ -7982,7 +8035,7 @@ class LibView(Lib):
                       {'name': 'deporder', 'type': 'boolean', 'default': False,
                         'desc': 'Return the lists in bottom-up dependency order.', },
                   ),
-                  'returns': {'type': 'list', 'desc': 'List of ``view`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'List of `view` objects.', }}},
     )
 
     def getObjLocals(self):
@@ -8051,9 +8104,9 @@ class View(Prim):
     '''
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the View.', 'type': 'str', },
-        {'name': 'layers', 'desc': 'The ``layer`` objects associated with the ``view``.', 'type': 'list', },
-        {'name': 'parent', 'desc': 'The parent View. Will be ``(null)`` if the view is not a fork.', 'type': 'str'},
-        {'name': 'triggers', 'desc': 'The ``trigger`` objects associated with the ``view``.',
+        {'name': 'layers', 'desc': 'The `layer` objects associated with the `view`.', 'type': 'list', },
+        {'name': 'parent', 'desc': 'The parent View. Will be `(null)` if the view is not a fork.', 'type': 'str'},
+        {'name': 'triggers', 'desc': 'The `trigger` objects associated with the `view`.',
          'type': 'list', },
         {'name': 'children', 'desc': 'Yield Views which are children of this View.',
          'type': {'type': 'function', '_funcname': '_methGetChildren',
@@ -8073,7 +8126,7 @@ class View(Prim):
                     The parent View iden.
 
                 protected (bool)
-                    Setting to ``(true)`` will prevent the layer from being merged or deleted.
+                    Setting to `(true)` will prevent the layer from being merged or deleted.
 
                 layers (list(str))
                     Set the list of layer idens for a non-forked view. Layers are specified
@@ -8121,13 +8174,13 @@ class View(Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the new view.', 'default': None, },
                   ),
-                  'returns': {'type': 'view', 'desc': 'The ``view`` object for the new View.', }}},
+                  'returns': {'type': 'view', 'desc': 'The `view` object for the new View.', }}},
         {'name': 'insertParentFork', 'desc': 'Insert a new View between a forked View and its parent.',
          'type': {'type': 'function', '_funcname': '_methViewInsertParentFork',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the new View.', 'default': None},
                   ),
-                  'returns': {'type': 'view', 'desc': 'The ``view`` object for the new View.', }}},
+                  'returns': {'type': 'view', 'desc': 'The `view` object for the new View.', }}},
         {'name': 'repr', 'desc': 'Get a string representation of the View.',
          'type': {'type': 'function', '_funcname': '_methViewRepr',
                   'returns': {'type': 'list', 'desc': 'A list of lines that can be printed, representing a View.', }}},
@@ -8188,6 +8241,29 @@ class View(Prim):
                       {'type': 'dict',
                        'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.", }}},
 
+        {'name': 'getTagCount',
+         'desc': '''
+            Get the number of tag rows in the View for a specific tag and optional form.
+
+            Notes:
+               This is a fast approximate count calculated by summing the number of tag
+               rows in each layer of the view. Tags which are present in more than one
+               layer will still be included in the count for each layer, and a tag removed
+               in a higher layer is not subtracted. A tag or form name which does not exist
+               counts zero rather than raising, and neither name is normalized.
+
+            Example:
+                Get the number of nodes with the `foo.bar` tag in the current View::
+
+                    $count = $lib.view.get().getTagCount(foo.bar)''',
+         'type': {'type': 'function', '_funcname': '_methGetTagCount',
+                  'args': (
+                      {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag to look up.', },
+                      {'name': 'formname', 'type': 'str', 'desc': 'The form to constrain the look up by.',
+                       'default': None, },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of tag rows.', }}},
+
         {'name': 'getPropCount',
          'desc': '''
             Get the number of nodes in the View with a specific property and optional value.
@@ -8196,8 +8272,8 @@ class View(Prim):
                This is a fast approximate count calculated by summing the number of
                nodes with the property value in each layer of the view. Property values
                which are overwritten by different values in higher layers will still
-               be included in the count. When ``valu`` is provided, only the ``=`` (exact)
-               and ``^=`` (prefix) comparators are supported.
+               be included in the count. When `valu` is provided, only the `=` (exact)
+               and `^=` (prefix) comparators are supported.
             ''',
          'type': {'type': 'function', '_funcname': '_methGetPropCount',
                   'args': (
@@ -8256,8 +8332,8 @@ class View(Prim):
             Yield unique property values in the view for the given form or property name.
 
             Notes:
-                When ``valu`` is provided, only the ``=`` (exact) and ``^=`` (prefix) comparators are
-                supported. For a polymorphic property, ``type`` restricts the results to a single
+                When `valu` is provided, only the `=` (exact) and `^=` (prefix) comparators are
+                supported. For a polymorphic property, `type` restricts the results to a single
                 member type.
             ''',
          'type': {'type': 'function', '_funcname': '_methGetPropValues',
@@ -8373,6 +8449,7 @@ class View(Prim):
             'getEdges': self._methGetEdges,
             'wipeLayer': self._methWipeLayer,
             'swapLayer': self._methSwapLayer,
+            'getTagCount': self._methGetTagCount,
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
@@ -8448,6 +8525,17 @@ class View(Prim):
         view = self.runt.view.core.getView(viewiden)
 
         return await view.getFormCounts()
+
+    @stormfunc(readonly=True)
+    async def _methGetTagCount(self, tagname, formname=None):
+        tagname = await tostr(tagname)
+        formname = await tostr(formname, noneok=True)
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.view.core.getView(viewiden)
+
+        return await view.getTagCount(tagname, formname=formname)
 
     @stormfunc(readonly=True)
     async def _methGetPropCount(self, propname, valu=undef, cmpr='=', type=undef):
@@ -8869,13 +8957,13 @@ class LibTrigger(Lib):
                        'desc': 'Get a list of all the readable Triggers in every readable View.'},
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A list of ``trigger`` objects the user is allowed to access.', }}},
+                              'desc': 'A list of `trigger` objects the user is allowed to access.', }}},
         {'name': 'get', 'desc': 'Get a Trigger in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerGet',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Trigger to get.', },
                   ),
-                  'returns': {'type': 'trigger', 'desc': 'The requested ``trigger`` object.', }}},
+                  'returns': {'type': 'trigger', 'desc': 'The requested `trigger` object.', }}},
         {'name': 'mod', 'desc': 'Modify an existing Trigger in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerMod',
                   'args': (
@@ -9182,7 +9270,7 @@ class LibJsonStor(Lib):
                         {'name': 'path', 'type': ['str', 'list'], 'desc': 'A path string or list of path parts.'},
                         {'name': 'prop', 'type': ['str', 'list'], 'desc': 'A property name or list of name parts.', 'default': None},
                     ),
-                    'returns': {'type': 'prim', 'desc': 'The previously stored value or ``(null)``.'}}},
+                    'returns': {'type': 'prim', 'desc': 'The previously stored value or `(null)`.'}}},
 
         {'name': 'set', 'desc': 'Set a JSON object or object property.',
          'type': {'type': 'function', '_funcname': 'set',
@@ -9440,7 +9528,7 @@ class LibCron(Lib):
                       {'name': '**kwargs', 'type': 'any', 'desc': 'Key-value parameters used to add the cron job.', },
                   ),
                   'returns': {'type': 'cronjob', 'desc': 'The new Cron Job.', }}},
-        {'name': 'del', 'desc': 'Delete a CronJob from the Cortex.',
+        {'name': 'del', 'desc': 'Delete a Cron Job from the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronDel',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
@@ -9448,7 +9536,7 @@ class LibCron(Lib):
                                'Only a single matching prefix will be deleted.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get a CronJob in the Cortex.',
+        {'name': 'get', 'desc': 'Get a Cron Job in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronGet',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
@@ -9456,7 +9544,7 @@ class LibCron(Lib):
                                'Only a single matching prefix will be retrieved.', },
                   ),
                   'returns': {'type': 'cronjob', 'desc': 'The requested cron job.', }}},
-        {'name': 'mod', 'desc': 'Modify a CronJob in the Cortex.',
+        {'name': 'mod', 'desc': 'Modify a Cron Job in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronMod',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
@@ -9465,10 +9553,10 @@ class LibCron(Lib):
                       {'name': 'edits', 'type': 'dict',
                        'desc': 'A dictionary of properties and their values to update on the Cron Job.'}
                   ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was modified.'}}},
-        {'name': 'list', 'desc': 'List CronJobs in the Cortex.',
+                  'returns': {'type': 'str', 'desc': 'The iden of the Cron Job which was modified.'}}},
+        {'name': 'list', 'desc': 'List Cron Jobs in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``cronjob`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of `cronjob` objects.', }}},
     )
     _storm_lib_path = ('cron',)
     _storm_lib_perms = (
@@ -10402,7 +10490,15 @@ async def tonumber(valu, noneok=False):
         return valu
 
     if isinstance(valu, Valu):
-        return Number(valu.valu[1])
+        # a typed value coerces like its underlying value, except hugenum types
+        # whose normalized value is a formatted string rather than a decimal
+        runt = s_scope.get('runt')
+        tobj = runt.model.reqType(valu.valu[0])
+
+        if tobj.stortype == runt.model.reqType('hugenum').stortype:
+            return Number(valu.valu[1])
+
+        return await tonumber(valu.valu[1], noneok=noneok)
 
     if isinstance(valu, (float, decimal.Decimal)) or (isinstance(valu, str) and '.' in valu):
         return Number(valu)

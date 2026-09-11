@@ -89,7 +89,7 @@ def _resolveTypeNames(typedef):
 def _resolvePropTypeNames(typedef, propinfo):
     '''Resolve a prop's type name(s) for display, rendering array props as "array of ...".
 
-    ``typedef`` is the element typedef (for a form prop this is ``propinfo['type']``; for an
+    `typedef` is the element typedef (for a form prop this is `propinfo['type']`; for an
     interface prop it is the separate typedef element of the propdef tuple). An array prop
     carries the 'array' container opts key in its info.
     '''

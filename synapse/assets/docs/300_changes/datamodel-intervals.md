@@ -19,7 +19,7 @@ What you need to do
 
 :   When setting an interval, use `?` for an unknown endpoint and `*` for an ongoing one (use `*` only when the source actually states the span is still ongoing). Set or read endpoints via the `.min` and `.max` virtual properties.
 
-    ``` text
+    ```text
     // 3.x: an interval endpoint can be ? (unknown) or * (ongoing)
     [ inet:dns:a=(vertex.link, 1.2.3.4) :seen=(2023, ?) ]
 
@@ -43,13 +43,13 @@ What you need to do
 
 :   Move 2.x `.seen` data onto `:seen`, but only on forms that implement `meta:observable`. If the destination form has no `:seen`, do not relocate that data onto another interval (for example `:period`). Read node creation and modification times through the `.created` and `.updated` meta properties.
 
-    ``` text
+    ```text
     // 2.x: universal .seen and .created
     [ inet:fqdn=vertex.link .seen=2023 ]
     inet:fqdn.created>2023
     ```
 
-    ``` text
+    ```text
     // 3.x: :seen via meta:observable; created/updated are node metadata
     [ inet:fqdn=vertex.link :seen=2023 ]
     inet:fqdn.created>2023

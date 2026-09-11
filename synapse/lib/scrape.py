@@ -298,7 +298,7 @@ scrape_types = [  # type: ignore
     ('crypto:hash:md5', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{32})(?:[^A-Za-z0-9]|$))', {}),
     ('crypto:hash:sha1', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))', {}),
     ('crypto:hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
-    ('it:sec:cve', fr'(?:[^a-z0-9]|^)(?P<valu>CVE[{cve_dashes}][0-9]{{4}}[{cve_dashes}][0-9]{{4,}})(?:[^a-z0-9]|$)', {'callback': cve_check}),
+    ('it:sec:cve', fr'(?=(?:[^a-z0-9]|^)(?P<valu>CVE[{cve_dashes}][0-9]{{4}}[{cve_dashes}][0-9]{{4,}})(?:[^a-z0-9]|$))', {'callback': cve_check}),
     ('it:sec:cwe', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>CWE-[0-9]{1,8})(?:[^A-Za-z0-9]|$))', {}),
     ('it:sec:cpe', _cpe23_regex, {'flags': regex.VERBOSE}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1][a-zA-HJ-NP-Z0-9]{25,39})(?:[^A-Za-z0-9]|$))',
@@ -426,7 +426,7 @@ def refang_text2(txt: str, re: regex.Regex =re_fang, fangs: dict =FANGS):
     Notes:
         Matches to keys in FANGS is case-insensitive, but replacement will
         always be with the lowercase version of the re-fanged value.
-        For example, ``HXXP://FOO.COM`` will be returned as ``http://FOO.COM``
+        For example, `HXXP://FOO.COM` will be returned as `http://FOO.COM`
 
     Args:
         txt (str): The text to re-fang.
@@ -517,7 +517,7 @@ def genMatches(text: str, regx: regex.Regex, opts: dict):
 
     Args:
         text (str): The text to generate matches for.
-        regx (regex.Regex): A compiled regex object. The regex must contained a named match group for ``valu``.
+        regx (regex.Regex): A compiled regex object. The regex must contained a named match group for `valu`.
         opts (dict): An options dictionary.
 
     Notes:
@@ -532,9 +532,9 @@ def genMatches(text: str, regx: regex.Regex, opts: dict):
             valu
                 The resulting value - this may be altered by callbacks.
 
-        The options dictionary can contain a ``callback`` key. This function is expected to take a single argument,
+        The options dictionary can contain a `callback` key. This function is expected to take a single argument,
         a regex.Match object, and return a tuple of the new valu and info dictionary. The new valu is used as the
-        ``valu`` key in the returned dictionary, and any other information in the info dictionary is pushed into
+        `valu` key in the returned dictionary, and any other information in the info dictionary is pushed into
         the return dictionary as well.
 
     Yields:
@@ -549,7 +549,7 @@ async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
 
     Args:
         text (str): The text to generate matches for.
-        regx (regex.Regex): A compiled regex object. The regex must contained a named match group for ``valu``.
+        regx (regex.Regex): A compiled regex object. The regex must contained a named match group for `valu`.
         opts (dict): An options dictionary.
 
     Notes:
@@ -564,9 +564,9 @@ async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
             valu
                 The resulting value - this may be altered by callbacks.
 
-        The options dictionary can contain a ``callback`` key. This function is expected to take a single argument,
+        The options dictionary can contain a `callback` key. This function is expected to take a single argument,
         a regex.Match object, and return a tuple of the new valu and info dictionary. The new valu is used as the
-        ``valu`` key in the returned dictionary, and any other information in the info dictionary is pushed into
+        `valu` key in the returned dictionary, and any other information in the info dictionary is pushed into
         the return dictionary as well.
 
     Yields:

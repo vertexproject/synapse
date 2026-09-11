@@ -254,13 +254,13 @@ class CertDir:
     Notes:
         * All certificates will be loaded from and written to ~/.syn/certs by default. Set the environment variable
           SYN_CERT_DIR to override.
-        * All certificate generation methods create RSA keypairs of ``_rsa_key_size`` bits (4096 by default).
+        * All certificate generation methods create RSA keypairs of `_rsa_key_size` bits (4096 by default).
         * All certificate signing methods use sha256 as the signature algorithm.
         * CertDir does not currently support signing CA CSRs.
     '''
 
     # Default RSA key size for all generated keypairs. A class attribute (rather than set in
-    # __init__) so it can be lowered wholesale, including for the module-level ``certdir``
+    # __init__) so it can be lowered wholesale, including for the module-level `certdir`
     # singleton below, before any instance is constructed. Test runs lower this value because
     # 4096-bit keygen dominates test setup time and tests do not depend on key strength; see
     # the repo-root conftest.py.

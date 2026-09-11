@@ -27,7 +27,7 @@ What you need to do
 
 :   Access a virtual property with a leading dot and no colon (this applies to both computed and bundled-context virts).
 
-    ``` text
+    ```text
     // 3.x: filter nodes by the max of their :seen interval property
     inet:dns:a +:seen.max>2025
 
@@ -40,7 +40,7 @@ What you need to do
 
 :   For the interval type, `:seen.min` / `:seen.max` give direct access to an interval-typed secondary property's endpoints, and `:seen.duration` exposes the span.
 
-    ``` text
+    ```text
     // 2.x: the endpoints and duration of an interval property were not directly queryable virts
     // 3.x: filter on the interval's parts
     inet:dns:a +:seen.duration>(1, days)
@@ -48,7 +48,7 @@ What you need to do
 
 :   Some interval types have their `min` and `max` virtual properties overwritten to make more sense for the form or property they are associated with. To find those values you can inspect the model like this.
 
-    ``` text
+    ```text
     // 2.x: the endpoints and duration of an interval property were not able to be renamed.
     // 3.x: Inspect the data model to find the renaemd min and max properties in order to assign them
     $prop=$lib.model.prop(entity:campaign:period) for $type in $prop.types { $lib.print(`{$type.opts}`) }
@@ -60,7 +60,7 @@ What you need to do
 
 :   For socket addresses, the `ip` and `port` parts of an `inet:sockaddr` / `inet:server` value -- which in 2.x were encoded in the value (e.g. `tcp://1.2.3.4:80`) and not separately queryable as properties -- are now accessible as virts.
 
-    ``` text
+    ```text
     // 3.x: lift inet:server nodes by the computed port virt
     inet:server.port=443
     ```

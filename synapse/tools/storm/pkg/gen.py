@@ -60,7 +60,7 @@ def iterPkgProtoFiles(path):
     Yield (path, filepath) tuples for the files shipped by a Storm Package prototype.
 
     Notes:
-        A package ships everything under the ``files`` directory beside its .yaml file.
+        A package ships everything under the `files` directory beside its .yaml file.
         Each entry's path is relative to that directory, so it is stable across rebuilds
         no matter how the file contents change.
 

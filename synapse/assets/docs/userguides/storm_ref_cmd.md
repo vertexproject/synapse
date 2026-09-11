@@ -19,7 +19,7 @@ The pipe character ( `|` ) is used with Storm commands to:
 
 For example:
 
-``` text
+```storm
 inet:fqdn=woot.com | nettools.whois | nettools.dns --type A AAAA NS | -> inet:dns:a
 ```
 
@@ -62,6 +62,7 @@ Help for a specific Storm command can be displayed with `<command> --help`.
 - [auth](storm_ref_cmd.md#storm-auth)
 - [background](storm_ref_cmd.md#storm-background)
 - [batch](storm_ref_cmd.md#storm-batch)
+- [colorize](storm_ref_cmd.md#storm-colorize)
 - [copyto](storm_ref_cmd.md#storm-copyto)
 - [cortex.httpapi](storm_ref_cmd.md#storm-cortex-httpapi)
 - [count](storm_ref_cmd.md#storm-count)
@@ -73,6 +74,7 @@ Help for a specific Storm command can be displayed with `<command> --help`.
 - [edges](storm_ref_cmd.md#storm-edges)
 - [gen](storm_ref_cmd.md#storm-gen)
 - [graph](storm_ref_cmd.md#storm-graph)
+- [index.count.prop](storm_ref_cmd.md#storm-index-count-prop)
 - [intersect](storm_ref_cmd.md#storm-intersect)
 - [layer](storm_ref_cmd.md#storm-layer)
 - [lift](storm_ref_cmd.md#storm-lift)
@@ -90,13 +92,16 @@ Help for a specific Storm command can be displayed with `<command> --help`.
 - [parallel](storm_ref_cmd.md#storm-parallel)
 - [pkg](storm_ref_cmd.md#storm-pkg)
 - [queue](storm_ref_cmd.md#storm-queue)
+- [quorum.merge.list](storm_ref_cmd.md#storm-quorum-merge-list)
 - [runas](storm_ref_cmd.md#storm-runas)
 - [scrape](storm_ref_cmd.md#storm-scrape)
 - [service](storm_ref_cmd.md#storm-service)
 - [sleep](storm_ref_cmd.md#storm-sleep)
 - [spin](storm_ref_cmd.md#storm-spin)
 - [stats](storm_ref_cmd.md#storm-stats)
+- [storm.exec](storm_ref_cmd.md#storm-storm-exec)
 - [tag](storm_ref_cmd.md#storm-tag)
+- [task](storm_ref_cmd.md#storm-task)
 - [tee](storm_ref_cmd.md#storm-tee)
 - [tree](storm_ref_cmd.md#storm-tree)
 - [trigger](storm_ref_cmd.md#storm-trigger)
@@ -104,6 +109,7 @@ Help for a specific Storm command can be displayed with `<command> --help`.
 - [uptime](storm_ref_cmd.md#storm-uptime)
 - [vault](storm_ref_cmd.md#storm-vault)
 - [version](storm_ref_cmd.md#storm-version)
+- [vertex](storm_ref_cmd.md#storm-vertex)
 - [view](storm_ref_cmd.md#storm-view)
 - [wget](storm_ref_cmd.md#storm-wget)
 
@@ -135,7 +141,6 @@ The `help` command displays the list of available commands within the current in
 ```stormdoc
 storm> help --help
 
-
 List available information about Storm and brief descriptions of different items.
 
 Notes:
@@ -145,30 +150,22 @@ Notes:
 Examples:
 
     // Get all available commands, libraries, types, and their brief descriptions.
-
     help
 
     // Only get commands which have "model" in the name.
-
     help model
 
     // Get help about the base Storm library
-
     help $lib
 
     // Get detailed help about a specific library or library function
-
     help --verbose $lib.print
 
     // Get detailed help about a named Storm type
-
     help --verbose str
 
     // Get help about a method from a $node object
-
     <inbound $node> help $node.tags
-
-
 
 Usage: help [options] <item>
 
@@ -189,6 +186,7 @@ Arguments:
 Storm includes `aha.*` commands that allow you to work with Synapse's [AHA service](../deploymentguide.md#deploy-aha-service).
 
 - [aha.svc.list](storm_ref_cmd.md#storm-aha-svc-list)
+- [aha.svc.mirror](storm_ref_cmd.md#storm-aha-svc-mirror)
 - [aha.svc.stat](storm_ref_cmd.md#storm-aha-svc-stat)
 
 Help for individual `aha.*` commands can be displayed using:
@@ -220,6 +218,30 @@ Options:
   --nexus                     : Try to connect to online services and report their nexus offset.
 ```
 
+<a id="storm-aha-svc-mirror"></a>
+
+### aha.svc.mirror
+
+The `aha.svc.mirror` command queries the AHA services and their mirror relationships. Services which are not mirrors are not displayed.
+
+**Syntax:**
+
+```stormdoc
+storm> aha.svc.mirror --help
+
+Query the AHA services and their mirror relationships.
+
+Note: non-mirror services are not displayed.
+
+Usage: aha.svc.mirror [options] 
+
+Options:
+
+  --help                      : Display the command usage.
+  --timeout <timeout>         : The timeout in seconds for individual service API calls. (default: 10)
+  --wait                      : Whether to wait for the mirrors to sync.
+```
+
 <a id="storm-aha-svc-stat"></a>
 
 ### aha.svc.stat
@@ -236,7 +258,6 @@ Show all information for a specific AHA service.
 If the --nexus argument is given, the Cortex will attempt to connect the service and report the Nexus offset of the service.
 
 The ready value indicates that a service has entered into the realtime change window for synchronizing changes from its leader.
-        
 
 Usage: aha.svc.stat [options] <svc>
 
@@ -290,17 +311,14 @@ The `auth.gate.show` command displays the user, roles, and permissions associate
 ```stormdoc
 storm> auth.gate.show --help
 
+Display users, roles, and permissions for an auth gate.
 
+Examples:
+    // Display the users and roles with permissions to the top layer of the current view.
+    auth.gate.show $lib.layer.get().iden
 
-            Display users, roles, and permissions for an auth gate.
-
-            Examples:
-                // Display the users and roles with permissions to the top layer of the current view.
-                auth.gate.show $lib.layer.get().iden
-
-                // Display the users and roles with permissions to the current view.
-                auth.gate.show $lib.view.get().iden
-        
+    // Display the users and roles with permissions to the current view.
+    auth.gate.show $lib.view.get().iden
 
 Usage: auth.gate.show [options] <gateiden>
 
@@ -345,14 +363,12 @@ The `auth.role.add` command creates a role.
 ```stormdoc
 storm> auth.role.add --help
 
+Add a role.
 
-            Add a role.
+Examples:
 
-            Examples:
-
-                // Add a role named "ninjas"
-                auth.role.add ninjas
-        
+    // Add a role named "ninjas"
+    auth.role.add ninjas
 
 Usage: auth.role.add [options] <name>
 
@@ -376,20 +392,18 @@ The `auth.role.addrule` command adds a rule (permission) to a role.
 ```stormdoc
 storm> auth.role.addrule --help
 
+Add a rule to a role.
 
-            Add a rule to a role.
+Examples:
 
-            Examples:
+    // add an allow rule to the role "ninjas" for permission "foo.bar.baz"
+    auth.role.addrule ninjas foo.bar.baz
 
-                // add an allow rule to the role "ninjas" for permission "foo.bar.baz"
-                auth.role.addrule ninjas foo.bar.baz
+    // add a deny rule to the role "ninjas" for permission "foo.bar.baz"
+    auth.role.addrule ninjas "!foo.bar.baz"
 
-                // add a deny rule to the role "ninjas" for permission "foo.bar.baz"
-                auth.role.addrule ninjas "!foo.bar.baz"
-
-                // add an allow rule to the role "ninjas" for permission "baz" at the first index.
-                auth.role.addrule ninjas baz --index 0
-        
+    // add an allow rule to the role "ninjas" for permission "baz" at the first index.
+    auth.role.addrule ninjas baz --index 0
 
 Usage: auth.role.addrule [options] <name> <rule>
 
@@ -416,14 +430,12 @@ The `auth.role.del` command deletes a role.
 ```stormdoc
 storm> auth.role.del --help
 
+Delete a role.
 
-            Delete a role.
+Examples:
 
-            Examples:
-
-                // Delete a role named "ninjas"
-                auth.role.del ninjas
-        
+    // Delete a role named "ninjas"
+    auth.role.del ninjas
 
 Usage: auth.role.del [options] <name>
 
@@ -447,20 +459,18 @@ The `auth.role.delrule` command removes a rule (permission) from a role.
 ```stormdoc
 storm> auth.role.delrule --help
 
+Remove a rule from a role.
 
-            Remove a rule from a role.
+Examples:
 
-            Examples:
+    // Delete the allow rule from the role "ninjas" for permission "foo.bar.baz"
+    auth.role.delrule ninjas foo.bar.baz
 
-                // Delete the allow rule from the role "ninjas" for permission "foo.bar.baz"
-                auth.role.delrule ninjas foo.bar.baz
+    // Delete the deny rule from the role "ninjas" for permission "foo.bar.baz"
+    auth.role.delrule ninjas "!foo.bar.baz"
 
-                // Delete the deny rule from the role "ninjas" for permission "foo.bar.baz"
-                auth.role.delrule ninjas "!foo.bar.baz"
-
-                // Delete the rule at index 5 from the role "ninjas"
-                auth.role.delrule ninjas --index  5
-        
+    // Delete the rule at index 5 from the role "ninjas"
+    auth.role.delrule ninjas --index  5
 
 Usage: auth.role.delrule [options] <name> <rule>
 
@@ -487,14 +497,12 @@ The `auth.role.list` lists all roles in the Cortex.
 ```stormdoc
 storm> auth.role.list --help
 
+List all roles.
 
-            List all roles.
+Examples:
 
-            Examples:
-
-                // Display the list of all roles
-                auth.role.list
-        
+    // Display the list of all roles
+    auth.role.list
 
 Usage: auth.role.list [options] 
 
@@ -514,14 +522,12 @@ The `auth.role.mod` modifies an existing role.
 ```stormdoc
 storm> auth.role.mod --help
 
+Modify properties of a role.
 
-            Modify properties of a role.
+Examples:
 
-            Examples:
-
-                // Rename the "ninjas" role to "admins"
-                auth.role.mod ninjas --name admins
-        
+    // Rename the "ninjas" role to "admins"
+    auth.role.mod ninjas --name admins
 
 Usage: auth.role.mod [options] <rolename>
 
@@ -546,15 +552,12 @@ The `auth.role.show` displays the details for a given role.
 ```stormdoc
 storm> auth.role.show --help
 
+Display details for a given role by name.
 
+Examples:
 
-            Display details for a given role by name.
-
-            Examples:
-
-                // Display details about the role "ninjas"
-                auth.role.show ninjas
-        
+    // Display details about the role "ninjas"
+    auth.role.show ninjas
 
 Usage: auth.role.show [options] <rolename>
 
@@ -578,14 +581,12 @@ The `auth.user.add` command creates a user.
 ```stormdoc
 storm> auth.user.add --help
 
+Add a user.
 
-            Add a user.
+Examples:
 
-            Examples:
-
-                // Add a user named "visi" with the email address "visi@vertex.link"
-                auth.user.add visi --email visi@vertex.link
-        
+    // Add a user named "visi" with the email address "visi@vertex.link"
+    auth.user.add visi --email visi@vertex.link
 
 Usage: auth.user.add [options] <name>
 
@@ -610,20 +611,18 @@ The `auth.user.addrule` command adds a rule (permission) to a user.
 ```stormdoc
 storm> auth.user.addrule --help
 
+Add a rule to a user.
 
-            Add a rule to a user.
+Examples:
 
-            Examples:
+    // add an allow rule to the user "visi" for permission "foo.bar.baz"
+    auth.user.addrule visi foo.bar.baz
 
-                // add an allow rule to the user "visi" for permission "foo.bar.baz"
-                auth.user.addrule visi foo.bar.baz
+    // add a deny rule to the user "visi" for permission "foo.bar.baz"
+    auth.user.addrule visi "!foo.bar.baz"
 
-                // add a deny rule to the user "visi" for permission "foo.bar.baz"
-                auth.user.addrule visi "!foo.bar.baz"
-
-                // add an allow rule to the user "visi" for permission "baz" at the first index.
-                auth.user.addrule visi baz --index 0
-        
+    // add an allow rule to the user "visi" for permission "baz" at the first index.
+    auth.user.addrule visi baz --index 0
 
 Usage: auth.user.addrule [options] <name> <rule>
 
@@ -658,17 +657,15 @@ the permission is enforced.
 ```stormdoc
 storm> auth.user.allowed --help
 
+Show whether the user is allowed the given permission and why.
 
-            Show whether the user is allowed the given permission and why.
+The permission may be specified as either a dotted string or a list of permission parts.
 
-            The permission may be specified as either a dotted string or a list of permission parts.
+Examples:
 
-            Examples:
+    auth.user.allowed visi foo.bar
 
-                auth.user.allowed visi foo.bar
-
-                auth.user.allowed visi (foo, bar)
-        
+    auth.user.allowed visi (foo, bar)
 
 Usage: auth.user.allowed [options] <username> <permname>
 
@@ -694,20 +691,18 @@ The `auth.user.delrule` command removes a rule (permission) from a user.
 ```stormdoc
 storm> auth.user.delrule --help
 
+Remove a rule from a user.
 
-            Remove a rule from a user.
+Examples:
 
-            Examples:
+    // Delete the allow rule from the user "visi" for permission "foo.bar.baz"
+    auth.user.delrule visi foo.bar.baz
 
-                // Delete the allow rule from the user "visi" for permission "foo.bar.baz"
-                auth.user.delrule visi foo.bar.baz
+    // Delete the deny rule from the user "visi" for permission "foo.bar.baz"
+    auth.user.delrule visi "!foo.bar.baz"
 
-                // Delete the deny rule from the user "visi" for permission "foo.bar.baz"
-                auth.user.delrule visi "!foo.bar.baz"
-
-                // Delete the rule at index 5 from the user "visi"
-                auth.user.delrule visi --index  5
-        
+    // Delete the rule at index 5 from the user "visi"
+    auth.user.delrule visi --index  5
 
 Usage: auth.user.delrule [options] <name> <rule>
 
@@ -734,18 +729,15 @@ The `auth.user.grant` command grants a role (and its associated permissions) to 
 ```stormdoc
 storm> auth.user.grant --help
 
+Grant a role to a user.
 
-            Grant a role to a user.
+Examples:
 
-            Examples:
+    // Grant the role "ninjas" to the user "visi"
+    auth.user.grant visi ninjas
 
-                // Grant the role "ninjas" to the user "visi"
-                auth.user.grant visi ninjas
-
-                // Grant the role "ninjas" to the user "visi" at the first index.
-                auth.user.grant visi ninjas --index 0
-
-        
+    // Grant the role "ninjas" to the user "visi" at the first index.
+    auth.user.grant visi ninjas --index 0
 
 Usage: auth.user.grant [options] <username> <rolename>
 
@@ -771,14 +763,12 @@ The `auth.user.list` command displays all users in the Cortex.
 ```stormdoc
 storm> auth.user.list --help
 
+List all users.
 
-            List all users.
+Examples:
 
-            Examples:
-
-                // Display the list of all users
-                auth.user.list
-        
+    // Display the list of all users
+    auth.user.list
 
 Usage: auth.user.list [options] 
 
@@ -798,26 +788,24 @@ The `auth.user.mod` command modifies a user account.
 ```stormdoc
 storm> auth.user.mod --help
 
+Modify properties of a user.
 
-            Modify properties of a user.
+Examples:
 
-            Examples:
+    // Rename the user "foo" to "bar"
+    auth.user.mod foo --name bar
 
-                // Rename the user "foo" to "bar"
-                auth.user.mod foo --name bar
+    // Make the user "visi" an admin
+    auth.user.mod visi --admin (true)
 
-                // Make the user "visi" an admin
-                auth.user.mod visi --admin (true)
+    // Unlock the user "visi" and set their email to "visi@vertex.link"
+    auth.user.mod visi --locked (false) --email visi@vertex.link
 
-                // Unlock the user "visi" and set their email to "visi@vertex.link"
-                auth.user.mod visi --locked (false) --email visi@vertex.link
+    // Grant admin access to user visi for the current view
+    auth.user.mod visi --admin (true) --gate $lib.view.get().iden
 
-                // Grant admin access to user visi for the current view
-                auth.user.mod visi --admin (true) --gate $lib.view.get().iden
-
-                // Revoke admin access to user visi for the current view
-                auth.user.mod visi --admin (false) --gate $lib.view.get().iden
-        
+    // Revoke admin access to user visi for the current view
+    auth.user.mod visi --admin (false) --gate $lib.view.get().iden
 
 Usage: auth.user.mod [options] <username>
 
@@ -848,15 +836,12 @@ The `auth.user.revoke` command revokes a role (and its associated permissions) f
 ```stormdoc
 storm> auth.user.revoke --help
 
+Revoke a role from a user.
 
-            Revoke a role from a user.
+Examples:
 
-            Examples:
-
-                // Revoke the role "ninjas" from the user "visi"
-                auth.user.revoke visi ninjas
-
-        
+    // Revoke the role "ninjas" from the user "visi"
+    auth.user.revoke visi ninjas
 
 Usage: auth.user.revoke [options] <username> <rolename>
 
@@ -881,14 +866,12 @@ The `auth.user.show` command displays information for a specific user.
 ```stormdoc
 storm> auth.user.show --help
 
+Display details for a given user by name.
 
-            Display details for a given user by name.
+Examples:
 
-            Examples:
-
-                // Display details about the user "visi"
-                auth.user.show visi
-        
+    // Display details about the user "visi"
+    auth.user.show visi
 
 Usage: auth.user.show [options] <username>
 
@@ -917,10 +900,8 @@ See also [parallel](storm_ref_cmd.md#storm-parallel).
 ```stormdoc
 storm> background --help
 
-
 Execute a query pipeline as a background task.
-NOTE: Variables are passed through but nodes are not
-
+NOTE: Variables are passed through but nodes are not.
 
 Usage: background [options] <query>
 
@@ -946,7 +927,6 @@ Note that in most cases, Storm queries are meant to operate in a "streaming" man
 ```stormdoc
 storm> batch --help
 
-
 Run a query with batched sets of nodes.
 
 The batched query will have the set of inbound nodes available in the
@@ -967,7 +947,6 @@ Example:
     // Execute a query with batches of 5 nodes, then yield the inbound nodes
     batch (false) --size 5 { $lib.print($nodes) }
 
-
 Usage: batch [options] <cond> <query>
 
 Options:
@@ -980,6 +959,30 @@ Arguments:
 
   <cond>                      : The conditional value for the yield option.
   <query>                     : The query to execute with batched nodes.
+```
+
+<a id="storm-colorize"></a>
+
+## colorize
+
+The `colorize` command adds metadata to nodes which can be used to colorize them when they are displayed.
+
+**Syntax:**
+
+```stormdoc
+storm> colorize --help
+
+Add metadata to nodes which can be used to colorize them during display.
+
+Usage: colorize [options] <color>
+
+Options:
+
+  --help                      : Display the command usage.
+
+Arguments:
+
+  <color>                     : A color in six digit "#rrggbb" syntax or a CSS color name.
 ```
 
 <a id="storm-copyto"></a>
@@ -1000,15 +1003,12 @@ See the [movenodes](storm_ref_cmd.md#storm-movenodes) command to move nodes betw
 ```stormdoc
 storm> copyto --help
 
-
 Copy nodes from the current view into another view.
 
 Examples:
 
     // Copy all nodes tagged with #cno.mal.redtree to the target view.
-
     #cno.mal.redtree | copyto 33c971ac77943da91392dadd0eec0571
-
 
 Usage: copyto [options] <view>
 
@@ -1059,7 +1059,6 @@ Examples:
 
     // Move an endpoint to the third index.
     cortex.httpapi.index dd9e4730f16b60e5ba58fd8e2d38e909 2
-
 
 Usage: cortex.httpapi.index [options] <iden> <index>
 
@@ -1128,20 +1127,17 @@ The `count` command enumerates the number of nodes returned from a given Storm q
 ```stormdoc
 storm> count --help
 
-
 Iterate through query results, and print the resulting number of nodes
 which were lifted. This does not yield the nodes counted, unless the
 --yield switch is provided.
 
 Example:
 
-    # Count the number of IPV4 nodes with a given ASN.
-    inet:ipv4:asn=20 | count
+    // Count the number of IPV4 nodes with a given ASN.
+    inet:ip:asn=20 | count
 
-    # Count the number of IPV4 nodes with a given ASN and yield them.
-    inet:ipv4:asn=20 | count --yield
-
-
+    // Count the number of IPV4 nodes with a given ASN and yield them.
+    inet:ip:asn=20 | count --yield
 
 Usage: count [options] 
 
@@ -1226,7 +1222,6 @@ The `cron.add` command creates an individual cron job within a Cortex.
 ```stormdoc
 storm> cron.add --help
 
-
 Add a recurring cron job to a cortex.
 
 Notes:
@@ -1257,54 +1252,53 @@ Notes:
         - :MM,MM,... (comma-separated minutes, e.g., :15,45 runs at minute 15 and 45)
 
 Examples:
-    # Run every minute
+    // Run every minute
     cron.add minutely { $lib.print(minutely) }
 
-    # Run every 5 minutes
+    // Run every 5 minutes
     cron.add minutely/5 { $lib.print(minutely) }
 
-    # Run every day at midnight UTC
+    // Run every day at midnight UTC
     cron.add daily { $lib.print(daily) }
 
-    # Run every day at 14:30 UTC
+    // Run every day at 14:30 UTC
     cron.add daily@14:30 { $lib.print(daily) }
 
-    # Run every 2 hours at minute 0
+    // Run every 2 hours at minute 0
     cron.add hourly/2@:00 { $lib.print(hourly) }
 
-    # Run every hour at minute 25
+    // Run every hour at minute 25
     cron.add hourly@:25 { $lib.print(hourly) }
 
-    # Run every hour at minute 24 and minute 45
+    // Run every hour at minute 24 and minute 45
     cron.add hourly@:24,45 { $lib.print(hourly) }
 
-    # Run every Monday and Wednesday at 10:00 UTC
+    // Run every Monday and Wednesday at 10:00 UTC
     cron.add weekly/mon,wed@10:00 { $lib.print(weekly) }
 
-    # Run on the 1st and 15th of every month at noon UTC
+    // Run on the 1st and 15th of every month at noon UTC
     cron.add monthly/1,15@12:00 { $lib.print(monthly) }
 
-    # Run on the last day of every month at 00:00 UTC
+    // Run on the last day of every month at 00:00 UTC
     cron.add monthly/-1 { $lib.print(monthly) }
 
-    # Run every year on January 1st at midnight UTC
+    // Run every year on January 1st at midnight UTC
     cron.add yearly { $lib.print(yearly) }
 
-    # Run every year on January 1st at 07:00 UTC
+    // Run every year on January 1st at 07:00 UTC
     cron.add yearly@07 { $lib.print(yearly) }
 
-    # Run every year on January 1st at 12:21 UTC
+    // Run every year on January 1st at 12:21 UTC
     cron.add yearly@12:21 { $lib.print(yearly) }
 
-    # Run every year on May 14th at midnight UTC
+    // Run every year on May 14th at midnight UTC
     cron.add yearly/05-14 { $lib.print(yearly) }
 
-    # Run every year on November 12th at 13:43 UTC
+    // Run every year on November 12th at 13:43 UTC
     cron.add yearly/11-14@13:43 { $lib.print(yearly) }
 
-    # Run every year on July 1st at 04:44 UTC, November 12th at 15:00 UTC, and January 4th at midnight UTC
+    // Run every year on July 1st at 04:44 UTC, November 12th at 15:00 UTC, and January 4th at midnight UTC
     cron.add yearly/07-01@04:44,11-12@15,01-04 { $lib.print(yearly) }
-
 
 Usage: cron.add [options] <period> <query>
 
@@ -1334,7 +1328,6 @@ The `cron.at` command creates a non-recurring (one-time) cron job within a Corte
 ```stormdoc
 storm> cron.at --help
 
-
 Adds a non-recurring cron job.
 
 Notes:
@@ -1354,15 +1347,14 @@ Notes:
     "cron.del".
 
 Examples:
-    # Run a storm query in 5 minutes
-    cron.at --minute +5 {[inet:ipv4=1]}
+    // Run a storm query in 5 minutes
+    cron.at --minute +5 {[inet:ip=1]}
 
-    # Run a storm query tomorrow and in a week
-    cron.at --day +1,+7 {[inet:ipv4=1]}
+    // Run a storm query tomorrow and in a week
+    cron.at --day +1,+7 {[inet:ip=1]}
 
-    # Run a query at the end of the year Zulu
-    cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
-
+    // Run a query at the end of the year Zulu
+    cron.at --dt 20181231Z2359 {[inet:ip=1]}
 
 Usage: cron.at [options] <query>
 
@@ -1463,7 +1455,6 @@ The `cron.mod` command modifies properties of an existing cron job. To modify a 
 ```stormdoc
 storm> cron.mod --help
 
-
 Modify an existing cron job's properties.
 
 Notes:
@@ -1475,21 +1466,20 @@ Notes:
     Any combination of properties may be modified at the same time.
 
 Examples:
-    # Modify only the query
+    // Modify only the query
     cron.mod <iden> --storm { $lib.print(new_query) }
 
-    # Modify only the period (change to daily at 14:30 UTC)
+    // Modify only the period (change to daily at 14:30 UTC)
     cron.mod <iden> --period daily@14:30
 
-    # Modify both query and period
+    // Modify both query and period
     cron.mod <iden> --period weekly/mon,wed@10:00 --storm { $lib.print(updated) }
 
-    # Change to hourly period at minute 25 and enable the cron job
+    // Change to hourly period at minute 25 and enable the cron job
     cron.mod <iden> --period hourly@:25 --enabled true
 
-    # Change to run every 5 minutes
+    // Change to run every 5 minutes
     cron.mod <iden> --period minutely/5
-
 
 Usage: cron.mod [options] <iden>
 
@@ -1554,7 +1544,6 @@ The `delnode` command deletes a node or set of nodes from a Cortex.
 ```stormdoc
 storm> delnode --help
 
-
 Delete nodes produced by the previous query logic.
 
 (no nodes are returned)
@@ -1562,7 +1551,6 @@ Delete nodes produced by the previous query logic.
 Example
 
     inet:fqdn=vertex.link | delnode
-
 
 Usage: delnode [options] 
 
@@ -1611,35 +1599,27 @@ The `diff` command generates a list of nodes with changes (i.e., newly created o
 ```stormdoc
 storm> diff --help
 
-
 Generate a list of nodes with changes in the top layer of the current view.
 
 Examples:
 
     // Lift all nodes with any changes
-
     diff
 
     // Lift ou:org nodes that were added in the top layer.
-
     diff --prop ou:org
 
-    // Lift inet:ipv4 nodes with the :asn property modified in the top layer.
-
-    diff --prop inet:ipv4:asn
+    // Lift inet:ip nodes with the :asn property modified in the top layer.
+    diff --prop inet:ip:asn
 
     // Lift the nodes with the tag #cno.mal.redtree added in the top layer.
-
     diff --tag cno.mal.redtree
 
     // Lift nodes by multiple tags (results are uniqued)
-
     diff --tag cno.mal.redtree rep.vt
 
     // Lift nodes by tags specified in a list variable
-
     $tags=(cno.mal.redtree, rep.vt) diff --tag $tags
-
 
 Usage: diff [options] 
 
@@ -1661,7 +1641,6 @@ The `divert` command allows Storm to either consume a generator or yield its res
 ```stormdoc
 storm> divert --help
 
-
 Either consume a generator or yield it's results based on a conditional.
 
 NOTE: This command is purpose built to facilitate the --yield convention
@@ -1672,7 +1651,6 @@ NOTE: The genr argument must not be a function that returns, else it will
 
 Example:
     divert $cmdopts.yield $fooBarBaz()
-
 
 Usage: divert [options] <cond> <genr>
 
@@ -1742,20 +1720,18 @@ The `edges.del` command is designed to delete multiple light edges to (or from) 
 ```stormdoc
 storm> edges.del --help
 
-
 Bulk delete light edges from input nodes.
 
 Examples:
 
-    # Delete all "foo" light edges from an inet:ipv4
-    inet:ipv4=1.2.3.4 | edges.del foo
+    // Delete all "foo" light edges from an inet:ip
+    inet:ip=1.2.3.4 | edges.del foo
 
-    # Delete light edges with any verb from a node
-    inet:ipv4=1.2.3.4 | edges.del *
+    // Delete light edges with any verb from a node
+    inet:ip=1.2.3.4 | edges.del *
 
-    # Delete all "foo" light edges to an inet:ipv4
-    inet:ipv4=1.2.3.4 | edges.del foo --n2
-
+    // Delete all "foo" light edges to an inet:ip
+    inet:ip=1.2.3.4 | edges.del foo --n2
 
 Usage: edges.del [options] <verb>
 
@@ -1837,14 +1813,12 @@ The `gen.country` command locates (lifts) or creates a `pol:country` node based 
 ```stormdoc
 storm> gen.country --help
 
+Lift (or create) a pol:country node based on the 2 letter ISO-3166 country code.
 
-            Lift (or create) a pol:country node based on the 2 letter ISO-3166 country code.
+Examples:
 
-            Examples:
-
-                // Yield the pol:country node which represents the country of Ukraine.
-                gen.country ua
-        
+    // Yield the pol:country node which represents the country of Ukraine.
+    gen.country ua
 
 Usage: gen.country [options] <code>
 
@@ -1869,14 +1843,12 @@ The `gen.government` command locates (lifts) the `ou:org` node representing a co
 ```stormdoc
 storm> gen.government --help
 
+Lift (or create) the ou:org node representing a country's government based on the 2 letter ISO-3166 country code.
 
-            Lift (or create) the ou:org node representing a country's government based on the 2 letter ISO-3166 country code.
+Examples:
 
-            Examples:
-
-                // Yield the ou:org node which represents the Government of Ukraine.
-                gen.government ua
-        
+    // Yield the ou:org node which represents the Government of Ukraine.
+    gen.government ua
 
 Usage: gen.government [options] <code>
 
@@ -1901,9 +1873,7 @@ The `gen.industry` command locates (lifts) or creates an `ind:industry` node bas
 ```stormdoc
 storm> gen.industry --help
 
-
-            Lift (or create) an ind:industry node based on the industry name and reporter name.
-        
+Lift (or create) an ind:industry node based on the industry name and reporter name.
 
 Usage: gen.industry [options] <name> <reporter>
 
@@ -1979,9 +1949,7 @@ The `gen.place` command locates (lifts) or creates a `geo:place` node based on t
 ```stormdoc
 storm> gen.place --help
 
-
-            Lift (or create) a geo:place node based on the name.
-        
+Lift (or create) a geo:place node based on the name.
 
 Usage: gen.place [options] <name>
 
@@ -2032,14 +2000,12 @@ The `gen.threat` command locates (lifts) or creates a `risk:threat` node using t
 ```stormdoc
 storm> gen.threat --help
 
+Lift (or create) a risk:threat node based on the threat name and reporter name.
 
-            Lift (or create) a risk:threat node based on the threat name and reporter name.
+Examples:
 
-            Examples:
-
-                // Yield a risk:threat node for the threat cluster "APT1" reported by "Mandiant".
-                gen.threat apt1 mandiant
-        
+    // Yield a risk:threat node for the threat cluster "APT1" reported by "Mandiant".
+    gen.threat apt1 mandiant
 
 Usage: gen.threat [options] <name> <reporter>
 
@@ -2065,14 +2031,12 @@ The `gen.vuln` command locates (lifts) or creates a `risk:vuln` node using the C
 ```stormdoc
 storm> gen.vuln --help
 
+Lift (or create) a risk:vuln node based on the CVE and reporter name.
 
-            Lift (or create) a risk:vuln node based on the CVE and reporter name.
+Examples:
 
-            Examples:
-
-                // Yield a risk:vuln node for CVE-2012-0157 reported by Mandiant.
-                gen.vuln CVE-2012-0157 Mandiant
-        
+    // Yield a risk:vuln node for CVE-2012-0157 reported by Mandiant.
+    gen.vuln CVE-2012-0157 Mandiant
 
 Usage: gen.vuln [options] <cve> <reporter>
 
@@ -2098,7 +2062,6 @@ The `graph` command generates a subgraph based on a specified set of nodes and p
 ```stormdoc
 storm> graph --help
 
-
 Generate a subgraph from the given input nodes and command line options.
 
 Example:
@@ -2114,8 +2077,6 @@ Example:
                     --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
                     --form-pivot syn:tag {-> *}
                     --form-pivot * {-> #}
-
-
 
 Usage: graph [options] 
 
@@ -2134,6 +2095,40 @@ Options:
   --no-filter-input           : Do not drop input nodes if they would match a filter.
 ```
 
+<a id="storm-index-count-prop"></a>
+
+## index.count.prop
+
+The `index.count.prop` command displays the number of properties, or the number of property values, in the view. Counts come from the index rather than from lifting the nodes, so the command does not yield nodes into the pipeline.
+
+**Syntax:**
+
+```stormdoc
+storm> index.count.prop --help
+
+Display the number of properties or property values in the view.
+
+Examples:
+
+    // Display the number of file:path:ext properties in the view.
+    index.count.prop file:path:ext
+
+    // Display the number of file:path:ext properties with the value
+    // "exe" in the view.
+    index.count.prop file:path:ext --value exe
+
+Usage: index.count.prop [options] <prop>
+
+Options:
+
+  --help                      : Display the command usage.
+  --value <value>             : The specific value to count instances of. (default: $lib.undef)
+
+Arguments:
+
+  <prop>                      : The name of the form or property to count.
+```
+
 <a id="storm-intersect"></a>
 
 ## intersect
@@ -2145,7 +2140,6 @@ The `intersect` command returns the intersection of the results from performing 
 ```stormdoc
 storm> intersect --help
 
-
 Yield an intersection of the results of running inbound nodes through a pivot.
 
 NOTE:
@@ -2156,9 +2150,7 @@ NOTE:
 Examples:
 
     // Show the it:mitre:attack:technique nodes common to several groups
-
     it:mitre:attack:group*in=(G0006, G0007) | intersect { -> it:mitre:attack:technique }
-
 
 Usage: intersect [options] <query>
 
@@ -2487,22 +2479,20 @@ The `lift.byverb` command lifts nodes that are connected by the specified lightw
 ```stormdoc
 storm> lift.byverb --help
 
-
 Lift nodes from the current view by an light edge verb.
 
 Examples:
 
-    # Lift all the n1 nodes for the light edge "foo"
+    // Lift all the n1 nodes for the light edge "foo"
     lift.byverb "foo"
 
-    # Lift all the n2 nodes for the light edge "foo"
+    // Lift all the n2 nodes for the light edge "foo"
     lift.byverb --n2 "foo"
 
 Notes:
 
     Only a single instance of a node will be yielded from this command
     when that node is lifted via the light edge membership.
-
 
 Usage: lift.byverb [options] <verb>
 
@@ -2527,13 +2517,11 @@ The `limit` command restricts the number of nodes returned from a given Storm qu
 ```stormdoc
 storm> limit --help
 
-
 Limit the number of nodes generated by the query in the given position.
 
 Example:
 
-    inet:ipv4 | limit 10
-
+    inet:ip | limit 10
 
 Usage: limit [options] <count>
 
@@ -2594,9 +2582,7 @@ The `macro.list` command lists the macros in a Cortex.
 ```stormdoc
 storm> macro.list --help
 
-
 List the macros set on the cortex.
-
 
 Usage: macro.list [options] 
 
@@ -2616,7 +2602,6 @@ The `macro.set` command creates (or modifies) a macro in a Cortex.
 ```stormdoc
 storm> macro.set --help
 
-
 Set a macro definition in the cortex.
 
 Variables can also be used that are defined outside the definition.
@@ -2624,10 +2609,9 @@ Variables can also be used that are defined outside the definition.
 Examples:
     macro.set foobar ${ [+#foo] }
 
-    # Use variable from parent scope
-    macro.set bam ${ [ inet:ipv4=$val ] }
+    // Use variable from parent scope
+    macro.set bam ${ [ inet:ip=$val ] }
     $val=1.2.3.4 macro.exec bam
-
 
 Usage: macro.set [options] <name> <storm>
 
@@ -2652,9 +2636,7 @@ The `macro.get` command retrieves and displays the specified macro.
 ```stormdoc
 storm> macro.get --help
 
-
 Display the storm query for a macro in the cortex.
-
 
 Usage: macro.get [options] <name>
 
@@ -2678,14 +2660,11 @@ The `macro.exec` command executes the specified macro.
 ```stormdoc
 storm> macro.exec --help
 
-
 Execute a named macro.
 
 Example:
 
-    inet:ipv4#cno.threat.t80 | macro.exec enrich_foo
-
-
+    inet:ip#cno.threat.t80 | macro.exec enrich_foo
 
 Usage: macro.exec [options] <name>
 
@@ -2709,9 +2688,7 @@ The `macro.del` command deletes the specified macro from a Cortex.
 ```stormdoc
 storm> macro.del --help
 
-
 Remove a macro definition from the cortex.
-
 
 Usage: macro.del [options] <name>
 
@@ -2736,7 +2713,6 @@ If `max` is used on a property whose type is an interval (`ival`) and you only s
 
 ```stormdoc
 storm> max --help
-
 
 Consume nodes and yield the nodes with the highest values for an expression.
 
@@ -2765,8 +2741,6 @@ Examples:
 
     // Yield the doc:report node with the highest :version
     doc:report | max :version
-
-
 
 Usage: max [options] <valu>
 
@@ -2841,7 +2815,6 @@ See the [view](storm_ref_cmd.md#storm-view) and [layer](storm_ref_cmd.md#storm-l
 ```stormdoc
 storm> merge --help
 
-
 Merge edits from the incoming nodes down to the next layer.
 
 NOTE: This command requires the current view to be a fork.
@@ -2859,36 +2832,28 @@ NOTE: If --wipe is specified, and there are nodes that cannot be merged,
 Examples:
 
     // Having tagged a new #cno.mal.redtree subgraph in a forked view...
-
     #cno.mal.redtree | merge --apply
 
     // Print out what the merge command *would* do but dont.
-
     #cno.mal.redtree | merge
 
     // Merge any org nodes with changes in the top layer.
-
     diff | +ou:org | merge --apply
 
     // Merge all tags other than cno.* from ou:org nodes with edits in the
     // top layer.
-
     diff | +ou:org | merge --only-tags --exclude-tags cno.** --apply
 
     // Merge only tags rep.vt.* and rep.whoxy.* from ou:org nodes with edits
     // in the top layer.
-
     diff | +ou:org | merge --include-tags rep.vt.* rep.whoxy.* --apply
 
-    // Lift only inet:ipv4 nodes with a changed :asn property in top layer
+    // Lift only inet:ip nodes with a changed :asn property in top layer
     // and merge all changes.
-
-    diff --prop inet:ipv4:asn | merge --apply
+    diff --prop inet:ip:asn | merge --apply
 
     // Lift only nodes with an added #cno.mal.redtree tag in the top layer and merge them.
-
     diff --tag cno.mal.redtree | merge --apply
-
 
 Usage: merge [options] 
 
@@ -2921,7 +2886,6 @@ If `min` is used on a property whose type is an interval (`ival`) and you only s
 ```stormdoc
 storm> min --help
 
-
 Consume nodes and yield the nodes with the lowest values for an expression.
 
 Notes:
@@ -2949,8 +2913,6 @@ Examples:
 
     // Yield the doc:report node with the lowest :version
     doc:report | min :version
-
-
 
 Usage: min [options] <valu>
 
@@ -3117,7 +3079,6 @@ The `movenodes` command is intended for use in the same layer stack. See the [co
 ```stormdoc
 storm> movenodes --help
 
-
 Move storage nodes between layers.
 
 Storage nodes will be removed from the source layers and the resulting
@@ -3132,16 +3093,13 @@ layer in addition to deleting any current value.
 Examples:
 
     // Move storage nodes for ou:org nodes to the top layer
-
     ou:org | movenodes --apply
 
     // Print out what the movenodes command *would* do but dont.
-
     ou:org | movenodes
 
     // In a view with many layers, only move storage nodes from the bottom layer
     // to the top layer.
-
     $layers = $lib.view.get().layers
     $top = $layers.0.iden
     $bot = $layers."-1".iden
@@ -3150,14 +3108,12 @@ Examples:
 
     // In a view with many layers, move storage nodes to the top layer and
     // prioritize values from the bottom layer over the other layers.
-
     $layers = $lib.view.get().layers
     $top = $layers.0.iden
     $mid = $layers.1.iden
     $bot = $layers.2.iden
 
     ou:org | movenodes --precedence $bot $top $mid
-
 
 Usage: movenodes [options] 
 
@@ -3194,13 +3150,11 @@ See also the [tag](storm_ref_cmd.md#storm-tag) command.
 ```stormdoc
 storm> movetag --help
 
-
 Rename an entire tag tree and preserve time intervals.
 
 Example:
 
     movetag foo.bar baz.faz.bar
-
 
 Usage: movetag [options] <oldtag> <newtag>
 
@@ -3326,7 +3280,6 @@ The `once` command is used to ensure a given node is processed by the associated
 ```stormdoc
 storm> once --help
 
-
 The once command is used to filter out nodes which have already been processed
 via the use of a named key. It includes an optional parameter to allow the node
 to pass the filter again after a given amount of time.
@@ -3351,12 +3304,11 @@ State tracking data for the once command is stored as nodedata which is stored i
 view's write layer, making it view-specific. So if you have two views, A and B, and they
 do not share any layers between them, and you execute this query in view A:
 
-    inet:ipv4=8.8.8.8 | once enrich:address | enrich.baz
+    inet:ip=8.8.8.8 | once enrich:address | enrich.baz
 
 And then you run it in view B, the node will still pass through the once command to the
 enrich.baz portion of the query because the tracking data for the once command does not
 yet exist in view B.
-
 
 Usage: once [options] <name>
 
@@ -3383,12 +3335,11 @@ See also [background](storm_ref_cmd.md#storm-background).
 ```stormdoc
 storm> parallel --help
 
-
 Execute part of a query pipeline in parallel.
 This can be useful to minimize round-trip delay during enrichments.
 
 Examples:
-    inet:ipv4#foo | parallel { $place = $lib.import(foobar).lookup(:latlong) [ :place=$place ] }
+    inet:ip#foo | parallel { $place = $lib.import(foobar).lookup(:latlong) [ :place=$place ] }
 
 NOTE: Storm variables set within the parallel query pipelines do not interact.
 
@@ -3397,7 +3348,6 @@ NOTE: If there are inbound nodes to the parallel command, parallel pipelines wil
       than the value specified by --size, additional pipelines with no inbound node will not be created.
       If there are no inbound nodes to the parallel command, the number of pipelines specified by --size
       will always be created.
-
 
 Usage: parallel [options] <query>
 
@@ -3631,6 +3581,27 @@ Arguments:
   <iden>                      : The iden of the queue to remove.
 ```
 
+<a id="storm-quorum-merge-list"></a>
+
+## quorum.merge.list
+
+The `quorum.merge.list` command lists all the views which currently have a pending merge request.
+
+**Syntax:**
+
+```stormdoc
+storm> quorum.merge.list --help
+
+List all the views which currently have a pending merge request.
+
+Usage: quorum.merge.list [options] 
+
+Options:
+
+  --help                      : Display the command usage.
+  --todo                      : Only return merges which need approval from the current user.
+```
+
 <a id="storm-runas"></a>
 
 ## runas
@@ -3644,7 +3615,6 @@ The `runas` command allows you to execute a Storm query as a specified user.
 
 ```stormdoc
 storm> runas --help
-
 
 Execute a storm query as a specified user.
 
@@ -3661,7 +3631,6 @@ Examples:
 
     // Create a node as another user.
     runas someuser { [ inet:fqdn=foo.com ] }
-
 
 Usage: runas [options] <user> <storm>
 
@@ -3691,32 +3660,30 @@ By default, the `scrape` command will return the nodes that it received as input
 ```stormdoc
 storm> scrape --help
 
-
 Use textual properties of existing nodes to find other easily recognizable nodes.
 
 Examples:
 
-    # Scrape properties from inbound nodes and create standalone nodes.
+    // Scrape properties from inbound nodes and create standalone nodes.
     inet:search:query | scrape
 
-    # Scrape properties from inbound nodes and make refs light edges to the scraped nodes.
+    // Scrape properties from inbound nodes and make refs light edges to the scraped nodes.
     inet:search:query | scrape --refs
 
-    # Scrape only the :engine and :text props from the inbound nodes.
+    // Scrape only the :engine and :text props from the inbound nodes.
     inet:search:query | scrape :text :engine
 
-    # Scrape the primary property from the inbound nodes.
+    // Scrape the primary property from the inbound nodes.
     it:dev:str | scrape $node.repr()
 
-    # Scrape properties inbound nodes and yield newly scraped nodes.
+    // Scrape properties inbound nodes and yield newly scraped nodes.
     inet:search:query | scrape --yield
 
-    # Skip re-fanging text before scraping.
+    // Skip re-fanging text before scraping.
     inet:search:query | scrape --skiprefang
 
-    # Limit scrape to specific forms.
-    inet:search:query | scrape --forms (inet:fqdn, inet:ipv4)
-
+    // Limit scrape to specific forms.
+    inet:search:query | scrape --forms (inet:fqdn, inet:ip)
 
 Usage: scrape [options] <values>
 
@@ -3869,16 +3836,11 @@ The `sleep` command adds a delay in returning each result for a given Storm quer
 ```stormdoc
 storm> sleep --help
 
-
 Introduce a delay between returning each result for the storm query.
-
-NOTE: This is mostly used for testing / debugging.
 
 Example:
 
     #foo.bar | sleep 0.5
-
-
 
 Usage: sleep [options] <delay>
 
@@ -3919,15 +3881,12 @@ The `spin` command is used to suppress the output of a Storm query. `Spin` simpl
 ```stormdoc
 storm> spin --help
 
-
 Iterate through all query results, but do not yield any.
 This can be used to operate on many nodes without returning any.
 
 Example:
 
     foo:bar:size=20 [ +#hehe ] | spin
-
-
 
 Usage: spin [options] 
 
@@ -3967,7 +3926,6 @@ The `stats.countby` command allows you to query and display a bar chart of talli
 ```stormdoc
 storm> stats.countby --help
 
-
 Tally occurrences of values and display a bar chart of the results.
 
 Examples:
@@ -3980,7 +3938,6 @@ Examples:
 
     // Show counts of attacker names for risk:compromise nodes.
     risk:compromise | stats.countby :attacker::name
-
 
 Usage: stats.countby [options] <valu>
 
@@ -3998,6 +3955,50 @@ Options:
 Arguments:
 
   [valu]                      : A relative property or variable to tally.
+```
+
+<a id="storm-storm-exec"></a>
+
+## storm.exec
+
+The `storm.exec` command executes text, or an embedded query object, as Storm in the current pipeline. This allows a query held in a variable to be run against the nodes already in the pipeline.
+
+**Syntax:**
+
+```stormdoc
+storm> storm.exec --help
+
+Execute text or an embedded query object as Storm in the current pipeline.
+
+NOTE: It is recommended to avoid using this where possible to avoid potential
+query injection risks. If you must use this, take care to ensure any values
+being executed have been properly sanitized.
+
+Examples:
+
+    // Add nodes using text in a variable
+    $query = '[ inet:fqdn=foo.com inet:fqdn=bar.net ]'
+    storm.exec $query
+
+    // Filter nodes in the pipeline using text in a variable
+    $filter = '-:asn=10'
+    inet:ip:asn
+    storm.exec $filter
+
+    // Pivot using an embedded query
+    $pivot = ${ -> inet:asn }
+    inet:ip:asn
+    storm.exec $pivot
+
+Usage: storm.exec [options] <query>
+
+Options:
+
+  --help                      : Display the command usage.
+
+Arguments:
+
+  <query>                     : The Storm to execute.
 ```
 
 <a id="storm-tag"></a>
@@ -4025,7 +4026,6 @@ The `tag.prune` command will delete the tags from incoming nodes, as well as all
 ```stormdoc
 storm> tag.prune --help
 
-
 Prune a tag (or tags) from nodes.
 
 This command will delete the tags specified as parameters from incoming nodes,
@@ -4050,9 +4050,8 @@ tag as the parent tags still have other children.
 
 Examples:
 
-    # Prune the parent.child.grandchild tag
-    inet:ipv4=1.2.3.4 | tag.prune parent.child.grandchild
-
+    // Prune the parent.child.grandchild tag
+    inet:ip=1.2.3.4 | tag.prune parent.child.grandchild
 
 Usage: tag.prune [options] <tags>
 
@@ -4064,6 +4063,8 @@ Arguments:
 
   [<tags> ...]                : Names of tags to prune.
 ```
+
+<a id="storm-task"></a>
 
 ## task
 
@@ -4132,23 +4133,20 @@ The `tee` command executes multiple Storm queries on the inbound nodes and retur
 ```stormdoc
 storm> tee --help
 
-
 Execute multiple Storm queries on each node in the input stream, joining output streams together.
 
-Commands are executed in order they are given; unless the ``--parallel`` switch is provided.
+Commands are executed in order they are given; unless the `--parallel` switch is provided.
 
 Examples:
 
-    # Perform a pivot out and pivot in on a inet:ivp4 node
-    inet:ipv4=1.2.3.4 | tee { -> * } { <- * }
+    // Perform a pivot out and pivot in on a inet:ip node
+    inet:ip=1.2.3.4 | tee { -> * } { <- * }
 
-    # Also emit the inbound node
-    inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }
+    // Also emit the inbound node
+    inet:ip=1.2.3.4 | tee --join { -> * } { <- * }
 
-    # Execute multiple enrichment queries in parallel.
-    inet:ipv4=1.2.3.4 | tee -p { enrich.foo } { enrich.bar } { enrich.baz }
-
-
+    // Execute multiple enrichment queries in parallel.
+    inet:ip=1.2.3.4 | tee -p { enrich.foo } { enrich.bar } { enrich.baz }
 
 Usage: tee [options] <query>
 
@@ -4256,14 +4254,12 @@ The `tree` command recursively performs the specified pivot until no additional 
 ```stormdoc
 storm> tree --help
 
-
 Walk elements of a tree using a recursive pivot.
 
 Examples:
 
-    # pivot upward yielding each FQDN
+    // pivot upward yielding each FQDN
     inet:fqdn=www.vertex.link | tree { :domain -> inet:fqdn }
-
 
 Usage: tree [options] <query>
 
@@ -4344,7 +4340,6 @@ The `trigger.add` command adds a trigger to a Cortex.
 ```stormdoc
 storm> trigger.add --help
 
-
 Add a trigger to the cortex.
 
 Notes:
@@ -4361,8 +4356,8 @@ When condition is tag:add or tag:del, you may optionally provide a form name
 to restrict the trigger to fire only on tags added or deleted from nodes of
 those forms.
 
-The added tag is provided to the query in the ``$auto`` dictionary variable under
-``$auto.opts.tag``.
+The added tag is provided to the query in the `$auto` dictionary variable under
+`$auto.opts.tag`.
 
 Simple one level tag globbing is supported, only at the end after a period,
 that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
@@ -4373,22 +4368,21 @@ form name or a destination form name to only fire on edges added or deleted
 from nodes of those forms.
 
 Examples:
-    # Adds a tag to every inet:ipv4 added
-    trigger.add node:add --form inet:ipv4 {[ +#mytag ]}
+    // Adds a tag to every inet:ip added
+    trigger.add node:add --form inet:ip {[ +#mytag ]}
 
-    # Adds a tag #todo to every node as it is tagged #aka
+    // Adds a tag #todo to every node as it is tagged #aka
     trigger.add tag:add --tag aka {[ +#todo ]}
 
-    # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
-    trigger.add tag:add --form inet:ipv4 --tag aka {[ +#todo ]}
+    // Adds a tag #todo to every inet:ip as it is tagged #aka
+    trigger.add tag:add --form inet:ip --tag aka {[ +#todo ]}
 
-    # Adds a tag #todo to the N1 node of every refs edge add
+    // Adds a tag #todo to the N1 node of every refs edge add
     trigger.add edge:add --verb refs {[ +#todo ]}
 
-    # Adds a tag #todo to the N1 node of every seen edge delete, provided that
-    # both nodes are of form file:bytes
+    // Adds a tag #todo to the N1 node of every seen edge delete, provided that
+    // both nodes are of form file:bytes
     trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes {[ +#todo ]}
-
 
 Usage: trigger.add [options] <condition> <storm>
 
@@ -4504,7 +4498,6 @@ You can optionally specify a property, set of properties, or a variable as a par
 ```stormdoc
 storm> uniq --help
 
-
 Filter nodes by their uniq iden values.
 When this is used a Storm pipeline, only the first instance of a
 given node is allowed through the pipeline.
@@ -4515,12 +4508,11 @@ that property or value rather than checking the node id.
 
 Examples:
 
-    # Filter duplicate nodes after pivoting from inet:ipv4 nodes tagged with #badstuff
-    #badstuff +inet:ipv4 ->* | uniq
+    // Filter duplicate nodes after pivoting from inet:ip nodes tagged with #badstuff
+    #badstuff +inet:ip ->* | uniq
 
-    # Unique inet:ipv4 nodes by their :asn property
-    #badstuff +inet:ipv4 | uniq :asn
-
+    // Unique inet:ip nodes by their :asn property
+    #badstuff +inet:ip | uniq :asn
 
 Usage: uniq [options] <value>
 
@@ -4537,25 +4529,25 @@ Arguments:
 
 Lift all of the unique IP addresses that domains associated with the Fancy Bear threat group have resolved to:
 
-``` text
+```storm
 inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ip | uniq
 ```
 
 Lift a set of network flow (`inet:flow`) nodes and unique (de-duplicate) them based on the source IP address:
 
-``` text
+```storm
 inet:flow | uniq :client.ip
 ```
 
 Lift a set of network flow nodes and de-duplicate them based on each unique combination of source and destination IP addresses:
 
-``` text
+```storm
 inet:flow | uniq ( :client, :server )
 ```
 
 Nodes can be uniqued based on variables. Alert (`risk:alert`) nodes can be categorized in various ways. This includes `:priority` and `:severity` properties, both of which use a set of fixed text values (e.g., "low" vs. "highest") that correspond to integers (e.g., 20 vs. 50). These integer values could be joined together in a variable to provide a sample of alerts which have unique combinations of those values:
 
-``` text
+```storm
 risk:alert:priority +:severity $pri=:priority $sev=:severity $value=( $pri, $sev ) | uniq $value
 ```
 
@@ -4611,23 +4603,21 @@ The `vault.add` command creates a new vault.
 ```stormdoc
 storm> vault.add --help
 
+Add a vault.
 
-            Add a vault.
+Examples:
 
-            Examples:
+    // Add a global vault with type `synapse-test`
+    vault.add "shared-global-vault" synapse-test ({'apikey': 'foobar'}) ({}) --global
 
-                // Add a global vault with type `synapse-test`
-                vault.add "shared-global-vault" synapse-test ({'apikey': 'foobar'}) ({}) --global
+    // Add a user vault with type `synapse-test`
+    vault.add "visi-user-vault" synapse-test ({'apikey': 'barbaz'}) ({}) --user visi
 
-                // Add a user vault with type `synapse-test`
-                vault.add "visi-user-vault" synapse-test ({'apikey': 'barbaz'}) ({}) --user visi
+    // Add a role vault with type `synapse-test`
+    vault.add "contributor-role-vault" synapse-test ({'apikey': 'bazquux'}) ({}) --role contributor
 
-                // Add a role vault with type `synapse-test`
-                vault.add "contributor-role-vault" synapse-test ({'apikey': 'bazquux'}) ({}) --role contributor
-
-                // Add an unscoped vault with type `synapse-test`
-                vault.add "unscoped-vault" synapse-test ({'apikey': 'quuxquo'}) ({'server': 'api.foobar.com'}) --unscoped visi
-        
+    // Add an unscoped vault with type `synapse-test`
+    vault.add "unscoped-vault" synapse-test ({'apikey': 'quuxquo'}) ({'server': 'api.foobar.com'}) --unscoped visi
 
 Usage: vault.add [options] <name> <type> <secrets> <configs>
 
@@ -4658,9 +4648,7 @@ The `vault.list` command displays the available vaults.
 ```stormdoc
 storm> vault.list --help
 
-
-            List available vaults.
-        
+List available vaults.
 
 Usage: vault.list [options] 
 
@@ -4683,20 +4671,18 @@ The `vault.set.configs` sets configuration options for the specified vault.
 ```stormdoc
 storm> vault.set.configs --help
 
+Set vault config data.
 
-            Set vault config data.
+Examples:
 
-            Examples:
+    // Set data to visi's user vault configs
+    vault.set.configs "visi-user-vault" color --value orange
 
-                // Set data to visi's user vault configs
-                vault.set.configs "visi-user-vault" color --value orange
+    // Set data to contributor's role vault configs
+    vault.set.configs "contributor-role-vault" color --value blue
 
-                // Set data to contributor's role vault configs
-                vault.set.configs "contributor-role-vault" color --value blue
-
-                // Remove apikey from a global vault configs
-                vault.set.configs "some-global-vault" color --delete
-        
+    // Remove apikey from a global vault configs
+    vault.set.configs "some-global-vault" color --delete
 
 Usage: vault.set.configs [options] <name> <key>
 
@@ -4723,24 +4709,22 @@ The `vault.set.perm` command grants or revokes permissions to a vault.
 ```stormdoc
 storm> vault.set.perm --help
 
+Set permissions on a vault.
 
-            Set permissions on a vault.
+Examples:
 
-            Examples:
+    // Give blackout read permissions to visi's user vault
+    vault.set.perm "my-user-vault" blackout --level read
 
-                // Give blackout read permissions to visi's user vault
-                vault.set.perm "my-user-vault" blackout --level read
+    // Give the contributor role read permissions to visi's user vault
+    vault.set.perm "my-user-vault" --role contributor --level read
 
-                // Give the contributor role read permissions to visi's user vault
-                vault.set.perm "my-user-vault" --role contributor --level read
+    // Revoke blackout's permissions from visi's user vault
+    vault.set.perm "my-user-vault" blackout --revoke
 
-                // Revoke blackout's permissions from visi's user vault
-                vault.set.perm "my-user-vault" blackout --revoke
-
-                // Give visi read permissions to the contributor role vault. (Assume
-                // visi is not a member of the contributor role).
-                vault.set.perm "contributor-role-vault" visi read
-        
+    // Give visi read permissions to the contributor role vault. (Assume
+    // visi is not a member of the contributor role).
+    vault.set.perm "contributor-role-vault" visi read
 
 Usage: vault.set.perm [options] <name>
 
@@ -4768,20 +4752,18 @@ The `vault.set.secrets` command sets the specified secret for the vault.
 ```stormdoc
 storm> vault.set.secrets --help
 
+Set vault secret data.
 
-            Set vault secret data.
+Examples:
 
-            Examples:
+    // Set data to visi's user vault secrets
+    vault.set.secrets "visi-user-vault" apikey --value foobar
 
-                // Set data to visi's user vault secrets
-                vault.set.secrets "visi-user-vault" apikey --value foobar
+    // Set data to contributor's role vault secrets
+    vault.set.secrets "contributor-role-vault" apikey --value barbaz
 
-                // Set data to contributor's role vault secrets
-                vault.set.secrets "contributor-role-vault" apikey --value barbaz
-
-                // Remove apikey from a global vault secrets
-                vault.set.secrets "some-global-vault" apikey --delete
-        
+    // Remove apikey from a global vault secrets
+    vault.set.secrets "some-global-vault" apikey --delete
 
 Usage: vault.set.secrets [options] <name> <key>
 
@@ -4808,17 +4790,15 @@ The `vault.del` command deletes a vault.
 ```stormdoc
 storm> vault.del --help
 
+Delete a vault.
 
-            Delete a vault.
+Examples:
 
-            Examples:
+    // Delete visi's user vault
+    vault.del "visi-user-vault"
 
-                // Delete visi's user vault
-                vault.del "visi-user-vault"
-
-                // Delete contributor's role vault
-                vault.del "contributor-role-vault"
-        
+    // Delete contributor's role vault
+    vault.del "contributor-role-vault"
 
 Usage: vault.del [options] <name>
 
@@ -4849,6 +4829,118 @@ Usage: version [options]
 Options:
 
   --help                      : Display the command usage.
+```
+
+<a id="storm-vertex"></a>
+
+## vertex
+
+Storm includes `vertex.*` commands that allow you to register a deployment with the Vertex Hub and to install the packages it makes available.
+
+- [vertex.packages.install](storm_ref_cmd.md#storm-vertex-packages-install)
+- [vertex.packages.list](storm_ref_cmd.md#storm-vertex-packages-list)
+- [vertex.packages.versions](storm_ref_cmd.md#storm-vertex-packages-versions)
+- [vertex.register](storm_ref_cmd.md#storm-vertex-register)
+
+Help for individual `vertex.*` commands can be displayed using:
+
+> `<command> --help`
+
+<a id="storm-vertex-packages-install"></a>
+
+### vertex.packages.install
+
+The `vertex.packages.install` command installs a package from the Vertex Hub.
+
+**Syntax:**
+
+```stormdoc
+storm> vertex.packages.install --help
+
+Install a package from the Vertex Hub.
+
+Usage: vertex.packages.install [options] <name>
+
+Options:
+
+  --help                      : Display the command usage.
+  --version <version>         : The version to install. Defaults to the latest version. (default: None)
+
+Arguments:
+
+  <name>                      : The name of the package to install.
+```
+
+<a id="storm-vertex-packages-list"></a>
+
+### vertex.packages.list
+
+The `vertex.packages.list` command lists the packages available to this deployment from the Vertex Hub.
+
+**Syntax:**
+
+```stormdoc
+storm> vertex.packages.list --help
+
+List the packages available to this deployment from the Vertex Hub.
+
+Usage: vertex.packages.list [options] 
+
+Options:
+
+  --help                      : Display the command usage.
+```
+
+<a id="storm-vertex-packages-versions"></a>
+
+### vertex.packages.versions
+
+The `vertex.packages.versions` command lists the available versions of a package from the Vertex Hub.
+
+**Syntax:**
+
+```stormdoc
+storm> vertex.packages.versions --help
+
+List the available versions of a package from the Vertex Hub.
+
+Usage: vertex.packages.versions [options] <name>
+
+Options:
+
+  --help                      : Display the command usage.
+  --match <match>             : An optional version prefix used to filter the results. (default: None)
+
+Arguments:
+
+  <name>                      : The name of the package.
+```
+
+<a id="storm-vertex-register"></a>
+
+### vertex.register
+
+The `vertex.register` command registers this deployment with the Vertex Hub.
+
+**Syntax:**
+
+```stormdoc
+storm> vertex.register --help
+
+Register this deployment with the Vertex Hub.
+
+Usage: vertex.register [options] <email>
+
+Options:
+
+  --help                      : Display the command usage.
+  --name <name>               : An optional name for the deployment. (default: None)
+  --reset                     : Re-register even if already registered. This creates a NEW deployment which may have
+                                different available power-ups.
+
+Arguments:
+
+  <email>                     : The email address to register the deployment under.
 ```
 
 <a id="storm-view"></a>
@@ -5000,7 +5092,7 @@ The `view.exec` command creates its own execution environment (sub-runtime) to e
 
 Variables declared before the `view.exec` are accessible in the destination view (including assignment). The interactive help example demonstrates this behavior:
 
-``` text
+```storm
 // Move some tagged nodes to another view
 inet:fqdn#foo.bar $fqdn=$node.value | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
 ```
@@ -5014,7 +5106,6 @@ Inline functions are bound to the scope they are declared in, and heavy objects 
 ```stormdoc
 storm> view.exec --help
 
-
 Execute a storm query in a different view.
 
 NOTE: Variables are passed through but nodes are not. The behavior of this command may be
@@ -5026,7 +5117,6 @@ Examples:
 
     // Move some tagged nodes to another view
     inet:fqdn#foo.bar $fqdn=$node.value | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
-
 
 Usage: view.exec [options] <view> <storm>
 
@@ -5053,12 +5143,10 @@ Contrast with [merge](storm_ref_cmd.md#storm-merge) which can merge a subset of 
 ```stormdoc
 storm> view.merge --help
 
+Merge a forked view into its parent view.
 
-            Merge a forked view into its parent view.
-
-            The merge runs as a background task that ends by removing the
-            forked view and its top layer.
-        
+The merge runs as a background task that ends by removing the
+forked view and its top layer.
 
 Usage: view.merge [options] <iden>
 
@@ -5082,13 +5170,11 @@ The `view.del` command permanently deletes a view from the Cortex.
 ```stormdoc
 storm> view.del --help
 
-
 Delete a view from the cortex.
 
 Notes:
     Deleting a view with the `view.del` command does not delete any of the layers in the view.
     To delete layers, you must use the `layer.del` command separately.
-
 
 Usage: view.del [options] <iden>
 
@@ -5116,12 +5202,11 @@ Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.
 
 Examples:
 
-    # Specify custom headers and parameters
+    // Specify custom headers and parameters
     inet:url=https://vertex.link/foo.bar.txt | wget --headers ({"User-Agent": "Foo/Bar"}) --params ({"clientid": "42"})
 
-    # Download multiple URL targets without inbound nodes
+    // Download multiple URL targets without inbound nodes
     wget https://vertex.link https://vtx.lk
-
 
 Usage: wget [options] <urls>
 
@@ -5136,9 +5221,9 @@ Options:
                                 'Accept-Encoding': 'gzip, deflate',
                                 'Accept-Language': 'en-US,en;q=0.9',
                                 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko)
-                                Chrome/92.0.4515.131 '
-                                'Safari/537.36'})
-  --no-headers                : Do NOT use any default headers.
+                                Chrome/148.0.0.0 Safari/537.36'})
+  --no-headers                : Do NOT use the browser-mimicking default headers above. The Cortex's own default
+                                User-Agent is sent instead unless one is set with --headers.
 
 Arguments:
 

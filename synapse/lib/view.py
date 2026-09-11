@@ -179,6 +179,9 @@ class View(s_nexus.Pusher):  # type: ignore
             if fireedits is not None:
                 editset = []
 
+            sode = node.sodes[0]
+            edgedels = None
+
             for edit in edits:
 
                 etyp, parms = edit
@@ -192,8 +195,13 @@ class View(s_nexus.Pusher):  # type: ignore
                     continue
 
                 if etyp == s_layer.EDIT_NODE_DEL or etyp == s_layer.EDIT_NODE_TOMB:
-                    callbacks.append((node.form.wasDeleted, (node,)))
-                    callbacks.append((self.runNodeDel, (node, useriden)))
+
+                    # the node is deleted once, so a tombstone which removed the write
+                    # layer value fires for the pair
+                    if etyp == s_layer.EDIT_NODE_TOMB or sode.get('antivalu') is None:
+                        callbacks.append((node.form.wasDeleted, (node,)))
+                        callbacks.append((self.runNodeDel, (node, useriden)))
+
                     self.clearCachedNode(nid)
 
                     if fireedits is not None:
@@ -283,8 +291,11 @@ class View(s_nexus.Pusher):  # type: ignore
                         logger.warning(f'saveNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form.full}')
                         continue
 
-                    callbacks.append((prop.wasDel, (node,)))
-                    callbacks.append((self.runPropSet, (node, prop, useriden)))
+                    # the prop changed once, so a tombstone which removed the write layer
+                    # value fires for the pair
+                    if (antiprops := sode.get('antiprops')) is None or name not in antiprops:
+                        callbacks.append((prop.wasDel, (node,)))
+                        callbacks.append((self.runPropSet, (node, prop, useriden)))
 
                     if fireedits is not None:
                         editset.append(edit)
@@ -333,7 +344,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 if etyp == s_layer.EDIT_TAG_DEL:
                     tag = parms[0]
 
-                    callbacks.append((self.runTagDel, (node, tag, useriden)))
+                    # the tag changed once, so a tombstone which removed the write layer
+                    # value fires for the pair
+                    if (antitags := sode.get('antitags')) is None or tag not in antitags:
+                        callbacks.append((self.runTagDel, (node, tag, useriden)))
 
                     if fireedits is not None:
                         editset.append(edit)
@@ -367,7 +381,15 @@ class View(s_nexus.Pusher):  # type: ignore
                     verb, n2nid = parms
                     n2ndef = self.core.getNidNdef(s_common.int64en(n2nid))
                     n2form = n2ndef[0] if n2ndef else None
-                    callbacks.append((self.runEdgeDel, (node, verb, n2nid, n2form, useriden)))
+
+                    # the edge changed once, so the removal fires for a pair. the sode
+                    # counts edge tombstones by form, so the edit set is what names the
+                    # edge, and only a tombstone needs to go looking.
+                    if etyp == s_layer.EDIT_EDGE_TOMB and edgedels is None:
+                        edgedels = {e[1] for e in edits if e[0] == s_layer.EDIT_EDGE_DEL}
+
+                    if etyp == s_layer.EDIT_EDGE_DEL or parms not in edgedels:
+                        callbacks.append((self.runEdgeDel, (node, verb, n2nid, n2form, useriden)))
 
                     if fireedits is not None:
                         editset.append((etyp, (verb, n2nid, n2ndef)))
@@ -1206,6 +1228,21 @@ class View(s_nexus.Pusher):  # type: ignore
             for name, valu in (await layr.getFormCounts()).items():
                 counts[name] += valu
         return counts
+
+    async def getTagCount(self, tagname, formname=None):
+
+        # a fast approximate count, the same shape as getPropCount(): per-layer row counts summed
+        # without resolving which layer wins, so a tag counts in each layer holding it. exact
+        # would mean de-duplicating nids across the stack -- a lift, not a counter.
+        #
+        # matches Layer.getTagCount(): an unindexed or un-normalized name counts zero rather than
+        # raising, and tags are stored lowercased
+        count = 0
+        for layr in self.layers:
+            await asyncio.sleep(0)
+            count += await layr.getTagCount(tagname, formname=formname)
+
+        return count
 
     async def getPropCount(self, propname, valu=s_common.novalu, norm=True, cmpr='=', type=None):
 

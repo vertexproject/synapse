@@ -27,7 +27,7 @@ Synapse service docker containers run their service process as an unprivileged u
 
 Default kernel parameters on most Linux distributions are not optimized for database performance. We recommend adding the following lines to `/etc/sysctl.conf` on all systems being used to host Synapse services:
 
-``` text
+```text
 vm.swappiness=10
 vm.dirty_expire_centisecs=20
 vm.dirty_writeback_centisecs=20
@@ -70,7 +70,7 @@ When choosing the DNS name for your AHA server, it is important to keep in mind 
 
 Create the `/srv/syn/000.aha/docker-compose.yaml` file with contents:
 
-``` yaml
+```yaml
 services:
   000.aha:
     image: hub.vertex.link/synapse-aha:v3.x.x
@@ -92,20 +92,20 @@ services:
 
 Start the container using `docker compose`:
 
-``` text
+```text
 docker compose --file /srv/syn/000.aha/docker-compose.yaml pull
 docker compose --file /srv/syn/000.aha/docker-compose.yaml up -d
 ```
 
 To view the container logs at any time you may run the following command on the *host* from the `/srv/syn/aha` directory:
 
-``` text
+```text
 docker compose logs -f
 ```
 
 You may also execute a shell inside the container using `docker compose` from the `/srv/syn/aha` directory on the *host*. This will be necessary for some of the additional provisioning steps:
 
-``` text
+```text
 docker compose exec 000.aha /bin/bash
 ```
 
@@ -126,7 +126,7 @@ By default, AHA uses port `27492` to listen for RPC connections from other Synap
 
 Create the `/srv/syn/001.aha/docker-compose.yaml` file with contents:
 
-``` yaml
+```yaml
 services:
   001.aha:
     image: hub.vertex.link/synapse-aha:v3.x.x
@@ -147,7 +147,7 @@ services:
 
 Start the container:
 
-``` text
+```text
 docker compose --file /srv/syn/001.aha/docker-compose.yaml pull
 docker compose --file /srv/syn/001.aha/docker-compose.yaml up -d
 ```
@@ -169,7 +169,7 @@ AHA names each service automatically from its service type. The first instance o
 
 Set `SYN_PROVISION_SECRET` to the same value on every service you deploy:
 
-``` yaml
+```yaml
 environment:
     - SYN_PROVISION_SECRET=<shared-secret>
 ```
@@ -189,7 +189,7 @@ In the Synapse service architecture, an Axon provides a place to store arbitrary
 
 Create the `/srv/syn/000.axon/docker-compose.yaml` file with contents:
 
-``` yaml
+```yaml
 services:
   000.axon:
     image: hub.vertex.link/synapse-axon:v3.x.x
@@ -207,7 +207,7 @@ On its first boot the Axon discovers AHA and provisions itself, registering as `
 
 Start the container:
 
-``` text
+```text
 docker compose --file /srv/syn/000.axon/docker-compose.yaml pull
 docker compose --file /srv/syn/000.axon/docker-compose.yaml up -d
 ```
@@ -216,7 +216,7 @@ docker compose --file /srv/syn/000.axon/docker-compose.yaml up -d
 
 Create the `/srv/syn/000.jsonstor/docker-compose.yaml` file with contents:
 
-``` yaml
+```yaml
 services:
   000.jsonstor:
     image: hub.vertex.link/synapse-jsonstor:v3.x.x
@@ -234,7 +234,7 @@ On its first boot the JSONStor discovers AHA and provisions itself, registering 
 
 Start the container:
 
-``` text
+```text
 docker compose --file /srv/syn/000.jsonstor/docker-compose.yaml pull
 docker compose --file /srv/syn/000.jsonstor/docker-compose.yaml up -d
 ```
@@ -243,7 +243,7 @@ docker compose --file /srv/syn/000.jsonstor/docker-compose.yaml up -d
 
 Create the `/srv/syn/000.cortex/docker-compose.yaml` file with contents:
 
-``` yaml
+```yaml
 services:
   000.cortex:
     image: hub.vertex.link/synapse-cortex:v3.x.x
@@ -266,14 +266,14 @@ On its first boot the Cortex discovers AHA and provisions itself, registering as
 
 Start the container:
 
-``` text
+```text
 docker compose --file /srv/syn/000.cortex/docker-compose.yaml pull
 docker compose --file /srv/syn/000.cortex/docker-compose.yaml up -d
 ```
 
 Remember, you can view the container logs in real-time using:
 
-``` text
+```text
 docker compose --file /srv/syn/000.cortex/docker-compose.yaml logs -f
 ```
 
@@ -289,7 +289,7 @@ To deploy a Cortex mirror for high availability, deploy another Cortex service w
 
 Create the `/srv/syn/001.cortex/docker-compose.yaml` file with contents:
 
-``` yaml
+```yaml
 services:
   001.cortex:
     image: hub.vertex.link/synapse-cortex:v3.x.x
@@ -307,7 +307,7 @@ services:
 
 Start the container:
 
-``` text
+```text
 docker compose --file /srv/syn/001.cortex/docker-compose.yaml pull
 docker compose --file /srv/syn/001.cortex/docker-compose.yaml up -d
 ```
@@ -322,13 +322,13 @@ docker compose --file /srv/syn/001.cortex/docker-compose.yaml up -d
 
 A Synapse user is generally synonymous with a user account on the Cortex. The steps in this section run from **inside the Cortex container**, which you may reach using `docker compose` on the *host*:
 
-``` text
+```text
 docker compose --file /srv/syn/000.cortex/docker-compose.yaml exec 000.cortex /bin/bash
 ```
 
 To add a new admin user to the Cortex, run:
 
-``` text
+```text
 python -m synapse.tools.service.moduser --add --admin true visi
 ```
 
@@ -339,13 +339,13 @@ python -m synapse.tools.service.moduser --add --admin true visi
 
 The Cortex HTTP API endpoints used by the Storm CLI accept **API key authentication only**, so the new user will need an API key. An API key authenticates as the user who owns it and carries that user's full privileges. Run the following command from **inside the Cortex container** to create one for them:
 
-``` text
+```text
 python -m synapse.tools.service.apikey add --username visi storm-cli
 ```
 
 You should see output that looks similar to this:
 
-``` text
+```text
 Successfully added API key with name=storm-cli.
 Iden: 30fdf7f7f1571f0abd5a41f0e37cf37f
   API Key: XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
@@ -356,7 +356,7 @@ Iden: 30fdf7f7f1571f0abd5a41f0e37cf37f
 
 The API key value is displayed only when the key is created, so record it and treat it as sensitive. To revoke a key, use the `Iden` value from the output above:
 
-``` text
+```text
 python -m synapse.tools.service.apikey del <iden>
 ```
 
@@ -369,13 +369,13 @@ See [API Key Support](httpapi.md#http-api-apikey) for additional details on user
 
 The API key is provided as the user portion of an `https://` URL. Synapse is already installed inside the Cortex container, so you can get an interactive Storm shell there by connecting to `localhost` on the HTTPS port you configured when you [deployed it](deploymentguide.md#deploy-cortex-service):
 
-``` text
+```text
 python -m synapse.tools.storm --https-noverify https://<apikey>@localhost:4443/
 ```
 
 Once connected, you will be presented with the Storm CLI command prompt:
 
-``` text
+```text
 storm>
 ```
 
@@ -401,7 +401,7 @@ Because all of the services share the `synapse` bridge network, they resolve the
 
 Create a `docker-compose.yaml` file with contents:
 
-``` yaml
+```yaml
 x-vtx-constants:
   # Modify this secret value to a unique value for your deployment
   provision_secret: &provision_secret "<shared-secret>"
@@ -456,7 +456,7 @@ networks:
 
 Start the whole deployment:
 
-``` text
+```text
 docker compose pull
 docker compose up -d
 ```
@@ -466,7 +466,7 @@ docker compose up -d
 
 Once the services are running, follow [Create a Cortex User](deploymentguide.md#create-a-cortex-user) to add a user, generate an API key, and drop into the Storm CLI. Those steps apply to this deployment unchanged, except that the Cortex container is reached from the directory holding this `docker-compose.yaml`:
 
-``` text
+```text
 docker compose exec 000.cortex /bin/bash
 ```
 

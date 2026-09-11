@@ -1,7 +1,7 @@
 # Contributing to Synapse
 
 - [Project Style Guide](contributing.md#project-style-guide).
-- [Git Hook & Syntax Checking](contributing.md#synapse-contributing-hook).
+- [Syntax Checking](contributing.md#syntax-checking).
 - [Contribution Process](contributing.md#contribution-process).
 
 ## Project Style Guide
@@ -17,7 +17,7 @@ The following items should be considered when contributing to Synapse:
 
 - Use single quotes for string constants (including docstrings) unless double quotes are required.
 
-  ``` text
+  ```text
   # Do this
   foo = '1234'
   # NOT this
@@ -28,7 +28,7 @@ The following items should be considered when contributing to Synapse:
 
   - Do this
 
-    ``` text
+    ```text
     import foo
     import duck
 
@@ -49,7 +49,7 @@ The following items should be considered when contributing to Synapse:
 
     - NOT this
 
-    ``` text
+    ```text
     import foo
     import duck
 
@@ -86,7 +86,7 @@ The following items should be considered when contributing to Synapse:
 
   - Synapse acceptable example:
 
-    ``` text
+    ```text
     def fooTheBar(param1, param2, **kwargs):
         '''
         Summary line goes first.
@@ -143,7 +143,7 @@ The following items should be considered when contributing to Synapse:
 
 - Imports should first be sorted in order of shortest to longest import, then by alphabetical order (when lengths match). Imports should be ordered starting from the Python standard library first, then any third party packages, then any Synapse specific imports. The following example shows the recommended styling for imports:
 
-  ``` text
+  ```text
   # Stdlib
   import logging
   import collections
@@ -158,7 +158,7 @@ The following items should be considered when contributing to Synapse:
 
 - Previously we used \* imports in the Synapse codebase (especially around synapse.exc and synapse.common). If common functions or exceptions are needed, import synapse.common as noted above, and both the common functions and the entirety of synapse.exc exceptions will be available. This provides a consistent manner for referencing common functions and Synapse specific exception classes. New code should generally not use \* imports. Here is an example:
 
-  ``` text
+  ```text
   # Do this
   import synapse.common as s_common
   tick = s_common.now()
@@ -174,7 +174,7 @@ The following items should be considered when contributing to Synapse:
 
 - Function names should follow the mixedCase format for anything which is exposed as a externally facing API on a object or module.
 
-  ``` text
+  ```text
   # Do this
   fooTheBar()
   # NOT this
@@ -183,7 +183,7 @@ The following items should be considered when contributing to Synapse:
 
 - Private methods should be marked as such with a proceeding underscore.
 
-  ``` text
+  ```text
   # Do this
   _internalThing()
   # NOT this
@@ -194,7 +194,7 @@ The following items should be considered when contributing to Synapse:
 
 - Function calls with mandatory arguments should be called with positional arguments. Do not use keyword arguments unless necessary.
 
-  ``` text
+  ```text
   def foo(a, b, duck=None):
      print(a, b, duck)
 
@@ -211,7 +211,7 @@ The following items should be considered when contributing to Synapse:
   - Logger calls should use logging string interpolation, instead of using % or .format() methods. See Python Logging module docs for reference.
   - Example:
 
-  > ``` text
+  > ```text
   > # Get the module level logger
   > logger = logging.getLogger(__name__)
   > # Do this - it only forms the final string if the message is
@@ -230,7 +230,7 @@ The following items should be considered when contributing to Synapse:
 
 - Whenever possible, regular expressions should be pre-compiled. String matches/comparisons should be performed against the pre-compiled regex instance.
 
-  ``` text
+  ```text
   # Do this
   fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 
@@ -248,7 +248,7 @@ The following items should be considered when contributing to Synapse:
 
   Raising exceptions is reserved for "exceptional circumstances" and should not be used for normal program flow.
 
-  ``` text
+  ```text
   # Do this
   def getWidgetById(self, wid):
       widget_hash = self._index.get(wid)
@@ -273,43 +273,21 @@ The following items should be considered when contributing to Synapse:
 
 Contributions to Synapse which do not follow the project style guidelines may not be accepted.
 
-<a id="synapse-contributing-hook"></a>
+## Syntax Checking
 
-
-## Git Hook & Syntax Checking
-
-A set of helper scripts are available for doing python syntax checking. Basic syntax checking can be run with the `ruff` tool; while a a git pre-commit hook; and a script to run autopep8 on staged git files also exist to make life easier.
-
-The pre-commit hook does syntax checking on .py files which contain invalid syntax. The hook will **ALSO** run nbstripout on .ipynb files to remove output data from cells. This results in cleaner diffs for .ipynb files over time.
+A set of helper scripts are available for doing python syntax checking. Basic syntax checking can be run with the `ruff` tool, and a script to run autopep8 on staged git files also exists to make life easier.
 
 1.  An example of running the generic syntax check script is seen below:
 
-    ``` text
+    ```text
     ~/git/synapse$ ruff check
     synapse/tests/test_lib_types.py:397:29: E226 Missing whitespace around arithmetic operator
     synapse/tests/test_lib_types.py:398:29: E226 Missing whitespace around arithmetic operator
     ```
 
-2.  Installing the git hook is easy:
+2.  This may be automatically fixed for you using the `pep8_staged_files.py` script. Note that **most**, but not **all** syntax errors may be fixed with the helper script.
 
-    ``` text
-    ln -s ../../scripts/githooks/pre-commit .git/hooks/pre-commit
-    ```
-
-3.  After installing the hook, attempting a commit with a syntax error will fail
-
-    ``` text
-    ~/git/synapse$ git commit -m "Demo commit"
-    PEP8 style violations have been detected.  Please fix them
-    or force the commit with "git commit --no-verify".
-
-    ./synapse/tests/test_lib_types.py:397: [E226] missing whitespace around arithmetic operator
-    ./synapse/tests/test_lib_types.py:398: [E226] missing whitespace around arithmetic operator
-    ```
-
-4.  This may be automatically fixed for you using the `pep8_staged_files.py` script. Note that **most**, but not **all** syntax errors may be fixed with the helper script.
-
-    ``` text
+    ```text
     # Run the pep8_staged_files.py script
     ~/git/synapse$ ./scripts/pep8_staged_files.py
     # Check the diff
@@ -348,7 +326,7 @@ In order to contribute to the project, do the following:
 
 1.  Fork the Synapse repository from the Vertex Project. Make a new branch in git with a descriptive name for your change. For example:
 
-    ``` text
+    ```text
     git checkout -b foohuman_new_widget
     ```
 
@@ -360,14 +338,14 @@ In order to contribute to the project, do the following:
 
 3.  Ensure that both your tests and existing Synapse tests successfully run. You can do that manually via the python unittest module, or you can set up CircleCI to run tests for your fork (this is a exercise for the reader). The following examples shows manual test runs:
 
-    ``` text
+    ```text
     pytest -v
     pytest -v synapse/tests/your_test_file.py
     ```
 
     If test coverage is desired, you can use the provided testrunner.sh shell script to run a test. This script will generate HTML coverage reports and attempt to open those reports using xdg-open. This requires the pytest, pytest-cov, pytest-xdist packages to be installed.
 
-    ``` text
+    ```text
     ./scripts/testrunner.sh
     ./scripts/testrunner.sh synapse/tests/your_test_file.py
     ./scripts/testrunner.sh synapse/tests/your_test_file.py::YourTestClass
@@ -376,7 +354,7 @@ In order to contribute to the project, do the following:
 
 4.  Rebase your feature branch on top of the latest master branch of the Vertex Project Synapse repository. This may require you to add the Vertex Project repository to your git remotes. The following example of rebasing can be followed:
 
-    ``` text
+    ```text
     # Add the Vertex project repository as a remote named "upstream".
     git remote add upstream https://github.com/vertexproject/synapse.git
     # Grab data from the upstream repository

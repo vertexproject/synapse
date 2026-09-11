@@ -616,7 +616,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             proxy (str|bool): The proxy value.
 
         Notes:
-            The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
+            The response body will be stored, regardless of the response code. The `ok` value in the response does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
 
             The ssl dictionary may contain the following values::
@@ -1664,7 +1664,8 @@ class Axon(s_cell.Cell):
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
-        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
+        sesshdrs = {'User-Agent': self.getUserAgent()}
+        async with aiohttp.ClientSession(connector=connector, timeout=atimeout, headers=sesshdrs) as sess:
             try:
                 data = aiohttp.FormData()
                 data._is_multipart = True
@@ -1737,7 +1738,8 @@ class Axon(s_cell.Cell):
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
-        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
+        sesshdrs = {'User-Agent': self.getUserAgent()}
+        async with aiohttp.ClientSession(connector=connector, timeout=atimeout, headers=sesshdrs) as sess:
             try:
                 await self._reqHas(sha256)
                 async with sess.request(method, url, headers=headers, params=params, ssl=ssl,
@@ -1811,7 +1813,7 @@ class Axon(s_cell.Cell):
             proxy (str|bool): The proxy value.
 
         Notes:
-            The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
+            The response body will be stored, regardless of the response code. The `ok` value in the response does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
 
             The ssl dictionary may contain the following values::
@@ -1866,7 +1868,8 @@ class Axon(s_cell.Cell):
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
-        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
+        sesshdrs = {'User-Agent': self.getUserAgent()}
+        async with aiohttp.ClientSession(connector=connector, timeout=atimeout, headers=sesshdrs) as sess:
 
             try:
                 async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl,

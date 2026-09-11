@@ -6,6 +6,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.mdstorm as s_mdstorm
 
@@ -115,6 +116,96 @@ class MdStormTest(s_test.SynTest):
                 for parser, callback in mdstorm.handlers.values():
                     self.true(isinstance(parser, argparse.ArgumentParser))
                     self.true(callable(callback))
+
+    async def test_mdstorm_renderonly_skips_unlisted_directives(self):
+        md = '\n'.join((
+            '# HI',
+            '',
+            'plain text',
+            '',
+            '```mdstorm',
+            '$lib.print(hello)',
+            '```',
+        ))
+        with self.getTestDir() as dirn:
+            path = s_common.genpath(dirn, 'renderonly.md')
+            with open(path, 'w') as fd:
+                fd.write(md)
+
+            # default (renderonly=None): the mdstorm fence is executed -- and since no
+            # mdstorm-setup fence ever ran, _reqCore() raises, proving it was actually
+            # attempted rather than merely present.
+            async with await s_mdstorm.MdStorm.anit(path) as mdstorm:
+                with self.raises(s_exc.NoSuchVar):
+                    await mdstorm.run()
+
+            # renderonly naming a different directive: the mdstorm fence is skipped
+            # entirely -- no raise (its handler is never entered), no fenceout entry,
+            # and its own body text is never emitted either -- while surrounding
+            # plain text still passes through untouched.
+            async with await s_mdstorm.MdStorm.anit(path, renderonly={'mdautodoc'}) as mdstorm:
+                lines = await mdstorm.run()
+                self.eq(mdstorm.fenceout, [])
+
+            text = ''.join(lines)
+            self.isin('plain text', text)
+            self.notin('$lib.print', text)
+
+    async def test_mdstorm_renderonly_executes_named_directive(self):
+        testpkg_yaml = self.getTestFilePath('stormpkg', 'testpkg.yaml')
+        md = '\n'.join((
+            f'```mdautodoc --stormpkg {testpkg_yaml}',
+            '```',
+            '',
+            '```mdstorm',
+            '$lib.print(hello)',
+            '```',
+        ))
+        with self.getTestDir() as dirn:
+            path = s_common.genpath(dirn, 'mix.md')
+            with open(path, 'w') as fd:
+                fd.write(md)
+
+            async with await s_mdstorm.MdStorm.anit(path, renderonly={'mdautodoc'}) as mdstorm:
+                lines = await mdstorm.run()
+
+            self.len(1, mdstorm.fenceout)
+            directive, fenceargs, fencelines = mdstorm.fenceout[0]
+            self.eq(directive, 'mdautodoc')
+            self.isin(testpkg_yaml, fenceargs)
+            # _handleAutodoc's self._printf(text) appends its whole rendered block as
+            # a SINGLE linesout element (unlike _handleStorm/_handleShell, which print
+            # line-by-line) -- fenceout must preserve that shape, not flatten it.
+            self.len(1, fencelines)
+            self.gt(len(''.join(fencelines).splitlines()), 1)
+
+            text = ''.join(lines)
+            # the live mdstorm fence's handler was never entered (no NoSuchVar despite
+            # no mdstorm-setup ever having run), and its body text was never emitted.
+            self.notin('$lib.print', text)
+
+    async def test_mdstorm_fenceout_multiple_fences_in_document_order(self):
+        testpkg_yaml = self.getTestFilePath('stormpkg', 'testpkg.yaml')
+        md = '\n'.join((
+            f'```mdautodoc --stormpkg {testpkg_yaml}',
+            '```',
+            '',
+            '```mdautodoc --stormtypes-libs',
+            '```',
+        ))
+        with self.getTestDir() as dirn:
+            path = s_common.genpath(dirn, 'two.md')
+            with open(path, 'w') as fd:
+                fd.write(md)
+
+            async with await s_mdstorm.MdStorm.anit(path) as mdstorm:
+                await mdstorm.run()
+
+            self.len(2, mdstorm.fenceout)
+            self.eq(mdstorm.fenceout[0][0], 'mdautodoc')
+            self.isin('stormpkg', mdstorm.fenceout[0][1])
+            self.eq(mdstorm.fenceout[1][0], 'mdautodoc')
+            self.eq(mdstorm.fenceout[1][1], '--stormtypes-libs')
 
     async def test_mdstorm_requires_existing_file(self):
         with self.raises(s_exc.BadConfValu):
@@ -1245,6 +1336,22 @@ class MdStormFullTest(s_test.SynTest):
             self.isin('# Storm Libraries', text)
             self.isin('# Storm Types', text)
 
+    async def test_mdautodoc_cortex_requires_stormtypes(self):
+        # --cortex only narrows the two stormtypes references, so a fence that
+        # pairs it with another kind fails rather than silently ignoring it.
+        with self.getTestDir() as dirn:
+            path = s_common.genpath(dirn, 'api.md')
+            with open(path, 'w') as fd:
+                fd.write('\n'.join((
+                    '```mdautodoc --api synapse.axon.AxonApi --cortex synapse.cortex.Cortex',
+                    '```',
+                    '',
+                )))
+
+            async with await s_mdstorm.MdStorm.anit(path) as mdstorm:
+                with self.raises(s_exc.BadArg):
+                    await mdstorm.run()
+
     async def test_mdautodoc_level_shifts_headings(self):
         with self.getTestDir() as dirn:
             path = s_common.genpath(dirn, 'api.md')
@@ -1641,6 +1748,35 @@ class MdStormEngineTest(s_test.SynTest):
                 lines = await mdstorm.run()
 
             self.isin('inet:asn=1', ''.join(lines))
+
+    async def test_mdstorm_docsenv(self):
+
+        # docsEnv() defaults a conf option through the environment, which a cell
+        # that does not declare the option ignores, and puts the environment back
+        # the way it found it.
+        (prefix,) = ReadPoolCortex.getEnvPrefix()
+        envar = s_config.make_envar_name('readpool:size', prefix=prefix)
+
+        # an envar the caller set is theirs, and survives
+        with mock.patch.dict(s_mdstorm.os.environ, {envar: '4'}):
+
+            with s_mdstorm.docsEnv(ReadPoolCortex):
+                self.eq('4', s_mdstorm.os.environ.get(envar))
+
+            self.eq('4', s_mdstorm.os.environ.get(envar))
+
+        # ... and one it did not is set for the boot, then removed again
+        with mock.patch.dict(s_mdstorm.os.environ, {}):
+            s_mdstorm.os.environ.pop(envar, None)
+
+            with s_mdstorm.docsEnv(ReadPoolCortex):
+                self.eq('0', s_mdstorm.os.environ.get(envar))
+
+            self.none(s_mdstorm.os.environ.get(envar))
+
+        # a ctor which is not a Cell has no prefix, and nothing to set
+        with s_mdstorm.docsEnv(BoomCortexCtor):
+            self.none(s_mdstorm.os.environ.get(envar))
 
     async def test_mdstorm_getdocscluster_readpool_default(self):
 

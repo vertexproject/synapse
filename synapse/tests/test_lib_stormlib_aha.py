@@ -20,7 +20,6 @@ class AhaLibTest(s_test.SynTest):
                 dirn02 = s_common.genpath(dirn, 'cell02')
                 dirn03 = s_common.genpath(dirn, 'cell03')
 
-                replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
                 # one aha:svc:add per service; registration is idempotent so a
                 # nexus replay does not double the events.
                 nevents = 4
@@ -120,11 +119,12 @@ Name:       01.cell.synapse
 '''
                 self.stormIsInPrint(emsg, msgs, deguid=True)
 
-                # Shut down a service
-                nevents = 2 if replay else 1
-                waiter = aha.waiter(nevents, 'aha:svc:down')
+                # Shut down a service. the down handler only announces a state
+                # change, so it is idempotent and a nexus replay does not double
+                # the events.
+                waiter = aha.waiter(1, 'aha:svc:down')
                 await cell01.fini()
-                self.len(nevents, await waiter.wait(timeout=12))
+                self.len(1, await waiter.wait(timeout=12))
 
                 msgs = await core00.stormlist('aha.svc.list')
                 self.stormIsInPrint('01.cell.synapse false  false  false', msgs, whitespace=False)

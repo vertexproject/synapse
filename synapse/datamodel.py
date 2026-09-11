@@ -126,6 +126,10 @@ class Prop:
         self.locked = False
         self.deprecated = self.info.get('deprecated', False)
 
+        # typedef has already been poly converted by Model.processPropdefs(), so self.type is
+        # a Poly for a non-array prop and an Array whose arraytype is a Poly for an array
+        # one. self.type.ispoly is False for an array prop - the poly is on the element type,
+        # not on the Array. See processPropdefs().
         self.type = self.modl.getPropTypeClone(typedef, self.info)
         self.typehash = self.type.typehash
 
@@ -1244,6 +1248,20 @@ class Model:
         return polyinfo
 
     def convertTypedef(self, typedef):
+        '''
+        Return the given prop typedef in poly form.
+
+        Everything comes back as a ('poly', {...}) typedef: a tuple of constituents is
+        converted, and anything else is wrapped as a single member poly. A typedef which
+        already names a Poly or an Array type is the one case returned as it stands, since it
+        is in that form already.
+
+        Note that converting a typedef here does not make the resulting Prop.type a Poly. An
+        array prop declares its *element* type here and its container opts under the 'array'
+        prop info key, so getPropTypeClone() wraps what this returns in an Array - leaving
+        Prop.type an Array with ispoly False and the poly on Prop.type.arraytype. See
+        processPropdefs().
+        '''
         typename = typedef[0]
 
         if not isinstance(typename, tuple):
@@ -1268,14 +1286,14 @@ class Model:
         '''
         Enforce where inline type opts may be declared on a prop.
 
-        A prop type is declared ``(typename, opts)`` and must reference a named type with empty
+        A prop type is declared `(typename, opts)` and must reference a named type with empty
         opts (or, for a poly prop, a tuple of named constituents). A prop that needs custom
-        normalization opts (``regex``, ``enums``, ``names``, ``precision``, ...) must be declared
+        normalization opts (`regex`, `enums`, `names`, `precision`, ...) must be declared
         once as a named type and referenced by name.
 
         An array prop declares its element type in the typedef slot and its container opts
-        (``uniq``/``sorted``/``split``) under the ``array`` prop info key. The legacy
-        ``('array', {...})`` container typedef is no longer supported.
+        (`uniq`/`sorted`/`split`) under the `array` prop info key. The legacy
+        `('array', {...})` container typedef is no longer supported.
         '''
         prefix = f'{formname}:{propname}' if formname is not None else propname
 
@@ -1324,7 +1342,36 @@ class Model:
             raise s_exc.BadPropDef(mesg=mesg, name=propname)
 
     def processPropdefs(self, propdefs, formname=None):
+        '''
+        Validate and poly convert a sequence of prop definitions.
 
+        Every prop typedef is converted to poly form here via convertTypedef(), whatever it
+        was declared as - so by the time Prop.__init__() calls getPropTypeClone(), the
+        declared typedef is always ('poly', {...}). Two consequences are worth stating
+        outright, because the conversion sits two indirections away from where a reader
+        looking at Prop.__init__() or at a Type subclass would find it:
+
+        * Every property's *value* type is a Poly, but for an array prop that Poly is
+          Prop.type.arraytype rather than Prop.type itself. getPropTypeClone() wraps the
+          converted element type in an Array, and Array.postTypeInit() clones the poly onto
+          arraytype, so Prop.type is a Poly for a non-array prop and an Array for an array
+          one. Prop.type.ispoly is therefore True for exactly the non-array props and False
+          for every array prop - `if not prop.type.ispoly` is a live test which selects the
+          array props (see getTypeForms() and getStepForms()), not a dead branch. Code
+          reaching for a property's member type wants `prop.type.arraytype if
+          prop.type.isarray else prop.type`.
+
+        * A stored property value is always a typed value - a (typename, valu) tuple - and
+          not a bare one, including each element of an array. Re-normalizing a stored value
+          goes through Type.normFromTypedValu() rather than Type.norm().
+
+        Args:
+            propdefs (list): The (name, typedef, propinfo) triples to process.
+            formname (str): The name of the form these props belong to, if any.
+
+        Returns:
+            tuple: The processed (name, typedef, propinfo) triples.
+        '''
         realdefs = []
 
         for pname, typedef, propinfo in propdefs:

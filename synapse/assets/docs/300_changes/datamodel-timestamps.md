@@ -19,7 +19,7 @@ What you need to do
 
 :   Anywhere you work with raw epoch integers (ingesting or exporting timestamps, computing durations, or comparing to stored time values), provide and interpret microseconds rather than milliseconds. A 2.x value of N milliseconds is N times 1000 microseconds. Time props still accept human and relative strings (`now`, `2023`, `?`, `*`) unchanged.
 
-    ``` text
+    ```text
     // 2.x: epoch millis
     $tick = (1700000000000)
 
@@ -29,7 +29,7 @@ What you need to do
 
 :   Update any parsing or formatting that assumed the old repr. Prefer reading time values via the type rather than string-matching the repr.
 
-    ``` text
+    ```text
     // 2.x repr of a time property (pass the property name)
     $ts = $node.repr(.created)   // e.g. "2021/01/15 03:04:05.678"
 

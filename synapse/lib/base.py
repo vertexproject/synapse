@@ -441,7 +441,7 @@ class Base:
     def onWith(self, evnt, func):
         '''
         A context manager which can be used to add a callback and remove it when
-        using a ``with`` statement.
+        using a `with` statement.
 
         Args:
             evnt (str):         An event name
@@ -459,7 +459,7 @@ class Base:
     def onWithMulti(self, evnts, func):
         '''
         A context manager which can be used to add a callbacks and remove them when
-        using a ``with`` statement.
+        using a `with` statement.
 
         Args:
             evnts (list):        A list of event names

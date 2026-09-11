@@ -157,6 +157,24 @@ class StormHttpTest(s_test.SynTest):
             # Authorization header derived from the basic auth in $url
             self.isin('Authorization', resp)
 
+            # With no User-Agent supplied, the Cortex's own default is sent
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl=({"verify": false}))
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('headers').get('User-Agent'), core.getUserAgent())
+
+            # A caller-supplied User-Agent wins outright, regardless of casing
+            q = '''
+            $resp = $lib.inet.http.get($url, headers=({"user-agent": "lowercase ua"}), ssl=({"verify": false}))
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('headers').get('User-Agent'), 'lowercase ua')
+
             badurl = f'https://root:root@127.0.0.1:{port}/api/v0/notjson'
             badopts = {'vars': {'url': badurl}}
             q = '''
@@ -666,6 +684,179 @@ class StormHttpTest(s_test.SynTest):
             self.eq(code, -1)
             self.eq('ValueError', errname)
 
+    async def test_storm_http_axon_useragent(self):
+
+        # $lib.axon.wget/wput report the *Cortex's* default User-Agent when the caller
+        # supplies none -- not the Axon's -- so a Storm-initiated fetch has one
+        # consistent origin identity regardless of which cell actually sends the request.
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
+            axon = clus.axon
+
+            self.ne(core.getUserAgent(), axon.getUserAgent())
+
+            axon.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': axon})
+            addr, port = await axon.addHttpsPort(0)
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url}}
+
+            resp = await core.callStorm('return($lib.axon.wget($url, ssl=({"verify": false})))', opts=opts)
+            self.true(resp['ok'])
+            body = s_json.loads((await axon.get(s_common.uhex(resp['hashes']['sha256'])).__anext__()))
+            self.eq(core.getUserAgent(), body['result']['headers']['User-Agent'])
+
+            # an explicit caller header still wins, regardless of casing
+            q = 'return($lib.axon.wget($url, headers=({"user-agent": "lowercase ua"}), ssl=({"verify": false})))'
+            resp = await core.callStorm(q, opts=opts)
+            self.true(resp['ok'])
+            body = s_json.loads((await axon.get(s_common.uhex(resp['hashes']['sha256'])).__anext__()))
+            self.eq('lowercase ua', body['result']['headers']['User-Agent'])
+
+            # the third Storm->Axon route -- $lib.inet.http.post() with a sha256-bearing field,
+            # which detours through axon.postfiles() -- gets the same treatment
+            size, sha256 = await axon.put(b'asdfasdf')
+            fopts = {'vars': {'url': url, 'sha256': s_common.ehex(sha256)}}
+            q = '''
+            $fields = (({'name': 'file', 'sha256': $sha256, 'filename': 'file'}),)
+            return($lib.inet.http.post($url, fields=$fields, ssl=({"verify": false})))
+            '''
+            resp = await core.callStorm(q, opts=fopts)
+            self.eq(True, resp['ok'])
+            data = s_json.loads(resp['body'])
+            self.eq(core.getUserAgent(), data['result']['headers']['User-Agent'])
+
+            q = '''
+            $fields = (({'name': 'file', 'sha256': $sha256, 'filename': 'file'}),)
+            return($lib.inet.http.post($url, fields=$fields, headers=({"user-agent": "lowercase ua"}),
+                                       ssl=({"verify": false})))
+            '''
+            resp = await core.callStorm(q, opts=fopts)
+            self.eq(True, resp['ok'])
+            data = s_json.loads(resp['body'])
+            self.eq('lowercase ua', data['result']['headers']['User-Agent'])
+
+    async def test_storm_http_useragent(self):
+
+        # $lib.inet.http.useragent exposes the Cortex's default User-Agent so a caller
+        # (a package, typically) can build on it rather than replace it.
+        async with self.getTestCore() as core:
+            addr, port = await core.addHttpsPort(0)
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url}}
+
+            self.eq(core.getUserAgent(), await core.callStorm('return($lib.inet.http.useragent)'))
+
+            # the appended form is what actually goes on the wire, and the caller-set
+            # header takes precedence over the default injected for it
+            q = '''
+            $ua = `{$lib.inet.http.useragent} Foo/Bar`
+            $resp = $lib.inet.http.get($url, headers=({"User-Agent": $ua}), ssl=({"verify": false}))
+            return($resp.json().result.headers."User-Agent")
+            '''
+            self.eq(f'{core.getUserAgent()} Foo/Bar', await core.callStorm(q, opts=opts))
+
+            # it is read-only -- the lib rejects assignment outright
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('$lib.inet.http.useragent = newp')
+
+            self.eq(core.getUserAgent(), await core.callStorm('return($lib.inet.http.useragent)'))
+
+    async def test_storm_http_proxy_traversed(self):
+        '''
+        test_storm_http_proxy proves a connection is attempted to the configured
+        proxy, by pointing at one which is not listening. This proves a request
+        actually completes through a working one, and that a refused tunnel is
+        not quietly retried directly.
+        '''
+        async with self.getTestCore() as core:
+
+            (addr, port) = await core.addHttpsPort(0)
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+            core.addHttpApi('/test/ws', TstWebSock, {})
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl=({"verify": false}), proxy=$proxy)
+            return(($resp.code, $resp.json().result.path))
+            '''
+
+            # a websocket upgrade over the tunnel, which unlike the request paths
+            # holds the connection open and talks both ways across it
+            wsq = '''
+            $url = `https://127.0.0.1:{$port}/test/ws`
+            ($ok, $sock) = $lib.inet.http.connect($url, proxy=$proxy, ssl=({"verify": false}))
+            if (not $ok) { $lib.exit($sock) }
+
+            ($ok, $mesg) = $sock.rx()
+            if (not $ok) { $lib.exit($mesg) }
+
+            ($ok, $valu) = $sock.tx(lololol)
+            return($sock.rx())
+            '''
+
+            for ctor in s_test.PROXIES:
+                with self.subTest(scheme=ctor.scheme):
+
+                    # the request lands on the reflector, and the proxy was asked to
+                    # reach the https port it is served on
+                    async with await ctor.anit() as proxy:
+                        opts = {'vars': {'url': url, 'proxy': proxy.url}}
+                        (code, path) = await core.callStorm(q, opts=opts)
+
+                        self.eq(200, code)
+                        self.eq('/api/v0/test', path)
+                        self.eq([('127.0.0.1', port)], proxy.connects)
+
+                    # credentials in the proxy URL reach a proxy which demands them
+                    async with await ctor.anit(auth='visi:secret') as proxy:
+                        opts = {'vars': {'url': url, 'proxy': proxy.url.replace('://', '://visi:secret@')}}
+                        (code, path) = await core.callStorm(q, opts=opts)
+
+                        self.eq(200, code)
+                        self.eq([('127.0.0.1', port)], proxy.connects)
+                        self.eq(0, proxy.refused)
+
+                    # the wrong ones are refused at the proxy, and the request fails
+                    # rather than falling back to a direct connection
+                    async with await ctor.anit(auth='visi:secret') as proxy:
+                        opts = {'vars': {'url': url, 'proxy': proxy.url.replace('://', '://visi:newp@')}}
+                        resp = await core.callStorm('return($lib.inet.http.get($url, ssl=({"verify": false}), '
+                                                    'proxy=$proxy))', opts=opts)
+
+                        self.eq(-1, resp['code'])
+                        self.eq([], proxy.connects)
+                        self.lt(0, proxy.refused)
+
+                    # a websocket reaches the same server through the same tunnel
+                    async with await ctor.anit() as proxy:
+                        opts = {'vars': {'port': port, 'proxy': proxy.url}}
+
+                        self.eq((True, ('echo', 'lololol')), await core.callStorm(wsq, opts=opts))
+                        self.eq([('127.0.0.1', port)], proxy.connects)
+
+                    # the Cortex http:proxy conf is what proxy=(true) resolves to
+                    async with await ctor.anit() as proxy:
+                        core.conf['http:proxy'] = proxy.url
+                        try:
+                            opts = {'vars': {'url': url}}
+                            (code, path) = await core.callStorm(
+                                '$resp = $lib.inet.http.get($url, ssl=({"verify": false})) '
+                                'return(($resp.code, $resp.json().result.path))', opts=opts)
+
+                        finally:
+                            core.conf.pop('http:proxy', None)
+
+                        self.eq(200, code)
+                        self.eq([('127.0.0.1', port)], proxy.connects)
+
     async def test_storm_http_proxy(self):
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestCluster({'cortex': {'conf': conf}, 'axon': {'conf': conf}}) as clus:
@@ -701,6 +892,7 @@ class StormHttpTest(s_test.SynTest):
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('axon', 'get')))
             await visi.addRule((True, ('axon', 'upload')))
+            await visi.addRule((True, ('axon', 'wput')))
 
             errmsg = f'User {visi.name!r} ({visi.iden}) must have permission {{perm}}'
 
@@ -747,6 +939,7 @@ class StormHttpTest(s_test.SynTest):
 
             await visi.addRule((True, ('axon', 'get')))
             await visi.addRule((True, ('axon', 'upload')))
+            await visi.addRule((True, ('axon', 'wput')))
 
             _, sha256 = await (await core.getAxon()).put(b'asdf')
             sha256 = s_common.ehex(sha256)
@@ -820,6 +1013,34 @@ class StormHttpTest(s_test.SynTest):
             self.eq(mesg.get('headers').get('Key'), 'False')
             # HTTP params are received as multidict's and returned in similar shape.
             self.eq(mesg.get('params').get('param1'), ['somevalu', ])
+
+            # With no User-Agent supplied, the Cortex's own default is sent on the websocket
+            # upgrade request too
+            mesg = await core.callStorm('''
+                $url = `https://127.0.0.1:{$port}/test/ws`
+
+                ($ok, $sock) = $lib.inet.http.connect($url, ssl=({"verify": false}))
+                if (not $ok) { $lib.exit($sock) }
+
+                ($ok, $mesg) = $sock.rx()
+                if (not $ok) { $lib.exit($mesg) }
+                return($mesg)
+            ''', opts={'vars': {'port': port}})
+            self.eq(mesg.get('headers').get('User-Agent'), core.getUserAgent())
+
+            # A caller-supplied User-Agent wins outright, regardless of casing
+            mesg = await core.callStorm('''
+                $hdr = ( { "user-agent": "lowercase ua" } )
+                $url = `https://127.0.0.1:{$port}/test/ws`
+
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, ssl=({"verify": false}))
+                if (not $ok) { $lib.exit($sock) }
+
+                ($ok, $mesg) = $sock.rx()
+                if (not $ok) { $lib.exit($mesg) }
+                return($mesg)
+            ''', opts={'vars': {'port': port}})
+            self.eq(mesg.get('headers').get('User-Agent'), 'lowercase ua')
 
             mesg = await core.callStorm('''
                 $hdr = ( { "key": false } )

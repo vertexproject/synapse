@@ -20,6 +20,10 @@ ECLIENT = 'root'
 EASSERTION = 'secretassertion'
 EASSERTION_TYPE = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
 
+# the most recently reflected request headers seen by HttpOAuth2Token.post(), used to assert
+# the default User-Agent sent on the OAuth token fetch
+TOKEN_HEADERS_SEEN = {}
+
 class HttpOAuth2Assertion(s_httpapi.Handler):
     async def get(self):
         self.set_header('Content-Type', 'application/json')
@@ -104,6 +108,8 @@ class HttpOAuth2Token(s_httpapi.Handler):
         return True
 
     async def post(self):
+
+        TOKEN_HEADERS_SEEN.update(dict(self.request.headers))
 
         body = {k: [vv.decode() for vv in v] for k, v in self.request.body_arguments.items()}
 
@@ -481,6 +487,10 @@ class OAuthTest(s_test.SynTest):
                             return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
                         ''', opts=opts)
                         self.eq((True, 'accesstoken00'), ret)
+
+                        # the token fetch itself (made by core01, the OAuth client) sent
+                        # core01's own default User-Agent
+                        self.eq(TOKEN_HEADERS_SEEN.get('User-Agent'), core01.getUserAgent())
 
                         # access token refreshes in the background and refresh_token also gets updated
                         self.true(await s_coro.event_wait(core00._oauth_sched_ran, timeout=15))

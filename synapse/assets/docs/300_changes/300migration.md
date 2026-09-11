@@ -40,7 +40,7 @@ The larger model reshapes are not simple one-to-one renames and will need analys
 
 2.  Remove the per-layer tuning keys `layers:lockmemory` and `layers:logedits` (there is no replacement; tune the per-layer NID cache with `layers:cache:size`), plus the fully-removed `cron:enable`, `trigger:enable`, `layer:lmdb:map_async`, `layer:lmdb:max_replay_log`, `provenance:en`, and `storm:interface:search` keys. Remove the hidden Cell keys `auth:ctor`, `auth:conf`, `nexslog:async`, and `cell:ctor`. Remove the Cell `inaugural` key; users and roles it seeded on a previous boot are unaffected, and new ones are provisioned with `aha:admin` plus the `auth.user.add` / `auth.role.add` Storm commands. Remove the hidden Cell `aha:svcinfo` key and unset any `SYN_<CELL>_AHA_SVCINFO` environment variables -- a leftover key fails the boot but a leftover environment variable is silently ignored; a service now always registers the `urlinfo` of its real listener, so there is no replacement override. See [Removed and Changed Configuration Options](devops-storage-config-changes.md#vtx_300_devops-storage-config-changes).
 
-    ``` yaml
+    ```yaml
     # 2.x cortex cell.yaml
     modules:
       - myorg.synmods.MyCoreModule
@@ -55,7 +55,7 @@ The larger model reshapes are not simple one-to-one renames and will need analys
 
 3.  Convert per-layer `mirror` / `upstream` sync. The per-layer follower options are gone. For full-service replication, run the whole Cortex as a mirror by deploying an additional instance under the same AHA provisioning secret (the Cell `mirror` config has been removed; mirrors follow the AHA determined leader dynamically); for layer-to-layer sync, use layer push/pull (`layer.push.add` / `layer.pull.add`). Note that, unlike Cortex/Cell config keys, a stale `mirror` or `upstream` key left on a *layer definition* is silently ignored rather than rejected at boot -- but you should still remove `mirror`, `upstream`, `lockmemory`, and `logedits` from layer definitions. See [Layer upstream/mirror Removed (use push/pull)](devops-layer-sync-pushpull.md#vtx_300_devops-layer-sync-pushpull).
 
-    ``` text
+    ```text
     // 3.x: configure a layer pull via Storm
     layer.pull.add $dstlayriden `tcp://root:secret@cortex.example.org/*/layer/{$srclayriden}`
     ```
@@ -72,7 +72,7 @@ Audit every Storm query, macro, trigger, cron, and package for the changes below
 
 3.  **Object access conventions.** Zero-argument accessors are now properties: `$node.form`, `$node.ndef`, `$node.value` (no parens); `$node.iden()` is replaced by the integer `$node.nid`. Dict-like objects (`$lib.globals`, `$lib.env`) use deref/setitem, and `.pack()` is gone from View/Layer/User/Role. See [Storm Object Access Conventions](storm-object-conventions.md#vtx_300_storm-object-conventions).
 
-    ``` text
+    ```text
     // 2.x
     $valu = $node.value()
     $v = $lib.globals.get(mykey)
@@ -86,7 +86,7 @@ Audit every Storm query, macro, trigger, cron, and package for the changes below
 
 5.  **Cron and trigger commands/APIs.** `cron.add` takes `<period> <query>` with the new period syntax; `cron.move` / `cron.enable` / `cron.disable` (and the trigger equivalents) fold into `cron.mod` / `trigger.mod` with `--enabled`. `trigger.add` takes `condition` and `storm` positionally (no `--query`). The cdef query key is renamed `query` -\> `storm`. See [Cron and Trigger API Changes](storm-cron-and-trigger-api.md#vtx_300_storm-cron-and-trigger-api).
 
-    ``` text
+    ```text
     // 2.x
     cron.add --hourly 30 { inet:ipv4#stale | delnode }
     trigger.add node:add --form inet:ipv4 --query { $lib.print(hi) }
@@ -104,7 +104,7 @@ Audit every Storm query, macro, trigger, cron, and package for the changes below
 
 9.  **HTTP SSL options.** Replace `ssl_verify` and `ssl_opts` on `$lib.inet.http.*` with a single `ssl` dictionary (the boolean becomes the `verify` key). See [HTTP/Axon SSL Option Changes](storm-http-ssl-options.md#vtx_300_storm-http-ssl-options).
 
-    ``` text
+    ```text
     // 2.x
     $resp = $lib.inet.http.get($url, ssl_verify=$verify)
 
@@ -112,7 +112,7 @@ Audit every Storm query, macro, trigger, cron, and package for the changes below
     $resp = $lib.inet.http.get($url, ssl=({"verify": $verify}))
     ```
 
-10. **Package description fields.** Rename `descr` to `desc` on command definitions, `optic.actions` entries, and `optic.spotlight.extractors` entries in your package YAML -- a pkgdef still using `descr` in one of these spots fails schema validation. See [Package description fields renamed to ``desc``](storm-package-command-desc.md#vtx_300_storm-package-command-desc).
+10. **Package description fields.** Rename `descr` to `desc` on command definitions, `optic.actions` entries, and `optic.spotlight.extractors` entries in your package YAML -- a pkgdef still using `descr` in one of these spots fails schema validation. See [Package description fields renamed to `desc`](storm-package-command-desc.md#vtx_300_storm-package-command-desc).
 
 ## Port integrations
 
@@ -120,7 +120,7 @@ Update any code that drives a Synapse service over Telepath or HTTP.
 
 1.  **Async-only Telepath.** The synchronous Telepath shims are removed: `synapse.glob.sync` / `synchelp` no longer exist, `openurl()` is a coroutine, proxy methods must be awaited, and generator methods are iterated with `async for`. Wrap client logic in an async function driven by `asyncio.run()`. See [Synchronous Telepath Removed](devops-telepath-async-only.md#vtx_300_devops-telepath-async-only).
 
-    ``` python
+    ```python
     # 3.x: async-only
     import asyncio
     import synapse.telepath as s_telepath
@@ -137,7 +137,7 @@ Update any code that drives a Synapse service over Telepath or HTTP.
 
 3.  **Single feed format.** `addFeedData` drops its leading format-name argument and always takes the packed-node format; pass just the items (and `viewiden`), with `reqmeta=False` when the items have no export-meta header. Drop `--format` from `synapse.tools.cortex.feed`. See [Single Feed Data Format](devops-feed-single-format.md#vtx_300_devops-feed-single-format).
 
-    ``` python
+    ```python
     # 2.x
     await prox.addFeedData('syn.nodes', items, viewiden=viewiden)
 

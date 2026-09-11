@@ -19,7 +19,7 @@ What you need to do
 
 :   Audit any integration or automation script that talked to a Synapse service over Telepath from synchronous code. Wrap your logic in an async function and drive it with `asyncio.run()`; `await` the `openurl()` call and every proxy method call; iterate generator methods such as `storm()` with `async for` (or `await <call>.list()`). Remove any reliance on `synapse.glob.sync()` / `synapse.glob.synchelp()` in your own code --those helpers no longer exist.
 
-    ``` python
+    ```python
     # 2.x: synchronous usage worked transparently
     import synapse.telepath as s_telepath
 
@@ -28,7 +28,7 @@ What you need to do
             dostuff(mesg)
     ```
 
-    ``` python
+    ```python
     # 3.x: async-only
     import asyncio
     import synapse.telepath as s_telepath

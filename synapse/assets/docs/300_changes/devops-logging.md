@@ -21,7 +21,7 @@ What you need to do
 
 :   If you consume container logs, expect JSON on stdout by default and update any pipelines that parsed the old plaintext output accordingly. To keep unstructured text output, set the `SYN_LOG_STRUCT=false` environment variable on the container.
 
-    ``` bash
+    ```bash
     # 3.x container default: JSON structured logs
 
     # opt back out to unstructured text:
@@ -46,7 +46,7 @@ What you need to do
 
 :   The `SYN_LOG_DATEFORMAT` environment variable still maps to the formatter `datefmt`, but with the override a custom `datefmt` is now applied via `dt.strftime(datefmt)` against a UTC `datetime`. If you set a custom format and want sub-second precision, you must include `%f`.
 
-    ``` bash
+    ```bash
     # 2.x default text log timestamp (local time, ms, comma)
     # 2026-06-25 09:42:07,123 [INFO] cortex started ...
 

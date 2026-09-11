@@ -5,6 +5,7 @@ import copy
 import stat
 import time
 import fcntl
+import regex
 import shutil
 import signal
 import socket
@@ -56,6 +57,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.thisplat as s_thisplat
 import synapse.lib.provision as s_provision
+import synapse.lib.httpclient as s_httpclient
 import synapse.lib.processpool as s_processpool
 
 import synapse.lib.crypto.passwd as s_passwd
@@ -145,16 +147,16 @@ def from_leader(func):
     wrapper._from_leader = True
     return wrapper
 
-# target size of each backup ``('data', <bytes>)`` message.
+# target size of each backup `('data', <bytes>)` message.
 BACKUP_CHUNKSIZE = 1024 * 1024
 
 class _BackupWriter:
     '''
     A write-only file object used inside the backup subprocess: it batches the zip
-    archive bytes into ``('data', <chunk>)`` messages passed to the ``emit`` callable,
-    while computing the running size and sha256 of the archive. The ``emit`` callable
-    is responsible for framing/transporting the message (see ``_backupProc`` and
-    ``_backupProcHandoff``).
+    archive bytes into `('data', <chunk>)` messages passed to the `emit` callable,
+    while computing the running size and sha256 of the archive. The `emit` callable
+    is responsible for framing/transporting the message (see `_backupProc` and
+    `_backupProcHandoff`).
     '''
     def __init__(self, emit, chunksize=BACKUP_CHUNKSIZE):
         self.emit = emit
@@ -183,9 +185,9 @@ class _BackupWriter:
 
 def _emitBackupData(lmdbinfo, srcdir, emit):
     '''
-    Stream the zip archive as ``('data', <chunk>)`` messages via ``emit`` and return
-    the terminal ``fini`` info (compressed ``size``, ``sha256`` and uncompressed
-    ``rawsize`` of the archive).
+    Stream the zip archive as `('data', <chunk>)` messages via `emit` and return
+    the terminal `fini` info (compressed `size`, `sha256` and uncompressed
+    `rawsize` of the archive).
     '''
     writer = _BackupWriter(emit)
     rawsize = s_t_backup.iterslabzip(lmdbinfo, srcdir, writer)
@@ -730,11 +732,11 @@ class CellApi(s_base.Base):
         Take a live backup of the service and stream it as a series of typed messages.
 
         Yields:
-            (str, object): ``(mesgtype, info)`` tuples. The first message is
-            ``('init', {...})`` and carries metadata known before streaming (including the
-            captured ``nexsoffs``). It is followed by ``('data', <bytes>)`` chunks of the
-            compressed archive, terminated by ``('fini', {'size', 'sha256'})`` on success or
-            ``('err', {...excinfo})`` (inlined ``s_common.excinfo`` fields) on failure.
+            (str, object): `(mesgtype, info)` tuples. The first message is
+            `('init', {...})` and carries metadata known before streaming (including the
+            captured `nexsoffs`). It is followed by `('data', <bytes>)` chunks of the
+            compressed archive, terminated by `('fini', {'size', 'sha256'})` on success or
+            `('err', {...excinfo})` (inlined `s_common.excinfo` fields) on failure.
         '''
         # when invoked over telepath, hand the caller's socket to the backup
         # subprocess so it streams the archive directly to the caller instead of
@@ -830,6 +832,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     nexsrootctor = s_nexus.NexsRoot
 
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
+
     confbase = {
         'safemode': {
             'default': False,
@@ -949,6 +952,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     VERSION = s_version.version
 
     celltype = None
+
+    USER_AGENT_PROD = None
+    USER_AGENT_PREFIX = 'Synapse'
 
     SYSCTL_VALS = {
         'vm.dirty_expire_centisecs': 20,
@@ -1137,6 +1143,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.slab.initdb('cell:conf')
 
         self._sslctx_cache = s_cache.FixedCache(self._makeCachedSslCtx, size=SSLCTX_CACHE_SIZE)
+        self._useragent = self.getDefaultUserAgent()
 
         self.cellinfo = self.slab.getSafeKeyVal('cell:info')
         self.cellvers = self.slab.getSafeKeyVal('cell:vers')
@@ -1285,11 +1292,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Execute a graceful shutdown.
 
-        When ``drain`` is False (the default), promoted boss tasks are
-        cancelled and then awaited. When ``drain`` is True, promoted boss
+        When `drain` is False (the default), promoted boss tasks are
+        cancelled and then awaited. When `drain` is True, promoted boss
         tasks are awaited until they complete.
 
-        The ``timeout`` argument bounds the entire operation. Demote and task
+        The `timeout` argument bounds the entire operation. Demote and task
         reaping share the single timeout value; no sub-phase may exceed the
         time remaining when it starts.
 
@@ -1666,7 +1673,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             fixnames = [k['name'] for k in fixvals]
             mesg = f'Sysctl values different than expected: {", ".join(fixnames)}. '
-            mesg += 'See https://docs.vertex.link/docs/synapse/latest/devopsguide.html#performance-tuning '
+            mesg += 'See https://hub.vertex.link/docs/synapse/latest/devopsguide.md#performance-tuning '
             mesg += 'for information about these sysctl parameters.'
 
             extra = self.getLogExtra(sysctls=fixvals)
@@ -1890,12 +1897,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Notes:
             The edit types are:
 
-            * ``DRIVE_EDIT_SET`` -- set the value at path to ``info.valu``
-            * ``DRIVE_EDIT_DEL`` -- remove the value at path, which is not an error when
+            * `DRIVE_EDIT_SET` -- set the value at path to `info.valu`
+            * `DRIVE_EDIT_DEL` -- remove the value at path, which is not an error when
               the value itself is absent, but is one when a step along the way to it is
-            * ``DRIVE_EDIT_INS`` -- insert ``info.valu`` into the list at path, where the
-              last element of path is the index and ``-1`` appends
-            * ``DRIVE_EDIT_MOV`` -- move the value at path to ``info.path``
+            * `DRIVE_EDIT_INS` -- insert `info.valu` into the list at path, where the
+              last element of path is the index and `-1` appends
+            * `DRIVE_EDIT_MOV` -- move the value at path to `info.path`
 
             When nexs is given it is compared to the nexs of the stored data, so edits
             computed against a version of the item which has since been written by someone
@@ -2247,7 +2254,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def _getAhaSvcName(self):
         '''
-        Return the AHA service identifier used for the ``ahasvcname``
+        Return the AHA service identifier used for the `ahasvcname`
         attribute. Returns None when the cell is not configured as
         an AHA service.
         '''
@@ -2260,7 +2267,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def getSvcName(self):
         '''
-        Return the name used as the ``service`` key for log entries.
+        Return the name used as the `service` key for log entries.
         Defaults to the AHA service identifier. Returns None when
         no name is available.
         '''
@@ -2879,13 +2886,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def _backupProc(datasock, srcdir, logconf, info):
         '''
         (In a separate process) Pin a consistent set of lmdb read transactions and
-        stream a zip archive of the service directory to ``datasock``.
+        stream a zip archive of the service directory to `datasock`.
 
-        All communication is a sequence of msgpack ``(<type>, <info>)`` tuples on the
-        socket: ``('init', <info>)`` (the metadata dict passed in by the parent) once
+        All communication is a sequence of msgpack `(<type>, <info>)` tuples on the
+        socket: `('init', <info>)` (the metadata dict passed in by the parent) once
         the read transactions are pinned (so the parent can release the nexus lock),
-        then any number of ``('data', <bytes>)`` messages, terminated by
-        ``('fini', {'size', 'sha256', 'rawsize'})`` or ``('err', <excinfo>)``.
+        then any number of `('data', <bytes>)` messages, terminated by
+        `('fini', {'size', 'sha256', 'rawsize'})` or `('err', <excinfo>)`.
         '''
         # This is a new process: configure logging
         s_logging.setup(**logconf)
@@ -2919,14 +2926,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @staticmethod
     def _backupProcHandoff(ctrlsock, callersock, srcdir, logconf, info):
         '''
-        (In a separate process) Like ``_backupProc``, but stream the backup messages
-        directly to the telepath caller by writing telepath ``t2:yield`` frames to
-        ``callersock``, while signaling capture completion to the leader on
-        ``ctrlsock`` so it can release the nexus lock.
+        (In a separate process) Like `_backupProc`, but stream the backup messages
+        directly to the telepath caller by writing telepath `t2:yield` frames to
+        `callersock`, while signaling capture completion to the leader on
+        `ctrlsock` so it can release the nexus lock.
 
-        The caller receives ``('t2:yield', {'retn': (True, <item>)})`` for each backup
-        ``(<type>, <info>)`` tuple (init/data/fini or an in-band err), terminated by
-        ``('t2:yield', {'retn': None})``.
+        The caller receives `('t2:yield', {'retn': (True, <item>)})` for each backup
+        `(<type>, <info>)` tuple (init/data/fini or an in-band err), terminated by
+        `('t2:yield', {'retn': None})`.
         '''
         # This is a new process: configure logging
         s_logging.setup(**logconf)
@@ -2976,11 +2983,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _streamBackupHandoff(self, link):
         '''
         Hand the telepath caller's socket to a backup subprocess so it streams the
-        archive (as telepath ``t2:yield`` frames) directly to the caller, taking this
+        archive (as telepath `t2:yield` frames) directly to the caller, taking this
         event loop out of the per-chunk relay path.
 
         Returns once the subprocess has streamed the whole archive (the caller then
-        raises ``DmonSpawn``). Raises ``s_exc.SynErr`` - which the daemon frames back
+        raises `DmonSpawn`). Raises `s_exc.SynErr` - which the daemon frames back
         to the caller - if the subprocess fails to capture its snapshot or exits
         abnormally mid-stream.
         '''
@@ -3087,18 +3094,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Take a live backup and stream it as a sequence of typed messages.
 
         Yields:
-            (str, object): ``(mesgtype, info)`` tuples. The sequence is a single ``init``
-            message, followed by any number of ``data`` messages, terminated by either a
-            ``fini`` or an ``err`` message:
+            (str, object): `(mesgtype, info)` tuples. The sequence is a single `init`
+            message, followed by any number of `data` messages, terminated by either a
+            `fini` or an `err` message:
 
-                - ``('init', {'nexsoffs', 'iden', 'type', 'name'})`` - metadata known before
+                - `('init', {'nexsoffs', 'iden', 'type', 'name'})` - metadata known before
                   streaming, including the nexus offset the snapshot corresponds to.
-                - ``('data', <bytes>)`` - a chunk of the compressed (zip) archive.
-                - ``('fini', {'size', 'sha256', 'rawsize'})`` - total compressed size and sha256 of
-                  the streamed archive, plus ``rawsize`` (the uncompressed size of the archive
+                - `('data', <bytes>)` - a chunk of the compressed (zip) archive.
+                - `('fini', {'size', 'sha256', 'rawsize'})` - total compressed size and sha256 of
+                  the streamed archive, plus `rawsize` (the uncompressed size of the archive
                   contents); only known once generation completes.
-                - ``('err', {...excinfo})`` - streaming failed after the init message; the
-                  info is the inlined ``s_common.excinfo`` dict.
+                - `('err', {...excinfo})` - streaming failed after the init message; the
+                  info is the inlined `s_common.excinfo` dict.
         '''
         await self._preCaptureBackup()
 
@@ -3513,7 +3520,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def feedBeholder(self, name, info, gates=None, perms=None):
         '''
-        Feed a named event onto the ``cell:beholder`` message bus that will sent to any listeners.
+        Feed a named event onto the `cell:beholder` message bus that will sent to any listeners.
 
         Args:
             info (dict): An information dictionary to be sent to any consumers.
@@ -4227,6 +4234,59 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''Get a list of envar prefixes for config resolution.'''
         return (f'SYN_{cls.__name__.upper()}', )
 
+    @classmethod
+    def _getUserAgentProd(cls):
+        '''
+        Return the product token used in this cell type's default outbound HTTP User-Agent.
+
+        Notes:
+            If USER_AGENT_PROD is set, it is returned verbatim. Otherwise the
+            token is USER_AGENT_PREFIX joined with the capitalized,
+            non-alphanumeric-stripped segments of getCellType() -- so a
+            celltype like "foo:bar" becomes "Foo-Bar",
+            since ":" is not a valid HTTP header token character. A
+            getCellType() override that returns None (some boot-time gates,
+            e.g. _bootCellProvMcast(), treat that as "opt out of type-based
+            behavior") falls back to the class name, same as getCellType()
+            itself does for an unset celltype.
+
+        Returns:
+            str: The product token, e.g. "Synapse-Cortex".
+        '''
+        if cls.USER_AGENT_PROD is not None:
+            return cls.USER_AGENT_PROD
+
+        celltype = cls.getCellType()
+        if celltype is None:
+            celltype = cls.__name__.lower()
+
+        parts = [part.capitalize() for part in regex.split(r'[^a-zA-Z0-9]+', celltype) if part]
+        return '-'.join([cls.USER_AGENT_PREFIX] + parts)
+
+    @classmethod
+    def getDefaultUserAgent(cls):
+        '''
+        Return this cell type's default outbound HTTP User-Agent string.
+
+        Notes:
+            This is a classmethod (rather than reading self._useragent)
+            because _initBootRestore() runs before any Cell instance exists.
+            Use the instance method getUserAgent() at all normal call sites.
+
+        Returns:
+            str: The default User-Agent, e.g. "Synapse-Cortex/3.1.0 (Synapse/3.1.0; https://vertex.link)".
+        '''
+        return s_httpclient.getUserAgent(cls._getUserAgentProd(), cls.VERSION)
+
+    def getUserAgent(self):
+        '''
+        Return this cell's default outbound HTTP User-Agent string.
+
+        Returns:
+            str: The default User-Agent to set on outbound HTTP(S) requests this cell makes.
+        '''
+        return self._useragent
+
     def getCellIden(self):
         return self.iden
 
@@ -4242,7 +4302,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             conf (s_config.Config): An optional config structure. This has _opts_data taken from it.
 
         Notes:
-            The Config object has a ``envar_prefix`` set according to the results of ``cls.getEnvPrefix()``.
+            The Config object has a `envar_prefix` set according to the results of `cls.getEnvPrefix()`.
 
         Returns:
             s_config.Config: A Config helper object.
@@ -4257,15 +4317,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @classmethod
     def getArgParser(cls, conf=None):
         '''
-        Get an ``argparse.ArgumentParser`` for the Cell.
+        Get an `argparse.ArgumentParser` for the Cell.
 
         Args:
             conf (s_config.Config): Optional, a Config object which
 
         Notes:
-            Boot time configuration data is placed in the argument group called ``config``.
-            This adds default ``dirn``, ``--telepath``, ``--https`` and ``--name`` arguements to the argparser instance.
-            Configuration values which have the ``hideconf`` or ``hidecmdl`` value set to True are not added to the
+            Boot time configuration data is placed in the argument group called `config`.
+            This adds default `dirn`, `--telepath`, `--https` and `--name` arguements to the argparser instance.
+            Configuration values which have the `hideconf` or `hidecmdl` value set to True are not added to the
             argparser instance.
 
         Returns:
@@ -4536,7 +4596,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     sock_read=60,
                     sock_connect=60,
                 )
-                async with aiohttp.client.ClientSession(timeout=timeout) as sess:
+                sesshdrs = {'User-Agent': cls.getDefaultUserAgent()}
+                async with aiohttp.client.ClientSession(timeout=timeout, headers=sesshdrs) as sess:
                     async with sess.get(rurl, **kwargs) as resp:
                         resp.raise_for_status()
 
@@ -5258,8 +5319,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             It is expected that implementers override the following Class
             attributes in order to provide meaningful version information:
 
-            ``COMMIT``  - A Git Commit
-            ``VERSION`` - A Version string (PEP 440).
+            `COMMIT`  - A Git Commit
+            `VERSION` - A Version string (PEP 440).
 
         Returns:
             Dict: A Dictionary of metadata.
@@ -5478,7 +5539,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Get a user API key via iden.
 
         Notes:
-            This contains the raw value. Callers are responsible for removing the ``shadow`` key.
+            This contains the raw value. Callers are responsible for removing the `shadow` key.
 
         Args:
             iden (str): The key iden.
@@ -5538,9 +5599,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Check if a user API key is valid.
 
         Notes:
-            If the key is not valid, the dictionary will contain a ``mesg`` key.
-            If the key is valid, the dictionary will contain the user def in a ``udef`` key,
-            and the key metadata in a ``kdef`` key.
+            If the key is not valid, the dictionary will contain a `mesg` key.
+            If the key is valid, the dictionary will contain the user def in a `udef` key,
+            and the key metadata in a `kdef` key.
 
         Args:
             key (str): The API key to check.

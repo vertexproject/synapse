@@ -154,6 +154,7 @@ A type of product which is available for purchase.
 
 | Interface |
 |-----------|
+| `biz:manufactured` |
 | `entity:creatable` |
 | `meta:havable` |
 
@@ -163,6 +164,7 @@ A type of product which is available for purchase.
 | `:creator:name` | `entity:name` | The name of the primary actor which created the product. |
 | `:desc` | `text` | A description of the product. |
 | `:launched` | `time` | The time the product was first made available. |
+| `:model` | `biz:model` | The model number or name of the product. |
 | `:name` | `base:name` | The name of the product. |
 | `:price` | `econ:price` | The price of the product. |
 | `:type` | `biz:product:type:taxonomy` | The type of product. |
@@ -1260,6 +1262,7 @@ A bank account paired with the routing identifier that addresses it.
 | Interface |
 |-----------|
 | `econ:pay:instrument` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -2199,6 +2202,10 @@ A goal held by an actor for a period of time.
 ### `entity:name`
 
 A name used to refer to an entity.
+
+| Interface |
+|-----------|
+| `meta:usable` |
 
 ### `entity:offered`
 
@@ -3776,6 +3783,10 @@ A Fully Qualified Domain Name (FQDN).
 
 An individual HTTP cookie string.
 
+| Interface |
+|-----------|
+| `meta:usable` |
+
 | Property | Type | Doc |
 |----------|------|-----|
 | `:name` | `str` | The name of the cookie preceding the equal sign. |
@@ -4141,6 +4152,7 @@ An account within a service platform. Accounts may be instance specific.
 | `inet:service:object` |
 | `inet:service:subscriber` |
 | `meta:observable` |
+| `meta:usable` |
 | `risk:targetable` |
 
 | Property | Type | Doc |
@@ -5374,6 +5386,55 @@ An advertising identification string.
 | Property | Type | Doc |
 |----------|------|-----|
 | `:seen` | `ival` | The advertising ID was observed during the time interval. |
+
+### `it:app:sigma:matched`
+
+An instance of a Sigma rule hit.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `base:matched` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this match. |
+| `:rule` | `it:app:sigma:rule` | The rule which matched the target node. |
+| `:rule:version` | `it:version` | The version of the rule which generated the match. |
+| `:sensor` | `it:host` | The sensor host node that produced the match. |
+| `:target` | `it:log:event` | The target node which matched the Sigma rule. |
+| `:time` | `time` | The time that the match occurred. |
+
+### `it:app:sigma:rule`
+
+A Sigma rule.
+
+| Interface |
+|-----------|
+| `doc:authorable` |
+| `entity:creatable` |
+| `meta:observable` |
+| `meta:usable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:created` | `time` | The time that the Sigma rule was created. |
+| `:creator` | `entity:actor` | The primary actor which created the Sigma rule. |
+| `:creator:name` | `entity:name` | The name of the primary actor which created the Sigma rule. |
+| `:desc` | `text` | A description of the Sigma rule. |
+| `:enabled` | `bool` | The enabled status of the Sigma rule. |
+| `:id` | `base:id` | The Sigma rule ID. |
+| `:ids` | `array of base:id` | An array of alternate IDs for the Sigma rule. |
+| `:name` | `base:name` | The rule name. |
+| `:seen` | `ival` | The Sigma rule was observed during the time interval. |
+| `:status` | `title` | The status of the rule. |
+| `:supersedes` | `array of it:app:sigma:rule` | An array of Sigma rule versions which are superseded by this Sigma rule. |
+| `:text` | `text` | The text of the Sigma rule. |
+| `:type` | `meta:rule:type:taxonomy` | The rule type. |
+| `:updated` | `time` | The time that the Sigma rule was last updated. |
+| `:url` | `inet:url` | The URL where the Sigma rule is available. |
+| `:version` | `it:version` | The version of the Sigma rule. |
 
 ### `it:app:snort:matched`
 
@@ -10176,6 +10237,7 @@ A Synapse storm command.
 | `:deprecated:mesg` | `str` | Optional description of this deprecation. |
 | `:deprecated:version` | `it:version` | The Synapse version when this command will be removed. |
 | `:doc` | `text` | Description of the command. |
+| `:edition` | `str` | The edition which provides the command, if not generally available. |
 | `:package` | `str` | Storm package which provided the command. |
 
 ### `syn:deleted`
@@ -10226,7 +10288,6 @@ A Synapse property.
 | `:relname` | `str` | Relative property name. |
 | `:type` | `array of syn:type` | The synapse types allowed for this property. |
 | `:typedocs` | `data` | A mapping of member type names to their documentation strings for this property. |
-| `:univ` | `bool` | Specifies if a prop is universal. |
 
 ### `syn:tag`
 
@@ -10442,6 +10503,7 @@ A phone number.
 | Interface |
 |-----------|
 | `meta:observable` |
+| `meta:usable` |
 
 | Property | Type | Doc |
 |----------|------|-----|
@@ -11178,6 +11240,10 @@ A stop made by a vehicle on a trip.
 | `inet:service:message` | `about` | `*` | The message is about the target node. |
 | `inet:url` | `uses` | `meta:technique` | The source URL was created using the target technique. |
 | `inet:whois:iprecord` | `has` | `inet:ip` | The IP whois record describes the IP address. |
+| `it:app:sigma:rule` | `detects` | `it:software` | The Sigma rule detects use of the software. |
+| `it:app:sigma:rule` | `detects` | `it:softwarename` | The Sigma rule detects the named software. |
+| `it:app:sigma:rule` | `detects` | `meta:technique` | The Sigma rule detects use of the technique. |
+| `it:app:sigma:rule` | `detects` | `risk:vuln` | The Sigma rule detects use of the vulnerability. |
 | `it:app:snort:rule` | `detects` | `it:software` | The snort rule detects use of the software. |
 | `it:app:snort:rule` | `detects` | `it:softwarename` | The snort rule detects the named software. |
 | `it:app:snort:rule` | `detects` | `meta:technique` | The snort rule detects use of the technique. |
@@ -11315,6 +11381,7 @@ Properties which are common to matches based on rules.
 
 | Form |
 |------|
+| `it:app:sigma:matched` |
 | `it:app:snort:matched` |
 | `it:app:suricata:matched` |
 | `it:app:yara:matched` |
@@ -11330,6 +11397,7 @@ Properties common to items being manufactured.
 
 | Form |
 |------|
+| `biz:product` |
 | `it:hardware` |
 | `it:physical:host` |
 
@@ -11413,6 +11481,7 @@ Properties common to authorable forms.
 |------|
 | `doc:requirement` |
 | `edu:course` |
+| `it:app:sigma:rule` |
 | `it:app:snort:rule` |
 | `it:app:suricata:rule` |
 | `it:app:yara:rule` |
@@ -12422,6 +12491,7 @@ Properties common to forms which can be observed.
 | `inet:wifi:ap` |
 | `inet:wifi:ssid` |
 | `it:adid` |
+| `it:app:sigma:rule` |
 | `it:app:snort:rule` |
 | `it:app:suricata:rule` |
 | `it:app:yara:rule` |
@@ -12651,6 +12721,8 @@ An interface implemented by forms which can be used by an actor.
 | `crypto:hash:sha384` |
 | `crypto:hash:sha512` |
 | `econ:account` |
+| `econ:bank:account` |
+| `entity:name` |
 | `file:attachment` |
 | `file:base` |
 | `file:bytes` |
@@ -12658,12 +12730,15 @@ An interface implemented by forms which can be used by an actor.
 | `inet:email:header` |
 | `inet:email:message` |
 | `inet:fqdn` |
+| `inet:http:cookie` |
 | `inet:ip` |
+| `inet:service:account` |
 | `inet:service:message` |
 | `inet:service:platform` |
 | `inet:url` |
 | `inet:url:redir` |
 | `inet:urlfile` |
+| `it:app:sigma:rule` |
 | `it:app:snort:rule` |
 | `it:app:suricata:rule` |
 | `it:app:yara:rule` |
@@ -12677,6 +12752,7 @@ An interface implemented by forms which can be used by an actor.
 | `meta:technique` |
 | `risk:mitigation` |
 | `risk:vuln` |
+| `tel:phone` |
 
 ### `ou:promotable`
 
@@ -12867,4 +12943,3 @@ Properties common to a vehicle.
 | `transport:land:vehicle` |
 | `transport:rail:consist` |
 | `transport:sea:vessel` |
-

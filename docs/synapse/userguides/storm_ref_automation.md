@@ -169,7 +169,7 @@ Cron in Synapse is similar to the well-known cron utility. Cron jobs execute the
 
   The owner (creator) of a cron job can be modified using the Storm [stormlibs-lib-cron-get](../stormtypes_libs.md#stormlibs-lib-cron-get) library and the `set()` method of the [stormprims-cronjob-f527](../stormtypes_prims.md#stormprims-cronjob-f527) primitive. For example:
 
-  ``` text
+  ```text
   $mycron=$lib.cron.get(<cron_iden>) $mycron.set(creator, <new_creator_iden>)
   ```
 
@@ -353,7 +353,7 @@ Proper trigger execution may depend on the timing and order of events with respe
 
   The owner (user) of a trigger can be modified using the Storm [stormlibs-lib-trigger-get](../stormtypes_libs.md#stormlibs-lib-trigger-get) library and the `set()` method of the [stormprims-trigger-f527](../stormtypes_prims.md#stormprims-trigger-f527) primitive. For example:
 
-  ``` text
+  ```text
   $mytrigger=$lib.trigger.get(<trigger_iden>) $mytrigger.set(user, <new_user_iden>)
   ```
 
@@ -436,13 +436,13 @@ Recall from the [Storm Operating Concepts](storm_ref_intro.md#storm-op-concepts)
 >
 > To change whether or not an **existing** trigger runs asynchronously, use the Storm [stormlibs-lib-trigger-get](../stormtypes_libs.md#stormlibs-lib-trigger-get) library and the `set()` method of the [stormprims-trigger-f527](../stormtypes_prims.md#stormprims-trigger-f527) primitive. For example:
 >
-> ``` text
+> ```storm
 > $mytrigger=$lib.trigger.get(<trigger_iden>) $mytrigger.set(async, (true))
 > ```
 >
 > Or:
 >
-> ``` text
+> ```storm
 > $mytrigger=$lib.trigger.get(<trigger_iden>) $mytrigger.set(async, (false))
 > ```
 
@@ -511,7 +511,7 @@ trigger.add edge:add --name 'Link technique with attack'--verb used --form risk:
 
 The Storm for this trigger is broken down below (with comments) for clarity:
 
-``` text
+```storm
 // Set the variable $attack to the risk:attack node for later use
 $attack=$node
 
@@ -580,7 +580,7 @@ Similarly, if you execute additional Storm inline after the macro runs, that Sto
 
 - **Storage.** Macros are stored within (global to) a Cortex. Macros are differentiated by **name** (as opposed to triggers and cron jobs, which are differentiated by a unique identifier (iden)). You can change the name of a macro using the [stormlibs-lib-macro-mod](../stormtypes_libs.md#stormlibs-lib-macro-mod) library:
 
-  ``` text
+  ```text
   $lib.macro.mod('my old poorly chosen macro name',({'name': 'new.name'}))
   ```
 
@@ -646,7 +646,7 @@ macro.set sinkhole.check { $now=$lib.time.now() inet:ip#cno.infra.dns.sink.hole 
 
 The Storm for this macro is broken down below (with comments) for clarity. (You can include comments within a macro; Synapse will ignore comment lines during execution.)
 
-``` text
+```storm
 // Get the current time (in UTC) to use for the tag timestamp
 $now=$lib.time.now()
 
@@ -695,13 +695,13 @@ macro.set enrich { +(crypto:hash:md5 or crypto:hash:sha1 or crypto:hash:sha256 o
 
 Once again, we create the macro with the `macro.set` command. Because of the length of the associated Storm, we have represented the query with `<storm_query>`. The full query is provided below for readability.
 
-``` text
+```storm
 macro.set enrich { <storm_query> }
 ```
 
 The content of the macro (the `<storm_query>`, with comments):
 
-``` text
+```storm
 // Filter inbound nodes to supported forms only
 +(crypto:hash:md5 or crypto:hash:sha1 or crypto:hash:sha256 or inet:fqdn or inet:ip)
 

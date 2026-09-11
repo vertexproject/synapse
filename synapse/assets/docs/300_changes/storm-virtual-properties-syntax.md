@@ -30,7 +30,7 @@ What you need to do
 
 :   Rewrite `.seen` as the relative property `:seen` (lifts, filters, pivots, and assignments). Leave `.created` (and `.updated`) as leading-dot names -- they still work in 3.x, now as meta properties of the node.
 
-    ``` text
+    ```text
     // 2.x universal properties
     inet:dns:a +.seen@=2021
     [ inet:dns:a=(vertex.link, 1.2.3.4) .seen=now ]
@@ -59,7 +59,7 @@ What you need to do
 
 :   Use `<form-or-prop>.<virt>` with no space before the dot, and prefix it as usual to filter or pivot. Note that a space before the dot changes the meaning: a dot following whitespace is read as a bare virtual property of the current node's value, not a virtual of the property just before it.
 
-    ``` text
+    ```text
     // 2.x had no virtual-property syntax; ip/port and ival bounds
     // were not directly addressable as sub-properties.
 
@@ -85,7 +85,7 @@ What you need to do
 
 :   Parenthesize the tag to address an interval bound: `#(cno.threat).min` / `.max` / `.duration`. Without the parentheses, `#cno.threat.min` is read as a longer tag name, so the parentheses are what make it a virtual property.
 
-    ``` text
+    ```text
     // 2.x: no syntax to address a tag interval's min/max directly
 
     // 3.x

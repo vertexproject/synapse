@@ -242,8 +242,6 @@ modeldefs = (
                         'doc': 'If the property is an array of values.', 'computed': True}),
                     ('relname', ('str', {}), {
                         'doc': 'Relative property name.', 'computed': True}),
-                    ('univ', ('bool', {}), {
-                        'doc': 'Specifies if a prop is universal.', 'computed': True}),
                     ('base', ('str', {}), {
                         'doc': 'Base name of the property.', 'computed': True}),
                     ('computed', ('bool', {}), {
@@ -278,6 +276,9 @@ modeldefs = (
 
                     ('package', ('str', {}), {
                         'doc': 'Storm package which provided the command.'}),
+
+                    ('edition', ('str', {}), {
+                        'doc': 'The edition which provides the command, if not generally available.'}),
 
                     ('deprecated', ('bool', {}), {
                         'doc': 'Set to true if this command is scheduled to be removed.'}),

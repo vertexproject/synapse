@@ -52,7 +52,7 @@ async def unixwait(path):
         path: Path to the socket.
 
     Notes:
-        This will loop forever. Callers should wrap this in ``asyncio.wait_for()``
+        This will loop forever. Callers should wrap this in `asyncio.wait_for()`
         with a known timeout value.
 
     Returns:

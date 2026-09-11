@@ -253,7 +253,7 @@ class JsonRpcError(SynErr):
     '''
     A JSON-RPC error carrying an application-defined code (and optional data).
 
-    This should contain a numeric ``code`` and a ``mesg``. An optional ``data`` value
+    This should contain a numeric `code` and a `mesg`. An optional `data` value
     may be provided to convey additional structured information to the caller.
     '''
     @classmethod

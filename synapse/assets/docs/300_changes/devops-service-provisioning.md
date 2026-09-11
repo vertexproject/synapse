@@ -19,7 +19,7 @@ What you need to do
 
 :   Nothing is required -- URL-based provisioning via `aha:provision` still works exactly as before. To adopt automatic provisioning, set the same `SYN_PROVISION_SECRET` on the AHA server and on each service, and omit the per-service `aha:provision` URL. If a service does not share a broadcast domain (subnet) with AHA, also set `SYN_PROVISION_HOST` on the service to the AHA host/address so the discovery request is unicast rather than multicast.
 
-    ``` yaml
+    ```yaml
     # 3.x -- automatic provisioning
     environment:
         - SYN_PROVISION_SECRET=<shared-secret>

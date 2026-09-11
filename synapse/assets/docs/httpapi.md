@@ -14,13 +14,13 @@ All Synapse RESTful APIs use HTTP GET/POST methods to retrieve and modify data. 
 
 For a successful API call:
 
-``` json
+```json
 {"status": "ok", "result": "some api result here"}
 ```
 
 or for an unsuccessful API call:
 
-``` text
+```text
 {"status": "err": "code": "ErrCodeString", "mesg": "A human friendly message."}
 ```
 
@@ -46,14 +46,14 @@ Most Synapse HTTP APIs require an authenticated user. HTTP API endpoints requiri
 
 A Cortex user can create their own API key via Storm. The following is an example of generating a user API key:
 
-> ``` text
+> ```stormdoc
 > storm> ($key, $info)= $lib.auth.users.byname($lib.auth.users.get().name).genApiKey('Test Key') $lib.print($key)
 > XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
 > ```
 
 This API Key can then be used to make HTTP API calls. The following example shows the use of `curl` and `jq` to make a Storm call with the API key and then format the response:
 
-> ``` text
+> ```text
 > $ curl -k -s -H "X-API-KEY: XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=" \
 > --data '{"query": "return($lib.auth.users.get().name)"}' \
 > https://localhost:4443/api/v3/storm/call | jq
@@ -66,7 +66,7 @@ This API Key can then be used to make HTTP API calls. The following example show
 
 The API key may also be supplied as the username of an HTTP Basic authentication header (the password is ignored). This is convenient for clients that only support HTTP Basic authentication, such as embedding the key in the request URL:
 
-> ``` text
+> ```text
 > $ curl -k -s \
 > --data '{"query": "return($lib.auth.users.get().name)"}' \
 > https://XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=@localhost:4443/api/v3/storm/call | jq
@@ -74,7 +74,7 @@ The API key may also be supplied as the username of an HTTP Basic authentication
 
 The following Python examples create a client session that sends the API key via the `X-API-KEY` header on every request. The remaining endpoint examples in this document assume a session created this way.
 
-``` python3
+```python3
 import aiohttp
 
 apikey = 'XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA='
@@ -84,7 +84,7 @@ def getApiKeySess():
     return aiohttp.ClientSession(headers=headers)
 ```
 
-``` python3
+```python3
 import requests
 
 apikey = 'XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA='
@@ -101,7 +101,7 @@ The login API endpoint may be used to create an authenticated session. To create
 
 Both of the Python examples use session managers which manage the session cookie automatically.
 
-``` python3
+```python3
 import aiohttp
 
 async def logInExample(ssl=False):
@@ -119,7 +119,7 @@ async def logInExample(ssl=False):
             # we are now clear to make additional HTTP API calls using sess
 ```
 
-``` python3
+```python3
 import requests
 
 def logInExample(ssl=False):
@@ -145,7 +145,7 @@ The logout API endpoint may be used to end an authenticated session. This invali
 
 Both of the Python examples use session managers which manage the session cookie automatically.
 
-``` python3
+```python3
 import aiohttp
 
 def logoutExample(sess, ssl):
@@ -158,7 +158,7 @@ def logoutExample(sess, ssl):
         raise Exception(f'Logout error ({code}): {mesg}')
 ```
 
-``` python3
+```python3
 import requests
 
 def logoutExample(sess, ssl):
@@ -215,7 +215,7 @@ def logoutExample(sess, ssl):
 
     :   This API expects the following JSON body:
 
-        ``` json
+        ```json
         { "name": "myuser" }
         ```
 
@@ -237,7 +237,7 @@ def logoutExample(sess, ssl):
 
     :   This API expects the following JSON body:
 
-        ``` json
+        ```json
         { "name": "myrole" }
         ```
 
@@ -259,7 +259,7 @@ def logoutExample(sess, ssl):
 
     :   This API expects the following JSON body:
 
-        ``` json
+        ```json
         { "name": "myrole" }
         ```
 
@@ -387,7 +387,7 @@ def logoutExample(sess, ssl):
 
     :   This API expects the following JSON body:
 
-        ``` json
+        ```json
         {
             "user": "<id>",
             "role": "<id>"
@@ -410,7 +410,7 @@ def logoutExample(sess, ssl):
 
     :   This API expects the following JSON body:
 
-        ``` json
+        ```json
         {
             "user": "<id>",
             "role": "<id>"
@@ -442,7 +442,7 @@ The Cortex feed API endpoint allows the caller to add nodes in bulk.
 
     :   The API expects the following JSON body:
 
-        ``` text
+        ```text
         {
             "items": [ <node>, ... ],
             # and optionally...
@@ -452,7 +452,7 @@ The Cortex feed API endpoint allows the caller to add nodes in bulk.
 
     :   Each `<node>` is expected to be in packed tuple form:
 
-        ``` text
+        ```text
         [ [<formname>, <formvalu>], {...} ]
         ```
 
@@ -472,7 +472,7 @@ The Storm API endpoint allows the caller to execute a Storm query on the Cortex 
 
     :   The API expects the following JSON body:
 
-        ``` text
+        ```text
         {
             "query": "a storm query here",
 
@@ -495,7 +495,7 @@ The Storm API endpoint allows the caller to execute a Storm query on the Cortex 
 
     :   aiohttp example:
 
-        ``` python3
+        ```python3
         import json
         import pprint
 
@@ -513,7 +513,7 @@ The Storm API endpoint allows the caller to execute a Storm query on the Cortex 
 
     :   requests example:
 
-        ``` python3
+        ```python3
         import json
         import pprint
         # Assumes sess was created with the X-API-KEY header (see API Key Support)
@@ -540,7 +540,7 @@ The Storm Call API endpoint allows the caller to execute a Storm query on the Co
 
     :   The API expects the following JSON body:
 
-        ``` text
+        ```text
         {
             "query": "a storm query here",
 
@@ -561,7 +561,7 @@ The Storm Call API endpoint allows the caller to execute a Storm query on the Co
 
     :   aiohttp example:
 
-        ``` python3
+        ```python3
         import pprint
 
         # Assumes sess was created with the X-API-KEY header (see API Key Support)
@@ -577,7 +577,7 @@ The Storm Call API endpoint allows the caller to execute a Storm query on the Co
 
     :   requests example:
 
-        ``` python3
+        ```python3
         import pprint
         # Assumes sess was created with the X-API-KEY header (see API Key Support)
 
@@ -626,7 +626,7 @@ The Storm export API endpoint allows the caller to execute a Storm query on the 
 
     :   The API returns the model in a dictionary, including the types, forms and tagprops. Secondary property information is also included for each form:
 
-        ``` text
+        ```text
         {
             "types": {
                 ...  # dictionary of type definitions
@@ -652,7 +652,7 @@ The Storm export API endpoint allows the caller to execute a Storm query on the 
 
     :   The API expects the following JSON body:
 
-        ``` text
+        ```text
         {
             "prop": "prop:name:here",
             "value": <value>,
@@ -663,7 +663,7 @@ The Storm export API endpoint allows the caller to execute a Storm query on the 
 
     :   The API returns the normalized value as well as any parsed subfields or type specific info:
 
-        ``` text
+        ```text
         {
             "norm": <value>,
             "info": {
@@ -685,7 +685,7 @@ The Storm export API endpoint allows the caller to execute a Storm query on the 
 
     :   The API expects the following JSON body:
 
-        ``` text
+        ```text
         {
             "name": "varnamehere",
             "default": null,
@@ -708,7 +708,7 @@ The Storm export API endpoint allows the caller to execute a Storm query on the 
 
     :   The API expects the following JSON body:
 
-        ``` text
+        ```text
         {
             "name": "varnamehere",
             "value": <value>,
@@ -731,7 +731,7 @@ The Storm export API endpoint allows the caller to execute a Storm query on the 
 
     :   The API expects the following JSON body:
 
-        ``` text
+        ```text
         {
             "name": "varnamehere",
             "default": <value>,
@@ -758,7 +758,7 @@ The Storm export API endpoint allows the caller to execute a Storm query on the 
 
     :   The API returns the model in a dictionary, including the types, forms and tagprops. Secondary property information is also included for each form:
 
-        ``` text
+        ```text
         {
             "version": [ <major>, <minor>, <patch> ], # Version tuple 
             "modeldict": {
@@ -795,7 +795,7 @@ A Synapse AHA service implements an HTTP API for assisting with devops.
 
     :   The API expects the following JSON body:
 
-        ``` text
+        ```text
         {
             "name": " ... name of the service being provisioned",
             "provinfo": {
@@ -812,7 +812,7 @@ A Synapse AHA service implements an HTTP API for assisting with devops.
 
     :   The API returns the following provisioning information. The data is returned using the REST API convention described earlier:
 
-        ``` text
+        ```text
         {
             "url": "< the AHA provisioning URL >",
         }
@@ -830,7 +830,7 @@ A Synapse AHA service implements an HTTP API for assisting with devops.
 
     :   The API accepts the following **optional** JSON body:
 
-        ``` text
+        ```text
         {
             "network": " ... name of the aha network to list",
         }
@@ -840,7 +840,7 @@ A Synapse AHA service implements an HTTP API for assisting with devops.
 
     :   The API returns the following provisioning information. The data is returned using the REST API convention described earlier:
 
-        ``` text
+        ```text
         [
             {
                 "name": "< the full service name >",
@@ -877,7 +877,7 @@ This API allows the caller to delete multiple files from the Axon by the SHA-256
 
     :   The API expects the following JSON body:
 
-        ``` text
+        ```text
         {
             "sha256s": [<sha256>, ...],
         }
@@ -903,7 +903,7 @@ This API allows the caller to upload and save a file to the Axon. This may be ca
 
     :   On successful upload, or if the file already existed, the API returns information about the file:
 
-        ``` text
+        ```text
         {
           "md5": "<the md5sum value of the uploaded bytes>",
           "sha1": "<the sha1 value of the uploaded bytes>",

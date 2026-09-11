@@ -9,7 +9,7 @@ The Synapse `cortex.feed` tool is a way to ingest data exported from one Cortex 
 
 The `cortex.feed` tool is executed from an operating system command shell. The command usage is as follows (line is wrapped for readability):
 
-``` text
+```text
 usage: synapse.tools.cortex.feed [-h] (--cortex CORTEX | --test) [--debug] [--modules MODULES] [--chunksize CHUNKSIZE]
   [--offset OFFSET] [--view VIEW] [files ...]
 ```
@@ -51,7 +51,7 @@ This example demonstrates loading a set of nodes via the `cortex.feed` tool. The
 
 The jsonl file (`testnodes.jsonl`) contains a list of nodes in their packed form, as returned by `Node.pack()` and written by a `.nodes` export. Each line corresponds to a single node. Each value in `props`, `tags` and `tagprops` is a two element envelope, `[<valu>, <info>]`, where the info dict may carry a `t` type name, an `r` repr and a `v` dict of virtual property values. The ingest reads `props`, `tags`, `tagprops`, `nodedata` and `edges`; the `nid` and `meta` entries are informational and are ignored.
 
-``` text
+```text
 [["it:dev:function", "9710579930d831abd88acff1f2ecd04f"], {"nid": 0, "meta": {"created": 1786357031915388, "updated": 1786357031916842}, "tags": {"my": [[null, null, null], {}], "my.cool": [[null, null, null], {}], "my.cool.tag": [[null, null, null], {}]}, "props": {"name": ["CreateRemoteThread", {"t": "it:dev:str"}], "desc": ["An example function", {"t": "text"}]}, "tagprops": {}, "n1verbs": {}, "n2verbs": {}}]
 [["inet:ip", [4, 386412289]], {"nid": 5, "meta": {"created": 1786357031920431, "updated": 1786357031920897}, "tags": {"my": [[null, null, null], {}], "my.cool": [[null, null, null], {}], "my.cool.tag": [[null, null, null], {}]}, "props": {"version": [4, {"t": "inet:ipversion"}], "type": ["unicast", {"t": "str:lower"}]}, "tagprops": {}, "n1verbs": {}, "n2verbs": {}}]
 [["inet:url", "https://noexist.vertex.link/en/latest/synapse/userguide.html#userguide"], {"nid": 6, "meta": {"created": 1786357031924803, "updated": 1786357031926711}, "tags": {"my": [[null, null, null], {}], "my.cool": [[null, null, null], {}], "my.cool.tag": [[null, null, null], {}]}, "props": {"proto": ["https", {"t": "str:lower"}], "path": ["/en/latest/synapse/userguide.html#userguide", {"t": "str"}], "params": ["", {"t": "str"}], "host": ["noexist.vertex.link", {"t": "inet:fqdn"}], "port": [443, {"t": "inet:port"}], "base": ["https://noexist.vertex.link/en/latest/synapse/userguide.html#userguide", {"t": "str"}]}, "tagprops": {}, "n1verbs": {}, "n2verbs": {}}]
@@ -62,19 +62,19 @@ The jsonl file (`testnodes.jsonl`) contains a list of nodes in their packed form
 
 Typically, users will want to double check the data they have before loading it into a production Cortex. The `cortex.feed` tool allows us to perform an ingest our of nodes file against an empty, ephemeral Cortex, so that we can check what nodes get created before adding them to a production Cortex. To load `testnodes.jsonl` into an ephemeral Cortex and drop into a prompt to explore the ingested nodes, run:
 
-``` text
+```text
 python -m synapse.tools.cortex.feed --test --debug testnodes.jsonl
 ```
 
 Assuming the command completed with no errors, we should now have a `storm` prompt connected to our test Cortex:
 
-``` text
+```stormdoc
 storm>
 ```
 
 From which we can issue Storm commands to interact with and validate the nodes that were just ingested. For example:
 
-``` text
+```stormdoc
 storm> #my.cool.tag
 it:dev:function=9710579930d831abd88acff1f2ecd04f
         :desc = An example function
@@ -105,13 +105,13 @@ complete. 4 nodes in 4 ms (1000/sec).
 
 Once we've inspected and verified the data is acceptable for loading, we can point the `cortex.feed` tool to the Cortex we want to load the nodes into, and the same nodes should be added.
 
-``` text
+```text
 python -m synapse.tools.cortex.feed --cortex "aha://cortex..." testnodes.jsonl
 ```
 
 However, once we've inspected the data, let's say that the `it:dev:function` and `inet:ip` nodes are not allowed in the production Cortex, but the `inet:url` and `file:bytes` are. We can skip these two nodes by using a combination of the `chunksize` and `offset` parameters:
 
-``` text
+```text
 python -m synapse.tools.cortex.feed --cortex "aha://cortex..." testnodes.jsonl --chunksize 2 --offset 1
 ```
 

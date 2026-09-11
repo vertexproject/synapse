@@ -10,6 +10,7 @@ import synapse.common as s_common
 
 import synapse.lib.json as s_json
 import synapse.lib.mddocs as s_mddocs
+import synapse.lib.autodoc as s_autodoc
 
 import synapse.tests.utils as s_test
 
@@ -154,7 +155,8 @@ class MdDocsTest(s_test.SynTest):
             )))
             with self.raises(s_exc.SynErr) as cm:
                 await s_mddocs.buildDocs(srcdir, outdir, staticdir=staticdir)
-            self.isin('mdtoc target does not exist: changelog.md', cm.exception.get('issues'))
+            issues = cm.exception.get('issues')
+            self.true(any('mdtoc target does not exist: changelog.md' in i for i in issues))
             # the issue text must also be in mesg -- reprexc() (what a CLI's
             # wrapmain prints) only ever shows mesg, never the issues= field
             self.isin('mdtoc target does not exist: changelog.md', cm.exception.get('mesg'))
@@ -468,6 +470,211 @@ class MdDocsTest(s_test.SynTest):
                 await s_mddocs.buildDocs(srcdir, outdir)
             issues = cm.exception.get('issues')
             self.true(any('nosuchanchor' in i for i in issues))
+
+    async def test_builddocs_broken_link_reports_source_line(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index',
+                '',
+                '- [Page One](page1.md)',
+                '',
+            )))
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '[bad link](nope.md)',
+                '',
+            )))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir)
+            issues = cm.exception.get('issues')
+            self.true(any('page1.md:3: target file does not exist: nope.md' in i for i in issues))
+
+    async def test_builddocs_broken_link_reports_source_line_despite_fence_drift(self):
+        # a fence above the link (```mdstorm here) expands into several
+        # output lines by the time validate() scans the BUILT page -- the
+        # reported line must still be the docs/ SOURCE line the author
+        # edits, not wherever the link ends up landing in the built text.
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index',
+                '',
+                '- [Page One](page1.md)',
+                '',
+            )))
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '```mdstorm-setup',
+                '```',
+                '',
+                '```mdstorm',
+                '$lib.print(hello)',
+                '```',
+                '',
+                '[bad link](nope.md)',
+                '',
+            )))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir)
+            issues = cm.exception.get('issues')
+            self.true(any('page1.md:10: target file does not exist: nope.md' in i for i in issues))
+
+            # sanity: the link really did drift in the built page, so the
+            # assertion above is only true because of the source mapping
+            with open(s_common.genpath(outdir, 'page1.md')) as fd:
+                builttext = fd.read()
+            builtlineno = next(lineno for lineno, line in enumerate(builttext.splitlines(), 1)
+                                if 'bad link' in line)
+            self.ne(10, builtlineno)
+
+    async def test_builddocs_duplicate_broken_links_report_distinct_lines(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index',
+                '',
+                '- [Page One](page1.md)',
+                '',
+            )))
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '[first](nope.md)',
+                '',
+                '[second](nope.md)',
+                '',
+                '[third](nope.md)',
+                '',
+            )))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir)
+            issues = cm.exception.get('issues')
+            hits = [i for i in issues if 'nope.md' in i]
+            self.eq(3, len(hits))
+            self.true(any('page1.md:3:' in i for i in hits))
+            self.true(any('page1.md:5:' in i for i in hits))
+            self.true(any('page1.md:7:' in i for i in hits))
+
+    async def test_builddocs_broken_anchor_reports_source_line(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index',
+                '',
+                '- [Page One](page1.md)',
+                '',
+            )))
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '[bad anchor](page2.md#nosuchanchor)',
+                '',
+            )))
+            _write(srcdir, 'page2.md', '# Page Two\n\n## Real Section\n')
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir)
+            issues = cm.exception.get('issues')
+            self.true(any('page1.md:3: anchor #nosuchanchor not found in page2.md' in i for i in issues))
+
+    async def test_builddocs_malformed_absolute_doclink_reports_source_line(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index',
+                '',
+                '- [Page One](page1.md)',
+                '',
+            )))
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '[bad shape](/docs/synapse-enterprise-optic/latest/userguide.html)',
+                '',
+            )))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir)
+            issues = cm.exception.get('issues')
+            self.true(any('malformed cross-bundle doc link in page1.md:3:' in i for i in issues))
+
+    async def test_builddocs_mdtoc_missing_target_names_referrer_and_line(self):
+        # the referring page and the fence line the target is listed on --
+        # today's bare "mdtoc target does not exist: <target>" names neither.
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index',
+                '',
+                '```mdtoc',
+                'page1.md',
+                '```',
+                '',
+            )))
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '```mdtoc',
+                'doesnotexist.md',
+                '```',
+                '',
+            )))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir)
+            issues = cm.exception.get('issues')
+            self.true(any('page1.md:4: mdtoc target does not exist: doesnotexist.md' in i for i in issues))
+
+    async def test_builddocs_no_h1_first_heading_reports_line_and_level(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index',
+                '',
+                '- [Page One](page1.md)',
+                '',
+            )))
+            _write(srcdir, 'page1.md', '\n'.join((
+                'Some intro text.',
+                '',
+                '## Not An H1',
+                '',
+                'more text',
+                '',
+            )))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir)
+            issues = cm.exception.get('issues')
+            self.true(any('no H1 heading in page1.md:3: first heading is an H2 (## Not An H1)' in i
+                           for i in issues))
+
+    async def test_builddocs_no_h1_no_headings_at_all(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index',
+                '',
+                '- [Page One](page1.md)',
+                '',
+            )))
+            _write(srcdir, 'page1.md', 'Just prose, no heading at all.\n')
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir)
+            issues = cm.exception.get('issues')
+            self.true(any('no H1 heading in page1.md: file has no headings at all' in i for i in issues))
+
+    def test_validate_without_srcdir_uses_built_line(self):
+        # validate() called directly with no srcdir (the default) reports
+        # outdir's own line, with no source mapping attempted
+        with self.getTestDir() as outdir:
+            _write(outdir, 'index.md', '# Index\n\n- [Page One](page1.md)\n')
+            _write(outdir, 'page1.md', '# Page One\n\n[bad link](nope.md)\n')
+
+            tocbuilder = s_mddocs.TocBuilder(outdir)
+            tocbuilder.buildToc()
+
+            issues = s_mddocs.validate(outdir, tocbuilder)
+            self.true(any('page1.md:3: target file does not exist: nope.md' in i for i in issues))
 
     async def test_builddocs_good_anchor_link_does_not_raise(self):
         with self.getTestDir() as srcdir, self.getTestDir() as outdir:
@@ -826,6 +1033,77 @@ class MdDocsTest(s_test.SynTest):
         children = s_mddocs._headingChildren(headings, minlvl=2, maxdepth=1)
         self.eq(['Section', 'Next Section'], [c['title'] for c in children])
         self.notin('children', children[0])
+
+    def test_internallinktargets_lineno(self):
+        # inline code (backticks) is blanked out before link-scanning, so a
+        # "[...]( ...)"-shaped code span on an earlier line is skipped and
+        # never shifts the real link's reported line.
+        text = '\n'.join((
+            '# Title',
+            '',
+            'some `code [not a link](x)` here',
+            '',
+            '[real link](target.md#frag)',
+            '',
+        ))
+        self.eq([('target.md', 'frag', 5)], s_mddocs._internalLinkTargets(text))
+
+    def test_mdtoctargets_lineno_skips_blank_body_lines(self):
+        # a blank line inside the fence body is skipped (not a target), but
+        # must not throw off the line numbering of the target after it
+        text = '\n'.join((
+            '# Title',
+            '',
+            '```mdtoc',
+            'page1.md',
+            '',
+            'page2.md',
+            '```',
+            '',
+        ))
+        self.eq([('page1.md', 4), ('page2.md', 6)], s_mddocs._mdtocTargets(text))
+
+    def test_firstheading_returns_first_heading_any_level(self):
+        text = '\n'.join(('intro', '', '## Section', '', '# Title', ''))
+        self.eq((3, 2, 'Section'), s_mddocs._firstHeading(text))
+
+    def test_firstheading_none_when_no_headings(self):
+        self.none(s_mddocs._firstHeading('just prose\n\nmore prose\n'))
+
+    def test_srclinemap_no_srcdir_falls_back(self):
+        srclines = s_mddocs._SrcLineMap(None)
+        self.eq(99, srclines.getLinkLine('page1.md', 'nope.md', None, 0, 99))
+        self.eq(42, srclines.getMdtocLine('index.md', 'nope.md', 42))
+
+    def test_srclinemap_missing_source_file_falls_back(self):
+        with self.getTestDir() as srcdir:
+            srclines = s_mddocs._SrcLineMap(srcdir)
+            self.eq(7, srclines.getLinkLine('page1.md', 'nope.md', None, 0, 7))
+            # a second lookup on the same (cached) missing relpath still falls back
+            self.eq(7, srclines.getLinkLine('page1.md', 'nope.md', None, 0, 7))
+
+    def test_srclinemap_target_absent_in_source_falls_back(self):
+        with self.getTestDir() as srcdir:
+            _write(srcdir, 'page1.md', '# Page One\n\n[other](other.md)\n')
+            srclines = s_mddocs._SrcLineMap(srcdir)
+            self.eq(9, srclines.getLinkLine('page1.md', 'nope.md', None, 0, 9))
+            self.eq(9, srclines.getMdtocLine('page1.md', 'nope.md', 9))
+
+    def test_srclinemap_occurrence_beyond_available_uses_last(self):
+        with self.getTestDir() as srcdir:
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '[a](nope.md)',
+                '',
+                '[b](nope.md)',
+                '',
+            )))
+            srclines = s_mddocs._SrcLineMap(srcdir)
+            self.eq(3, srclines.getLinkLine('page1.md', 'nope.md', None, 0, 99))
+            self.eq(5, srclines.getLinkLine('page1.md', 'nope.md', None, 1, 99))
+            # an occurrence index beyond what source recorded falls back to the last one
+            self.eq(5, srclines.getLinkLine('page1.md', 'nope.md', None, 5, 99))
 
     async def test_builddocs_mdautodoc_stormpkg_via_srcbasedir(self):
         # A Storm package's own yaml commonly lives as a sibling of the doc
@@ -1439,3 +1717,448 @@ class MdDocsTest(s_test.SynTest):
 
             with open(s_common.genpath(outdir, 'page1.md')) as fd:
                 self.eq('# Page One\n\nAlready built, never touched again.\n', fd.read())
+
+    def test_lintfencestyle_spaced_opener(self):
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\n``` text\nhello\n```\n')
+
+            issues = s_mddocs.lintFenceStyle(outdir)
+
+            self.len(1, issues)
+            self.isin('spaced fence opener', issues[0])
+            self.isin('page.md', issues[0])
+            self.isin('line 3', issues[0])
+
+    def test_lintfencestyle_clean(self):
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\n```text\nhello\n```\n')
+
+            issues = s_mddocs.lintFenceStyle(outdir)
+
+            self.len(0, issues)
+
+    def test_lintfencestyle_spaced_opener_in_blockquote(self):
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\n> [!TIP]\n> ``` text\n> hello\n> ```\n')
+
+            issues = s_mddocs.lintFenceStyle(outdir)
+
+            self.len(1, issues)
+            self.isin('spaced fence opener', issues[0])
+            self.isin('page.md', issues[0])
+            self.isin('line 4', issues[0])
+
+    async def test_builddocs_rejects_spaced_fence(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index',
+                '',
+                '```mdtoc',
+                'page1.md',
+                '```',
+                '',
+            )))
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                '``` text',
+                'hello',
+                '```',
+                '',
+            )))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir)
+
+            self.isin('spaced fence opener', str(cm.exception))
+
+    def test_lintinlinecode_double_backtick(self):
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\nUse ``$lib.foo`` here.\n')
+
+            issues = s_mddocs.lintInlineCode(outdir)
+
+            self.len(1, issues)
+            self.isin('double-backtick inline code', issues[0])
+            self.isin('page.md', issues[0])
+            self.isin('line 3', issues[0])
+
+    def test_lintinlinecode_clean(self):
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\nUse `$lib.foo` here.\n')
+
+            issues = s_mddocs.lintInlineCode(outdir)
+
+            self.len(0, issues)
+
+    def test_lintinlinecode_allows_backtick_escape(self):
+        # A double-backtick span whose content itself contains a backtick is
+        # CommonMark's escape for a literal backtick, so it must not be flagged.
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\nUse `` `escaped` `` and `` ```text `` fences.\n')
+
+            issues = s_mddocs.lintInlineCode(outdir)
+
+            self.len(0, issues)
+
+    def test_lintinlinecode_ignores_fenced_blocks(self):
+        # A fenced code block may legitimately show double-backtick text as a
+        # sample -- it must not be flagged -- but content outside the fence
+        # still is.
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\n```text\nUse ``rst`` style\n```\n\nOutside ``bad``.\n')
+
+            issues = s_mddocs.lintInlineCode(outdir)
+
+            self.len(1, issues)
+            self.isin('page.md', issues[0])
+            self.isin('line 7', issues[0])
+
+    def test_lintinlinecode_multiline_span(self):
+        with self.getTestDir() as outdir:
+            path = s_common.genpath(outdir, 'page.md')
+            with open(path, 'w') as fd:
+                fd.write('# Title\n\nThis spans ``one\ntwo`` lines.\n')
+
+            issues = s_mddocs.lintInlineCode(outdir)
+
+            self.len(1, issues)
+            self.isin('line 3', issues[0])
+
+    async def test_builddocs_rejects_double_backtick_inline_code(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index',
+                '',
+                '```mdtoc',
+                'page1.md',
+                '```',
+                '',
+            )))
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One',
+                '',
+                'Use ``$lib.foo`` here.',
+                '',
+            )))
+
+            with self.raises(s_exc.SynErr) as cm:
+                await s_mddocs.buildDocs(srcdir, outdir)
+
+            self.isin('double-backtick inline code', str(cm.exception))
+
+class DocDriftTest(s_test.SynTest):
+    '''synapse.lib.mddocs.checkDrift and its supporting helpers.'''
+
+    def test_fencedirectivenames_classifies_by_top_level_fence(self):
+        self.eq({'mdautodoc'}, s_mddocs.fenceDirectiveNames('# T\n\n```mdautodoc --conf x\n```\n'))
+        self.eq({'mdtoc'}, s_mddocs.fenceDirectiveNames('# T\n\n```mdtoc\npage.md\n```\n'))
+        self.eq({'mdstorm'}, s_mddocs.fenceDirectiveNames('# T\n\n```mdstorm\nfoo\n```\n'))
+        self.eq(set(), s_mddocs.fenceDirectiveNames('# T\n\nplain text, no fence\n'))
+        self.eq(set(), s_mddocs.fenceDirectiveNames('# T\n\n```python\nprint(1)\n```\n'))
+
+    def test_fencedirectivenames_mixed_page(self):
+        text = '\n'.join(('# T', '', '```mdautodoc --conf x', '```', '', '```mdstorm', 'foo', '```', ''))
+        self.eq({'mdautodoc', 'mdstorm'}, s_mddocs.fenceDirectiveNames(text))
+
+    def test_fencedirectivenames_ignores_nested_fence(self):
+        # a fence indented inside a blockquote (token.level > 0) is not top-level
+        self.eq(set(), s_mddocs.fenceDirectiveNames('# T\n\n> ```mdstorm\n> foo\n> ```\n'))
+
+    def test_fencedirectivenames_tolerates_longer_fence(self):
+        text = '# T\n\n````mdautodoc --conf x\nsome ```stuff``` inside\n````\n'
+        self.eq({'mdautodoc'}, s_mddocs.fenceDirectiveNames(text))
+
+    def test_isdeterministicpage(self):
+        self.true(s_mddocs.isDeterministicPage('```mdautodoc --conf x\n```\n'))
+        self.true(s_mddocs.isDeterministicPage('```mdtoc\npage.md\n```\n'))
+        self.false(s_mddocs.isDeterministicPage('no fences here\n'))
+        self.false(s_mddocs.isDeterministicPage('```mdstorm\nfoo\n```\n'))
+
+        mixed = '```mdautodoc --conf x\n```\n\n```mdstorm\nfoo\n```\n'
+        self.false(s_mddocs.isDeterministicPage(mixed))
+
+    def test_nonblankcontains(self):
+        hay = ['a\n', '\n', 'b\n', 'c\n', '\n']
+        self.true(s_mddocs._nonBlankContains(hay, ['b\n', 'c\n']))
+        self.false(s_mddocs._nonBlankContains(hay, ['b\n', 'x\n']))
+        self.true(s_mddocs._nonBlankContains(hay, []))
+        # a needle made up only of blank lines is filtered down to nothing -- trivially found
+        self.true(s_mddocs._nonBlankContains(hay, ['\n']))
+
+    def test_cappeddiff_under_cap(self):
+        diff = s_mddocs._cappedDiff(['a', 'b'], ['a', 'c'])
+        self.isin('-b', diff)
+        self.isin('+c', diff)
+        self.notin('omitted', diff)
+
+    def test_cappeddiff_over_cap(self):
+        before = [f'line{i}' for i in range(100)]
+        after = [f'line{i}x' for i in range(100)]
+
+        diff = s_mddocs._cappedDiff(before, after)
+
+        self.isin('more diff line(s) omitted', diff)
+        self.len(s_mddocs._DIFF_LINE_CAP + 1, diff.splitlines())
+
+    def test_usesglobalregistry(self):
+        self.true(s_mddocs._usesGlobalRegistry('```mdautodoc --model-forms\n```\n'))
+        self.true(s_mddocs._usesGlobalRegistry('```mdautodoc --model-types\n```\n'))
+        self.true(s_mddocs._usesGlobalRegistry('```mdautodoc --stormtypes-libs\n```\n'))
+        self.true(s_mddocs._usesGlobalRegistry('```mdautodoc --stormtypes-prims\n```\n'))
+        self.false(s_mddocs._usesGlobalRegistry('```mdautodoc --conf synapse.cortex.Cortex\n```\n'))
+        self.false(s_mddocs._usesGlobalRegistry('```mdtoc\npage.md\n```\n'))
+        self.false(s_mddocs._usesGlobalRegistry('no fences\n'))
+
+    async def test_renderisolated_returns_lines_and_fenceout(self):
+        with self.getTestDir() as dirn:
+            path = _write(dirn, 'a.md', '# T\n\n```mdautodoc --stormtypes-libs\n```\n')
+
+            lines, fenceout = await s_mddocs._renderIsolated(path)
+
+            text = ''.join(lines)
+            self.isin('# T', text)
+            self.len(1, fenceout)
+            self.eq('mdautodoc', fenceout[0][0])
+            self.eq('--stormtypes-libs', fenceout[0][1])
+
+    async def test_renderisolated_renderonly_skips_directive(self):
+        with self.getTestDir() as dirn:
+            # a bare ```mdstorm fence with no ```mdstorm-setup would raise NoSuchVar
+            # if actually executed -- absence of that exception, plus an empty
+            # fenceout, is the proof renderonly kept it from ever running.
+            path = _write(dirn, 'a.md', '# T\n\n```mdstorm\n$lib.print(hi)\n```\n')
+
+            lines, fenceout = await s_mddocs._renderIsolated(path, renderonly={'mdautodoc'})
+
+            self.eq([], fenceout)
+            text = ''.join(lines)
+            self.isin('# T', text)
+            self.notin('$lib.print', text)
+
+    async def test_renderisolated_raises_on_subprocess_failure(self):
+        with self.getTestDir() as dirn:
+            path = _write(dirn, 'bad.md', '```mdautodoc --conf does.not.exist.Ctor\n```\n')
+            with self.raises(s_exc.SynErr):
+                await s_mddocs._renderIsolated(path)
+
+    async def test_checkdrift_clean_bundle_no_findings(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index', '', '```mdtoc', 'page1.md', '```', '',
+            )))
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One', '', '```mdautodoc --conf synapse.cortex.Cortex', '```', '',
+            )))
+            await s_mddocs.buildDocs(srcdir, outdir)
+
+            self.eq([], await s_mddocs.checkDrift(srcdir, outdir))
+
+    async def test_checkdrift_detects_mutated_deterministic_page(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            # a single-file bundle: index.md is always implicitly reachable (buildToc
+            # visits it unconditionally), so this needs no mdtoc/link structure at all.
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Page One', '', '```mdautodoc --conf synapse.cortex.Cortex', '```', '',
+            )))
+            await s_mddocs.buildDocs(srcdir, outdir)
+
+            with open(s_common.genpath(outdir, 'index.md'), 'a') as fd:
+                fd.write('MUTATED\n')
+
+            findings = await s_mddocs.checkDrift(srcdir, outdir)
+
+            self.len(1, findings)
+            relpath, diagnostic = findings[0]
+            self.eq('index.md', relpath)
+            self.isin('MUTATED', diagnostic)
+
+    async def test_checkdrift_unbuilt_deterministic_page_not_reported(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'page1.md', '\n'.join((
+                '# Page One', '', '```mdautodoc --conf synapse.cortex.Cortex', '```', '',
+            )))
+            # outdir stays empty -- this page has never been built at all, a
+            # different failure this drift check deliberately leaves unreported
+            # (see docs.sha256's own "tracks all directive-bearing files" coverage).
+            self.eq([], await s_mddocs.checkDrift(srcdir, outdir))
+
+    async def test_checkdrift_detects_metadata_json_drift(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '\n'.join((
+                '# Index', '', '```mdtoc', 'page1.md', '```', '',
+            )))
+            _write(srcdir, 'page1.md', '# Page One\n\ncontent\n')
+            await s_mddocs.buildDocs(srcdir, outdir)
+
+            meta = s_json.jsload(outdir, 'metadata.json')
+            meta['toc'][0]['title'] = 'MUTATED TITLE'
+            s_json.jssave(meta, outdir, 'metadata.json')
+
+            findings = await s_mddocs.checkDrift(srcdir, outdir)
+
+            self.len(1, findings)
+            self.eq('metadata.json', findings[0][0])
+
+    async def test_checkdrift_mixed_page_checks_mdautodoc_ignores_live_region(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            src = '\n'.join((
+                '# Page',
+                '',
+                '```mdautodoc --conf synapse.cortex.Cortex',
+                '```',
+                '',
+                '```mdstorm',
+                '$lib.raise(BadArg, mesg=should-not-run)',
+                '```',
+                '',
+            ))
+            _write(srcdir, 'page1.md', src)
+
+            # Hand-build the committed page: the real rendered confdefs block, plus
+            # arbitrary placeholder text where a real build's live query/output
+            # would go -- checkDrift must never render (or even inspect) that part.
+            md = await s_autodoc.docConfdefsMd('synapse.cortex.Cortex')
+            renderedlines = md.getMdText().splitlines()
+            built = '# Page\n\n' + '\n'.join(renderedlines) + '\n\n(whatever live output was here)\n'
+            _write(outdir, 'page1.md', built)
+
+            # matches, and -- since this completes without raising despite the
+            # $lib.raise fence above -- proves the live fence was never executed.
+            self.eq([], await s_mddocs.checkDrift(srcdir, outdir))
+
+            # mutating only the live placeholder text must NOT be reported
+            builtlive = built.replace('(whatever live output was here)', '(DIFFERENT live output)')
+            _write(outdir, 'page1.md', builtlive)
+            self.eq([], await s_mddocs.checkDrift(srcdir, outdir))
+
+            # mutating the mdautodoc region itself (its last rendered line) must be
+            renderedlines[-1] = renderedlines[-1] + ' MUTATED'
+            builtautodoc = '# Page\n\n' + '\n'.join(renderedlines) + '\n\n(whatever live output was here)\n'
+            _write(outdir, 'page1.md', builtautodoc)
+
+            findings = await s_mddocs.checkDrift(srcdir, outdir)
+            self.len(1, findings)
+            self.eq('page1.md', findings[0][0])
+
+    async def test_checkdrift_unbuilt_mixed_page_not_reported(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            src = '\n'.join((
+                '# Page', '', '```mdautodoc --conf synapse.cortex.Cortex', '```', '',
+                '```mdstorm', '$lib.raise(BadArg, mesg=should-not-run)', '```', '',
+            ))
+            _write(srcdir, 'page1.md', src)
+            # outdir stays empty -- never built at all, so there is nothing to
+            # containment-check the mdautodoc fence against; this is the same
+            # "never built" carve-out as the all-deterministic tier.
+            self.eq([], await s_mddocs.checkDrift(srcdir, outdir))
+
+    async def test_checkdrift_mixed_page_with_global_registry_fence_is_isolated(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            src = '\n'.join((
+                '# Page', '', '```mdautodoc --stormtypes-libs', '```', '',
+                '```mdstorm', '$lib.raise(BadArg, mesg=should-not-run)', '```', '',
+            ))
+            srcpath = _write(srcdir, 'page1.md', src)
+
+            _lines, fenceout = await s_mddocs._renderIsolated(
+                srcpath, renderonly=s_mddocs.DETERMINISTIC_DIRECTIVES)
+            self.len(1, fenceout)
+            rendered = ''.join(fenceout[0][2])
+            built = f'# Page\n\n{rendered}\n\n(whatever live output was here)\n'
+            _write(outdir, 'page1.md', built)
+
+            # matches (proving the isolated mixed-page path renders identically to
+            # what was committed), and completes without raising despite the
+            # $lib.raise fence, proving that fence was never executed either.
+            self.eq([], await s_mddocs.checkDrift(srcdir, outdir))
+
+            # mutate the block's own last line in place -- appending a new line
+            # AFTER the block instead would still leave the (unmutated) block
+            # findable as a contiguous run, since containment does not care what
+            # follows a match.
+            renderedlines = rendered.splitlines()
+            renderedlines[-1] = renderedlines[-1] + 'MUTATED'
+            mutated = built.replace(rendered, '\n'.join(renderedlines), 1)
+            _write(outdir, 'page1.md', mutated)
+            findings = await s_mddocs.checkDrift(srcdir, outdir)
+            self.len(1, findings)
+            self.eq('page1.md', findings[0][0])
+
+    async def test_checkdrift_isolates_global_registry_pages(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            srcpath = _write(srcdir, 'index.md', '# Index\n\n```mdautodoc --stormtypes-libs\n```\n')
+
+            # Hand-build the committed page from the SAME isolated renderer checkDrift
+            # itself uses, rather than going through buildDocs: the real
+            # ```mdautodoc --stormtypes-libs content links to other reference pages
+            # that don't exist in this minimal single-page bundle, which buildDocs'
+            # own validate() would (correctly) reject -- checkDrift never runs
+            # validate(), so it does not care, but it does need byte-exact committed
+            # content to compare against.
+            lines, _fenceout = await s_mddocs._renderIsolated(srcpath)
+            _write(outdir, 'index.md', ''.join(lines))
+
+            self.eq([], await s_mddocs.checkDrift(srcdir, outdir))
+
+            with open(s_common.genpath(outdir, 'index.md'), 'a') as fd:
+                fd.write('MUTATED\n')
+
+            findings = await s_mddocs.checkDrift(srcdir, outdir)
+            self.len(1, findings)
+            self.eq('index.md', findings[0][0])
+
+    async def test_checkdrift_removes_tempdir_on_success(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '# Index\n\n```mdautodoc --conf synapse.cortex.Cortex\n```\n')
+            await s_mddocs.buildDocs(srcdir, outdir)
+
+            seen = []
+            realmkdtemp = tempfile.mkdtemp
+
+            def spy(*args, **kwargs):
+                path = realmkdtemp(*args, **kwargs)
+                seen.append(path)
+                return path
+
+            with mock.patch('tempfile.mkdtemp', spy):
+                await s_mddocs.checkDrift(srcdir, outdir)
+
+            self.len(1, seen)
+            self.false(os.path.isdir(seen[0]))
+
+    async def test_checkdrift_removes_tempdir_on_exception(self):
+        with self.getTestDir() as srcdir, self.getTestDir() as outdir:
+            _write(srcdir, 'index.md', '# Index\n\n```mdautodoc --conf synapse.cortex.Cortex\n```\n')
+
+            seen = []
+            realmkdtemp = tempfile.mkdtemp
+
+            def spy(*args, **kwargs):
+                path = realmkdtemp(*args, **kwargs)
+                seen.append(path)
+                return path
+
+            def boom(*args, **kwargs):
+                raise s_exc.SynErr(mesg='boom')
+
+            with mock.patch('tempfile.mkdtemp', spy), mock.patch('synapse.lib.mddocs.stageReuse', boom):
+                with self.raises(s_exc.SynErr):
+                    await s_mddocs.checkDrift(srcdir, outdir)
+
+            self.len(1, seen)
+            self.false(os.path.isdir(seen[0]))

@@ -559,6 +559,7 @@ modeldefs = (
                 'template': {'title': 'bank account'},
                 'interfaces': (
                     ('econ:pay:instrument', {}),
+                    ('meta:usable', {}),
                 ),
                 'props': (
                     ('routing', ('econ:bank:routing:code', {}), {

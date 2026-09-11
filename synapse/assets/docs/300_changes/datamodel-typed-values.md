@@ -17,7 +17,7 @@ What you need to do
 
 :   When setting a property whose type points to a form or interface, assign a node (via subquery or variable) rather than a bare string. A scalar-typed property still normalizes a bare value, but a property backed by a guid form does not auto-default: you must name the form explicitly even when only one form is allowed -- use a dictionary guid constructor with the `$as` key (which names the guid form to build), or an `as <type>` cast. The `$as` key is also how you build a property whose type can resolve to more than one form, such as an interface-typed `:creator`.
 
-    ``` text
+    ```text
     // $as names the guid form to build for a property whose type can resolve to more than one form
     [ meta:note=* :creator=({"$as": "ps:person", "name": "bob smith"}) ]
     ```

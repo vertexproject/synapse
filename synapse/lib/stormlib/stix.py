@@ -970,10 +970,10 @@ class LibStixImport(s_stormtypes.Lib):
             'name': 'config', 'desc': '''
             Return an editable copy of the default STIX ingest config.
 
-            The returned dict may be modified and passed back to ``ingest()`` to override
-            individual object handlers or add a ``reporter`` name. The ``reporter`` key,
+            The returned dict may be modified and passed back to `ingest()` to override
+            individual object handlers or add a `reporter` name. The `reporter` key,
             when set to a non-null string, is threaded into every Storm snippet as
-            ``$reporter`` and applied to reporter-scoped nodes via ``:reporter:name ?=``.
+            `$reporter` and applied to reporter-scoped nodes via `:reporter:name ?=`.
             ''',
             'type': {
                 'type': 'function', '_funcname': 'config',
@@ -986,8 +986,8 @@ class LibStixImport(s_stormtypes.Lib):
 
             Each STIX Domain Object is mapped to a reporter-scoped Synapse form and
             deconflicted per-bundle via a gutor $salt derived from the bundle id. The
-            optional ``config`` dict may override individual handler Storm snippets or
-            supply a ``reporter`` string to populate ``:reporter:name`` on created nodes.
+            optional `config` dict may override individual handler Storm snippets or
+            supply a `reporter` string to populate `:reporter:name` on created nodes.
             ''',
             'type': {
                 'type': 'function', '_funcname': 'ingest',
@@ -1277,7 +1277,7 @@ class LibStixExport(s_stormtypes.Lib):
                 'args': (
                     {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'The STIX bundle export config to use.'},
                 ),
-                'returns': {'type': 'stix:bundle', 'desc': 'A new ``stix:bundle`` instance.'},
+                'returns': {'type': 'stix:bundle', 'desc': 'A new `stix:bundle` instance.'},
             },
         },
 
@@ -1399,7 +1399,7 @@ class StixBundle(s_stormtypes.Prim):
         Make one or more STIX objects from a node, and add it to the bundle.
 
         Examples:
-            Example Storm which would be called remotely via the ``callStorm()`` API::
+            Example Storm which would be called remotely via the `callStorm()` API::
 
                 init { $bundle = $lib.stix.bundle() }
                 #aka.feye.thr.apt1

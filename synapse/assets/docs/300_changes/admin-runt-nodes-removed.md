@@ -25,7 +25,7 @@ What you need to do
 
 :   Replace any Storm that lifts `syn:cron` or `syn:trigger` nodes. To enumerate cron jobs use `cron.list` or `cron.stat`; to enumerate triggers use `trigger.list` (add `--all` to list every trigger in every readable view rather than just the current view). For programmatic access, iterate `$lib.cron.list()` or `$lib.trigger.list()` and filter on the returned object properties. There is no data to migrate -- these were runtime-only nodes with no stored data.
 
-    ``` text
+    ```text
     // 2.x: enumerate via runt nodes
     syn:cron
     syn:trigger:doc~=ingest
@@ -35,7 +35,7 @@ What you need to do
     trigger.list --all
     ```
 
-    ``` text
+    ```text
     // 2.x: filter crons by a node prop (the runt form exposed :doc, :name, :storm)
     syn:cron:doc~=ingest
 

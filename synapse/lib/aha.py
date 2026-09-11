@@ -1277,7 +1277,7 @@ class AhaCell(s_cell.Cell):
         return await self._push('aha:svc:add', name, info)
 
     def _reqSvcType(self, info):
-        # implementers must override the service type. the base ``cell`` type
+        # implementers must override the service type. the base `cell` type
         # is not a deployable service and may not register with AHA.
         if info.get('type') == 'cell':
             mesg = 'AHA service type cell may not register; implementers must override the service type.'
@@ -1442,14 +1442,14 @@ class AhaCell(s_cell.Cell):
 
         # compare-and-set: only clear online if it still matches linkiden.
         svcentry = self._getSvcEntry(name)
-        if svcentry is not None:
 
-            if self._getSvcSess(name) == linkiden:
-                self.slab.delete(name.encode(), db='svc:sess')
-                svcentry['online'] = False
-                svcentry['info']['ready'] = False
-                await self._setSvcEntry(svcentry)
-                await self._fireTopoMod(svcentry)
+        isdown = svcentry is not None and self._getSvcSess(name) == linkiden
+        if isdown:
+            self.slab.delete(name.encode(), db='svc:sess')
+            svcentry['online'] = False
+            svcentry['info']['ready'] = False
+            await self._setSvcEntry(svcentry)
+            await self._fireTopoMod(svcentry)
 
         # Check if we have any links which may need to be removed
         current_sessions = {s_common.guid(iden): sess for iden, sess in self.dmon.sessions.items()}
@@ -1457,6 +1457,9 @@ class AhaCell(s_cell.Cell):
         if sess is not None:
             for link in [lnk for lnk in self.dmon.links if lnk.get('sess') is sess]:
                 await link.fini()
+
+        if not isdown:
+            return
 
         await self.fire('aha:svc:down', name=name)
 
@@ -1636,7 +1639,7 @@ class AhaCell(s_cell.Cell):
         # at the lowest service nexus offset, or None. A schism can only occur
         # when the caller *led* its own last acknowledged term ( otherwise it was
         # only ever a follower and never wrote divergent changes ). The history is
-        # keyed by AHA's monotonic nexus offset ( stored as the term ``id`` ), so
+        # keyed by AHA's monotonic nexus offset ( stored as the term `id` ), so
         # the caller's own id bounds a scan of only the terms created after it. We
         # consider every such later term rather than only the immediately
         # following one, because a lagging peer force-promoted at a low service
@@ -1678,7 +1681,7 @@ class AhaCell(s_cell.Cell):
         await self.slab.put(svctype.encode(), s_msgpack.en(term), db='aha:lead:term')
 
         # key the history by our own ( monotonic ) AHA nexus transaction offset,
-        # also stored as the term ``id``, so scans walk the terms in the order
+        # also stored as the term `id`, so scans walk the terms in the order
         # they were created and a caller can anchor a bounded scan at its own
         # term. the service nexus offset stored in the term ( nexsoffs ) is a
         # different value which is not monotonic across leadership changes.

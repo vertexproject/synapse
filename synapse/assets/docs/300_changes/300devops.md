@@ -40,7 +40,7 @@ Before upgrading, identify any layers configured with `mirror` or `upstream` and
 
 In 3.x, running the whole Cortex as a mirror requires no follower `cell.yaml` config: deploy the additional instance under the same AHA provisioning secret and it follows the AHA determined leader automatically (see [Deploy Cortex Mirror (optional)](../deploymentguide.md#deployment-guide-mirror)).
 
-``` text
+```text
 // 3.x: configure a layer pull from a source layer into a destination layer
 layer.pull.add $dstlayriden `tcp://root:secret@cortex.example.org/*/layer/{$srclayriden}`
 ```
@@ -65,7 +65,7 @@ Also removed: the Cell `inaugural` key, which seeded users and roles during a se
 
 Also removed: the hidden Cell `aha:svcinfo` key, which registered a static host/port/scheme with AHA in place of the service's real listener information. A service now always registers the `urlinfo` of the listener it actually bound, with the host stamped by AHA from the address it observes. Remove it from any service `cell.yaml` and unset any `SYN_<CELL>_AHA_SVCINFO` environment variables -- a leftover key fails the boot, but a leftover environment variable is silently ignored. There is no replacement.
 
-``` yaml
+```yaml
 # 2.x cortex cell.yaml
 modules:
   - myproj.mymodule.MyModule
@@ -74,7 +74,7 @@ layers:logedits: true
 cron:enable: true
 ```
 
-``` yaml
+```yaml
 # 3.x cortex cell.yaml -- removed keys deleted
 layers:cache:size: 10000
 max:nodes: 0
@@ -88,7 +88,7 @@ Log timestamps are now rendered in UTC as ISO-8601 with microsecond precision an
 
 Update any log-ingestion or parsing pipelines (SIEM, fluentd/vector grok patterns, dashboards) that assumed the old format. `SYN_LOG_DATEFORMAT` still maps to the formatter `datefmt`, but it is now applied via `strftime` against a UTC datetime; if you set a custom format and want sub-second precision you must include `%f`.
 
-``` bash
+```bash
 # 3.x default (UTC, microseconds, ISO-8601 'Z')
 # 2026-06-25T13:42:07.123456Z [INFO] cortex started ...
 
@@ -102,7 +102,7 @@ Cortex feed ingest is standardized on a single packed-node format; the pluggable
 
 The CLI `synapse.tools.cortex.feed` dropped its `--format` / `-f` option and infers the format from the file extension: `.mpk` and `.nodes` are packed-node files (meta header read from the file), while `.json`, `.jsonl`, and `.yaml` are fed without a meta header.
 
-``` bash
+```bash
 # 2.x CLI -- explicit --format
 python -m synapse.tools.cortex.feed -c cell://./core --format syn.nodes data.nodes
 
@@ -136,7 +136,7 @@ Removed tools:
 - `synapse.tools.utils.mddocs`, the old per-bundle `mddocs.yaml`-driven site builder, is removed. A Storm package's own `docs/` source tree is built into `files/docs` with `synapse.tools.storm.pkg.doc` -- see [Package Definition `docs` key removed](storm-package-docs-removed.md#vtx_300_storm-package-docs-removed). A bundle with no pkgdef of its own (this `synapse` bundle, or `synapse-enterprise`) instead builds with `synapse.tools.utils.doc`, given its `docs/` source directory and its committed bundle directory explicitly.
 - `synapse.tools.utils.autodoc` is removed. Autodoc'd content (confdefs, API docs, a Storm package's command/module reference, the data model, the Storm types reference) is now requested inline with an ` ```mdautodoc ` fence at the point of use, resolved by `synapse.tools.utils.mdstorm` alongside every other directive.
 
-``` bash
+```bash
 # 2.x -> 3.x tool path examples
 python -m synapse.tools.backup /srv/core /backups/core        # 2.x
 python -m synapse.tools.service.backup /srv/core /backups/core # 3.x
@@ -152,7 +152,7 @@ python -m synapse.tools.service.moduser --url cell://core --allow node.add visi 
 
 Telepath proxies are now strictly asynchronous; the transparent synchronous wrappers that let 2.x code call remote APIs without `await` are removed, and `synapse.glob.sync()` / `synapse.glob.synchelp()` no longer exist ([Synchronous Telepath Removed](devops-telepath-async-only.md#vtx_300_devops-telepath-async-only)). Audit any ops automation that talked to a Synapse service over Telepath from synchronous code. Wrap your logic in an async function driven by `asyncio.run()`, `await` the `openurl()` call and every proxy method call, and iterate generator methods such as `storm()` with `async for` (or `await <call>.list()`).
 
-``` python
+```python
 # 3.x: async-only
 import asyncio
 import synapse.telepath as s_telepath

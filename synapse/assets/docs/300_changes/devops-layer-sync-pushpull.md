@@ -19,7 +19,7 @@ What you need to do
 
 :   Before upgrading, identify any layers configured with `mirror` or `upstream` and re-architect them. For full-service replication, run the whole Cortex as a mirror via the Cell `mirror` configuration. For layer-to-layer synchronization, configure Layer push/pull. Remove `mirror`, `upstream`, `lockmemory`, and `logedits` keys from layer definitions and cell configuration.
 
-    ``` python
+    ```python
     # 2.x: a layer definition with a mirror follower
     ldef = {'mirror': 'aha://cortex.example.org/...', 'logedits': True}
     await core.addLayer(ldef)
@@ -27,7 +27,7 @@ What you need to do
 
 :   In 3.x, set up a layer pull instead (from the source layer into the destination layer):
 
-    ``` text
+    ```text
     // 3.x: configure a layer pull via Storm
     // (the URL is a backtick format string so $srclayriden is interpolated)
     layer.pull.add $dstlayriden `tcp://root:secret@cortex.example.org/*/layer/{$srclayriden}`
@@ -35,7 +35,7 @@ What you need to do
 
 :   Or run the entire Cortex as a mirror by setting the Cell `mirror` configuration:
 
-    ``` yaml
+    ```yaml
     # 3.x: cell.yaml on the follower Cortex
     mirror: aha://cortex.example.org/...
     ```

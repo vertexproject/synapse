@@ -417,13 +417,13 @@ def repr(tick, pack=False):
 def reprmax(tick):
     '''
     Return a date string for a max-fill epoch-micros timestamp, collapsing the
-    trailing time fields which were filled up to their maximum into a ``*``.
+    trailing time fields which were filled up to their maximum into a `*`.
 
     A max-fill timestamp is produced when a partial time expression is normed
-    up to the maximum of its precision window (e.g. ``2025-12-31`` -> the last
+    up to the maximum of its precision window (e.g. `2025-12-31` -> the last
     microsecond of that day). Rather than displaying the filled maximum (e.g.
-    ``2025-12-31T23:59:59.999999Z``), this collapses the filled tail into a
-    ``*`` (e.g. ``2025-12-31*``). The fill boundary is determined dynamically
+    `2025-12-31T23:59:59.999999Z`), this collapses the filled tail into a
+    `*` (e.g. `2025-12-31*`). The fill boundary is determined dynamically
     from the value itself.
     '''
     if tick == 0x7fffffffffffffff:

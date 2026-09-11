@@ -171,6 +171,10 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
 [ -:asn ]                                     // delete property
 [ :prop ?= value ]                            // try-set (ignore type errors)
 [ :prop*unset= value ]                        // set only if unset (conditional)
+[ :prop*min= value ]                          // keep the lesser of the current and given value
+[ :prop*max= value ]                          // keep the greater (widens rather than overwrites)
+[ :seen.min*min?= $first ]                     // conditional set on a virt, with the try oper
+[ +?#(tag.name).max*max= $updated ]            // and on a tag timestamp (tag name parenthesized)
 [ :prop={ foo:bar } ]                         // assign from a subquery (yields a node; its value is assigned)
 [ :prop={[ foo:bar=baz ]} ]                   // the subquery may create the node to assign
 
@@ -196,6 +200,45 @@ Comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=` (regex), `^=` (prefi
     <(seen)+ $srcnode   // Only adds the edge to the risk:vuln
 )]
 ```
+
+**Setting an array property** distinguishes "absent" from "present but empty", so pick the
+form deliberately:
+
+```storm
+[ :cookies = $vals ]                          // a list; an EMPTY list stores an empty array (), NOT unset
+[ :cookies={ ... } ]                          // a subquery yielding nothing also stores ()
+[ :cookies ?= (null) ]                        // ?= with (null) skips the set, leaving the prop unset
+[ :cookies = (null) ]                         // plain = with (null) raises BadTypeValu
+[ :cookies = "a=1; b=2" ]                     // WRONG: a delimited string is not split; the set fails
+```
+
+Set the **empty array** when the source data carried the field but none of its values were
+usable -- it is a positive statement that nothing valid was there -- and leave the property
+**unset** when the field was absent entirely.
+
+An array property's `size` virt keeps both cases cheap to lift, so an always-set property
+does not cost you the "which nodes actually have values?" query (`=`, `<`, `>`, `<=`, `>=`
+and `range=` are all supported):
+
+```storm
+inet:http:response:cookies                    // set at all, empty array included
+inet:http:response:cookies.size>0             // has at least one value
+inet:http:response:cookies.size=0             // present, but nothing valid was there
+inet:http:response +:cookies.size>0           // same, as a filter
+```
+
+A type that splits one delimited string into several values (e.g. `inet:http:cookie` on
+`;`) only does so while **constructing nodes**, never while norming an array property
+value. So build the values in a subquery, or pass a list:
+
+```storm
+[ :cookies={[ inet:http:cookie="a=1; b=2" ]} ]   // two cookie nodes, both assigned
+[ :cookies = ("a=1", "b=2") ]                    // equivalent, as a list
+```
+
+An element the type rejects is skipped when the values come from node construction, but one
+bad element fails the whole set when they come from a list -- `?=` guards the property, not
+the individual items.
 
 ### Variables & Expressions
 
@@ -415,6 +458,13 @@ else { ... }
 // For loop (with optional tuple unpacking)
 for $item in $list { ... }
 for ($key, $val) in $dict { ... }
+
+// CAREFUL: with a node inbound, a loop yields that node on EVERY iteration, so the
+// statements after the loop start running before the loop has finished. Usually the fix
+// is to run the loop in a subquery, whose output is discarded:
+{ for $item in $list { ... } }
+// Alternatively build the variable up on an empty pipeline (before any `yield`), or
+// defer whatever follows with `fini { }`.
 
 // While loop
 while $condition { ... }

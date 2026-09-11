@@ -97,6 +97,99 @@ class StormTypesTest(s_test.SynTest):
             for path in (('tstpriv',), ('tstpriv', 'pub'), ('tstpriv', 'priv')):
                 reg.delStormLib(path)
 
+    async def test_stormtypes_cortex_edition_help(self):
+        # the interactive help renders the edition note from the same doc info
+        # the generated reference uses, so an edition-gated library says so in
+        # both places rather than only in the docs
+
+        class TstEdHelpLib(s_stormtypes.Lib):
+            '''A test lib from another edition.'''
+            _cortex_edition = 'Test Edition'
+            _storm_lib_path = ('tstedhelp',)
+            _storm_locals = (
+                {'name': 'thing', 'desc': 'Do the thing.',
+                 'type': {'type': 'function', '_funcname': '_methThing',
+                          'args': (),
+                          'returns': {'type': 'str', 'desc': 'The thing.'}}},
+            )
+
+            async def _methThing(self):
+                return 'thing'
+
+        reg = s_stormtypes.registry
+        reg.registerLib(TstEdHelpLib)
+
+        try:
+            async with self.getTestCore() as core:
+
+                msgs = await core.stormlist('help --verbose $lib.tstedhelp')
+
+                # the library's own note implies it for its members
+                self.stormIsInPrint('> **Note:** `$lib.tstedhelp` is only available in Test Edition.', msgs)
+                self.stormNotInPrint('`$lib.tstedhelp.thing` is only available', msgs)
+
+                # a library declaring no edition says nothing about one
+                msgs = await core.stormlist('help --verbose $lib.time')
+                self.stormNotInPrint('is only available in', msgs)
+
+                # the terse form is a one line summary per library, so the note
+                # belongs only to the verbose form which renders the full entry
+                msgs = await core.stormlist('help $lib.tstedhelp')
+                self.stormNotInPrint('is only available in', msgs)
+
+        finally:
+            reg.delStormLib(('tstedhelp',))
+
+    async def test_stormtypes_cortex_edition(self):
+        # A command definition may name the edition which provides it, for one
+        # that is not part of every Cortex. getStormDocs() reports it on that
+        # command only, so a client can tell which commands a given Cortex
+        # actually has.
+        async with self.getTestCore() as core:
+
+            await core.addStormPkg({
+                'name': 'tsted',
+                'version': '1.1.1',
+                'commands': [
+                    {'name': 'tsted.marked', 'storm': '$lib.print(marked)',
+                     '_edition': 'Test Edition'},
+                    {'name': 'tsted.plain', 'storm': '$lib.print(plain)'},
+                ],
+            })
+
+            docs = await core.getStormDocs()
+            cmds = {c.get('name'): c for c in docs['commands']}
+
+            self.eq('Test Edition', cmds['tsted.marked'].get('edition'))
+            self.notin('edition', cmds['tsted.plain'])
+            self.notin('edition', cmds['uniq'])
+
+            self.eq('Test Edition', core.stormcmds['tsted.marked']._cortex_edition)
+            self.none(core.stormcmds['tsted.plain']._cortex_edition)
+
+            # a class-backed command has no definition to take one from
+            self.none(core.stormcmds['uniq']._cortex_edition)
+
+            # the syn:cmd runt node carries it the same way it carries package,
+            # and leaves it unset for a command which declares none
+            self.len(1, await core.nodes('syn:cmd=tsted.marked +:edition="Test Edition"'))
+            self.len(1, await core.nodes('syn:cmd=tsted.plain -:edition'))
+            self.len(1, await core.nodes('syn:cmd=uniq -:edition'))
+
+            nodes = await core.nodes('syn:cmd:edition="Test Edition"')
+            self.eq(('tsted.marked',), tuple(n.ndef[1] for n in nodes))
+
+            # a class-backed command takes its edition from the class rather
+            # than a definition, and its runt node carries it the same way
+            class TstEdCmd(s_storm.Cmd):
+                '''Run the classy test command.'''
+                name = 'tsted.classy'
+                _cortex_edition = 'Other Edition'
+
+            core.addStormCmd(TstEdCmd)
+
+            self.len(1, await core.nodes('syn:cmd=tsted.classy +:edition="Other Edition"'))
+
     async def test_stormtypes_copy(self):
 
         async with self.getTestCore() as core:
@@ -1327,6 +1420,21 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes(q)
             nodes = await core.nodes('test:str=theevalthatmendo')
             self.len(1, nodes)
+
+            # the raw query text is readable without executing the query
+            text = await core.callStorm('$q = ${ [test:str=hehe] } return($q.text)')
+            self.eq(' [test:str=hehe] ', text)
+
+            # ...and is the text, not the stormrepr() wrapper
+            self.notin('storm:query', text)
+
+            # unparsed, so an unresolved variable is not evaluated
+            text = await core.callStorm('$q = ${ [test:str=$newp] } return($q.text)')
+            self.eq(' [test:str=$newp] ', text)
+
+            # survives a copy
+            text = await core.callStorm('$q = $lib.copy(${ [test:str=hehe] }) return($q.text)')
+            self.eq(' [test:str=hehe] ', text)
 
             # exec vars do not populate upwards
             q = '''
@@ -6852,6 +6960,29 @@ class StormTypesTest(s_test.SynTest):
         self.none(await s_stormtypes.tobool(None, noneok=True))
         self.none(await s_stormtypes.tonumber(None, noneok=True))
 
+    async def test_stormtypes_view_tagcount(self):
+        async with self.getTestCore() as core:
+
+            self.eq(0, await core.callStorm('return($lib.view.get().getTagCount(foo.bar))'))
+
+            await core.nodes('[ inet:ip=1.2.3.4 inet:ip=5.6.7.8 :asn=20 inet:asn=20 +#foo.bar ]')
+
+            self.eq(3, await core.callStorm('return($lib.view.get().getTagCount(foo.bar))'))
+            self.eq(2, await core.callStorm('return($lib.view.get().getTagCount(foo.bar, formname=inet:ip))'))
+            self.eq(0, await core.callStorm('return($lib.view.get().getTagCount(newp.newp))'))
+
+            # the count sums the layers of the view the object refers to, not the view the query
+            # runs in, so an explicit iden counts the fork from a query running in its parent
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': fork}
+
+            await core.nodes('[ inet:ip=9.9.9.9 +#foo.bar ]', opts=opts)
+
+            q = 'return($lib.view.get($iden).getTagCount(foo.bar))'
+            self.eq(4, await core.callStorm(q, opts={'vars': {'iden': fork}}))
+            self.eq(4, await core.callStorm('return($lib.view.get().getTagCount(foo.bar))', opts=opts))
+            self.eq(3, await core.callStorm('return($lib.view.get().getTagCount(foo.bar))'))
+
     async def test_stormtypes_layer_counts(self):
         async with self.getTestCore() as core:
 
@@ -7705,9 +7836,34 @@ words\tword\twrd'''
             scmd = 'return($lib.axon.wput($sha256, $url, method=post, ssl=({"verify": false})).code)'
             await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
 
+            # reading the blob is not enough to send it back out to a URL
             await visi.addRule((True, ('axon', 'get')))
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm(scmd, opts=opts)
+
+            mesg = f'User {visi.name!r} ({visi.iden}) must have permission axon.wput'
+            self.eq(exc.exception.get('mesg'), mesg)
+
+            await visi.addRule((True, ('axon', 'wput')))
             self.eq(200, await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'wput')))
             await visi.delRule((True, ('axon', 'get')))
+
+            # inet.http.post with a sha256 field reaches the same axon.wput gate
+
+            scmd = '''
+                $field = ({"name": "f", "sha256": $sha256, "filename": "f.json"})
+                return($lib.inet.http.post($url, fields=([$field]), ssl=({"verify": false})).code)
+            '''
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm(scmd, opts=opts)
+
+            self.eq(exc.exception.get('mesg'), mesg)
+
+            await visi.addRule((True, ('axon', 'wput')))
+            self.eq(200, await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'wput')))
 
             # urlfile
 

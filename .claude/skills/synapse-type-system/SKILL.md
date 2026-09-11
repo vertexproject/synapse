@@ -249,18 +249,27 @@ intstors = {
 
 ### Array Type and Poly Interaction
 
-In `Array.postTypeInit()`, the element type name undergoes the same auto-detection as `processPropdefs()`: if the name matches a known form or interface (with no typeopts), it is converted to a poly type automatically. See the Poly Types section below.
+`Array.postTypeInit()` resolves its element type to a poly on every branch, so an array's member type is always a `Poly` and a stored array is always a list of typed values.
+
+**`Array.ispoly` is `False`.** For an array property the poly is `prop.type.arraytype`, not `prop.type`:
+
+| Property kind | `prop.type` | `prop.type.ispoly` | Where the `Poly` lives |
+|---|---|---|---|
+| non-array | `Poly` | `True` | `prop.type` |
+| array | `Array` | **`False`** | `prop.type.arraytype` |
+
+Verified against the full mainline model: all 4574 non-array props have `ispoly True`; all 256 array props have `ispoly False` with `arraytype.ispoly True`.
+
+Two consequences:
+
+- `if not prop.type.ispoly` is a **live** test that selects the array props — it is not a dead branch. `Model.getTypeForms()` and `Model.getStepForms()` both rely on it.
+- Code that wants a property's member type must step through the array first:
 
 ```python
-if not typeopts:
-    if typename in self.modl.ifaces or \
-       ((forminfo := self.modl.forminfos.get(typename)) is not None and not forminfo.get('runt')):
-        typename = (typename,)
-
-if isinstance(typename, tuple):
-    typeopts['forms'] = tuple(tname for tname in typename if tname in self.modl.forminfos)
-    typeopts['interfaces'] = tuple(tname for tname in typename if tname in self.modl.ifaces)
-    typename = 'poly'
+ptyp = prop.type
+if ptyp.isarray:
+    ptyp = ptyp.arraytype
+# ptyp is now the Poly, for either kind of prop
 ```
 
 ---
@@ -432,12 +441,9 @@ Poly (polymorphic) types allow a single secondary property to hold a value from 
 
 ### Automatic Poly Insertion
 
-When defining secondary properties in a model, you do NOT need to explicitly use the `poly` type name. The data model parser (`Model.processPropdefs()` in `datamodel.py`) automatically converts a property definition to a poly type when:
+When defining secondary properties in a model, you do NOT need to explicitly use the `poly` type name. `Model.processPropdefs()` routes **every** prop typedef through `Model.convertTypedef()`, which converts it **unconditionally** — a tuple of constituents becomes a multi-member poly, and anything else (including a plain `str`, `int`, or `time`) is wrapped as a single-member poly. The only typedef returned as-is is one already naming a `Poly` or an `Array` type.
 
-1. The type name matches a known **form** (non-runt) or **interface** and no type options are provided.
-2. The type name is a **tuple** of form/interface names.
-
-The same auto-detection logic exists in `Array.postTypeInit()` for array element types.
+**Do not infer from a scalar declaration that the prop holds a bare value.** A prop declared `('str', {})` still ends up poly typed, so its stored value is a typed value — a `(typename, valu)` tuple — and `node.get()` on it returns that tuple, not a raw `str`. Re-normalizing a stored value goes through `Type.normFromTypedValu()`, not `Type.norm()`. This holds for array elements too (see Array Type and Poly Interaction above), where the poly is on `prop.type.arraytype`.
 
 ### Defining Poly Properties in Model Code
 

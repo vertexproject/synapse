@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '3.1.0'
+version = '3.2.0'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
@@ -76,9 +76,9 @@ build = [
 
 [project.urls]
 Homepage = 'https://vertex.link'
-Documentation = 'https://docs.vertex.link'
+Documentation = 'https://hub.vertex.link/docs'
 Repository = 'https://github.com/vertexproject/synapse'
-Changelog = 'https://docs.vertex.link/docs/synapse/latest/changelog.html'
+Changelog = 'https://hub.vertex.link/docs/synapse/latest/changelog.md'
 
 [tool.setuptools]
 include-package-data = true

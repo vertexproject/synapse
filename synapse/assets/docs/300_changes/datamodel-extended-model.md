@@ -19,7 +19,7 @@ What you need to do
 
 :   Before using a custom edge verb in 3.x, register it once with `$lib.model.ext.addEdge` and prefix it with an underscore. Replace ad-hoc 2.x verbs with either a built-in modeled verb or a registered `_verb`. Use `*` for `n1form` / `n2form` when the edge should apply to any form.
 
-    ``` text
+    ```text
     // 2.x: any verb usable without declaration
     [ inet:fqdn=vertex.link ] +(seenby)> { ou:org=* }
 
@@ -42,7 +42,7 @@ What you need to do
 
 :   Stop calling `$lib.model.edge.get` / `set` / `del` / `list`. Define extended edge verbs with `$lib.model.ext.addEdge(n1form, verb, n2form, edgeinfo)` -- the verb is the second argument and the verb must be prefixed with an underscore (e.g. `_myedge`) -- and rely on the model for edge-verb metadata.
 
-    ``` text
+    ```text
     // 2.x: ad-hoc edge metadata in a key-value store
     $lib.model.edge.set(refs, doc, 'documentation string')
     $verbs = $lib.model.edge.list()
@@ -65,7 +65,7 @@ What you need to do
 
 :   Stop using `$lib.model.ext.addUnivProp` / `delUnivProp`. Add an extended property to the specific form(s) with `$lib.model.ext.addFormProp()` instead, or model the data on an appropriate interface-supplied property.
 
-    ``` text
+    ```text
     // 2.x: define an extended universal property
     $lib.model.ext.addUnivProp("_score", ("int", ({})), ({"doc": "..."}))
 
@@ -87,7 +87,7 @@ What you need to do
 
 :   For a non-array extended property that needs custom type opts, declare a named type once with `$lib.model.ext.addType` and reference it by name from the property. For an array property, move the element type into the typedef slot and the container opts under the `array` prop info key.
 
-    ``` text
+    ```text
     // 2.x: inline type opts on a non-array extended property
     $lib.model.ext.addFormProp("inet:ip", "_grade", ("str", ({"lower": true})), ({"doc": "..."}))
 

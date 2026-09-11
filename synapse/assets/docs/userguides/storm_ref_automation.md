@@ -112,7 +112,7 @@ Cron in Synapse is similar to the well-known cron utility. Cron jobs execute the
 
   The owner (creator) of a cron job can be modified using the Storm [stormlibs-lib-cron-get](../stormtypes_libs.md#stormlibs-lib-cron-get) library and the `set()` method of the [stormprims-cronjob-f527](../stormtypes_prims.md#stormprims-cronjob-f527) primitive. For example:
 
-  ``` text
+  ```text
   $mycron=$lib.cron.get(<cron_iden>) $mycron.set(creator, <new_creator_iden>)
   ```
 
@@ -170,7 +170,7 @@ You want to use a one-time cron job that runs during off hours to perform some d
 
 ```stormdoc
 storm> cron.at --hour 2 { inet:ip:version=4 +:type=unicast -:place:loc | maxmind }
-Created cron job: ea7ff6953a28c716757b359471712172
+Created cron job: 66daff4c212a0a09df5f8b647b018e27
 ```
 
 > [!TIP]
@@ -182,8 +182,8 @@ We can view the details of this cron job using the `cron.list` command:
 storm> cron.list
  creator                   user                      iden        view        en?  rpt?  now?  err?  # start  last start        last end          query 
 #######################################################################################################################################################
- root                      root                      574eb32c..  c040d536..  Y    N     N           0        Never             Never             inet:ip:version=4 +:type=unicast -:place:loc | maxmind 
- root                      root                      ea7ff695..  c040d536..  Y    N     N           0        Never             Never             inet:ip:version=4 +:type=unicast -:place:loc | maxmind 
+ root                      root                      46ca88be..  74a55135..  Y    N     N           0        Never             Never             inet:ip:version=4 +:type=unicast -:place:loc | maxmind 
+ root                      root                      66daff4c..  74a55135..  Y    N     N           0        Never             Never             inet:ip:version=4 +:type=unicast -:place:loc | maxmind 
 ```
 
 The output of `cron.list` includes the following columns:
@@ -210,7 +210,7 @@ You want to create a cron job that will run every hour to download the latest MI
 
 ```stormdoc
 storm> cron.add hourly@:00 { misp.sync }
-Created cron job: 34034479f1ed2476f6bade64f3ec51de
+Created cron job: f0cac87ca92ab23a1d57b4fe3e1fd95a
 ```
 
 > [!TIP]
@@ -222,7 +222,7 @@ You routinely attempt to download samples of newly identified malware from a thi
 
 ```stormdoc
 storm> cron.add weekly/tue,thu,sat@20:00 { file:bytes#cno.mal -$lib.axon.has(:sha256) | malwarebazaar.download }
-Created cron job: f051281751c585664d2317b1c174595c
+Created cron job: 5e72827c15039c96a0ecfc206d29afc7
 ```
 
 > [!TIP]
@@ -269,7 +269,7 @@ Proper trigger execution may depend on the timing and order of events with respe
 
   The owner (user) of a trigger can be modified using the Storm [stormlibs-lib-trigger-get](../stormtypes_libs.md#stormlibs-lib-trigger-get) library and the `set()` method of the [stormprims-trigger-f527](../stormtypes_prims.md#stormprims-trigger-f527) primitive. For example:
 
-  ``` text
+  ```text
   $mytrigger=$lib.trigger.get(<trigger_iden>) $mytrigger.set(user, <new_user_iden>)
   ```
 
@@ -348,13 +348,13 @@ Recall from the [Storm Operating Concepts](storm_ref_intro.md#storm-op-concepts)
 >
 > To change whether or not an **existing** trigger runs asynchronously, use the Storm [stormlibs-lib-trigger-get](../stormtypes_libs.md#stormlibs-lib-trigger-get) library and the `set()` method of the [stormprims-trigger-f527](../stormtypes_prims.md#stormprims-trigger-f527) primitive. For example:
 >
-> ``` text
+> ```storm
 > $mytrigger=$lib.trigger.get(<trigger_iden>) $mytrigger.set(async, (true))
 > ```
 >
 > Or:
 >
-> ``` text
+> ```storm
 > $mytrigger=$lib.trigger.get(<trigger_iden>) $mytrigger.set(async, (false))
 > ```
 
@@ -364,7 +364,7 @@ You have identified a handful of IP addresses that are used as sinkhole infrastr
 
 ```stormdoc
 storm> trigger.add prop:set --name 'Tag sinkholed FQDNs based on known sinkhole IPs' --prop inet:dns:a:ip { +{ -> inet:ip +#cno.infra.dns.sink.hole } :fqdn -> inet:fqdn [ +#cno.infra.dns.sink.holed ] }
-Added trigger: 7c086ddccff19ff305e0e7cd9e87a32e
+Added trigger: ba284dbaeb1e5e16c122671b24698425
 ```
 
 > [!TIP]
@@ -376,7 +376,7 @@ We can view the newly created trigger using `trigger.list`:
 storm> trigger.list
  creator                   user                      iden                              view         en?  async?  cond       object                            storm query 
 ##########################################################################################################################################################################
- root                      root                      7c086ddccff19ff305e0e7cd9e87a32e  c040d536...  Y    N       prop:set   inet:dns:a:ip                     +{ -> inet:ip +#cno.infra.dns.sink.hole } :fqdn -> inet:fqdn [ +#cno.infra.dns.sink.holed ] 
+ root                      root                      ba284dbaeb1e5e16c122671b24698425  74a55135...  Y    N       prop:set   inet:dns:a:ip                     +{ -> inet:ip +#cno.infra.dns.sink.hole } :fqdn -> inet:fqdn [ +#cno.infra.dns.sink.holed ] 
 ```
 
 The output of `trigger.list` includes the following columns:
@@ -397,7 +397,7 @@ Whenever an IP node is added to Synapse, you want to immediately retrieve the as
 
 ```stormdoc
 storm> trigger.add node:add --name 'Basic IP enrichment' --form inet:ip { maxmind | nettools.dns }
-Added trigger: 4bbfdafa2b929b9c9df010414dce8920
+Added trigger: 53a558479e33b480df9fe44fb7f8ea1a
 ```
 
 > [!TIP]
@@ -413,7 +413,7 @@ If the object `-(used)>` in the attack has an associated TTP tag (such as `#cno.
 
 ```stormdoc
 storm> trigger.add edge:add --name 'Link technique with attack'--verb used --form risk:attack { $attack=$node { yield $auto.opts.n2nid -> # -> meta:technique:tag [ <(used)+ $attack ] } }
-Added trigger: e2abb46d92b59ec5449d1d3b69892ad4
+Added trigger: 2247cc4a896a9978a8f81653eb866c7a
 ```
 
 > [!TIP]
@@ -425,7 +425,7 @@ Added trigger: e2abb46d92b59ec5449d1d3b69892ad4
 
 The Storm for this trigger is broken down below (with comments) for clarity:
 
-``` text
+```storm
 // Set the variable $attack to the risk:attack node for later use
 $attack=$node
 
@@ -448,7 +448,7 @@ When you associate a file with a malware family, you record that assessment on t
 
 ```stormdoc
 storm> trigger.add tag:add --name 'Push malware tags from file to hashes' --form file:bytes --tag cno.mal.** { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ +#$auto.opts.tag ] }
-Added trigger: f8c50e0f10c91adcea49e72a51ed2119
+Added trigger: 0f3075ec72893242493f4bd5e6794254
 ```
 
 > [!TIP]
@@ -462,7 +462,7 @@ Similar to the example above, when your assessment changes and you want to **rem
 
 ```stormdoc
 storm> trigger.add tag:add --name 'Untag hashes when untagging a file' --form file:bytes --tag cno.mal.** { tee { :md5 -> crypto:hash:md5 } { :sha1 -> crypto:hash:sha1 } { :sha256 -> crypto:hash:sha256 } { :sha512 -> crypto:hash:sha512 } | [ -#$auto.opts.tag ] }
-Added trigger: 900a17e6d98c98e648db1ea1edf77db1
+Added trigger: 73077c680e700f4b106a4227bac0e139
 ```
 
 > [!TIP]
@@ -494,7 +494,7 @@ Similarly, if you execute additional Storm inline after the macro runs, that Sto
 
 - **Storage.** Macros are stored within (global to) a Cortex. Macros are differentiated by **name** (as opposed to triggers and cron jobs, which are differentiated by a unique identifier (iden)). You can change the name of a macro using the [stormlibs-lib-macro-mod](../stormtypes_libs.md#stormlibs-lib-macro-mod) library:
 
-  ``` text
+  ```text
   $lib.macro.mod('my old poorly chosen macro name',({'name': 'new.name'}))
   ```
 
@@ -558,7 +558,7 @@ Set macro: sinkhole.check
 
 The Storm for this macro is broken down below (with comments) for clarity. (You can include comments within a macro; Synapse will ignore comment lines during execution.)
 
-``` text
+```storm
 // Get the current time (in UTC) to use for the tag timestamp
 $now=$lib.time.now()
 
@@ -603,13 +603,13 @@ Instead of requiring the analyst to remember and run multiple individual Storm c
 
 Once again, we create the macro with the `macro.set` command. Because of the length of the associated Storm, we have represented the query with `<storm_query>`. The full query is provided below for readability.
 
-``` text
+```storm
 macro.set enrich { <storm_query> }
 ```
 
 The content of the macro (the `<storm_query>`, with comments):
 
-``` text
+```storm
 // Filter inbound nodes to supported forms only
 +(crypto:hash:md5 or crypto:hash:sha1 or crypto:hash:sha256 or inet:fqdn or inet:ip)
 

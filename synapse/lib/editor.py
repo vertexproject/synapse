@@ -89,19 +89,7 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_NODE_DEL, ()))
 
         if self.tombnode:
-            if (tags := sode.get('antitags')) is not None:
-                for tag in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
-                    edits.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
-
-            if (props := sode.get('antiprops')) is not None:
-                for prop in props.keys():
-                    edits.append((s_layer.EDIT_PROP_TOMB_DEL, (prop,)))
-
-            if (tagprops := sode.get('antitagprops')) is not None:
-                for tag, props in tagprops.items():
-                    for name in props.keys():
-                        edits.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, name)))
-
+            # a whole node tombstone subsumes the node's part-of-node tombstones
             edits.append((s_layer.EDIT_NODE_TOMB, ()))
 
         if (nid := self.nid) is not None:
@@ -258,19 +246,23 @@ class ProtoNode(s_node.NodeBase):
         if toplayr is True:
             return False
 
-        if toplayr is False:
-            self.edgetombdels.add(tupl)
-            if len(self.edgetombdels) >= 1000:
-                await self.flushEdits()
-
         lastlayr = self.node.lastlayr() if self.node is not None else None
         for layr in self.editor.view.layers[1:lastlayr]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
                 if undr is True:
-                    # we have a value underneath, if write layer wasn't a tombstone we didn't do anything
-                    return toplayr is False
+                    # a value underneath comes back when the tombstone is removed, so
+                    # removing it is the whole edit
+                    if toplayr is False:
+                        self.edgetombdels.add(tupl)
+                        if len(self.edgetombdels) >= 1000:
+                            await self.flushEdits()
+                        return True
+
+                    # if the write layer wasn't a tombstone we didn't do anything
+                    return False
                 break
 
+        # the edge add removes a write layer tombstone for us
         self.edges.add(tupl)
         if len(self.edges) >= 1000:
             await self.flushEdits()
@@ -314,18 +306,23 @@ class ProtoNode(s_node.NodeBase):
         # has or none
         if toplayr is True:
             self.edgedels.add(tupl)
-            if len(self.edgedels) >= 1000:
-                await self.flushEdits()
 
         lastlayr = self.node.lastlayr() if self.node is not None else None
         for layr in self.editor.view.layers[1:lastlayr]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
                 if undr:
                     self.edgetombs.add(tupl)
-                    if len(self.edgetombs) >= 1000:
+
+                    # flush once both halves of the edit are staged, so a del and the
+                    # tombstone which replaces it go out in the same batch
+                    if len(self.edgedels) >= 1000 or len(self.edgetombs) >= 1000:
                         await self.flushEdits()
+
                     return True
                 break
+
+        if len(self.edgedels) >= 1000:
+            await self.flushEdits()
 
         return toplayr is not None
 

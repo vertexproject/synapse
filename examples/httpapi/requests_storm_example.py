@@ -6,7 +6,7 @@ import requests
 
 # Examples for using the Cortex HTTP API to call Storm queries.
 # For more information about these APIs, refer to the following documentation.
-# https://synapse.docs.vertex.link/en/latest/synapse/httpapi.html#
+# https://hub.vertex.link/docs/synapse/latest/httpapi.md
 
 # Fill in your url and API key. The Storm and model HTTP endpoints accept
 # X-API-KEY authentication only. Generate an API key for your user with the

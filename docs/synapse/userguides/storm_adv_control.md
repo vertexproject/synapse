@@ -69,13 +69,13 @@ A few helpful tips when writing and debugging advanced Storm:
 
 **As with all debugging, print statements are your friend.** Scatter [\$lib.print()](../stormtypes_libs.md#stormlibs-lib-print) or [\$lib.pprint()](../stormtypes_libs.md#stormlibs-lib-pprint) statements generously throughout your Storm during testing. You can print message strings at various points during execution:
 
-``` text
+```storm
 $lib.print("Hey! This worked!")
 ```
 
 You can print the value of a variable, to check its value at a given point in your query:
 
-``` text
+```storm
 inet:ip=1.2.3.4
 $asn=:asn
 $lib.print($asn)
@@ -83,7 +83,7 @@ $lib.print($asn)
 
 You can also print values associated with the node(s) in the current working set, using the various methods associated with the `$node` Storm type. (See [Storm Reference - Advanced - Methods](storm_adv_methods.md#storm-adv-methods) for a user-focused introduction to methods, or [stormprims-node-f527](../stormtypes_prims.md#stormprims-node-f527) in the detailed Storm Libraries / Storm Types documentation for a more technical discussion.)
 
-``` text
+```storm
 $lib.print($node.ndef)
 ```
 
@@ -106,7 +106,7 @@ See also [Fini Block](storm_adv_control.md#flow-fini).
 
 **Syntax:**
 
-``` text
+```storm
 init { <storm> }
 ```
 
@@ -118,7 +118,7 @@ You want to use an init block to initialize a set of variables that will be used
 - Specify default values for variables in the event they are **not** set during subsequent execution (e.g., due to a missing node, property, or tag that the variable depends on).
 - Initialize variables that will be modified during execution (e.g., lists, sets, tallies, or other 'count' values you expect to change or increment).
 
-``` text
+```storm
 init {
 
     $url=https://www.example.com/my_data/
@@ -139,7 +139,7 @@ See also [Init Block](storm_adv_control.md#flow-init).
 
 **Syntax:**
 
-``` text
+```storm
 fini { <storm> }
 ```
 
@@ -147,7 +147,7 @@ fini { <storm> }
 
 You have a Storm query that processes a series of `inet:fqdn` nodes, adding nodes that meet certain criteria to a set (specified with the variable `$fqdns`). After processing the nodes, you want to print a message with the total number of nodes in your set (which you stored in the variable `$fqdn_count`) and return the set of nodes.
 
-``` text
+```storm
 fini {
 
     $lib.print(`Total count is {$fqdn_count}`)
@@ -164,7 +164,7 @@ An **empty block** allows you to execute the specified Storm when there are no n
 
 **Syntax:**
 
-``` text
+```storm
 empty { <storm> }
 ```
 
@@ -172,7 +172,7 @@ empty { <storm> }
 
 You have a function that conditionally creates a set of nodes and you wish to be warned if no nodes have been made.
 
-``` text
+```storm
 yield $makeSomeNodes()
 empty {
     $lib.print("No nodes created")
@@ -192,7 +192,7 @@ Note that the "Storm operations" performed can include **no** operations / "do n
 
 **Syntax:**
 
-``` text
+```storm
 if <condition> { <storm> }
 ```
 
@@ -201,13 +201,13 @@ If `<condition>` is met, execute the Storm query in the curly braces. If `<condi
 > [!NOTE]
 > If `<condition>` is an expression to be evaluated, it must be enclosed in parentheses `( )`. If the expression includes strings, they must be enclosed in single or double quotes.
 >
-> ``` text
+> ```storm
 > if ( $str = 'Oh hai!' ) { <storm> }
 > ```
 >
 > Or:
 >
-> ``` text
+> ```storm
 > if ( :time > $date ) { <storm> }
 > ```
 >
@@ -217,7 +217,7 @@ If `<condition>` is met, execute the Storm query in the curly braces. If `<condi
 
 **Syntax:**
 
-``` text
+```storm
 if <condition> { <storm> }
 else { <storm> }
 ```
@@ -226,7 +226,7 @@ If `<condition>` is met, execute the associated Storm; otherwise, execute the al
 
 Similar to the `if` example above with no `else` option (or an empty query for `else`), you can have an empty `if` query:
 
-``` text
+```storm
 if <condition> { }
 else { <storm> }
 ```
@@ -237,7 +237,7 @@ If `<condition>` is met, do nothing; otherwise, execute the alternate Storm quer
 
 **Syntax:**
 
-``` text
+```storm
 if <condition> { <storm> }
 elif <condition> { <storm> }
 else { <storm> }
@@ -253,7 +253,7 @@ You have a subscription to a third-party malware service that allows you to down
 
 You can use a simple if-else statement to check whether you already have a copy of the binary in your storage Axon before attempting to download it.
 
-``` text
+```text
 <inbound file:bytes node(s)>
 
 if $lib.axon.has(:sha256) { }
@@ -279,7 +279,7 @@ A **switch statement** matches inbound objects against a set of specified consta
 
 **Syntax:**
 
-``` text
+```text
 <inbound nodes>
 
 switch <constant> {
@@ -303,7 +303,7 @@ You want to write a macro (see [Macros](storm_ref_automation.md#auto-macros)) to
 
 A switch statement can send your indicators to the correct services based on the kind of inbound node (e.g., the node's form).
 
-``` text
+```text
 <inbound nodes>
 
 switch $node.form {
@@ -341,7 +341,7 @@ A **for loop** will iterate over a set of objects, performing the specified Stor
 
 **Syntax:**
 
-``` text
+```storm
 for $<var> in $<vars> {
 
     <storm>
@@ -356,7 +356,7 @@ You routinely apply tags to files (`file:bytes` nodes) to annotate things such a
 
 You can use a for loop to iterate over the relevant tags on the file and apply ("push") the same set of tags to the file's hashes. (**Note:** this code could be executed by a **trigger** (see [Triggers](storm_ref_automation.md#auto-triggers)) that fires when the relevant tag(s) are applied.)
 
-``` text
+```text
 <inbound file:bytes node(s)>
 
 { for $tag in $node.tags(cno.**) {
@@ -402,7 +402,7 @@ A **while loop** checks inbound nodes against a specified condition and performs
 
 **Syntax:**
 
-``` text
+```storm
 while <condition> {
 
     <storm>
@@ -423,7 +423,7 @@ A **try...catch statement** allows you to attempt (try) a Storm operation and ha
 
 **Syntax:**
 
-``` text
+```storm
 try {
 
     <storm>
@@ -446,7 +446,7 @@ The catch block can return a status (e.g., `return((1))`) or output a warning me
 
 You have an "enrich" macro used to send various kinds of nodes to Storm commands that connect to third-party data sources. There is a particular data source that occasionally returns malformed data, which throws an error and causes the entire macro to halt. You want to isolate the Storm command for that vendor within a try...catch block so the macro will continue to run if an error is encountered.
 
-``` text
+```storm
 try { 
 
     | enrich.badvendor
@@ -477,7 +477,7 @@ Consider the following query:
 [ inet:fqdn=vertex.link ]
 ```
 
-``` text
+```storm
 inet:fqdn=vertex.link
 $list = ('foo','bar','baz')
 
@@ -529,7 +529,7 @@ It may help to think of this process as the for loop effectively "splitting" the
 
 In this variation on our original query, we isolate the for loop within a subquery ([Storm Reference - Subqueries](storm_ref_subquery.md#storm-ref-subquery)):
 
-``` text
+```storm
 inet:fqdn=vertex.link
 $list = ('foo','bar','baz')
 

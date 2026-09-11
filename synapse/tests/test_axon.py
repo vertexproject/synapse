@@ -111,6 +111,19 @@ class HttpPushFile(s_httpapi.StreamHandler):
         assert args.get('dict') == [b'{"foo":"bar"}']
         self.sendRestRetn(self.gotsize)
 
+class HttpReflectPut(s_httpapi.Handler):
+    '''
+    Test handler which echoes a PUT request's User-Agent back as a response header.
+
+    Axon.wput() returns only the response line and response headers -- no request
+    info and no body -- so a response header is the only channel by which a test
+    can observe what the server actually received.
+    '''
+
+    async def put(self):
+        self.set_header('Reflected-User-Agent', self.request.headers.get('User-Agent', ''))
+        self.sendRestRetn(True)
+
 class AxonTestMixin:
 
     async def check_blob(self, axon, fhash):
@@ -519,7 +532,13 @@ bar baz",vv
 
     async def runAxonTestHttp(self, axon, realaxon=None, apikey=False):
         '''
-        Test Axon HTTP APIs.
+        Test Axon HTTP behavior, in both directions.
+
+        Most of this exercises the inbound REST surface -- the axon http apis, driven
+        with a client session. It finishes by calling runAxonTestUserAgent(), which
+        covers the opposite direction: the outbound User-Agent the Axon presents when
+        it is the HTTP client (wget/wput/postfiles). Both are here so that every Axon
+        implementation which calls this inherits the whole of it.
 
         Args:
             axon: A cell that implements the axon http apis
@@ -863,6 +882,118 @@ bar baz",vv
                 async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
                     self.eq(resp.status, http.HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
 
+        # called unbound rather than through self: test_lib_httpapi borrows this method
+        # as AxonTest.runAxonTestHttp(self, ...) from a TestCase which does not mix in
+        # AxonTestMixin, so self only resolves the SynTest assertion helpers.
+        await AxonTestMixin.runAxonTestUserAgent(self, axon, realaxon, port)
+
+    async def runAxonTestUserAgent(self, axon, realaxon, port):
+        '''
+        Test the default outbound HTTP User-Agent an Axon sends as an HTTP client.
+
+        Called from runAxonTestHttp(), so every Axon implementation which runs that
+        inherits this too -- which is the point, since the product token is derived
+        from the cell type and differs per implementation.
+
+        Args:
+            axon: The cell serving the https port; the reflect handlers are added here.
+            realaxon: The axon cell making the outbound requests. Only an Axon has
+                      wget/wput/postfiles, so these must not be driven off the axon
+                      arg -- on a Cortex that is the cell serving the apis, not an Axon.
+            port: The https port already listening on axon.
+        '''
+
+        def getHeader(headers, name):
+            # resp['request']['headers'] is a plain dict flattened from aiohttp's
+            # request_info.headers, which is case-insensitive internally but preserves
+            # whatever casing the caller last set -- so lookups here must be
+            # case-insensitive even though the header actually sent on the wire is
+            # always normalized (verified separately against a live server).
+            name = name.lower()
+            for key, valu in headers.items():
+                if key.lower() == name:
+                    return valu
+            return None
+
+        async def getBlobBytes(sha256hex):
+            chunks = [chunk async for chunk in realaxon.get(s_common.uhex(sha256hex))]
+            return b''.join(chunks)
+
+        # neither reflect handler calls reqAuthUser(), so these endpoints need no
+        # credentials -- which also keeps this working when the axon arg is a Cortex
+        # whose own http apis are restricted to api-key auth.
+        axon.addHttpApi('/api/v3/reflect', s_t_utils.HttpReflector, {'cell': axon})
+        axon.addHttpApi('/api/v3/reflectput', HttpReflectPut, {'cell': axon})
+
+        async with await realaxon.upload() as fd:
+            await fd.write(b'asdfasdf')
+            size, sha256 = await fd.save()
+
+        getbase = f'https://127.0.0.1:{port}/api/v3/reflect'
+        putbase = f'https://127.0.0.1:{port}/api/v3/reflectput'
+        ssl = {'verify': False}
+
+        # the product token comes from the cell type, so the OSS Axon sends
+        # Synapse-Axon/... while an Enterprise Axon sends Synapse-Enterprise-Axon/...
+        # ( EnterpriseCellMixin overrides USER_AGENT_PREFIX ). Pin the shape and the
+        # class-derived value rather than either literal prefix.
+        axonua = realaxon.getUserAgent()
+        self.eq(realaxon.getDefaultUserAgent(), axonua)
+        self.isin('-Axon/', axonua)
+        self.isin('(Synapse/', axonua)
+
+        async with realaxon.getLocalProxy() as proxy:
+
+            # wget with no headers picks up the Axon's own default User-Agent, and it is
+            # visible both in the reflected server-side headers and in the client-side
+            # request_headers the Axon reports back via _flatten_clientresponse
+            resp = await proxy.wget(getbase, ssl=ssl)
+            self.true(resp['ok'])
+            body = s_json.loads(await getBlobBytes(resp['hashes']['sha256']))
+            self.eq(axonua, body['result']['headers']['User-Agent'])
+            self.eq(axonua, getHeader(resp['request']['headers'], 'User-Agent'))
+
+            # an explicit User-Agent from the caller wins outright
+            resp = await proxy.wget(getbase, ssl=ssl, headers={'User-Agent': 'my fav ua'})
+            self.true(resp['ok'])
+            body = s_json.loads(await getBlobBytes(resp['hashes']['sha256']))
+            self.eq('my fav ua', body['result']['headers']['User-Agent'])
+            self.eq('my fav ua', getHeader(resp['request']['headers'], 'User-Agent'))
+
+            # a caller header wins regardless of the casing used to set it, and survives
+            # as a list of (name, value) pairs too -- the two shapes strifyHttpArg produces
+            resp = await proxy.wget(getbase, ssl=ssl, headers={'user-agent': 'lowercase ua'})
+            self.true(resp['ok'])
+            self.eq('lowercase ua', getHeader(resp['request']['headers'], 'User-Agent'))
+
+            resp = await proxy.wget(getbase, ssl=ssl, headers=[('User-Agent', 'list form ua')])
+            self.true(resp['ok'])
+            self.eq('list form ua', getHeader(resp['request']['headers'], 'User-Agent'))
+
+            # postfiles (POST) -- no headers -> Axon default; explicit header wins
+            resp = await proxy.postfiles(fields, getbase, ssl=ssl)
+            self.true(resp['ok'])
+            body = s_json.loads(resp['body'])
+            self.eq(axonua, body['result']['headers']['User-Agent'])
+
+            resp = await proxy.postfiles(fields, getbase, ssl=ssl, headers={'user-agent': 'postfiles ua'})
+            self.true(resp['ok'])
+            body = s_json.loads(resp['body'])
+            self.eq('postfiles ua', body['result']['headers']['User-Agent'])
+
+            # wput (PUT) -- no headers -> Axon default; explicit header wins. wput's return
+            # carries neither request info nor a body, so the handler echoes what it
+            # received back as a response header, which wput does return.
+            resp = await proxy.wput(sha256, putbase, ssl=ssl)
+            self.true(resp['ok'])
+            self.eq(200, resp['code'])
+            self.eq(axonua, getHeader(resp['headers'], 'Reflected-User-Agent'))
+
+            resp = await proxy.wput(sha256, putbase, ssl=ssl, headers={'user-agent': 'wput ua'})
+            self.true(resp['ok'])
+            self.eq(200, resp['code'])
+            self.eq('wput ua', getHeader(resp['headers'], 'Reflected-User-Agent'))
+
 class HasAxonCell(s_axon.HasAxon, s_cell.Cell):
     # a minimal Cell which mixes in HasAxon to exercise the mixin directly.
     axonlinked = False
@@ -1083,6 +1214,94 @@ class AxonTest(s_t_utils.SynTest, AxonTestMixin):
             self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
 
             await self.asyncraises(s_exc.BadArg, proxy.wget('http://vertex.link', proxy=1.1))
+
+    async def test_axon_proxy_traversed(self):
+        '''
+        test_axon_proxy points at a proxy which is not listening, so it proves
+        only that a connection was attempted. This proves wget and wput really
+        complete through a working one, and that a refused tunnel is not quietly
+        retried directly.
+        '''
+        async with self.getTestAxon() as axon:
+
+            visi = await axon.auth.addUser('visi')
+            await visi.setAdmin(True)
+            await visi.setPasswd('secret')
+
+            axon.addHttpApi('/api/v3/pushfile', HttpPushFile, {'cell': axon})
+
+            async with await axon.upload() as fd:
+                await fd.write(b'asdfasdf')
+                (size, sha256) = await fd.save()
+
+            (host, port) = await axon.addHttpsPort(0, host='127.0.0.1')
+
+            sha2 = s_common.ehex(sha256)
+            geturl = f'https://visi:secret@127.0.0.1:{port}/api/v3/axon/files/by/sha256/{sha2}'
+            puturl = f'https://visi:secret@127.0.0.1:{port}/api/v3/pushfile'
+
+            ssl = {'verify': False}
+
+            async with axon.getLocalProxy() as prox:
+
+                for ctor in s_t_utils.PROXIES:
+                    with self.subTest(scheme=ctor.scheme):
+
+                        # wget reaches the file through the proxy
+                        async with await ctor.anit() as proxy:
+                            resp = await prox.wget(geturl, ssl=ssl, proxy=proxy.url)
+
+                            self.true(resp['ok'])
+                            self.eq(200, resp['code'])
+                            self.eq(8, resp['size'])
+                            self.eq([('127.0.0.1', port)], proxy.connects)
+
+                        # and so does wput
+                        async with await ctor.anit() as proxy:
+                            resp = await prox.wput(sha256, puturl, method='PUT', ssl=ssl, proxy=proxy.url)
+
+                            self.true(resp['ok'])
+                            self.eq(200, resp['code'])
+                            self.eq([('127.0.0.1', port)], proxy.connects)
+
+                        # and postfiles, whose multipart body is streamed from the axon
+                        async with await ctor.anit() as proxy:
+                            resp = await prox.postfiles(fields, puturl, ssl=ssl, proxy=proxy.url)
+
+                            self.true(resp['ok'])
+                            self.eq(200, resp['code'])
+                            self.eq([('127.0.0.1', port)], proxy.connects)
+
+                        # credentials in the proxy URL reach a proxy demanding them
+                        async with await ctor.anit(auth='visi:secret') as proxy:
+                            proxyurl = proxy.url.replace('://', '://visi:secret@')
+                            resp = await prox.wget(geturl, ssl=ssl, proxy=proxyurl)
+
+                            self.true(resp['ok'])
+                            self.eq([('127.0.0.1', port)], proxy.connects)
+                            self.eq(0, proxy.refused)
+
+                        # the wrong ones are refused, and the fetch fails rather than
+                        # falling back to a direct connection
+                        async with await ctor.anit(auth='visi:secret') as proxy:
+                            proxyurl = proxy.url.replace('://', '://visi:newp@')
+                            resp = await prox.wget(geturl, ssl=ssl, proxy=proxyurl)
+
+                            self.false(resp['ok'])
+                            self.eq([], proxy.connects)
+                            self.lt(0, proxy.refused)
+
+                        # the axon http:proxy conf is what the default resolves to
+                        async with await ctor.anit() as proxy:
+                            axon.conf['http:proxy'] = proxy.url
+                            try:
+                                resp = await prox.wget(geturl, ssl=ssl)
+
+                            finally:
+                                axon.conf.pop('http:proxy', None)
+
+                            self.true(resp['ok'])
+                            self.eq([('127.0.0.1', port)], proxy.connects)
 
     async def test_axon_wput(self):
 

@@ -10,7 +10,7 @@ Large-scale file ingest / upload is best performed using an automated feed / mod
 
 `axon.put` is executed from an operating system command shell. The command usage is as follows:
 
-``` text
+```text
 usage: synapse.tools.axon.put [-h] -a AXON [-c CORTEX] [-r] [-t TAGS] filenames [filenames ...]
 ```
 
@@ -56,13 +56,13 @@ options:
 
 Upload the file `myreport.pdf` to the specified Axon, create a `file:bytes` node in the specified Cortex, and tag the `file:bytes` node with the tag `#sometag` (replace the Axon and Cortex path below with the path to your Cortex. Note that the command is wrapped for readability):
 
-``` text
+```text
 python -m synapse.tools.axon.put -a aha://axon... -c aha://cortex... -t sometag /home/user/reports/myreport.pdf
 ```
 
 Executing the command will result in various status messages (lines are wrapped for readability):
 
-``` text
+```text
 2019-07-03 11:46:30,567 [INFO] log level set to DEBUG
   [common.py:setlogging:MainThread:MainProcess]
 2019-07-03 11:46:30,568 [DEBUG] Using selector: EpollSelector 
@@ -88,7 +88,7 @@ If a given file already exists in the Axon (deconflicted based on the file's SHA
 
 For example (lines wrapped for readability):
 
-``` text
+```text
 python -m synapse.tools.axon.put -a aha://axon...
   -c aha://cortex... -t anothertag,athirdtag
     /home/user/reports/anotherreport.pdf
@@ -109,7 +109,7 @@ Note the status indicating the Axon already had the specified file. Similarly, t
 
 The `file:bytes` node for the uploaded report can now be viewed in the specified Cortex by lifting (see [Storm Reference - Lifting](storm_ref_lift.md#storm-ref-lift)) the file using the SHA256 / primary property value from the `pushfile` status output:
 
-``` text
+```stormdoc
 file:bytes=sha256:229cdde419ba9549023de39c6a0ca8af74b45fade2d7a22cdc4105a75cd40ab0
 
 file:bytes=sha256:229cdde419ba9549023de39c6a0ca8af74b45fade2d7a22cdc4105a75cd40ab0
@@ -130,7 +130,7 @@ Viewing the node's properties, we see that Synapse has set the `:name` property 
 
 Alternatively, a glob pattern could be used to upload all PDF files in a given directory:
 
-``` text
+```text
 python -m synapse.tools.axon.put -a aha://axon...
   -c aha://cortex... -t anothertag,athirdtag
     /home/user/reports/*.pdf

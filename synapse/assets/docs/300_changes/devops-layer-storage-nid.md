@@ -39,7 +39,7 @@ What you need to do
 
 :   No action for analysts or operators. Integrators using the Telepath node-edit APIs should note that edits are exchanged in a remote (ndef-based) form and translated to the local NID form via the compat flag. Pass `compat=True` when feeding edits sourced from a different Cortex so NIDs are resolved or generated locally rather than assumed to match.
 
-    ``` python
+    ```python
     # 3.x: feeding edits sourced from a different Cortex
     async for item in layrapi.syncNodeEdits(offs, compat=True):
         ...

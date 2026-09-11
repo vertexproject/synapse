@@ -14,20 +14,26 @@ class InetModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             forms = ('inet:ip', 'inet:url', 'inet:fqdn', 'inet:email',
-                     'inet:urlfile', 'inet:url:redir', 'inet:email:header',
-                     'inet:email:message', 'inet:service:message', 'inet:service:platform')
+                     'inet:urlfile', 'inet:url:redir', 'inet:http:cookie',
+                     'inet:email:header', 'inet:email:message', 'inet:service:message',
+                     'inet:service:platform', 'inet:service:account')
             for name in forms:
                 self.true(core.model.form(name).implements('meta:usable'))
 
             # meta:usable lets an actor or an action record having used the node
             nodes = await core.nodes('''
+                $plat = {[ inet:service:platform=* ]}
                 [ risk:threat=* :name=apt1 ]
                 [ +(used)> { [ inet:url:redir=(http://foo.com/, http://bar.com/) ] } ]
                 [ +(used)> { [ inet:email:header=(subject, "hi there") ] } ]
                 [ +(used)> { [ inet:service:message=* ] } ]
+                [ +(used)> { [ inet:service:account=({"platform": $plat, "username": "bob"}) ] } ]
+                [ +(used)> { [ inet:http:cookie='PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3' ] } ]
             ''')
             self.len(1, nodes)
-            self.len(3, await core.nodes('risk:threat:name=apt1 -(used)> meta:usable'))
+            self.len(5, await core.nodes('risk:threat:name=apt1 -(used)> meta:usable'))
+            self.len(1, await core.nodes('inet:http:cookie <(used)- risk:threat'))
+            self.len(1, await core.nodes('inet:service:account <(used)- risk:threat'))
             self.len(1, await core.nodes('inet:url:redir <(used)- risk:threat'))
             self.len(1, await core.nodes('inet:email:header <(used)- risk:threat'))
             self.len(1, await core.nodes('inet:service:message <(used)- risk:threat'))

@@ -26,16 +26,16 @@ def result(code, data):
 
     Args:
         code (int): The HTTP status code.
-        data: The parsed JSON body (or None): a ``{'status': 'ok', 'result': ...}`` or
-              ``{'status': 'err', 'code': <SynErr name>, 'mesg': ...}`` envelope as
+        data: The parsed JSON body (or None): a `{'status': 'ok', 'result': ...}` or
+              `{'status': 'err', 'code': <SynErr name>, 'mesg': ...}` envelope as
               produced by sendRestRetn / sendRestErr.
 
     Returns:
-        The ``result`` value from a successful (status ok) response.
+        The `result` value from a successful (status ok) response.
 
     Raises:
         synapse.exc.SynErr: On any non-ok or malformed response, re-raised as the
-            SynErr named by the envelope ``code`` (defaulting to the base SynErr).
+            SynErr named by the envelope `code` (defaulting to the base SynErr).
     '''
     if not isinstance(data, dict) or data.get('status') != 'ok':
         mesg = f'REST API request failed (HTTP {code}).'
@@ -328,9 +328,9 @@ class HandlerBase:
             gen (bool): If set to True, generate a new session if there is no sess cookie.
 
         Notes:
-            This stores the identifier in the ``sess`` cookie for with a 14 day expiration, stored
+            This stores the identifier in the `sess` cookie for with a 14 day expiration, stored
             in the Cell.
-            Valid requests with that ``sess`` cookie will resolve to the same Session object.
+            Valid requests with that `sess` cookie will resolve to the same Session object.
 
         Returns:
             Sess: A heavy session object. If the sess cookie is invalid or gen is false, this returns None.

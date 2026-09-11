@@ -2725,6 +2725,23 @@ modeldefs = (
                 ),
                 'doc': 'A STIX indicator pattern.'}),
 
+            ('it:app:sigma:rule', ('meta:rule', {}), {
+                'template': {'title': 'Sigma rule', 'syntax': 'yaml'},
+                'props': (),
+                'doc': 'A Sigma rule.'}),
+
+            ('it:app:sigma:matched', ('guid', {}), {
+                'interfaces': (
+                    ('base:matched', {'template': {'rule': 'Sigma rule',
+                                       'rule:type': 'it:app:sigma:rule',
+                                       'target:type': 'it:log:event'}}),
+                ),
+                'props': (
+                    ('sensor', ('it:host', {}), {
+                        'doc': 'The sensor host node that produced the match.'}),
+                ),
+                'doc': 'An instance of a Sigma rule hit.'}),
+
             ('it:app:snort:rule', ('meta:rule', {}), {
                 'template': {'title': 'Snort rule', 'syntax': 'snort'},
                 'props': (
@@ -3009,6 +3026,18 @@ modeldefs = (
 
             (('it:exec:query', 'found', None), {
                 'doc': 'The target node was returned as a result of running the query.'}),
+
+            (('it:app:sigma:rule', 'detects', 'risk:vuln'), {
+                'doc': 'The Sigma rule detects use of the vulnerability.'}),
+
+            (('it:app:sigma:rule', 'detects', 'it:software'), {
+                'doc': 'The Sigma rule detects use of the software.'}),
+
+            (('it:app:sigma:rule', 'detects', 'meta:technique'), {
+                'doc': 'The Sigma rule detects use of the technique.'}),
+
+            (('it:app:sigma:rule', 'detects', 'it:softwarename'), {
+                'doc': 'The Sigma rule detects the named software.'}),
 
             (('it:app:snort:rule', 'detects', 'risk:vuln'), {
                 'doc': 'The snort rule detects use of the vulnerability.'}),

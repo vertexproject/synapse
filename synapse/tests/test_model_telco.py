@@ -82,6 +82,13 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('tel:mob:cell :place -> geo:place'))
             self.len(1, await core.nodes('tel:mob:cell -> tel:mob:carrier -> tel:mob:mcc'))
 
+            # meta:usable lets an actor or an action record having used the number
+            self.true(core.model.form('tel:phone').implements('meta:usable'))
+            self.len(1, await core.nodes(
+                '[ risk:threat=* :name=apt1 +(used)> {[ tel:phone="+15558675309" ]} ]'))
+            self.len(1, await core.nodes('risk:threat:name=apt1 -(used)> meta:usable'))
+            self.len(1, await core.nodes('tel:phone <(used)- risk:threat'))
+
     async def test_telco_imei(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[tel:mob:imei=490154203237518]')

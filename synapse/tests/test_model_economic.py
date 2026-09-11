@@ -303,6 +303,16 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:account <(used)- risk:threat'))
             self.len(1, await core.nodes('econ:account <(used)- risk:attack'))
 
+            # ...and so does the bank account which addresses it
+            self.true(core.model.form('econ:bank:account').implements('meta:usable'))
+            nodes = await core.nodes('''
+                $rtn = {[ econ:bank:routing:id=123456789 ]}
+                [ econ:bank:account=($rtn, 1234) ]
+                [ <(used)+ { risk:threat:name=scammer } ]
+            ''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('econ:bank:account <(used)- risk:threat'))
+
             # Routing identifier for the comp must be passed as a node /
             # NodeRef: the comp's routing field is poly-typed by the
             # econ:bank:routing:code interface, so raw routing strings are

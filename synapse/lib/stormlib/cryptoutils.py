@@ -11,9 +11,9 @@ _loaderrors = (ValueError, TypeError, c_exc.UnsupportedAlgorithm, c_exc.InvalidK
 
 class CryptoKey(s_stormtypes.Prim):
     '''
-    Base class for the ``crypto:rsa:key`` and ``crypto:ecc:key`` Storm objects.
+    Base class for the `crypto:rsa:key` and `crypto:ecc:key` Storm objects.
 
-    The object wraps a backend ``PriKey`` or ``PubKey`` and, when converted to a
+    The object wraps a backend `PriKey` or `PubKey` and, when converted to a
     primitive, yields the PEM encoded key as a string.
     '''
     def __init__(self, runt, key, isprivate):

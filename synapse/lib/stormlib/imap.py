@@ -491,7 +491,7 @@ class ImapLib(s_stormtypes.Lib):
             If the port is 993, SSL/TLS is enabled by default with verification.
 
             This method will wait for a "hello" response from the server
-            before returning the ``inet:imap:server`` instance.
+            before returning the `inet:imap:server` instance.
             ''',
             'type': {
                 'type': 'function', '_funcname': 'connect',
@@ -509,7 +509,7 @@ class ImapLib(s_stormtypes.Lib):
                 ),
                 'returns': {
                     'type': 'inet:imap:server',
-                    'desc': 'A new ``inet:imap:server`` instance.'
+                    'desc': 'A new `inet:imap:server` instance.'
                 },
             },
         },
@@ -598,10 +598,10 @@ class ImapServer(s_stormtypes.StormType):
             'desc': '''
             Fetch a message by UID in RFC822 format.
 
-            The message is saved to the Axon, and a ``file:bytes`` node is returned.
+            The message is saved to the Axon, and a `file:bytes` node is returned.
 
             Examples:
-                Fetch a message, save to the Axon, and yield ``file:bytes`` node::
+                Fetch a message, save to the Axon, and yield `file:bytes` node::
 
                     yield $server.fetch("8182")
             ''',
@@ -658,7 +658,7 @@ class ImapServer(s_stormtypes.StormType):
                     {'type': 'str', 'name': '*args',
                      'desc': 'A set of search criteria to use.'},
                     {'type': ['str', 'null'], 'name': 'charset', 'default': 'utf-8',
-                     'desc': 'The CHARSET used for the search. May be set to ``(null)`` to disable CHARSET.'},
+                     'desc': 'The CHARSET used for the search. May be set to `(null)` to disable CHARSET.'},
                 ),
                 'returns': {
                     'type': 'list',

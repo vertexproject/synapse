@@ -164,7 +164,7 @@ For example, let's say you are storing copies of articles from various news feed
 
 **Tag Tree \#1**
 
-``` text
+```text
 <country>.<topic>.<subtopic>.<subtopic>:
   us.economics.trade.gdp
   us.economics.trade.deficit
@@ -178,7 +178,7 @@ For example, let's say you are storing copies of articles from various news feed
 
 **Tag Tree \#2**
 
-``` text
+```text
 <topic>.<subtopic>.<subtopic>.<country>:
   economics.trade.gdp.us
   economics.trade.deficit.us

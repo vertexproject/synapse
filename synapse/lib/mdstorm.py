@@ -18,6 +18,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.json as s_json
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.cluster as s_cluster
@@ -131,6 +132,11 @@ _mdautodoc_kind.add_argument('--stormtypes-libs', dest='stormtypes_libs', defaul
                              help='Every registered Storm library.')
 _mdautodoc_kind.add_argument('--stormtypes-prims', dest='stormtypes_prims', default=False, action='store_true',
                              help='Every registered Storm primitive type.')
+mdautodoc_flags.add_argument('--cortex', default=None, metavar='CTOR',
+                             help='Only valid with the --stormtypes-libs/--stormtypes-prims '
+                                  'references: the Cortex class to document, e.g. '
+                                  'synmods.enterprise.cortex.Cortex, so each page covers the whole Storm '
+                                  'surface of that Cortex rather than only what core Synapse provides.')
 mdautodoc_flags.add_argument('--level', type=int, default=0, metavar='N',
                              help='Shift every heading in the generated block down by N levels, so it renders '
                                   'as a section under an author-written heading rather than a whole page.')
@@ -290,6 +296,51 @@ class MdStormCli(s_storm.StormCli):
 
         return str(self.outp)
 
+# Conf a doc build wants from whatever cell it boots, keyed by conf option and
+# applied through the environment rather than the boot conf. A cell which does
+# not declare one of these ignores the envar, where the same key passed in conf
+# is a BadArg at boot, so this needs no per-ctor conditional.
+DOCS_CONFENVS = {
+    'readpool:size': '0',
+    'health:sysctl:checks': 'false',
+}
+
+@contextlib.contextmanager
+def docsEnv(ctor):
+    '''
+    Apply the doc build's conf defaults to the environment while a cell boots.
+
+    The envar name depends on the cell class, so it is derived from the ctor
+    rather than written out, and an existing value is left alone so a caller
+    can still override one.
+
+    Args:
+        ctor: The cell class about to boot.
+
+    Returns:
+        None
+    '''
+    # a ctor which is not a Cell has no envar prefix, and nothing to set
+    getprefix = getattr(ctor, 'getEnvPrefix', None)
+    prefixes = getprefix() if getprefix is not None else ()
+
+    olds = {}
+    for prefix in prefixes:
+        for name, valu in DOCS_CONFENVS.items():
+            envar = s_config.make_envar_name(name, prefix=prefix)
+            olds[envar] = os.environ.get(envar)
+            os.environ.setdefault(envar, valu)
+
+    try:
+        yield
+    finally:
+        for envar, old in olds.items():
+            if old is None:
+                os.environ.pop(envar, None)
+                continue
+
+            os.environ[envar] = old
+
 @contextlib.asynccontextmanager
 async def getDocsCell(ctor, conf):
     loc = s_dyndeps.getDynLocal(ctor)
@@ -302,18 +353,20 @@ async def getDocsCell(ctor, conf):
     # every doc-rendering ctor is a real Cell (some doc-only ctors are lightweight
     # test doubles with a custom anit()) -- fall back to the bare conf dict for
     # those, since they never supported env-var overrides in the first place.
-    if issubclass(loc, s_cell.Cell):
-        cellconf = loc.initCellConf()
-        for name, valu in conf.items():
-            cellconf.setdefault(name, valu)
+    with docsEnv(loc):
 
-        cellconf.setConfFromEnvs()
-    else:
-        cellconf = conf
+        if issubclass(loc, s_cell.Cell):
+            cellconf = loc.initCellConf()
+            for name, valu in conf.items():
+                cellconf.setdefault(name, valu)
 
-    with s_common.getTempDir() as dirn:
-        async with await loc.anit(dirn, conf=cellconf) as cell:
-            yield cell
+            cellconf.setConfFromEnvs()
+        else:
+            cellconf = conf
+
+        with s_common.getTempDir() as dirn:
+            async with await loc.anit(dirn, conf=cellconf) as cell:
+                yield cell
 
 @contextlib.asynccontextmanager
 async def getDocsCluster(ctor=None, coreconf=None):
@@ -336,30 +389,31 @@ async def getDocsCluster(ctor=None, coreconf=None):
 
     Notes:
         The Cortex no longer boots embedded axon / jsonstor cells, so doc Storm
-        that uses ``$lib.axon`` / ``$lib.bytes`` / ``$lib.jsonstor`` ( or a
+        that uses `$lib.axon` / `$lib.bytes` / `$lib.jsonstor` ( or a
         package onload that does ) needs real peers to resolve.
     '''
     if ctor is None:
         ctor = s_cortex.Cortex
 
-    conf = {'health:sysctl:checks': False}
+    conf = dict(coreconf or {})
 
-    # readpool:size is only a valid config key on a cell that opts into a read
-    # pool (eg synmods.enterprise.cortex.Cortex) -- setting it on a ctor that
-    # doesn't (eg the base synapse.cortex.Cortex) is a BadArg at boot, not a
-    # silently-ignored no-op.
-    if 'readpool:size' in getattr(ctor, 'confbase', {}):
-        conf['readpool:size'] = 0
-
-    conf.update(coreconf or {})
-
-    async with s_cluster.getCluster({'cortex': {'ctor': ctor, 'conf': conf}}) as clus:
-        yield clus
+    with docsEnv(ctor):
+        async with s_cluster.getCluster({'cortex': {'ctor': ctor, 'conf': conf}}) as clus:
+            yield clus
 
 class MdStorm(s_base.Base):
 
-    async def __anit__(self, mdpath, mockhttp=None, srcdir=None, outdir=None):
+    async def __anit__(self, mdpath, mockhttp=None, srcdir=None, outdir=None, renderonly=None):
         await s_base.Base.__anit__(self)
+
+        # When given, run() executes only a fence whose directive name is in this set --
+        # every other directive fence is skipped entirely (neither executed nor emitted).
+        # Used by synapse.lib.mddocs.checkDrift (via fenceout below) to re-render a
+        # ```mdautodoc fence on a page that also carries a live ```mdstorm/
+        # ```mdstorm-setup/```mdshell fence, without ever executing that live fence --
+        # e.g. an ```mdstorm-setup --load-svc that boots a real Storm service. None (the
+        # default) executes every directive, unchanged from before this argument existed.
+        self.renderonly = renderonly
 
         self.mdpath = s_common.genpath(mdpath)
 
@@ -391,6 +445,13 @@ class MdStorm(s_base.Base):
         self.mockhttp = self._resolveMockHttp(mockhttp)
 
         self.linesout = []
+        # One (directive, fenceargs, lines) entry per fence run() actually executed, in
+        # document order -- lines is the exact slice of linesout that fence produced
+        # (see run()). Note _handleAutodoc's self._printf(text) appends its whole
+        # rendered block as a SINGLE linesout element (unlike _handleStorm/_handleShell,
+        # which print line-by-line), so a consumer wanting real lines must
+        # ''.join(lines).splitlines() rather than assume one linesout entry is one line.
+        self.fenceout = []
         self.context = {}
         self.stormvars = {}
 
@@ -815,8 +876,8 @@ class MdStorm(s_base.Base):
     async def _handleAutodoc(self, parser, fenceargs, text):
         '''
         Splice generated Markdown (a Cell's confdefs, a class's own API, a
-        Storm package's command/module reference, the data model, or the
-        Storm types reference) into the document, replacing the old
+        Storm package's command/module reference, the data model, or the Storm
+        types reference) into the document, replacing the old
         "generate a file into an autodoc: savedir, then splice it in by
         hand" flow driven by mddocs.yaml. Like mdstorm-setup, there is no
         "--" body terminator -- every flag here is a single token, so
@@ -830,6 +891,12 @@ class MdStorm(s_base.Base):
         '''
         combined = ' '.join(part.strip() for part in (fenceargs, text) if part.strip())
         opts = parser.parse_args(shlex.split(combined))
+
+        # --cortex only applies to the two Storm type references; fail rather
+        # than render a page that silently ignored it.
+        if opts.cortex is not None and not (opts.stormtypes_libs or opts.stormtypes_prims):
+            raise s_exc.BadArg(mesg='mdautodoc --cortex requires --stormtypes-libs or '
+                                    '--stormtypes-prims.', cortex=opts.cortex)
 
         if opts.conf is not None:
             md = await s_autodoc.docConfdefsMd(opts.conf)
@@ -849,9 +916,9 @@ class MdStorm(s_base.Base):
             async with s_cortex.getTempCortex() as core:
                 md = await s_autodoc.docModelFormsMd(core)
         elif opts.stormtypes_libs:
-            md = await s_autodoc.docStormTypesLibsMd()
+            md = await s_autodoc.docStormTypesLibsMd(cortex=opts.cortex)
         else:
-            md = await s_autodoc.docStormTypesPrimsMd()
+            md = await s_autodoc.docStormTypesPrimsMd(cortex=opts.cortex)
 
         text = _shiftHeadingLevel(md.getMdText(), opts.level)
 
@@ -920,9 +987,16 @@ class MdStorm(s_base.Base):
             if nextfence is not None and idx == nextfence[0]:
                 start, end, directive, fenceargs, text = nextfence
 
+                if self.renderonly is not None and directive not in self.renderonly:
+                    idx = end
+                    nextfence = next(fences, None)
+                    continue
+
                 parser, handler = self._getHandler(directive)
                 logger.debug(f'Executing {directive} -> {fenceargs!r} {text}')
+                mark = len(self.linesout)
                 await handler(parser, fenceargs, text)
+                self.fenceout.append((directive, fenceargs, self.linesout[mark:]))
 
                 idx = end
                 nextfence = next(fences, None)

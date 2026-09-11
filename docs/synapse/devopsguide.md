@@ -19,7 +19,7 @@ Synapse services **require persistent storage**. Each `docker` container expects
 
 Each Synapse service has one configuration file, `cell.yaml`, which is located in the service storage directory, typically `/vertex/storage/cell.yaml` in the `docker` images. Configuration options are specified in YAML format using the same syntax as their documentation, for example:
 
-``` text
+```text
 aha:name: cortex
 aha:network: loop.vertex.local
 ```
@@ -46,32 +46,32 @@ It is strongly recommended that users schedule regular backups of all services d
 
 For a production deployment similar to the one described in the [Synapse Deployment Guide](deploymentguide.md#deploymentguide) you can easily run the backup tool by executing a shell **inside** the docker container. For example, if we were generating a live backup of the Cortex we would:
 
-``` text
+```text
 cd /srv/syn/000.cortex
 docker compose exec 000.cortex /bin/bash
 ```
 
 And from the shell executed within the container, point the tool at the running service's telepath URL and a destination archive path:
 
-``` text
+```text
 python -m synapse.tools.service.backup cell:///vertex/storage /vertex/storage/backups/20220422094622.tar.gz
 ```
 
 This streams a transactionally consistent, compressed backup archive to the specified path:
 
-``` text
+```text
 /vertex/storage/backups/20220422094622.tar.gz
 ```
 
 Once the backup archive is generated you may exit the docker shell and the backup will be accessible from the **host** file system as:
 
-``` text
+```text
 /srv/syn/000.cortex/storage/backups/20220422094622.tar.gz
 ```
 
 At this point it is safe to use standard tools like `mv` and `scp` on the backup archive:
 
-``` text
+```text
 mv /srv/syn/000.cortex/storage/backups/20220422094622.tar.gz /nfs/backups/000.cortex/
 ```
 
@@ -92,7 +92,7 @@ It is also worth noting that the newly created backup is a defragmented / optimi
 
 In the hopefully unlikely event that you need to restore a **Synapse** service from a backup the process is fairly simple. For a production deployment similar to the one described in [Synapse Deployment Guide](deploymentguide.md#deploymentguide) and assuming we moved the backup file as described in [Generating a Backup](devopsguide.md#devops-task-backup):
 
-``` text
+```text
 cd /srv/syn/000.cortex
 docker compose down
 mv storage storage.broken
@@ -102,7 +102,7 @@ docker compose up -d
 
 Then you can tail the logs to ensure the service is fully restored:
 
-``` text
+```text
 cd /srv/syn/000.cortex
 docker compose logs -f
 ```
@@ -117,14 +117,14 @@ docker compose logs -f
 
 To gracefully promote a mirror which was deployed in a similar fashion to the one described in [Synapse Deployment Guide](deploymentguide.md#deploymentguide) you can use the built-in promote tool `synapse.tools.service.promote`. Begin by executing a shell within the mirror container:
 
-``` text
+```text
 cd /srv/syn/001.cortex
 docker compose exec 001.cortex /bin/bash
 ```
 
 And from the shell executed within the container:
 
-``` text
+```text
 python -m synapse.tools.service.promote
 ```
 
@@ -145,7 +145,7 @@ Updating a Synapse service requires pulling the newest docker image and restarti
 
 Continuing with our previous example from the [Synapse Deployment Guide](deploymentguide.md#deploymentguide) we would update the mirror `001.cortex` first:
 
-``` text
+```text
 cd /srv/syn/001.cortex
 docker compose pull
 docker compose down
@@ -154,7 +154,7 @@ docker compose up -d
 
 After ensuring that the mirror has come back online and is fully operational, we will update the leader which may include a [Data Migration](devopsguide.md#datamigration) while it comes back online:
 
-``` text
+```text
 cd /srv/syn/000.cortex
 docker compose pull
 docker compose down
@@ -173,13 +173,13 @@ When a Synapse release contains a data migration for a part of the Synapse data 
 
 Automatic data model migrations may cause additional load on the on the first boot of the version, as the migrations are run in the background. When beginning a data migration, a WARNING level log message will be printed for each stage of the migration:
 
-``` text
+```text
 beginning model migration -> (0, 2, 8)
 ```
 
 Once complete, a WARNING level log message will be issued:
 
-``` text
+```text
 ...model migrations complete!
 ```
 
@@ -221,7 +221,7 @@ For services that are deployed in a mirror configuration, service upgrades can b
 
 Continuing with our previous example from the [Synapse Deployment Guide](deploymentguide.md#deploymentguide) we would update the mirror `001.cortex` first:
 
-``` text
+```text
 cd /srv/syn/001.cortex
 docker compose pull
 docker compose down
@@ -230,14 +230,14 @@ docker compose up -d
 
 Then we would promote the mirror to being a leader. This promotion will also start any data migrations that need to be performed:
 
-``` text
+```text
 cd /srv/syn/001.cortex
 docker compose exec 001.cortex python -m synapse.tools.service.promote
 ```
 
 After the promotion is completed, the previous leader can be updated. Since it is now mirroring `001.cortex`, it will start to replicate any changes from the leader once it comes online, including any data migrations that are being performed:
 
-``` text
+```text
 cd /srv/syn/000.cortex
 docker compose pull
 docker compose down
@@ -294,7 +294,7 @@ Vertex does not follow a strict release cadence for Synapse, Advanced Power-Ups,
 
 Synapse services support controlling log verbosity via the `SYN_LOG_LEVEL` environment variable. The following values may be used: `CRITCAL`, `ERROR`, `WARNING`, `INFO`, and `DEBUG`. For example:
 
-``` text
+```text
 SYN_LOG_LEVEL=INFO
 ```
 
@@ -330,7 +330,7 @@ By default, Synapse containers will emit JSON structured logging output suitable
 
 The following is an example of a the log event for a user executing a Storm query:
 
-``` text
+```text
 {
   "service": "000.cortex.synapse",
   "message": "Executing storm query {[inet:asn=1234]} as [someUsername]",
@@ -357,7 +357,7 @@ While a human friendly `message` key is present, the `params` captures additiona
 
 The following error example shows an example of a exception raised during the execution of a Storm query. The execption `info` is present, showing the `key=valu` data that was captured; and the query text is also captured in `params` by the this particular error handler. :
 
-``` text
+```text
 {
   "service": "000.cortex.synapse",
   "message": "Error during storm execution for { $lib.raise(Newp, 'ruh roh', key=valu) }",
@@ -398,19 +398,19 @@ The following error example shows an example of a exception raised during the ex
 
 To disable this structed logging, specify the following environment variable to the `docker` container running the service:
 
-``` text
+```text
 SYN_LOG_STRUCT=false
 ```
 
 Custom date formatting strings can also be provided by setting the `SYN_LOG_DATEFORMAT` string. This is expected to be a [strftime](https://docs.python.org/3/library/time.html#time.strftime) format string. The following shows an example of setting this value:
 
-``` text
+```text
 SYN_LOG_DATEFORMAT="%d%m%Y %H:%M:%S"
 ```
 
 produces the following output:
 
-``` text
+```text
 28062021 15:48:01 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
 ```
 
@@ -495,19 +495,19 @@ When an optimization is performed, the service records the time and directory si
 
 Managing users and service accounts in the Synapse ecosystem is most easily accomplished using the `moduser` tool executed from **within** the service `docker` container. In this example we add the user `visi` as an admin user to the Cortex by running the following command from **within the Cortex container**:
 
-``` text
+```text
 python -m synapse.tools.service.moduser --add --admin visi
 ```
 
 If the deployment is using AHA and TLS client certificates and the user will be connecting via the Telepath API using the [storm](userguides/syn_tools_storm.md#syn-tools-storm) CLI tool, will also need to provision a user TLS certificate for them. This can be done using the `synapse.tools.aha.provision.user` command from **within the AHA container**:
 
-``` text
+```text
 python -m synapse.tools.aha.provision.user visi
 ```
 
 Which will produce output similar to:
 
-``` text
+```text
 one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 ```
 
@@ -516,13 +516,13 @@ one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 Once the one-time enrollment URL has been passed along to the user, the **user must run an enrollment command** to configure their environment to use the AHA server and generate a user certificate from the host they will be using to run the Storm CLI:
 
-``` text
+```text
 python -m synapse.tools.aha.enroll ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 ```
 
 Once they are enrolled, the user can connect using the Telepath URL `aha://cortex.<yournetwork>`:
 
-``` text
+```text
 python -m synapse.tools.storm aha://cortex.<yournetwork>
 ```
 
@@ -603,7 +603,7 @@ The following example shows setting a password policy on the Cortex with the fol
 
 The following Compose file shows using the policy:
 
-``` yaml
+```yaml
 services:
   000.cortex:
     user: "999"
@@ -618,7 +618,7 @@ services:
 
 Attempting to set a user password which fails to meet the complexity requirements would produce an error:
 
-``` text
+```stormdoc
 storm> auth.user.mod lowuser --passwd hehe
 ERROR: Cannot change password due to the following policy violations:
   - Password must be at least 12 characters.
@@ -627,26 +627,6 @@ ERROR: Cannot change password due to the following policy violations:
   - Password must contain at least 2 digit characters, 0 found.
 complete. 0 nodes in 146 ms (0/sec).
 ```
-
-<a id="devops-task-aha"></a>
-
-
-### Updating to AHA and Telepath TLS
-
-If you have an existing deployment which didn't initially include AHA and Telepath TLS, it can easily be deployed and configured after the fact. However, as services move to TLS it will **break existing telepath URLs** that may be in use, so you should test the deployment before updating your production instance.
-
-To move to AHA, first deploy an AHA service as discussed in the [Synapse Deployment Guide](deploymentguide.md#deploymentguide), including choosing a shared `SYN_PROVISION_SECRET` environment variable. For each existing service, set `SYN_PROVISION_SECRET` to that same value and restart the service; on its next boot it discovers AHA, provisions itself, and generates its certificates. AHA names each service automatically from its service type (the first instance of a type becomes the leader `000.<type>`).
-
-For example, to add an existing Axon to your new AHA server, add the following environment variable to your orchestration:
-
-``` text
-SYN_PROVISION_SECRET=<shared-secret>
-```
-
-Then restart the Axon container. As it restarts, the service will generate user and host certificates and update it's `cell.yaml` file to include the necessary AHA configuration options. The `dmon:listen` option will be updated to reflect the use of SSL/TLS and the requirement to use client certificates for authentication. As additional services are provisioned, they automatically locate the Axon by its service type via AHA.
-
-> [!NOTE]
-> When specifying a connection string using AHA, you can append a `mirror=true` parameter to the connection string (e.g. `aha://cortex...?mirror=true`) to cause AHA to prefer connecting to a service mirror rather than the leader (if mirrors are available).
 
 ### Deployment Options
 
@@ -661,14 +641,14 @@ If you need to deploy a service with Telepath listening on a specific port, set 
 
 Create the container directory:
 
-``` text
+```text
 mkdir -p /srv/syn/001.axon/storage
 chown -R 999 /srv/syn/001.axon/storage
 ```
 
 Create the `/srv/syn/001.axon/docker-compose.yaml` file with contents:
 
-``` yaml
+```yaml
 services:
   001.axon:
     user: "999"
@@ -692,14 +672,14 @@ If you need to deploy a service with its HTTPS API listening on a specific port,
 
 Create the container directory:
 
-``` text
+```text
 mkdir -p /srv/syn/002.cortex/storage
 chown -R 999 /srv/syn/002.cortex/storage
 ```
 
 Create the `/srv/syn/002.cortex/docker-compose.yaml` file with contents:
 
-``` yaml
+```yaml
 services:
   002.cortex:
     user: "999"
@@ -724,7 +704,7 @@ The Nexus log can be trimmed to reduce the storage size of any Synapse Service t
 
 For a Cortex **without** any mirrors, this is best accomplished in Storm via the following query:
 
-``` text
+```storm
 $lib.cell.trimNexsLog()
 ```
 
@@ -737,7 +717,7 @@ If the Cortex is mirrored, a list of Telepath URLs of all mirrors must be provid
 
 The Telepath URLs can be provided to the Storm API as follows:
 
-``` text
+```storm
 $mirrors = ("aha://001.cortex...", "aha://002.cortex...")
 $lib.cell.trimNexsLog(consumers=$mirrors)
 ```
@@ -751,7 +731,7 @@ When functionality in Synapse is deprecated, it is marked with a library functio
 
 For example, if a HTTP caller uses the `api/v3/example` API, it would log the following message:
 
-``` text
+```text
 2025-11-18 10:31:33,100 [WARNING] "HTTP API /api/v3/example" is deprecated in 3.x and will be removed in 4.0.0 [common.py:deprecated:MainThread:MainProcess]
 ```
 
@@ -769,7 +749,7 @@ One example for using this hook is to use `certbot` to create HTTPS certificates
 
 Create a boothooks directory:
 
-``` text
+```text
 mkdir -p /srv/syn/000.cortex/bookhooks
 ```
 
@@ -888,7 +868,7 @@ echo "Done setting up HTTPS certificates"
 
 That directory will be mounted at `/vertex/boothooks`. The following Compose file shows mounting that directory into the container and setting environment variables for the script to use:
 
-``` yaml
+```yaml
 services:
   000.cortex:
     image: hub.vertex.link/synapse-cortex:v3.x.x
@@ -918,7 +898,7 @@ The Cortex and Axon can be configured to use additional CA certificates when mak
 
 The following Compose file shows an example using this option with the Cortex.
 
-``` yaml
+```yaml
 services:
   000.cortex:
     user: "999"
@@ -945,7 +925,7 @@ To configure custom CA certificates with kubernetes, do the following:
 
     > The example has a pre-created root CA and an intermediate CA certificate in PEM format:
     >
-    > ``` text
+    > ```text
     > $ ls -l ./cas
     > total 8
     > -rw-rw-r-- 1 user user 1708 Feb 14 19:19 intermediate.crt
@@ -963,7 +943,7 @@ To configure custom CA certificates with kubernetes, do the following:
     >
     > Example Data:
     >
-    > ``` text
+    > ```text
     > intermediate.crt:
     >
     > -----BEGIN CERTIFICATE-----
@@ -985,7 +965,7 @@ To configure custom CA certificates with kubernetes, do the following:
 
     > Example volume:
     >
-    > ``` text
+    > ```text
     > - name: tls-ca-certs
     >   configMap:
     >     name: tls-ca-certs
@@ -993,33 +973,33 @@ To configure custom CA certificates with kubernetes, do the following:
     >
     > Example volumeMount:
     >
-    > ``` text
+    > ```text
     > - mountPath: /vertex/tls-ca-certs
     >   name: tls-ca-certs
     > ```
     >
     > Example environment variable:
     >
-    > ``` text
+    > ```text
     > - name: SYN_CORTEX_TLS_CA_DIR
     >   value: "/vertex/tls-ca-certs/"
     > ```
 
 3.  Verify the TLS certificates were loaded by making an HTTPS request in Storm.
 
-    > ``` text
+    > ```storm
     > $lib.print($lib.inet.http.get(<URL TO SERVER WITH CUSTOM CERTIFICATES>))
     > ```
     >
     > On success, you should see an `inet:http:resp` with code 200 and reason OK:
     >
-    > ``` text
+    > ```stormdoc
     > inet:http:resp: {'code': 200, 'reason': 'OK', 'headers': ... }
     > ```
     >
     > If the TLS CA certificates are not being loaded properly, a response similar to the following will be seen:
     >
-    > ``` text
+    > ```stormdoc
     > inet:http:resp: {'code': -1, 'reason': "Exception occurred during request: ClientConnectorCertificateError ...", ...}
     > ```
 
@@ -1027,6 +1007,20 @@ In this example, the volume with the configmap contains symlinks which are treat
 
 > [!NOTE]
 > For the Axon, the wget and wput API functionality can also be configured to use a TLS directory for loading additional certificates. The configuration is similar to the Cortex, but uses the `SYN_AXON_TLS_CA_DIR` environment variable.
+
+### Outbound HTTP User-Agent
+
+Every Synapse service sends a default `User-Agent` header on the outbound HTTP(S) requests it
+makes -- Storm's `$lib.inet.http` APIs, `$lib.axon.wget`/`$lib.axon.wput`, JWKS and OAuth token
+fetches, and backup-restore-from-URL downloads. The default identifies the service and its
+version, for example `Synapse-Cortex/3.1.0 (Synapse/3.1.0; https://vertex.link)`.
+
+A `User-Agent` supplied by the caller always takes precedence over the default, regardless of
+casing (`User-Agent`, `user-agent`, etc. are all recognized). This matters in particular for
+`$lib.axon.wget` and `$lib.axon.wput`: when Storm supplies no `User-Agent`, the request sent to
+the Axon carries the *Cortex's* default rather than the Axon's, so a Storm-initiated fetch has
+one consistent origin identity regardless of which service actually sends the request. A caller-set
+`User-Agent` persists across that hop unchanged.
 
 ### Axon Blob Export and Import
 
@@ -1044,7 +1038,7 @@ In these situations, an export is created using `synapse.tools.axon.dump`. The o
 
 Exporting blobs from an Axon can be done with the `synapse.tools.axon.dump` command:
 
-``` text
+```text
 python -m synapse.tools.axon.dump --url <axonurl> <outputdir>
 ```
 
@@ -1054,7 +1048,7 @@ When running the export tool from within the Axon container, the `--url` option 
 
 Importing blobs into an Axon can be done with the `synapse.tools.axon.load` command:
 
-``` text
+```text
 python -m synapse.tools.axon.load <axonurl> <archive1.tar.gz> [<archive2.tar.gz> ...]
 ```
 
@@ -1078,7 +1072,7 @@ In these situations, an export would be created using `synapse.tools.cortex.laye
 
 Exporting node edits from a layer can be done with the `synapse.tools.cortex.layer.dump` command:
 
-``` text
+```text
 python -m synapse.tools.cortex.layer.dump --url <cortexurl> <layriden> <outdir>
 ```
 
@@ -1088,7 +1082,7 @@ When running the export tool from within the Cortex container, the `--url` optio
 
 Importing node edits into a layer can be done with the `synapse.tools.cortex.layer.load` command:
 
-``` text
+```text
 python -m synapse.tools.cortex.layer.load <layriden> <nodeedits file(s)...>
 ```
 
@@ -1109,7 +1103,7 @@ Docker Image: `hub.vertex.link/synapse-aha:v3.x.x`
 
 A typical AHA deployment requires some initial configuration options. At a minimum, you must specify the following, where `<yourdnsname>` is a DNS name which resolves to the AHA service from every service which will use it:
 
-``` text
+```text
 aha:network: <yournetwork>
 dns:name: <yourdnsname>
 ```
@@ -1118,7 +1112,7 @@ AHA generates a host certificate for the `dns:name` and listens using it, so no 
 
 AHA listens for provisioning requests on port 27272 by default. To bind that listener differently, specify it explicitly:
 
-``` text
+```text
 provision:listen: ssl://0.0.0.0:27272?hostname=<yourdnsname>
 ```
 
@@ -1131,7 +1125,7 @@ For the full list supported options, see the [AHA Configuration Options](devopsg
 
 Loading the known AHA resolvers for use with custom python clients can be easily accomplished using the `withTeleEnv()` context manager:
 
-``` text
+```text
 import sys
 import asyncio
 
@@ -1191,9 +1185,13 @@ A typical Axon deployment does not require any additional configuration. For the
 
 :   Controls access to upload a binary blob to the Axon.
 
+*axon.wput*
+
+:   Controls access to push a binary blob from the Axon to a URL.
+
 For example, to allow the user `visi` to upload, download, and confirm files you would execute the following command from **inside the Axon container**:
 
-``` text
+```text
 python -m synapse.tools.service.moduser --add visi --allow axon
 ```
 
@@ -1230,13 +1228,13 @@ The Cortex can be configured to log Storm queries executed by users. This is don
 
 When enabled, the log message contains the query text and username:
 
-``` text
+```text
 2021-06-28 16:17:55,775 [INFO] Executing storm query {inet:ip=1.2.3.4} as [root] [cortex.py:_logStormQuery:MainThread:MainProcess]
 ```
 
 When structured logging is also enabled for a Cortex, the query text, username, and user iden are included as individual fields in the logged message as well:
 
-``` json
+```json
 {
   "message": "Executing storm query {inet:ip=1.2.3.4} as [root]",
   "logger": {
@@ -1275,7 +1273,7 @@ The Storm queries which implement these endpoints will have a `$request` object 
 
 The following simple example shows adding an API endpoint and setting the `GET` method on it that just returns a simple message embedded in a dictionary:
 
-``` text
+```storm
 $api = $lib.cortex.httpapi.add('demo/path00')
 $api.methods.get = ${
     $mesg=`Hello! I am a request made to {$request.path}`
@@ -1287,7 +1285,7 @@ $api.methods.get = ${
 
 When accessing that HTTP API endpoint on the Cortex, the response data has the status code, custom headers, and custom body in the reponse:
 
-``` text
+```text
 $ curl -D - -sku "root:root" "https://127.0.0.1:4443/api/ext/demo/path00"
 HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf8"
@@ -1304,7 +1302,7 @@ The `$request.reply()` method automatically will convert primitive objects into 
 
 The `$request` object has information available about the request itself. The following API example shows access to all of that request data, and echoes it back to the caller:
 
-``` text
+```storm
 $api = $lib.cortex.httpapi.add('demo/([a-z0-9]*)')
 $api.methods.post = ${
     $body = ({
@@ -1330,7 +1328,7 @@ $api.methods.post = ${
 
 Accessing that endpoint shows that request information is echoed back to the caller:
 
-``` text
+```text
 $ curl -sku "root:secret" -XPOST -d '{"some":["json", "items"]}' "https://127.0.0.1:4443/api/ext/demo/ohmy?hehe=haha" | jq
 {
   "method": "POST",
@@ -1364,7 +1362,7 @@ $ curl -sku "root:secret" -XPOST -d '{"some":["json", "items"]}' "https://127.0.
 
 The `$request.headers` are accessed in a case-insensitive manner. `$request.parameters` are case sensitive. The following example shows that:
 
-``` text
+```storm
 $api = $lib.cortex.httpapi.get(50cf80d0e332a31608331490cd453103)
 $api.methods.get = ${
     $body=({
@@ -1378,7 +1376,7 @@ $api.methods.get = ${
 
 The output of that endpoint:
 
-``` text
+```text
 $ curl -s -k -u "root:secret" "https://127.0.0.1:4443/api/ext/demo/casemath?hehe=haha&HEHE=uppercase"  | jq
 {
   "ua": "curl/7.81.0",
@@ -1396,7 +1394,7 @@ When creating an Extended HTTP API, the request path must be provided. This path
 
 To list the registered APIs, their order, and path information, use the `cortex.httpapi.list` command:
 
-``` text
+```stormdoc
 storm> cortex.httpapi.list
  order | iden                             | owner                | auth  | runas  | path
 =======|==================================|======================|=======|========|======
@@ -1408,7 +1406,7 @@ storm> cortex.httpapi.list
 
 In this example, there are four items listed. The `path` of the first item will match the paths for the second and third items. The index for the first item needs to be moved using the `cortex.httpapi.index` commmand. That command allows users to change the order in which the API endpoints are matched:
 
-``` text
+```stormdoc
 storm> cortex.httpapi.index 50cf80d0e332a31608331490cd453103 3
 Set HTTP API 50cf80d0e332a31608331490cd453103 to index 3
 
@@ -1425,7 +1423,7 @@ The endpoints in the example are now checked in a "more specific" to "least spec
 
 The path of an endpoint can also be changed. This can be done by assigning a new value to the `path` attribute on the `http:api` object in Storm:
 
-``` text
+```stormdoc
 storm> $api=$lib.cortex.httpapi.get(1896bda5dbd97615ee553059079620ba) $api.path="demo/mynew/path"
 complete. 0 nodes in 8 ms (0/sec).
 
@@ -1440,7 +1438,7 @@ storm> cortex.httpapi.list
 
 The path components which match each regular expression capture group in the `path` will be set in the `$request.args` data. An endpoint can capture multiple args this way:
 
-``` text
+```storm
 // Set the echo API handler defined earlier to have a path which has multiple capture groups
 $api = $lib.cortex.httpapi.get(50cf80d0e332a31608331490cd453103)
 $api.path="demo/([a-z0-9]+)/(.*)"
@@ -1448,7 +1446,7 @@ $api.path="demo/([a-z0-9]+)/(.*)"
 
 The capture groups are then available:
 
-``` text
+```text
 $ curl -sku "root:secret" -XPOST "https://127.0.0.1:4443/api/ext/demo/foobar1/AnotherArgument/inTheGroup"  | jq '.args'
 [
   "foobar1",
@@ -1461,7 +1459,7 @@ $ curl -sku "root:secret" -XPOST "https://127.0.0.1:4443/api/ext/demo/foobar1/An
 
 The Extended HTTP APIs can also be given a name and a description. The following shows setting the `name` and `desc` fields, and then showing the details of the API using `cortex.httpapi.stat`. This command shows detailed information about the Extended HTTP API endpoint:
 
-``` text
+```stormdoc
 $api = $lib.cortex.httpapi.get(50cf80d0e332a31608331490cd453103)
 $api.name="demo wildcard"
 $api.desc='''This API endpoint is a wildcard example. It has a GET method and a POST method available.'''
@@ -1528,7 +1526,7 @@ The endpoints support the following HTTP Methods:
 
 The logic which implements these methods is set via Storm. The following example shows setting two simple methods for a given endpoint:
 
-``` text
+```storm
 $api = $lib.cortex.httpapi.get(586311d3a7a26d6138bdc07169e4cde5)
 $api.methods.get = ${ $request.reply(200, headers=({"X-Method": "GET"}))
 $api.methods.put = ${ $request.reply(200, headers=({"X-Method": "PUT"}))
@@ -1536,7 +1534,7 @@ $api.methods.put = ${ $request.reply(200, headers=({"X-Method": "PUT"}))
 
 These methods can be removed as well by assigning `$lib.undef` to the value:
 
-``` text
+```storm
 // Remove the GET method
 $api = $lib.cortex.httpapi.get(586311d3a7a26d6138bdc07169e4cde5)
 $api.methods.put = $lib.undef
@@ -1578,7 +1576,7 @@ This allows creating endpoints that run in one of three modes:
 
 These three modes can be demonstrated by configuring endpoints that will echo back the current user:
 
-``` text
+```storm
 // Create a query object that we will use for each handler
 $echo=${ $request.reply(200, body=$lib.auth.users.get().name) }
 
@@ -1599,7 +1597,7 @@ $api2.methods.get=$echo
 
 Accessing those endpoints with different users gives various results:
 
-``` text
+```text
 # The demo/owner endpoint runs as the owner
 $ curl -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
 "root"
@@ -1623,14 +1621,14 @@ If the owner or an authenticated user does not have permission to execute a Stor
 
 Endpoints can also have permissions defined for them. This allows locking down an endpoint such that while a user may still have access to the underlying view, they may lack the specific permissions required to execute the endpoint. These permissions are checked against the authenticated user, and not the endpoint owner. The following example shows setting a single permission on one of our earlier endpoints:
 
-``` text
+```storm
 $api=$lib.cortex.httpapi.get(bd4679ab8e8a1fbc030b46e275ddba96)
 $api.perms=(your.custom.permission,)
 ```
 
 Accessing it as a user without the specified permission generates an `AuthDeny` error:
 
-``` text
+```text
 $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
 {
   "status": "err",
@@ -1641,14 +1639,14 @@ $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
 
 The user can have that permission granted via Storm:
 
-``` text
+```stormdoc
 storm> auth.user.addrule lowuser your.custom.permission
 Added rule your.custom.permission to user lowuser.
 ```
 
 Then the endpoint can be accessed:
 
-``` text
+```text
 $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
 "root"
 ```
@@ -1662,7 +1660,7 @@ For additional information about managing user permissions, see [Create and Mana
 
 The Storm queries for a given handler may be executed in a `readonly` runtime. This is disabled by default. This can be changed by setting the `readonly` attribute on the `http:api` object:
 
-``` text
+```storm
 // Enable the Storm queries to be readonly
 $api = $lib.cortex.httpapi.get($yourIden)
 $api.readonly = (true)
@@ -1672,7 +1670,7 @@ $api.readonly = (true)
 
 User defined variables may be set for the queries as well. These variables are mapped into the runtime for each method. This can be used to provide constants or other information which may change, without needing to alter the underlying Storm code which defines a method. These can be read ( or removed ) by altering the `$api.vars` dictionary. This is an example of using a variable in a query:
 
-``` text
+```storm
 // Set a variable that a method uses:
 
 $api = $lib.cortex.httpapi.get($yourIden)
@@ -1685,19 +1683,19 @@ $api.vars.number = (5)
 
 When executing this method, the JSON response would be the following:
 
-``` json
+```json
 {"mesg": "There are 5 things available!"}
 ```
 
 If `$api.vars.number = "several"` was executed, the JSON response would now be the following:
 
-``` json
+```json
 {"mesg": "There are several things available!"}
 ```
 
 Variables can be removed by assigning `$lib.undef` to them:
 
-``` text
+```storm
 $api = $lib.cortex.httpapi.get($yourIden)
 $api.vars.number = $lib.undef
 ```
@@ -1710,7 +1708,7 @@ Responses can be made which are not JSON formatted. The `$request.reply()` metho
 
 The following example shows an endpoint which generates a small amount of HTML. It uses an HTML template stored in in the method `vars`. This template has a small string formatted in it, converted to bytes, and then the headers are set. The end result can be then rendered in a web browser:
 
-``` text
+```storm
 $api = $lib.cortex.httpapi.add('demo/html')
 $api.vars.template = '''<!DOCTYPE html>
 <html>
@@ -1734,7 +1732,7 @@ $api.methods.get = ${
 
 Accessing this endpoint with `curl` shows the following:
 
-``` text
+```text
 $ curl -D - -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/html"
 HTTP/1.1 200 OK
 Content-Type: text/html
@@ -1756,7 +1754,7 @@ The `http:request` object has methods that allow a user to send the response cod
 
 The following examples generates some JSONLines data:
 
-``` text
+```storm
 $api = $lib.cortex.httpapi.add('demo/jsonlines')
 $api.methods.get = ${
     $request.sendcode(200)
@@ -1773,7 +1771,7 @@ $api.methods.get = ${
 
 Accessing this endpoint shows the JSONLines rows sent back:
 
-``` text
+```text
 $ curl -D - -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/jsonlines"
 HTTP/1.1 200 OK
 Content-Type: text/plain; charset=utf8
@@ -1788,7 +1786,7 @@ Transfer-Encoding: chunked
 
 In a similar fashion, a CSV can be generated. This example shows an integer and its square being computed:
 
-``` text
+```storm
 $api = $lib.cortex.httpapi.add('demo/csv')
 $api.methods.get = ${
     $request.sendcode(200)
@@ -1809,7 +1807,7 @@ $api.methods.get = ${
 
 Accessing this shows the CSV content being sent back:
 
-``` text
+```text
 $ curl -D - -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/csv"
 HTTP/1.1 200 OK
 Content-Type: text/csv
@@ -1843,7 +1841,7 @@ A Storm query which generates an error which tears down the Storm runtime with a
 
 For example, if the previous example where the handler sent a `mesg` about the `$number` of things available was run after the variable `$number` was removed, the code would generate the following response body:
 
-``` json
+```json
 {"status": "err", "code": "NoSuchVar", "mesg": "Missing variable: number"}
 ```
 
@@ -2022,7 +2020,7 @@ spec:
 
 This can be deployed via `kubectl apply`. That will create the PVC, deployment, and service.
 
-``` text
+```text
 $ kubectl apply -f aha.yaml
 persistentvolumeclaim/example-aha00 created
 deployment.apps/aha00 created
@@ -2031,7 +2029,7 @@ service/aha00 created
 
 You can see the startup logs as well:
 
-``` text
+```text
 $ kubectl logs -l app.kubernetes.io/instance=aha00
 2025-03-12 20:30:49,620 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
 2025-03-12 20:30:49,620 [INFO] Starting aha version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
@@ -2049,7 +2047,7 @@ $ kubectl logs -l app.kubernetes.io/instance=aha00
 
 All services in this deployment share a single provisioning secret. When a service boots with this secret configured, it discovers the AHA service and provisions itself automatically. The secret is stored as a Kubernetes Secret named `synapse-provision` and referenced by each deployment. Create it once with the following command, using a strong shared secret of your choosing:
 
-``` text
+```text
 $ kubectl create secret generic synapse-provision --from-literal=secret=<shared-secret>
 ```
 
@@ -2161,7 +2159,7 @@ The service auto-provisions against AHA on its first boot using the shared secre
 
 This can then be deployed via `kubectl apply`:
 
-``` text
+```text
 $ kubectl apply -f axon.yaml
 persistentvolumeclaim/example-axon00 created
 deployment.apps/axon00 created
@@ -2169,7 +2167,7 @@ deployment.apps/axon00 created
 
 You can see the Axon logs as well. These show provisioning and listening for traffic:
 
-``` text
+```text
 $ kubectl logs -l app.kubernetes.io/instance=axon00
 2025-03-12 20:31:56,904 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
 2025-03-12 20:31:56,904 [INFO] Starting axon version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
@@ -2292,7 +2290,7 @@ The service auto-provisions against AHA on its first boot using the shared secre
 
 This can then be deployed via `kubectl apply`:
 
-``` text
+```text
 $ kubectl apply -f jsonstor.yaml
 persistentvolumeclaim/example-jsonstor00 created
 deployment.apps/jsonstor00 created
@@ -2300,7 +2298,7 @@ deployment.apps/jsonstor00 created
 
 You can see the JSONStor logs as well. These show provisioning and listening for traffic:
 
-``` text
+```text
 $ kubectl logs -l app.kubernetes.io/instance=jsonstor00
 2025-03-12 20:32:29,606 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
 2025-03-12 20:32:29,607 [INFO] Starting jsonstor version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
@@ -2448,7 +2446,7 @@ The service auto-provisions against AHA on its first boot using the shared secre
 
 This can then be deployed via `kubectl apply`:
 
-``` text
+```text
 $ kubectl apply -f cortex.yaml
 persistentvolumeclaim/example-cortex00 created
 deployment.apps/cortex00 created
@@ -2457,7 +2455,7 @@ service/cortex created
 
 You can see the Cortex logs as well. These show provisioning and listening for traffic, as well as the connection being made to the Axon and JSONStor services:
 
-``` text
+```text
 $ kubectl logs -l app.kubernetes.io/instance=cortex00
 2025-03-12 20:33:52,998 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
 2025-03-12 20:33:52,998 [INFO] Starting cortex version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
@@ -2487,7 +2485,7 @@ Synapse services and tooling assumes that IP and Port combinations registered wi
 
 First add a user to the Cortex:
 
-``` text
+```text
 $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.service.moduser --add --admin true visi
 Adding user: visi
 ...setting admin: true
@@ -2495,20 +2493,20 @@ Adding user: visi
 
 Then we need to generate a user provisioning URL:
 
-``` text
+```text
 $ kubectl exec -it deployment/aha00 -- python -m synapse.tools.aha.provision.user visi
 one-time use URL: ssl://aha00.default.svc.cluster.local:27272/95e9d45d9b0f0b259026f6044a26f1de?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591
 ```
 
 Port-forward the AHA provisioning service to your local environment:
 
-``` text
+```text
 $ kubectl port-forward service/aha00 27272:provisioning
 ```
 
 Run the enroll tool to create a user certificate pair and have it signed by the AHA service. We replace the service DNS name of `aha00.default.svc.cluster.local` with `localhost` in this example.
 
-``` text
+```text
 $ python -m synapse.tools.aha.enroll ssl://localhost:27272/95e9d45d9b0f0b259026f6044a26f1de?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591
 Saved CA certificate: /home/visi/.syn/certs/cas/dev.synapse.crt
 Saved user certificate: /home/visi/.syn/certs/users/visi@dev.synapse.crt
@@ -2517,13 +2515,13 @@ Updating known AHA servers
 
 The AHA service port-forward can be disabled, and replaced with a port-forward for the Cortex service:
 
-``` text
+```text
 kubectl port-forward service/cortex 27492:telepath
 ```
 
 Then connect to the Cortex via the Storm CLI, using the URL `ssl://visi@localhost:27492/?hostname=000.cortex.dev.synapse`.
 
-``` text
+```stormdoc
 $ python -m synapse.tools.storm "ssl://visi@localhost:27492/?hostname=000.cortex.dev.synapse"
 
 Welcome to the Storm interpreter!
@@ -2537,7 +2535,7 @@ storm>
 
 The Storm CLI tool can now be used to run Storm commands. We can validate our work from earlier by running the Storm command `aha.svc.list` to list the services that are registered with the AHA service:
 
-``` text
+```stormdoc
 storm> aha.svc.list
 Name                                          Leader Online Ready Host            Port
 000.axon.dev.synapse                          true   true   true  10.244.0.10     38417
@@ -2685,7 +2683,7 @@ The service auto-provisions against AHA on its first boot using the shared secre
 
 This can then be deployed via `kubectl apply`:
 
-``` text
+```text
 $ kubectl apply -f optic.yaml
 persistentvolumeclaim/example-optic00 created
 deployment.apps/optic00 created
@@ -2694,7 +2692,7 @@ service/optic created
 
 You can see the Optic logs as well. These show provisioning and listening for traffic, as well as the connection being made to the Axon, Cortex, and JSONStor services:
 
-``` text
+```text
 $ kubectl logs --tail 30 -l app.kubernetes.io/instance=optic00
 2023-03-08 17:32:40,149 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
 2023-03-08 17:32:40,151 [DEBUG] Set config valu from envar: [SYN_OPTIC_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
@@ -2719,7 +2717,7 @@ $ kubectl logs --tail 30 -l app.kubernetes.io/instance=optic00
 
 Once Optic is connected, we will need to set a password for the user we previously created in order to log in. This can be done via `kubectl exec`, setting the password for the user on the Cortex:
 
-``` text
+```text
 $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.service.moduser --passwd secretPassword visi
 Modifying user: visi
 ...setting passwd: secretPassword
@@ -2727,7 +2725,7 @@ Modifying user: visi
 
 Enable a port-forward to connect to the Optic service:
 
-``` text
+```text
 $ kubectl port-forward service/optic 4443:https
 ```
 
@@ -2816,14 +2814,14 @@ spec:
 
 This can be deployed via `kubectl apply`. That will create the DaemonSet for you.
 
-``` text
+```text
 $ kubectl apply -f sysctl.yaml
 daemonset.apps/setsysctl created
 ```
 
 You can see the sysctl pods by running the following command:
 
-``` text
+```text
 $ kubectl get pods -l app.kubernetes.io/component=sysctl -o wide
 ```
 

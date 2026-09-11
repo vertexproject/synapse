@@ -76,13 +76,13 @@ A **directed graph** is a graph where the edges have a direction associated with
 
 **Other Examples.** Many other types of data can be represented with nodes and directed edges. For example, in information security you can represent data and relationships such as:
 
-``` text
+```text
 malware_file --performed DNS lookup for--> domain
 ```
 
 or
 
-``` text
+```text
 domain --resolves to--> ip_address
 ```
 

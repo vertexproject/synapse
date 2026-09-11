@@ -864,19 +864,47 @@ class StormCliTest(s_test.SynTest):
             port, apikey = await self.getStormHttpInfo(core)
             url = f'https://{apikey}@127.0.0.1:{port}'
 
-            proxyurl = 'socks5://127.0.0.1:1080'
+            # a real proxy, so the query is answered through the tunnel rather
+            # than the proxy argument merely reaching ProxyConnector.from_url
+            for ctor in s_test.PROXIES:
+                with self.subTest(scheme=ctor.scheme):
 
-            with mock.patch.object(aiohttp_socks.ProxyConnector, 'from_url') as mokk:
+                    async with await ctor.anit() as proxy:
 
-                mokk.return_value = aiohttp.TCPConnector()
+                        outp = s_output.OutPutStr()
+                        ret = await s_t_storm.main(('--https-noverify', '--https-proxy', proxy.url, url,
+                                                    '$lib.print(woot)'), outp=outp)
 
-                outp = s_output.OutPutStr()
-                ret = await s_t_storm.main(('--https-noverify', '--https-proxy', proxyurl, url, '$lib.print(woot)'), outp=outp)
+                        self.eq(ret, 0)
+                        self.isin('woot', str(outp))
+                        self.eq([('127.0.0.1', port)], proxy.connects)
 
-                self.eq(ret, 0)
-                self.isin('woot', str(outp))
+                    # credentials in the proxy URL reach a proxy which demands them
+                    async with await ctor.anit(auth='visi:secret') as proxy:
 
-                mokk.assert_called_once_with(proxyurl)
+                        proxyurl = proxy.url.replace('://', '://visi:secret@')
+
+                        outp = s_output.OutPutStr()
+                        ret = await s_t_storm.main(('--https-noverify', '--https-proxy', proxyurl, url,
+                                                    '$lib.print(woot)'), outp=outp)
+
+                        self.eq(ret, 0)
+                        self.isin('woot', str(outp))
+                        self.eq(0, proxy.refused)
+
+                    # and the wrong ones fail rather than connecting directly
+                    async with await ctor.anit(auth='visi:secret') as proxy:
+
+                        proxyurl = proxy.url.replace('://', '://visi:newp@')
+
+                        outp = s_output.OutPutStr()
+                        with self.raises(aiohttp_socks.ProxyError):
+                            await s_t_storm.main(('--https-noverify', '--https-proxy', proxyurl, url,
+                                                  '$lib.print(woot)'), outp=outp)
+
+                        self.notin('woot', str(outp))
+                        self.eq([], proxy.connects)
+                        self.lt(0, proxy.refused)
 
     async def test_tools_storm_http_jsonlines(self):
 

@@ -51,13 +51,13 @@ If a form (or forms) in the working set implements an [Interface](../glossary.md
 
 Filter the current working set to only include fully qualified domain names (FQDNs / `inet:fqdn` nodes):
 
-``` text
+```text
 <query> +inet:fqdn
 ```
 
 Filter the current working set to exclude URLs (`inet:url` nodes):
 
-``` text
+```text
 <query> -inet:url
 ```
 
@@ -86,13 +86,13 @@ You can use the wildcard (asterisk) character ( `*` ) to specify all forms that 
 
 Filter the current working set to exclude DNS nodes (e.g., `inet:dns:a`, `inet:dns:mx`, `inet:dns:request`):
 
-``` text
+```text
 <query> -inet:dns:*
 ```
 
 Filter the current working set to only include antivirus / scan-related nodes (e.g., `it:av:scan:result`, `it:av:signame`):
 
-``` text
+```text
 <query> +it:av:s*
 ```
 
@@ -111,13 +111,13 @@ You can use the name of an interface to filter all forms that implement that int
 
 Filter the current working set to only include host event nodes (all nodes of all forms that implement the `it:host:event` interface):
 
-``` text
+```text
 <query> +it:host:event
 ```
 
 Filter the current working set to exclude taxonomy nodes (all nodes of all forms that implement the `meta:taxonomy` interface):
 
-``` text
+```text
 <query> -meta:taxonomy
 ```
 
@@ -148,21 +148,21 @@ A "filter by property" operation modifies your working set to include (or exclud
 
 Filter the current working set to only include threats (`risk:threat` nodes) that have an assessed country of origin (`:place:country:code` property):
 
-``` text
+```text
 <query> +risk:threat:place:country:code
 ```
 
-``` text
+```text
 <query> +:place:country:code
 ```
 
 Filter the current working set to exclude articles (`doc:report` nodes) that have a publisher name (`:publisher:name` property):
 
-``` text
+```text
 <query> -doc:report:publisher:name
 ```
 
-``` text
+```text
 <query> -:publisher:name
 ```
 
@@ -183,7 +183,7 @@ If a form implements an [Interface](../glossary.md#gloss-interface) that defines
 
 Filter the current working set to only include those host event nodes (all nodes of all forms that implement the `it:host:event` interface) that have a `:time` property:
 
-``` text
+```text
 <query> +it:host:event:time
 ```
 
@@ -199,11 +199,11 @@ Filter the current working set to only include those host event nodes (all nodes
 
 Filter the current working set to exclude those organizations (`ou:org` nodes) that are considered threats (`:_vertex:threatintel:isthreat`):
 
-``` text
+```text
 <query> -ou:org:_vertex:threatintel:isthreat
 ```
 
-``` text
+```text
 <query> -:_vertex:threatintel:isthreat
 ```
 
@@ -255,11 +255,11 @@ Each example below is shown using both the full property name (*\<form\>:\<prop\
 
 Filter the current working set to exclude the loopback IP address (`127.0.0.1`):
 
-``` text
+```text
 <query> -inet:ip = 127.0.0.1
 ```
 
-``` text
+```text
 <query> +inet:ip != 127.0.0.1
 ```
 
@@ -273,41 +273,41 @@ Filter the current working set to exclude the loopback IP address (`127.0.0.1`):
 
 Filter the current working set to include only those FQDNs (`inet:fqdn` nodes) that are also logical zones:
 
-``` text
+```text
 <query> +inet:fqdn:iszone = 1
 ```
 
-``` text
+```text
 <query> +:iszone  = 1
 ```
 
 Filter the current working set to exclude any PE (portable executable) metadata files (`file:mime:pe` nodes) with a compiled time of `1992-06-19 22:22:17`:
 
-``` text
+```text
 <query> -file:mime:pe:compiled = '1992/06/19 22:22:17'
 ```
 
-``` text
+```text
 <query> -:compiled = '1992/06/19 22:22:17'
 ```
 
 Filter the current working set to include only those PE (portable executable) metadata files (`file:mime:pe` nodes) with a compiled time in 2025:
 
-``` text
+```text
 <query> +file:mime:pe:compiled = 2025*
 ```
 
-``` text
+```text
 <query> +:compiled = 2025*
 ```
 
 Filter the current working set to exclude those files (`file:bytes` nodes) whose size is greater than or equal to 1MB:
 
-``` text
+```text
 <query> -file:bytes:size >= 1000000
 ```
 
-``` text
+```text
 <query> -:size >= 1000000
 ```
 
@@ -328,13 +328,13 @@ If a form implements an [Interface](../glossary.md#gloss-interface) that defines
 
 Filter the current working set to only include those Microsoft Office metadata nodes (all nodes of all forms that implement the `file:mime:msoffice` interface) whose `:author:name` value is `admin`:
 
-``` text
+```text
 <query> +file:mime:msoffice:author:name = admin
 ```
 
 Filter the current working set to exclude any host event nodes (all nodes of all forms that implement the `it:host:event` interface) observed earlier than January 1, 2024:
 
-``` text
+```text
 <query> -it:host:event:time < 2024/01/01
 ```
 
@@ -359,13 +359,13 @@ See the [time](storm_ref_type_specific.md#type-time) section of the [Storm Refer
 
 Filter the current working set to include only those nodes created on January 1, 2024 or later:
 
-``` text
+```text
 <query> +.created >= 2024/01/01
 ```
 
 Filter the current working set to include only those FQDNs (`inet:fqdn` nodes) created on January 1, 2024 or later:
 
-``` text
+```text
 <query> +inet:fqdn.created >= 2024/01/01
 ```
 
@@ -379,11 +379,11 @@ When filtering by extended property value, you can use any standard comparison o
 
 Filter the current working set to include only those organizations (`ou:org` nodes) which are categorized as threats (`:_vertex:threatintel:isthreat`):
 
-``` text
+```text
 <query> +ou:org:_vertex:threatintel:isthreat = true
 ```
 
-``` text
+```text
 <query> +:_vertex:threatintel:isthreat = true
 ```
 
@@ -392,11 +392,11 @@ Filter the current working set to include only those organizations (`ou:org` nod
 
 Filter the current working set to include only those files (`file:bytes` nodes) whose VirusTotal reputation score (`:_virustotal:reputation`) is less than -100:
 
-``` text
+```text
 <query> +file:bytes:_virustotal:reputation < -100
 ```
 
-``` text
+```text
 <query> +:_virustotal:reputation < -100
 ```
 
@@ -437,27 +437,27 @@ The extended comparator `~=` is used to filter nodes based on PCRE-compatible re
 
 Filter the current working set to only include reports (`doc:report` nodes) whose title includes the string `sandstorm`:
 
-``` text
+```text
 <query> +doc:report:title ~= sandstorm
 ```
 
-``` text
+```text
 <query> +:title ~= sandstorm
 ```
 
 Filter the current working set to exclude organizations (`ou:org` nodes) whose name contains a string that starts with `v`, followed by 0 or more characters, followed by `x`:
 
-``` text
+```text
 <query> -ou:org:name ~= '^v.*x'
 ```
 
-``` text
+```text
 <query> -:name ~= '^v.*x'
 ```
 
 Filter the current working set to only include taxonomy nodes (all nodes of all forms that implement the `meta:taxonomy` interface) whose description (`:desc` property) includes the string `credential`:
 
-``` text
+```text
 <query> +meta:taxonxomy:desc ~= credential
 ```
 
@@ -486,23 +486,23 @@ Synapse performs prefix indexing on strings and string-derived types, which opti
 
 Filter the current working set to exclude email addresses (`inet:email` nodes) that start with `abuse`:
 
-``` text
+```text
 <query> -inet:email ^= abuse
 ```
 
 Filter the current working set to only include organizations (`ou:org` nodes) whose name starts with `ministry`:
 
-``` text
+```text
 <query> +ou:org:name ^= ministry
 ```
 
-``` text
+```text
 <query> +:name ^= ministry
 ```
 
 Filter the current working set to only include Microsoft Office metadata nodes (all nodes of all forms that implement the `file:mime:msoffice` interface) whose `:author:name` value starts with `Admin`:
 
-``` text
+```text
 <query> +file:mime:msoffice:author:name ^= Admin
 ```
 
@@ -529,21 +529,21 @@ The time extended comparator (`@=`) is used to filter nodes based on comparisons
 
 Filter the current working set to include only those DNS A records (`inet:dns:a` nodes) whose `:seen` values fall between July 1, 2022 and and August 1, 2022:
 
-``` text
+```text
 <query> +inet:dns:a:seen @= ( 2022/07/01, 2022/08/01 )
 ```
 
-``` text
+```text
 <query> +:seen @= ( 2022/07/01, 2022/08/01 )
 ```
 
 Filter the current working set to only include DNS requests (`inet:dns:request` nodes) that occurred on May 3, 2023 (between `05/03/2023 00:00:00` and `05/03/2023 23:59:59`):
 
-``` text
+```text
 <query> +inet:dns:request:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 ```
 
-``` text
+```text
 <query> +:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 ```
 
@@ -555,21 +555,21 @@ Filter the current working set to only include DNS requests (`inet:dns:request` 
 
 Filter the current working set to only include DNS A records (`inet:dns:a` nodes) whose `:seen` time window includes the date December 1, 2023:
 
-``` text
+```text
 <query> +inet:dns:a:seen @= 2023/12/01
 ```
 
-``` text
+```text
 <query> +:seen @= 2023/12/01
 ```
 
 Filter the current working set to include only those domain WHOIS records (`inet:whois:record` nodes) where the domain was registered (created) exactly on March 19, 2019 at 5:00 UTC:
 
-``` text
+```text
 <query> +inet:whois:record:created @= '2019/03/19 05:00:00'
 ```
 
-``` text
+```text
 <query> +:created @= '2019/03/19 05:00:00'
 ```
 
@@ -578,17 +578,17 @@ Filter the current working set to include only those domain WHOIS records (`inet
 
 Filter the current working set to only include the reports (`doc:report` nodes) that were published within the past day:
 
-``` text
+```text
 <query> +doc:report:published @= ( now, '-1 day' )
 ```
 
-``` text
+```text
 <query> +:published @= ( now, '-1 day' )
 ```
 
 Filter the current working set to only include the host event nodes (all nodes of all forms that implement the `it:host:event` interface) whose `:time` value is within the past three hours:
 
-``` text
+```text
 <query> +it:host:event:time @= (now, '-3 hours')
 ```
 
@@ -644,47 +644,47 @@ The range extended comparator (`*range=`) supports filtering nodes whose *\<form
 
 Filter the current working set to exclude files (`file:bytes` nodes) whose size is between 1000 and 100000 bytes:
 
-``` text
+```text
 <query> -file:bytes:size *range= ( 1000, 100000 )
 ```
 
-``` text
+```text
 <query> -:size *range= ( 1000, 100000 )
 ```
 
 Filter the current working set to only include files (`file:bytes` nodes) whose VirusTotal reputation score (`:_virustotal:reputation`) is between -20 and 20:
 
-``` text
+```text
 <query> +file:bytes:_virustotal:reputation *range= ( -20, 20 )
 ```
 
-``` text
+```text
 <query> +:_virustotal:reputation *range= ( -20, 20 )
 ```
 
 Filter the current working set to exclude DNS requests (`inet:dns:request` nodes) that were made between November 29, 2025 and January 14, 2026:
 
-``` text
+```text
 <query> -inet:dns:request:time *range= ( 2025/11/29, 2026/01/14 )
 ```
 
-``` text
+```text
 <query> -:time *range= ( 2025/11/29, 2026/01/14 )
 ```
 
 Filter the current working set to only include DNS requests (`inet:dns:request` nodes) made within one day of December 1, 2021:
 
-``` text
+```text
 <query> +inet:dns:request:time *range= ( 2021/12/01, '+-1 day' )
 ```
 
-``` text
+```text
 <query> +:time *range= ( 2021/12/01, '+-1 day' )
 ```
 
 Filter the current working set to only include taxonomy nodes (all nodes of all forms that implement the `meta:taxonomy` interface) whose `:depth` is between 1 and 3 (i.e., between 2 and 4 taxonomy elements):
 
-``` text
+```text
 <query> +meta:taxonomy:depth *range= (1, 3)
 ```
 
@@ -713,27 +713,27 @@ The set membership extended comparator (`*in=`) supports filtering nodes whose *
 
 Filter the current working set to exclude entity names (`entity:name` nodes) matching any of the specified values:
 
-``` text
+```text
 <query> -entity:name *in= ( fsb, 'vladimir putin' )
 ```
 
 Filter the current working set to only include IP addresses (`inet:ip` nodes) associated with any of the specified Autonomous System (AS) numbers:
 
-``` text
+```text
 <query> +inet:ip:asn *in= ( 9009, 20473, 44477 )
 ```
 
-``` text
+```text
 <query> +:asn *in= ( 9009, 20473, 44477 )
 ```
 
 Filter the current working set to only include tags (`syn:tag` nodes) whose final tag element matches any of the specified string values:
 
-``` text
+```text
 <query> +syn:tag:base *in= ( plugx, korplug, sogu, kaba )
 ```
 
-``` text
+```text
 <query> +:base *in= ( plugx, korplug, sogu, kaba )
 ```
 
@@ -751,11 +751,11 @@ The proximity extended comparator (`*near=`) supports filtering nodes by "nearne
 
 Filter the current working set to only include locations (`geo:place` nodes) within 500 meters of the Russian Cryptographic Museum (where the coordinates `55.83069, 37.59781` represent the Museum's location):
 
-``` text
+```text
 <query> +geo:place:latlong *near= ( (55.83069, 37.59781), 500m )
 ```
 
-``` text
+```text
 <query> +:latlong *near= ( (55.83069, 37.59781), 500m )
 ```
 
@@ -790,13 +790,13 @@ Storm uses a special syntax to filter (or lift) by comparison with one or more e
 
 Filter the current working set to only include x509 certificates (`crypto:x509:cert` nodes) that reference FQDNs ending with `.xyz`:
 
-``` text
+```text
 <query> +:identities:fqdns *[= '*.xyz' ]
 ```
 
 Filter the current working set to only include threat clusters (`risk:threat` nodes) whose secondary (alternate) names include the string `dragon`:
 
-``` text
+```text
 <query> +:names *[~= dragon ]
 ```
 
@@ -832,13 +832,13 @@ A "filter by tag" operation downselects the current working set to include (or e
 
 Filter the current working set to exclude all nodes that ESET associates with Sednit (`#rep.eset.sednit`):
 
-``` text
+```text
 <query> -#rep.eset.sednit
 ```
 
 Filter the current working set to only include nodes associated with anonymized infrastructure (`#cno.infra.anon`):
 
-``` text
+```text
 <query> +#cno.infra.anon
 ```
 
@@ -866,7 +866,7 @@ Another way to look at this is that the single asterisk is constrained by the ta
 
 Filter the current working set to exclude any nodes tagged as `seduploader` by any third-party reporting organization:
 
-``` text
+```text
 <query> -#rep.*.seduploader
 ```
 
@@ -881,7 +881,7 @@ The tag glob filter above uses the single asterisk to match any tag element in t
 
 Filter the current working set to include any nodes tagged as `cobaltstrike` by any third-party reporting organization whose name begins with `m`:
 
-``` text
+```text
 <query> +#rep.m*.cobaltstrike
 ```
 
@@ -898,7 +898,7 @@ The tag glob filter above uses the single asterisk to match any partial tag elem
 
 Filter the current working set to exclude any nodes tagged as `seduploader` either internally or by any third-party reporting organization:
 
-``` text
+```text
 <query> -#*.*.seduploader
 ```
 
@@ -912,7 +912,7 @@ The Vertex Project uses the `cno` root tag to represent our own internal assessm
 
 Filter the current working set to include any nodes reported by Microsoft whose tags end in `blizzard`:
 
-``` text
+```text
 <query> +#rep.microsoft.**blizzard
 ```
 
@@ -926,7 +926,7 @@ The tag glob filter above uses a double asterisk to match any Microsoft tag (tag
 
 Filter the current working set to exclude any nodes tagged with any tag that starts with `cno` and is followed by any string:
 
-``` text
+```text
 <query> -#cno**
 ```
 
@@ -941,7 +941,7 @@ The tag glob filter above uses a double asterisk to match any string (whose leng
 
 Filter the current working set to include any nodes tagged by any third-party reporting organization where the tag contains the string `2017`:
 
-``` text
+```text
 <query> +#rep.*.**2017**
 ```
 
@@ -966,13 +966,13 @@ See [Filter by Time or Interval (@=)](storm_ref_filter.md#filter-interval) for a
 
 Filter the current result set to only include nodes that were associated with anonymous VPN infrastructure (`#cno.infra.anon.vpn`) between December 1, 2023 and January 1, 2024:
 
-``` text
+```text
 <query> +#cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 ```
 
 Filter the current working set to only include nodes that were owned / controlled by Threat Cluster 15 (`#cno.threat.t15.own`) as of October 30, 2021:
 
-``` text
+```text
 <query> +#cno.threat.t15.own @= 2021/10/30
 ```
 
@@ -991,13 +991,13 @@ Filter the current working set to only include nodes that were owned / controlle
 
 Filter the current working set to only include nodes with a `:_risk` tag property reported by Symantec (`#rep.symantec`):
 
-``` text
+```text
 <query> +#rep.symantec:_risk
 ```
 
 Filter the current working set to include nodes with a `:_risk` tag property associated with any tag:
 
-``` text
+```text
 <query> +#**:_risk
 ```
 
@@ -1023,19 +1023,19 @@ You can filter nodes based on tag property values using any comparison operator 
 
 Filter the current working set to include nodes with a `:_risk` tag property value of 100 as reported by ESET (`#rep.eset`):
 
-``` text
+```text
 <query> +#rep.eset:_risk = 100
 ```
 
 Filter the current working set to exclude nodes with a `:_risk` property value less than 90 as reported by DomainTools (`#rep.domaintools`):
 
-``` text
+```text
 <query> -#rep.domaintools:_risk < 90
 ```
 
 Filter the current working set to include nodes with a `:_risk` property with a value between 45 and 70 as reported by Symantec (`#rep.symantec`):
 
-``` text
+```text
 <query> +#rep.symantec:_risk *range= ( 45, 70 )
 ```
 
@@ -1058,23 +1058,23 @@ Storm supports the use of the logical operators **and**, **or**, and **not** (in
 
 Filter the current working set to only include SHA1 hashes (`crypto:hash:sha1` nodes) or FQDNs (`inet:fqdn` nodes) that ESET associates with Sednit (`#rep.eset.sednit`):
 
-``` text
+```text
 <query> +( ( crypto:hash:sha1 or inet:fqdn ) and #rep.eset.sednit )
 ```
 
 Filter the current working set to include only SHA1 hashes or FQDNs that ESET associates with Sednit and that are **not** sinkholed (`#cno.infra.dns.sink.holed`):
 
-``` text
+```text
 <query> +( ( crypto:hash:sha1 or inet:fqdn ) and ( #rep.eset.sednit and not #cno.infra.dns.sink.holed ) )
 ```
 
 Filter the current working set to only include IP addresses (`inet:ip` nodes) that are on AS2119, AS210558, or AS53667 and are located in Luxembourg:
 
-``` text
+```text
 <query> +( ( inet:ip:asn=2119 or inet:ip:asn=210558 or inet:ip:asn=53667 ) and inet:ip:place:loc^=lu )
 ```
 
-``` text
+```text
 <query> +( ( :asn=2119 or :asn=210558 or :asn=53667 ) and :place:loc^=lu )
 ```
 
@@ -1107,7 +1107,7 @@ Refer to the [Storm Reference - Subqueries](storm_ref_subquery.md#storm-ref-subq
 
 Filter the current working set of FQDNs (`inet:fqdn` nodes) to only FQDNs that have resolved to an IP address that Trend Micro associates with Pawn Storm (i.e., an IP address tagged `#rep.trend.pawnstorm`):
 
-``` text
+```text
 <inet:fqdn> +{ -> inet:dns:a -> inet:ip +#rep.trend.pawnstorm }
 ```
 
@@ -1121,7 +1121,7 @@ The subquery filter returns only those `inet:fqdn` nodes where, if you performed
 
 Filter the current working set of IP addresses (`inet:ip` nodes) to exclude any IP associated with an Autonomous System (AS) whose name starts with `makonix`:
 
-``` text
+```text
 <inet:ip> -{ :asn -> inet:asn +:registrant:name ^= makonix }
 ```
 
@@ -1137,7 +1137,7 @@ The subquery filter returns only those `inet:ip` nodes where, if you performed t
 
 Filter the current working set of files (`file:bytes` nodes) to include only files that are detected as malicious in ten (10) or more scans (i.e., files that are associated with ten or more `it:av:scan:result` nodes whose `:verdict` property value is `malicious`):
 
-``` text
+```text
 <file:bytes> +{ -> it:av:scan:result +:verdict=malicious }>=10
 ```
 
@@ -1154,7 +1154,7 @@ The subquery filter returns only those `file:bytes` nodes with 10 or more associ
 
 Filter the current working set of x509 certificates (`crypto:x509:cert` nodes) to only include certificates linked to more than one FQDN identity:
 
-``` text
+```text
 <crypto:x509:cert> +{ :identities:fqdns -> inet:fqdn }>1
 ```
 
@@ -1185,7 +1185,7 @@ An expression filter is used to downselect your current working set based on the
 
 Filter the current working set of x509 certificates (`crypto:x509:cert` nodes) to only include certificates linked to more than one FQDN identity:
 
-``` text
+```text
 <crypto:x509:cert> $fqdns=:identities:fqdns +$( $fqdns.size() > 1 )
 ```
 
@@ -1200,13 +1200,13 @@ This example assigns the list of domains in the `crypto:x509:cert:identities:fqd
 
 Filter the current working set of network flows (`inet:flow` nodes) to only include flows where the total number of bytes transferred in the flow between the source (`:client:txbytes`) and destination (`:server:txbytes`) is greater than 100MB (~100,000,000 bytes):
 
-``` text
+```text
 <inet:flow> +$( :client:txbytes + :server:txbytes >=100000000 )
 ```
 
 Filter the current set of nodes associated with any threat group or threat cluster (e.g., tagged `#cno.threat.<threat_name>`), to include only those nodes that are attributed to more than one threat (e.g., that have more than one `#cno.threat.<threat_name>` tag):
 
-``` text
+```storm
 #cno.threat +$( $node.globtags(cno.threat.*).size() > 1 )
 ```
 
@@ -1254,14 +1254,14 @@ The example below illustrates the use of embedded property syntax in a filter ex
 
 Filter the current working set of IP addresses (`inet:ip` nodes) to exclude any IP associated with an Autonomous System (AS) whose registrant name starts with `makonix`:
 
-``` text
+```text
 <inet:ip> -:asn::registrant:name ^= makonix
 ```
 
 > [!TIP]
 > This example is an alternative way to return the same data as the second example under [Subquery Filters](storm_ref_filter.md#filter-subquery) above:
 >
-> ``` text
+> ```text
 > <inet:ip> -{ :asn -> inet:asn +:registrant:name ^= makonix }
 > ```
 
@@ -1271,7 +1271,7 @@ Embedded property syntax can also be used when assigning variables (see [Storm R
 
 Set the variable `$name` to the registrant name of the Autonomous System (AS) associated with a given IP address:
 
-``` text
+```text
 <inet:ip> $name=:asn::registrant:name
 ```
 

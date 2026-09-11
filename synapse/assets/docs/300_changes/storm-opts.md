@@ -19,7 +19,7 @@ What you need to do
 
 :   Pass `opts` by keyword.
 
-    ``` python
+    ```python
     # 2.x (positional opts accepted)
     await prox.callStorm(text, opts)
 
@@ -41,7 +41,7 @@ What you need to do
 
 :   Migrate callers from `idens` (hex hashes) to `nids` (integers).
 
-    ``` python
+    ```python
     # 2.x
     opts = {'idens': ('ee6b92c9fd848a2cb00f3a3618148c512b58456b8b51fbed79251811597eeea3',)}
 
@@ -63,7 +63,7 @@ What you need to do
 
 :   Move `repr` / `links` / `show:storage` into `node:opts`, noting that `show:storage` is spelled `storage` there.
 
-    ``` python
+    ```python
     # 2.x
     opts = {'repr': True, 'links': True, 'show:storage': True}
 
@@ -88,7 +88,7 @@ What you need to do
 
 :   Use `show` to omit `edits` from the stream, and sum the edits client-side if you need the count. Note that `show` must be non-empty -- an empty list disables filtering rather than minimizing it.
 
-    ``` python
+    ```python
     # 2.x
     opts = {'editformat': 'none'}
     opts = {'editformat': 'count'}
@@ -114,7 +114,7 @@ What you need to do
 
 :   Match on `edits` wherever you matched on `node:edits`, including in `show` allowlists.
 
-    ``` python
+    ```python
     # 2.x
     async for mesg in prox.storm(text, opts={'show': ('node', 'node:edits')}):
         if mesg[0] == 'node:edits':
@@ -140,7 +140,7 @@ What you need to do
 
 :   Remove opts which no longer exist, and correct any whose value was the wrong type. A client with its own per-query state carries it in the `meta` opt rather than as top level opts; the one product specific key still declared is `readpool`, which Synapse Enterprise reads.
 
-    ``` python
+    ```python
     # 2.x -- silently ignored in early 3.x, now a SchemaViolation
     opts = {'idens': ('ee6b92c9...',)}
     opts = {'repr': True}
@@ -164,7 +164,7 @@ What you need to do
 
 :   Move any client specific keys out of the top level of `opts` and into `meta`, and read them back off the `init` message.
 
-    ``` python
+    ```python
     # 2.x -- client keys alongside real Storm opts
     opts = {'view': viewiden, 'myapp:jobid': jobid}
 
@@ -205,7 +205,7 @@ What you need to do
 
 :   Add `init`, `fini`, or `err` to any `show` list which needs them; in particular a list which omits `err` now silently discards query errors. Replace `{'show': []}` with the opt left unset if the intent was the full stream.
 
-    ``` python
+    ```python
     # 2.x -- init/fini/err arrived regardless
     opts = {'show': ['node']}
 
@@ -233,7 +233,7 @@ What you need to do
 
 :   Move both keys under `nexus`.
 
-    ``` python
+    ```python
     # 2.x
     opts = {'nexsoffs': 7759195, 'nexstimeout': 30}
 
@@ -255,7 +255,7 @@ What you need to do
 
 :   Drop `verbs` from any `node:opts`, and rename `show:storage` to `storage`.
 
-    ``` python
+    ```python
     # 2.x / early 3.x
     opts = {'node:opts': {'verbs': False, 'show:storage': True}}
 
@@ -305,7 +305,7 @@ What you need to do
 
     Re-export any `.nodes` files produced by an earlier 3.0.0 build.
 
-    ``` python
+    ```python
     # 3.x packed node info dict
     {'nid': 1099511627992,
      'meta': {'created': 1662491423034000},

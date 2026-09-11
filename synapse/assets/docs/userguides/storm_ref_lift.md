@@ -10,7 +10,7 @@ Lift operations retrieve a set of nodes from Synapse's knowledge graph based on 
 - [Lift by Property Value - Extended Comparison Operators](storm_ref_lift.md#lift-prop-extended)
 - [Tag Lifts](storm_ref_lift.md#tag-lifts)
 
-In addition, the ``reverse`` keyword and the "try" operator can each be used with lift operations to modify their behavior:
+In addition, the `reverse` keyword and the "try" operator can each be used with lift operations to modify their behavior:
 
 - ["reverse" Keyword](storm_ref_lift.md#lift-reverse)
 - ["Try" Operator](storm_ref_lift.md#lift-try)
@@ -20,7 +20,7 @@ In the examples below, we only show the Storm query by default (not the resultin
 > [!TIP]
 > Most user interactions with Synapse start when you **lift** the initial data (nodes) you want to work with. There is no "show me all the data" command where you can then drill down to find the data you want. So knowing how to specify the data you want by creating a lift query in Storm is essential.
 >
-> (Technically, you can lift **all** nodes in Synapse with the Storm query ``.created``, because every node in Synapse has a ``.created`` property. But starting by displaying **all** nodes is impractical for all but the smallest Cortexes.)  
+> (Technically, you can lift **all** nodes in Synapse with the Storm query `.created`, because every node in Synapse has a `.created` property. But starting by displaying **all** nodes is impractical for all but the smallest Cortexes.)  
 >
 > If you are new to Storm, you can use the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) with the [Storm Query Bar](/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.md#storm-query-bar-query-mode-selector) in **Lookup mode** (vs. Storm mode). Lookup mode allows you to lift nodes by entering search keywords or common indicators (such as hashes or IPs) without using Storm.
 
@@ -59,13 +59,13 @@ A **lift by form name** operation returns all nodes for the specified [form](dat
 
 Lift all FQDNs (`inet:fqdn` nodes):
 
-``` text
+```storm
 inet:fqdn
 ```
 
 Lift all nodes representing articles (`doc:report` nodes):
 
-``` text
+```storm
 doc:report
 ```
 
@@ -83,7 +83,7 @@ You can use the wildcard (asterisk) character ( `*` ) to specify all forms that 
 
 Lift all DNS A (`inet:dns:a`) and DNS AAAA (`inet:dns:aaaa`) nodes:
 
-``` text
+```storm
 inet:dns:a*
 ```
 
@@ -99,7 +99,7 @@ inet:dns:aaaa=('woot.com', '2600:1419:9c00:283::356e')
 
 Lift all hash nodes (e.g., `crypto:hash:md5`, `crypto:hash:sha256`, etc.):
 
-``` text
+```storm
 crypto:hash:*
 ```
 
@@ -117,17 +117,17 @@ crypto:hash:ssdeep=384:XgUIheHmcKKkBIGBGHEBZrK8gFJNFpmX:Q8mIkAw+lFJnsX
 - The wildcard character ( `*` ) can only be used to match literal form names. It cannot be used to match interface names or when lifting by [parent form](../glossary.md#gloss-form-inheritance) with the intent to also lift extended forms (the wildcard will match form names only; it has no awareness of form inheritance).
 - The wildcard can only be used at the end of the partial form name match. It cannot be used at the beginning or in the middle of the form name. For example, the following are both **invalid**:
   
-``` text
+```storm
 *:header
 ```
   
-``` text
+```storm
 it:exec:*:add
 ```
   
 - The wildcard cannot be used to match property names. For example, `entity:contact` is a form that has multiple   `:place` secondary properties (e.g., `:place:name`, `:place:loc`). The following is **invalid** because it   tries to match a partial property name:
   
-``` text
+```storm
 entity:contact:place:*
 ```
 
@@ -145,7 +145,7 @@ You can use the name of any [interface](../glossary.md#gloss-interface) to lift 
 
 Lift all hash nodes (all nodes of all forms that implement the `crypto:hash` interface):
 
-``` text
+```storm
 crypto:hash
 ```
 
@@ -158,7 +158,7 @@ crypto:hash:ssdeep=384:XgUIheHmcKKkBIGBGHEBZrK8gFJNFpmX:Q8mIkAw+lFJnsX
 
 Lift all host event nodes (all nodes of all forms that implement the `it:host:event` interface):
 
-``` text
+```storm
 it:host:event
 ```
 ```stormdoc
@@ -190,7 +190,7 @@ You can use the name of a parent form to lift all nodes of the parent form, and 
 
 Lift all of the `it:host:account` nodes and all nodes of all forms that extend `it:host:account`:
 
-``` text
+```storm
 it:host:account
 ```
 
@@ -235,13 +235,13 @@ These examples assume a secondary property delimited with a colon ( **:** ). Exa
 
 Lift the IP address nodes that have an Autonomous System number (`:asn`) property:
 
-``` text
+```storm
 inet:ip:asn
 ```
 
 Lift the threat clusters (`risk:threat` nodes) that have an associated place name:
 
-``` text
+```storm
 risk:threat:place:name
 ```
 
@@ -275,7 +275,7 @@ risk:threat=2dc0a676301dbfbcee5a7d20b6ddf7f5
 
 Lift the file paths that include a file extension (`.ext`):
 
-``` text
+```storm
 file:path.ext
 ```
 
@@ -288,7 +288,7 @@ file:path=c:/users/ron the cat/snack_budget.xlsx
 
 Lift the network flows (`inet:flow`) where the client has an associated port (`.port`):
 
-``` text
+```storm
 inet:flow:client.port
 ```
 
@@ -316,7 +316,7 @@ inet:flow=d2e1e775e1e5f071e0437e0ccc3269c5
 
 Lift all nodes in Synapse:
 
-``` text
+```storm
 .created
 ```
 
@@ -325,7 +325,7 @@ Lift all nodes in Synapse:
 
 Lift all FQDN nodes in Synapse:
 
-``` text
+```storm
 inet:fqdn.created
 ```
 
@@ -348,7 +348,7 @@ Synapse's data model can be extended with custom forms, properties, or edges. To
 
 Lift the files (`file:bytes` nodes) that have a VirusTotal reputation extended property (`:_virustotal:reputation`):
 
-``` text
+```storm
 file:bytes:_virustotal:reputation
 ```
 
@@ -369,7 +369,7 @@ If a form implements an [interface](../glossary.md#gloss-interface) that defines
 
 Lift the host event nodes (all nodes of all forms that implement the `it:host:event` interface) that have a `:time` property:
 
-``` text
+```storm
 it:host:event:time
 ```
 
@@ -385,7 +385,7 @@ it:exec:fetch=f2ce4b194e58cccc9d2fce0aea614c3c
 
 Lift all "authorable" nodes (all nodes of all forms that implement the `doc:authorable` interface) that have a `:creator:name` property:
 
-``` text
+```storm
 doc:authorable:creator:name
 ```
 
@@ -421,7 +421,7 @@ Where forms make use of [inheritance](../glossary.md#gloss-form-inheritance), li
 Lift the `it:host:account` nodes and all nodes of all forms that extend `it:host:account` that have a `:home`
 property:
 
-``` text
+```storm
 it:host:account:home
 ```
 
@@ -466,13 +466,13 @@ The most commonly used standard comparison operator is the equal to ( `=` ) oper
 > [!TIP]
 > IP addresses (`inet:ip` nodes) are stored as their decimal integer equivalents (even though they are displayed in human friendly format), and can be used with the various inequality operators:
 >
-> ``` text
+> ```storm
 > inet:ip<192.168.0.0
 > ```
 >
 > Or:
 >
-> ``` text
+> ```storm
 > inet:ip >=2000::1
 > ```
 >
@@ -489,19 +489,19 @@ The most commonly used standard comparison operator is the equal to ( `=` ) oper
 
 Lift the FQDN `vertex.link`:
 
-``` text
+```storm
 inet:fqdn=vertex.link
 ```
 
 Lift the DNS A record showing that domain `woot.com` resolved to IP `1.2.3.4`:
 
-``` text
+```storm
 inet:dns:a=(woot.com, 1.2.3.4)
 ```
 
 Lift the organization whose primary property matches the specified `guid` value:
 
-``` text
+```storm
 ou:org=4b0c2c5671874922ce001d69215d032f
 ```
 
@@ -517,43 +517,43 @@ ou:org=4b0c2c5671874922ce001d69215d032f
 
 Lift the organization (`ou:org` node) with the name `the vertex project`:
 
-``` text
+```storm
 ou:org:name='the vertex project'
 ```
 
 Lift the DNS A records for the FQDN `hugesoft.org`:
 
-``` text
+```storm
 inet:dns:a:fqdn=hugesoft.org
 ```
 
 Lift the PE (portable executable) file metadata nodes (`file:mime:pe`) with a compiled time of `1992-06-19 22:22:17`:
 
-``` text
+```storm
 file:mime:pe:compiled='1992/06/19 22:22:17'
 ```
 
 Lift the file with the specified MD5 hash:
 
-``` text
+```storm
 file:bytes:md5=d41d8cd98f00b204e9800998ecf8427e
 ```
 
 Lift all reports that were published during June 2026:
 
-``` text
+```storm
 doc:report:published=202606*
 ```
 
 Lift the reports that were published on or after June 1, 2026:
 
-``` text
+```storm
 doc:report:published>=2026/06/01
 ```
 
 Lift the nodes representing political races (`pol:race`) where voter turnout was greater than 10,000:
 
-``` text
+```storm
 pol:race:turnout>10000
 ```
 
@@ -577,13 +577,13 @@ See the type-specific documentation for [time](storm_ref_type_specific.md#type-t
 
 Lift all the servers listening on port 22:
 
-``` text
+```storm
 inet:server.port=22
 ```
 
-Lift all the compromises (``risk:compromise`` nodes) where the associated ``:actor`` is an organization:
+Lift all the compromises (`risk:compromise` nodes) where the associated `:actor` is an organization:
 
-``` text
+```storm
 risk:compromise:actor.type=ou:org
 ```
 
@@ -595,9 +595,9 @@ risk:compromise=0ba9429212d4740a132fb542aa210092
         :reporter:name = vertex
 ```
 
-Lift all of the email messages (``inet:email:message`` nodes) with three or more attachments:
+Lift all of the email messages (`inet:email:message` nodes) with three or more attachments:
 
-``` text
+```storm
 inet:email:message:attachments.size>=3
 ```
   
@@ -626,13 +626,13 @@ See also the [time](storm_ref_type_specific.md#type-time) and [ival](storm_ref_t
 
 Lift all nodes created after June 1, 2026:
 
-``` text
+```storm
 .created>=2026/06/01
 ```
 
 Lift all organizations updated during the hour of 1500 (e.g., between 1500 and 1600) on February 20, 2026:
 
-``` text
+```storm
 ou:org.updated=2026022015*
 ```
 
@@ -650,7 +650,7 @@ When lifting by extended property value, you can use any standard comparison ope
 
 Lift the files (`file:bytes` nodes) with a VirusTotal reputation score (`:_virustotal:reputation` extended property) less than -50:
 
-``` text
+```storm
 file:bytes:_virustotal:reputation<-50
 ```
 
@@ -671,7 +671,7 @@ If a form implements an [interface](../glossary.md#gloss-interface) that defines
 
 Lift all "authorable" nodes (all nodes of all forms that implement the `doc:authorable` interface) where the `:creator:name` is `ozzie`:
 
-``` text
+```storm
 doc:authorable:creator:name=ozzie
 ```
 
@@ -690,7 +690,7 @@ doc:report=c31ea497ceb9093f65ac8404d8994c30
 
 Lift the host event nodes (all nodes of all forms that implement the `it:host:event` interface) associated with the host name `ron-pc`:
 
-``` text
+```storm
 it:host:event:host={ it:host:name=ron-pc }
 ```
 
@@ -711,7 +711,7 @@ it:exec:file:add=fab981f0e11c794e27343d9317aef71d
 >
 > Alternatively, you can use [embedded property syntax](storm_ref_filter.md#embed_prop_syntax) to refer to the name of the host:
 >
-> ```text
+> ```storm
 > it:host:event:host::name=ron-pc
 > ```
 > 
@@ -730,7 +730,7 @@ Where forms make use of [inheritance](../glossary.md#gloss-form-inheritance), li
 
 Lift every technique or mitigation reported by MITRE (the `meta:technique` form is extended by the `risk:mitigation` form):
 
-``` text
+```storm
 meta:technique:reporter:name=mitre
 ```
 
@@ -750,7 +750,7 @@ meta:technique=9e992f2ce89d28df3c95123668e7c246
 
 Lift every stored file entry node with the specified file path:
 
-``` text
+```storm
 file:stored:entry:path=c:\windows\system32\fonts\cmd.exe
 ```
 
@@ -812,13 +812,13 @@ The extended comparator `~=` is used to lift nodes based on Perl Compatible Regu
 
 Lift the reports (`doc:report` nodes) whose title includes the string `sandstorm`:
 
-``` text
+```storm
 doc:report:title~=sandstorm
 ```
 
 Lift the organizations (`ou:org` nodes) whose name contains a string that starts with `v`, followed by 0 or more characters, followed by `x`:
 
-``` text
+```storm
 ou:org:name~='^v.*x'
 ```
 
@@ -853,19 +853,19 @@ Synapse performs prefix indexing on string and string-derived types, which optim
 
 Lift the email addresses (`inet:email` nodes) that start with `abuse`:
 
-``` text
+```storm
 inet:email^=abuse
 ```
 
 Lift the organizations (`ou:org` nodes) whose name starts with `ministry`:
 
-``` text
+```storm
 ou:org:name^=ministry
 ```
 
 Lift the Microsoft Office metadata nodes (all nodes of all forms that implement the `file:mime:msoffice` interface) whose `:author:name` starts with `DESKTOP`:
 
-``` text
+```storm
 file:mime:msoffice:author:name^=DESKTOP
 ```
 
@@ -883,7 +883,7 @@ file:mime:msxls=c83dbc3bc82780aee5d62cc961e3fde7
 
 Lift the tags (`syn:tag` nodes) in the `rep.alienvault` tree where the third tag element starts with the numeral `0`:
 
-``` text
+```storm
 syn:tag^=rep.alienvault.0
 ```
 
@@ -924,7 +924,7 @@ Many forms include properties that are date / time values (`<ptype>=<time>`) or 
 
 Lift the DNS A records whose `:seen` values overlap with the period from July 1, 2025 to August 1, 2025:
 
-``` text
+```storm
 inet:dns:a:seen@=(2025/07/01, 2025/08/01)
 ```
 
@@ -950,7 +950,7 @@ inet:dns:a=('hardmathpath.com', '42.27.18.56')
 
 Lift the DNS requests that occurred on May 3, 2023 between 2100 and 2200:
 
-``` text
+```storm
 inet:dns:request:time@=('2023/05/03 21:00', '2023/05/03 22:00')
 ```
 
@@ -963,13 +963,13 @@ inet:dns:request=cf6ef1bb3c260a805d08a1bc9c9cd312
 
 Lift the reports that were published within the past day:
 
-``` text
+```storm
 doc:report:published@=(now, '-1 day')
 ```
 
 Lift the host event nodes (all nodes of all forms that implement the `it:host:event` interface) that occurred within the past three hours:
 
-``` text
+```storm
 it:host:event:time@=(now, '-3 hours')
 ```
 
@@ -979,7 +979,7 @@ it:host:event:time@=(now, '-3 hours')
 
 - **Comparing intervals to intervals:** When using `@=` to compare an interval (e.g., `@=(2025/07/01, 2025/08/01)`) with an interval property (e.g., `:seen`), Synapse returns all nodes whose interval property values **overlap** in any way with the specified interval. This includes results that fall entirely within the interval, as well as results that start and / or end outside of the interval boundaries.  
   To find results that fall **within** an interval, use the `.min` and `.max` virtual properties with the `>=` and `<` operators. For example:  
-  ``` text
+  ```storm
     inet:dns:a:seen.min>=2025/07/01 +:seen.max<2025/08/01
   ```
   
@@ -1020,25 +1020,25 @@ The range extended comparator (`*range=`) supports lifting nodes whose `<form>=<
 
 Lift the files whose size is between 1000 and 100000 bytes:
 
-``` text
+```storm
 file:bytes:size*range=(1000, 100000)
 ```
 
 Lift the files whose VirusTotal reputation score (`:_virustotal:reputation` extended property) is between -20 and 20:
 
-``` text
+```storm
 file:bytes:_virustotal:reputation*range=(-20, 20)
 ```
 
 Lift the DNS requests that were made between November 29, 2025 and January 14, 2026:
 
-``` text
+```storm
 inet:dns:request:time*range=(2025/11/29, 2026/01/14)
 ```
 
 Lift the HTTP requests (`inet:http:request` nodes) made within one day of December 1, 2024:
 
-``` text
+```storm
 inet:http:request:time*range=(2024/12/01, '+-1 day')
 ```
 
@@ -1076,19 +1076,19 @@ The set membership extended comparator (`*in=`) supports lifting nodes whose `<f
 
 Lift entity names matching any of the specified values:
 
-``` text
+```storm
 entity:name*in=(fsb, 'yevgeniy prigozhin', 'vladimir putin')
 ```
 
 Lift the IP addresses associated with any of the specified Autonomous System (AS) numbers:
 
-``` text
+```storm
 inet:ip:asn*in=(9009, 20473, 44477)
 ```
 
 Lift the tags (`syn:tag` nodes) whose final tag element (`:base`) matches any of the specified string values:
 
-``` text
+```storm
 syn:tag:base*in=(plugx, korplug, sogu, kaba)
 ```
 
@@ -1126,7 +1126,7 @@ The proximity extended comparator (`*near=`) supports lifting nodes by "nearness
 
 Lift the locations (`geo:place` nodes) within 500 meters of the Russian Cryptographic Museum (where the coordinates `55.83069, 37.59781` represent the Museum's location):
 
-``` text
+```storm
 geo:place:latlong*near=((55.83069, 37.59781), 500m)
 ```
 
@@ -1157,13 +1157,13 @@ Storm uses a special syntax to lift (or filter) by comparison with one or more e
 
 Lift the x509 certificates (`crypto:x509:cert` nodes) that reference FQDNs ending with `.xyz`:
 
-``` text
+```storm
 crypto:x509:cert:identities:fqdns*[='*.xyz']
 ```
 
 Lift the threat clusters (`risk:threat` nodes) whose secondary (alternate) names include the string `dragon`:
 
-``` text
+```storm
 risk:threat:names*[~=dragon]
 ```
 
@@ -1218,7 +1218,7 @@ A **lift by tag** operation lifts **all** nodes that have the specified tag.
 
 Lift all nodes that ESET associates with Sednit (`#rep.eset.sednit`):
 
-``` text
+```storm
 #rep.eset.sednit
 ```
 
@@ -1239,7 +1239,7 @@ inet:ip=92.114.92.125
 
 Lift all nodes associated with anonymized infrastructure (`#cno.infra.anon`):
 
-``` text
+```storm
 #cno.infra.anon
 ```
 
@@ -1275,19 +1275,19 @@ A **lift form by tag** operation lifts only those nodes of the specified form th
 
 Lift the FQDNs that ESET associates with Sednit (`#rep.eset.sednit`):
 
-``` text
+```storm
 inet:fqdn#rep.eset.sednit
 ```
 
 Lift the IP addresses associated with DNS sinkhole infrastructure (`#cno.infra.dns.sink.hole`):
 
-``` text
+```storm
 inet:ip#cno.infra.dns.sink.hole
 ```
 
 List all entity activity nodes (all nodes of all forms that implement the `entity:activity` interface) that Vertex attributes to the Wobbly Emu threat group (`#cno.threat.wobbly_emu`):
 
-``` text
+```storm
 entity:activity#cno.threat.wobbly_emu
 ```
 
@@ -1338,19 +1338,19 @@ See [Lift by Time or Interval (@=)](storm_ref_lift.md#lift-interval) for additio
 
 Lift any nodes that were associated with anonymous VPN infrastructure (`#cno.infra.anon.vpn`) between December 1, 2023 and January 1, 2024:
 
-``` text
+```storm
 #cno.infra.anon.vpn@=(2023/12/01, 2024/01/01)
 ```
 
 Lift the FQDNs that were owned / controlled by Threat Cluster 15 (`#cno.threat.t15.own`) as of October 30, 2025:
 
-``` text
+```storm
 inet:fqdn#cno.threat.t15.own@=2025/10/30
 ```
 
 Lift the IP addresses that were identified as TOR exit nodes (`#cno.infra.anon.tor.exit`) on or after June 1, 2026:
 
-``` text
+```storm
   inet:ip#(cno.infra.anon.tor.exit).min>=2026/06/01
 ```
 
@@ -1369,7 +1369,7 @@ Lift the IP addresses that were identified as TOR exit nodes (`#cno.infra.anon.t
 
 Lift any nodes that Vertex associates with the threat group Vicious Wombat (`#cno.threat.vicious_wombat`) where the tag has a `:tlp` tag property:
 
-```text
+```storm
 #cno.threat.vicious_wombat:tlp
 ```
 
@@ -1390,7 +1390,7 @@ inet:ip=5.6.7.8
 
 Lift the IP addresses tagged as sinkhole infrastructure (`#cno.infra.dns.sink.hole`) that have an associated `:confidence` tag property:
 
-```text
+```storm
 inet:ip#cno.infra.dns.sink.hole:confidence
 ```
 
@@ -1427,7 +1427,7 @@ The ["Try" Operator](storm_ref_lift.md#lift-try) ( `?=` ) can optionally be used
 
 Lift all of the nodes that Vertex associates with the threat group Vicious Wombat (`#cno.threat.vicious_wombat`) that are marked as **lower** than TLP: Amber (e.g., TLP: Green or TLP: Clear): 
 
-```text
+```storm
 #cno.threat.vicious_wombat:tlp<amber
 ```
 
@@ -1451,7 +1451,7 @@ inet:fqdn=combatwombat.net
 
 Lift the IP addresses tagged as sinkholes (`#cno.infra.dns.sink.hole`) where the associated `:confidence` is high:
 
-```text
+```storm
 inet:ip#cno.infra.dns.sink.hole:confidence=high
 ```
 
@@ -1495,7 +1495,7 @@ You are using "availability" tags to show the general availability of software r
 
 You want to lift the nodes (e.g., indicators of compromise) associated with any software that Mandiant reports is publicly available:
 
-``` text
+```storm
 ##rep.mandiant.avail.public
 ```
 
@@ -1521,7 +1521,7 @@ A reverse lift can be followed by additional Storm operations (pivots, filters, 
 > [!TIP]
 > When using the `reverse` keyword to lift by secondary property value using an [interface](../glossary.md#gloss-interface) name, Synapse performs the lifts for each form in parallel, and yields the results in descending order. For example, the following query will return all nodes of all forms that implement the `it:host:event` interface that have a `:time` value greater than or equal to 2024/02/01, sorted in descending order (most recent first):
 >
-> ``` text
+> ```storm
 > reverse (it:host:event:time>=2024/02/01)
 > ```
 > 
@@ -1534,7 +1534,7 @@ A reverse lift can be followed by additional Storm operations (pivots, filters, 
 
 Lift IP addresses (`inet:ip` nodes) with a `:place:loc` property (sorted descending based on the `:place:loc` property value):
 
-``` text
+```storm
 reverse ( inet:ip:place:loc )
 ```
 
@@ -1566,7 +1566,7 @@ inet:ip=102.64.66.222
 
 Lift five IP addresses (`inet:ip` nodes) (sorted descending based on the integer value of the `inet:ip` primary property):
 
-``` text
+```storm
 reverse ( inet:ip ) | limit 5
 ```
 
@@ -1594,7 +1594,7 @@ inet:ip=206.57.19.28
 
 Lift the five most recently-created email addresses (`inet:email` nodes) (sorted descending by the `.created` property value):
 
-``` text
+```storm
 reverse ( inet:email.created ) | limit 5
 ```
 
@@ -1661,13 +1661,13 @@ The try operator is generally not necessary for interactive Storm queries. Howev
 
 Try to lift the MD5 `174cc541c8d9e1accef73025293923a6`:
 
-``` text
+```storm
 crypto:hash:md5?=174cc541c8d9e1accef73025293923a6
 ```
 
 Try to lift the DNS A records whose `:ip` property is `192.168.0.100`:
 
-``` text
+```storm
 inet:dns:a:ip?=192.168.0.100
 ```
 

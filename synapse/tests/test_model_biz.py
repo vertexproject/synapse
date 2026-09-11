@@ -76,6 +76,7 @@ class BizModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ biz:product=*
                     :name = WootWoot
+                    :model = XJ-1000
                     :type = woot.woot
                     :desc = WootWithWootSauce
                     :price = 29.99
@@ -84,9 +85,13 @@ class BizModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.propeq(nodes[0], 'name', 'WootWoot')
+            self.propeq(nodes[0], 'model', 'XJ-1000')
             self.propeq(nodes[0], 'type', 'woot.woot.')
             self.propeq(nodes[0], 'desc', 'WootWithWootSauce')
             self.propeq(nodes[0], 'price', '29.99')
+
+            self.true(core.model.form('biz:product').implements('biz:manufactured'))
+            self.len(1, await core.nodes('biz:product:model=XJ-1000'))
 
             self.len(2, await core.nodes('biz:product:type:taxonomy'))
             self.len(1, await core.nodes('biz:product:name=wootwoot -> biz:product:type:taxonomy'))

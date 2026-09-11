@@ -139,7 +139,7 @@ def dump(obj: Any, fp: BinaryIO, sort_keys: bool = False, indent: bool = False, 
 
 def jsload(*paths: str) -> Any:
     '''
-    Deserialize the JSON data at ``*paths``.
+    Deserialize the JSON data at `*paths`.
 
     Arguments:
         *paths: The file path parts to load the data from.
@@ -160,7 +160,7 @@ def jsload(*paths: str) -> Any:
 
 def jslines(*paths: list[str]) -> Iterator[Any]:
     '''
-    Deserialize the JSON lines data at ``*paths``.
+    Deserialize the JSON lines data at `*paths`.
 
     Arguments:
         *paths: The file path parts to load the data from.

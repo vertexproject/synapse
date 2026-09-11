@@ -27,7 +27,7 @@ The following runt node forms are used to represent the Synapse data model for t
 > [!NOTE]
 > Additional runt node forms exist besides the ones listed above. To view all of the runt forms in Synapse, use the following command:
 >
-> ``` text
+> ```storm
 > syn:form:runt=true
 > ```
 
@@ -204,7 +204,7 @@ syn:form=inet:ip
 syn:form=crypto:hash:sha256
         :doc = A hex encoded SHA256 hash.
         :extmodel = false
-        :interfaces = ['crypto:hash', 'meta:observable']
+        :interfaces = ['crypto:hash', 'meta:usable', 'meta:observable']
         :runt = false
         :type = crypto:hash:sha256
 ```
@@ -425,13 +425,13 @@ syn:form=file:bytes
 syn:form=crypto:hash:md5
         :doc = A hex encoded MD5 hash.
         :extmodel = false
-        :interfaces = ['crypto:hash', 'meta:observable']
+        :interfaces = ['crypto:hash', 'meta:usable', 'meta:observable']
         :runt = false
         :type = crypto:hash:md5
 syn:form=crypto:hash:sha1
         :doc = A hex encoded SHA1 hash.
         :extmodel = false
-        :interfaces = ['crypto:hash', 'meta:observable']
+        :interfaces = ['crypto:hash', 'meta:usable', 'meta:observable']
         :runt = false
         :type = crypto:hash:sha1
 ```

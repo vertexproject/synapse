@@ -50,14 +50,14 @@ Keep in mind that individual wildcard pivots or traversals (as described below) 
 
 The following Storm expression can be used to show **all** nodes that are connected to your source nodes by **any** type of property pivot or edge traversal relationship:
 
-``` text
+```text
 <source_nodes> tee { --> * } { <-- * }
 ```
 
 The expression uses the Storm [tee](storm_ref_cmd.md#storm-tee) command to perform two operations on the set of source nodes (a [Pivot Out and Traverse](storm_ref_pivot.md#pivot-out-and-walk) and a [Pivot In and Traverse](storm_ref_pivot.md#pivot-in-and-walk), with the wildcard as the target in each case) and return the combined results.
 
 > [!TIP]
-> This query is equivalent to using the [Explore button](/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.md#explore-button-breadcrumbs) in the Optic UI to navigate.
+> This query is equivalent to using the [Explore button](/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.md#explore-button-link-column-breadcrumbs) in the Optic UI to navigate.
 
 There is one minor exception to this "show me all the connections" query. The query will **not** return property connections where nodes may have a common property **value**, but the properties are of different **types**. Use of the wildcard to find relationships depends on [Type Awareness](../glossary.md#gloss-type-aware).
 
@@ -114,7 +114,7 @@ Pivot operations in Storm can always be executed by **explicitly** specifying th
 
 When researching network infrastructure, a common set of pivots is to navigate from a set of FQDNs to their DNS A records and then to the IP addresses that the A records point to. The following Storm query performs those pivots using **explicit syntax**:
 
-``` text
+```storm
 inet:fqdn = vertex.link -> inet:dns:a:fqdn :ip -> inet:ip
 ```
 
@@ -137,7 +137,7 @@ In these cases, you can use **implicit pivot syntax** (implicit syntax for short
 
 Using implicit syntax, we can rewrite the above query as follows:
 
-``` text
+```storm
 inet:fqdn = vertex.link -> inet:dns:a -> inet:ip
 ```
 
@@ -161,7 +161,7 @@ Implicit pivot syntax **cannot** be used in the following cases:
 
 For example, the `:type` property of a `syn:prop` node is a `syn:type` reference, so it does not reference a `syn:form` node. Explicitly pivoting from it to `syn:form` normalizes each type name as a form name, which navigates to the types which are also forms:
 
-``` text
+```storm
 syn:prop:form=inet:flow :type -> syn:form
 ```
 
@@ -208,7 +208,7 @@ You can use **implicit syntax** for these pivots if the target property is self-
 
 Pivot from a set of IP addresses (`inet:ip` nodes) to any DNS PTR records (`inet:dns:rev` nodes) for the IPs:
 
-``` text
+```text
 <inet:ip nodes> -> inet:dns:rev
 ```
 
@@ -216,13 +216,13 @@ The query above uses **implicit** syntax. Because the source of the pivot is a s
 
 You can optionally use explicit syntax to perform the same pivot:
 
-``` text
+```text
 <inet:ip nodes> -> inet:dns:rev:ip
 ```
 
 Pivot from a set of email addresses (`inet:email` nodes) to any contacts (`entity:contact` nodes) that contain the email addresses:
 
-``` text
+```text
 <inet:email nodes> -> entity:contact
 ```
 
@@ -230,13 +230,13 @@ The query above uses **implicit** syntax. Synapse recognizes that the logical ta
 
 If you want to identify only those contacts where the source email is the **primary** email address for the contact (`entity:contact:email`), use **explicit syntax** instead:
 
-``` text
+```text
 <inet:email nodes> -> entity:contact:email
 ```
 
 Pivot from a set of tags (`syn:tag` nodes) to the threat clusters (`risk:threat` nodes) represented by those tags:
 
-``` text
+```text
 <syn:tag nodes> -> risk:threat:tag
 ```
 
@@ -244,7 +244,7 @@ The query above uses **explicit** syntax. Even though the `:tag` property is of 
 
 Pivot from a set of FQDNs (`inet:fqdn` nodes) to any associated DNS records (e.g., `inet:dns:a`, `inet:dns:cname`, `inet:dns:ns`, etc.):
 
-``` text
+```text
 <inet:fqdn nodes> -> inet:dns:*
 ```
 
@@ -252,7 +252,7 @@ The query above uses the wildcard ( `*` ) as a partial match for any form name t
 
 Pivot from a set of FQDNs to any associated DNS A (`inet:dns:a`) or DNS AAAA (`inet:dns:aaaa`) records:
 
-``` text
+```text
 <inet:fqdn nodes> -> inet:dns:a*
 ```
 
@@ -260,7 +260,7 @@ The query above uses the wildcard ( `*` ) as a partial match for any form name t
 
 Pivot from a set of files (`file:bytes` nodes) to all host event nodes (all nodes of all forms that inherit the `it:host:event` interface - e.g., `it:exec:file:add`, `it:exec:fetch`, etc.) associated with those files:
 
-``` text
+```text
 <file:bytes nodes> -> it:host:event
 ```
 
@@ -268,13 +268,13 @@ The query above uses **implicit** syntax. The `it:host:event` interface defines 
 
 If you only want to see host event nodes where only one of the two properties (for example, `:exe`) matches the inbound files, you need to use explicit syntax:
 
-``` text
+```text
 <file:bytes nodes> -> it:host:event:exe
 ```
 
 Pivot from a set of usernames (`entity:name` nodes) to any file paths (`file:path` nodes) where the username is an element of the path (e.g., a `.base` value):
 
-``` text
+```text
 <entity:name nodes> -> file:path.base
 ```
 
@@ -283,13 +283,13 @@ The query above uses **explicit** syntax. The `entity:name` form has a type of `
 > [!TIP]
 > The query above will return the partial `file:path` whose final element is the user name (e.g., if your source node is `entity:name=swanson`, the query will return `c:\users\swanson`). You can use the Storm [tree](storm_ref_cmd.md#storm-tree) command to recursively pivot through the remaining `file:path` elements to obtain the full path containing the username:
 >
-> ``` text
+> ```text
 > <entity:name nodes> -> file:path.base tree { -> file:path.dir }
 > ```
 
 Pivot from a set of threat clusters (`risk:threat` nodes) to any `entity:relationship` nodes associated with the threats:
 
-``` text
+```text
 <risk:threat nodes> -> entity:relationship
 ```
 
@@ -299,7 +299,7 @@ A `entity:relationship` node represents a user-defined, directional relationship
 
 Because the query above uses implicit syntax, it will return any `entity:relationship` nodes where the `risk:threat` nodes are either the `:source` or `:target` property on the `entity:relationship`. To return only those relationship nodes where the `risk:threat` is `entity:relationship:source` (For example), you need to use explicit syntax:
 
-``` text
+```text
 <risk:threat nodes> -> entity:relationship:source
 ```
 
@@ -333,7 +333,7 @@ You can use **implicit syntax** for these pivots if the source property is self-
 
 Pivot from a set of DNS A records (`inet:dns:a` nodes) to their associated FQDNs (`inet:fqdn` nodes):
 
-``` text
+```text
 <inet:dns:a nodes> -> inet:fqdn
 ```
 
@@ -341,25 +341,25 @@ The query above uses **implicit** syntax. Given a target form of `inet:fqdn`, Sy
 
 You can optionally use explicit syntax for the same query:
 
-``` text
+```text
 <inet:dns:a nodes> :fqdn -> inet:fqdn
 ```
 
 Pivot from a set of DNS NS records (`inet:dns:ns` nodes) to their associated FQDNs:
 
-``` text
+```text
 <inet:dns:ns nodes> -> inet:fqdn
 ```
 
 The query above uses **implicit** syntax. Because `inet:dns:ns` nodes have two properties of type `inet:fqdn` (`:zone` and `:ns`), Synapse will pivot to the FQDNs associated with both values. If you only want to pivot to the FQDNs associated with the name server (NS) FQDNs (for example), you must use explicit syntax:
 
-``` text
+```text
 <inet:dns:ns nodes> :ns -> inet:fqdn
 ```
 
 Pivot from a set of X509 certificate metadata nodes (`crypto:x509:cert` nodes) to the associated SHA1 fingerprints (`crypto:hash:sha1` nodes) and to any FQDNs associated with the certificates:
 
-``` text
+```text
 <crypto:x509:cert nodes> -> ( crypto:hash:sha1, inet:fqdn )
 ```
 
@@ -368,7 +368,7 @@ Pivot from a set of X509 certificate metadata nodes (`crypto:x509:cert` nodes) t
 
 Pivot from a set of X509 certificate metadata nodes to any/all nodes associated with any of the certificates' secondary properties:
 
-``` text
+```text
 <crypto:x509:cert nodes> -> *
 ```
 
@@ -396,14 +396,14 @@ You must use **explicit syntax** to specify both the source and target propertie
 
 Pivot from the WHOIS records (`inet:whois:record` nodes) for a set of FQDNs to the DNS A records (`inet:dns:a` nodes) for the FQDNs:
 
-``` text
+```text
 <inet:whois:rec nodes> :fqdn -> inet:dns:a:fqdn
 ```
 
 > [!TIP]
 > Many secondary to secondary property pivots are equivalent to a pair of secondary to primary and primary to secondary pivots. For example, the following performs the same navigation as the above query:
 >
-> ``` text
+> ```text
 > <inet:whois:rec nodes> -> inet:fqdn -> inet:dns:a
 > ```
 >
@@ -411,13 +411,13 @@ Pivot from the WHOIS records (`inet:whois:record` nodes) for a set of FQDNs to t
 
 Pivot from a set of DNS requests (`inet:dns:request` nodes) to all host event nodes (all nodes of all forms that inherit the `it:host:event` interface) where the file (`client:exe`) responsible for the DNS request is the same file (`:exe`) responsible for the host events:
 
-``` text
+```text
 <inet:dns:request nodes> :client:exe -> it:host:event:exe
 ```
 
 Pivot from a set of DNS A records to any network flows (`inet:flow`) or service banners (`inet:banner`) associated with the A records' IPs:
 
-``` text
+```text
 <inet:dns:a nodes> -> ( inet:flow:server.ip, inet:banner:server.ip )
 ```
 
@@ -451,7 +451,7 @@ The pivot in operation is a specialized operation that can only be used with the
 
 Pivot from a set of FQDNs to all nodes with a secondary property that references any of the FQDNs:
 
-``` text
+```text
 <inet:fqdn nodes> <- *
 ```
 
@@ -483,7 +483,7 @@ The following is a simple example to illustrate the concept.
 
 Pivot from a set of strings (`it:dev:str` nodes) representing domains to the associated FQDNs:
 
-``` text
+```text
 <it:dev:str nodes> $fqdn = $node.value -> { inet:fqdn ?= $fqdn }
 ```
 
@@ -491,7 +491,7 @@ The query above is a primary-to-primary property pivot between forms of differen
 
 Note that you can create an equivalent Storm query using only lift and filter operations:
 
-``` text
+```text
 <it:dev:str nodes> $fqdn = $node.value inet:fqdn ?= $fqdn -it:dev:str
 ```
 
@@ -501,7 +501,7 @@ While both queries return the same result (the `inet:fqdn` nodes), raw pivot syn
 
 Pivot from a set of HTTP `referer` headers (`inet:http:request:header` nodes) to any URLs (`inet:url` nodes) specified as the header value:
 
-``` text
+```storm
 inet:http:request:header:name = referer $url = :value -> { inet:url ?= $url }
 ```
 
@@ -522,7 +522,7 @@ Both the pivot out ( `->` ) and pivot out and join ( `-+>` ) operator are suppor
 >
 > For example, if you attempt to pivot from a `syn:tag` node used to associate nodes with a threat cluster to the `risk:threat` node representing the cluster, the following Storm query will fail to return the expected results:
 >
-> ``` text
+> ```storm
 > syn:tag=rep.talos.lazarus -> risk:threat
 > ```
 >
@@ -530,7 +530,7 @@ Both the pivot out ( `->` ) and pivot out and join ( `-+>` ) operator are suppor
 >
 > Explicitly specifying the `:tag` property will return the `risk:threat` node as expected:
 >
-> ``` text
+> ```storm
 > syn:tag=rep.talos.lazarus -> risk:threat:tag
 > ```
 
@@ -562,7 +562,7 @@ The hashtag symbol ( `#` ) used by itself as a target refers to the `syn:tag` no
 
 Pivot from a set of nodes to the tags (`syn:tag` nodes) for all leaf tags applied to those nodes:
 
-``` text
+```text
 <query> -> #
 ```
 
@@ -576,7 +576,7 @@ The hashtag symbol can be used with the wildcard ( `#*` ) to pivot to all `syn:t
 
 Pivot from a set of nodes to the tags (`syn:tag` nodes) for **all** tags applied to those nodes:
 
-``` text
+```text
 <query> -> #*
 ```
 
@@ -590,7 +590,7 @@ The single ( `*` ) or double ( `**` ) asterisk can be used to specify a set of t
 
 Pivot from a set of nodes to the tags (`syn:tag` nodes) associated with any third-party reporting where the third tag element is `bisonal`:
 
-``` text
+```text
 <query> -> #rep.*.bisonal
 ```
 
@@ -601,7 +601,7 @@ Vertex uses the `rep` tag tree to indicate third-party reporting / assertions. T
 
 Pivot from a set of nodes to the tags (`syn:tag` nodes) representing any third party reporting where the tag ends in the string `bisonal`:
 
-``` text
+```text
 <query> -> #rep.**bisonal
 ```
 
@@ -619,7 +619,7 @@ Pivot to the `syn:tag` node for a specific tag by specifying the exact tag as th
 
 Pivot from a set of nodes to the `syn:tag` node for the tag `cno.ttp.phish.attach`:
 
-``` text
+```text
 <query> -> #cno.ttp.phish.attach
 ```
 
@@ -676,13 +676,13 @@ Pivot from tags pivots to nodes that have the exact source tag(s) applied. For e
 
 Pivot from a set of `syn:tag` nodes to any files (`file:bytes` nodes) with those tags applied:
 
-``` text
+```text
 <syn:tag nodes> -> file:bytes
 ```
 
 Pivot from a set of `syn:tag` nodes to any DNS nodes with those tags applied:
 
-``` text
+```text
 <syn:tag nodes> -> inet:dns:*
 ```
 
@@ -690,19 +690,19 @@ The query above would return (for example) `inet:dns:a` nodes, `inet:dns:request
 
 Pivot from a set of `syn:tag` nodes to any host event nodes (all nodes of all forms that inherit the `it:host:event` interface) with those tags applied:
 
-``` text
+```text
 <syn:tag nodes> -> it:host:event
 ```
 
 Pivot from a set of `syn:tag` nodes to any IP (`inet:ip`), server (`inet:server`), or network flow (`inet:flow`) nodes with those tags applied and retain the `syn:tag` nodes in the results (pivot and join):
 
-``` text
+```text
 <syn:tag nodes> -+> ( inet:ip, inet:server, inet:flow )
 ```
 
 Pivot from a set of `syn:tag` nodes to all nodes that have any of the tags applied:
 
-``` text
+```text
 <syn:tag nodes> -> *
 ```
 
@@ -764,19 +764,19 @@ Specify the name (verb) of the edge you want to traverse to navigate a single ed
 
 Traverse the `-(used)>` light edge from a threat cluster (`risk:threat` node) to the techniques (`meta:technique` nodes) used by the cluster:
 
-``` text
+```text
 <risk:threat> -(used)> meta:technique
 ```
 
 Traverse the `-(refs)>` (references) light edge from an article (`doc:report` node) to all of the nodes referenced by the article:
 
-``` text
+```text
 <doc:report> -(refs)> *
 ```
 
 Traverse the `-(has)>` light edge from a set of IP addresses (`inet:ip` nodes) to the network WHOIS records (`inet:whois:iprecord` nodes) the IPs are associated with:
 
-``` text
+```text
 <inet:ip nodes> <(has)- inet:whois:iprecord
 ```
 
@@ -784,7 +784,7 @@ Note that the `-(has)>` edge above is reversed because the inbound nodes (the IP
 
 Traverse the `-(seen)>` light edges from a set of DNS A records (`inet:dns:a` nodes) to the sources (`meta:source` nodes) that "saw" (observed or provided data for) the records:
 
-``` text
+```text
 <inet:dns:a nodes> <(seen)- meta:source
 ```
 
@@ -807,7 +807,7 @@ Specify a list of edge names (verbs) to traverse multiple edges to their targets
 
 Traverse the `-(refs)>` (references) and `-(seen)>` light edges from an FQDN to any nodes linked via those light edges (i.e., articles (`doc:report` nodes) that reference the FQDN and data sources (`meta:source` nodes) that "saw" the FQDN):
 
-``` text
+```text
 <inet:fqdn> <( ( refs, seen ) )- *
 ```
 
@@ -834,7 +834,7 @@ Use the wildcard (asterisk) character ( `*` ) to traverse any edges present in t
 
 For a threat cluster (`risk:threat` node), traverse any light edges linking the cluster to any software (`it:software`) or victim organizations (`ou:org`):
 
-``` text
+```text
 <risk:threat> -(*)> ( it:software, ou:org )
 ```
 
@@ -842,7 +842,7 @@ For example, a threat cluster may have `--(used)>>` certain software or `-(targe
 
 For a vulnerability (`risk:vuln` node), navigate to any forms that are connected to the vulnerability by any edge:
 
-``` text
+```storm
 risk:vuln <(*)- *
 ```
 
@@ -867,11 +867,11 @@ Because pivot and traverse operations perform all available navigation in a give
 > [!TIP]
 > The combined pivot and traverse operators are commonly used to explore a subset of connected nodes. Note that the Storm [tee](storm_ref_cmd.md#storm-tee) command can be used to perform concurrent pivot in and traverse / pivot out and traverse operations on an inbound set of nodes:
 >
-> ``` text
+> ```text
 > <query> | tee { --> * } { <-- * }
 > ```
 >
-> This combined operation shows you **all** nodes connected to your source nodes by **any** property or edge. It is equivalent to using the [Explore button](/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.md#explore-button-breadcrumbs) in the Optic UI.
+> This combined operation shows you **all** nodes connected to your source nodes by **any** property or edge. It is equivalent to using the [Explore button](/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.md#explore-button-link-column-breadcrumbs) in the Optic UI.
 
 <a id="pivot-out-and-walk"></a>
 
@@ -887,7 +887,7 @@ The pivot out and traverse (walk) light edges operator ( `-->` ) combines a wild
 
 Pivot from a set of network WHOIS records (`inet:whois:iprecord` nodes) to all nodes associated with the records' secondary properties and all nodes linked to the records by light edges:
 
-``` text
+```text
 <inet:whois:iprecord nodes> --> *
 ```
 
@@ -905,7 +905,7 @@ The pivot in and traverse (walk) light edges operator ( `<-- *` ) combines a wil
 
 Pivot from a set of IP addresses (`inet:ip` nodes) to all nodes that reference the IPs and all nodes linked to the IPs by light edges:
 
-``` text
+```text
 <inet:ip> <-- *
 ```
 
@@ -935,25 +935,25 @@ The pivot and join operator ( `-+>` ) is the pivot arrow with an embedded plus s
 
 Pivot from a set of organizations (`ou:org` nodes) to any associated contacts (`entity:contact` nodes), retaining the organizations in the results:
 
-``` text
+```text
 <ou:org nodes> -+> entity:contact
 ```
 
 Pivot from a set of DNS A records (`inet:dns:a` nodes) to their associated IP addresses (`inet:ip` nodes), retaining the DNS A records in the results:
 
-``` text
+```text
 <inet:dns:a nodes> -+> inet:ip
 ```
 
 Pivot from a set of domain WHOIS records (`inet:whois:record` nodes) to the DNS A records associated with the FQDNs, retaining the WHOIS records in the results:
 
-``` text
+```text
 <inet:whois:record nodes> :fqdn -+> inet:dns:a:fqdn
 ```
 
 Pivot from all secondary properties of a set of files (`file:bytes` nodes) to the associated nodes, retaining the files in the results:
 
-``` text
+```text
 <file:bytes nodes> -+> *
 ```
 
@@ -971,7 +971,7 @@ The pivot in and join operator ( `<+-` ) can be used to perform a wildcard pivot
 
 Pivot from a set of files (`file:bytes` nodes) to any nodes that reference the files, retaining the original files in the results:
 
-``` text
+```text
 <file:bytes nodes> <+- *
 ```
 
@@ -999,25 +999,25 @@ The traverse and join operator ( `-(<verb>)+>` ) is a traversal arrow with a plu
 
 Traverse the `-(refs)>` (references) light edge from an article (`doc:report` node) and join the article with the FQDNs referenced by the article:
 
-``` text
+```text
 <doc:report> -(refs)+> inet:fqdn
 ```
 
 Join an article with any/all nodes referenced by the article:
 
-``` text
+```text
 <doc:report> -(refs)+> *
 ```
 
 Join a threat cluster (`risk:threat` node) with any nodes used or targeted by the cluster:
 
-``` text
+```text
 <risk:threat> -( (used, targeted) )+> *
 ```
 
 Traverse and join any/all light edges from a vulnerability (`risk:vuln` node) to all nodes linked by any light edge:
 
-``` text
+```text
 <risk:vuln> <+(*)- *
 ```
 
@@ -1037,12 +1037,12 @@ The pivot, traverse, and join operator ( `--+>` ) combines the pivot and travers
 
 Join a set of articles (`doc:report` nodes) with all nodes representing the articles' secondary properties (pivot out) and all nodes linked by any light edge where the articles are the source (`n1`) of the edge relationship:
 
-``` text
+```text
 <doc:report> --+> *
 ```
 
 Join a set of IP addresses (`inet:ip` nodes) with all nodes that reference the IPs (pivot in) and all nodes linked to the IPs by any light edge where the IPs are the target (`n2`) of the edge relationship:
 
-``` text
+```text
 <inet:ip> <+-- *
 ```

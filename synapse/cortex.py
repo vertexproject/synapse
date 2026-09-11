@@ -46,6 +46,7 @@ import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
+import synapse.lib.nodefuse as s_nodefuse
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -1116,6 +1117,8 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
              'desc': 'Controls the ability to check if the Axon contains a file.'},
             {'perm': ('axon', 'del'), 'gate': 'cortex',
              'desc': 'Controls the ability to remove a file from the Axon.'},
+            {'perm': ('axon', 'wput'), 'gate': 'cortex',
+             'desc': 'Controls the ability to push a file from the Axon to a URL.'},
 
             {'perm': ('layer',), 'gate': 'cortex',
              'desc': 'Controls all layer permissions.'},
@@ -2062,6 +2065,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             ctor.pkgname = pkgdef.get('name')
 
         ctor.deprecated = cdef.get('deprecated')
+        ctor._cortex_edition = cdef.get('_edition')
 
         def getRuntPode(model):
             props = {
@@ -2070,6 +2074,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
+
+            if ctor._cortex_edition is not None:
+                props['edition'] = ctor._cortex_edition
 
             if ctor.deprecated:
                 props['deprecated'] = True
@@ -2573,6 +2580,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             self._initEasyPerm(gdef)
             self.pkggraphs[gdef['iden']] = gdef
 
+        extra = self.getLogExtra(pkg=name, vers=pkgvers)
+        logger.info(f'Loaded Storm package: {name}@{pkgvers}.', extra=extra)
+
     def _runStormPkgOnload(self, pkgdef):
         name = pkgdef.get('name')
         inits = pkgdef.get('inits')
@@ -2689,6 +2699,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             self._popStormCmd(name)
 
         pkgname = pkgdef.get('name')
+        pkgvers = pkgdef.get('version')
 
         # match on the provenance we derived at load time rather than re-deriving
         # the idens, so this stays correct regardless of the package def contents.
@@ -2696,6 +2707,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             self.pkggraphs.pop(iden, None)
 
         self.stormpkgs.pop(pkgname, None)
+
+        extra = self.getLogExtra(pkg=pkgname, vers=pkgvers)
+        logger.info(f'Unloaded Storm package: {pkgname}@{pkgvers}.', extra=extra)
 
     def getStormSvc(self, name):
         return self.svcs.get(name)
@@ -3051,7 +3065,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         '''
         While active, discover storm services registered with AHA and add
         previously unknown ones to the cortex automatically. Uses the initial
-        AHA service listing and tracks ``svc:add`` topology updates.
+        AHA service listing and tracks `svc:add` topology updates.
         '''
         async with await s_base.Base.anit() as base:
 
@@ -5898,7 +5912,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
     async def _reqDecEncryption(self, encryption):
         '''
-        Return an encryption dict whose ``seed`` is the plaintext pbkdf2 seed. A
+        Return an encryption dict whose `seed` is the plaintext pbkdf2 seed. A
         per-deployment package stores its seed RSA-encrypted to our deployment key,
         so decrypt it (cached) with the deployment private key.
         '''
@@ -6111,6 +6125,9 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
             if cmd.pkgname:
                 entry['package'] = cmd.pkgname
+
+            if (edition := cmd._cortex_edition) is not None:
+                entry['edition'] = edition
 
             cmds.append(entry)
 
@@ -6468,6 +6485,64 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             self.migration = True
             yield
             self.migration = False
+
+    async def fuseNodes(self, srcndef, dstndef, useriden):
+        '''
+        Fuse the src node into the dst node across every layer in the Cortex.
+
+        Node fusion writes to arbitrary layers rather than a single view's write layer, and
+        the edits it makes depend on the state it reads. The edits are computed here, before
+        any of them are applied, and are then handed to each layer with
+        Layer.saveNodeEdits(). That layer resolves them against its own current state and
+        puts the resolved edits in the nexus log, so a mirror applies exactly the edits which
+        were computed here rather than recomputing them from its own state.
+
+        A fuse of a heavily referenced node can need a very large number of edits, so each
+        layer's edits are applied in chunks of one nexus operation each rather than all at
+        once. A fuse is therefore not transactional, and an interruption can leave part of it
+        applied. See NodeFuser._iterNodeEdits() for the ordering which makes that recoverable.
+
+        The reads are not serialized against other writes, so a write to src which lands after
+        the edits are computed is not accounted for and is not detected. Running a fuse during
+        a maintenance window, as recommended in the Storm API docs, avoids this. Executing the
+        fuse as requested is this method's responsibility; a concurrent edit landing on src is
+        outside that scope.
+
+        Args:
+            srcndef (tuple): The (form, valu) of the node to fuse from. It will be deleted.
+            dstndef (tuple): The (form, valu) of the node to fuse into. It will be kept.
+            useriden (str): The iden of the user running the fuse.
+
+        Returns:
+            dict: The warnings to emit and the layers which failed.
+        '''
+        # tick is sampled once and carried in the nodeedit meta, so that the leader and every
+        # mirror record the same time in the layer node edit logs.
+        meta = {'time': s_common.now(), 'user': useriden}
+
+        # A fuse is a global admin operation which rewrites data across every layer in the
+        # Cortex and is not transactional, so both ends are logged: an interruption leaves a
+        # start line with no completion line, which is what says a re-run may be needed.
+        logger.info(f'fuseNodes() starting fuse of {srcndef[0]}={srcndef[1]!r} into '
+                    f'{dstndef[0]}={dstndef[1]!r}')
+
+        # the fuser owns the spooled state the edits are accumulated in, so it stays open
+        # until they have all been applied
+        async with await s_nodefuse.NodeFuser.anit(self, useriden) as fuser:
+
+            await fuser.getLayerEdits(srcndef, dstndef)
+
+            await fuser.applyLayerEdits(meta)
+
+            # returned even with nothing to apply, since discovery may have produced
+            # warnings of its own which the caller still needs to emit
+            result = fuser.getResult()
+
+            logger.info(f'fuseNodes() completed fuse of {srcndef[0]}={srcndef[1]!r} into '
+                        f'{dstndef[0]}={dstndef[1]!r} '
+                        f'(renames: {len(fuser.ndefmap)}, failed layers: {len(result["failed"])})')
+
+            return result
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''

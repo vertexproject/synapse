@@ -21,7 +21,7 @@ What you need to do
 
 :   Stop passing a format name to `addFeedData` over telepath/HTTP -- pass just the items list (and keyword `viewiden`). If your items do not include an export-meta header, pass `reqmeta=False`. If you fed any non-`syn.nodes` format via a custom feed function, convert your ingest to produce packed nodes. Drop `--format` / `-f` from any `synapse.tools.cortex.feed` invocation; the tool infers the format from the file extension.
 
-    ``` python
+    ```python
     # 2.x telepath -- format name was the first argument
     await prox.addFeedData('syn.nodes', items, viewiden=viewiden)
 
@@ -29,7 +29,7 @@ What you need to do
     await prox.addFeedData(items, viewiden=viewiden, reqmeta=False)
     ```
 
-    ``` bash
+    ```bash
     # 2.x CLI -- explicit --format
     python -m synapse.tools.cortex.feed -c cell://./core --format syn.nodes data.nodes
 

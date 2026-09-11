@@ -298,7 +298,8 @@ class OAuthMixin(s_nexus.Pusher):
 
         ssl = self.getCachedSslCtx(opts=ssl)
 
-        async with aiohttp.ClientSession(timeout=timeout) as sess:
+        sesshdrs = {'User-Agent': self.getUserAgent()}
+        async with aiohttp.ClientSession(timeout=timeout, headers=sesshdrs) as sess:
 
             while True:
                 attempts += 1

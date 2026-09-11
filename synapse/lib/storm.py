@@ -5,6 +5,7 @@ import pprint
 import asyncio
 import logging
 import argparse
+import textwrap
 import contextlib
 import collections
 
@@ -54,8 +55,8 @@ When condition is tag:add or tag:del, you may optionally provide a form name
 to restrict the trigger to fire only on tags added or deleted from nodes of
 those forms.
 
-The added tag is provided to the query in the ``$auto`` dictionary variable under
-``$auto.opts.tag``.
+The added tag is provided to the query in the `$auto` dictionary variable under
+`$auto.opts.tag`.
 
 Simple one level tag globbing is supported, only at the end after a period,
 that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
@@ -66,20 +67,20 @@ form name or a destination form name to only fire on edges added or deleted
 from nodes of those forms.
 
 Examples:
-    # Adds a tag to every inet:ipv4 added
-    trigger.add node:add --form inet:ipv4 {[ +#mytag ]}
+    // Adds a tag to every inet:ip added
+    trigger.add node:add --form inet:ip {[ +#mytag ]}
 
-    # Adds a tag #todo to every node as it is tagged #aka
+    // Adds a tag #todo to every node as it is tagged #aka
     trigger.add tag:add --tag aka {[ +#todo ]}
 
-    # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
-    trigger.add tag:add --form inet:ipv4 --tag aka {[ +#todo ]}
+    // Adds a tag #todo to every inet:ip as it is tagged #aka
+    trigger.add tag:add --form inet:ip --tag aka {[ +#todo ]}
 
-    # Adds a tag #todo to the N1 node of every refs edge add
+    // Adds a tag #todo to the N1 node of every refs edge add
     trigger.add edge:add --verb refs {[ +#todo ]}
 
-    # Adds a tag #todo to the N1 node of every seen edge delete, provided that
-    # both nodes are of form file:bytes
+    // Adds a tag #todo to the N1 node of every seen edge delete, provided that
+    // both nodes are of form file:bytes
     trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes {[ +#todo ]}
 '''
 
@@ -114,52 +115,52 @@ Notes:
         - :MM,MM,... (comma-separated minutes, e.g., :15,45 runs at minute 15 and 45)
 
 Examples:
-    # Run every minute
+    // Run every minute
     cron.add minutely { $lib.print(minutely) }
 
-    # Run every 5 minutes
+    // Run every 5 minutes
     cron.add minutely/5 { $lib.print(minutely) }
 
-    # Run every day at midnight UTC
+    // Run every day at midnight UTC
     cron.add daily { $lib.print(daily) }
 
-    # Run every day at 14:30 UTC
+    // Run every day at 14:30 UTC
     cron.add daily@14:30 { $lib.print(daily) }
 
-    # Run every 2 hours at minute 0
+    // Run every 2 hours at minute 0
     cron.add hourly/2@:00 { $lib.print(hourly) }
 
-    # Run every hour at minute 25
+    // Run every hour at minute 25
     cron.add hourly@:25 { $lib.print(hourly) }
 
-    # Run every hour at minute 24 and minute 45
+    // Run every hour at minute 24 and minute 45
     cron.add hourly@:24,45 { $lib.print(hourly) }
 
-    # Run every Monday and Wednesday at 10:00 UTC
+    // Run every Monday and Wednesday at 10:00 UTC
     cron.add weekly/mon,wed@10:00 { $lib.print(weekly) }
 
-    # Run on the 1st and 15th of every month at noon UTC
+    // Run on the 1st and 15th of every month at noon UTC
     cron.add monthly/1,15@12:00 { $lib.print(monthly) }
 
-    # Run on the last day of every month at 00:00 UTC
+    // Run on the last day of every month at 00:00 UTC
     cron.add monthly/-1 { $lib.print(monthly) }
 
-    # Run every year on January 1st at midnight UTC
+    // Run every year on January 1st at midnight UTC
     cron.add yearly { $lib.print(yearly) }
 
-    # Run every year on January 1st at 07:00 UTC
+    // Run every year on January 1st at 07:00 UTC
     cron.add yearly@07 { $lib.print(yearly) }
 
-    # Run every year on January 1st at 12:21 UTC
+    // Run every year on January 1st at 12:21 UTC
     cron.add yearly@12:21 { $lib.print(yearly) }
 
-    # Run every year on May 14th at midnight UTC
+    // Run every year on May 14th at midnight UTC
     cron.add yearly/05-14 { $lib.print(yearly) }
 
-    # Run every year on November 12th at 13:43 UTC
+    // Run every year on November 12th at 13:43 UTC
     cron.add yearly/11-14@13:43 { $lib.print(yearly) }
 
-    # Run every year on July 1st at 04:44 UTC, November 12th at 15:00 UTC, and January 4th at midnight UTC
+    // Run every year on July 1st at 04:44 UTC, November 12th at 15:00 UTC, and January 4th at midnight UTC
     cron.add yearly/07-01@04:44,11-12@15,01-04 { $lib.print(yearly) }
 '''
 
@@ -175,19 +176,19 @@ Notes:
     Any combination of properties may be modified at the same time.
 
 Examples:
-    # Modify only the query
+    // Modify only the query
     cron.mod <iden> --storm { $lib.print(new_query) }
 
-    # Modify only the period (change to daily at 14:30 UTC)
+    // Modify only the period (change to daily at 14:30 UTC)
     cron.mod <iden> --period daily@14:30
 
-    # Modify both query and period
+    // Modify both query and period
     cron.mod <iden> --period weekly/mon,wed@10:00 --storm { $lib.print(updated) }
 
-    # Change to hourly period at minute 25 and enable the cron job
+    // Change to hourly period at minute 25 and enable the cron job
     cron.mod <iden> --period hourly@:25 --enabled true
 
-    # Change to run every 5 minutes
+    // Change to run every 5 minutes
     cron.mod <iden> --period minutely/5
 '''
 
@@ -211,14 +212,14 @@ Notes:
     "cron.del".
 
 Examples:
-    # Run a storm query in 5 minutes
-    cron.at --minute +5 {[inet:ipv4=1]}
+    // Run a storm query in 5 minutes
+    cron.at --minute +5 {[inet:ip=1]}
 
-    # Run a storm query tomorrow and in a week
-    cron.at --day +1,+7 {[inet:ipv4=1]}
+    // Run a storm query tomorrow and in a week
+    cron.at --day +1,+7 {[inet:ip=1]}
 
-    # Run a query at the end of the year Zulu
-    cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
+    // Run a query at the end of the year Zulu
+    cron.at --dt 20181231Z2359 {[inet:ip=1]}
 '''
 
 viewdeldescr = '''
@@ -233,10 +234,10 @@ wgetdescr = '''Retrieve bytes from a URL and store them in the axon. Yields inet
 
 Examples:
 
-    # Specify custom headers and parameters
+    // Specify custom headers and parameters
     inet:url=https://vertex.link/foo.bar.txt | wget --headers ({"User-Agent": "Foo/Bar"}) --params ({"clientid": "42"})
 
-    # Download multiple URL targets without inbound nodes
+    // Download multiple URL targets without inbound nodes
     wget https://vertex.link https://vtx.lk
 '''
 
@@ -1015,13 +1016,15 @@ stormcmds = (
             ('--params', {'default': None, 'help': 'Provide a dict containing url parameters.'}),
             ('--headers', {
                 'default': {
-                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
                     'Accept': '*/*',
                     'Accept-Encoding': 'gzip, deflate',
                     'Accept-Language': 'en-US,en;q=0.9',
                 },
                 'help': 'Provide a Storm dict containing custom request headers.'}),
-            ('--no-headers', {'default': False, 'action': 'store_true', 'help': 'Do NOT use any default headers.'}),
+            ('--no-headers', {'default': False, 'action': 'store_true',
+                              'help': 'Do NOT use the browser-mimicking default headers above. The Cortex\'s '
+                                       'own default User-Agent is sent instead unless one is set with --headers.'}),
         ),
         'storm': '''
         init {
@@ -2017,6 +2020,13 @@ class Parser:
         self.model = model
 
         self.prog = prog
+        # a description carries whatever leading indentation is common to all of
+        # its lines into the help text, where it renders indented in the generated
+        # command reference and in the interactive help. A docstring declared in
+        # Python is the common case, but a package yaml can carry one too.
+        if descr is not None:
+            descr = textwrap.dedent(descr).strip()
+
         self.descr = descr
         self.cdef = cdef or {}
 
@@ -2473,6 +2483,8 @@ class Cmd:
     name = 'cmd'
     pkgname = ''
     readonly = False
+    # The edition providing this command, or None when every Cortex has it.
+    _cortex_edition = None
 
     def __init__(self, runt, runtsafe):
 
@@ -2536,6 +2548,9 @@ class Cmd:
 
         if cls.pkgname:
             props['package'] = cls.pkgname
+
+        if cls._cortex_edition is not None:
+            props['edition'] = cls._cortex_edition
 
         props = model.form('syn:cmd').wrapRuntProps(props)
 
@@ -2798,27 +2813,21 @@ class HelpCmd(Cmd):
     Examples:
 
         // Get all available commands, libraries, types, and their brief descriptions.
-
         help
 
         // Only get commands which have "model" in the name.
-
         help model
 
         // Get help about the base Storm library
-
         help $lib
 
         // Get detailed help about a specific library or library function
-
         help --verbose $lib.print
 
         // Get detailed help about a named Storm type
-
         help --verbose str
 
         // Get help about a method from a $node object
-
         <inbound $node> help $node.tags
 
     '''
@@ -2970,16 +2979,18 @@ class HelpCmd(Cmd):
         except s_exc.NoSuchName as e:
             raise s_exc.BadArg(mesg='Help does not currently support imported Storm modules.') from None
 
-        page = s_autodoc.RstHelp()
+        page = s_autodoc.MdHelp()
 
         if hasattr(lib, '_storm_lib_path'):
             libsinfo = s_stormtypes.registry.getLibDocs(lib)
 
-            s_autodoc.runtimeDocStormTypes(page, libsinfo,
-                                           islib=True,
-                                           oneline=not verbose,
-                                           preamble=preamble,
-                                           )
+            s_autodoc.docStormTypesMd(page, libsinfo,
+                                      islib=True,
+                                      lvl=0,
+                                      oneline=not verbose,
+                                      preamble=preamble,
+                                      group=True,
+                                      )
         else:
             page.addLines(*preamble)
 
@@ -3025,12 +3036,14 @@ class HelpCmd(Cmd):
 
     async def _handleTypeHelp(self, styp: str, runt: Runtime, verbose: bool =False):
         typeinfo = s_stormtypes.registry.getTypeDocs(styp)
-        page = s_autodoc.RstHelp()
+        page = s_autodoc.MdHelp()
 
-        s_autodoc.runtimeDocStormTypes(page, typeinfo,
-                                       islib=False,
-                                       oneline=not verbose,
-                                       )
+        s_autodoc.docStormTypesMd(page, typeinfo,
+                                  islib=False,
+                                  lvl=0,
+                                  oneline=not verbose,
+                                  group=True,
+                                  )
         for line in page.lines:
             await runt.printf(line)
 
@@ -3055,13 +3068,15 @@ class HelpCmd(Cmd):
                 if len(lifo['locals']) == 0:
                     await runt.warn(f'Unable to find doc for {func}')
 
-            page = s_autodoc.RstHelp()
+            page = s_autodoc.MdHelp()
 
-            s_autodoc.runtimeDocStormTypes(page, libsinfo,
-                                           islib=True,
-                                           addheader=False,
-                                           oneline=not verbose,
-                                           )
+            s_autodoc.docStormTypesMd(page, libsinfo,
+                                      islib=True,
+                                      lvl=0,
+                                      addheader=False,
+                                      oneline=not verbose,
+                                      group=True,
+                                      )
             for line in page.lines:
                 await runt.printf(line)
 
@@ -3072,12 +3087,14 @@ class HelpCmd(Cmd):
                 if len(lifo['locals']) == 0:
                     await runt.warn(f'Unable to find doc for {func}')
 
-            page = s_autodoc.RstHelp()
+            page = s_autodoc.MdHelp()
 
-            s_autodoc.runtimeDocStormTypes(page, typeinfo,
-                                           islib=False,
-                                           oneline=not verbose,
-                                           )
+            s_autodoc.docStormTypesMd(page, typeinfo,
+                                      islib=False,
+                                      lvl=0,
+                                      oneline=not verbose,
+                                      group=True,
+                                      )
             for line in page.lines:
                 await runt.printf(line)
 
@@ -3102,13 +3119,15 @@ class HelpCmd(Cmd):
                 if len(lifo['locals']) == 0:
                     await runt.warn(f'Unable to find doc for {func}')
 
-            page = s_autodoc.RstHelp()
+            page = s_autodoc.MdHelp()
 
-            s_autodoc.runtimeDocStormTypes(page, libsinfo,
-                                           islib=True,
-                                           addheader=False,
-                                           oneline=not verbose,
-                                           )
+            s_autodoc.docStormTypesMd(page, libsinfo,
+                                      islib=True,
+                                      lvl=0,
+                                      addheader=False,
+                                      oneline=not verbose,
+                                      group=True,
+                                      )
             for line in page.lines:
                 await runt.printf(line)
 
@@ -3122,27 +3141,21 @@ class DiffCmd(Cmd):
     Examples:
 
         // Lift all nodes with any changes
-
         diff
 
         // Lift ou:org nodes that were added in the top layer.
-
         diff --prop ou:org
 
-        // Lift inet:ipv4 nodes with the :asn property modified in the top layer.
-
-        diff --prop inet:ipv4:asn
+        // Lift inet:ip nodes with the :asn property modified in the top layer.
+        diff --prop inet:ip:asn
 
         // Lift the nodes with the tag #cno.mal.redtree added in the top layer.
-
         diff --tag cno.mal.redtree
 
         // Lift nodes by multiple tags (results are uniqued)
-
         diff --tag cno.mal.redtree rep.vt
 
         // Lift nodes by tags specified in a list variable
-
         $tags=(cno.mal.redtree, rep.vt) diff --tag $tags
     '''
     name = 'diff'
@@ -3242,7 +3255,6 @@ class CopyToCmd(Cmd):
     Examples:
 
         // Copy all nodes tagged with #cno.mal.redtree to the target view.
-
         #cno.mal.redtree | copyto 33c971ac77943da91392dadd0eec0571
     '''
     name = 'copyto'
@@ -3353,34 +3365,27 @@ class MergeCmd(Cmd):
     Examples:
 
         // Having tagged a new #cno.mal.redtree subgraph in a forked view...
-
         #cno.mal.redtree | merge --apply
 
         // Print out what the merge command *would* do but dont.
-
         #cno.mal.redtree | merge
 
         // Merge any org nodes with changes in the top layer.
-
         diff | +ou:org | merge --apply
 
         // Merge all tags other than cno.* from ou:org nodes with edits in the
         // top layer.
-
         diff | +ou:org | merge --only-tags --exclude-tags cno.** --apply
 
         // Merge only tags rep.vt.* and rep.whoxy.* from ou:org nodes with edits
         // in the top layer.
-
         diff | +ou:org | merge --include-tags rep.vt.* rep.whoxy.* --apply
 
-        // Lift only inet:ipv4 nodes with a changed :asn property in top layer
+        // Lift only inet:ip nodes with a changed :asn property in top layer
         // and merge all changes.
-
-        diff --prop inet:ipv4:asn | merge --apply
+        diff --prop inet:ip:asn | merge --apply
 
         // Lift only nodes with an added #cno.mal.redtree tag in the top layer and merge them.
-
         diff --tag cno.mal.redtree | merge --apply
     '''
     name = 'merge'
@@ -3909,16 +3914,13 @@ class MoveNodesCmd(Cmd):
     Examples:
 
         // Move storage nodes for ou:org nodes to the top layer
-
         ou:org | movenodes --apply
 
         // Print out what the movenodes command *would* do but dont.
-
         ou:org | movenodes
 
         // In a view with many layers, only move storage nodes from the bottom layer
         // to the top layer.
-
         $layers = $lib.view.get().layers
         $top = $layers.0.iden
         $bot = $layers."-1".iden
@@ -3927,7 +3929,6 @@ class MoveNodesCmd(Cmd):
 
         // In a view with many layers, move storage nodes to the top layer and
         // prioritize values from the bottom layer over the other layers.
-
         $layers = $lib.view.get().layers
         $top = $layers.0.iden
         $mid = $layers.1.iden
@@ -4161,20 +4162,8 @@ class MoveNodesCmd(Cmd):
                             self.adds.append((s_layer.EDIT_TAGPROP_DEL, (tag, name)))
 
                 if self.opts.preserve_tombstones:
+                    # a whole node tombstone subsumes the dest layer's part of node tombstones
                     self.adds.append((s_layer.EDIT_NODE_TOMB, ()))
-
-                    if (tags := destsode.get('antitags')) is not None:
-                        for tag in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
-                            self.adds.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
-
-                    if (props := destsode.get('antiprops')) is not None:
-                        for prop in props.keys():
-                            self.adds.append((s_layer.EDIT_PROP_TOMB_DEL, (prop,)))
-
-                    if (tagprops := destsode.get('antitagprops')) is not None:
-                        for tag, props in tagprops.items():
-                            for name in props.keys():
-                                self.adds.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, name)))
 
                 await self._sync(node, meta)
 
@@ -4600,7 +4589,7 @@ class LimitCmd(Cmd):
 
     Example:
 
-        inet:ipv4 | limit 10
+        inet:ip | limit 10
     '''
 
     name = 'limit'
@@ -4634,11 +4623,11 @@ class UniqCmd(Cmd):
 
     Examples:
 
-        # Filter duplicate nodes after pivoting from inet:ipv4 nodes tagged with #badstuff
-        #badstuff +inet:ipv4 ->* | uniq
+        // Filter duplicate nodes after pivoting from inet:ip nodes tagged with #badstuff
+        #badstuff +inet:ip ->* | uniq
 
-        # Unique inet:ipv4 nodes by their :asn property
-        #badstuff +inet:ipv4 | uniq :asn
+        // Unique inet:ip nodes by their :asn property
+        #badstuff +inet:ip | uniq :asn
     '''
 
     name = 'uniq'
@@ -5129,11 +5118,11 @@ class CountCmd(Cmd):
 
     Example:
 
-        # Count the number of IPV4 nodes with a given ASN.
-        inet:ipv4:asn=20 | count
+        // Count the number of IPV4 nodes with a given ASN.
+        inet:ip:asn=20 | count
 
-        # Count the number of IPV4 nodes with a given ASN and yield them.
-        inet:ipv4:asn=20 | count --yield
+        // Count the number of IPV4 nodes with a given ASN and yield them.
+        inet:ip:asn=20 | count --yield
 
     '''
     name = 'count'
@@ -5158,8 +5147,6 @@ class CountCmd(Cmd):
 class SleepCmd(Cmd):
     '''
     Introduce a delay between returning each result for the storm query.
-
-    NOTE: This is mostly used for testing / debugging.
 
     Example:
 
@@ -5350,7 +5337,7 @@ class ViewExecCmd(Cmd):
 class BackgroundCmd(Cmd):
     '''
     Execute a query pipeline as a background task.
-    NOTE: Variables are passed through but nodes are not
+    NOTE: Variables are passed through but nodes are not.
     '''
     name = 'background'
 
@@ -5407,7 +5394,7 @@ class ParallelCmd(Cmd):
     This can be useful to minimize round-trip delay during enrichments.
 
     Examples:
-        inet:ipv4#foo | parallel { $place = $lib.import(foobar).lookup(:latlong) [ :place=$place ] }
+        inet:ip#foo | parallel { $place = $lib.import(foobar).lookup(:latlong) [ :place=$place ] }
 
     NOTE: Storm variables set within the parallel query pipelines do not interact.
 
@@ -5524,18 +5511,18 @@ class TeeCmd(Cmd):
     '''
     Execute multiple Storm queries on each node in the input stream, joining output streams together.
 
-    Commands are executed in order they are given; unless the ``--parallel`` switch is provided.
+    Commands are executed in order they are given; unless the `--parallel` switch is provided.
 
     Examples:
 
-        # Perform a pivot out and pivot in on a inet:ivp4 node
-        inet:ipv4=1.2.3.4 | tee { -> * } { <- * }
+        // Perform a pivot out and pivot in on a inet:ip node
+        inet:ip=1.2.3.4 | tee { -> * } { <- * }
 
-        # Also emit the inbound node
-        inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }
+        // Also emit the inbound node
+        inet:ip=1.2.3.4 | tee --join { -> * } { <- * }
 
-        # Execute multiple enrichment queries in parallel.
-        inet:ipv4=1.2.3.4 | tee -p { enrich.foo } { enrich.bar } { enrich.baz }
+        // Execute multiple enrichment queries in parallel.
+        inet:ip=1.2.3.4 | tee -p { enrich.foo } { enrich.bar } { enrich.baz }
 
     '''
     name = 'tee'
@@ -5672,7 +5659,7 @@ class TreeCmd(Cmd):
 
     Examples:
 
-        # pivot upward yielding each FQDN
+        // pivot upward yielding each FQDN
         inet:fqdn=www.vertex.link | tree { :domain -> inet:fqdn }
     '''
     name = 'tree'
@@ -5714,26 +5701,26 @@ class ScrapeCmd(Cmd):
 
     Examples:
 
-        # Scrape properties from inbound nodes and create standalone nodes.
+        // Scrape properties from inbound nodes and create standalone nodes.
         inet:search:query | scrape
 
-        # Scrape properties from inbound nodes and make refs light edges to the scraped nodes.
+        // Scrape properties from inbound nodes and make refs light edges to the scraped nodes.
         inet:search:query | scrape --refs
 
-        # Scrape only the :engine and :text props from the inbound nodes.
+        // Scrape only the :engine and :text props from the inbound nodes.
         inet:search:query | scrape :text :engine
 
-        # Scrape the primary property from the inbound nodes.
+        // Scrape the primary property from the inbound nodes.
         it:dev:str | scrape $node.repr()
 
-        # Scrape properties inbound nodes and yield newly scraped nodes.
+        // Scrape properties inbound nodes and yield newly scraped nodes.
         inet:search:query | scrape --yield
 
-        # Skip re-fanging text before scraping.
+        // Skip re-fanging text before scraping.
         inet:search:query | scrape --skiprefang
 
-        # Limit scrape to specific forms.
-        inet:search:query | scrape --forms (inet:fqdn, inet:ipv4)
+        // Limit scrape to specific forms.
+        inet:search:query | scrape --forms (inet:fqdn, inet:ip)
     '''
 
     name = 'scrape'
@@ -5826,10 +5813,10 @@ class LiftByVerb(Cmd):
 
     Examples:
 
-        # Lift all the n1 nodes for the light edge "foo"
+        // Lift all the n1 nodes for the light edge "foo"
         lift.byverb "foo"
 
-        # Lift all the n2 nodes for the light edge "foo"
+        // Lift all the n2 nodes for the light edge "foo"
         lift.byverb --n2 "foo"
 
     Notes:
@@ -5898,14 +5885,14 @@ class EdgesDelCmd(Cmd):
 
     Examples:
 
-        # Delete all "foo" light edges from an inet:ipv4
-        inet:ipv4=1.2.3.4 | edges.del foo
+        // Delete all "foo" light edges from an inet:ip
+        inet:ip=1.2.3.4 | edges.del foo
 
-        # Delete light edges with any verb from a node
-        inet:ipv4=1.2.3.4 | edges.del *
+        // Delete light edges with any verb from a node
+        inet:ip=1.2.3.4 | edges.del *
 
-        # Delete all "foo" light edges to an inet:ipv4
-        inet:ipv4=1.2.3.4 | edges.del foo --n2
+        // Delete all "foo" light edges to an inet:ip
+        inet:ip=1.2.3.4 | edges.del foo --n2
     '''
     name = 'edges.del'
 
@@ -5984,7 +5971,7 @@ class OnceCmd(Cmd):
     view's write layer, making it view-specific. So if you have two views, A and B, and they
     do not share any layers between them, and you execute this query in view A:
 
-        inet:ipv4=8.8.8.8 | once enrich:address | enrich.baz
+        inet:ip=8.8.8.8 | once enrich:address | enrich.baz
 
     And then you run it in view B, the node will still pass through the once command to the
     enrich.baz portion of the query because the tracking data for the once command does not
@@ -6051,8 +6038,8 @@ class TagPruneCmd(Cmd):
 
     Examples:
 
-        # Prune the parent.child.grandchild tag
-        inet:ipv4=1.2.3.4 | tag.prune parent.child.grandchild
+        // Prune the parent.child.grandchild tag
+        inet:ip=1.2.3.4 | tag.prune parent.child.grandchild
     '''
     name = 'tag.prune'
 
@@ -6218,7 +6205,6 @@ class IntersectCmd(Cmd):
     Examples:
 
         // Show the it:mitre:attack:technique nodes common to several groups
-
         it:mitre:attack:group*in=(G0006, G0007) | intersect { -> it:mitre:attack:technique }
     '''
     name = 'intersect'

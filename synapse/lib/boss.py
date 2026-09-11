@@ -15,8 +15,8 @@ class Boss(s_base.Base):
     An object to track "promoted" async tasks.
 
     Promoted tasks are asyncio tasks, wrapped in a synapse task
-    (``s_task.Task``), that are visible to storm users via the task tracking
-    libs/commands such as ``ps.list`` and ``$lib.ps.list()``.
+    (`s_task.Task`), that are visible to storm users via the task tracking
+    libs/commands such as `ps.list` and `$lib.ps.list()`.
     '''
     async def __anit__(self):
         await s_base.Base.__anit__(self)
@@ -35,7 +35,7 @@ class Boss(s_base.Base):
         Args:
             timeout: Optional total timeout in seconds for reaping tasks.
                 The timeout is shared across all tasks; if it is reached
-                before every task is reaped the shutdown is aborted. ``None``
+                before every task is reaped the shutdown is aborted. `None`
                 blocks indefinitely.
             drain: If False (the default), top-level tasks are cancelled
                 before being awaited. If True, top-level tasks are awaited

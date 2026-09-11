@@ -7754,6 +7754,9 @@ class CortexBasicTest(s_t_utils.SynTest):
         Adding a package must not modify the package definition. The stored def has
         to stay identical to the (signed) def which was handed to us.
         '''
+        def pkgmsgs(stream):
+            return [m for m in stream.jsonlines() if 'Storm package: nomutate@0.0.1.' in m['message']]
+
         pkgdef = {
             'name': 'nomutate',
             'version': '0.0.1',
@@ -7772,7 +7775,21 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             orig = s_msgpack.deepcopy(pkgdef, use_list=True)
 
-            await core.addStormPkg(pkgdef)
+            # loading a package logs a structured message an operator can watch
+            # for, carrying the package name and version
+            with self.getLoggerStream('synapse.cortex') as stream:
+                await core.addStormPkg(pkgdef)
+
+            msgs = pkgmsgs(stream)
+            self.len(1, msgs)
+            self.eq('Loaded Storm package: nomutate@0.0.1.', msgs[0]['message'])
+            self.eq({'pkg': 'nomutate', 'vers': '0.0.1'}, msgs[0]['params'])
+
+            # re-adding an identical def bounces before load/unload and logs nothing
+            with self.getLoggerStream('synapse.cortex') as stream:
+                await core.addStormPkg(pkgdef)
+
+            self.len(0, pkgmsgs(stream))
 
             # the caller's dict is untouched...
             self.eq(orig, pkgdef)
@@ -7834,9 +7851,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.setStormCmd({'name': 'standalone.cmd', 'storm': ''})
             self.len(1, await core.nodes('syn:cmd=standalone.cmd -:package'))
 
-            # dropping the package removes the derived graph
-            await core.delStormPkg('nomutate')
+            # dropping the package removes the derived graph, and logs the unload
+            with self.getLoggerStream('synapse.cortex') as stream:
+                await core.delStormPkg('nomutate')
+
             self.none(core.pkggraphs.get(iden))
+            msgs = pkgmsgs(stream)
+            self.len(1, msgs)
+            self.eq('Unloaded Storm package: nomutate@0.0.1.', msgs[0]['message'])
+            self.eq({'pkg': 'nomutate', 'vers': '0.0.1'}, msgs[0]['params'])
 
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:

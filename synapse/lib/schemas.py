@@ -1314,6 +1314,9 @@ _reqValidPkgdefSchema = {
                         'items': {'type': 'string'}},
                 },
                 'deprecated': {'$ref': '#/definitions/deprecatedItem'},
+                '_edition': {'type': 'string', 'minLength': 1,
+                             'description': 'The edition which provides this command, for one that is '
+                                            'not part of every Cortex. Not user authored.'},
             },
             'additionalProperties': False,
             'required': ['name', 'storm']

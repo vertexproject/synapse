@@ -60,7 +60,7 @@ modules:
             type: function
             returns:
               type: 'null'
-              desc: '``newp()`` does not return data.'
+              desc: '`newp()` does not return data.'
     - name: testpkg.testext
       package: synapse.tests.files
       path: stormmod/common

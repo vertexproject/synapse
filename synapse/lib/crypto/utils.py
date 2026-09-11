@@ -99,7 +99,7 @@ def loadKey(byts):
         byts (bytes): The DER or PEM encoded key bytes.
 
     Returns:
-        A ``(isprivate, key)`` tuple where ``key`` is the loaded cryptography key object.
+        A `(isprivate, key)` tuple where `key` is the loaded cryptography key object.
     '''
     if b'-----BEGIN' in byts:
         if byts.count(b'-----BEGIN') != 1:

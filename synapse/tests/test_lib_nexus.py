@@ -315,6 +315,74 @@ class NexusTest(s_t_utils.SynTest):
             self.true(cell.isfini)
             self.false(cell.nexslock.locked())
 
+    async def test_nexus_eat_clone_fail(self):
+        '''
+        An exception raised after the apply task exists ( s_scope.clone ) must not release
+        nexslock: the task owns it from create_task onward and releases it in its finally.
+        '''
+        conf = {'nexslog:en': True}
+        async with self.getTestCell(conf=conf) as cell:
+
+            await cell.sync()
+
+            def boom(task):
+                raise s_exc.SynErr(mesg='clone boom')
+
+            with mock.patch('synapse.lib.scope.clone', boom):
+                with self.raises(s_exc.SynErr) as cm:
+                    await cell.sync()
+
+            self.eq('clone boom', cm.exception.get('mesg'))
+
+            # the raise propagated with no suspension, so the apply task has not run
+            # yet and still holds the lock
+            self.true(cell.nexslock.locked())
+
+            await asyncio.wait_for(cell.nexsroot.applytask, timeout=10)
+            self.false(cell.nexslock.locked())
+
+            # the cell still takes writes
+            await cell.sync()
+
+    async def test_nexus_issue_follower_lock_handoff(self):
+        '''
+        Only a leader may be issued to with lock=False, since such a caller has already
+        computed its change against our own storage. Reaching the follower branch means we
+        were demoted while that write was in flight: we must release the caller's nexslock
+        and raise rather than forward a change the new leader did not compute.
+        '''
+        async with self.getTestCell() as cell:
+
+            await cell.sync()
+
+            class Client:
+                async def proxy(self, timeout=None):  # pragma: no cover
+                    raise AssertionError('must not reach the leader round trip')
+
+            cell.nexsroot.client = Client()
+
+            try:
+                await cell.nexslock.acquire()
+
+                with self.raises(s_exc.BadState) as cm:
+                    await cell.nexsroot.issue(cell.nexsiden, 'meta:set', ('hehe', 'haha'), {}, lock=False)
+
+                # the error names the in-flight operation
+                self.isin('Leadership changed while a write was in flight.', cm.exception.get('mesg'))
+                self.isin(f'iden={cell.nexsiden}', cm.exception.get('mesg'))
+                self.isin("event='meta:set'", cm.exception.get('mesg'))
+                self.eq(cell.nexsiden, cm.exception.get('iden'))
+                self.eq('meta:set', cm.exception.get('event'))
+
+                # the caller's lock was handed off and released, not leaked
+                self.false(cell.nexslock.locked())
+
+            finally:
+                cell.nexsroot.client = None
+
+                if cell.nexslock.locked():
+                    cell.nexslock.release()
+
     async def test_nexus_modroot(self):
 
         async with self.getTestCell() as cell:

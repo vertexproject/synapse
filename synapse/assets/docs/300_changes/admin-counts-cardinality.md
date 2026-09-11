@@ -19,7 +19,7 @@ What you need to do
 
 :   These counts are maintained automatically; no operational action is required. If you call the Storm `getPropCount` method and pass a `maxsize` argument, remove it -- the parameter no longer exists. Counts read directly from a layer are exact; the `$lib.view` variant is a fast approximate sum across the view's layers.
 
-    ``` text
+    ```text
     // 2.x -- second positional arg was maxsize
     $count = $lib.layer.get().getPropCount(inet:ipv4, (1000))
 

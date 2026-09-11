@@ -272,7 +272,7 @@ class Config(c_abc.MutableMapping):
         from the repr() of their Python value.
 
         Default values are not loaded into the configuration data until
-        the ``reqConfValid()`` method is called.
+        the `reqConfValid()` method is called.
 
     '''
     def __init__(self,
@@ -429,20 +429,20 @@ class Config(c_abc.MutableMapping):
         Notes:
             Environment variables are resolved from configuration options after doing the following transform:
 
-            - Replace ``:`` characters with ``_``.
+            - Replace `:` characters with `_`.
             - Add a config provided prefix, if set.
             - Uppercase the string.
             - Resolve the environment variable
-            - If the environment variable is set, set the config value to the results of ``yaml.yaml_safeload()``
+            - If the environment variable is set, set the config value to the results of `yaml.yaml_safeload()`
               on the value.
 
-            Configuration values which have the ``hideconf`` value set to True are not resolved from environment
+            Configuration values which have the `hideconf` value set to True are not resolved from environment
             variables.
 
         Examples:
 
-            For the configuration value ``auth:passwd``, the environment variable is resolved as ``AUTH_PASSWD``.
-            With the prefix ``cortex``, the the environment variable is resolved as ``CORTEX_AUTH_PASSWD``.
+            For the configuration value `auth:passwd`, the environment variable is resolved as `AUTH_PASSWD`.
+            With the prefix `cortex`, the the environment variable is resolved as `CORTEX_AUTH_PASSWD`.
 
         Returns:
             dict: Returns a dictionary of values which were set from enviroment variables.
@@ -471,7 +471,7 @@ class Config(c_abc.MutableMapping):
         '''
         Get a mapping of config values to envars.
 
-        Configuration values which have the ``hideconf`` value set to True are not resolved from environment
+        Configuration values which have the `hideconf` value set to True are not resolved from environment
         variables.
         '''
         if prefix is None:

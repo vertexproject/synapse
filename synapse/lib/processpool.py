@@ -80,8 +80,8 @@ def _isMainImport():
     True only in a real MainProcess, and not while a child re-imports the main module.
 
     A forkserver process is also named MainProcess and imports its parent's main
-    module, so for any ``python -m synapse.servers.*`` this module is imported in
-    there too. CPython sets ``_inheriting`` on the current process for the duration
+    module, so for any `python -m synapse.servers.*` this module is imported in
+    there too. CPython sets `_inheriting` on the current process for the duration
     of that import, which is what separates it from a real MainProcess and keeps the
     auto-init below to one pool per process.
     '''

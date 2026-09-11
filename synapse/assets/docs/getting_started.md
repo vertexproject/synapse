@@ -8,7 +8,7 @@ Now that you have looked over the [Introduction](intro.md) to Synapse, you'd lik
 
 There are several ways for you to explore Synapse and its features, depending on your needs. Each option is summarized here and described in more detail below.
 
-### [Demo Instance](getting_started.md#syn-demo)
+## [Demo Instance](getting_started.md#syn-demo)
 - Cloud hosted, personal instance of [Synapse Enterprise](https://vertex.link/synapse)
 - Admin-level access to your instance
 - Access via the web-based [Optic](/docs/synapse-enterprise-optic/latest/index.md)
@@ -17,7 +17,7 @@ There are several ways for you to explore Synapse and its features, depending on
 - Sample data
 - Data sets for the [APT1 Scavenger Hunt](https://v.vtx.lk/apt1hunt) and [Synapse Bootcamp](https://vertex.link/training/bootcamp)
 
-### [Vertex Intel-Sharing Instance (VISI)](getting_started.md#syn-visi)
+## [Vertex Intel-Sharing Instance (VISI)](getting_started.md#syn-visi)
 - Cloud-hosted, community instance of [Synapse Enterprise](https://vertex.link/synapse)
 - Access via the web-based [Optic](/docs/synapse-enterprise-optic/latest/index.md) user interface
 - User account to explore or contribute to the community instance
@@ -27,12 +27,12 @@ There are several ways for you to explore Synapse and its features, depending on
 - Community-generated data and analysis
 - Training materials hosted in the Synapse Learning Tool
 
-### [Open-Source Synapse](getting_started.md#syn-open)
+## [Open-Source Synapse](getting_started.md#syn-open)
 - Publicly available source code hosted on [Github](https://github.com/vertexproject/synapse)
 - Access via the [Storm CLI](userguides/syn_tools_storm.md)
 - Access to open-source [Rapid Power-Ups](power_ups.md#rapid-power-ups)
 
-### [Synapse Quickstart](getting_started.md#syn-quick)
+## [Synapse Quickstart](getting_started.md#syn-quick)
 - Pre-configured [Docker container](https://www.docker.com/resources/what-container/) for open-source Synapse |
 - Access via the [Storm CLI](userguides/syn_tools_storm.md)
 

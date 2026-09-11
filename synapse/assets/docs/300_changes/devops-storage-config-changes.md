@@ -19,7 +19,7 @@ What you need to do
 
 :   Remove these keys from any Cortex configuration before upgrading. If you tuned layer memory cache via `layers:lockmemory` / `layers:logedits`, there is no replacement for those; to tune the per-layer node cache use `layers:cache:size` (see the next section).
 
-    ``` yaml
+    ```yaml
     # 2.x cortex cell.yaml
     modules:
       - myproj.mymodule.MyModule
@@ -30,7 +30,7 @@ What you need to do
     provenance:en: false
     ```
 
-    ``` yaml
+    ```yaml
     # 3.x cortex cell.yaml -- removed keys deleted
     layers:cache:size: 10000
     max:nodes: 0
@@ -50,7 +50,7 @@ What you need to do
 
 :   No action is required to keep using `layers:cache:size`; existing values continue to work as a cache-entry count. Just be aware it now sizes the NID cache rather than the BUID cache.
 
-    ``` yaml
+    ```yaml
     # 3.x cortex cell.yaml
     layers:cache:size: 10000
     ```
@@ -69,14 +69,14 @@ What you need to do
 
 :   Remove `auth:ctor`, `auth:conf`, and `nexslog:async` from any service `cell.yaml`. If you used a custom auth constructor via `auth:ctor`, that hook is gone -- manage auth through the standard auth subsystem (for example `moduser` / `modrole`).
 
-    ``` yaml
+    ```yaml
     # 2.x cell.yaml
     auth:ctor: my.module.AuthCtor
     auth:conf: {}
     nexslog:async: true
     ```
 
-    ``` yaml
+    ```yaml
     # 3.x cell.yaml -- auth:ctor / auth:conf / nexslog:async removed
     ```
 
@@ -103,7 +103,7 @@ What you need to do
     `auth.user.add` and `auth.role.add` Storm commands, or with the `synapse.tools.service.moduser` and
     `synapse.tools.service.modrole` tools.
 
-    ``` yaml
+    ```yaml
     # 2.x cell.yaml
     inaugural:
       roles:
@@ -117,12 +117,12 @@ What you need to do
             - analyst
     ```
 
-    ``` yaml
+    ```yaml
     # 3.x cell.yaml -- inaugural removed
     aha:admin: visi@vertex.link
     ```
 
-    ``` storm
+    ```storm
     // 3.x -- provision users and roles explicitly
     auth.role.add analyst
     auth.role.addrule analyst view.read
@@ -157,7 +157,7 @@ What you need to do
 :   There is no replacement. Advertising service information which differs from a service's real
     listener is not supported in Synapse 3.0.0.
 
-    ``` yaml
+    ```yaml
     # 2.x cell.yaml -- delete this entry
     aha:svcinfo:
       urlinfo:

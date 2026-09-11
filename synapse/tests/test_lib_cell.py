@@ -206,8 +206,12 @@ class EchoAuth(s_cell.Cell):
             raise s_exc.BadTime(mesg='call again later')
 
 class CellWithoutType(s_cell.Cell):
-    # Don't do this in a real cell.
-    def getCellType(self):
+    # Don't do this in a real cell. getCellType() is documented as a classmethod (its
+    # default falls back to the class name, computable with no instance), so an override
+    # must stay a classmethod too -- callers besides self.getCellType() (e.g.
+    # _getUserAgentProd()) call it as cls.getCellType() during __anit__.
+    @classmethod
+    def getCellType(cls):
         return None
 
 class CellTest(s_t_utils.SynTest):
@@ -1180,6 +1184,69 @@ class CellTest(s_t_utils.SynTest):
         self.eq('axon', s_axon.Axon.getCellType())
         self.eq('aha', s_aha.AhaCell.getCellType())
         self.eq('jsonstor', s_jsonstor.JsonStorCell.getCellType())
+
+    async def test_cell_useragent(self):
+
+        synver = s_version.version
+
+        # default: celltype=None -> classname-derived product token
+        self.eq(f'Synapse-Cell/{synver} (Synapse/{synver}; https://vertex.link)',
+                s_cell.Cell.getDefaultUserAgent())
+
+        # an explicit celltype is title-cased into the product token
+        class FooCell(s_cell.Cell):
+            celltype = 'cortex'
+
+        self.eq(f'Synapse-Cortex/{synver} (Synapse/{synver}; https://vertex.link)',
+                FooCell.getDefaultUserAgent())
+
+        # non-alphanumeric separators in celltype (e.g. "foo:bar") split into
+        # multiple title-cased, hyphen-joined tokens, since ":" is not a valid HTTP
+        # header token character
+        class FooBarCell(s_cell.Cell):
+            celltype = 'foo:bar'
+
+        self.eq(f'Synapse-Foo-Bar/{synver} (Synapse/{synver}; https://vertex.link)',
+                FooBarCell.getDefaultUserAgent())
+
+        # USER_AGENT_PREFIX overrides the "Synapse" prefix (this is the hook EnterpriseCellMixin uses)
+        class PrefixCell(s_cell.Cell):
+            celltype = 'cortex'
+            USER_AGENT_PREFIX = 'Synapse-Enterprise'
+
+        self.eq(f'Synapse-Enterprise-Cortex/{synver} (Synapse/{synver}; https://vertex.link)',
+                PrefixCell.getDefaultUserAgent())
+
+        # USER_AGENT_PROD wins outright, ignoring celltype and USER_AGENT_PREFIX entirely
+        class ProdCell(s_cell.Cell):
+            celltype = 'cortex'
+            USER_AGENT_PREFIX = 'Synapse-Enterprise'
+            USER_AGENT_PROD = 'Synapse-Enterprise-Vertex-Hub'
+
+        self.eq(f'Synapse-Enterprise-Vertex-Hub/{synver} (Synapse/{synver}; https://vertex.link)',
+                ProdCell.getDefaultUserAgent())
+
+        # an overridden VERSION (as enterprise cells do) is reflected in the product version,
+        # while the synapse version in the parenthetical stays synapse's own
+        class VersCell(s_cell.Cell):
+            celltype = 'cortex'
+            VERSION = '3.0.0'
+
+        self.eq(f'Synapse-Cortex/3.0.0 (Synapse/{synver}; https://vertex.link)',
+                VersCell.getDefaultUserAgent())
+
+        # a getCellType() override that returns None (used by some boot-time gates to opt
+        # out of type-based behavior, e.g. CellWithoutType / _bootCellProvMcast()) falls
+        # back to the class name, same as getCellType() itself does for an unset celltype
+        self.none(CellWithoutType.getCellType())
+        self.eq(f'Synapse-Cellwithouttype/{synver} (Synapse/{synver}; https://vertex.link)',
+                CellWithoutType.getDefaultUserAgent())
+
+        # the instance accessor returns the same value computed (once, in __anit__) by the classmethod
+        async with self.getTestCore() as core:
+            self.eq(core.getDefaultUserAgent(), core.getUserAgent())
+            self.eq(f'Synapse-Cortex/{core.VERSION} (Synapse/{synver}; https://vertex.link)',
+                    core.getUserAgent())
 
     async def test_cell_dyncall(self):
 
@@ -2199,13 +2266,22 @@ class CellTest(s_t_utils.SynTest):
             # Happy test for URL based restore.
             with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl):
                 with self.getTestDir() as cdir:
-                    # Restore works
-                    with self.getLoggerStream('synapse.lib.cell') as stream:
+                    # Restore works, and the download used the Cortex's own default User-Agent
+                    # -- computed via the classmethod, since _initBootRestore() runs before any
+                    # Cortex instance (and so before self._useragent) exists
+                    with self.getLoggerStream('synapse.lib.cell') as stream, \
+                            self.getLoggerStream('tornado.access') as accesslog:
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL', timeout=6)
                             self.len(1, await core.nodes('inet:ip=1.2.3.4'))
                             self.true(core.conf.get('storm:log'))
+
+                    accesslog.seek(0)
+                    restoremesg = [mesg for mesg in accesslog.jsonlines()
+                                  if 'files/by/sha256' in mesg.get('params', {}).get('uri', '')][0]
+                    self.eq(restoremesg['params']['headers'].get('user-agent'),
+                            s_cortex.Cortex.getDefaultUserAgent())
 
                     # Turning the service back on with the restore URL is fine too.
                     with self.getLoggerStream('synapse.lib.cell') as stream:
@@ -3235,7 +3311,7 @@ class CellTest(s_t_utils.SynTest):
         self.len(1, msgs)
 
         mesg = f'Sysctl values different than expected: {", ".join(sysvals)}. '
-        mesg += 'See https://docs.vertex.link/docs/synapse/latest/devopsguide.html#performance-tuning '
+        mesg += 'See https://hub.vertex.link/docs/synapse/latest/devopsguide.md#performance-tuning '
         mesg += 'for information about these sysctl parameters.'
         self.eq(msgs[0]['message'], mesg)
         self.eq(msgs[0]['params']['sysctls'], [

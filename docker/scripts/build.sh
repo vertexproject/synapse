@@ -60,7 +60,7 @@ fi
 BUILDARGS="--build-arg TAG=${TAG}"
 
 COMMIT_ARGS=""
-if command -v git > /dev/null 2&>1; then
+if command -v git > /dev/null 2>&1; then
   if COMMIT=$(git rev-parse HEAD 2> /dev/null); then
     COMMIT_ARGS="--build-arg COMMIT=$COMMIT"
   else

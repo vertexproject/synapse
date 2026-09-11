@@ -24,7 +24,7 @@ What you need to do
 
 :   Audit any glob that relied on a wildcard forcing at least one character. In 3.x a trailing wildcard component will now also match when that component is empty, so globs like `#foo*` and `#foo**` will match a node tagged only `#foo`. If you depended on requiring a non-empty segment, make the requirement explicit (for example, by matching against the more specific tag directly).
 
-    ``` text
+    ```text
     // 2.x: node has only the tag #foo
     +#foo*         // does NOT match #foo (the * requires >=1 char)
     +#foo**        // does NOT match #foo (the ** requires >=1 char)

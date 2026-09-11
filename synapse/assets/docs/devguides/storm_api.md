@@ -54,7 +54,7 @@ The Telepath `storm()` and HTTP `api/v3/storm` APIs yield messages from the Stor
 
 Each message has the following basic structure:
 
-``` text
+```text
 [ "type", { ..type specific info... } ]
 ```
 
@@ -90,7 +90,7 @@ meta
 
 Example:
 
-``` text
+```text
 ('init',
  {'task': '8c90c67e37a30101a2f6a7dfb2fa0805',
   'text': '.created | limit 3',
@@ -102,7 +102,7 @@ Example:
 
 This represents a packed node. Each serialized node will have the following structure:
 
-``` text
+```text
 [
     [<form>, <valu>],       # The [ typename, typevalue ] definition of the node.
     {
@@ -132,7 +132,7 @@ This represents a packed node. Each serialized node will have the following stru
 
 Each value within `props`, `tags` and `tagprops` is a two element **envelope**:
 
-``` text
+```text
 [<valu>, <info>]
 ```
 
@@ -183,7 +183,7 @@ Example:
 
 This example is simple - it does not include repr, virts, or link information:
 
-``` text
+```text
 ('node',
  (('inet:fqdn', 'icon.torrentart.com'),
   {'nid': 1099511627992,
@@ -218,7 +218,7 @@ mesg
 
 Example:
 
-``` text
+```text
 (print, {'mesg': 'I am a message!'})
 ```
 
@@ -238,7 +238,7 @@ The warn event may contain additional, arbitrary keys in it.
 
 Example:
 
-``` text
+```text
 ('warn',
  {'mesg': 'Unable to foo the bar.com domain',
   'domain': 'bar.com'})
@@ -278,7 +278,7 @@ Additional keys may also be present, depending on the exception that was raised.
 
 Example:
 
-``` text
+```text
 ('err',
  ('BadTypeValu',
   {'efile': 'inet.py',
@@ -317,7 +317,7 @@ nexsoffs
 
 Example:
 
-``` text
+```text
 ('fini', {'count': 1, 'tock': 1539221715240000, 'took': 36381000, 'nexsoffs': 7759195})
 ```
 
@@ -340,7 +340,7 @@ time
 
 Example:
 
-``` text
+```text
 # Nodeedits produced by the following query: [(inet:ip=1.2.3.4 :asn=1)]
 
 ('edits',
@@ -373,7 +373,7 @@ data
 
 Example:
 
-``` text
+```text
 # The following query produces an event
 $l = ((1), (2), (3)) $lib.fire('demo', key=valu, somelist=$l)
 
@@ -393,7 +393,7 @@ ndef
 
 Example:
 
-``` text
+```text
 ('look:miss', {'ndef': ('inet:fqdn', 'hehe.com')})
 
 # The ip value is presented in system mode.
@@ -416,7 +416,7 @@ table
 
 Example:
 
-``` text
+```text
 # This query produces the following event: $lib.csv.emit(foo, bar, $lib.time.now())
 ('csv:row', {'row': ('foo', 'bar', 1662578057658), 'table': None})
 
@@ -435,7 +435,7 @@ Example:
 
 > The following example shows retrieving a user definition.
 >
-> ``` python3
+> ```python3
 > # Prox is assumed to be a Telepath proxy to a Cortex.
 > >>> text = '$user = $lib.auth.users.byname($name) return ( $user )'
 > >>> opts = {'vars': {'name': 'root'}}
@@ -456,7 +456,7 @@ Example:
 >
 > The following shows setting an API key for a Power-Up. There is no `return` statement, so the return value defaults to None.
 >
-> ``` python3
+> ```python3
 > # Prox is assumed to be a Telepath proxy to a Cortex.
 > >>> text = 'foobar.setup.apikey $apikey'
 > >>> opts = {'vars': {'apikey': 'secretKey'}}
@@ -480,7 +480,7 @@ If this is set to True, the Storm runtime will be created with `$lib.debug` set 
 
 Example:
 
-> ``` python3
+> ```python3
 > opts = {'debug': True}
 > ```
 
@@ -490,7 +490,7 @@ Apply a subgraph projection to the query results. The value may be `True` (use t
 
 Example:
 
-> ``` python3
+> ```python3
 > opts = {'graph': True}
 > ```
 
@@ -503,7 +503,7 @@ This is a list of integer Node IDs (NIDs) to use as initial input to the Storm r
 
 Example:
 
-> ``` python3
+> ```python3
 > nids = (1099511627992, 1099511628010)
 > opts = {'nids': nids}
 > ```
@@ -516,7 +516,7 @@ The keepalive value must be greater than zero.
 
 Example:
 
-> ``` python3
+> ```python3
 > keepalive = 2  # Send a keepalive message every 2 seconds
 > opts = {'keepalive': keepalive}
 > ```
@@ -527,7 +527,7 @@ Limit the total number of nodes that the Storm runtime produces. When this numbe
 
 Example:
 
-> ``` python3
+> ```python3
 > opts = {'limit': 100}
 > ```
 
@@ -544,7 +544,7 @@ It is recorded as a nested `meta` key of the log record's `params` rather than m
 
 Example:
 
-> ``` python3
+> ```python3
 > opts = {'meta': {'jobid': '5a5b1f0d1e4f4c0a', 'source': 'nightly-ingest'}}
 > ```
 
@@ -554,7 +554,7 @@ This is the mode that a Storm query is parsed in. Specifying `lookup` mode enabl
 
 Example:
 
-> ``` python3
+> ```python3
 > # Using lookup mode, the query text (before an optional | pipe to return to storm mode) is scraped
 > # for typed values such as FQDNs, IP Addresses, and Hashes and an attempt is made to lift
 > # any matching nodes. A look:miss message is fired for any scraped value that is not found
@@ -570,7 +570,7 @@ This is a list of form and value tuples to use as initial input to the Storm run
 
 Example:
 
-> ``` python3
+> ```python3
 > ndefs = (
 >     ('inet:fqdn', 'com'),
 >     ('inet:ip', (4, 134744072)),
@@ -593,7 +593,7 @@ Hold the query until the Cortex reaches a Nexus offset. This is how a caller kee
 
 Example:
 
-> ``` python3
+> ```python3
 > # ...having taken offs from the fini message of the write which preceded this read
 > opts = {'nexus': {'offset': offs, 'timeout': 30}}
 > ```
@@ -604,7 +604,7 @@ Synapse Enterprise only. If a read pool is configured, setting this to `false` p
 
 Example:
 
-> ``` python3
+> ```python3
 > opts = {'readpool': False}
 > ```
 
@@ -614,7 +614,7 @@ Run the Storm query in a readonly mode. This prevents editing the graph data, an
 
 Examples:
 
-> ``` python3
+> ```python3
 > opts = {'readonly': True}
 > ```
 
@@ -634,7 +634,7 @@ A nested dictionary that controls how each node is packed in the output message 
 
 :   A mapping of `{form: {nodepath: (relprop, ...)}}` requesting embedded property values from related nodes, added under an `embeds` key on the packed node. Each `nodepath` is a `::` delimited chain of form-typed properties to walk from the yielded node, and each `relprop` is a property to read off the node that chain arrives at.
 
-    ``` python3
+    ```python3
     # embed the ASN number and registrant name of an inet:ip node's :asn
     opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('registrant:name',)}}}}
     ```
@@ -649,7 +649,7 @@ A nested dictionary that controls how each node is packed in the output message 
 
 Example:
 
-``` python3
+```python3
 # Request reprs and virtual properties.
 opts = {'node:opts': {'repr': True, 'virts': True}}
 
@@ -682,7 +682,7 @@ If the option is not set the full message stream is sent. If it is set, only the
 
 Example:
 
-> ``` python3
+> ```python3
 > # Only node and warn messages.
 > opts = {'show': ['node', 'warn']}
 >
@@ -706,7 +706,7 @@ If the option is not set, or is set to an empty list, nothing is hidden. Unlike 
 
 Example:
 
-> ``` python3
+> ```python3
 > # Everything except the edits which produced the nodes.
 > opts = {'hide': ['edits']}
 >
@@ -720,7 +720,7 @@ A boolean option which attempts to invoke the Storm runtime as a global admin. T
 
 Example:
 
-> ``` python3
+> ```python3
 > opts = {'sudo': True}
 > ```
 
@@ -732,7 +732,7 @@ A caller is given the iden it asked for or an error, never a different one. The 
 
 Example:
 
-> ``` python3
+> ```python3
 > # Generate a guid on the client side and provide it to the Cortex
 > import synapse.common as s_commmon
 > task_iden = s_common.guid()
@@ -745,7 +745,7 @@ The User iden to run the Storm query as. This allows a global admin to run a Sto
 
 Example:
 
-> ``` python3
+> ```python3
 > opts = {'user': 6e9c8de2f1aa39fee11c19d0974e0917}
 > ```
 
@@ -755,7 +755,7 @@ A dictionary of key - value pairs that are mapped into the Storm runtime as vari
 
 Example:
 
-> ``` python3
+> ```python3
 > # A secret key - A good example of this is configuring a Rapid Power-Up.
 > vars = {'secretkey': 'c8de2fe11c19d0974e091aa39fe176e9'}
 > opts = {'vars': vars}
@@ -778,6 +778,6 @@ The View iden in which to run the Storm query in. If not specified, the query wi
 
 Example:
 
-> ``` python3
+> ```python3
 > opts = {'view': 31ded629eea3c7221be0a61695862952}
 > ```

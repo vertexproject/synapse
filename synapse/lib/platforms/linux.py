@@ -54,7 +54,7 @@ def getTotalMemory():
 
     Notes:
         This attempts to get information from cgroup data before falling
-        back to ``/proc/meminfo`` data.
+        back to `/proc/meminfo` data.
 
     Returns:
         int: The number of bytes of memory available in the system.

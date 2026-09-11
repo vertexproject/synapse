@@ -25,7 +25,7 @@ modules:
           This API will foo the bar.
           
           Examples:
-              Foo the ``bar``::
+              Foo the `bar`::
           
                 yield $lib.import(apimod).search(bar)
           

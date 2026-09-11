@@ -114,7 +114,7 @@ class LibModelTags(s_stormtypes.Lib):
         Retrieve a tag model specification.
 
         Examples:
-            Get the tag model specification for ``cno.threat``::
+            Get the tag model specification for `cno.threat`::
 
                 $dict = $lib.model.tags.get(cno.threat)''',
          'type': {'type': 'function', '_funcname': '_getTagModel',
@@ -126,7 +126,7 @@ class LibModelTags(s_stormtypes.Lib):
         Set a tag model property for a tag.
 
         Examples:
-            Create a tag model for the ``cno.cve`` tag::
+            Create a tag model for the `cno.cve` tag::
 
                 $regx = ([(null), (null), "[0-9]{4}", "[0-9]{5}"])
                 $lib.model.tags.set(cno.cve, regex, $regx)''',
@@ -141,7 +141,7 @@ class LibModelTags(s_stormtypes.Lib):
             Pop and return a tag model property.
 
             Examples:
-                Remove the regex list from the ``cno.threat`` tag model::
+                Remove the regex list from the `cno.threat` tag model::
 
                     $regxlist = $lib.model.tags.pop(cno.threat, regex)''',
          'type': {'type': 'function', '_funcname': '_popTagModel',
@@ -154,7 +154,7 @@ class LibModelTags(s_stormtypes.Lib):
         Delete a tag model specification.
 
         Examples:
-            Delete the tag model specification for ``cno.threat``::
+            Delete the tag model specification for `cno.threat`::
 
                 $lib.model.tags.del(cno.threat)''',
          'type': {'type': 'function', '_funcname': '_delTagModel',
@@ -228,7 +228,7 @@ class LibModel(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the type to retrieve.', },
                   ),
                   'returns': {'type': ['model:type', 'null'],
-                              'desc': 'The ``model:type`` instance if the type if present on the form or null.',
+                              'desc': 'The `model:type` instance if the type if present on the form or null.',
                               }}},
         {'name': 'prop', 'desc': 'Get a prop object by name.',
          'type': {'type': 'function', '_funcname': '_methProp',
@@ -236,7 +236,7 @@ class LibModel(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the prop to retrieve.', },
                   ),
                   'returns': {'type': ['model:property', 'null'],
-                              'desc': 'The ``model:property`` instance if the type if present or null.',
+                              'desc': 'The `model:property` instance if the type if present or null.',
                               }}},
         {'name': 'form', 'desc': 'Get a form object by name.',
          'type': {'type': 'function', '_funcname': '_methForm',
@@ -244,7 +244,7 @@ class LibModel(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the form to retrieve.', },
                   ),
                   'returns': {'type': ['model:form', 'null'],
-                              'desc': 'The ``model:form`` instance if the form is present or null.',
+                              'desc': 'The `model:form` instance if the form is present or null.',
                               }}},
         {'name': 'tagprop', 'desc': 'Get a tag property object by name.',
          'type': {'type': 'function', '_funcname': '_methTagProp',
@@ -252,7 +252,7 @@ class LibModel(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the tag prop to retrieve.', },
                   ),
                   'returns': {'type': ['model:tagprop', 'null'],
-                              'desc': 'The ``model:tagprop`` instance of the tag prop if present or null.',
+                              'desc': 'The `model:tagprop` instance of the tag prop if present or null.',
                               }}},
         {'name': 'edge', 'desc': 'Get an edge object by name.',
          'type': {'type': 'function', '_funcname': '_methEdge',
@@ -262,7 +262,7 @@ class LibModel(s_stormtypes.Lib):
                       {'name': 'n2form', 'type': 'str', 'desc': 'The form of the n2 node of the edge to retrieve.'},
                   ),
                   'returns': {'type': ['model:edge', 'null'],
-                              'desc': 'The ``model:edge`` instance of the edge if present or null.',
+                              'desc': 'The `model:edge` instance of the edge if present or null.',
                               }}},
     )
 
@@ -333,7 +333,7 @@ class ModelForm(s_stormtypes.Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The property to retrieve.', },
                   ),
                   'returns': {'type': ['model:property', 'null'],
-                              'desc': 'The ``model:property`` instance if the property if present on the form or null.'
+                              'desc': 'The `model:property` instance if the property if present on the form or null.'
                               }}},
         {'name': 'props', 'desc': 'Get a dictionary of Properties on the Form.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorFormProps',
@@ -390,7 +390,7 @@ class ModelProp(s_stormtypes.Prim):
                   'returns': {'type': ['model:form', 'null']}}},
         {'name': 'types', 'desc': 'Get the types allowed for the property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropTypes',
-                  'returns': {'type': 'list', 'desc': 'A list of ``model:type`` objects for the types allowed in the property.'}}},
+                  'returns': {'type': 'list', 'desc': 'A list of `model:type` objects for the types allowed in the property.'}}},
     )
     _storm_typename = 'model:property'
     def __init__(self, prop, path=None):
@@ -701,6 +701,169 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                       {'name': 'dst', 'type': 'node', 'desc': 'The node to copy extended props to.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'fuse', 'desc': '''
+            Merge one node into another node, then delete the source node.
+
+            This operates on the whole Cortex rather than the current view. Every layer is
+            processed, so after the fuse the source node no longer exists in any view.
+
+            The following are transferred from src to dst. dst is the survivor, so its
+            existing value wins wherever both nodes hold a conflicting value:
+
+            - Secondary properties (dst values win on conflict).
+            - Extended properties (dst values win on conflict).
+            - Tags (additive; two intervals are unioned, and an interval on dst is never
+              replaced by an unbounded tag on src).
+            - Tag properties (dst values win on conflict).
+            - Light edges (additive; both N1 and N2 edges are moved to dst).
+            - Node data (dst values win on conflict).
+
+            The following special cases apply regardless of the conflict policy:
+
+            - The `.created` node meta property on dst is always the earlier of the two.
+            - A property whose type merges rather than overwrites is merged rather than
+              having one value win. That covers interval typed properties and tag
+              properties, the `:seen` interval, and minimum and maximum time properties.
+            - Computed secondary properties are never copied from src. A computed property
+              restates the node's own primary property rather than being data src can hand
+              over, so after the fuse it must describe dst. dst keeps its own, which are
+              copied from whichever layer already holds them when the fuse creates dst in a
+              layer it did not previously exist in.
+
+              One consequence is worth noting: a computed property a form populates from a
+              callback rather than from normalization is not recomputed either, because a
+              fuse writes to layers directly and runs no form callbacks. This only applies
+              to a layer in which the fuse creates dst, since dst retains its own computed
+              properties in the layer it was created in.
+            - Inbound references (properties on other nodes which point at src) are
+              rewritten to point at dst. This includes typed value (poly) properties and
+              array properties. A property which is declared for one of src's ancestor
+              forms may have filed its reference under that ancestor rather than under
+              src's own form; such a reference keeps the ancestor it was filed under.
+            - A computed comp key sub-property which references src causes that comp form
+              node to be renamed, which is applied as a further fuse. Where a comp form
+              embeds src in more than one of its computed sub-properties, every one of them
+              is remapped by that single rename, so the renamed node never keeps a slot
+              naming a node the fuse deleted. Those renames are all computed before any
+              edit is applied, so if one of them cannot be re-normalized the fuse is
+              refused and nothing is changed.
+            - A computed secondary property which is not a comp sub-property is rewritten
+              in place. The referring node keeps its own primary property, so that computed
+              property will no longer match the value it was derived from.
+            - A reference src holds to itself, whether a property or a light edge, follows
+              the node and becomes a reference dst holds to itself.
+
+            Requirements and restrictions:
+
+            - The caller must be a global admin.
+            - src and dst must be the same form, or one form must inherit from the other.
+            - src and dst may not be runt nodes.
+
+            Form inheritance:
+
+            Where src and dst are not the same form, one must be an ancestor of the other.
+            dst's own form is the one which survives; a fuse never reclassifies a node.
+
+            Because properties are inherited from a parent form by its children and never
+            the other way around, fusing a child form node into a parent form node can find
+            a property src holds which dst's form does not declare. There is nowhere to put
+            such a value, so it is discarded and a warning naming the property and both
+            forms is emitted.
+
+            An inbound reference is refused rather than rewritten where the referring
+            property cannot hold dst's form - a typed value property declared for src's
+            child form cannot hold a parent form node. That is detected while the fuse is
+            still being computed, so the fuse is refused and nothing is changed.
+
+            Layer behavior:
+
+            Each property, tag, tag property, light edge and node data value is written to the
+            same layer it was already stored in, so a fuse does not move data between layers.
+            One consequence is that property merges only happen within a layer. Where src and
+            dst hold the same property in different layers, the value visible in any given view
+            is decided by that view's normal layer precedence.
+
+            Read only layers cannot be written to. Those layers are skipped and a warning is
+            emitted for each one which held any of src's data, because that data remains and
+            will still make src visible in any view which includes that layer. A fuse does
+            not write a tombstone into a layer above such a layer to hide it.
+
+            State src holds only as a tombstone in a layer is treated as absent and is not
+            transferred. Where dst holds a tombstone which would mask a value being
+            transferred to it, that tombstone is removed so the transferred value is
+            visible.
+
+            Concurrency:
+
+            The edits which make up a fuse are computed by reading every layer, and are then
+            applied by Cortex wide operations which carry them.
+
+            Those reads are not serialized against other writes, so a write to src can land
+            between the reads and the apply. That write is not detected and is not reported: a
+            fuse is responsible for executing the merge it was asked to make, not for policing
+            edits other callers make to src while it runs, the same way an ordinary concurrent
+            property write is never flagged as having lost a race to another writer. Running a
+            fuse during a maintenance window, as recommended below, avoids this entirely.
+
+            A fuse is not transactional. The edits are written with one call per layer, and
+            fusing a heavily referenced node is applied in several operations rather than one,
+            so a failure part way through can leave some of the fuse applied. Nothing is
+            removed from src until dst holds it and the references to src have been repointed,
+            so an interruption cannot lose data or leave a reference pointing at a node which
+            no longer exists. Re-running fuse() with the same arguments completes it.
+
+            There is no limit on how many edits a fuse may make. A fuse of a very heavily
+            referenced node takes longer and spans more operations, but is not refused.
+
+            Notes:
+
+            - Triggers do not fire for the edits a fuse makes. A fuse rewrites the same data
+              across every layer in the Cortex rather than making an analytical change in one
+              view, so there is no single view whose triggers are the right ones to run.
+            - A light edge between src and dst becomes a self-edge on dst after the fuse.
+            - Node objects which other running queries already hold for src become stale, so
+              running a fuse during a maintenance window is recommended.
+
+            Known gaps:
+
+            - Inbound tag property references are not rewritten. A tag property may be typed
+              as a form, and a tag property which references src is left pointing at a node
+              the fuse deleted.
+            - A guid form whose primary value is constructed from a deconfliction set of its
+              own properties is not renamed when one of those properties references src.
+              That property is rewritten in place, so the node's guid is no longer the hash
+              of its own current property values. Nothing records which properties a guid
+              was deconflicted on, so the fuse cannot re-derive the value and rename the
+              node the way it renames a comp form.
+
+              The node itself remains usable. Guid deconfliction falls back to lifting by
+              the deconfliction properties when the exact guid is not found, so a
+              construction from the node's current values - the deconfliction set with the
+              fused value substituted in - still deconflicts to it. Only the stale primary
+              value is left behind, and only a construction from the pre-fuse value is
+              affected by it.
+
+              Such a construction no longer deconflicts to the node, because the
+              deconfliction re-check sees the rewritten property. A second node is created
+              with a new guid instead, and re-creates src along with it. The fused node
+              keeps the analytical data and the new node holds only the deconfliction
+              properties, so the two are then divergent records of the same thing. This
+              settles at one extra node rather than adding one per attempt, since the new
+              node is found by property deconfliction afterwards.
+
+              This is reached by ordinary use of the Synapse data model rather than only by
+              an extended form: any guid form deconflicted on a property which references
+              another node qualifies, since a deconfliction set is chosen when the node is
+              constructed and is not a property of the form. A power-up which re-ingests
+              the same source data on a schedule will therefore re-create a node which was
+              fused away, along with a duplicate of whatever referenced it.
+        ''',
+         'type': {'type': 'function', '_funcname': '_methFuse',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to merge from (will be deleted).', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to merge into (will be kept).', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('model', 'migration')
 
@@ -710,6 +873,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
             'copyExtProps': self._methCopyExtProps,
+            'fuse': self._methFuse,
         }
 
     async def _methCopyData(self, src, dst, overwrite=False):
@@ -765,6 +929,63 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         async with view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyExtProps(src, proto)
+
+    async def _methFuse(self, src, dst):
+
+        self.runt.reqAdmin(mesg='$lib.model.migration.fuse() requires global admin.')
+
+        # NodeBase rather than Node, so that a runt node reaches the runt check below and
+        # gets told it is a runt rather than being told it is not a node: RuntNode is a
+        # sibling of Node rather than a subclass of it.
+        if not isinstance(src, s_node.NodeBase):
+            raise s_exc.BadArg(mesg='$lib.model.migration.fuse() src argument must be a node.')
+
+        if not isinstance(dst, s_node.NodeBase):
+            raise s_exc.BadArg(mesg='$lib.model.migration.fuse() dst argument must be a node.')
+
+        # Checked ahead of the form compatibility check below, so that naming a runt node is
+        # reported as the runt node it is rather than as a form mismatch. A runt form is
+        # never in an inheritance chain with a non-runt one, so a compatible pair naming one
+        # runt node always names two, and this would otherwise never be reached for dst.
+        if src.form.isrunt:
+            raise s_exc.IsRuntForm(mesg='$lib.model.migration.fuse() cannot fuse runt nodes.',
+                                   form=src.form.full)
+
+        if dst.form.isrunt:
+            raise s_exc.IsRuntForm(mesg='$lib.model.migration.fuse() cannot fuse runt nodes.',
+                                   form=dst.form.full)
+
+        # dst's own form is the survivor, so the two only need to be compatible rather than
+        # identical: a property or a typed value declared for an ancestor form accepts either
+        # of them, which is what makes transferring state between them meaningful.
+        if src.form is not dst.form and \
+                src.form.name not in dst.form.formtypes and \
+                dst.form.name not in src.form.formtypes:
+            raise s_exc.BadArg(mesg='$lib.model.migration.fuse() requires src and dst to be the '
+                                    'same form or for one form to inherit from the other.')
+
+        if src.nid == dst.nid:
+            await self.runt.warn('$lib.model.migration.fuse() src and dst are the same node, skipping.')
+            return
+
+        runt = self.runt
+        core = runt.view.core
+
+        srcndef = src.ndef
+        dstndef = dst.ndef
+
+        result = await core.fuseNodes(srcndef, dstndef, runt.user.iden)
+
+        # A fuse is computed and applied down in the Cortex, with no Storm runtime to warn
+        # into, so the warnings are collected and emitted out here.
+        for mesg in result.get('warnings', ()):
+            await runt.warn(mesg, log=False)
+
+        failed = result.get('failed')
+        if failed:
+            mesg = '$lib.model.migration.fuse() failed to apply edits to some layers: '
+            mesg += ', '.join([f'{iden} ({errm})' for iden, errm in failed])
+            raise s_exc.SynErr(mesg=mesg, layers=[iden for iden, _ in failed])
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):

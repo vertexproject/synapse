@@ -11,7 +11,7 @@ The Synapse `storm.pkg.doc` tool can be used to build Storm package documents fr
 ```text
 python -m synapse.tools.storm.pkg.doc -h
 usage: synapse.tools.storm.pkg.doc [-h] [--save <dir>] [--ci]
-                                   [--warnfile <path>]
+                                   [--warnfile <path>] [--force]
                                    <pkgfile>
 
 A tool for building a storm package docs/ directory into a files/docs bundle.
@@ -28,5 +28,8 @@ options:
                      mddocs_ciflag for why).
   --warnfile <path>  With --ci, write warnings/validation issues here instead
                      of raising.
+  --force            Rebuild every page, including one whose source and built
+                     output still match the sha256 recorded in the package's
+                     own docs.sha256.
 
 ```

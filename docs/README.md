@@ -17,7 +17,12 @@ python -m synapse.tools.utils.mdstorm mydoc.md --save mydoc.out.md
 A directive is a fenced code block whose info string starts with `mdstorm`, `mdstorm-setup`,
 `mdshell`, or `mdautodoc` (optionally followed by flags -- see below). Any other fenced block
 (` ```python `, ` ```json `, or a plain ` ```storm ` example left for future syntax highlighting)
-passes through untouched.
+passes through untouched. Fenced code block info strings use the language identifier directly after
+the backtick fence with no space (e.g. `` ```python ``); a space before the info string is a
+build-time error enforced by `synapse.lib.mddocs`. Inline code uses single backticks (`` `$lib.foo` ``)
+-- a double-backtick span is only legitimate as CommonMark's escape for a literal backtick, i.e. when
+the enclosed content itself contains one, as in `` ```python `` above. That rule is also a build-time
+error enforced by `synapse.lib.mddocs`.
 
 - ` ```mdstorm ` -- run a Storm query and render its output. Recognizes `--hide-query`,
   `--hide-tags`, `--hide-props`, `--vars`, `--opts`, `--fail`, `--hide-output`, `--hide`, and
@@ -32,8 +37,10 @@ passes through untouched.
   own public methods, `cls.__dict__` not its full MRO), `--stormpkg PATH` (a Storm package's
   command/module/dependency/endpoint reference, given the package prototype .yaml path, relative
   to the including document unless absolute), `--model-types`, `--model-forms`,
-  `--stormtypes-libs`, or `--stormtypes-prims`, plus an optional `--level N` that shifts every
-  heading in the generated block down N levels, so it renders as a section under an
+  `--stormtypes-libs`, or `--stormtypes-prims`. Those two also accept an optional
+  `--cortex CTOR` naming the Cortex class to document, so each page covers the whole Storm surface
+  of that Cortex rather than only what core Synapse provides. Plus an optional `--level N` that shifts
+  every heading in the generated block down N levels, so it renders as a section under an
   author-written heading rather than a whole page.
 
 Flags may be given on the opening fence line, in the fence body, or both. Body flags occupy one or

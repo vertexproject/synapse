@@ -156,7 +156,7 @@ The `$rows` variable refers to the set of rows in a CSV file. When ingesting dat
 
 For example:
 
-``` text
+```storm
 for ($var1, $var2, $var3, $var4) in $rows { <do stuff> }
 ```
 
@@ -190,7 +190,7 @@ All variable names in Storm (including built-in variables) begin with a dollar s
 
 Within Storm, a user-defined variable is defined using the syntax:
 
-``` text
+```text
 $<varname>=<value>
 ```
 
@@ -355,7 +355,7 @@ The output above includes two instances of the same `file:bytes` node because th
 > [!TIP]
 > The above example explicitly creates and assigns the variable `$mytags` and then uses that variable in a [For Loop](storm_adv_control.md#flow-for). In this case you can shorten the syntax by skipping the explicit variable assignment and using the `$node.tags()` method directly:
 >
-> ``` text
+> ```storm
 > crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e for $tag in $node.tags(cno.mal.*) { -> file:bytes [ +#$tag ] }
 > ```
 

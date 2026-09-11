@@ -233,6 +233,9 @@ modeldefs = (
                 'doc': 'A singular entity such as a person.'}),
 
             ('entity:name', ('base:name', {}), {
+                'interfaces': (
+                    ('meta:usable', {}),
+                ),
                 'modes': {
                     'lookup': [
                         {'cmpr': '^='}

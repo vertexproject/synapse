@@ -14,7 +14,7 @@ A doc bundle builds one of two ways, depending on whether it belongs to a Storm 
 1.  Install synapse in develop mode (this assumes the environment already has any additional packages required for
     executing synapse code in it):
 
-    ``` text
+    ```text
     # cd to your synapse checkout
     cd synapse
     python -m pip install -U -e .
@@ -25,7 +25,7 @@ A doc bundle builds one of two ways, depending on whether it belongs to a Storm 
     pkgdef so the built pages travel with the package as ordinary declared files; `--save` redirects the output
     elsewhere:
 
-    ``` text
+    ```text
     # Go to your synapse repo
     cd synapse
     # Build a package's docs to _build instead of its files/docs
@@ -36,7 +36,7 @@ A doc bundle builds one of two ways, depending on whether it belongs to a Storm 
     bundle are the two examples -- instead builds with `synapse.tools.utils.doc`, given the source directory and
     the destination directory explicitly:
 
-    ``` text
+    ```text
     # Build synapse's own docs/synapse/ into its committed bundle dir
     python -m synapse.tools.utils.doc docs/synapse synapse/assets/docs
     ```
@@ -74,6 +74,16 @@ in the committed bundle dir (`synapse/assets/docs/` for this bundle) and is edit
 its own output into that directory without touching what it never staged, so a plain page and a generated one sit
 side by side in the built result, and ordinary relative Markdown links between them work exactly the same either
 way.
+
+**Fenced code block style.** Fenced code blocks use the language identifier directly after the backtick fence,
+with no space: `` ```text ``, `` ```python ``, `` ```yaml ``, etc. A space between the fence and the info string
+is a build-time error enforced by `synapse.lib.mddocs`. The directive names `mdstorm`, `mdstorm-setup`,
+`mdshell`, and `mdautodoc` follow the same rule.
+
+**Inline code style.** Inline code uses single backticks: `` `$lib.foo` ``. The only legitimate use of
+double backticks is CommonMark's own escape for a literal backtick -- the content between the
+delimiters itself contains a backtick, as in `` ```text `` above. A double backtick span whose content
+has no backtick is a build-time error enforced by `synapse.lib.mddocs`.
 
 In general, docs for Synapse fall into two categories: User guides and developer guides. User guides should be
 mastered in `docs/synapse/userguides` and developer guides should be mastered in `docs/synapse/devguides`.

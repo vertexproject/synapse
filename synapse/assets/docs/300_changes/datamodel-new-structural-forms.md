@@ -26,7 +26,7 @@ What you need to do
 
 :   Move handshake and banner data off `inet:flow` text properties onto the dedicated forms, linking each to its flow with `:flow`. Note that `inet:banner` is a guid form keyed on its props, not a comp.
 
-    ``` text
+    ```text
     // 2.x -- handshake details stuffed into flow text
     [ inet:flow=$flowguid :raw=({"tls": "..."}) ]
 

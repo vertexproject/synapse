@@ -31,7 +31,7 @@ What you need to do
 
 :   Rework any Storm service you maintain, and register it under the cell type name it reports -- the Cortex refuses to connect to a service registered under any other name.
 
-    ``` python
+    ```python
     # 2.x -- N packages, an explicit name and version
     class MySvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
         _storm_svc_name = 'my-storm-package'
@@ -54,7 +54,7 @@ What you need to do
         VERSION = my_version.version
     ```
 
-    ``` bash
+    ```bash
     # 2.x -- any local name, then delete by iden prefix
     storm> service.add lolnotmaxmind tcp://maxmind:27492/
     storm> service.del 4a1f
@@ -66,7 +66,7 @@ What you need to do
 
     Update any Storm which resolved its own service through `$modconf.svciden` or `$cmdconf.svciden` to name the service instead.
 
-    ``` storm
+    ```storm
     // 2.x
     $svc = $lib.service.get($modconf.svciden)
 

@@ -51,8 +51,8 @@ def computeTypeHash(ctor, opts):
 
     Args:
         ctor (str): Fully-qualified Python class path, e.g.
-            ``'synapse.lib.types.Array'``.
-        opts (dict): The fully-merged type opts dict (the type's ``self.opts``,
+            `'synapse.lib.types.Array'`.
+        opts (dict): The fully-merged type opts dict (the type's `self.opts`,
             as produced by Type.extend).
 
     Returns:
@@ -72,6 +72,15 @@ class Type:
 
     # a fast-access way to determine if the type is an array
     # ( due to hot-loop needs in the storm runtime )
+    #
+    # NOTE: ispoly is False here and stays False on every subclass but Poly, but do not
+    # infer from Str/Int/Time that a prop of that type holds a bare value.
+    # Model.processPropdefs() wraps every prop typedef in a poly, so a stored prop value is
+    # always a typed value. Reached through a model property, this default is only ever
+    # seen on an Array: Prop.type is a Poly for a non-array prop, and for an array prop it
+    # is the Array (ispoly False) with the poly on Prop.type.arraytype. The default is
+    # otherwise for the non-prop uses of a type - a form's primary type, a comp field, a
+    # type looked up by name.
     ispoly = False
     isarray = False
     ismutable = False
@@ -205,7 +214,7 @@ class Type:
     def getSortNorm(self, norm):
         '''
         Return the canonical form of a normed value for Array uniq/sort comparison.
-        Case-folding types (e.g. ``text``) override this to match how the layer
+        Case-folding types (e.g. `text`) override this to match how the layer
         indexes them. Defaults to identity.
         '''
         return norm
@@ -826,6 +835,8 @@ class Array(Type):
             typedef = ((typename, typeopts),)
             polyinfo = self.modl.convertPolyinfo(typedef)
 
+        # every branch above resolves to polyinfo, so an array's member type is always a Poly
+        # and a stored array is always a list of typed values rather than of bare ones
         self.arraytype = self.modl.type('poly').clone(polyinfo)
         self.arraytypehash = self.arraytype.typehash
 
@@ -1328,10 +1339,10 @@ class Guid(Type):
 
     def _splitVirt(self, form, key):
         '''
-        If ``key`` refers to a virtual property on ``form`` (e.g. ``"seen.min"``),
-        return ``(base_name, virt_name)``; otherwise return ``(key, None)``.
+        If `key` refers to a virtual property on `form` (e.g. `"seen.min"`),
+        return `(base_name, virt_name)`; otherwise return `(key, None)`.
 
-        A key is treated as a virt reference when it contains a ``'.'`` and the
+        A key is treated as a virt reference when it contains a `'.'` and the
         base portion names a real property on the form.
         '''
         if '.' not in key:
@@ -1346,13 +1357,13 @@ class Guid(Type):
     async def _normProps(self, form, props, opts, trycast=False, context=None):
         '''
         Normalize a dict of secondary prop values (and optional virt keys) for
-        ``form``.  Returns a mapping of name -> ``(prop, normval, info)``.
+        `form`.  Returns a mapping of name -> `(prop, normval, info)`.
 
-        ``context`` is an optional dict of already-normalized base-prop entries
+        `context` is an optional dict of already-normalized base-prop entries
         (same format as the return value) that is consulted when a virt key
-        references a base prop that is not itself present in ``props``.  This is
-        used when normalizing ``$props`` so that virt keys like ``price.currency``
-        can find the base ``price`` value from the deconfliction dict.
+        references a base prop that is not itself present in `props`.  This is
+        used when normalizing `$props` so that virt keys like `price.currency`
+        can find the base `price` value from the deconfliction dict.
         '''
 
         norms = {}
@@ -1970,7 +1981,7 @@ class PriceRangeBase(Type):
         self.partlifts = {}
 
         # maps a renamed part comparator back to its canonical name; populated
-        # by _renameVirts on subtypes which support the ``names`` typeopt.
+        # by _renameVirts on subtypes which support the `names` typeopt.
         self._virtcanon = {}
 
         self._initSubType()
@@ -2224,7 +2235,7 @@ class PriceChange(PriceRangeBase):
     delta (end - start) and a settable rate (percent of the starting price).
     '''
     _opt_defs = (
-        # ``names`` renames the start/end/delta/rate part virts (e.g. for an
+        # `names` renames the start/end/delta/rate part virts (e.g. for an
         # econ:budget that exposes :allocated / :spent / :variance). The renamed
         # parts behave identically; the comparators are translated back to the
         # canonical names before reaching the storage layer.
@@ -2237,7 +2248,7 @@ class PriceChange(PriceRangeBase):
             self._renameVirts(names)
 
     def _renameVirts(self, names):
-        # ``names`` maps a canonical part name to its replacement, e.g.
+        # `names` maps a canonical part name to its replacement, e.g.
         # {'start': 'allocated', 'end': 'spent', 'delta': 'variance'}. The renamed
         # parts reuse the same getters, storage funcs and indexes; only the
         # model-facing name changes.
@@ -2807,7 +2818,7 @@ class Ival(Type):
 
     _opt_defs = (
         ('precision', 'microsecond'),
-        # ``names`` renames the min/max virtual properties (e.g. for an
+        # `names` renames the min/max virtual properties (e.g. for an
         # it:lifespan that exposes :created / :deleted). The renamed virts
         # behave identically; the comparators are translated back to the
         # canonical min/max before reaching the storage layer.
@@ -2890,7 +2901,7 @@ class Ival(Type):
             self._renameVirts(names)
 
     def _renameVirts(self, names):
-        # ``names`` maps a canonical virt name to its replacement, e.g.
+        # `names` maps a canonical virt name to its replacement, e.g.
         # {'min': 'created', 'max': 'deleted'}. The renamed virts reuse the same
         # getters, storage funcs and indexes; only the model-facing name changes.
         for canon in names:
@@ -3634,6 +3645,8 @@ class Poly(Type):
         return valu[0][0]
 
     def _getValue(self, valu):
+        # deprecated during the 3.0.0 development cycle
+        s_common.deprdate('.value', s_stormtypes.VALUVIRTDEPR['eoldate'])
         return valu[0][1]
 
     def getStorType(self, valu):

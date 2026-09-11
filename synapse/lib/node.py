@@ -70,8 +70,8 @@ def getPropVirts(modl, valt):
 
     Returns:
         (dict): The virtual property values by name. A non-array value carries a
-                ``type`` entry naming the concrete type of the value. An array
-                value carries a ``size`` entry instead.
+                `type` entry naming the concrete type of the value. An array
+                value carries a `size` entry instead.
     '''
     valu, stortype, vprops = valt
 
@@ -211,7 +211,7 @@ class NodeBase:
         '''
         Return the packed tag envelopes.
 
-        A tag envelope carries no ``t``, since a tag value is always an ival.
+        A tag envelope carries no `t`, since a tag value is always an ival.
         '''
         retn = {}
 
@@ -233,7 +233,7 @@ class NodeBase:
         Return the packed tag property envelopes for a set of storage tag property
         tuples.
 
-        A tag property envelope carries no ``t``, since a tag property name is
+        A tag property envelope carries no `t`, since a tag property name is
         globally unique and names its own type within the model.
         '''
         retn = {}
@@ -543,21 +543,21 @@ class Node(NodeBase):
         Returns:
             (tuple): An (ndef, info) node tuple.
 
-        Each value within the ``props`` dict is a ``(valu, info)`` envelope. The
+        Each value within the `props` dict is a `(valu, info)` envelope. The
         two element envelope is invariant; the info dict keys are not. Consumers
-        index ``[0]`` and ``[1]`` unconditionally and must never inspect lengths
+        index `[0]` and `[1]` unconditionally and must never inspect lengths
         or element types to decide what they are holding.
 
         The reserved info keys are:
 
-            ``t``: The concrete type name of the value.
-            ``r``: A human readable rendering of the value.
-            ``v``: Virtual property values, as ``{name: (valu, info)}``.
+            `t`: The concrete type name of the value.
+            `r`: A human readable rendering of the value.
+            `v`: Virtual property values, as `{name: (valu, info)}`.
 
         New keys are registered here first. Model derived names never appear at
-        the top level of an info dict; they appear only as keys within ``v``.
+        the top level of an info dict; they appear only as keys within `v`.
 
-        ``t`` is present only where the concrete type is carried by the data
+        `t` is present only where the concrete type is carried by the data
         rather than derivable from the model. It is present on a scalar property
         and on each array element, whose types vary per value, and absent on an
         array container, a tag, a tag property, and a property which is not in
@@ -1924,8 +1924,8 @@ def reprNdef(pode):
 
     Notes:
         The human readable value is only available if the node came from a
-        storm query execution where the ``repr`` key was passed into the
-        ``opts`` argument with a True value.
+        storm query execution where the `repr` key was passed into the
+        `opts` argument with a True value.
 
     Returns:
         (str, str): A tuple of form and the human readable value.
@@ -1947,8 +1947,8 @@ def reprProp(pode, prop):
 
     Notes:
         The human readable value is only available if the node came from a
-        storm query execution where the ``repr`` key was passed into the
-        ``opts`` argument with a True value.
+        storm query execution where the `repr` key was passed into the
+        `opts` argument with a True value.
 
     Returns:
         str: The human readable property value.  If the property is not present, returns None.
@@ -1973,8 +1973,8 @@ def reprTag(pode, tag):
 
     Notes:
         The human readable value is only available if the node came from a
-        storm query execution where the ``repr`` key was passed into the
-        ``opts`` argument with a True value.
+        storm query execution where the `repr` key was passed into the
+        `opts` argument with a True value.
 
         If the tag does not have a timestamp, this returns a empty string.
 
@@ -2009,8 +2009,8 @@ def reprTagProps(pode, tag):
 
     Notes:
         The human readable value is only available if the node came from a
-        storm query execution where the ``repr`` key was passed into the
-        ``opts`` argument with a True value.
+        storm query execution where the `repr` key was passed into the
+        `opts` argument with a True value.
 
         If the tag does not have any tagprops associated with it, this returns an empty list.
 

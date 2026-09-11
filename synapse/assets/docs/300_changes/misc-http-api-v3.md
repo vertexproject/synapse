@@ -18,7 +18,7 @@ What you need to do
 
 :   Update every HTTP client, integration, reverse-proxy rule, and saved request to use the `/api/v3/` prefix in place of `/api/v1/`. A request to a `/api/v1/` path will no longer resolve.
 
-    ``` bash
+    ```bash
     # 2.x paths
     /api/v1/storm
     /api/v1/storm/call

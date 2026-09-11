@@ -47,7 +47,7 @@ class AhaLib(s_stormtypes.Lib):
                        'desc': 'An optional dictionary of filters to use when resolving the AHA service.'}
                   ),
                   'returns': {'type': ('null', 'dict'),
-                              'desc': 'The AHA service information dictionary, or ``(null))``.', }}},
+                              'desc': 'The AHA service information dictionary, or `(null))`.', }}},
         {'name': 'list', 'desc': 'Enumerate all of the AHA services.',
          'type': {'type': 'function', '_funcname': '_methAhaList', 'args': (),
                   'returns': {'name': 'yields', 'type': 'list',

@@ -2,6 +2,10 @@
 
 TRIGGER: When writing, editing, reviewing, validating, debugging, or running Storm (.storm) files, Storm queries, Storm packages, or Synapse query language code. Also triggered when fixing BadSyntax exceptions, troubleshooting Storm parse errors, or running Storm queries against a local Cortex.
 
+The Storm language reference shipped with Synapse, `synsrc/synapse/data/skills/storm/SKILL.md`,
+is the canonical one for syntax and type/property behavior -- read it for anything this skill
+does not cover, and add new language notes there rather than duplicating them here.
+
 ## Validating Storm Syntax
 
 **IMPORTANT: Claude MUST validate ALL Storm query logic it generates using the validation tool below. Every Storm query written to a file, embedded in a test, or included in a Storm package MUST be validated before being considered complete. No exceptions.**

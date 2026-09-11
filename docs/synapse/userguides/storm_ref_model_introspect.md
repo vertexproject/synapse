@@ -32,7 +32,7 @@ The following runt node forms are used to represent the Synapse data model for t
 > [!NOTE]
 > Additional runt node forms exist besides the ones listed above. To view all of the runt forms in Synapse, use the following command:
 >
-> ``` text
+> ```storm
 > syn:form:runt=true
 > ```
 

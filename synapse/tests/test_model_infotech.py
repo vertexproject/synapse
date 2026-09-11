@@ -1919,6 +1919,95 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'rule:version', '1.2.3')
             self.propeq(nodes[0], 'time', 1580601600000000)
 
+    async def test_it_app_sigma(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+            [ it:app:sigma:rule=*
+                :id=SIGMA-001
+                :ids=(SIGMA-001-A, SIGMA-001-B)
+                :name="Suspicious PowerShell"
+                :desc="Detects suspicious PowerShell invocation."
+                :text="title: Suspicious PowerShell"
+                :type=host.process
+                :status=stable
+                :url=https://vertex.link/sigma/SIGMA-001
+                :creator={[ entity:contact=* :name=visi ]}
+                :creator:name=visi
+                :created=20240101
+                :updated=20250101
+                :seen=(2024, 2025)
+                :enabled=true
+                :version=1.2.3
+                +(detects)> {[ it:softwarename=woot ]}
+            ]
+            ''')
+
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'id', 'SIGMA-001')
+            self.propeq(nodes[0], 'ids', ('SIGMA-001-A', 'SIGMA-001-B'))
+            self.propeq(nodes[0], 'name', 'Suspicious PowerShell')
+            self.propeq(nodes[0], 'desc', 'Detects suspicious PowerShell invocation.')
+            self.propeq(nodes[0], 'text', 'title: Suspicious PowerShell')
+            self.propeq(nodes[0], 'type', 'host.process.')
+            self.propeq(nodes[0], 'status', 'stable')
+            self.propeq(nodes[0], 'url', 'https://vertex.link/sigma/SIGMA-001')
+            self.propeq(nodes[0], 'creator:name', 'visi')
+            self.propeq(nodes[0], 'created', 1704067200000000)
+            self.propeq(nodes[0], 'updated', 1735689600000000)
+            self.propeq(nodes[0], 'seen', (1704067200000000, 1735689600000000, 31622400000000))
+            self.propeq(nodes[0], 'enabled', True)
+            self.propeq(nodes[0], 'version', '1.2.3')
+            self.nn(nodes[0].get('creator'))
+
+            self.len(1, await core.nodes('it:app:sigma:rule -> entity:contact'))
+            self.len(1, await core.nodes('it:app:sigma:rule -(detects)> it:softwarename'))
+
+            # the form is typed to meta:rule, so a lift of the base matches it
+            self.len(1, await core.nodes('meta:rule:id=SIGMA-001'))
+
+            self.true(core.model.form('it:app:sigma:rule').implements('meta:observable'))
+
+            # sigma rule text is yaml, so the rule text renders as yaml
+            prop = core.model.prop('it:app:sigma:rule:text')
+            self.eq('yaml', prop.info['display']['syntax'])
+
+            rule = nodes[0].ndef[1]
+
+            nodes = await core.nodes('''
+                $target = {[ it:log:event=* :host={[ it:host=* ]} ]}
+                $rule = { it:app:sigma:rule:id=SIGMA-001 }
+                [ it:app:sigma:matched=({"rule": $rule, "target": $target})
+                    :rule:version=1.2.3
+                    :time=2015
+                    :sensor={[ it:host=* ]}
+                    :activity={[ it:os:posix:cron=* ]}
+                ]
+            ''')
+
+            self.len(1, nodes)
+            self.nn(nodes[0].get('target'))
+            self.nn(nodes[0].get('activity'))
+            self.nn(nodes[0].get('sensor'))
+            self.propeq(nodes[0], 'rule', rule)
+            self.propeq(nodes[0], 'rule:version', '1.2.3')
+            self.propeq(nodes[0], 'time', 1420070400000000)
+
+            # the sensor which generated the match may be a different host than
+            # the one the log event was recorded on
+            logn = (await core.nodes('it:app:sigma:matched :target -> it:log:event'))[0]
+            self.nn(logn.get('host'))
+            self.ne(nodes[0].get('sensor'), logn.get('host'))
+
+            self.len(1, await core.nodes('it:app:sigma:matched :sensor -> it:host'))
+
+            self.len(1, await core.nodes('it:app:sigma:matched :target -> it:log:event'))
+            self.len(1, await core.nodes('it:app:sigma:rule -> it:app:sigma:matched'))
+
+            self.true(core.model.form('it:app:sigma:matched').implements('base:matched'))
+            self.true(core.model.form('it:app:sigma:matched').implements('meta:causal'))
+
     async def test_it_app_snort(self):
 
         async with self.getTestCore() as core:

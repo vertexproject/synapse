@@ -4602,22 +4602,30 @@ class Layer(s_nexus.Pusher):
 
         await self.core.nexsroot.cell.nexslock.acquire()
 
+        handoff = False
+
         try:
             if self.isdeleted:
                 mesg = f'Layer {self.iden} has been deleted!'
                 raise s_exc.NoSuchLayer(mesg=mesg)
 
             if (realedits := await self.calcEdits(edits, meta)):
+
+                # saveToNexs issues with lock=False, which hands ownership of nexslock to
+                # the nexus: it is released there, or by the apply task, exactly once. We
+                # must not release it below however this call ends. There is no await
+                # between here and that handoff, so a cancellation cannot land in between.
+                handoff = True
+
                 if (retn := await self.saveToNexs('edits', realedits, meta, waitiden=waitiden)) is not None:
                     return retn if retnoffs else retn[1]
+
                 return
 
-        except:
-            if self.core.nexsroot.cell.nexslock.locked():
+        finally:
+            if not handoff:
                 self.core.nexsroot.cell.nexslock.release()
-            raise
 
-        self.core.nexsroot.cell.nexslock.release()
         return ()
 
     async def calcEdits(self, nodeedits, meta):

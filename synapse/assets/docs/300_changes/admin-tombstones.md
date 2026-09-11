@@ -21,7 +21,7 @@ What you need to do
 
 :   You can now run normal delete operations (`delnode`, `[ -:prop ]`, `[ -#tag ]`, edge and nodedata deletes) inside a forked view against data that lives in a parent layer; the fork hides it via a tombstone instead of doing nothing. Within the fork the data disappears from lifts and pivots -- if a query that used to return parent nodes now returns nothing in a fork, check for tombstones.
 
-    ``` text
+    ```text
     // Synapse 2.x: in a forked view you could not delete a node that only
     // existed in the parent layer -- the parent copy remained visible.
     inet:fqdn=evil.com delnode   // no effect on the inherited node
@@ -50,7 +50,7 @@ What you need to do
 
 :   To audit what a fork will delete on merge, run `diff` and filter for `syn:deleted`. You can filter by the original form with `+syn:deleted:form=<form>` and read the deleted ndef from the node value. Do not expect `diff` to return the original form for deleted nodes -- it returns `syn:deleted` runt nodes for those, and a fully tombstoned node will not appear in an ordinary lift within the fork.
 
-    ``` text
+    ```text
     // Synapse 2.x: diff only surfaced added/changed nodes in the top layer;
     // there was no representation of deletions.
     diff
@@ -79,7 +79,7 @@ What you need to do
 
 :   Treat deletions staged in a fork as part of the merge, just like adds. Review pending deletions with `diff` before merging, then merge. After `merge --apply`, the nodes/values you deleted in the fork will be gone from the parent; verify with a lift in the parent view. In multi-parent stacks, be aware a tombstone may persist in an intermediate parent if a deeper layer still holds the value.
 
-    ``` text
+    ```text
     // Synapse 2.x: merging a fork could only push adds/edits to the parent;
     // there was no way to delete inherited parent data via merge.
     diff | merge --apply   // deletions in the fork were never applied
@@ -106,7 +106,7 @@ What you need to do
 
 :   Use `$lib.layer.get().getTombstones()` (or `getEdgeTombstones`) to enumerate staged deletions in a write layer, and `$layer.delTombstone($nid, $tombtype, $tombinfo)` to cancel a staged deletion before merge. Grant the user the add permission for whatever the tombstone masks, since that is what cancelling it restores. When iterating node data with `getNodeData()` in 3.x, expect a third `istombstone` element in each tuple, and pass a nid instead of the node iden.
 
-    ``` text
+    ```text
     // Synapse 2.x: no tombstone APIs existed; getNodeData yielded 2-tuples
     // keyed by node iden.
     for ($name, $valu) in $layer.getNodeData($node.iden()) { $lib.print($name) }
@@ -140,7 +140,7 @@ What you need to do
 
 :   When using `movenodes` in 3.x, decide whether a moved deletion should simply remove the value (default) or continue masking deeper layers in the destination (use `--preserve-tombstones`). This option did not exist in 2.x because there were no tombstones.
 
-    ``` text
+    ```text
     // Synapse 2.x: movenodes had no tombstone awareness or --preserve flag
     ou:org | movenodes --apply
 

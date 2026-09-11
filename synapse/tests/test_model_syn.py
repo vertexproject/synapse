@@ -295,6 +295,11 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:prop:computed')
             self.gt(len(nodes), 1)
 
+            # syn:prop no longer has a :univ property; universal props were
+            # removed in favor of node meta properties.
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('syn:prop:univ')
+
             nodes = await core.nodes('syn:prop="test:type10:intprop"')
             self.len(1, nodes)
             node = nodes[0]

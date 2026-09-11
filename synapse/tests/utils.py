@@ -23,7 +23,9 @@ import sys
 import copy
 import math
 import types
+import base64
 import shutil
+import socket
 import asyncio
 import inspect
 import logging
@@ -332,6 +334,15 @@ testmodel = (
                 )
             }),
             ('test:unused:iface', {'doc': 'an interface applied to no forms'}),
+            # implemented by a form which itself has a child form, so a poly declared for
+            # this interface is returned by Model.getPropsByType() for both forms in that
+            # chain and a single inbound reference is found more than once
+            ('test:fuseiface', {
+                'doc': 'an interface implemented by a form which also has a child form',
+                'props': (
+                    ('note', ('str', {}), {}),
+                ),
+            }),
         ),
         'types': (
             ('test:type', (None, {'ctor': 'synapse.tests.utils.TestType'}), {'props': ()}),
@@ -553,6 +564,79 @@ testmodel = (
                     ('bar', ('str:lower', {}), {'computed': True})
                 ),
                 'doc': 'A complex comp type.'}),
+
+            # deliberately named to sort before test:comp and test:compcomp, so a cascade
+            # through it is discovered last but iterates first once a spool has spilled
+            ('test:acomp', ('comp', {'fields': (
+                ('cc', 'test:compcomp'),
+                ('name', 'test:lower'))
+            }), {
+                'props': (
+                    ('cc', ('test:compcomp', {}), {'computed': True}),
+                    ('name', ('test:lower', {}), {'computed': True}),
+                ),
+                'doc': 'A comp type nesting a comp of comps.'}),
+            # NOTE: there is deliberately no comp type with an array field here. A comp field
+            # must name a named type (Comp._checkMutability) and the array type may not be
+            # the base for a named type (Model.addType), so a comp key slot can never be an
+            # array.
+            # two slots of the same form, so a single fuse renames more than one of a comp's
+            # own comp key slots and _computeRenames() has to reach a fixpoint rather than
+            # resolving from whichever slot was discovered first
+            ('test:pivcomp2', ('comp', {'fields': (
+                ('targ1', 'test:pivtarg'),
+                ('targ2', 'test:pivtarg'))
+            }), {
+                'props': (
+                    ('targ1', ('test:pivtarg', {}), {'computed': True}),
+                    ('targ2', ('test:pivtarg', {}), {'computed': True}),
+                ),
+                'doc': 'A comp type with two slots of the same form.'}),
+            # a guid form whose primary value is the hash of its own deconfliction set, so a
+            # computed property holding a node reference is not a comp key slot and cannot be
+            # re-derived from the guid
+            ('test:fusegutor', ('guid', {}), {
+                'props': (
+                    ('strref', ('test:str', {}), {'computed': True}),
+                    ('note', ('str', {}), {}),
+                ),
+                'doc': 'A guid form whose deconfliction set holds a node reference.'}),
+            # a property declared for a child form rather than for its parent, so repointing
+            # it at a parent form node is not possible
+            ('test:fusechildref', ('guid', {}), {
+                'props': (
+                    ('ref', ('test:inhstr2', {}), {}),
+                ),
+                'doc': 'A form with a property declared for a child form.'}),
+            # a comp form with a plain property of the same form as one of its own comp key
+            # slots, so a node referencing it through that property is itself renamed by the
+            # same fuse which repoints the property
+            ('test:fusecomp', ('comp', {'fields': (
+                ('targ', 'test:pivtarg'),
+                ('name', 'test:lower'))
+            }), {
+                'props': (
+                    ('targ', ('test:pivtarg', {}), {'computed': True}),
+                    ('name', ('test:lower', {}), {'computed': True}),
+                    ('other', ('test:pivtarg', {}), {}),
+                ),
+                'doc': 'A comp form with a plain property of its own comp key slot form.'}),
+            # a form implementing test:fuseiface which also has a child form, plus a form
+            # referencing that interface both as a scalar and as an array
+            ('test:fusebase', ('str', {}), {
+                'interfaces': (('test:fuseiface', {}),),
+                'props': (),
+                'doc': 'A form implementing an interface which also has a child form.'}),
+            ('test:fusekid', ('test:fusebase', {}), {
+                'props': (),
+                'doc': 'A child of a form which implements an interface.'}),
+            ('test:fuseholder', ('guid', {}), {
+                'props': (
+                    ('one', ('test:fuseiface', {}), {}),
+                    ('many', ('test:fuseiface', {}), {'array': {}}),
+                ),
+                'doc': 'A form referencing an interface as both a scalar and an array.'}),
+
             ('test:hexa', ('hex', {}), {'props': (), 'doc': 'anysize test hex type.'}),
             ('test:hex4', ('hex', {'size': 4}), {'props': (), 'doc': 'size 4 test hex type.'}),
             ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
@@ -871,6 +955,237 @@ class LoggerStream(io.StringIO):
 
     def jsonlines(self):
         return jsonlines(self.getvalue())
+
+class ProxyServer(s_base.Base):
+    '''
+    Base for the in-process proxies a live proxy test points a source at.
+
+    A subclass speaks one proxy protocol and, once it has a tunnel, hands both
+    ends to _pipe. connects records the (host, port) of every tunnel actually
+    established and refused counts the ones turned away for bad credentials, so
+    a source which quietly went direct -- or reached somewhere unexpected --
+    fails rather than passing. auth ( "user:passwd" ) makes the proxy demand
+    credentials, covering the proxy_user / proxy_passwd path.
+
+    A test which needs one of these anits it, points the code under test at its
+    url, and asserts on connects afterward. It listens from __anit__ on, so the
+    url is available immediately and teardown rides the usual fini.
+    '''
+    scheme = None
+
+    async def __anit__(self, auth=None):
+        await s_base.Base.__anit__(self)
+
+        self.auth = auth
+
+        self.connects = []
+        self.refused = 0
+
+        self.server = await asyncio.start_server(self._handle, '127.0.0.1', 0)
+
+        self.onfini(self._onFini)
+
+    async def _onFini(self):
+        self.server.close()
+        await self.server.wait_closed()
+
+    @property
+    def url(self):
+        port = self.server.sockets[0].getsockname()[1]
+        return f'{self.scheme}://127.0.0.1:{port}'
+
+    def hostport(self, url):
+        # the (host, port) a tunnel for the given url should name
+        (host, _, port) = url.split('://', 1)[1].partition(':')
+        return (host, int(port.partition('/')[0]))
+
+    async def _handle(self, reader, writer):  # pragma: no cover
+        raise NotImplementedError
+
+    async def _tunnel(self, host, port, reader, writer, okay, deny):
+        '''
+        Open the upstream connection and pipe both ways, answering the client
+        with the protocol's own success or failure bytes.
+        '''
+        try:
+            (upread, upwrite) = await asyncio.open_connection(host, port)
+
+        except Exception:
+            writer.write(deny)
+            with contextlib.suppress(Exception):
+                await writer.drain()
+
+            writer.close()
+            return
+
+        self.connects.append((host, port))
+
+        writer.write(okay)
+        await writer.drain()
+
+        await asyncio.gather(self._pipe(reader, upwrite), self._pipe(upread, writer))
+
+    async def _pipe(self, reader, writer):
+        try:
+            while True:
+                byts = await reader.read(65536)
+                if not byts:
+                    break
+
+                writer.write(byts)
+                await writer.drain()
+
+        except Exception:  # pragma: no cover
+            # either side going away ends the tunnel, which is normal at teardown
+            pass
+
+        finally:
+            writer.close()
+
+class ConnectProxy(ProxyServer):
+    '''
+    An HTTP CONNECT proxy. aiohttp_socks tunnels every request through CONNECT,
+    plain http ones included, so a source reaches its server only if this
+    accepts the tunnel -- which makes "the query returned rows" evidence on its
+    own. Credentials arrive as a Proxy-Authorization header.
+    '''
+    scheme = 'http'
+
+    async def _handle(self, reader, writer):
+
+        try:
+            head = await reader.readuntil(b'\r\n\r\n')
+
+        except Exception:
+            writer.close()
+            return
+
+        lines = head.decode('latin-1').split('\r\n')
+        parts = lines[0].split(' ')
+
+        if parts[0] != 'CONNECT':
+            # aiohttp_socks only ever tunnels, so anything else is a test bug
+            writer.write(b'HTTP/1.1 405 Method Not Allowed\r\n\r\n')
+            await writer.drain()
+            writer.close()
+            return
+
+        if self.auth is not None and not self._authOk(lines):
+            self.refused += 1
+            writer.write(b'HTTP/1.1 407 Proxy Authentication Required\r\n'
+                         b'Proxy-Authenticate: Basic realm="test"\r\n\r\n')
+            await writer.drain()
+            writer.close()
+            return
+
+        (host, _, port) = parts[1].rpartition(':')
+
+        await self._tunnel(host, int(port), reader, writer,
+                           b'HTTP/1.1 200 Connection established\r\n\r\n',
+                           b'HTTP/1.1 502 Bad Gateway\r\n\r\n')
+
+    def _authOk(self, lines):
+        want = 'Basic ' + base64.b64encode(self.auth.encode()).decode()
+        for line in lines[1:]:
+            if line.lower().startswith('proxy-authorization:'):
+                return line.split(':', 1)[1].strip() == want
+
+        return False
+
+class Socks5Proxy(ProxyServer):
+    '''
+    A SOCKS5 proxy (RFC 1928). Worth covering alongside the HTTP one because it
+    is a different protocol on the wire and, more to the point, authenticates
+    differently: credentials are negotiated in the protocol itself (RFC 1929)
+    rather than sent as a header, so proxy_user / proxy_passwd take a different
+    route through python-socks.
+    '''
+    scheme = 'socks5'
+
+    async def _handle(self, reader, writer):
+
+        try:
+            (vers, nmeths) = await reader.readexactly(2)
+            meths = await reader.readexactly(nmeths)
+
+        except Exception:
+            writer.close()
+            return
+
+        if vers != 0x05:
+            writer.close()
+            return
+
+        # no auth when the proxy wants none, username/password when it does
+        want = 0x00 if self.auth is None else 0x02
+        if want not in meths:
+            self.refused += 1
+            writer.write(b'\x05\xff')
+            await writer.drain()
+            writer.close()
+            return
+
+        writer.write(bytes((0x05, want)))
+        await writer.drain()
+
+        if want == 0x02 and not await self._authOk(reader, writer):
+            self.refused += 1
+            writer.close()
+            return
+
+        try:
+            (vers, cmd, _, atyp) = await reader.readexactly(4)
+            host = await self._readAddr(reader, atyp)
+            port = int.from_bytes(await reader.readexactly(2), 'big')
+
+        except Exception:
+            writer.close()
+            return
+
+        if cmd != 0x01:
+            # aiohttp_socks only ever issues CONNECT, so anything else is a test bug
+            writer.write(b'\x05\x07\x00\x01' + bytes(6))
+            await writer.drain()
+            writer.close()
+            return
+
+        # the bound address in a reply is unused by the client, so it is zeroed
+        await self._tunnel(host, port, reader, writer,
+                           b'\x05\x00\x00\x01' + bytes(6),
+                           b'\x05\x01\x00\x01' + bytes(6))
+
+    async def _readAddr(self, reader, atyp):
+
+        if atyp == 0x01:
+            return socket.inet_ntoa(await reader.readexactly(4))
+
+        if atyp == 0x03:
+            (size,) = await reader.readexactly(1)
+            return (await reader.readexactly(size)).decode()
+
+        return socket.inet_ntop(socket.AF_INET6, await reader.readexactly(16))
+
+    async def _authOk(self, reader, writer):
+        # RFC 1929: version, then a length prefixed username and password
+        try:
+            (vers, size) = await reader.readexactly(2)
+            user = await reader.readexactly(size)
+            (size,) = await reader.readexactly(1)
+            passwd = await reader.readexactly(size)
+
+        except Exception:
+            return False
+
+        okay = f'{user.decode()}:{passwd.decode()}' == self.auth
+
+        writer.write(bytes((0x01, 0x00 if okay else 0x01)))
+        await writer.drain()
+
+        return okay
+
+# the proxy protocols a proxy test should run against, so that both the
+# tunnelling and the credential handling of each are exercised
+PROXIES = (ConnectProxy, Socks5Proxy)
 
 class HttpReflector(s_httpapi.Handler):
     '''Test handler which reflects get/post data back to the caller'''

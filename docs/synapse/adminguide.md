@@ -435,14 +435,14 @@ This means that the same rules, applied and evaluated in a different order, will
 
 These rules will **allow** the creation of `file:bytes` nodes, but no other nodes:
 
-``` text
+```text
 node.add.file:bytes
 !node.add
 ```
 
 The same rules in the opposite order will **disallow** the creation of **any** nodes:
 
-``` text
+```text
 !node.add
 node.add.file:bytes
 ```
@@ -542,7 +542,7 @@ Permissions in Synapse can be assigned at the global (Cortex) level, or to a spe
 
 If you do not specify an Auth Gate, the permissions are **global** and apply to any / all instances within the Cortex where a user or role has access. For example, the following Storm command:
 
-``` text
+```storm
 auth.role.addrule all node
 ```
 
@@ -1037,7 +1037,7 @@ When adding a form, `$lib.model.ext.addForm` takes the following arguments:
 
 To add a new form named `_foocorp:name`, which contains string values which will be normalized to lowercase, with whitespace stripped from the beginning/end:
 
-``` text
+```storm
 $typeopts = ({'lower': true, 'strip': true})
 $typeinfo = ({'doc': 'Foocorp name.'})
 
@@ -1046,7 +1046,7 @@ $lib.model.ext.addForm(_foocorp:name, str, $typeopts, $typeinfo)
 
 If the form is no longer in use and there are no nodes of this form in the Cortex, it can be removed with:
 
-``` text
+```storm
 $lib.model.ext.delForm(_foocorp:name)
 ```
 
@@ -1072,7 +1072,7 @@ When adding properties, `$lib.model.ext.addFormProp` takes the following argumen
 
 To add a property named `_score` to the `_foocorp:name` form which contains int values between 0 and 100:
 
-``` text
+```storm
 $typeopts = ({'min': 0, 'max': 100})
 $propinfo = ({'doc': 'Score for this name.'})
 
@@ -1081,7 +1081,7 @@ $lib.model.ext.addFormProp(_foocorp:name, _score, (int, $typeopts), $propinfo)
 
 To add a property named `_aliases` to the `_foocorp:name` form which contains a unique array of `base:name` values:
 
-``` text
+```storm
 $typeopts = ({'type': 'base:name', 'uniq': true})
 $propinfo = ({'doc': 'Aliases for this name.'})
 
@@ -1090,7 +1090,7 @@ $lib.model.ext.addFormProp(_foocorp:name, _aliases, (array, $typeopts), $propinf
 
 Properties may also be added to existing forms, for example, to add a property named `_classification` to `inet:fqdn` which must contain a string from a predefined set of values:
 
-``` text
+```storm
 $typeopts = ({'enums': 'unknown,benign,malicious'})
 $propinfo = ({'doc': 'Classification for this FQDN.'})
 
@@ -1154,13 +1154,13 @@ When configuring a mirrored layer, you may choose to mirror from a remote layer 
 
 To specify a remote layer as the upstream, use a Telepath URL which includes the shared object `*/layer/<layeriden>` such as:
 
-``` text
+```text
 aha://cortex.loop.vertex.link/*/layer/8ea600d1732f2c4ef593120b3226dea3
 ```
 
 To specify a remote view, use the shared object `*/view/<viewiden>` such as:
 
-``` text
+```text
 aha://cortex.loop.vertex.link/*/view/8ea600d1732f2c4ef593120b3226dea3
 ```
 

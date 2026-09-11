@@ -21,7 +21,7 @@ What you need to do
 
 :   Drop the parentheses on the value accessors and replace `iden()` with the `nid` property. Anywhere you stored, compared, or passed a node BUID hex string, switch to the integer NID.
 
-    ``` text
+    ```text
     // 2.x
     $form = $node.form()
     $ndef = $node.ndef()
@@ -50,7 +50,7 @@ What you need to do
 
 :   Use `$node.is(<base-or-subform>)` for form checks instead of switching on `$node.form` string equality; it now correctly returns true for subforms of the named base. Pass a list to test several forms at once.
 
-    ``` text
+    ```text
     // 2.x: exact-string check, single name only
     if ($node.form() = "it:host:account") { }
 
@@ -77,7 +77,7 @@ What you need to do
 
 :   Rewrite method-style access to deref/setitem access.
 
-    ``` text
+    ```text
     // 2.x
     $v = $lib.globals.get(mykey)
     $lib.globals.set(mykey, $v)
@@ -107,7 +107,7 @@ What you need to do
 
 :   Drop the parentheses on `synapse` and `commit`. If you previously treated `$lib.version.synapse` as a list (for example joining it with `('.').join(...)` or indexing into it), use the returned string directly.
 
-    ``` text
+    ```text
     // 2.x
     $synver = $lib.version.synapse()
     if $lib.version.matches($synver, ">=2.9.0") { }
@@ -131,7 +131,7 @@ What you need to do
 
 :   Replace `.pack()` calls with direct access to the object's named properties. `$node.pack()` is unchanged.
 
-    ``` text
+    ```text
     // 2.x
     $info = $user.pack()
     $name = $info.name
@@ -154,7 +154,7 @@ What you need to do
 
 :   Remove calls to `$user.tell(...)` and `$user.notify(...)`. If you relied on inter-user messaging, implement it via your own Storm package state (e.g. a queue) or external tooling.
 
-    ``` text
+    ```text
     // 2.x
     $user = $lib.auth.users.byname(bob)
     $user.tell("job complete")

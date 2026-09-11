@@ -520,6 +520,388 @@ class AstTest(s_test.SynTest):
                 q = '$foo=newp [test:str=foo :hehe*$foo=heval]'
                 nodes = await core.nodes(q)
 
+    async def test_ast_condsetoper_minmax(self):
+
+        y2018, y2019, y2020 = 1514764800000000, 1546300800000000, 1577836800000000
+        y2021, y2022, y2023 = 1609459200000000, 1640995200000000, 1672531200000000
+
+        async with self.getTestCore() as core:
+
+            unkv = core.model.type('time').unksize
+            futv = core.model.type('time').futsize
+            unkd = core.model.type('duration').unkdura
+
+            # a scalar prop keeps the extreme rather than overwriting
+            nodes = await core.nodes('[ risk:vuln=(v0,) :exploited=2019 ] [ :exploited*max=2021 ]')
+            self.propeq(nodes[0], 'exploited', y2021)
+
+            nodes = await core.nodes('risk:vuln=(v0,) [ :exploited*max=2020 ]')
+            self.propeq(nodes[0], 'exploited', y2021)
+
+            nodes = await core.nodes('risk:vuln=(v0,) [ :exploited*min=2018 ]')
+            self.propeq(nodes[0], 'exploited', y2018)
+
+            nodes = await core.nodes('risk:vuln=(v0,) [ :exploited*min=2019 ]')
+            self.propeq(nodes[0], 'exploited', y2018)
+
+            # an unset prop takes the value
+            nodes = await core.nodes('[ risk:vuln=(v1,) ] [ :exploited*max=2021 ]')
+            self.propeq(nodes[0], 'exploited', y2021)
+
+            # an unknown time is replaced by a real one, and never replaces one
+            nodes = await core.nodes('[ risk:vuln=(v2,) :exploited="?" ] [ :exploited*max=2021 ]')
+            self.propeq(nodes[0], 'exploited', y2021)
+
+            nodes = await core.nodes('risk:vuln=(v2,) [ :exploited*max="?" ]')
+            self.propeq(nodes[0], 'exploited', y2021)
+
+            # the ival virts, which is what the operators exist for
+            nodes = await core.nodes('[ inet:dns:a=(a0.com, 1.2.3.4) :seen=(2019, 2022) ] [ :seen.max*max=2023 ]')
+            self.propeq(nodes[0], 'seen', (y2019, y2023, y2023 - y2019))
+
+            nodes = await core.nodes('inet:dns:a=(a0.com, 1.2.3.4) [ :seen.max*max=2020 ]')
+            self.propeq(nodes[0], 'seen', (y2019, y2023, y2023 - y2019))
+
+            nodes = await core.nodes('inet:dns:a=(a0.com, 1.2.3.4) [ :seen.min*min=2018 ]')
+            self.propeq(nodes[0], 'seen', (y2018, y2023, y2023 - y2018))
+
+            nodes = await core.nodes('inet:dns:a=(a0.com, 1.2.3.4) [ :seen.min*min=2021 ]')
+            self.propeq(nodes[0], 'seen', (y2018, y2023, y2023 - y2018))
+
+            # matches Ival.merge: an unknown end is displaced, an ongoing end wins
+            nodes = await core.nodes('[ inet:dns:a=(a1.com, 1.2.3.4) :seen=(2019, "?") ] [ :seen.max*max=2021 ]')
+            self.propeq(nodes[0], 'seen', (y2019, y2021, y2021 - y2019))
+
+            nodes = await core.nodes('[ inet:dns:a=(a2.com, 1.2.3.4) :seen=(2019, "*") ] [ :seen.max*max=2021 ]')
+            self.eq(futv, nodes[0].get('seen')[1][1])
+
+            # an end with no value reads as ? rather than being pinned to the other
+            nodes = await core.nodes('[ inet:dns:a=(a3.com, 1.2.3.4) ] [ :seen.max*max=2021 ]')
+            self.propeq(nodes[0], 'seen', (unkv, y2021, unkd))
+
+            nodes = await core.nodes('[ inet:dns:a=(a4.com, 1.2.3.4) :seen.min=2022 :seen.max*max?=newp ]')
+            self.propeq(nodes[0], 'seen', (y2022, unkv, unkd))
+
+            # try oper skips a value that will not norm, without it raises
+            nodes = await core.nodes('inet:dns:a=(a0.com, 1.2.3.4) [ :seen.max*max?=newp ]')
+            self.propeq(nodes[0], 'seen', (y2018, y2023, y2023 - y2018))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:dns:a=(a0.com, 1.2.3.4) [ :seen.max*max=newp ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('risk:vuln=(v0,) [ :exploited*max=newp ]')
+
+            # the opers require a comparable type. the prop is resolved at runtime, so
+            # this is not a syntax problem and a dynamic prop name reaches it the same way
+            with self.raises(s_exc.BadArg):
+                await core.nodes('[ risk:vuln=(v3,) :name=aaa ] [ :name*max=bbb ]')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('[ test:str=foo ] [ :hehe*min=bar ]')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('[ test:str=foo ] $p=hehe [ :$p*min=bar ]')
+
+            # the try oper does not suppress it: a non-comparable prop type is a
+            # modeling mistake rather than a value which failed to norm
+            with self.raises(s_exc.BadArg):
+                await core.nodes('[ test:str=foo ] $p=hehe [ :$p*min?=bar ]')
+
+            # and it is reported ahead of the value, so a value which would also fail
+            # to norm cannot mask it. the same value is skipped on a comparable prop
+            with self.raises(s_exc.BadArg):
+                await core.nodes('[ test:str=foo ] [ :hehe*min?=({"a": 1}) ]')
+
+            nodes = await core.nodes('[ test:str=foo ] [ :tick*min?=({"a": 1}) ]')
+            self.none(nodes[0].get('tick'))
+
+            # and are reachable through a variable oper
+            nodes = await core.nodes('$o=min risk:vuln=(v0,) [ :exploited*$o=2017 ]')
+            self.propeq(nodes[0], 'exploited', 1483228800000000)
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('risk:vuln=(v0,) [ :exploited*max=2021 ]', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.nodes('inet:dns:a=(a0.com, 1.2.3.4) [ :seen.max*max=2021 ]', opts={'readonly': True})
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('risk:vuln=(v0,) [ :newp*max=2021 ]')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:dns:a=(a0.com, 1.2.3.4) [ :seen.newp*max=2021 ]')
+
+            # tag timestamps take the opers through the parenthesized tag name
+            nodes = await core.nodes('[ inet:fqdn=t0.link +#rep.pub=(2019, 2022) ] [ +?#(rep.pub).max*max=2023 ]')
+            self.eq((y2019, y2023, y2023 - y2019), nodes[0].getTag('rep.pub'))
+
+            nodes = await core.nodes('inet:fqdn=t0.link [ +?#(rep.pub).max*max=2020 ]')
+            self.eq((y2019, y2023, y2023 - y2019), nodes[0].getTag('rep.pub'))
+
+            nodes = await core.nodes('inet:fqdn=t0.link [ +?#(rep.pub).min*min=2018 ]')
+            self.eq((y2018, y2023, y2023 - y2018), nodes[0].getTag('rep.pub'))
+
+            nodes = await core.nodes('inet:fqdn=t0.link [ +?#(rep.pub).min*min=2021 ]')
+            self.eq((y2018, y2023, y2023 - y2018), nodes[0].getTag('rep.pub'))
+
+            nodes = await core.nodes('inet:fqdn=t0.link [ +?#(rep.pub).max*max?=newp ]')
+            self.eq((y2018, y2023, y2023 - y2018), nodes[0].getTag('rep.pub'))
+
+            # an absent tag is created with the other end unknown
+            nodes = await core.nodes('[ inet:fqdn=t1.link ] [ +?#(rep.pub).min*min=2019 ]')
+            self.eq((y2019, unkv, unkd), nodes[0].getTag('rep.pub'))
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:fqdn=t0.link [ +?#(rep.pub).newp*max=2021 ]')
+
+    async def test_ast_condsetoper_unset_unknown(self):
+        # *unset= reads an unknown time differently by design: on a scalar prop ? is
+        # an assertion (it happened, undated) and counts as set, which is what
+        # setBoolishTime relies on; on an ival end ? means the end has no value, so
+        # it is filled. Both readings are load-bearing.
+        y2019, y2020, y2022 = 1546300800000000, 1577836800000000, 1640995200000000
+
+        async with self.getTestCore() as core:
+
+            unkv = core.model.type('time').unksize
+
+            nodes = await core.nodes('[ risk:vuln=(u0,) :exploited="?" ] [ :exploited*unset=2020 ]')
+            self.propeq(nodes[0], 'exploited', unkv)
+
+            nodes = await core.nodes('[ risk:vuln=(u1,) :exploited=2019 ] [ :exploited*unset=2020 ]')
+            self.propeq(nodes[0], 'exploited', y2019)
+
+            nodes = await core.nodes('[ inet:dns:a=(u2.com, 1.2.3.4) :seen=(2019, "?") ] [ :seen.max*unset=2020 ]')
+            self.propeq(nodes[0], 'seen', (y2019, y2020, y2020 - y2019))
+
+            nodes = await core.nodes('[ inet:dns:a=(u3.com, 1.2.3.4) :seen=(2019, 2022) ] [ :seen.max*unset=2020 ]')
+            self.propeq(nodes[0], 'seen', (y2019, y2022, y2022 - y2019))
+
+            # and on a tag timestamp, where the same ival reading applies
+            nodes = await core.nodes('[ inet:fqdn=u4.link +#rep.pub=(2019, "?") ] [ +?#(rep.pub).max*unset=2020 ]')
+            self.eq((y2019, y2020, y2020 - y2019), nodes[0].getTag('rep.pub'))
+
+            nodes = await core.nodes('[ inet:fqdn=u5.link +#rep.pub=(2019, 2022) ] [ +?#(rep.pub).max*unset=2020 ]')
+            self.eq((y2019, y2022, y2022 - y2019), nodes[0].getTag('rep.pub'))
+
+            # *never= sets nothing on either
+            nodes = await core.nodes('$o=never [ risk:vuln=(u6,) ] [ :exploited*$o=2020 ]')
+            self.none(nodes[0].get('exploited'))
+
+            nodes = await core.nodes('$o=never [ inet:dns:a=(u7.com, 1.2.3.4) ] [ :seen.max*$o=2020 ]')
+            self.none(nodes[0].get('seen'))
+
+            nodes = await core.nodes('$o=never [ inet:fqdn=u8.link ] [ +?#(rep.pub).max*$o=2020 ]')
+            self.none(nodes[0].getTag('rep.pub'))
+
+    async def test_ast_condsetoper_minmax_ismin_ismax(self):
+        # the editor merges on top of a property set unless the norminfo says not to,
+        # so a type carrying ismin/ismax would apply its own extreme after the oper
+        # picked one and could invert it. reachable through an extended type.
+        y2019, y2021 = 1546300800000000, 1609459200000000
+
+        async with self.getTestCore() as core:
+
+            await core.addType('_maxtime', 'time', {'ismax': True}, {})
+            await core.addType('_mintime', 'time', {'ismin': True}, {})
+            await core.addFormProp('test:str', '_maxt', ('_maxtime', {}), {})
+            await core.addFormProp('test:str', '_mint', ('_mintime', {}), {})
+
+            nodes = await core.nodes('[ test:str=m0 :_maxt=2021 ] [ :_maxt*min=2019 ]')
+            self.propeq(nodes[0], '_maxt', y2019)
+
+            nodes = await core.nodes('[ test:str=m1 :_mint=2019 ] [ :_mint*max=2021 ]')
+            self.propeq(nodes[0], '_mint', y2021)
+
+            # and the oper still keeps the extreme it names
+            nodes = await core.nodes('test:str=m0 [ :_maxt*min=2021 ]')
+            self.propeq(nodes[0], '_maxt', y2019)
+
+    async def test_ast_condsetoper_minmax_renamed_virts(self):
+        # an ival which renames its ends takes the opers under the renamed virts, and
+        # rejects the canonical ones
+        y2018, y2020, y2025 = 1514764800000000, 1577836800000000, 1735689600000000
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:service:platform=(r0,) :period=(2019, 2024) ]')
+
+            nodes = await core.nodes('inet:service:platform=(r0,) [ :period.created*min=2018 ]')
+            self.eq(y2018, nodes[0].get('period')[1][0])
+
+            nodes = await core.nodes('inet:service:platform=(r0,) [ :period.created*min=2020 ]')
+            self.eq(y2018, nodes[0].get('period')[1][0])
+
+            nodes = await core.nodes('inet:service:platform=(r0,) [ :period.removed*max=2025 ]')
+            self.eq(y2025, nodes[0].get('period')[1][1])
+
+            nodes = await core.nodes('inet:service:platform=(r0,) [ :period.removed*max=2020 ]')
+            self.eq(y2025, nodes[0].get('period')[1][1])
+            self.ne(y2020, nodes[0].get('period')[1][1])
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:service:platform=(r0,) [ :period.min*min=2018 ]')
+
+    async def test_ast_tagvirt_errors(self):
+        # the error arms of the tag timestamp virt sets. which arm catches depends on
+        # whether the try is on the tag add (+?#) or on the oper (*max?=), so both
+        # halves have to be exercised separately.
+        y2019 = 1546300800000000
+
+        async with self.getTestCore() as core:
+
+            unkv = core.model.type('time').unksize
+            unkd = core.model.type('duration').unkdura
+
+            # try on the oper: a value which will not norm is skipped
+            nodes = await core.nodes('[ inet:fqdn=w0.link +#rep.pub=(2019, "?") ] [ +#(rep.pub).min?=newp ]')
+            self.eq((y2019, unkv, unkd), nodes[0].getTag('rep.pub'))
+
+            # try on the tag add only: the bad value is skipped by the tag excignore
+            nodes = await core.nodes('[ inet:fqdn=w1.link +#rep.pub=(2019, "?") ] [ +?#(rep.pub).max*max=newp ]')
+            self.eq((y2019, unkv, unkd), nodes[0].getTag('rep.pub'))
+
+            # no try anywhere: the bad value raises
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:fqdn=w2.link +#rep.pub=(2019, "?") ] [ +#(rep.pub).max*max=newp ]')
+
+            # a tag name which will not norm, ignored under the try tag add
+            opts = {'vars': {'tag': 'a..b'}}
+            nodes = await core.nodes('[ inet:fqdn=w3.link ] [ +?#($tag).max*max=2019 ]', opts=opts)
+            self.len(1, nodes)
+            self.eq([], nodes[0].getTagNames())
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:fqdn=w4.link ] [ +#($tag).max*max=2019 ]', opts=opts)
+
+            # a dotted tag name with a null variable segment raises past the excignore
+            # computeTagArray applies to its list branch, so the caller has to catch it
+            opts = {'vars': {'seg': None}}
+            nodes = await core.nodes('[ inet:fqdn=w5.link ] [ +?#(rep.$seg).max*max=2019 ]', opts=opts)
+            self.len(1, nodes)
+            self.eq([], nodes[0].getTagNames())
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:fqdn=w6.link ] [ +#(rep.$seg).max*max=2019 ]', opts=opts)
+
+            # tags cannot go on runt nodes. the guard sits ahead of the try handling,
+            # so it fires whether or not the tag add is a try
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form=inet:fqdn [ +?#(rep.pub).max*max=2019 ]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form=inet:fqdn [ +#(rep.pub).max*max=2019 ]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form=inet:fqdn [ +#(rep.pub).min=2019 ]')
+
+    async def test_ast_condsetoper_minmax_types(self):
+        # the opers compare through the type, not with the python opers: hugenum
+        # stores a decimal string whose storage order is not its compare order,
+        # and a poly value must be compared by its concrete member type
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ econ:purchase=(p0,) :price=10 ] [ :price*min=9 ]')
+            self.propeq(nodes[0], 'price', '9')
+
+            nodes = await core.nodes('[ econ:purchase=(p1,) :price=10 ] [ :price*max=9 ]')
+            self.propeq(nodes[0], 'price', '10')
+
+            nodes = await core.nodes('[ econ:purchase=(p2,) :price=2 ] [ :price*max=10 ]')
+            self.propeq(nodes[0], 'price', '10')
+
+            nodes = await core.nodes('[ econ:purchase=(p3,) ] [ :price*max=10 ]')
+            self.propeq(nodes[0], 'price', '10')
+
+            # a heterogeneous poly whose stored member type cannot be compared to the
+            # new one raises, in both directions and for both opers, so the answer does
+            # not depend on which way round the incomparable pair happens to sit
+            await core.nodes('[ it:av:scan:result=(s0,) :target=vertex.link ]')
+            await core.nodes('[ it:av:scan:result=(s1,) :target=1.2.3.4 ]')
+
+            for oper in ('min', 'max'):
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes(f'it:av:scan:result=(s0,) [ :target*{oper}=1.2.3.4 ]')
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes(f'it:av:scan:result=(s1,) [ :target*{oper}=vertex.link ]')
+
+                # and the try oper suppresses it, leaving the stored value alone
+                nodes = await core.nodes(f'it:av:scan:result=(s0,) [ :target*{oper}?=1.2.3.4 ]')
+                self.propeq(nodes[0], 'target', 'vertex.link')
+
+                nodes = await core.nodes(f'it:av:scan:result=(s1,) [ :target*{oper}?=vertex.link ]')
+                self.eq('1.2.3.4', nodes[0].repr('target'))
+
+            # a same-member-type comparison still works
+            nodes = await core.nodes('it:av:scan:result=(s1,) [ :target*min=1.2.3.3 ]')
+            self.eq('1.2.3.3', nodes[0].repr('target'))
+
+            # test:str:bar is the case where the stored member type DOES support '>'
+            # but cannot take the new value, so the poly comparator builds nothing for
+            # it and answers the same ambiguous False as an uncomparable type. that has
+            # to reject too, or *max replaces the stored value while *min keeps it
+            await core.nodes('[ test:str=h0 :bar={[ test:int=5 ]} ]')
+
+            for oper in ('min', 'max'):
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes(f'test:str=h0 [ :bar*{oper}=1.2.3.4 ]')
+
+                nodes = await core.nodes(f'test:str=h0 [ :bar*{oper}?=1.2.3.4 ]')
+                self.propeq(nodes[0], 'bar', 5)
+
+            nodes = await core.nodes('test:str=h0 [ :bar*max={[ test:int=9 ]} ]')
+            self.propeq(nodes[0], 'bar', 9)
+
+            nodes = await core.nodes('test:str=h0 [ :bar*min={[ test:int=2 ]} ]')
+            self.propeq(nodes[0], 'bar', 2)
+
+    async def test_ast_tagvirtset_no_ival(self):
+        # a tag with no timestamps reads as (None, None, None), which used to reach the
+        # virt store path and raise a bare TypeError
+        y2019 = 1546300800000000
+
+        async with self.getTestCore() as core:
+
+            unkv = core.model.type('time').unksize
+            unkd = core.model.type('duration').unkdura
+
+            nodes = await core.nodes('[ inet:fqdn=n0.link +#rep.pub ] [ +#(rep.pub).min=2019 ]')
+            self.eq((y2019, unkv, unkd), nodes[0].getTag('rep.pub'))
+
+            nodes = await core.nodes('[ inet:fqdn=n1.link +#rep.pub ] [ +#(rep.pub).max=2019 ]')
+            self.eq((unkv, y2019, unkd), nodes[0].getTag('rep.pub'))
+
+            nodes = await core.nodes('[ inet:fqdn=n2.link +#rep.pub ] [ +?#(rep.pub).min*min=2019 ]')
+            self.eq((y2019, unkv, unkd), nodes[0].getTag('rep.pub'))
+
+    async def test_ast_condsetoper_always_ival(self):
+        # *always= on an ival prop, which the *min/*max work hoisted the oldv read
+        # for. This does NOT exercise the Ival branch in EditCondPropSet: every prop
+        # is a polyprop in 3.x, extended model ones included, so
+        # isinstance(prop.type, s_types.Ival) is never true and the union asserted
+        # below comes from node.set rather than from that branch.
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('$o=always [ inet:dns:a=(z0.com, 1.2.3.4) :seen=(2019, 2020) ] [ :seen*$o=(2021, 2022) ]')
+            self.eq(1546300800000000, nodes[0].get('seen')[1][0])
+
+            # a gating oper decides whether the set happens, not what it stores, so on
+            # a virt it has to land where a plain set lands. only the combining opers
+            # pick a value and stop the editor merging over it.
+            await core.addType('_maxtime', 'time', {'ismax': True}, {})
+            await core.addFormProp('test:str', '_maxt', ('_maxtime', {}), {})
+
+            nodes = await core.nodes('$o=always [ test:str=z1 :_maxt="2021/06/15" ] [ :_maxt.precision*$o=year ]')
+            gated = (nodes[0].repr('_maxt'), nodes[0].repr('_maxt.precision'))
+
+            nodes = await core.nodes('[ test:str=z2 :_maxt="2021/06/15" ] [ :_maxt.precision=year ]')
+            self.eq(gated, (nodes[0].repr('_maxt'), nodes[0].repr('_maxt.precision')))
+
+            # while a combining oper still overrides the type's own ismax merge
+            nodes = await core.nodes('[ test:str=z3 :_maxt="2021/06/15" ] [ :_maxt*min="2019/01/01" ]')
+            self.eq('2019-01-01T00:00:00Z', nodes[0].repr('_maxt'))
+
     async def test_ast_setmultioper(self):
         async with self.getTestCore() as core:
 
@@ -3328,11 +3710,11 @@ class AstTest(s_test.SynTest):
             self.eq(('duration', oneday * 3), await core.callStorm(q))
 
             # directional operators are not silently swapped: duration - time has
-            # no typed handler, so it falls back to numeric math (a plain Number)
-            # rather than reusing the time - duration result
+            # no typed handler, so it falls back to numeric math on the underlying
+            # values rather than reusing the time - duration result
             q = '''$a=$lib.cast(time, '2020-01-01') $d=$lib.cast(duration, '1D')
                    $r=($d - $a) return($r.type)'''
-            with self.raises(s_exc.NoSuchName):
+            with self.raises(s_exc.NoSuchType):
                 await core.callStorm(q)
 
             # a string operand on a time norms as a duration in either order
@@ -3383,16 +3765,16 @@ class AstTest(s_test.SynTest):
                    return($lib.repr(duration, ($a - $b).value))'''
             self.eq('1D 00:00:00', await core.callStorm(q))
 
-            # regression: unsupported typed combos fall back to numeric math
-            # (the result is a plain Number with no model type, not a typed Valu)
+            # regression: unsupported typed combos fall back to numeric math on
+            # the underlying values, so the result has no model type
             q = '''$a=$lib.cast(time, '2020-01-01') $b=$lib.cast(time, '2020-01-01')
                    $r=($a + $b) return($r.type)'''
-            with self.raises(s_exc.NoSuchName):
+            with self.raises(s_exc.NoSuchType):
                 await core.callStorm(q)
 
             q = '''$a=$lib.cast(time, '2020-01-01') $b=$lib.cast(time, '2020-01-01')
                    return(($a + $b))'''
-            self.eq(1577836800000000 * 2, int(await core.callStorm(q)))
+            self.eq(1577836800000000 * 2, await core.callStorm(q))
 
             # an other operand that cannot be wrapped as a typed value (e.g. a
             # list) declines typed dispatch and falls back to numeric math
@@ -3402,6 +3784,55 @@ class AstTest(s_test.SynTest):
 
             # regression: plain numeric arithmetic is unaffected
             self.eq(5, await core.callStorm('return((2 + 3))'))
+
+            # an operator with no typed handler coerces the typed value the same
+            # way as its underlying value, for each of the numeric operators
+            opers = ('/', '*', '%', '**', '>', '<', '>=', '<=')
+
+            casts = (
+                "$v=2020 as time",
+                "$v=1D as duration",
+                "$v=5 as int",
+                "$v=5 as str",
+                "$v=1 as bool",
+            )
+
+            for cast in casts:
+                for oper in opers:
+                    q = f'{cast} return(($v {oper} 3))'
+                    valu = await core.callStorm(q)
+
+                    q = f'{cast} $r=$v.value return(($r {oper} 3))'
+                    self.eq(valu, await core.callStorm(q))
+                    self.eq(type(valu), type(await core.callStorm(q)))
+
+                q = f'{cast} return((-$v))'
+                self.eq(await core.callStorm(f'{cast} $r=$v.value return((-$r))'),
+                        await core.callStorm(q))
+
+            # integer division stays floor division for an integer typed value
+            self.eq(1577836800000, await core.callStorm('$v=2020 as time return(($v / 1000))'))
+            self.eq(2, await core.callStorm('$v=5 as int return(($v / 2))'))
+            self.eq(2, await core.callStorm('$v=5 return(($v / 2))'))
+
+            # a node property value is typed and coerces the same way
+            nodes = await core.nodes('[ test:int=10 ]')
+            tick = nodes[0].get('.created')
+            self.eq(tick // 1000, await core.callStorm('test:int=10 return((.created / 1000))'))
+
+            # a float valued type still produces a Number
+            self.eq(2.5, await core.callStorm('$v=5 as test:float return(($v / 2))'))
+
+            # ...as does a hugenum type, whose normalized value is a formatted
+            # string rather than a decimal
+            self.eq(2.5, await core.callStorm('$v=5 as test:hugenum return(($v / 2))'))
+            self.eq(2.75, await core.callStorm('$v=5.5 as test:hugenum return(($v / 2))'))
+
+            q = '[ test:float=1 :closed=5 ] return((:closed / 2))'
+            self.eq(2.5, await core.callStorm(q))
+
+            q = '[ test:hugenum=1 :huge=5.5 ] return((:huge / 2))'
+            self.eq(2.75, await core.callStorm(q))
 
     async def test_ast_optimization(self):
 

@@ -67,7 +67,7 @@ Add the user "Ron" with email address `ronthecat@vertex.link`:
 
 ```stormdoc
 storm> auth.user.add ron --email ronthecat@vertex.link
-User (ron) added with iden: 65ef88905c2e29b24739857f60b0759b
+User (ron) added with iden: 179fce5a87113ea5da6296d39b9c4eae
 ```
 
 > [!TIP]
@@ -85,7 +85,7 @@ Display information for user "Ron":
 
 ```stormdoc
 storm> auth.user.show ron
-User: ron (65ef88905c2e29b24739857f60b0759b)
+User: ron (179fce5a87113ea5da6296d39b9c4eae)
 
   Locked: false
   Admin: false
@@ -93,7 +93,7 @@ User: ron (65ef88905c2e29b24739857f60b0759b)
   Rules:
 
   Roles:
-    5ff63f33765828350fa00e6c684d79cc - all
+    0d413ca931609d495091f356423173d9 - all
 
   Gates:
 ```
@@ -180,7 +180,7 @@ Add the new role "cattribution analyst":
 
 ```stormdoc
 storm> auth.role.add "cattribution analyst"
-Role (cattribution analyst) added with iden: 5519e5ad546c457fe727855b6fe017e3
+Role (cattribution analyst) added with iden: 2887e5a5137d5f73df431dd685f88211
 ```
 
 > [!TIP]
@@ -198,12 +198,12 @@ Display information for the "all" role:
 
 ```stormdoc
 storm> auth.role.show all
-Role: all (5ff63f33765828350fa00e6c684d79cc)
+Role: all (0d413ca931609d495091f356423173d9)
 
   Rules:
 
   Gates:
-    79a398abf2e614071e8edee3c0c44943 - (view)
+    3d05eec18ada4928bab232ca647f8757 - (view)
       [0  ] - view.read
 ```
 
@@ -365,69 +365,17 @@ Granular permissions can also be used to differentiate between senior and junior
 
 **Examples:**
 
-<table>
-<colgroup>
-<col style="width: 66%" />
-<col style="width: 34%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Description</strong></th>
-<th><strong>Permission</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><p>Perform <strong>any</strong> action on <strong>any</strong> kind of node</p>
-<p>(including deleting nodes and working with properties, tags,</p>
-<p>edges, and node data)</p></td>
-<td><code>node</code></td>
-</tr>
-<tr class="even">
-<td><p><strong>Add</strong> any kind of node</p>
-<p>(but not delete nodes, or work with properties, tags, edges, or</p>
-<p>node data)</p></td>
-<td><code>node.add</code></td>
-</tr>
-<tr class="odd">
-<td><p><strong>Only</strong> add <code>inet:ip</code> nodes</p>
-<p>(but not set properties, or work with tags or edges)</p></td>
-<td><code>node.add.inet:ip</code></td>
-</tr>
-<tr class="even">
-<td><p><strong>Only</strong> add (set) the <code>:asn</code> property of <code>inet:ip</code> nodes</p>
-<p>(but not create nodes or work with other properties, tags,</p>
-<p>edges, etc.)</p></td>
-<td><code>node.prop.set.inet:ip:asn</code></td>
-</tr>
-<tr class="odd">
-<td><p>Add or remove <strong>any</strong> tag</p>
-<p>(Note that adding/removing tags may require the ability to</p>
-<p>create <code>syn:tag</code> nodes, unless those nodes already exist.)</p></td>
-<td><code>node.tag</code></td>
-</tr>
-<tr class="even">
-<td><strong>Only</strong> add and remove tags in the "mytag" tag tree</td>
-<td><code>node.tag.add.mytag</code> <code>node.tag.del.mytag</code></td>
-</tr>
-<tr class="odd">
-<td><p>Add or remove <strong>any</strong> edge</p>
-<p>(Note that adding or removing edges allows creating edges</p>
-<p>between <strong>any</strong> nodes; there are no model constraints on the</p>
-<p>kinds of nodes that can be joined. It also allows the creation</p>
-<p>of new / arbitrarily named edges.)</p></td>
-<td><code>node.edge</code></td>
-</tr>
-<tr class="even">
-<td><strong>Only</strong> add edges</td>
-<td><code>node.edge.add</code></td>
-</tr>
-<tr class="odd">
-<td><strong>Only</strong> add <code>refs</code> edges</td>
-<td><code>node.edge.add.refs</code></td>
-</tr>
-</tbody>
-</table>
+| Description | Permission |
+|-------------|------------|
+| Perform **any** action on **any** kind of node (including deleting nodes and working with properties, tags, edges, and node data) | `node` |
+| **Add** any kind of node (but not delete nodes, or work with properties, tags, edges, or node data) | `node.add` |
+| **Only** add `inet:ip` nodes (but not set properties, or work with tags or edges) | `node.add.inet:ip` |
+| **Only** add (set) the `:asn` property of `inet:ip` nodes (but not create nodes or work with other properties, tags, edges, etc.) | `node.prop.set.inet:ip:asn` |
+| Add or remove **any** tag (Note that adding/removing tags may require the ability to create `syn:tag` nodes, unless those nodes already exist.) | `node.tag` |
+| **Only** add and remove tags in the "mytag" tag tree | `node.tag.add.mytag`, `node.tag.del.mytag` |
+| Add or remove **any** edge (Note that adding or removing edges allows creating edges between **any** nodes; there are no model constraints on the kinds of nodes that can be joined. It also allows the creation of new / arbitrarily named edges.) | `node.edge` |
+| **Only** add edges | `node.edge.add` |
+| **Only add `refs` edges | `node.edge.add.refs` |
 
 > [!NOTE]
 > Permissions strings **do not** support wildcards (`*`). For example, you cannot specify `node.tag.*.mytag` to allow users to both add and delete tags in the `mytag` tree.
@@ -481,14 +429,14 @@ This means that the same rules, applied and evaluated in a different order, will
 
 These rules will **allow** the creation of `file:bytes` nodes, but no other nodes:
 
-``` text
+```text
 node.add.file:bytes
 !node.add
 ```
 
 The same rules in the opposite order will **disallow** the creation of **any** nodes:
 
-``` text
+```text
 !node.add
 node.add.file:bytes
 ```
@@ -584,7 +532,7 @@ Permissions in Synapse can be assigned at the global (Cortex) level, or to a spe
 
 If you do not specify an Auth Gate, the permissions are **global** and apply to any / all instances within the Cortex where a user or role has access. For example, the following Storm command:
 
-``` text
+```storm
 auth.role.addrule all node
 ```
 
@@ -722,10 +670,10 @@ Display all views:
 ```stormdoc
 storm> view.list
 
-View: 79a398abf2e614071e8edee3c0c44943 (name: default)
-  Creator: 5634a58d79099b36c85d387eb735b705
+View: 3d05eec18ada4928bab232ca647f8757 (name: default)
+  Creator: 7034e44009c6e19486811c3ab783c497
   Layers:
-    542d3436052ecc7626c59135bc9d7e04: default readonly: False
+    fd2cd5ba18df4cca500a4634dcaaa399: default readonly: False
 
 ```
 
@@ -733,7 +681,7 @@ Display the current layer:
 
 ```stormdoc
 storm> layer.get
-Layer: 542d3436052ecc7626c59135bc9d7e04 (name: default) readonly: False creator: 5634a58d79099b36c85d387eb735b705
+Layer: fd2cd5ba18df4cca500a4634dcaaa399 (name: default) readonly: False creator: 7034e44009c6e19486811c3ab783c497
 ```
 
 ##### View a Gate's Permissions
@@ -749,12 +697,12 @@ storm> auth.gate.show $lib.view.get().iden
 Gate Type: view
 
 Auth Gate Users:
-  5634a58d79099b36c85d387eb735b705 - root
+  7034e44009c6e19486811c3ab783c497 - root
     Admin: true
     Rules:
 
 Auth Gate Roles:
-  5ff63f33765828350fa00e6c684d79cc - all
+  0d413ca931609d495091f356423173d9 - all
     Rules:
       [0  ] - view.read
 ```
@@ -766,7 +714,7 @@ storm> auth.gate.show $lib.layer.get().iden
 Gate Type: layer
 
 Auth Gate Users:
-  5634a58d79099b36c85d387eb735b705 - root
+  7034e44009c6e19486811c3ab783c497 - root
     Admin: true
     Rules:
 
@@ -805,33 +753,11 @@ A list of available Cortex permissions is available under the [Cortex Permission
 
 These basic permissions can be assigned to a role to allow users to perform common operations in Synapse.
 
-<table>
-<colgroup>
-<col style="width: 27%" />
-<col style="width: 73%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Permission</strong></th>
-<th><strong>Description</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>view.read</code></td>
-<td>See / read any view</td>
-</tr>
-<tr class="even">
-<td><code>view.add</code></td>
-<td>Fork any view they can see</td>
-</tr>
-<tr class="odd">
-<td><code>node</code></td>
-<td><p>Create, modify, or delete any type of data (nodes, properties, light</p>
-<p>edges, tags, and node data) in the top layer of any view they can see</p></td>
-</tr>
-</tbody>
-</table>
+| Permission | Description |
+|------------|-------------|
+| `view.read` | See / read any view |
+| `view.add` | Fork any view they can see |
+| `node` | Create, modify, or delete any type of data (nodes, properties, light edges, tags, and node data) in the top layer of any view they can see |
 
 **Tips:**
 
@@ -848,61 +774,15 @@ Any **global** permissions (e.g., `node.add`) will apply to the top (writeable) 
 
 These permissions also prevent the role from **deleting nodes** globally, while allowing them to delete properties or edges and to remove tags.
 
-<table style="width:99%;">
-<colgroup>
-<col style="width: 19%" />
-<col style="width: 13%" />
-<col style="width: 65%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Permission</strong></th>
-<th><strong>Scope</strong></th>
-<th><strong>Description</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>view.add</code></td>
-<td>global</td>
-<td>Fork any view they can see (based on <code>view.read</code>)</td>
-</tr>
-<tr class="even">
-<td><code>!node.del</code></td>
-<td>global</td>
-<td>Prevent deletion of any nodes</td>
-</tr>
-<tr class="odd">
-<td><code>node.add</code></td>
-<td>global</td>
-<td>Create nodes in the top layer of any view they can see</td>
-</tr>
-<tr class="even">
-<td><code>node.prop</code></td>
-<td>global</td>
-<td><p>Set, modify, or delete node properties in the top layer of any</p>
-<p>view they can see</p></td>
-</tr>
-<tr class="odd">
-<td><code>node.edge</code></td>
-<td>global</td>
-<td><p>Add or remove light edges in the top layer of any view they</p>
-<p>can see</p></td>
-</tr>
-<tr class="even">
-<td><code>node.tag</code></td>
-<td>global</td>
-<td><p>Add or remove tags from nodes in the top layer of any view they</p>
-<p>can see</p></td>
-</tr>
-<tr class="odd">
-<td><code>view.read</code></td>
-<td>local</td>
-<td><p>See all the data in all the layers of the specific view(s)</p>
-<p>where the rule is assigned</p></td>
-</tr>
-</tbody>
-</table>
+| Permission | Scope | Description |
+|------------|-------|-------------|
+| `view.add` | global | Fork any view they can see (based on view.read) |
+| `!node.del` | global | Prevent deletion of any nodes |
+| `node.add` | global | Create nodes in the top layer of any view they can see |
+| `node.prop` | global | Set, modify, or delete node properties in the top layer of any view they can see |
+| `node.edge` | global | Add or remove light edges in the top layer of any view they can see |
+| `node.tag` | global | Add or remove tags from nodes in the top layer of any view they can see |
+| `view.read` | local | See all the data in all the layers of the specific view(s) where the rule is assigned |
 
 <a id="perms_case3"></a>
 
@@ -957,61 +837,18 @@ In this example, a role with the following permissions can:
 - **only** add and remove tags in the listed tag trees; and
 - **only** create and delete the listed edges.
 
-<table>
-<colgroup>
-<col style="width: 28%" />
-<col style="width: 71%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Permission</strong></th>
-<th><strong>Description</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>node.tag.add.cno</code></td>
-<td><p>Add / apply tags in the <code>cno</code> tree (e.g., <code>cno</code>, <code>cno.mal</code>,</p>
-<p><code>cno.mal.plugx</code> etc.)</p></td>
-</tr>
-<tr class="even">
-<td><code>node.tag.del.cno</code></td>
-<td>Remove any tags in the <code>cno</code> tree</td>
-</tr>
-<tr class="odd">
-<td><code>node.tag.add.rep</code></td>
-<td>Add / apply any tags in the <code>rep</code> tree</td>
-</tr>
-<tr class="even">
-<td><code>node.tag.del.rep</code></td>
-<td>Remove any tags in the <code>rep</code> tree</td>
-</tr>
-<tr class="odd">
-<td><code>node.edge.add.refs</code></td>
-<td>Add <code>refs</code> light edges</td>
-</tr>
-<tr class="even">
-<td><code>node.edge.del.refs</code></td>
-<td>Delete <code>refs</code> light edges</td>
-</tr>
-<tr class="odd">
-<td><code>node.edge.add.uses</code></td>
-<td>Add <code>uses</code> light edges</td>
-</tr>
-<tr class="even">
-<td><code>node.edge.del.uses</code></td>
-<td>Delete <code>uses</code> light edges</td>
-</tr>
-<tr class="odd">
-<td><code>node.edge.add.targets</code></td>
-<td>Add <code>targets</code> light edges</td>
-</tr>
-<tr class="even">
-<td><code>node.edge.del.targets</code></td>
-<td>Delete <code>targets</code> light edges</td>
-</tr>
-</tbody>
-</table>
+| Permission | Description |
+|------------|-------------|
+| `node.tag.add.cno` | Add / apply tags in the `cno` tree (e.g., `cno`, `cno.mal`, `cno.mal.plugx` etc.) |
+| `node.tag.del.cno` | Remove any tags in the `cno` tree |
+| `node.tag.add.rep` | Add / apply any tags in the `rep` tree |
+| `node.tag.del.rep` | Remove any tags in the `rep` tree |
+| `node.edge.add.refs` | Add `refs` light edges |
+| `node.edge.del.refs` | Delete `refs` light edges |
+| `node.edge.add.uses` | Add `uses` light edges |
+| `node.edge.del.uses` | Delete `uses` light edges |
+| `node.edge.add.targets` | Add `targets` light edges |
+| `node.edge.del.targets` | Delete `targets` light edges |
 
 **Example 2:**
 
@@ -1025,33 +862,11 @@ A role with the following permissions is **prohibited** from:
 
 Note that the permissions as listed only prohibit actions. For a role with these permissions to be able to make other changes (e.g., add other nodes or edges), those permissions need to be granted after these "deny" rules, or as part of another role.
 
-<table>
-<colgroup>
-<col style="width: 42%" />
-<col style="width: 57%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Permission</strong></th>
-<th><strong>Description</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>!node.add.risk:threat:type:taxonomy</code></td>
-<td>Prevent creating these nodes</td>
-</tr>
-<tr class="even">
-<td><code>!node.prop.set.risk:threat:type</code></td>
-<td><p>Prevent setting this property (i.e., on existing</p>
-<p><code>risk:threat</code> nodes)</p></td>
-</tr>
-<tr class="odd">
-<td><code>!node.tag.add.tlp</code></td>
-<td>Prevent applying tags in the <code>tlp</code> tree</td>
-</tr>
-</tbody>
-</table>
+| Permission | Description |
+|------------|-------------|
+| `!node.add.risk:threat:type:taxonomy` | Prevent creating these nodes |
+| `!node.prop.set.risk:threat:type` | Prevent setting this property (i.e., on existing `risk:threat` nodes) |
+| `!node.tag.add.tlp` | Prevent applying tags in the `tlp` tree |
 
 > [!TIP]
 > To prevent users or roles from making **any** changes to a particular view (i.e., users cannot merge any data into the view / write any data directly to the view's topmost layer):
@@ -1073,53 +888,12 @@ These types of permissions are typically **cumulative;** generic users may be pr
 
 **Example:**
 
-<table style="width:99%;">
-<colgroup>
-<col style="width: 21%" />
-<col style="width: 29%" />
-<col style="width: 48%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Role</strong></th>
-<th><strong>Permission(s)</strong></th>
-<th><strong>Description</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><strong>users</strong></td>
-<td><p><code>!node.tag.cno</code></p>
-<p><code>!node.tag.rep</code></p>
-<p><code>node.tag</code></p></td>
-<td><p>Prevent applying tags in the <code>cno</code> and</p>
-<p><code>rep</code> trees (representing specific analytical</p>
-<p>assessements) but apply other tags</p></td>
-</tr>
-<tr class="even">
-<td><strong>novice analyst</strong></td>
-<td><code>node.tag.add.rep</code></td>
-<td><p>Novices can apply tags in the <code>rep</code> tree</p>
-<p>(representing third-party reporting)</p></td>
-</tr>
-<tr class="odd">
-<td><strong>junior analyst</strong></td>
-<td><code>node.tag.add.cno.infra</code></td>
-<td><p>Junior analysts can apply tags in the</p>
-<p><code>cno.infra</code> tree (related to network</p>
-<p>infrastructure)</p></td>
-</tr>
-<tr class="even">
-<td><strong>senior analyst</strong></td>
-<td><p><code>node.tag.add.cno.threat</code></p>
-<p><code>node.tag.add.cno.mal</code></p></td>
-<td><p>Senior analysts can apply tags in the</p>
-<p><code>cno.threat</code> and <code>cno.mal</code> trees</p>
-<p>(assessments related to threat clusters and</p>
-<p>malware families)</p></td>
-</tr>
-</tbody>
-</table>
+| Role | Permission(s) | Description |
+|------|---------------|-------------|
+| users | `!node.tag.cno`, `!node.tag.rep`, `node.tag` | Prevent applying tags in the `cno` and `rep` trees (representing specific analytical assessements) but apply other tags |
+| novice analyst | `node.tag.add.rep` | Novices can apply tags in the `rep` tree (representing third-party reporting) |
+| junior analyst | `node.tag.add.cno.infra` | Junior analysts can apply tags in the `cno.infra` tree (related to network infrastructure) |
+| senior analyst | `node.tag.add.cno.threat`, `node.tag.add.cno.mal` | Senior analysts can apply tags in the `cno.threat` and `cno.mal` trees (assessments related to threat clusters and malware families) |
 
 > [!NOTE]
 > Because of [Precedence](adminguide.md#admin_bkd_precedence), as additional roles are granted, they would need to be added (indexed) **before** the `users` role to prevent that role's explicit deny permissions from overriding the newly allowed tag privileges.
@@ -1140,37 +914,11 @@ For organizations with diverse analysis teams (e.g., where analysts specialize i
 - We assume the ability to apply the specialized tags listed below is either **not granted** or **explicitly denied** elsewhere/to other roles.
 - Malware analysts can also be granted the ability to **remove** the tags listed below with the corresponding `node.tag.del` permissions.
 
-<table>
-<colgroup>
-<col style="width: 28%" />
-<col style="width: 71%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Permission</strong></th>
-<th><strong>Description</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>node.tag.add.cno.code</code></td>
-<td><p>Apply <code>cno.code</code> tags (designating specific samples of code</p>
-<p>families - e.g., <code>cno.code.plugx</code>)</p></td>
-</tr>
-<tr class="even">
-<td><code>node.tag.add.cno.mal</code></td>
-<td><p>Apply <code>cno.mal</code> tags (designating components of malware / code</p>
-<p>family ecosystems, such as related droppers or C2 - e.g.,</p>
-<p><code>cno.mal.plugx</code>)</p></td>
-</tr>
-<tr class="odd">
-<td><code>node.tag.add.cno.rel</code></td>
-<td><p>Apply <code>cno.rel</code> tags (designating components that may be observed</p>
-<p>as part of a malware ecosystem but are not inherently malicious -</p>
-<p>e.g., <code>cno.rel.plugx</code>)</p></td>
-</tr>
-</tbody>
-</table>
+| Permission | Description |
+|------------|-------------|
+| `node.tag.add.cno.code` | Apply `cno.code` tags (designating specific samples of code families - e.g., `cno.code.plugx`) |
+| `node.tag.add.cno.mal` | Apply `cno.mal` tags (designating components of malware / code family ecosystems, such as related droppers or C2 - e.g., `cno.mal.plugx`) |
+| `node.tag.add.cno.rel` | Apply `cno.rel` tags (designating components that may be observed as part of a malware ecosystem but are not inherently malicious - e.g., `cno.rel.plugx`) |
 
 **Strategic analyst example:**
 
@@ -1178,8 +926,8 @@ For organizations with diverse analysis teams (e.g., where analysts specialize i
 - Strategic analysts can optionally be granted the ability to delete relevant nodes/properties with the corresponding `node.del` or `node.prop.del` permissions.
 - Depending on how you assign permissions, keep in mind that roles that cannot **create** nodes may still be able to **set or modify properties** on the node as long as the node already exists. This ability can be restricted via additional `node.prop.set` rules if necessary.
 
-| **Permission**                    | **Description**                                |
-|-----------------------------------|------------------------------------------------|
+| Permission                    | Description                                |
+|-------------------------------|--------------------------------------------|
 | `node.add.ou:org`                 | Create organization nodes                      |
 | `node.prop.set.ou:org:industries` | Assign organizations to one or more industries |
 | `node.add.ind:industry`           | Create industry nodes                          |
@@ -1410,6 +1158,11 @@ axon.has
 
 axon.upload
     Controls the ability to upload a file to the Axon.
+    gate: cortex
+    default: false
+
+axon.wput
+    Controls the ability to push a file from the Axon to a URL.
     gate: cortex
     default: false
 
@@ -2078,7 +1831,7 @@ When adding a form, `$lib.model.ext.addForm` takes the following arguments:
 
 To add a new form named `_foocorp:name`, which contains string values which will be normalized to lowercase, with whitespace stripped from the beginning/end:
 
-``` text
+```storm
 $typeopts = ({'lower': true, 'strip': true})
 $typeinfo = ({'doc': 'Foocorp name.'})
 
@@ -2087,7 +1840,7 @@ $lib.model.ext.addForm(_foocorp:name, str, $typeopts, $typeinfo)
 
 If the form is no longer in use and there are no nodes of this form in the Cortex, it can be removed with:
 
-``` text
+```storm
 $lib.model.ext.delForm(_foocorp:name)
 ```
 
@@ -2113,7 +1866,7 @@ When adding properties, `$lib.model.ext.addFormProp` takes the following argumen
 
 To add a property named `_score` to the `_foocorp:name` form which contains int values between 0 and 100:
 
-``` text
+```storm
 $typeopts = ({'min': 0, 'max': 100})
 $propinfo = ({'doc': 'Score for this name.'})
 
@@ -2122,7 +1875,7 @@ $lib.model.ext.addFormProp(_foocorp:name, _score, (int, $typeopts), $propinfo)
 
 To add a property named `_aliases` to the `_foocorp:name` form which contains a unique array of `base:name` values:
 
-``` text
+```storm
 $typeopts = ({'type': 'base:name', 'uniq': true})
 $propinfo = ({'doc': 'Aliases for this name.'})
 
@@ -2131,7 +1884,7 @@ $lib.model.ext.addFormProp(_foocorp:name, _aliases, (array, $typeopts), $propinf
 
 Properties may also be added to existing forms, for example, to add a property named `_classification` to `inet:fqdn` which must contain a string from a predefined set of values:
 
-``` text
+```storm
 $typeopts = ({'enums': 'unknown,benign,malicious'})
 $propinfo = ({'doc': 'Classification for this FQDN.'})
 
@@ -2192,13 +1945,13 @@ When configuring a mirrored layer, you may choose to mirror from a remote layer 
 
 To specify a remote layer as the upstream, use a Telepath URL which includes the shared object `*/layer/<layeriden>` such as:
 
-``` text
+```text
 aha://cortex.loop.vertex.link/*/layer/8ea600d1732f2c4ef593120b3226dea3
 ```
 
 To specify a remote view, use the shared object `*/view/<viewiden>` such as:
 
-``` text
+```text
 aha://cortex.loop.vertex.link/*/view/8ea600d1732f2c4ef593120b3226dea3
 ```
 

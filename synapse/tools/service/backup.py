@@ -171,16 +171,16 @@ def backup_lmdb(env: lmdb.Environment, dstdir: str, txn=None):
 
 def iterslabzip(lmdbinfo, srcdir, fileobj, arcbase='backup', skipdirs=None):
     '''
-    Stream a consistent Synapse backup as a zip archive into ``fileobj`` using the
-    pinned lmdb read transactions in ``lmdbinfo``.
+    Stream a consistent Synapse backup as a zip archive into `fileobj` using the
+    pinned lmdb read transactions in `lmdbinfo`.
 
-    Each captured ``data.mdb`` is streamed via a compacting ``env.copyfd()`` into a
+    Each captured `data.mdb` is streamed via a compacting `env.copyfd()` into a
     zip entry written with a data descriptor, so the member size need not be known
     up front. Plain files are copied verbatim. The archive contains a single root
     directory with all backup members below it.
 
     Args:
-        lmdbinfo (dict): Maps slab dir path to ``(env, txn)`` (see ``capturelmdbs``).
+        lmdbinfo (dict): Maps slab dir path to `(env, txn)` (see `capturelmdbs`).
         srcdir (str): The service directory being backed up.
         fileobj: A writable binary file object to receive the zip bytes.
         arcbase (str): The archive root directory name.

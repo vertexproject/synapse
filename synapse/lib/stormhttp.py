@@ -14,6 +14,7 @@ import synapse.lib.base as s_base
 import synapse.lib.json as s_json
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.httpclient as s_httpclient
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerType
@@ -101,6 +102,11 @@ class LibHttp(s_stormtypes.Lib):
         (true): Use the proxy defined by the http:proxy configuration option if set.
         (false): Do not use the proxy defined by the http:proxy configuration option if set.
         <str>: A proxy URL string.
+
+    Notes:
+        When no User-Agent header is specified, the Cortex sends its own default User-Agent
+        (see the "Outbound HTTP User-Agent" section of the devops guide). A User-Agent header
+        provided in the headers argument always overrides the default, regardless of casing.
     '''
     _storm_locals = (
         {'name': 'get', 'desc': 'Get the contents of a given URL.',
@@ -267,6 +273,20 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'code', 'type': 'int', 'desc': 'The HTTP status code.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The reason phrase for the status code.', }}},
+        {'name': 'useragent', 'desc': '''
+            The Cortex's default outbound HTTP User-Agent.
+
+            This is the User-Agent sent when a request specifies none of its own. It is
+            exposed so a caller may build on it rather than replace it -- a package which
+            wants to identify itself can append to it and pass the result as a header.
+
+            Examples:
+                Send a request identifying the package as well as the Cortex::
+
+                    $ua = `{$lib.inet.http.useragent} Foo/Bar`
+                    $resp = $lib.inet.http.get($url, headers=({"User-Agent": $ua}))
+         ''',
+         'type': 'str'},
     )
     _storm_lib_path = ('inet', 'http')
     _storm_lib_perms = (
@@ -284,6 +304,10 @@ class LibHttp(s_stormtypes.Lib):
             'urlencode': self.urlencode,
             'urldecode': self.urldecode,
             'codereason': self.codereason,
+            # a plain locl rather than a gtor because the value is fixed at cell init
+            # (Cell._useragent); if it ever becomes mutable at runtime this must become
+            # a gtor so a long-lived runtime does not serve a stale value
+            'useragent': self.runt.view.core.getUserAgent(),
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -344,8 +368,11 @@ class LibHttp(s_stormtypes.Lib):
 
         kwargs['ssl'] = self.runt.view.core.getCachedSslCtx(opts=ssl)
 
+        sesshdrs = {'User-Agent': self.runt.view.core.getUserAgent()}
+
         try:
-            sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=client_timeout))
+            sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=client_timeout,
+                                                                   headers=sesshdrs))
             sock.resp = await sock.enter_context(sess.ws_connect(url, headers=headers, **kwargs))
 
             sock._syn_refs = 0
@@ -408,6 +435,11 @@ class LibHttp(s_stormtypes.Lib):
                     'proxy': await s_stormtypes.resolveAxonProxyArg(proxy),
                 }
 
+                # a Storm-supplied User-Agent must persist to the Axon; when absent, the
+                # Cortex's own default is used so the request has one consistent origin
+                # identity regardless of which cell actually sends the request
+                headers = s_httpclient.setDefaultUserAgent(headers, self.runt.view.core.getUserAgent())
+
                 axon = await self.runt.view.core.getAxon()
                 info = await axon.postfiles(fields, url, headers=headers, params=params, method=meth,
                                             ssl=ssl, timeout=timeout, **kwargs)
@@ -421,7 +453,8 @@ class LibHttp(s_stormtypes.Lib):
 
         timeout = aiohttp.ClientTimeout(total=timeout)
 
-        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as sess:
+        sesshdrs = {'User-Agent': self.runt.view.core.getUserAgent()}
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout, headers=sesshdrs) as sess:
             try:
                 if fields:
                     data = self._buildFormData(fields)
@@ -504,7 +537,7 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'err', 'type': 'list', 'desc': 'Tuple of the error type and information if an exception occurred.'},
         {'name': 'history', 'desc': 'A list of response objects representing the history of the response. This is populated when responses are redirected.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorHistory',
-                  'returns': {'type': 'list', 'desc': 'A list of ``inet:http:resp`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of `inet:http:resp` objects.', }}},
         {'name': 'getRawHeaders', 'desc': 'Get a dictionary mapping header names to lists of all their values.',
          'type': {'type': 'function', '_funcname': 'getRawHeaders',
                   'returns': {'type': 'dict', 'desc': 'A dictionary mapping each header name to a list of values.'}}},

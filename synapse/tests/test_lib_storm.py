@@ -2476,7 +2476,21 @@ class StormTest(s_t_utils.SynTest):
             self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
             self.eq(data.get('headers').get('User-Agent'), 'my fav ua')
 
-            # no default headers(from wget command)
+            # with no --headers at all, the command's own browser-mimicking defaults are sent
+            q = 'wget $url --no-ssl-verify | -> file:bytes $lib.print($node)'
+            mesgs = await alist(core.storm(q, opts=opts))
+
+            resp = await _getRespFromSha(core, mesgs)
+            data = resp.get('result')
+            headers = data.get('headers')
+            self.isin('Chrome/', headers.get('User-Agent'))
+            self.eq('*/*', headers.get('Accept'))
+            self.eq('gzip, deflate', headers.get('Accept-Encoding'))
+            self.eq('en-US,en;q=0.9', headers.get('Accept-Language'))
+
+            # no default headers(from wget command) -- the browser-mimicking User-Agent is
+            # dropped, and since $lib.axon.wget then sees no caller User-Agent, the Cortex's
+            # own default is injected and persists across the hop to the Axon
             q = '''
             $hdr = (
                     ("User-Agent", "my fav ua"),
@@ -2487,7 +2501,10 @@ class StormTest(s_t_utils.SynTest):
 
             resp = await _getRespFromSha(core, mesgs)
             data = resp.get('result')
-            self.ne(data.get('headers').get('User-Agent'), 'my fav ua')
+            useragent = data.get('headers').get('User-Agent')
+            self.ne(useragent, 'my fav ua')
+            self.notin('Chrome/', useragent)
+            self.isin('Synapse-Cortex/', useragent)
 
             # params as list of key/value pairs
             q = '''
@@ -4963,15 +4980,15 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('help -v $lib')
 
-            self.stormIsInPrint('$lib.import(name, debug=(false), reqvers=(null))\n'
-                                '================================================\n'
+            self.stormIsInPrint('## $lib.import(name, debug=(false), reqvers=(null))\n'
+                                '\n'
                                 'Import a Storm module.', msgs)
 
             msgs = await core.stormlist('help $lib.macro')
             self.stormIsInPrint('$lib.macro.del(name)\nDelete a Storm Macro by name from the Cortex.', msgs)
 
             msgs = await core.stormlist('help list')
-            self.stormIsInPrint('***\nlist\n****\nImplements the Storm API for a List instance.', msgs)
+            self.stormIsInPrint('# list\n\nImplements the Storm API for a List instance.', msgs)
             self.stormIsInPrint('append(valu)\nAppend a value to the list.', msgs)
             self.stormIsInPrint('auth.user.list : List all users.', msgs, whitespace=False)
 
@@ -4979,7 +4996,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('help -v auth:user')
             self.stormIsInPrint('Implements the Storm API for a User.', msgs)
             self.stormIsInPrint("A user's email. This can also be used to set the user's email.", msgs)
-            self.stormIsInPrint('The return type may be one of the following: str, null.', msgs)
+            self.stormIsInPrint('The return type may be one of the following: `str`, `null`.', msgs)
 
             msgs = await core.stormlist('help $lib.regex')
             self.stormIsInPrint('The following references are available:\n\n'
@@ -4999,8 +5016,16 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('Lift nodes which have a given nodedata name set on them.', msgs)
 
             msgs = await core.stormlist('help --verbose $lib.lift.byNodeData')
-            self.stormIsInPrint('Lift nodes which have a given nodedata name set on them.\n'
-                                'Args:\n    name (str): The name of the nodedata key to lift by.', msgs)
+            self.stormIsInPrint('Lift nodes which have a given nodedata name set on them.\n\n'
+                                '**Args:**\n\n'
+                                '- `name` (`str`): The name of the nodedata key to lift by.', msgs)
+
+            # a bound method on a pure-Storm library (backed by a runtime
+            # module rather than a Python class) routes through
+            # _handleStormLibMethod rather than _handleBoundMethod.
+            msgs = await core.stormlist('help $lib.infosec.mitre.attack.flow.ingest')
+            self.stormIsInPrint('$lib.infosec.mitre.attack.flow.ingest(flow)\n'
+                                'Ingest a MITRE ATT&CK Flow diagram in JSON format.', msgs)
 
             orig = s_stormtypes.registry.getLibDocs
             def forcedep(cls):
@@ -5012,7 +5037,7 @@ class StormTest(s_t_utils.SynTest):
             with mock.patch('synapse.lib.stormtypes.registry.getLibDocs', forcedep):
                 msgs = await core.stormlist('help --verbose $lib.len')
                 self.stormIsInPrint('Warning', msgs)
-                self.stormIsInPrint('``$lib.len`` has been deprecated and will be removed in version v999.0.0', msgs)
+                self.stormIsInPrint('`$lib.len` has been deprecated and will be removed in version v999.0.0', msgs)
 
             msgs = await core.stormlist('help $lib.inet')
             self.stormIsInPrint('The following libraries are available:\n\n'

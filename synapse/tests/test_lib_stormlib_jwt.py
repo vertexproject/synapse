@@ -34,6 +34,7 @@ class JwksHandler(s_httpapi.Handler):
         self.state = state
     async def get(self):
         self.state['hits'] += 1
+        self.state['headers'] = dict(self.request.headers)
         code = self.state.get('code', 200)
         if code != 200:
             self.set_status(code)
@@ -1096,6 +1097,9 @@ class StormLibJwtJwksTest(s_test.SynTest):
                 opts={'vars': base}))[0])
             self.eq(state['hits'], 1)
 
+            # the JWKS fetch used the Cortex's default User-Agent
+            self.eq(state['headers']['User-Agent'], core.getUserAgent())
+
     async def test_stormlib_jwt_jwks_uri_rotate(self):
 
         async with self.getTestCore() as core:
@@ -1207,6 +1211,80 @@ class StormLibJwtJwksTest(s_test.SynTest):
                     jwks_uri=$url, ssl_opts=$ssl, proxy=(true), allowinternal=(true)))
             ''', opts={'vars': {'t': tok, 'k': None, 'url': url2, 'ssl': ssl}}))[0])
             self.eq(state2['hits'], 0)
+
+    async def test_stormlib_jwt_jwks_uri_proxy(self):
+        '''
+        The proxy case in test_stormlib_jwt_jwks_uri points at a proxy which is
+        not listening, so it proves only that the fetch was attempted through
+        one. This proves the JWKS really arrives through a working proxy, and
+        the token verifying against it is what proves it arrived intact.
+        '''
+        async with self.getTestCore() as core:
+
+            (prv1, jwk1) = await self._mkkey(core, 'k1')
+            tok = await self._sign(core, prv1, 'k1')
+
+            (addr, port) = await core.addHttpsPort(0)
+            ssl = {'verify': False}
+            body = s_json.dumps({'keys': [jwk1]})
+
+            # the verified subject, or null when the fetch or the verify failed
+            q = '''
+            $sub = (null)
+            ($ok, $v) = $lib.crypto.jwt.verify($t, $k, ("RS256",), jwks_uri=$url,
+                ssl_opts=$ssl, proxy=$proxy, allowinternal=(true))
+            if $ok { $sub = $v.payload.sub }
+            return(($ok, $sub))
+            '''
+
+            def addRoute(path):
+                # a route per case: a jwks_uri already fetched is served from the
+                # cache without another request, which would hide the fetch
+                state = {'hits': 0, 'code': 200, 'body': body}
+                core.addHttpApi(path, JwksHandler, {'cell': core, 'state': state})
+                return (state, f'https://127.0.0.1:{port}{path}')
+
+            for ctor in s_test.PROXIES:
+                with self.subTest(scheme=ctor.scheme):
+
+                    (state, url) = addRoute(f'/jwks-{ctor.scheme}')
+
+                    async with await ctor.anit() as proxy:
+                        varz = {'t': tok, 'k': None, 'url': url, 'ssl': ssl, 'proxy': proxy.url}
+                        (ok, sub) = await core.callStorm(q, opts={'vars': varz})
+
+                        self.true(ok, msg=ctor.scheme)
+                        self.eq('u', sub, msg=ctor.scheme)
+                        self.eq(1, state['hits'], msg=ctor.scheme)
+                        self.eq([('127.0.0.1', port)], proxy.connects, msg=ctor.scheme)
+
+                    # a proxy which refuses the tunnel means the JWKS never arrives,
+                    # so the verify fails rather than the fetch going direct
+                    (state, url) = addRoute(f'/jwks-{ctor.scheme}-auth')
+
+                    async with await ctor.anit(auth='visi:secret') as proxy:
+                        proxyurl = proxy.url.replace('://', '://visi:newp@')
+                        varz = {'t': tok, 'k': None, 'url': url, 'ssl': ssl, 'proxy': proxyurl}
+                        (ok, sub) = await core.callStorm(q, opts={'vars': varz})
+
+                        self.false(ok, msg=ctor.scheme)
+                        self.none(sub, msg=ctor.scheme)
+                        self.eq(0, state['hits'], msg=ctor.scheme)
+                        self.eq([], proxy.connects, msg=ctor.scheme)
+                        self.lt(0, proxy.refused, msg=ctor.scheme)
+
+                    # and with the right credentials it arrives
+                    (state, url) = addRoute(f'/jwks-{ctor.scheme}-ok')
+
+                    async with await ctor.anit(auth='visi:secret') as proxy:
+                        proxyurl = proxy.url.replace('://', '://visi:secret@')
+                        varz = {'t': tok, 'k': None, 'url': url, 'ssl': ssl, 'proxy': proxyurl}
+                        (ok, sub) = await core.callStorm(q, opts={'vars': varz})
+
+                        self.true(ok, msg=ctor.scheme)
+                        self.eq('u', sub, msg=ctor.scheme)
+                        self.eq(1, state['hits'], msg=ctor.scheme)
+                        self.eq(0, proxy.refused, msg=ctor.scheme)
 
     async def test_stormlib_jwt_jwks_uri_singleflight(self):
 

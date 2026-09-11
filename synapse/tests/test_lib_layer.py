@@ -1737,6 +1737,61 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('[test:str=foo :seen=(2015, 2016)]')
             self.eq(offs, layr.getEditIndx())
 
+    async def test_layer_nodeedits_cancel_nexslock(self):
+        '''
+        A writer cancelled while parked on the apply task must not release nexslock.
+
+        Ownership of the lock moves to that task when NexsRoot.eat creates it, and _eat
+        releases it in its own finally: releasing it here as well raises a RuntimeError
+        there and frees the lock while the apply is still running.
+        '''
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:str=foo ]')
+            nid = s_common.int64un(nodes[0].nid)
+
+            layr = core.getLayer()
+
+            inapply = asyncio.Event()
+            hold = asyncio.Event()
+
+            orig = s_nexus.NexsRoot._eat
+
+            async def hookEat(self, item, indx=None):
+                inapply.set()
+                await hold.wait()
+                return await orig(self, item, indx=indx)
+
+            edits = ((s_layer.EDIT_NODEDATA_SET, ('hehe', 'haha')),)
+
+            with mock.patch('synapse.lib.nexus.NexsRoot._eat', hookEat):
+
+                task = core.schedCoro(layr.saveNodeEdits([(nid, 'test:str', edits)], {}))
+
+                # the writer is now parked on asyncio.shield(applytask)
+                await asyncio.wait_for(inapply.wait(), timeout=10)
+
+                applytask = core.nexsroot.applytask
+                self.false(applytask.done())
+
+                task.cancel()
+                with self.raises(asyncio.CancelledError):
+                    await task
+
+                # the apply task still owns nexslock
+                self.true(core.nexslock.locked())
+
+                hold.set()
+
+                # ...and releases it exactly once, with no RuntimeError
+                await asyncio.wait_for(applytask, timeout=10)
+
+            self.false(core.nexslock.locked())
+
+            # the cancelled write still applied, and the lock was not leaked
+            self.eq('haha', await core.callStorm('test:str=foo return($node.data.get(hehe))'))
+            self.len(1, await core.nodes('[ test:str=bar ]'))
+
     async def test_layer_tomb_over_live(self):
         '''
         A tombstone edit applied to a layer which still holds the live row must

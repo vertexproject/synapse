@@ -23,7 +23,7 @@ What you need to do
 
 :   For model introspection, a subform's `syn:form` node carries a `:parent` of its base form, so you can discover the hierarchy -- for example `syn:form=it:host:windows:account` has `:parent=it:host:account`.
 
-    ``` text
+    ```text
     // create the most specific subform; it inherits the base form's props
     [ it:host:windows:account=* :id="S-1-5-21-..." ]
 

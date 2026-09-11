@@ -37,12 +37,12 @@ async def spawn(todo, timeout=None, ctx=None, logconf=None, name=None):
     Run a todo (func, args, kwargs) tuple in a multiprocessing subprocess.
 
     Args:
-        todo (tuple): A tuple of function, ``*args``, and ``**kwargs``.
+        todo (tuple): A tuple of function, `*args`, and `**kwargs`.
         timeout (int): The timeout to wait for the todo function to finish.
         ctx (multiprocess.Context): A optional multiprocessing context object.
         logconf (dict): An optional logging configuration for the spawned process.
-        name (str): An optional process name (used as the log ``process`` field);
-            defaults to the multiprocessing default (``SpawnProcess-N``).
+        name (str): An optional process name (used as the log `process` field);
+            defaults to the multiprocessing default (`SpawnProcess-N`).
 
     Notes:
         The contents of the todo tuple must be able to be pickled for execution.

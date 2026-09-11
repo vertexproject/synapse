@@ -68,7 +68,7 @@ Pivot from a set of DNS A records to their associated IPs and then to additional
 [inet:dns:a=(woot.com, 1.2.3.4)] -> inet:ip { +:type=private [ +#nonroutable ] } -> inet:dns:a
 ```
 
-``` text
+```text
 <inet:dns:a> -> inet:ip { +:type=private [ +#nonroutable ] } -> inet:dns:a
 ```
 
@@ -86,7 +86,7 @@ inet:ip { -:place:loc } -> inet:server
 $query=${} $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [({'name': 'ipgeoloc', 'storm': $query })] }) $lib.print($pkg) $lib.pkg.add($pkg)
 ```
 
-``` text
+```text
 <inet:ip> { -:place:loc | ipgeoloc } -> inet:server
 ```
 
@@ -100,7 +100,7 @@ $file={ [ file:bytes=( { "sha256": "cc5f23669712ce42efa66054acefbe29a967c53e5920
 inet:fqdn yield { -> inet:dns:request:query:name +:client:exe -> file:bytes }
 ```
 
-``` text
+```text
 <inet:fqdn> yield { -> inet:dns:request:query:name +:client:exe -> file:bytes }
 ```
 
@@ -146,7 +146,7 @@ $org = { [ ou:org=( { "name": " vertex" } ) :names+='the vertex project' ] } [ e
 entity:contact:org = { ou:org:name = vertex }
 ```
 
-``` text
+```storm
 entity:contact:org = { ou:org:name = vertex }
 ```
 
@@ -165,7 +165,7 @@ $conf={ [ ou:conference=( { "name": "pivotcon 2026", "family": "pivotcon" } ) ] 
 ou:preso:activity = { ou:conference:name = 'pivotcon 2026' }
 ```
 
-``` text
+```storm
 ou:preso:activity = { ou:conference:name = 'pivotcon 2026' }
 ```
 

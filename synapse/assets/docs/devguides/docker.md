@@ -35,7 +35,7 @@ The images provided include the following:
 
 Images are built using Bash scripts. All of the images can be built directly with a single command:
 
-> ``` text
+> ```text
 > $ ./docker/scripts/build.sh <optional_image_tag>
 > ```
 
@@ -49,7 +49,7 @@ Developers working with Synapse images should consider the following items:
 
 - The `synapse` package and its dependencies are installed in an isolated Docker-managed Python environment. While our container's `pip` retains [PEP668](https://peps.python.org/pep-0668/) compatibility checks, enforcement is not triggered as a result. If you are installing your own Python packages to the distribution, you can do so without any special flags:
 
-  ``` text
+  ```text
   python -m pip install yourTargetPackage
   ```
 
@@ -64,7 +64,7 @@ You can use the Python script `synapse.tools.docker.validate` to confirm that a 
 
 The following shows an example of verifying a signed image, referenced by its registry content hash:
 
-``` text
+```text
 $ python -m synapse.tools.docker.validate vertexproject/synapse@sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b
 Verifying: vertexproject/synapse@sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b
 Using Cosign with GitVersion:    v2.1.0

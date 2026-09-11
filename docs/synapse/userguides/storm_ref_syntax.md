@@ -66,11 +66,11 @@ Example queries may or may not include results (the output of the query). Result
 
 **Example queries:**
 
-``` text
+```storm
   [ inet:ip=1.2.3.4 :place:loc=us ]
 ```
 
-``` text
+```text
   <inet:dns:a> -> inet:ip
 ```
 

@@ -1,11 +1,11 @@
 '''
 A reusable JSON-RPC 2.0 server implementation for the Synapse Tornado web server.
 
-This module provides ``JsonRpcHandler``, a Tornado handler which exposes its own
-``@s_jsrpc.method`` decorated methods as a JSON-RPC 2.0 endpoint. It is intentionally
+This module provides `JsonRpcHandler`, a Tornado handler which exposes its own
+`@s_jsrpc.method` decorated methods as a JSON-RPC 2.0 endpoint. It is intentionally
 generic: it knows nothing about any specific protocol built on top of it (such as MCP).
 
-To use it, extend ``JsonRpcHandler``, implement the decorated methods directly, and mount
+To use it, extend `JsonRpcHandler`, implement the decorated methods directly, and mount
 it on a Cell using the existing addHttpApi machinery::
 
     class FooApi(s_jsrpc.JsonRpcHandler):
@@ -18,10 +18,10 @@ it on a Cell using the existing addHttpApi machinery::
 
 The decorated methods must be coroutine functions or async generator functions. Async
 generator methods may stream their results to the caller as Server-Sent Events when the
-request carries an ``Accept: text/event-stream`` header.
+request carries an `Accept: text/event-stream` header.
 
-A method recovers the calling user through the handler auth APIs (e.g. ``self.web_useriden``
-or ``self.getAuthCell()``), which work whether auth is local or delegated to a remote cell.
+A method recovers the calling user through the handler auth APIs (e.g. `self.web_useriden`
+or `self.getAuthCell()`), which work whether auth is local or delegated to a remote cell.
 '''
 import inspect
 import logging
@@ -56,7 +56,7 @@ def method(name=None, desc=None, params=None, returns=None):
 
     Args:
         name (str): An optional JSON-RPC method name override. This allows names which are
-            not valid python identifiers (e.g. ``tools/list``). Defaults to the function name.
+            not valid python identifiers (e.g. `tools/list`). Defaults to the function name.
         desc (str): A human readable description of the method.
         params (dict): An optional JSON Schema used to validate the request params.
         returns (dict): An optional JSON Schema describing the result for introspection.
@@ -91,12 +91,12 @@ class JsonRpcHandler(s_httpapi.Handler):
     '''
     A Tornado handler which exposes its own decorated methods as a JSON-RPC 2.0 endpoint.
 
-    Subclass this and implement methods decorated with ``@s_jsrpc.method``.
+    Subclass this and implement methods decorated with `@s_jsrpc.method`.
     '''
     @classmethod
     def _getMarkedMethods(cls, marker):
         '''
-        Return a list of ``(attrname, info)`` for callable members carrying the given
+        Return a list of `(attrname, info)` for callable members carrying the given
         marker attribute (set by a registration decorator).
         '''
         retn = []
@@ -120,11 +120,11 @@ class JsonRpcHandler(s_httpapi.Handler):
         Introspect the handler class and return its JSON-RPC method registry.
 
         Returns:
-            dict: A JSON compatible mapping of JSON-RPC method name to ``{'attr': attrname,
-            'info': info}`` where info is the method definition (name, desc, params,
+            dict: A JSON compatible mapping of JSON-RPC method name to `{'attr': attrname,
+            'info': info}` where info is the method definition (name, desc, params,
             returns, genr). The registry is cached on the class; the compiled params
             validators and method arg signatures are stored separately (in the
-            ``_syn_jsrpc_validators`` and ``_syn_jsrpc_signatures`` class locals) so the
+            `_syn_jsrpc_validators` and `_syn_jsrpc_signatures` class locals) so the
             registry remains JSON serializable and suitable for higher level introspection.
         '''
         meths = cls.__dict__.get('_syn_jsrpc_meths')
@@ -204,9 +204,9 @@ class JsonRpcHandler(s_httpapi.Handler):
         Dispatch a single parsed JSON-RPC request object.
 
         Returns:
-            tuple: Either ``('resp', obj_or_None)`` where obj is a JSON-RPC response
+            tuple: Either `('resp', obj_or_None)` where obj is a JSON-RPC response
             object (or None to suppress a notification response), or
-            ``('stream', reqid, agen)`` to stream an async generator to the caller.
+            `('stream', reqid, agen)` to stream an async generator to the caller.
         '''
         if not self._isValidReq(req):
             # The validity of the request is in question, so the id cannot be trusted and

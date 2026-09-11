@@ -2421,6 +2421,7 @@ The `biz:product` type is derived from the base type: [`guid`](#dm-type-guid).
 This type implements the following interfaces:
 
 - `('meta:havable', {})`
+- `('biz:manufactured', {})`
 - `('entity:creatable', {})`
 
 <a id="dm-type-biz-service"></a>
@@ -2513,6 +2514,13 @@ The `crypto:currency:chain` type is derived from the base type: [`guid`](#dm-typ
 
 An individual crypto currency transaction recorded on the blockchain.
 The `crypto:currency:transaction` type is derived from the base type: [`guid`](#dm-type-guid).
+
+<a id="dm-type-crypto-currency-bridge-swap"></a>
+
+### crypto:currency:bridge:swap
+
+A cross-chain swap which bridges value between two transactions on different chains.
+The `crypto:currency:bridge:swap` type is derived from the base type: [`guid`](#dm-type-guid).
 
 <a id="dm-type-crypto-currency-block"></a>
 
@@ -2621,6 +2629,39 @@ This type implements the following interfaces:
 
 - `('crypto:smart:effect', {})`
 
+<a id="dm-type-crypto-smart-effect-freeze"></a>
+
+### crypto:smart:effect:freeze
+
+A smart contract effect which freezes or unfreezes an address on an issuer blocklist.
+The `crypto:smart:effect:freeze` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('crypto:smart:effect', {})`
+
+<a id="dm-type-crypto-smart-effect-seize"></a>
+
+### crypto:smart:effect:seize
+
+A smart contract effect which destroys the tokens held by an address.
+The `crypto:smart:effect:seize` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('crypto:smart:effect', {})`
+
+<a id="dm-type-crypto-smart-effect-swaptokens"></a>
+
+### crypto:smart:effect:swaptokens
+
+A smart contract effect which swaps one token or currency for another.
+The `crypto:smart:effect:swaptokens` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('crypto:smart:effect', {})`
+
 <a id="dm-type-crypto-payment-input"></a>
 
 ### crypto:payment:input
@@ -2634,6 +2675,13 @@ The `crypto:payment:input` type is derived from the base type: [`guid`](#dm-type
 
 A payment received from a transaction.
 The `crypto:payment:output` type is derived from the base type: [`guid`](#dm-type-guid).
+
+<a id="dm-type-crypto-payment-fee"></a>
+
+### crypto:payment:fee
+
+A fee paid to execute a transaction.
+The `crypto:payment:fee` type is derived from the base type: [`guid`](#dm-type-guid).
 
 <a id="dm-type-crypto-smart-token"></a>
 
@@ -3950,6 +3998,7 @@ The `econ:account` type is derived from the base type: [`guid`](#dm-type-guid).
 
 This type implements the following interfaces:
 
+- `('meta:usable', {})`
 - `('meta:observable', {})`
 
 <a id="dm-type-econ-bank-aba-rtn"></a>
@@ -4076,6 +4125,7 @@ The `econ:bank:account` type is derived from the base type: [`comp`](#dm-type-co
 This type implements the following interfaces:
 
 - `('econ:pay:instrument', {})`
+- `('meta:usable', {})`
 
 This type has the following options set:
 
@@ -4113,6 +4163,10 @@ This type has the following options set:
 
 A name used to refer to an entity.
 The `entity:name` type is derived from the base type: [`base:name`](#dm-type-base-name).
+
+This type implements the following interfaces:
+
+- `('meta:usable', {})`
 
 This type has the following options set:
 
@@ -7308,6 +7362,7 @@ The `inet:service:account` type is derived from the base type: [`guid`](#dm-type
 This type implements the following interfaces:
 
 - `('entity:actor', {})`
+- `('meta:usable', {})`
 - `('risk:targetable', {})`
 - `('entity:resolvable', {})`
 - `('econ:pay:instrument', {})`
@@ -9518,6 +9573,30 @@ This type has the following options set:
 
 A STIX indicator pattern.
 The `it:sec:stix:indicator` type is derived from the base type: [`guid`](#dm-type-guid).
+
+<a id="dm-type-it-app-sigma-rule"></a>
+
+### it:app:sigma:rule
+
+A Sigma rule.
+The `it:app:sigma:rule` type is derived from the base type: [`meta:rule`](#dm-type-meta-rule).
+
+This type implements the following interfaces:
+
+- `('meta:usable', {})`
+- `('doc:authorable', {})`
+- `('meta:observable', {})`
+
+<a id="dm-type-it-app-sigma-matched"></a>
+
+### it:app:sigma:matched
+
+An instance of a Sigma rule hit.
+The `it:app:sigma:matched` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('base:matched', {'template': {'rule': 'Sigma rule', 'rule:type': 'it:app:sigma:rule', 'target:type': 'it:log:event'}})`
 
 <a id="dm-type-it-app-snort-rule"></a>
 

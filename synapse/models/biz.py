@@ -112,12 +112,10 @@ modeldefs = (
                 'template': {'title': 'product'},
                 'interfaces': (
                     ('meta:havable', {}),
+                    ('biz:manufactured', {}),
                     ('entity:creatable', {}),
                 ),
                 'props': (
-
-                    ('name', ('base:name', {}), {
-                        'doc': 'The name of the product.'}),
 
                     ('type', ('biz:product:type:taxonomy', {}), {
                         'doc': 'The type of product.'}),

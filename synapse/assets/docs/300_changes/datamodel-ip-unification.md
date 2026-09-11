@@ -19,7 +19,7 @@ What you need to do
 
 :   Replace `inet:ipv4` and `inet:ipv6` lifts and props with `inet:ip`. To constrain to a single version, lift on the `version` prop or use the version-restricted `inet:ipv4` / `inet:ipv6` type on a typed prop.
 
-    ``` text
+    ```text
     // 2.x
     inet:ipv4=1.2.3.4
     inet:dns:a:ipv4=1.2.3.4

@@ -60,7 +60,7 @@ def getShareInfo(item):
         item:  Item to inspect.
 
     Notes:
-        This will set the ``_syn_telemeth`` attribute on the item
+        This will set the `_syn_telemeth` attribute on the item
         and the items class, so this data is only computed once.
 
     Returns:

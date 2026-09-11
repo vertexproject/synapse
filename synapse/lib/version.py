@@ -45,8 +45,8 @@ semver_re = regex.compile(semverstr)
 
 # The package-version pattern: semverstr plus an OPTIONAL leading PEP 440 epoch prefix (e.g.
 # "3!1.2.3"), so power-ups on the Synapse 3.x line sort above their legacy 2.x.x counterparts. Used
-# by synapse.lib.schemas to validate both a Storm package's ``version`` field and its
-# ``build:synapse:version`` stamp. The epoch stays optional (not mandatory): the synapse:version
+# by synapse.lib.schemas to validate both a Storm package's `version` field and its
+# `build:synapse:version` stamp. The epoch stays optional (not mandatory): the synapse:version
 # stamp, the platform packages (synapse-enterprise, optic), and third-party power-ups all carry
 # plain, un-epoch'd versions that must continue to validate.
 verstr = r'^(?:(?P<epoch>[0-9]+)!)?' + semverstr[1:]
@@ -383,5 +383,5 @@ def reqVersion(valu, reqver,
 ##############################################################################
 # The following are touched during the release process.
 # Edit version; commit is set during release.
-version = '3.1.0'
+version = '3.2.0'
 commit = ''

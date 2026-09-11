@@ -17,11 +17,11 @@ Synapse is a production-grade hypergraph-based intelligence analysis platform bu
 
 - **Cell** (`synapse/lib/cell.py`) — Base service class with auth, clustering, nexus replication, HTTP API, and telepath RMI support.
 - **Telepath** (`synapse/telepath.py`) — Custom async RPC/RMI framework with SSL/TLS and AHA service discovery.
-- **Storm** (`synapse/lib/storm.py`, `synapse/lib/parser.py`) — Query language DSL with Lark-based parser. ~50 stormlib modules in `synapse/lib/stormlib/`.
+- **Storm** (`synapse/lib/storm.py`, `synapse/lib/parser.py`) — Query language DSL with Lark-based parser. Most Storm libraries live in `synapse/lib/stormlib/`, but not all: `synapse/lib/stormtypes.py` still holds the largest single group and `synapse/lib/stormhttp.py` holds `$lib.inet.http`. Grep for `_storm_lib_path` rather than assuming a library is under `stormlib/`.
 - **LMDB Slab** (`synapse/lib/lmdbslab.py`) — High-performance LMDB wrapper for persistent key-value storage.
 - **Layer/View** (`synapse/lib/layer.py`, `synapse/lib/view.py`) — Layered data storage with snapshot/fork support.
 - **Nexus** (`synapse/lib/nexus.py`) — Replication and synchronization for distributed deployments.
-- **Data Model** (`synapse/datamodel.py`, `synapse/models/`) — 28+ domain models (cyber, geopolitical, economic, person, org, crypto, etc.).
+- **Data Model** (`synapse/datamodel.py`, `synapse/models/`) — One module per domain (cyber, geopolitical, economic, person, org, crypto, etc.); list `synapse/models/` for the current set.
 
 ### Core Beliefs
 
@@ -54,6 +54,7 @@ The alias is always `s_` followed by the last segment of the module path.
 - **Import-Order**: Standard library imports come first, then synapse imports. They **MUST** be ordered from shortest to longest and use alphanumeric sorting to break ties.
 - **No-Unicode-Arrows**: Do **not** use unicode arrow characters (e.g. `→`, `←`, `⇒`) in code or comments.
 - **Exc-Choice**: Raise `s_exc.BadArg` to reject input you know is bad (validation, missing/duplicate things the caller named, bad types/formats). Use `s_exc.StormRuntimeError` sparingly, only for failures that happen *after* the args are accepted and processed. Do not use the removed `BadOperArg`.
+- **Single-Backtick-Inline-Code**: Markdown inline code uses single backticks (`` `$lib.foo` ``). This applies to doc prose, docstrings that render into docs (a `mdautodoc --conf`/`--api` fence), pkgdef `descr` text, and changelog entries. A double-backtick span is only legitimate as CommonMark's escape for a literal backtick -- when the content itself contains one, as in `` ```text `` for a fenced code block opener. Enforced at build time by `synapse.lib.mddocs.lintInlineCode` for docs and `vtxtools.changelog._formatBullets` for changelog fragments.
 
 ### Naming Conventions
 
@@ -92,9 +93,13 @@ Do not confuse any of these with a model **propdef**, which is the unrelated
 
 ## Development Setup
 
+The supported Python version is whatever `requires-python` in `pyproject.toml` says --
+read it there rather than assuming, it is the authoritative declaration. There are no
+`requirements*.txt` files; every dependency, including the dev extras, is declared in
+that same file.
+
 ```bash
 pip install -U wheel pip setuptools
-pip install -U -r requirements_dev.txt
 pip install -U --upgrade-strategy=eager -e .
 ```
 
@@ -107,16 +112,21 @@ python -m pytest -n 8 --dist worksteal -v -rs synapse/tests/
 # Run a specific test file
 python -m pytest synapse/tests/test_cortex.py -v
 
-# Run with coverage
-COVERAGE_PROCESS_START=.coveragerc python -m pytest --cov synapse --cov-config=.coveragerc.main --cov-append synapse/tests/
+# Run with coverage (config lives in pyproject.toml, not a .coveragerc)
+python -m pytest --cov synapse --cov-config=pyproject.toml --cov-append synapse/tests/
 
 # Run with nexus replay (replication testing)
 SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
 ```
 
-- Tests use pytest with pytest-xdist for parallel execution (8 workers).
-- CI runs on CircleCI with Python 3.11 on xlarge instances.
-- Tests must NOT bind to fixed ports (audited via `conftest.py` hook).
+- Tests use pytest with pytest-xdist for parallel execution.
+- CI runs on CircleCI, configured under `.circleci/`. Read the config there rather than any summary
+  of it here: it is tuned independently of this file, and the layout differs between the repos this
+  page ships to -- the enterprise monorepo uses a multi-file dynamic configuration, the public
+  `synapse` repo has its own. The enterprise monorepo's root `CLAUDE.md` documents its CI layout.
+- Tests must NOT bind to fixed ports. Nothing audits this -- the repo-root `conftest.py` does not check it
+  -- so it holds by convention and review. `synapse/tests/test_telepath.py` documents the single
+  intentional exception.
 - VCR (vcrpy) is used for HTTP mocking in tests.
 - Regression tests use a separate repo: `synapse-regression`.
 - To detect whether code is currently executing inside a test, check `synapse.common.isTestRun()` (backed by the
@@ -130,7 +140,7 @@ SYNDEV_NEXUS_REPLAY=1 python -m pytest synapse/tests/
 | `synapse.tools.storm`           | Storm CLI |
 | `synapse.tools.storm.pkg.gen`   | Storm package generation |
 | `vtxtools.changelog synapse`    | Generate changelog entry (run from monorepo root) |
-| `vtxtools.update_datamodel`     | Regenerate `docs/datamodel.md` — always run from the repo root after any data model change: `python -m vtxtools.update_datamodel` |
+| `vtxtools.update_datamodel`     | Regenerate `docs/datamodel.md` — always run from the repo root after any data model change: `python -m vtxtools.update_datamodel`. Needs the workspace installed (`pip install -U -e .`) or `PYTHONPATH=$PWD/synsrc`; it aborts rather than generate if `synapse` is not the in-tree copy. |
 
 ## Documentation
 

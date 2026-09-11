@@ -24,7 +24,7 @@ That said, the set of advanced Storm concepts and features can be fully leverage
 
 `cortex.csv` is executed from an operating system command shell. The command usage is as follows (line is wrapped for readability):
 
-``` text
+```text
 usage: synapse.tools.cortex.csv [-h] [--logfile LOGFILE] [--csv-header] [--cli] [--debug]
   (--cortex CORTEX | --test) [--export] stormfile csvfiles [csvfiles ...]
 ```
@@ -85,7 +85,7 @@ This example demonstrates loading a structured set of data to create nodes of a 
 
 A CSV file (`testfile.csv`) contains a list of domains, the IP addresses the domains have resolved to, and the first and last observed times for the resolution, as represented by the example header and row data below:
 
-``` text
+```text
 domain,IP,first,last
 woot.com,1.2.3.4,2018/04/18 13:12:47,2018/06/23 09:45:12
 hurr.net,5.6.7.8,2018/10/03 00:47:29,2018/10/04 18:26:06
@@ -101,7 +101,7 @@ We want to load the data in the CSV file into a Cortex as a set of DNS A records
 
 Storm references the set of rows in the CSV file by the [$rows](storm_adv_vars.md#vars-ingest-rows) built-in variable. We need to define a set of variables (see [Storm Reference - Advanced - Variables](storm_adv_vars.md#storm-adv-vars)) to represent each field in a row (i.e., each column in the CSV file) and tell Storm to iterate over each row using a [For Loop](storm_adv_control.md#flow-for). For example:
 
-``` text
+```storm
 for ($fqdn, $ipv4, $first, $last) in $rows
 ```
 
@@ -109,13 +109,13 @@ This assigns the variable `$fqdn` to the first column (i.e., the one containing 
 
 We then need a Storm query that tells the "for" loop what to do with each row - that is, how to create the DNS A records from each row in the CSV file:
 
-``` text
+```storm
 [ inet:dns:a = ( $fqdn, $ipv4 ) :seen=( $first, $last ) ]
 ```
 
 We combine these elements to create our `stormfile`, as follows:
 
-``` text
+```storm
 for ($fqdn, $ipv4, $first, $last) in $rows {
 
     [ inet:dns:a = ( $fqdn, $ipv4 ) :seen=( $first, $last ) ]
@@ -134,14 +134,14 @@ Testing the data will highlight common errors such as:
 
 We can attempt to load our data into a test Cortex using the following command (line is wrapped for readability):
 
-``` text
+```text
 python -m synapse.tools.cortex.csv --logfile mylog.json --csv-header --cli --test
   stormfile testfile.csv
 ```
 
 Assuming the command executed with no errors, we should have a `storm` CLI prompt for our local test Cortex:
 
-``` text
+```text
 cli>
 ```
 
@@ -149,7 +149,7 @@ We can now issue Storm commands to interact with and validate the data (i.e., di
 
 For example: docs/synapse/userguides/syn_tools_cortex_csv.md :
 
-``` text
+```stormdoc
 cli> storm inet:dns:a
 
 inet:dns:a=('hurr.net', '5.6.7.8')
@@ -174,7 +174,7 @@ complete. 3 nodes in 12 ms (250/sec).
 
 Once we have validated that our data has loaded correctly, we can modify our `cortex.csv` command to load the data into a live Cortex (replace the Cortex path below with the path to your Cortex; line is wrapped for readability):
 
-``` text
+```text
 python -m synapse.tools.cortex.csv --logfile mylog.json --csv-header
   --cortex aha://cortex... stormfile testfile.csv
 ```
@@ -190,7 +190,7 @@ This example demonstrates loading a more complex set of data to create nodes of 
 
 A CSV file (`testfile.csv`) contains a set of malicious indicators, listed by type and the indicator value, as represented by the example header and row data below:
 
-``` text
+```text
 Indicator type,Indicator,Description
 URL,http://search.webstie.net/,
 FileHash-SHA256,b214c7a127cb669a523791806353da5c5c04832f123a0a6df118642eee1632a3,
@@ -212,13 +212,13 @@ Let's say that in addition to the raw indicators, we know that the indicators ca
 
 Similar to our first example, we need to define a set of variables to represent each column (field) for each row and set up the "for" loop:
 
-``` text
+```storm
 for ($type, $value, $desc) in $rows
 ```
 
 In this case, the rows contain different types of data that will be used to create different nodes (forms). The `Indicator type` column (`$type`) tells us what type of data is available and what type of node we should create. We can use a "switch" statement to tell Storm how to handle each type of data (i.e., each value in the `$type` field). Since we know the SHA256 hashes refer to UMPTYSCRUNCH malware samples, we want to add tags to those nodes:
 
-``` text
+```storm
 switch $type {
 
     URL: {
@@ -237,13 +237,13 @@ switch $type {
 
 Finally, because we know all of the indicators are associated with the Vicious Wombat threat group, we want to add a tag to all of the indicators. We can add that after the "switch" statement:
 
-``` text
+```storm
 [ +#cno.threat.viciouswombat ]
 ```
 
 So our full `stormfile` script looks like this:
 
-``` text
+```storm
 for ($type, $value, $desc) in $rows {
 
     switch $type {
@@ -269,7 +269,7 @@ for ($type, $value, $desc) in $rows {
 
 We can now test our ingest by loading the data into a test Cortex (line is wrapped for readability):
 
-``` text
+```text
 python -m synapse.tools.cortex.csv --logfile mylog.json --csv-header --cli --test
   stormfile testfile.csv
 ```
@@ -278,7 +278,7 @@ From the `storm` CLI, we can now query the data to make sure the nodes were crea
 
 Check that two `inet:fqdn` nodes were created and given the `#cno.threat.viciouswombat` tag:
 
-``` text
+```stormdoc
 cli> storm inet:fqdn#cno
 
 inet:fqdn=search.webstie.net
@@ -302,7 +302,7 @@ complete. 2 nodes in 14 ms (142/sec).
 
 Check that four `hash:sha256` nodes were created and given both the Vicious Wombat and the UMPTYSCRUNCH tags:
 
-``` text
+```stormdoc
 cli> storm hash:sha256
 
 hash:sha256=7fd526e1a190c10c060bac21de17d2c90eb2985633c9ab74020a2b78acd8a4c8
@@ -328,7 +328,7 @@ complete. 4 nodes in 3 ms (1333/sec).
 
 Once the data has been validated, we can load it into our live Cortex (replace the Cortex path below with the path to your Cortex; line is wrapped for readability):
 
-``` text
+```text
 python -m synapse.tools.cortex.csv --logfile mylog.json --csv-header
   --cortex aha://cortex... stormfile testfile.csv
 ```
@@ -362,7 +362,7 @@ For this example, we will export the data we imported in [Ingest Example 2](syn_
 
 To lift all the indicators associated with Vicious Wombat, we can use the following Storm query:
 
-``` text
+```storm
 #cno.threat.viciouswombat
 ```
 
@@ -380,13 +380,13 @@ While this seems pretty straightforward, there are two considerations:
 
 This means we can tell `$lib.csv.emit()` to create a CSV file with a list of indicators as follows:
 
-``` text
+```storm
 $lib.csv.emit($node.form, $node.value)
 ```
 
 So our overall `stormfile` to lift and export all of the Vicious Wombat indicators is relatively simple:
 
-``` text
+```storm
 #cno.threat.viciouswombat
 $lib.csv.emit($node.form, $node.value)
 ```
@@ -395,14 +395,14 @@ $lib.csv.emit($node.form, $node.value)
 
 We can now test our export of the data we ingested in [Ingest Example 2](syn_tools_cortex_csv.md#ingest-2) (replace the Cortex path below with the path to your Cortex; line is wrapped for readability):
 
-``` text
+```text
 python -m synapse.tools.cortex.csv --debug --export
   --cortex aha://cortex... stormfile export.csv
 ```
 
 If we view the contents of `export.csv`, we should see our list of indicators:
 
-``` text
+```text
 inet:fqdn,search.webstie.net
 hash:sha256,7fd526e1a190c10c060bac21de17d2c90eb2985633c9ab74020a2b78acd8a4c8
 inet:fqdn,dns.domain-resolve.org
@@ -423,7 +423,7 @@ For this example, we will export the DNS A records we imported in [Ingest Exampl
 
 To lift the DNS A records for the domains `woot.com`, `hurr.net`, and `derp.org`, we can use the following Storm query:
 
-``` text
+```storm
 inet:dns:a:fqdn=woot.com inet:dns:a:fqdn=hurr.net inet:dns:a:fqdn=derp.org
 ```
 
@@ -436,13 +436,13 @@ In this case we want `$lib.csv.emit()` to include:
 
 As a first attempt, we could specify our output format as follows to export those properties:
 
-``` text
+```storm
 $lib.csv.emit(:fqdn, :ip, :seen)
 ```
 
 This exports the data from the relevant nodes as expected, but does so in the following format:
 
-``` text
+```text
 woot.com,"(4, 16909060)","(1524057167000000, 1529747112000000)"
 ```
 
@@ -462,7 +462,7 @@ Synapse stores IP addresses as tuples of integers, so specifying `:ip` for our o
 
 We can tell `$node.repr()` to return the repr of a specific secondary property of the node by passing the **string** of the property name to the method:
 
-``` text
+```storm
 $node.repr(ip)
 ```
 
@@ -470,13 +470,13 @@ $node.repr(ip)
 
 `:seen` is an [ival](storm_ref_type_specific.md#type-ival) (interval) type whose property value is a paired set of minimum and maximum timestamps. To export the minimum and maximum as separate fields in our CSV file, we need to split the `:seen` value into two parts by assigning each timestamp to its own variable. We can do this as follows:
 
-``` text
+```storm
 ($first, $last) = :seen
 ```
 
 However, simply splitting the value will result in the variables `$first` and `$last` storing (and emitting) the raw Epoch micros value of the time, not the human-readable repr value. Similar to the way in which we obtained the repr value for the `:ip` property, we need to assign the human-readable repr values of the `:seen` property to `$first` and `$last`:
 
-``` text
+```storm
 ($first, $last) = $node.repr("seen")
 ```
 
@@ -490,7 +490,7 @@ We can now combine all of these elements into a Storm query that:
 
 Our full stormfile query looks like this:
 
-``` text
+```storm
 inet:dns:a:fqdn=woot.com inet:dns:a:fqdn=hurr.net inet:dns:a:fqdn=derp.org
 
 ($first, $last) = $node.repr("seen")
@@ -507,14 +507,14 @@ $lib.csv.emit(:fqdn, $node.repr(ip), $first, $last)
 
 We can now test our export of the data we ingested in [Ingest Example 1](syn_tools_cortex_csv.md#ingest-1) (replace the Cortex path below with the path to your Cortex; line is wrapped for readability):
 
-``` text
+```text
 python -m synapse.tools.cortex.csv --debug --export
   --cortex aha://cortex... stormfile export.csv
 ```
 
 If we view the contents of `export.csv`, we should see the following:
 
-``` text
+```text
 woot.com,1.2.3.4,2018/04/18 13:12:47,2018/06/23 09:45:12
 hurr.net,5.6.7.8,2018/10/03 00:47:29,2018/10/04 18:26:06
 derp.org,4.4.4.4,2019/06/09 09:00:18,2019/07/03 15:07:52

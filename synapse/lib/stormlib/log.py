@@ -13,14 +13,14 @@ stormlogger = logging.getLogger('synapse.storm.log')
 class LoggerLib(s_stormtypes.Lib):
     '''
     A Storm library which implements server side logging. These messages are logged to the
-    ``synapse.storm.log`` logger.
+    `synapse.storm.log` logger.
     '''
     _storm_locals = (
         {'name': 'debug', 'desc': '''
         Log a message to the Cortex at the debug log level.
 
         Notes:
-            This requires the ``log.debug`` permission to use.
+            This requires the `log.debug` permission to use.
 
         Examples:
             Log a debug message::
@@ -44,7 +44,7 @@ class LoggerLib(s_stormtypes.Lib):
             Log a message to the Cortex at the info log level.
 
             Notes:
-                This requires the ``log.info`` permission to use.
+                This requires the `log.info` permission to use.
 
             Examples:
                 Log an info message::
@@ -68,7 +68,7 @@ class LoggerLib(s_stormtypes.Lib):
             Log a message to the Cortex at the warning log level.
 
             Notes:
-                This requires the ``log.warning`` permission to use.
+                This requires the `log.warning` permission to use.
 
             Examples:
                 Log a warning message::
@@ -92,7 +92,7 @@ class LoggerLib(s_stormtypes.Lib):
             Log a message to the Cortex at the error log level.
 
             Notes:
-                This requires the ``log.error`` permission to use.
+                This requires the `log.error` permission to use.
 
             Examples:
                 Log an error message::

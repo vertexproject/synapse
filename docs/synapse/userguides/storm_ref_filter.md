@@ -73,7 +73,7 @@ Filter the current working set to only include fully qualified domain names (FQD
 [ inet:fqdn=woot.com inet:fqdn=vertex.link  inet:fqdn=google.com inet:ip=127.0.0.1 ] +inet:fqdn
 ```
 
-``` text
+```text
 <query> +inet:fqdn
 ```
 
@@ -83,7 +83,7 @@ Filter the current working set to exclude URLs (`inet:url` nodes):
 [ inet:fqdn=vertex.link inet:url=https://vertex.link ] -inet:url
 ```
 
-``` text
+```text
 <query> -inet:url
 ```
 
@@ -117,7 +117,7 @@ Filter the current working set to exclude DNS nodes (e.g., `inet:dns:a`, `inet:d
 [ inet:dns:a=(example.com, 1.2.3.4) inet:fqdn=woot.com inet:dns:request=( { "time": "2023/05/03 21:09:04.000", "query:name": "vertex.link" } ) ] -inet:dns:*
 ```
 
-``` text
+```text
 <query> -inet:dns:*
 ```
 
@@ -127,7 +127,7 @@ Filter the current working set to only include antivirus / scan-related nodes (e
 [ it:av:scan:result=0002a57045f969b18245349054662d73 it:av:signame=backdoor.maggie inet:fqdn=woot.com ] +it:av:s*
 ```
 
-``` text
+```text
 <query> +it:av:s*
 ```
 
@@ -150,7 +150,7 @@ Filter the current working set to only include host event nodes (all nodes of al
 [ inet:fqdn=woot.com file:bytes=( { "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" } ) it:exec:file:add=30007dc3cdd02b6cde7b8a140d3759f5 it:exec:windows:registry:set=70007c24662e98b17b3d4aaab669aebb ] +it:host:event
 ```
 
-``` text
+```text
 <query> +it:host:event
 ```
 
@@ -160,7 +160,7 @@ Filter the current working set to exclude taxonomy nodes (all nodes of all forms
 [ risk:threat=( { "name": "oilrig", "reporter:name": "palo alto" } ) risk:compromise=( { "name": "very bad compromise", "reporter:name": "recorded future" } ) risk:attack:type:taxonomy=very.bad risk:threat:type:taxonomy=pranksters ] -meta:taxonomy
 ```
 
-``` text
+```text
 <query> -meta:taxonomy
 ```
 
@@ -197,7 +197,7 @@ Filter the current working set to only include threats (`risk:threat` nodes) tha
 [ ( risk:threat=( { "reporter:name": "google", "name": "unc1234" } ) ) ( risk:threat=( { "reporter:name": "microsoft", "name": "peach sandstorm" } ) :place:country:code=ir ) ( risk:threat=( { "reporter:name": "sophos", "name": "bronze butler" } ) :place:country:code=cn ) ] +risk:threat:place:country:code
 ```
 
-``` text
+```text
 <query> +risk:threat:place:country:code
 ```
 
@@ -205,7 +205,7 @@ Filter the current working set to only include threats (`risk:threat` nodes) tha
 risk:threat +:place:country:code
 ```
 
-``` text
+```text
 <query> +:place:country:code
 ```
 
@@ -215,7 +215,7 @@ Filter the current working set to exclude articles (`doc:report` nodes) that hav
 [ doc:report=( { "publisher:name": "microsoft", "published": "2026/03/10" } ) doc:report=( { "publisher:name": "eset", "published": "2026/04/28" } ) doc:report=50004ea4025f1b60b7fe5670e41c8cd2 ] -doc:report:publisher:name
 ```
 
-``` text
+```text
 <query> -doc:report:publisher:name
 ```
 
@@ -223,7 +223,7 @@ Filter the current working set to exclude articles (`doc:report` nodes) that hav
 doc:report -:publisher:name
 ```
 
-``` text
+```text
 <query> -:publisher:name
 ```
 
@@ -249,7 +249,7 @@ Filter the current working set to only include those host event nodes (all nodes
 [ it:exec:file:add=21001f4244940b70fe40c83fe3d43f15 ( it:exec:file:add=830044cffe0d11151cd1946a4651ec63 :time=now ) ] +it:host:event:time
 ```
 
-``` text
+```text
 <query> +it:host:event:time
 ```
 
@@ -270,7 +270,7 @@ Filter the current working set to exclude those organizations (`ou:org` nodes) t
 [ ( ou:org=( { "name": "vertex" } ) :_vertex:threatintel:isthreat=0 ) ( ou:org=( { "name": "fsb" } ) :_vertex:threatintel:isthreat=1 ) ] -ou:org:_vertex:threatintel:isthreat
 ```
 
-``` text
+```text
 <query> -ou:org:_vertex:threatintel:isthreat
 ```
 
@@ -278,7 +278,7 @@ Filter the current working set to exclude those organizations (`ou:org` nodes) t
 ou:org -:_vertex:threatintel:isthreat
 ```
 
-``` text
+```text
 <query> -:_vertex:threatintel:isthreat
 ```
 
@@ -335,7 +335,7 @@ Filter the current working set to exclude the loopback IP address (`127.0.0.1`):
 [ inet:ip=127.0.0.1 inet:ip=8.8.8.8 ] -inet:ip = 127.0.0.1
 ```
 
-``` text
+```text
 <query> -inet:ip = 127.0.0.1
 ```
 
@@ -343,7 +343,7 @@ Filter the current working set to exclude the loopback IP address (`127.0.0.1`):
 inet:ip=127.0.0.1 inet:ip=8.8.8.8 +inet:ip != 127.0.0.1
 ```
 
-``` text
+```text
 <query> +inet:ip != 127.0.0.1
 ```
 
@@ -362,7 +362,7 @@ Filter the current working set to include only those FQDNs (`inet:fqdn` nodes) t
 [ inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com ] +inet:fqdn:iszone = 1
 ```
 
-``` text
+```text
 <query> +inet:fqdn:iszone = 1
 ```
 
@@ -370,7 +370,7 @@ Filter the current working set to include only those FQDNs (`inet:fqdn` nodes) t
 inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com +:iszone = 1
 ```
 
-``` text
+```text
 <query> +:iszone  = 1
 ```
 
@@ -380,7 +380,7 @@ Filter the current working set to exclude any PE (portable executable) metadata 
 $file1={ [ file:bytes=( { "sha256": "d7c12acb306b5100a5497586942b68a8f6d5deb353083da594caba2523c3171f" } ) ] } $file2={ [ file:bytes=( { "sha256": "54ebdea80d30660f1d7be0b71bc3eb04189ef2036cdbba24d60f474547d3516a" } ) ] } [ file:mime:pe=( { "file": $file1, "compiled": "1992-06-19T22:22:17Z" } ) file:mime:pe=( { "file": $file2, "compiled": "2025-10-28T19:04:16Z" } ) ] -file:mime:pe:compiled = '1992/06/19 22:22:17'
 ```
 
-``` text
+```text
 <query> -file:mime:pe:compiled = '1992/06/19 22:22:17'
 ```
 
@@ -388,7 +388,7 @@ $file1={ [ file:bytes=( { "sha256": "d7c12acb306b5100a5497586942b68a8f6d5deb3530
 file:mime:pe:compiled -:compiled = '1992/06/19 22:22:17'
 ```
 
-``` text
+```text
 <query> -:compiled = '1992/06/19 22:22:17'
 ```
 
@@ -398,7 +398,7 @@ Filter the current working set to include only those PE (portable executable) me
 $file1={ [ file:bytes=( { "sha256": "4f0ff2089666fbc6e71f9e6cd64f854785bb4a74b307e9df39b811f186eaf7d0" } ) ] } $file2={ [ file:bytes=( { "sha256": "3c7fb61f0601f9facd3c2a1b319039a3fad6535b33359493b8a8a3f24dea00e3" } ) ] } [ file:mime:pe=( { "file": $file1, "compiled": "2025/11/05 00:07:13" } ) file:mime:pe=( { "file": $file2, "compiled": "2022/07/22 23:12:15" } ) ] +file:mime:pe:compiled = 2025*
 ```
 
-``` text
+```text
 <query> +file:mime:pe:compiled = 2025*
 ```
 
@@ -406,7 +406,7 @@ $file1={ [ file:bytes=( { "sha256": "4f0ff2089666fbc6e71f9e6cd64f854785bb4a74b30
 file:mime:pe:compiled +:compiled = 2025*
 ```
 
-``` text
+```text
 <query> +:compiled = 2025*
 ```
 
@@ -416,7 +416,7 @@ Filter the current working set to exclude those files (`file:bytes` nodes) whose
 [ ( file:bytes=( { "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" } ) :size=16384 ) ( file:bytes=( { "sha256": "ec04b04e079ff54e73faf7ef72e69b8919fb24eecba521b65788c47eac0baf41" } ) :size=1000054 ) ] -file:bytes:size >= 1000000
 ```
 
-``` text
+```text
 <query> -file:bytes:size >= 1000000
 ```
 
@@ -424,7 +424,7 @@ Filter the current working set to exclude those files (`file:bytes` nodes) whose
 file:bytes -:size >= 1000000
 ```
 
-``` text
+```text
 <query> -:size >= 1000000
 ```
 
@@ -450,7 +450,7 @@ Filter the current working set to only include those Microsoft Office metadata n
 [ file:mime:msdoc=( { "application:name": "Microsoft Word", "author:name": "ozzie" } ) file:mime:msxls=( { "application:name": "Microsoft Excel", "author:name": "admin" } ) ] +file:mime:msoffice:author:name = admin
 ```
 
-``` text
+```text
 <query> +file:mime:msoffice:author:name = admin
 ```
 
@@ -460,7 +460,7 @@ Filter the current working set to exclude any host event nodes (all nodes of all
 [ (it:exec:file:add=97001f17db58c29f039147b67528f891 :time=now) (it:exec:file:write=ab004740d68588f0dd7f9f9cf8fa27ee :time=2022/02/20) ] -it:host:event:time < 2024/01/01
 ```
 
-``` text
+```text
 <query> -it:host:event:time < 2024/01/01
 ```
 
@@ -490,7 +490,7 @@ Filter the current working set to include only those nodes created on January 1,
 .created +.created >= 2024/01/01
 ```
 
-``` text
+```text
 <query> +.created >= 2024/01/01
 ```
 
@@ -500,7 +500,7 @@ Filter the current working set to include only those FQDNs (`inet:fqdn` nodes) c
 .created +inet:fqdn.created >= 2024/01/01
 ```
 
-``` text
+```text
 <query> +inet:fqdn.created >= 2024/01/01
 ```
 
@@ -518,7 +518,7 @@ Filter the current working set to include only those organizations (`ou:org` nod
 [ ( ou:org=( { "name": "vertex" } ) :_vertex:threatintel:isthreat=0 ) ( ou:org=( { "name": "fsb" } ) :_vertex:threatintel:isthreat=1 ) ] +ou:org:_vertex:threatintel:isthreat = true
 ```
 
-``` text
+```text
 <query> +ou:org:_vertex:threatintel:isthreat = true
 ```
 
@@ -526,7 +526,7 @@ Filter the current working set to include only those organizations (`ou:org` nod
 ou:org +:_vertex:threatintel:isthreat = true
 ```
 
-``` text
+```text
 <query> +:_vertex:threatintel:isthreat = true
 ```
 
@@ -539,7 +539,7 @@ Filter the current working set to include only those files (`file:bytes` nodes) 
 [ file:bytes=( { "sha256": "87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe" } ) :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ] +file:bytes:_virustotal:reputation < -100
 ```
 
-``` text
+```text
 <query> +file:bytes:_virustotal:reputation < -100
 ```
 
@@ -547,7 +547,7 @@ Filter the current working set to include only those files (`file:bytes` nodes) 
 file:bytes +:_virustotal:reputation < -100
 ```
 
-``` text
+```text
 <query> +:_virustotal:reputation < -100
 ```
 
@@ -594,7 +594,7 @@ Filter the current working set to only include reports (`doc:report` nodes) whos
 [ (doc:report=( { "publisher:name": "microsoft", "title": "peach sandstorm password spray campaigns enable intelligence collection at high-value targets", "published": "2023/09/14 00:00:00" } ) ) (doc:report=( { "publisher:name": "microsoft", "title": "cadet blizzard emerges as a novel and distinct russian threat actor", "published": "2023/06/14 00:00:00" } ) ) ] +doc:report:title ~= sandstorm
 ```
 
-``` text
+```text
 <query> +doc:report:title ~= sandstorm
 ```
 
@@ -602,7 +602,7 @@ Filter the current working set to only include reports (`doc:report` nodes) whos
 doc:report +:title ~= sandstorm
 ```
 
-``` text
+```text
 <query> +:title ~= sandstorm
 ```
 
@@ -612,7 +612,7 @@ Filter the current working set to exclude organizations (`ou:org` nodes) whose n
 [ ( ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" :names=(vertex,) ) ( ou:org=ad8de4b5da0fccb2caadb0d425e35847 :name=vxunderground ) ] -ou:org:name ~= '^v.*x'
 ```
 
-``` text
+```text
 <query> -ou:org:name ~= '^v.*x'
 ```
 
@@ -620,7 +620,7 @@ Filter the current working set to exclude organizations (`ou:org` nodes) whose n
 ou:org -:name ~= '^v.*x'
 ```
 
-``` text
+```text
 <query> -:name ~= '^v.*x'
 ```
 
@@ -630,7 +630,7 @@ Filter the current working set to only include taxonomy nodes (all nodes of all 
 [ risk:attack=e10028b8a56d01ccc1df5fcd9c5b8b65 ( risk:attack:type:taxonomy=foo.bar :desc='credential phishing' ) ( entity:goal:type:taxonomy=baz.faz :desc='obtain admin credentials' ) ( belief:system:type:taxonomy=hurr.derp :desc='hand out uncs like candy' ) ] +meta:taxonomy:desc ~= credential
 ```
 
-``` text
+```text
 <query> +meta:taxonxomy:desc ~= credential
 ```
 
@@ -664,7 +664,7 @@ Filter the current working set to exclude email addresses (`inet:email` nodes) t
 [ inet:email=abuse@1and1.com inet:email=abuse.tor-exit@posteo.org ] -inet:email ^= abuse
 ```
 
-``` text
+```text
 <query> -inet:email ^= abuse
 ```
 
@@ -674,7 +674,7 @@ Filter the current working set to only include organizations (`ou:org` nodes) wh
 [ ( ou:org=a7f31ce9809e103ddedf36c1e1e91249 :name='ministry for foreign affairs of finland' ) ( ou:org=1560dc4129405e18fd32f30b6f01fa1f :name='ministry of finance of ukraine' ) ] +ou:org:name ^= ministry
 ```
 
-``` text
+```text
 <query> +ou:org:name ^= ministry
 ```
 
@@ -682,7 +682,7 @@ Filter the current working set to only include organizations (`ou:org` nodes) wh
 ou:org +:name ^= ministry
 ```
 
-``` text
+```text
 <query> +:name ^= ministry
 ```
 
@@ -692,7 +692,7 @@ Filter the current working set to only include Microsoft Office metadata nodes (
 [ file:mime:msdoc=( { "application:name": "Microsoft Word", "author:name": "ozzie" } ) file:mime:msdoc=( { "application:name": "Microsoft Word", "author:name": "Administrator" } ) file:mime:msppt=( { "application:name": "Microsoft PowerPoint", "author:name": "admin" } ) ] +file:mime:msoffice:author:name ^= Admin
 ```
 
-``` text
+```text
 <query> +file:mime:msoffice:author:name ^= Admin
 ```
 
@@ -724,7 +724,7 @@ Filter the current working set to include only those DNS A records (`inet:dns:a`
 [ inet:dns:a=(easymathpath.com, 135.125.78.187) :seen=(2021/09/12 00:00:00, 2023/08/08 01:50:54.001) ] +inet:dns:a:seen @= ( 2022/07/01, 2022/08/01 )
 ```
 
-``` text
+```text
 <query> +inet:dns:a:seen @= ( 2022/07/01, 2022/08/01 )
 ```
 
@@ -732,7 +732,7 @@ Filter the current working set to include only those DNS A records (`inet:dns:a`
 inet:dns:a +:seen @= ( 2022/07/01, 2022/08/01 )
 ```
 
-``` text
+```text
 <query> +:seen @= ( 2022/07/01, 2022/08/01 )
 ```
 
@@ -742,7 +742,7 @@ Filter the current working set to only include DNS requests (`inet:dns:request` 
 [ inet:dns:request=( { "time": "2023/05/03 21:09:04.000", "query:name": "vertex.link" } ) ] +inet:dns:request:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 ```
 
-``` text
+```text
 <query> +inet:dns:request:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 ```
 
@@ -750,7 +750,7 @@ Filter the current working set to only include DNS requests (`inet:dns:request` 
 inet:dns:request +:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 ```
 
-``` text
+```text
 <query> +:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 ```
 
@@ -766,7 +766,7 @@ Filter the current working set to only include DNS A records (`inet:dns:a` nodes
 inet:dns:a +inet:dns:a:seen @= 2023/12/01
 ```
 
-``` text
+```text
 <query> +inet:dns:a:seen @= 2023/12/01
 ```
 
@@ -774,7 +774,7 @@ inet:dns:a +inet:dns:a:seen @= 2023/12/01
 inet:dns:a +:seen @= 2023/12/01
 ```
 
-``` text
+```text
 <query> +:seen @= 2023/12/01
 ```
 
@@ -784,7 +784,7 @@ Filter the current working set to include only those domain WHOIS records (`inet
 [ inet:whois:record=( { "fqdn": "woot.com", "created": "2019/03/19 05:00:00" } ) inet:whois:record=( { "fqdn": "vertex.link", "created": "2025/06/27 09:22:57" } ) ] +inet:whois:record:created @= '2019/03/19 05:00:00'
 ```
 
-``` text
+```text
 <query> +inet:whois:record:created @= '2019/03/19 05:00:00'
 ```
 
@@ -792,7 +792,7 @@ Filter the current working set to include only those domain WHOIS records (`inet
 inet:whois:record +:created @= '2019/03/19 05:00:00'
 ```
 
-``` text
+```text
 <query> +:created @= '2019/03/19 05:00:00'
 ```
 
@@ -805,7 +805,7 @@ Filter the current working set to only include the reports (`doc:report` nodes) 
 [ doc:report=0f0040e43b61eee735820d5d65cdcdac :published=now ] +doc:report:published @= ( now, '-1 day' )
 ```
 
-``` text
+```text
 <query> +doc:report:published @= ( now, '-1 day' )
 ```
 
@@ -813,7 +813,7 @@ Filter the current working set to only include the reports (`doc:report` nodes) 
 doc:report +:published @= ( now, '-1 day' )
 ```
 
-``` text
+```text
 <query> +:published @= ( now, '-1 day' )
 ```
 
@@ -823,7 +823,7 @@ Filter the current working set to only include the host event nodes (all nodes o
 [ ( it:exec:mutex:add=6b00d6e6b1bdb5fbc12331059a90353b :time=2024/01/13 ) ( it:exec:file:write=2d007c5bd0b84ca9c9b4c6b4c17bd997 :time=2024/01/31 ) ( it:exec:file:add=79001ff435d6652d09bce9048acbe3b0 :time=now ) ] +it:host:event:time @= (now, '-3 hours')
 ```
 
-``` text
+```text
 <query> +it:host:event:time @= (now, '-3 hours')
 ```
 
@@ -884,7 +884,7 @@ Filter the current working set to exclude files (`file:bytes` nodes) whose size 
 [ file:bytes=( { "sha256": "00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94" } ) :size=2000 ] -file:bytes:size *range= ( 1000, 100000 )
 ```
 
-``` text
+```text
 <query> -file:bytes:size *range= ( 1000, 100000 )
 ```
 
@@ -892,7 +892,7 @@ Filter the current working set to exclude files (`file:bytes` nodes) whose size 
 file:bytes -:size *range= ( 1000, 100000 )
 ```
 
-``` text
+```text
 <query> -:size *range= ( 1000, 100000 )
 ```
 
@@ -902,7 +902,7 @@ Filter the current working set to only include files (`file:bytes` nodes) whose 
 [ ( file:bytes=( { "sha256": "d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f" } ) :_virustotal:reputation=-16 ) ( file:bytes=( { "sha256": "d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac" } ) :_virustotal:reputation=8 ) ] +file:bytes:_virustotal:reputation *range= ( -20, 20 )
 ```
 
-``` text
+```text
 <query> +file:bytes:_virustotal:reputation *range= ( -20, 20 )
 ```
 
@@ -910,7 +910,7 @@ Filter the current working set to only include files (`file:bytes` nodes) whose 
 file:bytes +:_virustotal:reputation *range= ( -20, 20 )
 ```
 
-``` text
+```text
 <query> +:_virustotal:reputation *range= ( -20, 20 )
 ```
 
@@ -920,7 +920,7 @@ Filter the current working set to exclude DNS requests (`inet:dns:request` nodes
 [ inet:dns:request=( { "query:name": "vertex.link", "time": "2025/12/09 13:47:11" } ) inet:dns:request=( { "query:name": "example.com", "time": "2026/05/03 20:07:01" } ) ] -inet:dns:request:time *range= ( 2025/11/29, 2026/01/14 )
 ```
 
-``` text
+```text
 <query> -inet:dns:request:time *range= ( 2025/11/29, 2026/01/14 )
 ```
 
@@ -928,7 +928,7 @@ Filter the current working set to exclude DNS requests (`inet:dns:request` nodes
 inet:dns:request -:time *range= ( 2025/11/29, 2026/01/14 )
 ```
 
-``` text
+```text
 <query> -:time *range= ( 2025/11/29, 2026/01/14 )
 ```
 
@@ -938,7 +938,7 @@ Filter the current working set to only include DNS requests (`inet:dns:request` 
 [ inet:dns:request=c40037adf2d5bf23295fa8c55eaad5f6 :time="2021/11/30 21:09:04.000"] +inet:dns:request:time *range= ( 2021/12/01, '+-1 day' )
 ```
 
-``` text
+```text
 <query> +inet:dns:request:time *range= ( 2021/12/01, '+-1 day' )
 ```
 
@@ -946,7 +946,7 @@ Filter the current working set to only include DNS requests (`inet:dns:request` 
 inet:dns:request +:time *range= ( 2021/12/01, '+-1 day' )
 ```
 
-``` text
+```text
 <query> +:time *range= ( 2021/12/01, '+-1 day' )
 ```
 
@@ -956,7 +956,7 @@ Filter the current working set to only include taxonomy nodes (all nodes of all 
 [ risk:attack:type:taxonomy=bad risk:attack:type:taxonomy=bad.sorta risk:attack:type:taxonomy=bad.very risk:attack:type:taxonomy=bad.pretty.darn.bad ] +meta:taxonomy:depth *range= (1, 3)
 ```
 
-``` text
+```text
 <query> +meta:taxonomy:depth *range= (1, 3)
 ```
 
@@ -990,7 +990,7 @@ Filter the current working set to exclude entity names (`entity:name` nodes) mat
 [ entity:name=fsb entity:name=gru entity:name='yevgeniy prigozhin' entity:name='vladimir putin' ] -entity:name *in= ( fsb, 'vladimir putin' )
 ```
 
-``` text
+```text
 <query> -entity:name *in= ( fsb, 'vladimir putin' )
 ```
 
@@ -1004,7 +1004,7 @@ Filter the current working set to only include IP addresses (`inet:ip` nodes) as
 [ ( inet:ip=45.67.34.75 :asn=44477 ) ( inet:ip=149.248.1.50 :asn=20473 ) ( inet:ip=89.249.66.255 :asn=9009 ) ] +inet:ip:asn *in= ( 9009, 20473, 44477 )
 ```
 
-``` text
+```text
 <query> +inet:ip:asn *in= ( 9009, 20473, 44477 )
 ```
 
@@ -1012,7 +1012,7 @@ Filter the current working set to only include IP addresses (`inet:ip` nodes) as
 inet:ip +:asn *in= ( 9009, 20473, 44477 )
 ```
 
-``` text
+```text
 <query> +:asn *in= ( 9009, 20473, 44477 )
 ```
 
@@ -1022,7 +1022,7 @@ Filter the current working set to only include tags (`syn:tag` nodes) whose fina
 [ syn:tag=rep.talos.plugx syn:tag=rep.eset.korplug syn:tag=rep.mandiant.sogu syn:tag=rep.alienvault.kaba ] +syn:tag:base *in= ( plugx, korplug, sogu, kaba )
 ```
 
-``` text
+```text
 <query> +syn:tag:base *in= ( plugx, korplug, sogu, kaba )
 ```
 
@@ -1030,7 +1030,7 @@ Filter the current working set to only include tags (`syn:tag` nodes) whose fina
 syn:tag +:base *in= ( plugx, korplug, sogu, kaba )
 ```
 
-``` text
+```text
 <query> +:base *in= ( plugx, korplug, sogu, kaba )
 ```
 
@@ -1053,7 +1053,7 @@ Filter the current working set to only include locations (`geo:place` nodes) wit
 [ geo:place=( { "latlong": "55.83088, 37.59962", "name": "Russian Cryptographic Museum" } ) ] +geo:place:latlong *near= ( (55.83069, 37.59781), 500m )
 ```
 
-``` text
+```text
 <query> +geo:place:latlong *near= ( (55.83069, 37.59781), 500m )
 ```
 
@@ -1061,7 +1061,7 @@ Filter the current working set to only include locations (`geo:place` nodes) wit
 geo:place +:latlong *near= ( (55.83069, 37.59781), 500m )
 ```
 
-``` text
+```text
 <query> +:latlong *near= ( (55.83069, 37.59781), 500m )
 ```
 
@@ -1101,7 +1101,7 @@ Filter the current working set to only include x509 certificates (`crypto:x509:c
 [ crypto:x509:cert=8500881809f0d7738dd351a804e2f2ef :identities:fqdns=(woot.biz, woot.xyz) ] +:identities:fqdns *[= '*.xyz' ]
 ```
 
-``` text
+```text
 <query> +:identities:fqdns *[= '*.xyz' ]
 ```
 
@@ -1111,7 +1111,7 @@ Filter the current working set to only include threat clusters (`risk:threat` no
 [ ( risk:threat=( { "reporter:name": "lookout", "name": "apt41" } ) :names+='double dragon' )  ( risk:threat=( { "reporter:name": "sophos", "name": "iron liberty" } ) :names+=dragonfly ) ( risk:threat=( { "reporter:name": "google", "name": "apt28" } ) :names+='forest blizzard' ) ] +:names *[~= dragon ]
 ```
 
-``` text
+```text
 <query> +:names *[~= dragon ]
 ```
 
@@ -1153,7 +1153,7 @@ Filter the current working set to exclude all nodes that ESET associates with Se
 [ inet:fqdn=kg-news.org inet:ip=92.114.92.125 +#rep.eset.sednit ] -#rep.eset.sednit
 ```
 
-``` text
+```text
 <query> -#rep.eset.sednit
 ```
 
@@ -1163,7 +1163,7 @@ Filter the current working set to only include nodes associated with anonymized 
 [ (inet:fqdn=ca2.vpn.airdns.org +#cno.infra.anon.vpn) (inet:ip=104.244.73.193 +#cno.infra.anon.tor.exit) ] +#cno.infra.anon
 ```
 
-``` text
+```text
 <query> +#cno.infra.anon
 ```
 
@@ -1196,7 +1196,7 @@ Filter the current working set to exclude any nodes tagged as `seduploader` by a
 [ inet:fqdn=woot.com +#rep.eset.seduploader +#rep.paloalto.seduploader +#rep.kaspersky.sednit ] -#rep.*.seduploader
 ```
 
-``` text
+```text
 <query> -#rep.*.seduploader
 ```
 
@@ -1215,7 +1215,7 @@ Filter the current working set to include any nodes tagged as `cobaltstrike` by 
 [ ( inet:fqdn=woot.com +#rep.mandiant.cobaltstrike ) ( inet:fqdn=evil.com +#rep.microsoft.cobaltstrike ) ( inet:ip=1.1.1.1 +#rep.malwarebazaar.cobaltstrike ) ] +#rep.m*.cobaltstrike
 ```
 
-``` text
+```text
 <query> +#rep.m*.cobaltstrike
 ```
 
@@ -1236,7 +1236,7 @@ Filter the current working set to exclude any nodes tagged as `seduploader` eith
 [ inet:fqdn=woot.com +#rep.eset.seduploader +#rep.paloalto.seduploader +#rep.kaspersky.sednit ] -#*.*.seduploader
 ```
 
-``` text
+```text
 <query> -#*.*.seduploader
 ```
 
@@ -1254,7 +1254,7 @@ Filter the current working set to include any nodes reported by Microsoft whose 
 [ ( inet:fqdn=lotorgas.ru +#rep.microsoft.aqua_blizzard ) ( inet:fqdn=justiceua.org +#rep.microsoft.cadet_blizzard ) ( inet:fqdn=actblues.com +#rep.microsoft.forest_blizzard ) ( inet:fqdn=scandefinform.com +#rep.microsoft.star_blizzard ) ] +#rep.microsoft.**blizzard
 ```
 
-``` text
+```text
 <query> +#rep.microsoft.**blizzard
 ```
 
@@ -1272,7 +1272,7 @@ Filter the current working set to exclude any nodes tagged with any tag that sta
 [ ( inet:ip=93.90.223.185 +#cno.infra.dns.sink.hole ) ( inet:fqdn=vertex.link +#cno ) ] -#cno**
 ```
 
-``` text
+```text
 <query> -#cno**
 ```
 
@@ -1291,7 +1291,7 @@ Filter the current working set to include any nodes tagged by any third-party re
 [ ( file:bytes=( { "sha256": "f0aa64e048ba6e054e31b86ae0dfdaee0dcdab73e324e7bb926c9dccdee63a14" } ) +#rep.vt.cve_2017_11882 ) ( crypto:hash:md5=806fad8aac92164f971c04bb4877c00f +#rep.alienvault.cve20178291 ) ( file:bytes=( { "sha256": "de6389e89062e049423ef018612df0734b94dfd9d9a4f3880ca6b8ff0bbbc4cc" } ) +#rep.malwarebazaar.3p.reversinglabs.document_ole_exploit_cve_2017_11182 ) ] +#rep.*.**2017**
 ```
 
-``` text
+```text
 <query> +#rep.*.**2017**
 ```
 
@@ -1321,7 +1321,7 @@ Filter the current result set to only include nodes that were associated with an
 [ ( inet:fqdn=wazn.airservers.org +#cno.infra.anon.vpn=(2023/05/24 23:16:51.423, 2023/12/05 23:12:40.626) ) ( inet:ip=2607:9000:0:85:68a3:75b4:13ab:770a +#cno.infra.anon.vpn=(2023/08/15 00:12:15,2023/12/05 23:12:54) ) ] +#cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 ```
 
-``` text
+```text
 <query> +#cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 ```
 
@@ -1331,7 +1331,7 @@ Filter the current working set to only include nodes that were owned / controlle
 [ inet:fqdn=ronthecat.com +#cno.threat.t15.own=(2020/09/12, 2022/09/12) ] +#cno.threat.t15.own @= 2021/10/30
 ```
 
-``` text
+```text
 <query> +#cno.threat.t15.own @= 2021/10/30
 ```
 
@@ -1355,7 +1355,7 @@ Filter the current working set to only include nodes with a `:_risk` tag propert
 [ ( inet:fqdn=woot.com +#rep.symantec:_risk=87 ) ( inet:ip=8.8.8.8 +#rep.domaintools:_risk=42 ) ] +#rep.symantec:_risk
 ```
 
-``` text
+```text
 <query> +#rep.symantec:_risk
 ```
 
@@ -1365,7 +1365,7 @@ Filter the current working set to include nodes with a `:_risk` tag property ass
 [ ( inet:fqdn=woot.com +#rep.symantec:_risk=87 ) ( inet:ip=8.8.8.8 +#rep.domaintools:_risk=42 ) ] +#**:_risk
 ```
 
-``` text
+```text
 <query> +#**:_risk
 ```
 
@@ -1396,7 +1396,7 @@ Filter the current working set to include nodes with a `:_risk` tag property val
 [ ( inet:fqdn=woot.com +#rep.symantec:_risk=87 ) ( inet:ip=8.8.8.8 +#rep.domaintools:_risk=42 ) ( inet:fqdn=vertex.link +#rep.eset:_risk=100 ) ] +#rep.eset:_risk = 100
 ```
 
-``` text
+```text
 <query> +#rep.eset:_risk = 100
 ```
 
@@ -1406,7 +1406,7 @@ Filter the current working set to exclude nodes with a `:_risk` property value l
 [ ( inet:fqdn=woot.com +#rep.symantec:_risk=87 ) (inet:ip=8.8.8.8 +#rep.domaintools:_risk=42 ) ( inet:fqdn=vertex.link +#rep.vertex:_risk=100 ) ] -#rep.domaintools:_risk < 90
 ```
 
-``` text
+```text
 <query> -#rep.domaintools:_risk < 90
 ```
 
@@ -1416,7 +1416,7 @@ Filter the current working set to include nodes with a `:_risk` property with a 
 [ ( inet:fqdn=woot.com +#rep.symantec:_risk=87 ) ( inet:ip=8.8.8.8 +#rep.domaintools:_risk=42 ) ] +#rep.symantec:_risk *range= ( 45, 70 )
 ```
 
-``` text
+```text
 <query> +#rep.symantec:_risk *range= ( 45, 70 )
 ```
 
@@ -1444,7 +1444,7 @@ Filter the current working set to only include SHA1 hashes (`crypto:hash:sha1` n
 .created +( ( crypto:hash:sha1 or inet:fqdn ) and #rep.eset.sednit )
 ```
 
-``` text
+```text
 <query> +( ( crypto:hash:sha1 or inet:fqdn ) and #rep.eset.sednit )
 ```
 
@@ -1454,7 +1454,7 @@ Filter the current working set to include only SHA1 hashes or FQDNs that ESET as
 .created +( ( crypto:hash:sha1 or inet:fqdn ) and ( #rep.eset.sednit and not #cno.infra.dns.sink.holed ) )
 ```
 
-``` text
+```text
 <query> +( ( crypto:hash:sha1 or inet:fqdn ) and ( #rep.eset.sednit and not #cno.infra.dns.sink.holed ) )
 ```
 
@@ -1464,7 +1464,7 @@ Filter the current working set to only include IP addresses (`inet:ip` nodes) th
 [ ( inet:ip=2.58.56.12 :asn=210558 :place:loc=nl ) ( inet:ip=46.195.78.212 :asn=2119 :place:loc=se ) ( inet:ip=104.244.72.4 :asn=53667 :place:loc=lu ) ( inet:ip=37.235.48.29 :asn=9009 :place:loc=pl ) ] +( ( :asn=2119 or :asn=210558 or :asn=53667 ) and :place:loc^=lu )
 ```
 
-``` text
+```text
 <query> +( ( inet:ip:asn=2119 or inet:ip:asn=210558 or inet:ip:asn=53667 ) and inet:ip:place:loc^=lu )
 ```
 
@@ -1472,7 +1472,7 @@ Filter the current working set to only include IP addresses (`inet:ip` nodes) th
 inet:ip +( ( :asn=2119 or :asn=210558 or :asn=53667 ) and :place:loc^=lu )
 ```
 
-``` text
+```text
 <query> +( ( :asn=2119 or :asn=210558 or :asn=53667 ) and :place:loc^=lu )
 ```
 
@@ -1510,7 +1510,7 @@ Filter the current working set of FQDNs (`inet:fqdn` nodes) to only FQDNs that h
 inet:fqdn +{ -> inet:dns:a -> inet:ip +#rep.trend.pawnstorm }
 ```
 
-``` text
+```text
 <inet:fqdn> +{ -> inet:dns:a -> inet:ip +#rep.trend.pawnstorm }
 ```
 
@@ -1528,7 +1528,7 @@ Filter the current working set of IP addresses (`inet:ip` nodes) to exclude any 
 inet:ip -{ :asn -> inet:asn +:registrant:name ^= makonix }
 ```
 
-``` text
+```text
 <inet:ip> -{ :asn -> inet:asn +:registrant:name ^= makonix }
 ```
 
@@ -1548,7 +1548,7 @@ Filter the current working set of files (`file:bytes` nodes) to include only fil
 file:bytes +{ -> it:av:scan:result +:verdict=malicious }>=10
 ```
 
-``` text
+```text
 <file:bytes> +{ -> it:av:scan:result +:verdict=malicious }>=10
 ```
 
@@ -1569,7 +1569,7 @@ Filter the current working set of x509 certificates (`crypto:x509:cert` nodes) t
 [ ( crypto:x509:cert=3e0016d728b979b7f8fd77a2738047eb :identities:fqdns=(woot.com,) ) ( crypto:x509:cert=0d002397195463d88d188ae67b83de8e :identities:fqdns=(hurr.net, derp.org) ) ] +{ :identities:fqdns -> inet:fqdn }>1
 ```
 
-``` text
+```text
 <crypto:x509:cert> +{ :identities:fqdns -> inet:fqdn }>1
 ```
 
@@ -1605,7 +1605,7 @@ Filter the current working set of x509 certificates (`crypto:x509:cert` nodes) t
 [ ( crypto:x509:cert=3e0016d728b979b7f8fd77a2738047eb :identities:fqdns=(woot.com,) ) ( crypto:x509:cert=0d002397195463d88d188ae67b83de8e :identities:fqdns=(hurr.net, derp.org) ) ] $fqdns=:identities:fqdns +$( $fqdns.size() > 1 )
 ```
 
-``` text
+```text
 <crypto:x509:cert> $fqdns=:identities:fqdns +$( $fqdns.size() > 1 )
 ```
 
@@ -1624,7 +1624,7 @@ Filter the current working set of network flows (`inet:flow` nodes) to only incl
 [ inet:flow=( { "client:txbytes": "60000000", "server:txbytes": "60000000" } ) inet:flow=( { "client:txbytes": "1024", "server:txbytes": "4096" } ) ] +$( :client:txbytes + :server:txbytes >=100000000 )
 ```
 
-``` text
+```text
 <inet:flow> +$( :client:txbytes + :server:txbytes >=100000000 )
 ```
 
@@ -1634,7 +1634,7 @@ Filter the current set of nodes associated with any threat group or threat clust
 [ ( inet:ip=4.4.4.4 +#cno.threat.foo ) ( inet:ip=7.7.7.7 +#cno.threat.hurr +#cno.threat.derp ) ] +$( $node.globtags(cno.threat.*).size() > 1 )
 ```
 
-``` text
+```storm
 #cno.threat +$( $node.globtags(cno.threat.*).size() > 1 )
 ```
 
@@ -1687,14 +1687,14 @@ Filter the current working set of IP addresses (`inet:ip` nodes) to exclude any 
 [ inet:ip=185.86.150.67 :asn={[ inet:asn=52173 :registrant:name="makonix, lv" ]} ] -:asn::registrant:name ^= makonix
 ```
 
-``` text
+```text
 <inet:ip> -:asn::registrant:name ^= makonix
 ```
 
 > [!TIP]
 > This example is an alternative way to return the same data as the second example under [Subquery Filters](storm_ref_filter.md#filter-subquery) above:
 >
-> ``` text
+> ```text
 > <inet:ip> -{ :asn -> inet:asn +:registrant:name ^= makonix }
 > ```
 
@@ -1708,7 +1708,7 @@ Set the variable `$name` to the registrant name of the Autonomous System (AS) as
 inet:ip $name=:asn::registrant:name
 ```
 
-``` text
+```text
 <inet:ip> $name=:asn::registrant:name
 ```
 

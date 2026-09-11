@@ -189,7 +189,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
 
                         $lib.inet.http.oauth.v2.addProvider($conf)
 
-                    If the ``client_id`` value should come from the AZURE_CLIENT_ID environment variable, use the
+                    If the `client_id` value should come from the AZURE_CLIENT_ID environment variable, use the
                     following configuration::
 
                         $conf = ({
@@ -210,8 +210,8 @@ class OAuthV2Lib(s_stormtypes.Lib):
 
                     Add a new provider which uses a custom Storm callback to obtain the client_assertion data. These
                     callbacks are executed as the user who is performing the authorization_code workflow. The Storm
-                    callback must return data in a tuple of ``boolean`` and a dictionary containing the assertion in the
-                    key ``token``. Error messages should be in the key ``error``::
+                    callback must return data in a tuple of `boolean` and a dictionary containing the assertion in the
+                    key `token`. Error messages should be in the key `error`::
 
                         $iden = $lib.guid(callstormexample, provider, oauth)
 

@@ -39,12 +39,12 @@ class StormExecCmd(s_storm.Cmd):
 
         // Filter nodes in the pipeline using text in a variable
         $filter = '-:asn=10'
-        inet:ipv4:asn
+        inet:ip:asn
         storm.exec $filter
 
         // Pivot using an embedded query
         $pivot = ${ -> inet:asn }
-        inet:ipv4:asn
+        inet:ip:asn
         storm.exec $pivot
     '''
     name = 'storm.exec'

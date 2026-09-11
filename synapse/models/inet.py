@@ -1500,6 +1500,9 @@ modeldefs = (
                 'doc': 'A Universal Resource Locator (URL).'}),
 
             ('inet:http:cookie', (None, {'ctor': 'synapse.models.inet.HttpCookie'}), {
+                'interfaces': (
+                    ('meta:usable', {}),
+                ),
                 'ex': 'PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3',
                 'props': (
                     ('name', ('str', {}), {
@@ -2481,6 +2484,7 @@ modeldefs = (
                 'template': {'title': 'account'},
                 'interfaces': (
                     ('entity:actor', {}),
+                    ('meta:usable', {}),
                     ('risk:targetable', {}),
                     ('entity:resolvable', {}),
                     ('econ:pay:instrument', {}),

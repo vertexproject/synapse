@@ -59,19 +59,19 @@ storm> yield { inet:email | limit 10 }
 
 Pivot from a set of DNS A records to their associated IPs and then to additional DNS A records associated with those IPs. Use a subquery to check whether any of the IPs are RFC1918 addresses (i.e., have `:type=private`) and if so, tag the IP as non-routable.
 
-``` text
+```text
 <inet:dns:a> -> inet:ip { +:type=private [ +#nonroutable ] } -> inet:dns:a
 ```
 
 Pivot from a set of IP addresses to any servers associated with those IPs. Use a subquery to check whether the IP has a location (`:place:loc`) property, and if not, call a third-party geolocation service to attempt to identify a location and set the property. (**Note:** Synapse does not include a geolocation service in its public distribution; this example assumes such a service has been implemented and is called using an extended Storm command named `ipgeoloc`.)
 
-``` text
+```text
 <inet:ip> { -:place:loc | ipgeoloc } -> inet:server
 ```
 
 Pivot from a set of FQDNs to any files (binaries) that query those FQDNs. Use a subquery with the `yield` keyword to return the file nodes as well as the original FQDNs.
 
-``` text
+```text
 <inet:fqdn> yield { -> inet:dns:request:query:name +:client:exe -> file:bytes }
 ```
 
@@ -107,7 +107,7 @@ A common use case is to use a subquery as a simpler way to refer to a [Guid Form
 
 Lift all of the contacts (`entity:contact` nodes) where the associated organization (`:org` property) is `vertex`:
 
-``` text
+```storm
 entity:contact:org = { ou:org:name = vertex }
 ```
 
@@ -118,7 +118,7 @@ entity:contact:org = { ou:org:name = vertex }
 
 Lift all of the presentations that were given at PIVOTcon 2026:
 
-``` text
+```storm
 ou:preso:activity = { ou:conference:name = 'pivotcon 2026' }
 ```
 

@@ -19,7 +19,7 @@ What you need to do
 
 :   Pass a decimal `lat,long` (latitude first) or a DMS string to any `geo:latlong`-typed property; both normalize to a `(lat, lon)` tuple. When building a `geo:bbox` remember it is longitude first (`xmin,xmax,ymin,ymax`) and does NOT follow the latlong ordering.
 
-    ``` text
+    ```text
     // 3.x -- decimal lat,long (latitude first), unchanged
     [ geo:place=* :latlong="-12.45,56.78" ]
 
@@ -45,7 +45,7 @@ What you need to do
 
 :   On `geo:place`, continue to use the bare properties (`:latlong`, `:loc`, ...). On other forms that implement `geo:locatable`, use the `place:`-prefixed properties.
 
-    ``` text
+    ```text
     // 3.x -- geo:place keeps bare props (prefix overridden to '')
     [ geo:place=* :latlong="-12.45,56.78" ]
 

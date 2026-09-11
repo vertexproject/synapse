@@ -19,7 +19,7 @@ What you need to do
 
 :   Audit any user/role rules that grant the old granular permissions (`model.form.add`, `model.type.del`, `model.prop.add`, `model.univ.*`, `model.edge.*`, `model.tagprop.*`, and so on). Replace them with a single `model.admin` grant for users who need to extend the model.
 
-    ``` text
+    ```text
     // 2.x: granular grants
     auth.user.addrule visi model.form.add
     auth.user.addrule visi model.prop.add
@@ -42,7 +42,7 @@ What you need to do
 
 :   If your users rely on forking views (for example, analysts creating scratch/work views), explicitly grant `view.fork` to the appropriate users or roles -- commonly the `all` role to preserve 2.x behavior. Otherwise non-admin fork attempts that previously succeeded will now be denied.
 
-    ``` text
+    ```text
     // 2.x: any reader could fork; no grant needed
     $lib.view.get().fork()
 
@@ -66,7 +66,7 @@ What you need to do
 
 :   Stop using `$lib.projects.*` and project-specific Storm methods -- create and edit `proj:project` and `proj:ticket` as normal nodes with standard Storm node edits. Remove any user/role rules granting `project.*` permissions on a project authgate; they no longer apply. Govern who can edit project nodes via the standard `node.add`/`node.prop.set`/`view` permissions on the relevant view or layer.
 
-    ``` text
+    ```text
     // 2.x
     $proj = $lib.projects.get($name)
     $proj.tickets.add(...)
@@ -91,7 +91,7 @@ What you need to do
 
 :   Update user/role rules: replace grants of `storm.macro.admin` with `macro.admin` and `storm.macro.edit` with `macro.edit`. Leave `storm.macro.add` rules as-is.
 
-    ``` text
+    ```text
     // 2.x
     auth.user.addrule visi storm.macro.edit
 
@@ -113,7 +113,7 @@ What you need to do
 
 :   Migrate any user/role rules granted or denied using the full property path (`node.prop.set.<form>:<prop>` / `node.prop.del.<form>:<prop>`) to the form-name-plus-relative-property-name form (`node.prop.set.<form>.<prop>` / `node.prop.del.<form>.<prop>`). Rules scoped to a form (`node.prop.set.<form>`) or to all property sets/dels are unaffected.
 
-    ``` text
+    ```text
     // 2.x: the full property path (colon-joined) was honored
     auth.user.addrule visi node.prop.set.inet:dns:a:fqdn
 
@@ -135,7 +135,7 @@ What you need to do
 
 :   Update any user/role rules that grant or deny `node.data.pop` (or `node.data.pop.<key>`) to use `node.data.del` (or `node.data.del.<key>`). The behavior gated is the same: removing node data.
 
-    ``` text
+    ```text
     // 2.x
     auth.user.addrule visi node.data.pop --gate <layeriden>
 
@@ -159,7 +159,7 @@ What you need to do
 
 :   Replace any `layer.read` grants (cortex-gated wildcard `layer.read.<layeriden>` or the layer-gated `layer.read`) with a `view.read` grant on a View that uses the layer. Migrate cortex-gated wildcard `layer.write.<layeriden>` rules to the layer-gated `layer.write` (use `--gate <layeriden>`).
 
-    ``` text
+    ```text
     // 2.x
     auth.user.addrule visi layer.read.<layeriden>
 
@@ -181,7 +181,7 @@ What you need to do
 
 :   If you still grant `storm.asroot.cmd.<name>` or `storm.asroot.mod.<name>`, migrate the affected packages or modules to declare their needed permissions via `asroot:perms` and grant those concrete permissions instead. The asroot permission strings are no longer advertised by the Cortex permission catalog.
 
-    ``` text
+    ```text
     // 2.x
     auth.user.addrule visi storm.asroot.cmd.mycmd
 

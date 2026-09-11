@@ -78,7 +78,7 @@ Interfaces have three primary uses:
 
   **Example**: Malicious activity (attacks, compromises) can target a variety of objects (organizations, industries, individuals). In Synapse this relationship is represented by a `-(targeted)>` [lightweight edge](data_model.md#data-light-edge). Instead of defining multiple `<n1> -(targeted)> <n2>` relationships for every possible `n1` and `n2`, we can use two interfaces to account for all combinations. The `entity:action` interface is implemented by forms that represent activity carried out by an agent or actor (e.g., `risk:attack`). The `risk:targetable` interface is implemented by forms that can be the target of any activity (e.g., `ind:industry`). Using interfaces, all possible combinations of actions and targets can be defined with a single edge relationship:
 
-  ``` text
+  ```text
   entity:action -(targeted)> risk:targetable
   ```
 

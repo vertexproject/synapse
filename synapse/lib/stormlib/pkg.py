@@ -427,7 +427,7 @@ class PkgQueues(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.'},
                   ),
-                  'returns': {'type': 'pkg:queue', 'desc': 'A ``pkg:queue`` object.'}}},
+                  'returns': {'type': 'pkg:queue', 'desc': 'A `pkg:queue` object.'}}},
         {'name': 'list', 'desc': 'Get a list of the Queues for the package in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methPkgQueueList',
                   'returns': {'name': 'yields', 'type': 'dict', 'desc': 'Queue definitions for the package.'}}},

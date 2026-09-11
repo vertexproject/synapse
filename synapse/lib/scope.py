@@ -215,7 +215,7 @@ def clone(task: asyncio.Task) -> None:
 
         If the current task does not have a scope, we clone the default global Scope.
 
-        This will ``enter()`` the scope, and add a task callback to ``leave()`` the scope.
+        This will `enter()` the scope, and add a task callback to `leave()` the scope.
 
     Returns:
         None

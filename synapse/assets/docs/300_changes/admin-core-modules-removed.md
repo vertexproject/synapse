@@ -21,7 +21,7 @@ What you need to do
 
 :   Remove the `modules` key from your Cortex `cell.yaml` (or other config) before upgrading. Reimplement any custom Core-module behavior as a Storm package (commands/modules) or as a Storm service.
 
-    ``` yaml
+    ```yaml
     # 2.x cell.yaml
     modules:
       - myorg.synmods.MyCoreModule

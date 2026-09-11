@@ -1,5 +1,9 @@
 import os
+import sys
+import shlex
 import shutil
+import asyncio
+import difflib
 import hashlib
 import logging
 import tempfile
@@ -22,7 +26,7 @@ logger = logging.getLogger(__name__)
 logging.getLogger('markdown_it').setLevel(logging.INFO)
 
 # vcrpy logs every cassette request/response body ( INFO ) and playback detail
-# ( DEBUG ) for each ``mdstorm`` doc that mocks HTTP via a cassette -- matches
+# ( DEBUG ) for each `mdstorm` doc that mocks HTTP via a cassette -- matches
 # the same suppression synapse.tests.utils applies for test runs.
 logging.getLogger('vcr').setLevel(logging.ERROR)
 
@@ -474,12 +478,23 @@ def _fenceDirectives(text, name):
     return fences
 
 def _mdtocTargets(text):
-    '''Return the list of relative paths named by a file's (single) mdtoc fence body, one per non-blank line.'''
+    '''
+    Return (target, lineno) for each non-blank line named by a file's
+    (single) mdtoc fence body -- lineno is the 1-based line the target
+    occurs on within text.
+    '''
     fences = _fenceDirectives(text, 'mdtoc')
     if not fences:
         return []
-    _start, _end, _fenceargs, body = fences[0]
-    return [line.strip() for line in body.splitlines() if line.strip()]
+    start, _end, _fenceargs, body = fences[0]
+    targets = []
+    for i, line in enumerate(body.splitlines()):
+        if line.strip():
+            # start is the fence's own 0-based opening-line index; the body
+            # begins on the line after it, so line i of the body sits at
+            # 1-based lineno start + 2 + i.
+            targets.append((line.strip(), start + 2 + i))
+    return targets
 
 def _fileHeadings(text):
     '''Extract this file's headings (level, title, slug), slugged in encounter order for GFM-style dedup.'''
@@ -494,6 +509,23 @@ def _fileHeadings(text):
         slug = s_autodoc.mdSlugify(title, seen=seen)
         headings.append((level, title, slug))
     return headings
+
+def _firstHeading(text):
+    '''
+    A file's first heading of any level (unlike _fileTitle, which only
+    looks for an H1) -- used to point a "no H1 heading" issue at the line
+    the author most likely needs to fix (usually a heading that should have
+    been an H1).
+
+    Returns:
+        tuple: (lineno, level, title), 1-based lineno; None if text has no
+            heading at all.
+    '''
+    for lineno, line in enumerate(text.splitlines(), 1):
+        match = _re_heading.match(line)
+        if match is not None:
+            return lineno, len(match.group(1)), match.group(2).strip()
+    return None
 
 def _fileAnchors(text):
     '''All anchor ids resolvable within one file: explicit <a id="..."> tags plus every heading's GFM slug.'''
@@ -685,18 +717,22 @@ class TocBuilder:
         Returns:
             list: TOC entries, TOC_MAX_DEPTH deep, in the docs/conf.py shape.
         '''
-        self.visited.add(os.path.normpath(indexpath))
+        srcrel = os.path.normpath(indexpath)
+        self.visited.add(srcrel)
         text = self._read(indexpath)
         targets = _mdtocTargets(text) if text is not None else []
-        return self._entriesFor(targets, os.path.dirname(indexpath), depth=1)
+        return self._entriesFor(targets, os.path.dirname(indexpath), depth=1, srcrel=srcrel)
 
-    def _entriesFor(self, targets, reldir, depth):
+    def _entriesFor(self, targets, reldir, depth, srcrel):
         entries = []
-        for target in targets:
+        for target, lineno in targets:
             relpath = os.path.normpath(os.path.join(reldir, target)) if reldir else target
             text = self._read(relpath)
             if text is None:
-                self.missing.append(relpath)
+                # (referring page, referring line, raw target, missing relpath) --
+                # the referring page/line is what validate() needs to map this
+                # back to the docs/ source's own mdtoc fence line.
+                self.missing.append((srcrel, lineno, target, relpath))
                 continue
 
             self.visited.add(relpath)
@@ -714,7 +750,7 @@ class TocBuilder:
     def _childrenFor(self, relpath, text, depth):
         subtargets = _mdtocTargets(text)
         if subtargets:
-            return self._entriesFor(subtargets, os.path.dirname(relpath), depth + 1)
+            return self._entriesFor(subtargets, os.path.dirname(relpath), depth + 1, srcrel=relpath)
 
         return headingsToc(text, relpath, depth)
 
@@ -723,7 +759,7 @@ def _stripCode(text):
     Strip fenced code blocks and inline code spans before link scanning.
     Storm/regex content routinely contains a "[...]" list literal or
     character class immediately followed by a "(...)" call/group -- e.g.
-    ``[0-9]{2}[0-9]{0,2}`` -- which otherwise false-positives as a Markdown
+    `[0-9]{2}[0-9]{0,2}` -- which otherwise false-positives as a Markdown
     link target.
 
     Args:
@@ -749,16 +785,100 @@ def _stripCode(text):
     return ''.join(out)
 
 def _internalLinkTargets(text):
-    '''Every local (non-http) markdown link target in text, split into (file-part, anchor-part-or-None).'''
+    '''
+    Every local (non-http) markdown link target in text, as
+    (file-part, anchor-part-or-None, lineno) -- lineno is the link's
+    1-based line, from _stripCode(text) (line-count preserving, so this is
+    accurate even though _stripCode itself alters characters within a line).
+    '''
+    stripped = _stripCode(text)
     targets = []
-    for target in _re_md_link.findall(_stripCode(text)):
+    for match in _re_md_link.finditer(stripped):
+        target = match.group(1)
         if target.startswith(('http://', 'https://', 'mailto:')):
             continue
         fpart, _sep, apart = target.partition('#')
-        targets.append((fpart, apart or None))
+        lineno = stripped.count('\n', 0, match.start()) + 1
+        targets.append((fpart, apart or None, lineno))
     return targets
 
-def validate(outdir, tocbuilder, staticdir=None):
+class _SrcLineMap:
+    '''
+    Maps a link/mdtoc-target lookup made against a BUILT page back to its
+    original line in the bundle's docs/ source, when the same page and
+    target can be found there.
+
+    validate() scans the staged/built outdir -- by the time it runs,
+    runMdstorm() has expanded every ```mdstorm/```mdautodoc fence (and
+    collapsed blank lines) and TocBuilder.resolveFences() has replaced every
+    ```mdtoc fence with a rendered bullet list (see buildDocs). For a plain
+    prose page the built text is identical to its docs/ source and a line
+    number transfers as-is; for a page with a fence above the link/target in
+    question the built line has drifted from the line the author actually
+    edits. This maps back to that source line wherever possible, and falls
+    back to the built line otherwise (a page/target with no source
+    counterpart -- e.g. a static-only or reused page -- or srcdir=None).
+
+    Args:
+        srcdir (str): The bundle's doc source directory, or None to make
+            every lookup a no-op fallback (e.g. a caller with no docs/
+            source tree at all).
+    '''
+
+    def __init__(self, srcdir):
+        self.srcdir = srcdir
+        self._cache = {}
+
+    def _entry(self, relpath):
+        if relpath in self._cache:
+            return self._cache[relpath]
+
+        entry = None
+        if self.srcdir is not None:
+            path = s_common.genpath(self.srcdir, relpath)
+            if os.path.isfile(path):
+                with open(path, 'r') as fd:
+                    text = fd.read()
+
+                links = {}
+                for fpart, apart, lineno in _internalLinkTargets(text):
+                    links.setdefault((fpart, apart), []).append(lineno)
+
+                mdtoc = {}
+                for target, lineno in _mdtocTargets(text):
+                    mdtoc.setdefault(target, []).append(lineno)
+
+                entry = {'links': links, 'mdtoc': mdtoc}
+
+        self._cache[relpath] = entry
+        return entry
+
+    def getLinkLine(self, relpath, fpart, apart, occurrence, fallback):
+        '''The occurrence-th (0-based) source line for this exact link target, or fallback.'''
+        entry = self._entry(relpath)
+        if entry is None:
+            return fallback
+
+        linenos = entry['links'].get((fpart, apart))
+        if not linenos:
+            return fallback
+
+        idx = occurrence if occurrence < len(linenos) else -1
+        return linenos[idx]
+
+    def getMdtocLine(self, relpath, target, fallback):
+        '''The first source line naming this mdtoc target, or fallback.'''
+        entry = self._entry(relpath)
+        if entry is None:
+            return fallback
+
+        linenos = entry['mdtoc'].get(target)
+        if not linenos:
+            return fallback
+
+        return linenos[0]
+
+def validate(outdir, tocbuilder, staticdir=None, srcdir=None):
     '''
     Validate a built doc bundle: every page must have an H1 heading (its
     title -- see _fileTitle), every ```mdtoc target must exist, every
@@ -768,7 +888,7 @@ def validate(outdir, tocbuilder, staticdir=None):
     curated bullet list of links is just as real a path to a page) --
     every internal Markdown link's target file and #anchor must resolve.
     A link into another bundle (an absolute
-    ``/docs/<name>/<version>/<path>.md`` Vertex Hub link -- see
+    `/docs/<name>/<version>/<path>.md` Vertex Hub link -- see
     _re_abs_doclink) is only shape-checked here: the target lives in a
     different bundle's docroot (possibly a different repo entirely), which
     this single-bundle build cannot resolve. It does not count toward
@@ -782,14 +902,22 @@ def validate(outdir, tocbuilder, staticdir=None):
             lives only there (see TocBuilder.staticdir). Only affects
             target-existence/anchor checks -- outdir's own .md files are
             still the only ones scanned for orphan/H1/link-source issues.
+        srcdir (str): The bundle's doc source directory, used to map a
+            broken link/anchor/mdtoc-target issue's line back to the line
+            the author actually edits (see _SrcLineMap) -- outdir has
+            already been through mdstorm/mdtoc-fence rewriting by the time
+            this runs, so its own line numbers can drift from srcdir's.
+            None (the default) reports outdir's own line unchanged.
 
     Returns:
         list: Human-readable issue strings (empty if the bundle is clean).
     '''
     issues = []
+    srclines = _SrcLineMap(srcdir)
 
-    for relpath in tocbuilder.missing:
-        issues.append(f'mdtoc target does not exist: {relpath}')
+    for srcrel, builtline, target, relpath in tocbuilder.missing:
+        lineno = srclines.getMdtocLine(srcrel, target, builtline)
+        issues.append(f'{srcrel}:{lineno}: mdtoc target does not exist: {relpath}')
 
     allfiles = {os.path.relpath(p, outdir) for p in _iterMdFiles(outdir)}
 
@@ -801,13 +929,28 @@ def validate(outdir, tocbuilder, staticdir=None):
             text = fd.read()
 
         if _fileTitle(text) is None:
-            issues.append(f'no H1 heading in {relpath}')
+            first = _firstHeading(text)
+            if first is None:
+                issues.append(f'no H1 heading in {relpath}: file has no headings at all')
+            else:
+                lineno, level, title = first
+                issues.append(f'no H1 heading in {relpath}:{lineno}: first heading is an H{level} '
+                               f'({"#" * level} {title})')
 
         reldir = os.path.dirname(relpath)
-        for fpart, apart in _internalLinkTargets(text):
+        # occurrence-count identical (fpart, apart) targets so, e.g., the
+        # same broken link repeated 3 times in one page maps to 3 distinct
+        # source lines rather than the same one three times over.
+        seen = {}
+        for fpart, apart, builtline in _internalLinkTargets(text):
+            key = (fpart, apart)
+            occurrence = seen.get(key, 0)
+            seen[key] = occurrence + 1
+            lineno = srclines.getLinkLine(relpath, fpart, apart, occurrence, builtline)
+
             if fpart.startswith('/'):
                 if not _re_abs_doclink.match(fpart):
-                    issues.append(f'malformed cross-bundle doc link in {relpath}: {fpart}')
+                    issues.append(f'malformed cross-bundle doc link in {relpath}:{lineno}: {fpart}')
                 continue
 
             if not fpart:
@@ -820,18 +963,108 @@ def validate(outdir, tocbuilder, staticdir=None):
             if not os.path.isfile(targetpath) and staticdir is not None:
                 targetpath = s_common.genpath(staticdir, targetrel)
             if not os.path.isfile(targetpath):
-                issues.append(f'broken link in {relpath}: target file does not exist: {fpart}')
+                issues.append(f'broken link in {relpath}:{lineno}: target file does not exist: {fpart}')
                 continue
 
             if apart:
                 with open(targetpath, 'r') as fd:
                     targettext = fd.read()
                 if apart not in _fileAnchors(targettext):
-                    issues.append(f'broken link in {relpath}: anchor #{apart} not found in {fpart or relpath}')
+                    issues.append(f'broken link in {relpath}:{lineno}: anchor #{apart} not found in {fpart or relpath}')
 
     orphans = allfiles - tocbuilder.visited - linked
     for relpath in sorted(orphans):
         issues.append(f'orphan page (not reachable from index.md): {relpath}')
+
+    return issues
+
+_re_spaced_fence = regex.compile(r'^(?:\s*>)*\s*```[ \t]+\S')
+
+def lintFenceStyle(outdir):
+    '''
+    Check every staged .md file for fenced code block openers that have a
+    space between the backtick fence and the info string (e.g. "``` text"
+    instead of "```text"). Returns issue strings in the same format as
+    validate() -- empty list means clean.
+
+    Args:
+        outdir (str): The staged output directory.
+
+    Returns:
+        list: Human-readable issue strings (empty if all fences are clean).
+    '''
+    issues = []
+
+    for path in sorted(_iterMdFiles(outdir)):
+        relpath = os.path.relpath(path, outdir)
+        with open(path, 'r') as fd:
+            lines = fd.readlines()
+
+        for lineno, line in enumerate(lines, 1):
+            if _re_spaced_fence.match(line):
+                issues.append(
+                    f'spaced fence opener (use ```lang not ``` lang) in {relpath} line {lineno}: {line.rstrip()}'
+                )
+
+    return issues
+
+_re_fence_marker = regex.compile(r'^(?:\s*>)*\s*```.*$', flags=regex.MULTILINE)
+_re_dbl_backtick = regex.compile(r'(?<!`)``(?!`)(.*?)(?<!`)``(?!`)', flags=regex.DOTALL)
+
+def _maskFencedBlocks(text):
+    '''
+    Replace the interior of every fenced code block (opener line through the
+    matching closer, exclusive of both marker lines) with a same-length run
+    of spaces, preserving line breaks -- so line numbers and offsets stay
+    accurate but fenced content can never match a linter's regex.
+    '''
+    markers = list(_re_fence_marker.finditer(text))
+    out = text
+
+    for opener, closer in zip(markers[::2], markers[1::2]):
+        start, end = opener.end(), closer.start()
+        chunk = out[start:end]
+        masked = ''.join(c if c == '\n' else ' ' for c in chunk)
+        out = out[:start] + masked + out[end:]
+
+    return out
+
+def lintInlineCode(outdir):
+    '''
+    Check every staged .md file for double-backtick inline code where the
+    content has no backtick of its own (e.g. "``name``" instead of "`name`").
+    A double-backtick span is only legitimate when its content itself
+    contains a backtick -- the CommonMark escape for a literal backtick,
+    e.g. "``` ```text ``` " -- so that form is left alone. Fenced code blocks
+    are masked out entirely, since one may legitimately show that pattern as
+    a sample. Returns issue strings in the same format as validate() --
+    empty list means clean.
+
+    Args:
+        outdir (str): The staged output directory.
+
+    Returns:
+        list: Human-readable issue strings (empty if all inline code is clean).
+    '''
+    issues = []
+
+    for path in sorted(_iterMdFiles(outdir)):
+        relpath = os.path.relpath(path, outdir)
+        with open(path, 'r') as fd:
+            text = fd.read()
+
+        masked = _maskFencedBlocks(text)
+        lines = text.splitlines()
+
+        for match in _re_dbl_backtick.finditer(masked):
+            if '`' in match.group(1):
+                continue
+
+            lineno = masked.count('\n', 0, match.start()) + 1
+            issues.append(
+                f'double-backtick inline code (use `x` not ``x``) in {relpath} line {lineno}: '
+                f'{lines[lineno - 1].strip()}'
+            )
 
     return issues
 
@@ -891,7 +1124,9 @@ async def buildDocs(srcdir, outdir, ci=False, staticdir=None, force=False):
     issues = []
     for relpath, msgs in mdstormissues.items():
         issues.extend(f'{relpath}: {mesg}' for mesg in msgs)
-    issues.extend(validate(outdir, tocbuilder, staticdir=staticdir))
+    issues.extend(lintFenceStyle(outdir))
+    issues.extend(lintInlineCode(outdir))
+    issues.extend(validate(outdir, tocbuilder, staticdir=staticdir, srcdir=srcdir))
 
     metadata = {'toc': toc}
     s_json.jssave(metadata, outdir, 'metadata.json')
@@ -999,3 +1234,388 @@ async def buildBundle(srcdir, outdir, staticdir=None, ci=False, warnfile=None, s
         shutil.rmtree(stagedir, ignore_errors=True)
 
     return metadata
+
+# The only two directives whose rendered output is a pure function of their
+# inputs -- a ```mdautodoc fence's Python/model source and a ```mdtoc fence's
+# sibling pages' headings -- so a page carrying only these can be rebuilt and
+# diffed byte-for-byte against committed content with no run-to-run false
+# positives. See isDeterministicPage.
+DETERMINISTIC_DIRECTIVES = frozenset(('mdautodoc', 'mdtoc'))
+
+def fenceDirectiveNames(text):
+    '''
+    The set of top-level fence directive names in Markdown source text.
+
+    A "recognized" directive is anything gen_docs_manifest._isDirective also
+    admits: 'mdtoc', or a name matching s_mdstorm.re_directive_name (the
+    mdstorm family, mdshell, mdautodoc). An unrecognized info string (a plain
+    language tag, or a typo'd directive name) is silently excluded -- this
+    function only ever classifies a page, it never validates one; a typo'd
+    mdstorm-* still raises NoSuchName from MdStorm.run() at build time.
+
+    Args:
+        text (str): The full file text.
+
+    Returns:
+        set: Directive names found, e.g. {'mdautodoc'} or {'mdstorm', 'mdtoc'}.
+    '''
+    names = set()
+    for token in _md_parser.parse(text):
+        if token.type != 'fence' or token.level != 0:
+            continue
+
+        directive = token.info.strip().partition(' ')[0]
+        if directive == 'mdtoc' or s_mdstorm.re_directive_name.match(directive):
+            names.add(directive)
+
+    return names
+
+def isDeterministicPage(text):
+    '''
+    True if text has at least one directive fence and every directive fence
+    on it is deterministic (see DETERMINISTIC_DIRECTIVES) -- its built output
+    is a pure function of its inputs, so a rebuild can be diffed byte-for-byte
+    against committed content with no run-to-run false positives.
+
+    False for a directive-free page (nothing generated to drift) and for a
+    page carrying even one live ```mdstorm/```mdstorm-setup/```mdshell fence:
+    that fence's real Storm/HTTP execution emits fresh guids/timestamps on
+    every build, which would make a byte-for-byte compare a permanent false
+    positive. checkDrift instead checks a fence like that individually via
+    its own isolated render -- see there.
+
+    Args:
+        text (str): The full file text.
+
+    Returns:
+        bool
+    '''
+    names = fenceDirectiveNames(text)
+    if not names:
+        return False
+
+    return names <= DETERMINISTIC_DIRECTIVES
+
+def _nonBlankContains(haystack, needle):
+    '''
+    True if needle (a list of lines) appears as a contiguous run of
+    haystack's non-blank lines, ignoring blank lines on both sides -- the
+    containment check checkDrift uses for one ```mdautodoc fence's rendered
+    output against a committed page. Sound but weaker than a byte-for-byte
+    compare: it does not police the static prose around the fence (already
+    covered by docs.sha256, since an edited-but-unrebuilt source fails that
+    check instead), but any real change to the fence's own rendered content
+    -- an added/removed/altered line -- breaks the contiguous match.
+
+    Args:
+        haystack (list): Lines to search (e.g. a built page's lines).
+        needle (list): Lines to find, in order.
+
+    Returns:
+        bool: True if needle is empty, or found as a contiguous subsequence.
+    '''
+    hay = [line for line in haystack if line.strip()]
+    ndl = [line for line in needle if line.strip()]
+    if not ndl:
+        return True
+
+    n = len(ndl)
+    for i in range(len(hay) - n + 1):
+        if hay[i:i + n] == ndl:
+            return True
+
+    return False
+
+# Cap on how many diff/rendered-content lines checkDrift folds into one finding's
+# diagnostic text -- a bare ```mdautodoc --model-forms fence renders ~20k lines, so an
+# uncapped diff would make a CI failure message unreadable (and, printed 91 pages over,
+# enormous). This is plenty to identify what changed; a full rebuild is always the fix.
+_DIFF_LINE_CAP = 40
+
+def _cappedDiff(before, after, cap=_DIFF_LINE_CAP):
+    '''
+    A unified diff between two line lists (no trailing newlines on either), capped to
+    at most `cap` lines with a trailing marker noting how many more were cut.
+
+    Args:
+        before (list): "committed" side lines.
+        after (list): "rebuilt" side lines.
+        cap (int): Maximum diff lines to keep.
+
+    Returns:
+        str: The (possibly capped) unified diff, one line per '\\n'.
+    '''
+    lines = list(difflib.unified_diff(before, after, 'committed', 'rebuilt', lineterm=''))
+    if len(lines) > cap:
+        lines = lines[:cap] + [f'... ({len(lines) - cap} more diff line(s) omitted)']
+
+    return '\n'.join(lines)
+
+# The mdautodoc_flags argparse destinations whose rendered content is a pure function of
+# a process-GLOBAL registry (the data model, or the Storm library/primitive registry)
+# rather than a specifically-named target (--conf CTOR, --api CTOR, --stormpkg PATH). See
+# _usesGlobalRegistry and _renderIsolated for why that distinction is load-bearing here.
+_GLOBAL_REGISTRY_FLAGS = ('model_types', 'model_forms', 'stormtypes_libs', 'stormtypes_prims')
+
+def _usesGlobalRegistry(text):
+    '''
+    True if text has a ```mdautodoc fence using one of _GLOBAL_REGISTRY_FLAGS.
+
+    Args:
+        text (str): The full file text.
+
+    Returns:
+        bool
+    '''
+    for _start, _end, fenceargs, _body in _fenceDirectives(text, 'mdautodoc'):
+        opts = s_mdstorm.mdautodoc_flags.parse_args(shlex.split(fenceargs))
+        if any(getattr(opts, flag) for flag in _GLOBAL_REGISTRY_FLAGS):
+            return True
+
+    return False
+
+# A standalone script run via `python -c` in a brand-new interpreter (see
+# _renderIsolated) -- deliberately minimal: it only ever imports synapse.lib.mdstorm and
+# synapse.lib.json, neither of which imports anything enterprise-specific, so the
+# process it runs in starts with a clean synapse.lib.stormtypes library registry and
+# data model, the same way each doc bundle's own build subprocess
+# (`python -m synapse.tools.utils.doc` / `synapse.tools.storm.pkg.doc`, invoked
+# by each bundle's own build recipe) does. renderonly (argv[2:], possibly empty) is
+# threaded straight through to MdStorm.
+_ISOLATED_RENDER_SCRIPT = (
+    'import sys, asyncio\n'
+    'import synapse.lib.json as s_json\n'
+    'import synapse.lib.mdstorm as s_mdstorm\n'
+    'async def main():\n'
+    '    renderonly = set(sys.argv[2:]) or None\n'
+    '    async with await s_mdstorm.MdStorm.anit(sys.argv[1], renderonly=renderonly) as md:\n'
+    '        lines = await md.run()\n'
+    '    fenceout = [[d, fa, list(ls)] for d, fa, ls in md.fenceout]\n'
+    '    sys.stdout.buffer.write(s_json.dumps({"lines": lines, "fenceout": fenceout}))\n'
+    'asyncio.run(main())\n'
+)
+
+
+async def _renderIsolated(srcpath, renderonly=None):
+    '''
+    Render one Markdown file's directive fences in a brand-new Python subprocess
+    instead of this process -- see checkDrift's docstring and _usesGlobalRegistry
+    for why this exists.
+
+    The real doc build gets this isolation for free: each bundle's own build recipe
+    shells out to a fresh `python -m synapse.tools.utils.doc` /
+    `synapse.tools.storm.pkg.doc` process, so only THAT tool's own import chain has
+    populated synapse.lib.stormtypes' library registry and the data model by the time
+    it renders a page. checkDrift, called in-process from whatever test or tool invoked
+    it, has no such guarantee -- a caller whose own import chain pulls in a package
+    that registers additional Storm libraries (e.g. $lib.db) will have populated that
+    same global registry before this ever runs. Rendering the plain `synapse` bundle's
+    ```mdautodoc --stormtypes-libs page in that same process would then see $lib.db and
+    report drift against a committed page that was correctly built without it. A
+    subprocess sidesteps this the same way the real build already does, paid only for
+    the pages that actually read a global registry (checkDrift calls this only for
+    those, via _usesGlobalRegistry) rather than for every checkable page.
+
+    Args:
+        srcpath (str): Absolute path to the unstaged Markdown source file.
+        renderonly (set): Passed through to MdStorm.anit -- None (the default) renders
+            every directive fence, matching a page with no live fence at all (the only
+            kind this is ever called for outside of the mixed-page tier, which passes
+            DETERMINISTIC_DIRECTIVES explicitly so a live fence on that page is never
+            executed, in this subprocess or anywhere else).
+
+    Returns:
+        tuple: (lines, fenceout) -- lines is what MdStorm.run() would have returned for
+            this file, already passed through _collapseBlankLines (i.e. exactly what
+            runMdstorm would have written to disk for this one file); fenceout mirrors
+            MdStorm.fenceout, [(directive, fenceargs, lines), ...] for each fence
+            actually rendered.
+
+    Raises:
+        s_exc.SynErr: The subprocess exited non-zero.
+    '''
+    args = [sys.executable, '-c', _ISOLATED_RENDER_SCRIPT, srcpath]
+    if renderonly is not None:
+        args.extend(sorted(renderonly))
+
+    proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE,
+                                                  stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise s_exc.SynErr(mesg=f'isolated mdstorm render of {srcpath} failed: '
+                                 f'{stderr.decode(errors="replace")}')
+
+    result = s_json.loads(stdout)
+    lines = _collapseBlankLines(result['lines'])
+    fenceout = [(directive, fenceargs, lines2) for directive, fenceargs, lines2 in result['fenceout']]
+    return lines, fenceout
+
+async def checkDrift(srcdir, bundledir):
+    '''
+    Check one doc bundle's deterministically-generated content for drift
+    against its Python (or live data model) inputs.
+
+    Unlike a bundle's docs.sha256 manifest (which only proves a source page
+    was rebuilt after its own text last changed), this catches a page whose
+    text never changed but whose rendered content depends on Python/model
+    state that moved underneath it -- e.g. ```mdautodoc --model-forms after a
+    data model change. This is buildBundle's read-only twin: it renders into
+    a private tempdir and only ever reads bundledir -- it never writes the
+    committed bundle, and never touches docs.sha256.
+
+    Three checks, none of which ever executes a live ```mdstorm/
+    ```mdstorm-setup/```mdshell fence:
+
+      * Every all-deterministic page (isDeterministicPage) is fully
+        re-rendered and compared byte-for-byte against its committed
+        counterpart in bundledir.
+      * Every ```mdautodoc fence on a page that also carries a live fence is
+        re-rendered in isolation (MdStorm's renderonly=, so the live fences
+        on that same page are never executed) and checked for containment
+        (_nonBlankContains) in the committed page.
+      * The bundle's rebuilt metadata.json (```mdtoc's real product) is
+        compared byte-for-byte against the committed one. This is the only
+        check that covers ```mdtoc drift on a mixed page -- mdtoc is not an
+        MdStorm directive at all (it is resolved by TocBuilder, a layer up),
+        so the isolated-fence check above never sees it.
+
+    A page whose ```mdautodoc fence reads a process-GLOBAL registry (the data model,
+    or the Storm library/primitive registry -- see _usesGlobalRegistry) rather than a
+    specifically-named target is rendered in a brand-new subprocess (_renderIsolated)
+    instead of in this process. That is not an optimization: the caller's own process
+    may have already populated those registries with content that has no business in
+    THIS bundle (a downstream repo's own doc test may import enough to register
+    extra Storm libraries process-wide before ever calling this), and the real doc
+    build never has that problem because each bundle's own build recipe already
+    runs in its own fresh subprocess. Every other
+    renderer here (```mdautodoc --conf/--api/--stormpkg, ```mdtoc) reads a specifically
+    named target and carries no such risk, so only the pages that actually need it pay
+    for a subprocess.
+
+    A checkable page (all-deterministic, or mixed with an mdautodoc fence)
+    that has no committed counterpart in bundledir at all is a different
+    failure -- a page never built even once -- and is left unreported here;
+    that gap belongs to docs.sha256's own "tracks all directive-bearing
+    files" coverage, not to this drift check.
+
+    Args:
+        srcdir (str): The bundle's doc source directory (docs.source).
+        bundledir (str): The bundle's committed built output directory
+            (docs.bundle).
+
+    Returns:
+        list: [(relpath, diagnostic), ...] sorted by relpath, one entry per
+            drifted page, drifted mdautodoc fence, or drifted metadata.json.
+            diagnostic is human-readable text (a capped unified diff for the
+            first and third case, a description of the missing fence content
+            for the second -- see _cappedDiff) meant to be printed as-is; it
+            names no bundle, since checkDrift itself is bundle-name-agnostic
+            -- a caller wanting a "make -C docs <name> FORCE=1" hint (e.g.
+            docs/test_doctests.py's drift test) already has the bundle name
+            this function was called with. Empty if nothing drifted.
+    '''
+    tmpdir = tempfile.mkdtemp(prefix='.docdrift-')
+    try:
+        stageTree(srcdir, tmpdir)
+
+        rebuild = set()
+        mixed = set()
+        # A rebuild page whose ```mdautodoc fence reads a process-global registry
+        # (see _usesGlobalRegistry) is rendered in its own subprocess below, rather
+        # than in-process by runMdstorm -- pulled out of skip's else-branch into its
+        # own set so it is unambiguous which pages get which treatment.
+        isolate = set()
+        for relpath in _walkMdFiles(srcdir):
+            with open(s_common.genpath(srcdir, relpath), 'r') as fd:
+                text = fd.read()
+
+            if isDeterministicPage(text):
+                rebuild.add(relpath)
+                if _usesGlobalRegistry(text):
+                    isolate.add(relpath)
+            elif 'mdautodoc' in fenceDirectiveNames(text):
+                mixed.add(relpath)
+
+        allmd = {os.path.relpath(p, tmpdir) for p in _iterMdFiles(tmpdir)}
+        reuse = {relpath for relpath in allmd - rebuild
+                 if os.path.isfile(s_common.genpath(bundledir, relpath))}
+        unbuilt = allmd - rebuild - reuse
+
+        stageReuse(bundledir, tmpdir, reuse)
+        await runMdstorm(tmpdir, srcdir=srcdir, skip=reuse | unbuilt | isolate)
+
+        for relpath in isolate:
+            lines, _fenceout = await _renderIsolated(s_common.genpath(srcdir, relpath))
+            with open(s_common.genpath(tmpdir, relpath), 'w') as fd:
+                fd.writelines(lines)
+
+        tocbuilder = TocBuilder(tmpdir, staticdir=bundledir)
+        toc = tocbuilder.buildToc()
+        tocbuilder.resolveFences()
+        s_json.jssave({'toc': toc}, tmpdir, 'metadata.json')
+
+        findings = []
+
+        for relpath in rebuild:
+            builtpath = s_common.genpath(bundledir, relpath)
+            if not os.path.isfile(builtpath):
+                continue
+
+            rebuiltpath = s_common.genpath(tmpdir, relpath)
+            if hashFile(builtpath) == hashFile(rebuiltpath):
+                continue
+
+            with open(builtpath, 'r') as fd:
+                committed = fd.read().splitlines()
+            with open(rebuiltpath, 'r') as fd:
+                rebuilt = fd.read().splitlines()
+
+            findings.append((relpath, _cappedDiff(committed, rebuilt)))
+
+        builtmeta = s_common.genpath(bundledir, 'metadata.json')
+        rebuiltmeta = s_common.genpath(tmpdir, 'metadata.json')
+        if os.path.isfile(builtmeta) and hashFile(builtmeta) != hashFile(rebuiltmeta):
+            with open(builtmeta, 'r') as fd:
+                committed = fd.read().splitlines()
+            with open(rebuiltmeta, 'r') as fd:
+                rebuilt = fd.read().splitlines()
+
+            findings.append(('metadata.json', _cappedDiff(committed, rebuilt)))
+
+        # Isolated per-fence check for a mixed/live page's ```mdautodoc content --
+        # rendered straight from srcdir (unstaged, so its fences are always the
+        # authored source, never a possibly-reused built copy from tmpdir above).
+        for relpath in mixed:
+            builtpath = s_common.genpath(bundledir, relpath)
+            if not os.path.isfile(builtpath):
+                continue
+
+            with open(builtpath, 'r') as fd:
+                builtlines = fd.read().splitlines()
+            with open(s_common.genpath(srcdir, relpath), 'r') as fd:
+                srctext = fd.read()
+
+            srcpath = s_common.genpath(srcdir, relpath)
+            if _usesGlobalRegistry(srctext):
+                _lines, fenceout = await _renderIsolated(srcpath, renderonly=DETERMINISTIC_DIRECTIVES)
+            else:
+                async with await s_mdstorm.MdStorm.anit(srcpath, renderonly=DETERMINISTIC_DIRECTIVES) as md:
+                    await md.run()
+                    fenceout = md.fenceout
+
+            # fenceout only ever holds 'mdautodoc' entries here: DETERMINISTIC_DIRECTIVES
+            # also names 'mdtoc', but mdtoc is not an MdStorm handler at all (see
+            # DETERMINISTIC_DIRECTIVES' own comment), so renderonly can never admit it.
+            for _directive, fenceargs, lines in fenceout:
+                block = ''.join(lines).splitlines()
+                if not _nonBlankContains(builtlines, block):
+                    capped = block[:_DIFF_LINE_CAP]
+                    if len(block) > _DIFF_LINE_CAP:
+                        capped = capped + [f'... ({len(block) - _DIFF_LINE_CAP} more line(s) omitted)']
+                    diagnostic = (f'```mdautodoc {fenceargs} no longer renders content found in the '
+                                  f'committed page. Rendered content now:\n' + '\n'.join(capped))
+                    findings.append((relpath, diagnostic))
+
+        return sorted(findings)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)

@@ -21,7 +21,7 @@ What you need to do
 
 :   Audit any integration or tooling code that constructed a `synapse.telepath.Client`. Switch it to `ClientV2` and resolve a live proxy at the point of use rather than caching one or gating on your own "ready" signal:
 
-    ``` python
+    ```python
     # old: legacy reconnecting Client
     import synapse.telepath as s_telepath
 
@@ -29,7 +29,7 @@ What you need to do
     # ... reach for the client / a cached proxy and hope it is connected ...
     ```
 
-    ``` python
+    ```python
     # new: ClientV2, resolve a live proxy per use
     import synapse.telepath as s_telepath
 

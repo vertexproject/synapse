@@ -7,6 +7,40 @@
           "title": "Key Features"
         },
         {
+          "children": [
+            {
+              "href": "intro.md#getting-started",
+              "title": "Getting Started"
+            },
+            {
+              "href": "intro.md#users",
+              "title": "Users"
+            },
+            {
+              "href": "intro.md#devops",
+              "title": "DevOps"
+            },
+            {
+              "href": "intro.md#developers",
+              "title": "Developers"
+            },
+            {
+              "href": "intro.md#admins",
+              "title": "Admins"
+            },
+            {
+              "href": "intro.md#synapse-ui-commercial",
+              "title": "Synapse UI (commercial)"
+            },
+            {
+              "href": "intro.md#learn-more",
+              "title": "Learn More"
+            },
+            {
+              "href": "intro.md#connect-with-us",
+              "title": "Connect With Us!"
+            }
+          ],
           "href": "intro.md#whats-next",
           "title": "What's Next?"
         }
@@ -16,6 +50,22 @@
     },
     {
       "children": [
+        {
+          "href": "getting_started.md#demo-instancegetting_startedmdsyn-demo",
+          "title": "[Demo Instance](getting_started.md#syn-demo)"
+        },
+        {
+          "href": "getting_started.md#vertex-intel-sharing-instance-visigetting_startedmdsyn-visi",
+          "title": "[Vertex Intel-Sharing Instance (VISI)](getting_started.md#syn-visi)"
+        },
+        {
+          "href": "getting_started.md#open-source-synapsegetting_startedmdsyn-open",
+          "title": "[Open-Source Synapse](getting_started.md#syn-open)"
+        },
+        {
+          "href": "getting_started.md#synapse-quickstartgetting_startedmdsyn-quick",
+          "title": "[Synapse Quickstart](getting_started.md#syn-quick)"
+        },
         {
           "href": "getting_started.md#demo-instance",
           "title": "Demo Instance"
@@ -565,10 +615,6 @@
               "title": "Managing Users and Roles"
             },
             {
-              "href": "devopsguide.md#updating-to-aha-and-telepath-tls",
-              "title": "Updating to AHA and Telepath TLS"
-            },
-            {
               "href": "devopsguide.md#deployment-options",
               "title": "Deployment Options"
             },
@@ -587,6 +633,10 @@
             {
               "href": "devopsguide.md#configure-custom-ca-certificates-for-http-requests",
               "title": "Configure Custom CA Certificates for HTTP Requests"
+            },
+            {
+              "href": "devopsguide.md#outbound-http-user-agent",
+              "title": "Outbound HTTP User-Agent"
             },
             {
               "href": "devopsguide.md#axon-blob-export-and-import",
@@ -1265,6 +1315,10 @@
               "title": "Ndef"
             },
             {
+              "href": "glossary.md#nid",
+              "title": "NID"
+            },
+            {
               "href": "glossary.md#node",
               "title": "Node"
             },
@@ -1279,6 +1333,10 @@
             {
               "href": "glossary.md#node-definition",
               "title": "Node Definition"
+            },
+            {
+              "href": "glossary.md#node-id",
+              "title": "Node ID"
             },
             {
               "href": "glossary.md#node-runtime",
@@ -1715,8 +1773,8 @@
               "title": "Project Style Guide"
             },
             {
-              "href": "contributing/contributing.md#git-hook-syntax-checking",
-              "title": "Git Hook & Syntax Checking"
+              "href": "contributing/contributing.md#syntax-checking",
+              "title": "Syntax Checking"
             },
             {
               "href": "contributing/contributing.md#contribution-process",
@@ -2649,10 +2707,18 @@
             {
               "href": "changelog.md#bugfixes",
               "title": "Bugfixes"
+            },
+            {
+              "href": "changelog.md#improved-documentation",
+              "title": "Improved documentation"
+            },
+            {
+              "href": "changelog.md#deprecations",
+              "title": "Deprecations"
             }
           ],
-          "href": "changelog.md#v310---2026-08-20",
-          "title": "v3.1.0 - 2026-08-20"
+          "href": "changelog.md#v320---2026-09-11",
+          "title": "v3.2.0 - 2026-09-11"
         },
         {
           "children": [
@@ -2669,8 +2735,8 @@
               "title": "Bugfixes"
             }
           ],
-          "href": "changelog.md#v300---2026-08-13",
-          "title": "v3.0.0 - 2026-08-13"
+          "href": "changelog.md#v310---2026-08-20",
+          "title": "v3.1.0 - 2026-08-20"
         },
         {
           "children": [
@@ -2685,32 +2751,10 @@
             {
               "href": "changelog.md#bugfixes-2",
               "title": "Bugfixes"
-            },
-            {
-              "href": "changelog.md#notes",
-              "title": "Notes"
-            },
-            {
-              "href": "changelog.md#improved-documentation",
-              "title": "Improved documentation"
-            },
-            {
-              "href": "changelog.md#deprecations",
-              "title": "Deprecations"
             }
           ],
-          "href": "changelog.md#v300rc1---2026-08-12",
-          "title": "v3.0.0rc1 - 2026-08-12"
-        },
-        {
-          "children": [
-            {
-              "href": "changelog.md#improved-documentation-1",
-              "title": "Improved documentation"
-            }
-          ],
-          "href": "changelog.md#v300b6---2026-08-11",
-          "title": "v3.0.0b6 - 2026-08-11"
+          "href": "changelog.md#v300---2026-08-13",
+          "title": "v3.0.0 - 2026-08-13"
         },
         {
           "children": [
@@ -2727,11 +2771,11 @@
               "title": "Bugfixes"
             },
             {
-              "href": "changelog.md#notes-1",
+              "href": "changelog.md#notes",
               "title": "Notes"
             },
             {
-              "href": "changelog.md#improved-documentation-2",
+              "href": "changelog.md#improved-documentation-1",
               "title": "Improved documentation"
             },
             {
@@ -2739,8 +2783,18 @@
               "title": "Deprecations"
             }
           ],
-          "href": "changelog.md#v300b5---2026-08-11",
-          "title": "v3.0.0b5 - 2026-08-11"
+          "href": "changelog.md#v300rc1---2026-08-12",
+          "title": "v3.0.0rc1 - 2026-08-12"
+        },
+        {
+          "children": [
+            {
+              "href": "changelog.md#improved-documentation-2",
+              "title": "Improved documentation"
+            }
+          ],
+          "href": "changelog.md#v300b6---2026-08-11",
+          "title": "v3.0.0b6 - 2026-08-11"
         },
         {
           "children": [
@@ -2751,10 +2805,26 @@
             {
               "href": "changelog.md#features-and-enhancements-4",
               "title": "Features and Enhancements"
+            },
+            {
+              "href": "changelog.md#bugfixes-4",
+              "title": "Bugfixes"
+            },
+            {
+              "href": "changelog.md#notes-1",
+              "title": "Notes"
+            },
+            {
+              "href": "changelog.md#improved-documentation-3",
+              "title": "Improved documentation"
+            },
+            {
+              "href": "changelog.md#deprecations-2",
+              "title": "Deprecations"
             }
           ],
-          "href": "changelog.md#v300b4---2026-07-24",
-          "title": "v3.0.0b4 - 2026-07-24"
+          "href": "changelog.md#v300b5---2026-08-11",
+          "title": "v3.0.0b5 - 2026-08-11"
         },
         {
           "children": [
@@ -2765,22 +2835,10 @@
             {
               "href": "changelog.md#features-and-enhancements-5",
               "title": "Features and Enhancements"
-            },
-            {
-              "href": "changelog.md#bugfixes-4",
-              "title": "Bugfixes"
-            },
-            {
-              "href": "changelog.md#notes-2",
-              "title": "Notes"
-            },
-            {
-              "href": "changelog.md#improved-documentation-3",
-              "title": "Improved documentation"
             }
           ],
-          "href": "changelog.md#v300b3---2026-07-17",
-          "title": "v3.0.0b3 - 2026-07-17"
+          "href": "changelog.md#v300b4---2026-07-24",
+          "title": "v3.0.0b4 - 2026-07-24"
         },
         {
           "children": [
@@ -2797,6 +2855,32 @@
               "title": "Bugfixes"
             },
             {
+              "href": "changelog.md#notes-2",
+              "title": "Notes"
+            },
+            {
+              "href": "changelog.md#improved-documentation-4",
+              "title": "Improved documentation"
+            }
+          ],
+          "href": "changelog.md#v300b3---2026-07-17",
+          "title": "v3.0.0b3 - 2026-07-17"
+        },
+        {
+          "children": [
+            {
+              "href": "changelog.md#model-changes-7",
+              "title": "Model Changes"
+            },
+            {
+              "href": "changelog.md#features-and-enhancements-7",
+              "title": "Features and Enhancements"
+            },
+            {
+              "href": "changelog.md#bugfixes-6",
+              "title": "Bugfixes"
+            },
+            {
               "href": "changelog.md#notes-3",
               "title": "Notes"
             }
@@ -2807,11 +2891,11 @@
         {
           "children": [
             {
-              "href": "changelog.md#model-changes-7",
+              "href": "changelog.md#model-changes-8",
               "title": "Model Changes"
             },
             {
-              "href": "changelog.md#features-and-enhancements-7",
+              "href": "changelog.md#features-and-enhancements-8",
               "title": "Features and Enhancements"
             },
             {

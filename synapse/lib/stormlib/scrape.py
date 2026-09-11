@@ -19,7 +19,7 @@ class LibScrape(s_stormtypes.Lib):
             Attempt to scrape information from a blob of text, getting the context information about the values found.
 
             Notes:
-                This does call the ``scrape`` Storm interface if that behavior is enabled on the Cortex.
+                This does call the `scrape` Storm interface if that behavior is enabled on the Cortex.
 
             Examples:
                 Scrape some text and make nodes out of it::
@@ -59,8 +59,8 @@ class LibScrape(s_stormtypes.Lib):
         nodes.
 
         Notes:
-            The pattern must have a named regular expression match for the key ``valu`` using the
-            named group syntax. For example ``(somekey\\s)(?P<valu>[a-z0-9]+)\\s``.
+            The pattern must have a named regular expression match for the key `valu` using the
+            named group syntax. For example `(somekey\\s)(?P<valu>[a-z0-9]+)\\s`.
 
         Examples:
             A scrape implementation with a regex that matches name keys in text::

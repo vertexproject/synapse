@@ -277,7 +277,7 @@ def genpath(*paths):
     '''
     Return an absolute path of the joining of the arguments as path elements
 
-    Performs home directory(``~``) and environment variable expansion on the joined path
+    Performs home directory(`~`) and environment variable expansion on the joined path
 
     Args:
         *paths ([str,...]): A list of path elements
@@ -371,12 +371,12 @@ def genfile(*paths):
         *paths: A list of paths to join together to make the file.
 
     Notes:
-        If the file already exists, the fd returned is opened in ``r+b`` mode.
-        Otherwise, the fd is opened in ``w+b`` mode.
+        If the file already exists, the fd returned is opened in `r+b` mode.
+        Otherwise, the fd is opened in `w+b` mode.
 
         The file position is set to the start of the file.  The user is
-        responsible for truncating (``fd.truncate()``) if the existing file
-        contents are not desired, or seeking to the end (``fd.seek(0, 2)``)
+        responsible for truncating (`fd.truncate()`) if the existing file
+        contents are not desired, or seeking to the end (`fd.seek(0, 2)`)
         to append.
 
     Returns:
@@ -461,7 +461,7 @@ def getDirSize(*paths):
 
     Returns:
         tuple: Tuple of total real and total apparent size of all normal files and directories underneath
-        ``*paths`` plus ``*paths`` itself.
+        `*paths` plus `*paths` itself.
     '''
     def getsize(path):
         try:
@@ -659,8 +659,8 @@ def spin(genr):
         genr: Any generator or iterable valu.
 
     Notes:
-        This generator is exhausted via the ``collections.dequeue()``
-        constructor with a ``maxlen=0``, which will quickly exhaust an
+        This generator is exhausted via the `collections.dequeue()`
+        constructor with a `maxlen=0`, which will quickly exhaust an
         iterator staying in C code as much as possible.
 
     Returns:

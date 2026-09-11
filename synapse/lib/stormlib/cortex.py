@@ -894,7 +894,7 @@ class HttpReq(s_stormtypes.StormType):
             This can only be called once.
 
             If the response body is not bytes, this method will serialize the body as JSON
-            and set the ``Content-Type`` and ``Content-Length`` response headers.
+            and set the `Content-Type` and `Content-Length` response headers.
         ''',
          'type': {'type': 'function', '_funcname': '_methReply',
                   'args': (
@@ -1072,7 +1072,7 @@ class CortexHttpApi(s_stormtypes.Lib):
                       {'name': 'iden', 'type': 'str',
                        'desc': 'An iden for the new Extended HTTP API.', 'default': None},
                   ),
-                  'returns': {'type': 'http:api', 'desc': 'A new ``http:api`` object.'}}},
+                  'returns': {'type': 'http:api', 'desc': 'A new `http:api` object.'}}},
         {'name': 'del', 'desc': 'Delete an Extended HTTP API endpoint.',
          'type': {'type': 'function', '_funcname': 'delHttpApi',
                   'args': (
@@ -1080,15 +1080,15 @@ class CortexHttpApi(s_stormtypes.Lib):
                        'desc': 'The iden of the API to delete.'},
                   ),
                   'returns': {'type': 'null'}}},
-        {'name': 'get', 'desc': 'Get an Extended ``http:api`` object.',
+        {'name': 'get', 'desc': 'Get an Extended `http:api` object.',
          'type': {'type': 'function', '_funcname': 'getHttpApi',
                   'args': (
                       {'name': 'iden', 'type': 'str',
                        'desc': 'The iden of the API to retrieve.'},
                   ),
-                  'returns': {'type': 'http:api', 'desc': 'The ``http:api`` object.'}}},
+                  'returns': {'type': 'http:api', 'desc': 'The `http:api` object.'}}},
         {'name': 'getByPath', 'desc': '''
-        Get an Extended ``http:api`` object by path.
+        Get an Extended `http:api` object by path.
 
         Notes:
             The path argument is evaluated as a regular expression input, and will be
@@ -1099,10 +1099,10 @@ class CortexHttpApi(s_stormtypes.Lib):
                       {'name': 'path', 'type': 'str',
                        'desc': 'Path to use to retrieve an object.'},
                   ),
-                  'returns': {'type': ['http:api', 'null'], 'desc': 'The ``http:api`` object or ``(null)`` if there is no match.'}}},
+                  'returns': {'type': ['http:api', 'null'], 'desc': 'The `http:api` object or `(null)` if there is no match.'}}},
         {'name': 'list', 'desc': 'Get all the Extended HTTP APIs on the Cortex',
          'type': {'type': 'function', '_funcname': 'listHttpApis', 'args': (),
-                  'returns': {'type': 'list', 'desc': 'A list of ``http:api`` objects'}}},
+                  'returns': {'type': 'list', 'desc': 'A list of `http:api` objects'}}},
         {'name': 'index', 'desc': 'Set the index for a given Extended HTTP API.',
          'type': {'type': 'function', '_funcname': 'setHttpApiIndx',
                   'args': (

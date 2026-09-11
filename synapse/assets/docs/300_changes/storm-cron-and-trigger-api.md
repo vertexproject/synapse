@@ -21,7 +21,7 @@ What you need to do
 
 :   Put the period first in `cron.add` and translate old usage to the new format. Note that hourly periods REQUIRE an explicit minute (for example `hourly@:00`) or a `BadTime` is raised. For `$lib.cron.add()`, pass the period string and query positionally and drop the per-unit recurrence kwargs.
 
-    ``` text
+    ```text
     // 2.x
     cron.add --hourly 30 { inet:ipv4#stale | delnode }
     cron.add --day +1 --hour 14 --minute 30 { $lib.print(daily) }
@@ -31,7 +31,7 @@ What you need to do
     cron.add daily@14:30 { $lib.print(daily) }
     ```
 
-    ``` text
+    ```text
     // 2.x
     $cron = $lib.cron.add(query=${ #stale | delnode }, hourly=30)
 
@@ -41,7 +41,7 @@ What you need to do
 
 :   `$lib.cron.at()` likewise now takes `query` as a required leading positional, but at-jobs are not period-based, so it still accepts the relative-time kwargs `minute`/`hour`/`day`/`dt`/`now`.
 
-    ``` text
+    ```text
     // 2.x
     $cron = $lib.cron.at(query=${ [inet:ipv4=1.2.3.4] }, minute='+5')
 
@@ -65,7 +65,7 @@ What you need to do
 
 :   Use the new `cron.mod` flags, and replace the removed commands and `$lib.cron` methods with edits.
 
-    ``` text
+    ```text
     // 2.x
     cron.mod <iden> { $lib.print(newq) }
     cron.disable 7a1b...
@@ -77,7 +77,7 @@ What you need to do
     cron.mod 7a1b... --view 2c3d...
     ```
 
-    ``` text
+    ```text
     // 2.x
     $lib.cron.mod($iden, ${ $lib.print(newq) })
     $lib.cron.disable($iden)
@@ -103,7 +103,7 @@ What you need to do
 
 :   Replace `$cron.set(name, $valu)` with direct assignment (or `$lib.cron.mod`), replace `$cron.pack()` with the named properties or `$cron.pprint()`, and use `$cron.completed` to detect finished at-jobs.
 
-    ``` text
+    ```text
     // 2.x
     $cron.set(name, 'nightly cleanup')
     $job = $cron.pack()
@@ -132,7 +132,7 @@ What you need to do
 
 :   Drop `--query` from `trigger.add` and pass the query positionally. Use `trigger.mod --storm` to change the query and `--enabled true|false` instead of the removed enable/disable commands. For `$lib.trigger.mod`, pass an edits dict instead of a query string.
 
-    ``` text
+    ```text
     // 2.x
     trigger.add node:add --form inet:ipv4 --query { $lib.print(hi) }
     trigger.mod <iden> { $lib.print(new) }
@@ -160,7 +160,7 @@ What you need to do
 
 :   Replace `$trig.set(prop, valu)` with direct assignment, replace `$trig.pack()` with reads of the named properties, and set the `view` property in place of the removed `$trig.move()`.
 
-    ``` text
+    ```text
     // 2.x
     $trig = $lib.trigger.get($iden)
     $trig.set("storm", "[ +#reviewed ]")
@@ -188,7 +188,7 @@ What you need to do
 
 :   Telepath clients calling `updateCronJob`, `moveCronJob`, `enableCronJob`, or `disableCronJob` must switch to `editCronJob(iden, edits)` with the relevant keys. Single-property `editCronJob(iden, name, valu)` calls become `editCronJob(iden, {name: valu})`. Integrators constructing a cdef should use the `storm` key (not `query`) and may set `creator`, `user`, and `created`; code reading packed cron defs should read `storm` instead of `query`.
 
-    ``` python
+    ```python
     # 2.x
     await core.disableCronJob(iden)
     await core.moveCronJob(useriden, iden, viewiden)
@@ -200,7 +200,7 @@ What you need to do
     await core.editCronJob(iden, {'name': 'nightly'})
     ```
 
-    ``` python
+    ```python
     # 2.x
     cdef = {'query': '$lib.print(hi)', 'creator': useriden, 'reqs': {...}, 'incunit': 'day', 'incvals': 1}
     await core.addCronJob(cdef)

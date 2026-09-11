@@ -244,6 +244,66 @@ class AhaTest(s_test.SynTest):
                     svc = await aha.getAhaSvc('0.cell...')
                     self.false(svc.get('online'))
 
+                    # a down write carrying a stale session iden ( the service has
+                    # already reconnected and re-registered under a new one ) must
+                    # change nothing and must announce nothing.
+                    info = {
+                        'iden': s_common.guid(),
+                        'run': s_common.guid(),
+                        'type': 'downtype',
+                        'ready': True,
+                        'session': 'sess00',
+                        'urlinfo': {'scheme': 'ssl', 'host': '127.0.0.1', 'port': 4443},
+                    }
+
+                    await aha.addAhaSvc('00.down...', info)
+                    self.eq('sess00', aha._getSvcSess('00.down.synapse'))
+
+                    info['session'] = 'sess01'
+                    await aha.addAhaSvc('00.down...', info)
+                    self.eq('sess01', aha._getSvcSess('00.down.synapse'))
+
+                    # stand in for AHA's cached telepath client to the service so
+                    # that a regression which pops and finis it is caught.
+                    client = await s_base.Base.anit()
+                    aha.clients['00.down.synapse'] = client
+
+                    # the entry is still online, so the pre-push guard does not skip
+                    # the write and the compare-and-set is what must decline it.
+                    waiter = aha.waiter(1, 'aha:svc:down')
+
+                    stream.clear()
+                    await aha.setAhaSvcDown('00.down...', 'sess00')
+
+                    # the push is awaited to completion, so the event would already
+                    # have fired by the time we get here.
+                    self.none(await waiter.wait(timeout=0.1))
+                    self.notin('Set [00.down.synapse] offline.', stream.getvalue())
+
+                    svc = await aha.getAhaSvc('00.down...')
+                    self.true(svc.get('online'))
+                    self.true(svc['info'].get('ready'))
+                    self.eq('sess01', aha._getSvcSess('00.down.synapse'))
+
+                    self.eq(client, aha.clients.get('00.down.synapse'))
+                    self.false(client.isfini)
+
+                    # the down which does match the current session behaves as it
+                    # always has.
+                    stream.clear()
+                    async with aha.waiter(1, 'aha:svc:down', timeout=6):
+                        await aha.setAhaSvcDown('00.down...', 'sess01')
+
+                    await stream.expect('Set [00.down.synapse] offline.', timeout=6)
+
+                    svc = await aha.getAhaSvc('00.down...')
+                    self.false(svc.get('online'))
+                    self.false(svc['info'].get('ready'))
+                    self.none(aha._getSvcSess('00.down.synapse'))
+
+                    self.none(aha.clients.get('00.down.synapse'))
+                    self.true(client.isfini)
+
     async def test_lib_aha_basics(self):
 
         with self.raises(s_exc.NoSuchName):
@@ -1781,21 +1841,6 @@ class AhaTest(s_test.SynTest):
 
                     linkiden = aha._getSvcSess(snfo.get('name'))
 
-                # capture each entry as the sweep marks it down. _fireTopoMod is
-                # called from within the compare-and-set branch of _setAhaSvcDown,
-                # so this records the state that was actually written rather than
-                # re-reading it afterwards ( by which point the service may have
-                # reconnected ). record only the flags, so a later re-registration
-                # cannot mutate what we captured.
-                downs = []
-
-                class RestartAha(s_aha.AhaCell):
-
-                    async def _fireTopoMod(self, svcentry):
-                        downs.append((svcentry.get('name'), svcentry.get('online'),
-                                      svcentry['info'].get('ready')))
-                        await s_aha.AhaCell._fireTopoMod(self, svcentry)
-
                 # Restart aha. the boot time sweep marks the stale service entries
                 # down and the services reconnect as soon as the listener is back,
                 # both of which may complete before the fixture hands back control
@@ -1803,14 +1848,9 @@ class AhaTest(s_test.SynTest):
                 # sweep from the log rather than racing it with _waitAhaSvcDown().
                 with self.getLoggerStream('synapse.lib.aha') as stream:
 
-                    async with self.getTestAha(dirn=ahadirn, ctor=RestartAha.anit) as aha:
+                    async with self.getTestAha(dirn=ahadirn) as aha:
 
                         await stream.expect('Set [01.svc.synapse] offline.', timeout=10)
-
-                        # the sweep cleared both flags. the log line above is emitted
-                        # even when the compare-and-set matched nothing, so assert on
-                        # the entry the sweep wrote rather than on the log alone.
-                        self.isin(('01.svc.synapse', False, False), downs)
 
                         # svc01 has reconnected and the ready state has been re-registered
                         snfo = await aha._waitAhaSvcOnline('01.svc...', timeout=10)

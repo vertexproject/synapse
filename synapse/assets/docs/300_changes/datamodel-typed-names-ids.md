@@ -21,7 +21,7 @@ What you need to do
 
 :   When porting a 2.x `:name`, pick the domain-appropriate typed type: `entity:name` for actor, contact, and organization names; `base:name` for generic names; and the domain-specific name or id type where the property now defines one. Setting these properties still accepts raw strings, so most ingest code does not change -- the difference is in normalization and comparison behavior.
 
-    ``` text
+    ```text
     // 2.x: :name on ou:org was typed ou:name (a str subtype)
     [ ou:org=* :name="acme corp" ]
 

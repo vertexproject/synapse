@@ -17,7 +17,7 @@ Lift operations retrieve a set of nodes from Synapse's knowledge graph based on 
 - [Lift by Property Value - Extended Comparison Operators](storm_ref_lift.md#lift-prop-extended)
 - [Tag Lifts](storm_ref_lift.md#tag-lifts)
 
-In addition, the ``reverse`` keyword and the "try" operator can each be used with lift operations to modify their behavior:
+In addition, the `reverse` keyword and the "try" operator can each be used with lift operations to modify their behavior:
 
 - ["reverse" Keyword](storm_ref_lift.md#lift-reverse)
 - ["Try" Operator](storm_ref_lift.md#lift-try)
@@ -27,7 +27,7 @@ In the examples below, we only show the Storm query by default (not the resultin
 > [!TIP]
 > Most user interactions with Synapse start when you **lift** the initial data (nodes) you want to work with. There is no "show me all the data" command where you can then drill down to find the data you want. So knowing how to specify the data you want by creating a lift query in Storm is essential.
 >
-> (Technically, you can lift **all** nodes in Synapse with the Storm query ``.created``, because every node in Synapse has a ``.created`` property. But starting by displaying **all** nodes is impractical for all but the smallest Cortexes.)  
+> (Technically, you can lift **all** nodes in Synapse with the Storm query `.created`, because every node in Synapse has a `.created` property. But starting by displaying **all** nodes is impractical for all but the smallest Cortexes.)  
 >
 > If you are new to Storm, you can use the [Optic UI](/docs/synapse-enterprise-optic/latest/index.md) with the [Storm Query Bar](/docs/synapse-enterprise-optic/latest/user_interface/userguides/quick_tour.md#storm-query-bar-query-mode-selector) in **Lookup mode** (vs. Storm mode). Lookup mode allows you to lift nodes by entering search keywords or common indicators (such as hashes or IPs) without using Storm.
 
@@ -74,7 +74,7 @@ Lift all FQDNs (`inet:fqdn` nodes):
 inet:fqdn
 ```
 
-``` text
+```storm
 inet:fqdn
 ```
 
@@ -88,7 +88,7 @@ Lift all nodes representing articles (`doc:report` nodes):
 doc:report
 ```
 
-``` text
+```storm
 doc:report
 ```
 
@@ -110,7 +110,7 @@ Lift all DNS A (`inet:dns:a`) and DNS AAAA (`inet:dns:aaaa`) nodes:
 [ inet:dns:a=( woot.com, 1.1.1.1 ) inet:dns:aaaa=( woot.com, 2600:1419:9c00:283::356e )  ]
 ```
 
-``` text
+```storm
 inet:dns:a*
 ```
 
@@ -124,7 +124,7 @@ Lift all hash nodes (e.g., `crypto:hash:md5`, `crypto:hash:sha256`, etc.):
 [ crypto:hash:md5=cf30b7550f04a9372c3257c9b5cff3e9 crypto:hash:sha1=04301b59c6eb71db2f701086b617a98c6e026872 crypto:hash:ssdeep=384:XgUIheHmcKKkBIGBGHEBZrK8gFJNFpmX:Q8mIkAw+lFJnsX ]
 ```
 
-``` text
+```storm
 crypto:hash:*
 ```
 
@@ -139,17 +139,17 @@ crypto:hash:*
 - The wildcard character ( `*` ) can only be used to match literal form names. It cannot be used to match interface names or when lifting by [parent form](../glossary.md#gloss-form-inheritance) with the intent to also lift extended forms (the wildcard will match form names only; it has no awareness of form inheritance).
 - The wildcard can only be used at the end of the partial form name match. It cannot be used at the beginning or in the middle of the form name. For example, the following are both **invalid**:
   
-``` text
+```storm
 *:header
 ```
   
-``` text
+```storm
 it:exec:*:add
 ```
   
 - The wildcard cannot be used to match property names. For example, `entity:contact` is a form that has multiple   `:place` secondary properties (e.g., `:place:name`, `:place:loc`). The following is **invalid** because it   tries to match a partial property name:
   
-``` text
+```storm
 entity:contact:place:*
 ```
 
@@ -167,7 +167,7 @@ You can use the name of any [interface](../glossary.md#gloss-interface) to lift 
 
 Lift all hash nodes (all nodes of all forms that implement the `crypto:hash` interface):
 
-``` text
+```storm
 crypto:hash
 ```
 
@@ -181,7 +181,7 @@ Lift all host event nodes (all nodes of all forms that implement the `it:host:ev
 [ it:exec:file:add=( { "time": "2026/04/23 05:44:27", "path": "c:\windows\system32\myfile.exe" } ) it:exec:fetch=( { "time": "2026/06/09 14:16:03", "url": "https://vertex.link/" } ) ]
 ```
 
-``` text
+```storm
 it:host:event
 ```
 ```mdstorm
@@ -211,7 +211,7 @@ Lift all of the `it:host:account` nodes and all nodes of all forms that extend `
 $host1={ [ it:host=( { "name": "ozzie's iphone", "os:name": "iOS 26.5.2"} ) ] } $host2={ [ it:host=( { "name": "ozzie-laptop", "os:name": "Ubuntu 24.04" } ) ] } $host3={ [ it:host=( { "name": "DESKTOP-8F2NL0R", "os:name": "Microsoft Windows 11 Home" } ) ] } [ it:host:account=( { "username": "ozzie", "host": $host1 } ) it:host:posix:account=( { "username": "ozzie", "host": $host2, "home": "/home/ozzie", "shell": "/bin/bash" } ) it:host:windows:account=( { "username": "ron the cat", "host": $host3, "id": "S-1-5-21-4772941793-982498634-1278416829-1074", "home": "c:\\users\\ron the cat" } ) ]
 ```
 
-``` text
+```storm
 it:host:account
 ```
 
@@ -251,7 +251,7 @@ Lift the IP address nodes that have an Autonomous System number (`:asn`) propert
 inet:ip:asn
 ```
 
-``` text
+```storm
 inet:ip:asn
 ```
 
@@ -261,7 +261,7 @@ Lift the threat clusters (`risk:threat` nodes) that have an associated place nam
 [ risk:threat=( { "name": "Storm-1125", "reporter:name": "Microsoft", "$props": { "place:name": "Belarus" } } ) risk:threat=( { "name": "COSMIC WOLF", "reporter:name": "Crowdstrike", "$props": { "place:name": "Türkiye" } } ) risk:threat=( { "name": "PLATINUM COLONY", "reporter:name": "Sophos", "$props": { "place:name": "United States" } } ) ]
 ```
 
-``` text
+```storm
 risk:threat:place:name
 ```
 
@@ -287,7 +287,7 @@ Lift the file paths that include a file extension (`.ext`):
 [ file:path=c:\windows\system32 file:path=/home/ozzie/Documents/myfile.txt file:path='c:\users\ron the cat\snack_budget.xlsx' ]
 ```
 
-``` text
+```storm
 file:path.ext
 ```
 
@@ -301,7 +301,7 @@ Lift the network flows (`inet:flow`) where the client has an associated port (`.
 $client1={ [ inet:client=tcp://1.2.3.4 ] } $client2={ [ inet:client=tcp://5.6.7.8:27342 ] } $server1={ [ inet:server=tcp://23.76.57.252:443 ] } [ inet:flow=( { "client": $client1, "server": $server1 } ) inet:flow=( { "client": $client2, "server": $server1 } ) ]
 ```
 
-``` text
+```storm
 inet:flow:client.port
 ```
 
@@ -330,7 +330,7 @@ Lift all nodes in Synapse:
 .created
 ```
 
-``` text
+```storm
 .created
 ```
 
@@ -343,7 +343,7 @@ Lift all FQDN nodes in Synapse:
 inet:fqdn.created
 ```
 
-``` text
+```storm
 inet:fqdn.created
 ```
 
@@ -374,7 +374,7 @@ Lift the files (`file:bytes` nodes) that have a VirusTotal reputation extended p
 file:bytes:_virustotal:reputation
 ```
 
-``` text
+```storm
 file:bytes:_virustotal:reputation
 ```
 
@@ -400,7 +400,7 @@ Lift the host event nodes (all nodes of all forms that implement the `it:host:ev
 [ it:exec:file:add=( { "time": "2026/04/23 05:44:27", "path": "c:\windows\system32\myfile.exe" } ) it:exec:fetch=( { "time": "2026/06/09 14:16:03", "url": "https://vertex.link/" } ) ]
 ```
 
-``` text
+```storm
 it:host:event:time
 ```
 
@@ -414,7 +414,7 @@ Lift all "authorable" nodes (all nodes of all forms that implement the `doc:auth
 [ doc:report=( { "creator:name": "ozzie", "title": "Finally Some Good News", "published": "2026/02/07", "publisher:name": "vertex" } ) doc:resume=( { "creator:name": "ron the cat", "created": "2027/04/12", "summary": "Very food-motivated, will work hard for snacks." } ) it:app:yara:rule=( { "creator:name": "ozzie", "created": "2025/12/22", "text": "Here is some detection logic." } ) ]
 ```
 
-``` text
+```storm
 doc:authorable:creator:name
 ```
 
@@ -441,7 +441,7 @@ property:
 $host1={ [ it:host=( { "name": "ozzie's iphone", "os:name": "iOS 26.5.2"} ) ] } $host2={ [ it:host=( { "name": "ozzie-laptop", "os:name": "Ubuntu 24.04" } ) ] } $host3={ [ it:host=( { "name": "DESKTOP-8F2NL0R", "os:name": "Microsoft Windows 11 Home" } ) ] } [ it:host:account=( { "username": "ozzie", "host": $host1 } ) it:host:posix:account=( { "username": "ozzie", "host": $host2, "home": "/home/ozzie", "shell": "/bin/bash" } ) it:host:windows:account=( { "username": "ron the cat", "host": $host3, "id": "S-1-5-21-4772941793-982498634-1278416829-1074", "home": "c:\\users\\ron the cat" } ) ]
 ```
 
-``` text
+```storm
 it:host:account:home
 ```
 
@@ -476,13 +476,13 @@ The most commonly used standard comparison operator is the equal to ( `=` ) oper
 > [!TIP]
 > IP addresses (`inet:ip` nodes) are stored as their decimal integer equivalents (even though they are displayed in human friendly format), and can be used with the various inequality operators:
 >
-> ``` text
+> ```storm
 > inet:ip<192.168.0.0
 > ```
 >
 > Or:
 >
-> ``` text
+> ```storm
 > inet:ip >=2000::1
 > ```
 >
@@ -507,7 +507,7 @@ Lift the FQDN `vertex.link`:
 inet:fqdn=vertex.link
 ```
 
-``` text
+```storm
 inet:fqdn=vertex.link
 ```
 
@@ -521,7 +521,7 @@ Lift the DNS A record showing that domain `woot.com` resolved to IP `1.2.3.4`:
 inet:dns:a=(woot.com, 1.2.3.4)
 ```
 
-``` text
+```storm
 inet:dns:a=(woot.com, 1.2.3.4)
 ```
 
@@ -535,7 +535,7 @@ Lift the organization whose primary property matches the specified `guid` value:
 ou:org=4b0c2c5671874922ce001d69215d032f
 ```
 
-``` text
+```storm
 ou:org=4b0c2c5671874922ce001d69215d032f
 ```
 
@@ -559,7 +559,7 @@ Lift the organization (`ou:org` node) with the name `the vertex project`:
 ou:org:name='the vertex project'
 ```
 
-``` text
+```storm
 ou:org:name='the vertex project'
 ```
 
@@ -573,7 +573,7 @@ Lift the DNS A records for the FQDN `hugesoft.org`:
 inet:dns:a:fqdn=hugesoft.org
 ```
 
-``` text
+```storm
 inet:dns:a:fqdn=hugesoft.org
 ```
 
@@ -587,7 +587,7 @@ $file1={ [ file:bytes=( { "sha256": "d7c12acb306b5100a5497586942b68a8f6d5deb3530
 file:mime:pe:compiled='1992/06/19 22:22:17'
 ```
 
-``` text
+```storm
 file:mime:pe:compiled='1992/06/19 22:22:17'
 ```
 
@@ -601,7 +601,7 @@ Lift the file with the specified MD5 hash:
 file:bytes:md5=d41d8cd98f00b204e9800998ecf8427e
 ```
 
-``` text
+```storm
 file:bytes:md5=d41d8cd98f00b204e9800998ecf8427e
 ```
 
@@ -615,7 +615,7 @@ Lift all reports that were published during June 2026:
 doc:report:published>=202606
 ```
 
-``` text
+```storm
 doc:report:published=202606*
 ```
 
@@ -625,7 +625,7 @@ Lift the reports that were published on or after June 1, 2026:
 doc:report:published>=2026/06/01
 ```
 
-``` text
+```storm
 doc:report:published>=2026/06/01
 ```
 
@@ -639,7 +639,7 @@ $election={ [ pol:election=( { "name": "Derpistan 2026 Regional Election", "peri
 pol:race:turnout>10000
 ```
 
-``` text
+```storm
 pol:race:turnout>10000
 ```
 
@@ -671,17 +671,17 @@ Lift all the servers listening on port 22:
 inet:server.port=22
 ```
 
-``` text
+```storm
 inet:server.port=22
 ```
 
-Lift all the compromises (``risk:compromise`` nodes) where the associated ``:actor`` is an organization:
+Lift all the compromises (`risk:compromise` nodes) where the associated `:actor` is an organization:
 
 ```mdstorm --hide
 $actor1={ [ ou:org=( { "name": "Military Unit 26165 (GRU)" } ) ] } $actor2={ [ risk:threat=( { "name": "FANCY BEAR", "reporter:name": "CrowdStrike" } ) ] } [ risk:compromise=( { "name": "very bad compromise", "reporter:name": "vertex", "$props": { "actor": $actor1 } } ) risk:compromise=( { "name": "slightly less bad compromise", "reporter:name": "CrowdStrike", "$props": { "actor": $actor2 } } ) ]
 ```
 
-``` text
+```storm
 risk:compromise:actor.type=ou:org
 ```
 
@@ -689,7 +689,7 @@ risk:compromise:actor.type=ou:org
 risk:compromise:actor.type=ou:org
 ```
 
-Lift all of the email messages (``inet:email:message`` nodes) with three or more attachments:
+Lift all of the email messages (`inet:email:message` nodes) with three or more attachments:
 
 ```mdstorm --hide
 $file1={ [ file:bytes=( { "sha256": "026e9e1cb1a9c2bc0631726cacdb208e704235666042543e766fbd4555bd6950" } ) ] } $file2={ [ file:bytes=( { "sha256": "f78ee3005ca9f0e78a9dd136fc69afe7c06d69d1fc6218bc9e7eb3adec045977" } ) ] } $file3={ [ file:bytes=( { "sha256": "7dc1a836449baa108bdbf9a269e6aeef78d84915a5967eeffe19fda9c4208d13" } ) ] } $attach1={ [file:attachment=( { "file": $file1, "path": "fake_invoice.pdf" } ) ] } $attach2={ [file:attachment=( { "file": $file1, "path": "my_resume.docx" } ) ] } $attach3={ [file:attachment=( { "file": $file1, "path": "not_malware.exe" } ) ] } [ inet:email:message=( { "date": "2026/04/01", "from": "ron_the_cat@proton.me", "to": "ozzie@gmail.com", "subject": "Plz open all the attachments kthx" } ) :attachments=( $attach1, $attach2, $attach3 ) ]
@@ -699,7 +699,7 @@ $file1={ [ file:bytes=( { "sha256": "026e9e1cb1a9c2bc0631726cacdb208e70423566604
 inet:email:message:attachments.size>=3
 ```
 
-``` text
+```storm
 inet:email:message:attachments.size>=3
 ```
   
@@ -732,7 +732,7 @@ Lift all nodes created after June 1, 2026:
 .created>=2026/06/01
 ```
 
-``` text
+```storm
 .created>=2026/06/01
 ```
 
@@ -742,7 +742,7 @@ Lift all organizations updated during the hour of 1500 (e.g., between 1500 and 1
 ou:org.updated=2026022015*
 ```
 
-``` text
+```storm
 ou:org.updated=2026022015*
 ```
 
@@ -768,7 +768,7 @@ Lift the files (`file:bytes` nodes) with a VirusTotal reputation score (`:_virus
 file:bytes:_virustotal:reputation<-50
 ```
 
-``` text
+```storm
 file:bytes:_virustotal:reputation<-50
 ```
 
@@ -793,7 +793,7 @@ Lift all "authorable" nodes (all nodes of all forms that implement the `doc:auth
 [ doc:report=( { "creator:name": "ozzie", "title": "Finally Some Good News", "published": "2026/02/07", "publisher:name": "vertex" } ) doc:resume=( { "creator:name": "ron the cat", "created": "2027/04/12", "summary": "Very food-motivated, will work hard for snacks." } ) it:app:yara:rule=( { "creator:name": "ozzie", "created": "2025/12/22", "text": "Here is some detection logic." } ) ]
 ```
 
-``` text
+```storm
 doc:authorable:creator:name=ozzie
 ```
 
@@ -807,7 +807,7 @@ Lift the host event nodes (all nodes of all forms that implement the `it:host:ev
 $host4 = { [ it:host=( { "name": "ron-pc", "os:name": "Microsoft Windows 11 Home" } ) ] } [ it:exec:file:add=( { "host": $host4, "time": "2026/03/17 02:44:17", "path": "c:\\users\\ron the cat\\myfile.txt" } ) it:exec:fetch=( { "host": $host4, "time": "2026/05/27 23:11:42", "url": "https://www.allthesnacks.com/" } ) ]
 ```
 
-``` text
+```storm
 it:host:event:host={ it:host:name=ron-pc }
 ```
 
@@ -820,7 +820,7 @@ it:host:event:host={ it:host:name=ron-pc }
 >
 > Alternatively, you can use [embedded property syntax](storm_ref_filter.md#embed_prop_syntax) to refer to the name of the host:
 >
-> ```text
+> ```storm
 > it:host:event:host::name=ron-pc
 > ```
 > 
@@ -843,7 +843,7 @@ Lift every technique or mitigation reported by MITRE (the `meta:technique` form 
 [ meta:technique=( { "id": "T1003.001", "reporter:name": "mitre", "$props": { "name": "LSASS memory (enterprise)", "desc": "Adversaries may attempt to access credential material stored in the process memory of the Local Security Authority Subsystem Service (LSASS)." } } ) risk:mitigation=( { "id": "M1043", "reporter:name": "mitre", "$props": { "name": "credential access protection (enterprise)", "desc": "Credential Access Protection focuses on implementing measures to prevent adversaries from obtaining credentials, such as passwords, hashes, tokens, or keys, that could be used for unauthorized access." } } ) ]
 ```
 
-``` text
+```storm
 meta:technique:reporter:name=mitre
 ```
 
@@ -857,7 +857,7 @@ Lift every stored file entry node with the specified file path:
 $host4 = { [ it:host=( { "name": "ron-pc", "os:name": "Microsoft Windows 11 Home" } ) ] } [ file:system:entry=( { "host": $host4, "path": "c:\windows\system32\\\\fonts\cmd.exe", "created": "2026/06/22 09:25:14" } ) file:mime:rar:entry=( { "path": "c:\windows\system32\\\\fonts\cmd.exe", "created": "2026/06/20 13:07:46" } ) ]
 ```
 
-``` text
+```storm
 file:stored:entry:path=c:\windows\system32\fonts\cmd.exe
 ```
 
@@ -920,7 +920,7 @@ Lift the reports (`doc:report` nodes) whose title includes the string `sandstorm
 doc:report:title~=sandstorm
 ```
 
-``` text
+```storm
 doc:report:title~=sandstorm
 ```
 
@@ -930,7 +930,7 @@ Lift the organizations (`ou:org` nodes) whose name contains a string that starts
 [ ou:org=( { "name": "Vertex" } ) ou:org=( { "name": "Vx Underground" } ) ]
 ```
 
-``` text
+```storm
 ou:org:name~='^v.*x'
 ```
 
@@ -969,7 +969,7 @@ Lift the email addresses (`inet:email` nodes) that start with `abuse`:
 inet:email^=abuse
 ```
 
-``` text
+```storm
 inet:email^=abuse
 ```
 
@@ -983,7 +983,7 @@ Lift the organizations (`ou:org` nodes) whose name starts with `ministry`:
 ou:org:name^=ministry
 ```
 
-``` text
+```storm
 ou:org:name^=ministry
 ```
 
@@ -993,7 +993,7 @@ Lift the Microsoft Office metadata nodes (all nodes of all forms that implement 
 [ file:mime:msdoc=( { "application:name": "Microsoft Word", "author:name": "DESKTOP-BCXJXDX", "title": "Perfectly Safe Document" } ) file:mime:msppt=( { "application:name": "Microsoft PowerPoint", "author:name": "Ozzie", "title": "Why Bananas are the Best Fruit" } ) file:mime:msxls=( { "application:name": "Microsoft Excel", "author:name": "DESKTOP-KOCEDSI", "title": "Fine to Enable Macros" } ) ]
 ```
 
-``` text
+```storm
 file:mime:msoffice:author:name^=DESKTOP
 ```
 
@@ -1007,7 +1007,7 @@ Lift the tags (`syn:tag` nodes) in the `rep.alienvault` tree where the third tag
 [ syn:tag=rep.alienvault.0_day syn:tag=rep.alienvault.0ktapus ]
 ```
 
-``` text
+```storm
 syn:tag^=rep.alienvault.0
 ```
 
@@ -1044,7 +1044,7 @@ Lift the DNS A records whose `:seen` values overlap with the period from July 1,
 [ ( inet:dns:a=(easymathpath.com, 135.125.78.187) :seen=('2025/06/28 12:14:07', '2025/07/22 01:50:54') ) ( inet:dns:a=(hardmathpath.com, 42.27.18.56) :seen=('2025/07/14 22:03:00', '2025/09/06 05:26:19') ) ( inet:dns:a=(mathpath.com, 206.57.19.28) :seen=('2025/07/07 14:47:04', '2025/07/28 23:29:15') ) ( inet:dns:a=(geometrypath.com, 197.43.22.108) :seen=('2025/03/19 18:08:43', '2025/10/06 17:57:55') ) ] 
 ```
 
-``` text
+```storm
 inet:dns:a:seen@=(2025/07/01, 2025/08/01)
 ```
 
@@ -1058,7 +1058,7 @@ Lift the DNS requests that occurred on May 3, 2023 between 2100 and 2200:
 [ inet:dns:request=( { "time": "2023/05/03 21:09:04", "query:name": "vertex.link" } ) ]
 ```
 
-``` text
+```storm
 inet:dns:request:time@=('2023/05/03 21:00', '2023/05/03 22:00')
 ```
 
@@ -1076,7 +1076,7 @@ Lift the reports that were published within the past day:
 doc:report:published@=(now, '-1 day')
 ```
 
-``` text
+```storm
 doc:report:published@=(now, '-1 day')
 ```
 
@@ -1090,7 +1090,7 @@ Lift the host event nodes (all nodes of all forms that implement the `it:host:ev
 it:host:event:time@=(now, '-3 hours')
 ```
 
-``` text
+```storm
 it:host:event:time@=(now, '-3 hours')
 ```
 
@@ -1100,7 +1100,7 @@ it:host:event:time@=(now, '-3 hours')
 
 - **Comparing intervals to intervals:** When using `@=` to compare an interval (e.g., `@=(2025/07/01, 2025/08/01)`) with an interval property (e.g., `:seen`), Synapse returns all nodes whose interval property values **overlap** in any way with the specified interval. This includes results that fall entirely within the interval, as well as results that start and / or end outside of the interval boundaries.  
   To find results that fall **within** an interval, use the `.min` and `.max` virtual properties with the `>=` and `<` operators. For example:  
-  ``` text
+  ```storm
     inet:dns:a:seen.min>=2025/07/01 +:seen.max<2025/08/01
   ```
   
@@ -1149,7 +1149,7 @@ Lift the files whose size is between 1000 and 100000 bytes:
 file:bytes:size*range=(1000, 100000)
 ```
 
-``` text
+```storm
 file:bytes:size*range=(1000, 100000)
 ```
 
@@ -1163,7 +1163,7 @@ Lift the files whose VirusTotal reputation score (`:_virustotal:reputation` exte
 file:bytes:_virustotal:reputation*range=(-20, 20)
 ```
 
-``` text
+```storm
 file:bytes:_virustotal:reputation*range=(-20, 20)
 ```
 
@@ -1177,7 +1177,7 @@ Lift the DNS requests that were made between November 29, 2025 and January 14, 2
 inet:dns:request:time*range=(2025/11/29, 2026/01/14)
 ```
 
-``` text
+```storm
 inet:dns:request:time*range=(2025/11/29, 2026/01/14)
 ```
 
@@ -1191,7 +1191,7 @@ Lift the HTTP requests (`inet:http:request` nodes) made within one day of Decemb
 inet:http:request:time*range=(2024/12/01, '+-1 day')
 ```
 
-``` text
+```storm
 inet:http:request:time*range=(2024/12/01, '+-1 day')
 ```
 
@@ -1237,7 +1237,7 @@ Lift entity names matching any of the specified values:
 entity:name*in=(fsb, 'yevgeniy prigozhin', 'vladimir putin')
 ```
 
-``` text
+```storm
 entity:name*in=(fsb, 'yevgeniy prigozhin', 'vladimir putin')
 ```
 
@@ -1251,7 +1251,7 @@ Lift the IP addresses associated with any of the specified Autonomous System (AS
 inet:ip:asn*in=(9009, 20473, 44477)
 ```
 
-``` text
+```storm
 inet:ip:asn*in=(9009, 20473, 44477)
 ```
 
@@ -1261,7 +1261,7 @@ Lift the tags (`syn:tag` nodes) whose final tag element (`:base`) matches any of
 [ syn:tag=rep.talos.plugx syn:tag=rep.eset.korplug syn:tag=rep.mandiant.sogu syn:tag=rep.alienvault.kaba ]
 ```
 
-``` text
+```storm
 syn:tag:base*in=(plugx, korplug, sogu, kaba)
 ```
 
@@ -1291,7 +1291,7 @@ Lift the locations (`geo:place` nodes) within 500 meters of the Russian Cryptogr
 geo:place:latlong*near=((55.83069, 37.59781), 500m)
 ```
 
-``` text
+```storm
 geo:place:latlong*near=((55.83069, 37.59781), 500m)
 ```
 
@@ -1330,7 +1330,7 @@ Lift the x509 certificates (`crypto:x509:cert` nodes) that reference FQDNs endin
 crypto:x509:cert:identities:fqdns*[='*.xyz']
 ```
 
-``` text
+```storm
 crypto:x509:cert:identities:fqdns*[='*.xyz']
 ```
 
@@ -1340,7 +1340,7 @@ Lift the threat clusters (`risk:threat` nodes) whose secondary (alternate) names
 [ ( risk:threat=( { "reporter:name": "lookout", "name": "apt41" } ) :names+='double dragon' )  ( risk:threat=( { "reporter:name": "sophos", "name": "iron liberty" } ) :names+=dragonfly ) ]
 ```
 
-``` text
+```storm
 risk:threat:names*[~=dragon]
 ```
 
@@ -1391,7 +1391,7 @@ Lift all nodes that ESET associates with Sednit (`#rep.eset.sednit`):
 [ inet:fqdn=kg-news.org inet:ip=92.114.92.125 +#rep.eset.sednit ]
 ```
 
-``` text
+```storm
 #rep.eset.sednit
 ```
 
@@ -1405,7 +1405,7 @@ Lift all nodes associated with anonymized infrastructure (`#cno.infra.anon`):
 [ ( inet:fqdn=ca2.vpn.airdns.org +#cno.infra.anon.vpn ) ( inet:ip=104.244.73.193 +#cno.infra.anon.tor.exit ) ]
 ```
 
-``` text
+```storm
 #cno.infra.anon
 ```
 
@@ -1438,7 +1438,7 @@ Lift the FQDNs that ESET associates with Sednit (`#rep.eset.sednit`):
 inet:fqdn#rep.eset.sednit
 ```
 
-``` text
+```storm
 inet:fqdn#rep.eset.sednit
 ```
 
@@ -1452,7 +1452,7 @@ Lift the IP addresses associated with DNS sinkhole infrastructure (`#cno.infra.d
 inet:ip#cno.infra.dns.sink.hole
 ```
 
-``` text
+```storm
 inet:ip#cno.infra.dns.sink.hole
 ```
 
@@ -1462,7 +1462,7 @@ List all entity activity nodes (all nodes of all forms that implement the `entit
 [ risk:attack=( { "name": "CVE-2026-1603 Exploit Attempt", "period": "2026/02/17", "reporter:name": "Vertex", "actor:name": "Wobbly Emu" } ) entity:campaign=( { "name": "Credential Phishing Campaign", "period": "(2026/05/13, 2026/05/18)", "reporter:name": "Vertex", "actor:name": "Wobbly Emu" } ) risk:extortion=( { "name": "Extortion / Threat to Release Internal Data", "period": "2026/06/01", "reporter:name": "Vertex", "actor:name": "Wobbly Emu" } ) +#cno.threat.wobbly_emu ]
 ```
 
-``` text
+```storm
 entity:activity#cno.threat.wobbly_emu
 ```
 
@@ -1503,7 +1503,7 @@ Lift any nodes that were associated with anonymous VPN infrastructure (`#cno.inf
 #cno.infra.anon.vpn@=(2023/12/01, 2024/01/01)
 ```
 
-``` text
+```storm
 #cno.infra.anon.vpn@=(2023/12/01, 2024/01/01)
 ```
 
@@ -1517,7 +1517,7 @@ Lift the FQDNs that were owned / controlled by Threat Cluster 15 (`#cno.threat.t
 inet:fqdn#cno.threat.t15.own@=2025/10/30
 ```
 
-``` text
+```storm
 inet:fqdn#cno.threat.t15.own@=2025/10/30
 ```
 
@@ -1531,7 +1531,7 @@ Lift the IP addresses that were identified as TOR exit nodes (`#cno.infra.anon.t
 inet:ip#(cno.infra.anon.tor.exit).min>=2026/06/01
 ```
 
-``` text
+```storm
   inet:ip#(cno.infra.anon.tor.exit).min>=2026/06/01
 ```
 
@@ -1554,7 +1554,7 @@ Lift any nodes that Vertex associates with the threat group Vicious Wombat (`#cn
 [ (inet:ip=5.6.7.8 +#cno.threat.vicious_wombat:tlp=amber-strict) (inet:fqdn=marsupialsrule.com +#cno.threat.vicious_wombat:tlp=amber) ]
 ```
 
-```text
+```storm
 #cno.threat.vicious_wombat:tlp
 ```
 
@@ -1568,7 +1568,7 @@ Lift the IP addresses tagged as sinkhole infrastructure (`#cno.infra.dns.sink.ho
 [ (inet:ip=69.195.129.72 +#cno.infra.dns.sink.hole:confidence=high ) (inet:ip=45.56.77.175 +#cno.infra.dns.sink.hole:confidence=low ) inet:ip=8.8.8.8 ]
 ```
 
-```text
+```storm
 inet:ip#cno.infra.dns.sink.hole:confidence
 ```
 
@@ -1601,7 +1601,7 @@ Lift all of the nodes that Vertex associates with the threat group Vicious Womba
 [ (inet:ip=5.6.7.8 +#cno.threat.vicious.wombat:tlp=amber-strict) (inet:fqdn=marsupialsrule.com +#cno.threat.vicious.wombat:tlp=amber) (inet:fqdn=combatwombat.net +#cno.threat.vicious_wombat:tlp=green) (inet:email=fuzzywuzzy@cutebutdeadly.org +#cno.threat.vicious_wombat:tlp=clear) ]
 ```
 
-```text
+```storm
 #cno.threat.vicious_wombat:tlp<amber
 ```
 
@@ -1618,7 +1618,7 @@ Lift the IP addresses tagged as sinkholes (`#cno.infra.dns.sink.hole`) where the
 [ (inet:ip=69.195.129.72 +#cno.infra.dns.sink.hole:confidence=high ) (inet:ip=45.56.77.175 +#cno.infra.dns.sink.hole:confidence=low ) inet:ip=8.8.8.8 ]
 ```
 
-```text
+```storm
 inet:ip#cno.infra.dns.sink.hole:confidence=high
 ```
 
@@ -1662,7 +1662,7 @@ You want to lift the nodes (e.g., indicators of compromise) associated with any 
 [ ( syn:tag=rep.mandiant.beacon syn:tag=rep.mandiant.gh0st +#rep.mandiant.avail.public ) ( crypto:hash:md5=1844370fa7dac0e99779000f8f0b2f4e inet:fqdn=zomerax.top +#rep.mandiant.beacon ) ( inet:fqdn=iphone.vizvaz.com +#rep.mandiant.gh0st ) ]
 ```
 
-``` text
+```storm
 ##rep.mandiant.avail.public
 ```
 
@@ -1692,7 +1692,7 @@ A reverse lift can be followed by additional Storm operations (pivots, filters, 
 > [!TIP]
 > When using the `reverse` keyword to lift by secondary property value using an [interface](../glossary.md#gloss-interface) name, Synapse performs the lifts for each form in parallel, and yields the results in descending order. For example, the following query will return all nodes of all forms that implement the `it:host:event` interface that have a `:time` value greater than or equal to 2024/02/01, sorted in descending order (most recent first):
 >
-> ``` text
+> ```storm
 > reverse (it:host:event:time>=2024/02/01)
 > ```
 > 
@@ -1709,7 +1709,7 @@ Lift IP addresses (`inet:ip` nodes) with a `:place:loc` property (sorted descend
 [ ( inet:ip=197.155.229.194 :place:loc=zw.ha.harare ) ( inet:ip=41.221.147.14 :place:loc=zw ) ( inet:ip=41.164.23.42 :place:loc=za.wc.worcester ) ( inet:ip=155.254.9.3 :place:loc='us.mt.three forks' ) ( inet:ip=102.64.66.222 :place:loc='tz.02.dar es salaam' ) ]
 ```
 
-``` text
+```storm
 reverse ( inet:ip:place:loc )
 ```
 
@@ -1723,7 +1723,7 @@ Lift five IP addresses (`inet:ip` nodes) (sorted descending based on the integer
 [ inet:ip=255.255.255.255 inet:ip=223.159.33.195 inet:ip=198.42.76.23 inet:ip=52.16.48.7 inet:ip=40.250.10.120 inet:ip=12.163.57.22 ]
 ```
 
-``` text
+```storm
 reverse ( inet:ip ) | limit 5
 ```
 
@@ -1737,7 +1737,7 @@ Lift the five most recently-created email addresses (`inet:email` nodes) (sorted
 [ inet:email=praveen.s@hsrfunke.com inet:email=alhossani@adnoc.ae inet:email=20231128124623.11d85d83ed11a341@adnoc.ae inet:email=support@hammer-software.com inet:email=alex.gronholm@nextday.fi inet:email=dholth@fastmail.fm inet:email=illia.volochii@gmail.com ]
 ```
 
-``` text
+```storm
 reverse ( inet:email.created ) | limit 5
 ```
 
@@ -1797,7 +1797,7 @@ Try to lift the MD5 `174cc541c8d9e1accef73025293923a6`:
 crypto:hash:md5?=174cc541c8d9e1accef73025293923a6
 ```
 
-``` text
+```storm
 crypto:hash:md5?=174cc541c8d9e1accef73025293923a6
 ```
 
@@ -1811,7 +1811,7 @@ Try to lift the DNS A records whose `:ip` property is `192.168.0.100`:
 inet:dns:a:ip?=192.168.0.100
 ```
 
-``` text
+```storm
 inet:dns:a:ip?=192.168.0.100
 ```
 

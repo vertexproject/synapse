@@ -1,6 +1,7 @@
 import copy
 import textwrap
 
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -112,35 +113,6 @@ class _FakeTelepathApi:
 
 class AutodocTest(s_t_utils.SynTest):
 
-    def test_autodoc_rsthelp(self):
-
-        page = s_autodoc.RstHelp()
-
-        page.addHead('test', lvl=0, link='fakeLink')
-        page.addLines('test', 'words\n go', 'here')
-        page.addHead('burma', lvl=1)
-        page.addLines('burma', 'shave')
-        text = page.getRstText()
-        expected = '''
-
-fakeLink
-
-####
-test
-####
-
-test
-words\n go
-here
-
-*****
-burma
-*****
-
-burma
-shave'''
-        self.eq(text, expected)
-
     def test_autodoc_helpers(self):
 
         # callsig
@@ -163,22 +135,6 @@ shave'''
         self.eq(callsig, '(foo, bar=(null), **kwargs)')
         self.eq(s_autodoc.genCallsig({}), '()')
         self.eq(s_autodoc.genCallsig({'args': ({'name': 'beep'},)}), '(beep)')
-
-        # prepare lines
-        text = '''
-        Hello
-
-        Notes:
-            Beep beep goes the docs
-
-        Examples:
-            Words!::
-
-                example stuff
-        '''
-        lines = s_autodoc.prepareRstLines(text)
-        self.eq(lines, ['Hello', '', 'Notes:', '    Beep beep goes the docs', '', 'Examples:',
-                        '    Words!::', '', '        example stuff', ''])
 
     def test_autodoc_callsig_defaults(self):
 
@@ -485,6 +441,73 @@ shave'''
         self.isin('> **Warning:**', text)
         self.isin('`$lib.depr.boop` has been deprecated and will be removed in version v3.0.0.', text)
 
+    def test_docstormtypesmd_runtime_help(self):
+        # Exercise the runtime-help-only knobs of docStormTypesMd (no
+        # linkprefix, oneline, addheader, preamble, group), used by the
+        # Storm runtime `help` command rather than by the built doc pages.
+        doc = {
+            'path': ('lib', 'test3'),
+            'desc': 'A test library for runtime help coverage.',
+            'locals': [
+                {'name': 'dofunc', 'desc': 'Do the func thing.',
+                 'type': {'type': 'function', '_funcname': 'dofunc',
+                          'args': ({'name': 'x', 'type': 'str', 'desc': 'the x'},),
+                          'returns': {'type': 'null'}}},
+                {'name': 'refthing', 'desc': 'A reference thing.', 'type': 'str'},
+            ],
+        }
+
+        # linkprefix omitted -- no anchors, since runtime help has no page to
+        # anchor into.
+        md = s_autodoc.MdHelp()
+        s_autodoc.docStormTypesMd(md, (doc,), islib=True)
+        text = md.getMdText()
+        self.notin('<a id=', text)
+        self.isin('# $lib.test3', text)
+
+        # group=True with more than one local splits functions from
+        # references, with a lead-in for each.
+        md = s_autodoc.MdHelp()
+        s_autodoc.docStormTypesMd(md, (doc,), islib=True, group=True)
+        text = md.getMdText()
+        self.isin('The following functions are available:', text)
+        self.isin('The following references are available:', text)
+        self.lt(text.index('dofunc'), text.index('refthing'))
+
+        # group=True with a single local skips the "following .../are
+        # available" lead-in entirely.
+        onedoc = copy.deepcopy(doc)
+        onedoc['locals'] = onedoc['locals'][:1]
+        md = s_autodoc.MdHelp()
+        s_autodoc.docStormTypesMd(md, (onedoc,), islib=True, group=True)
+        text = md.getMdText()
+        self.notin('are available:', text)
+        self.isin('dofunc', text)
+
+        # oneline shows only the first description line, with no per-local
+        # heading and no Args/Returns sections.
+        md = s_autodoc.MdHelp()
+        s_autodoc.docStormTypesMd(md, (doc,), islib=True, oneline=True)
+        text = md.getMdText()
+        self.isin('$lib.test3.dofunc(x)\nDo the func thing.', text)
+        self.notin('$lib.test3.dofunc(x)\n\n', text)
+        self.notin('**Args:**', text)
+        self.notin('**Returns:**', text)
+
+        # addheader=False skips the section header and its description
+        # entirely, used when help is scoped to a single bound method.
+        md = s_autodoc.MdHelp()
+        s_autodoc.docStormTypesMd(md, (doc,), islib=True, addheader=False)
+        text = md.getMdText()
+        self.notin('A test library for runtime help coverage.', text)
+        self.isin('dofunc', text)
+
+        # preamble lines land after the header and before the locals.
+        md = s_autodoc.MdHelp()
+        s_autodoc.docStormTypesMd(md, (doc,), islib=True, preamble=['The following libraries are available:', ''])
+        text = md.getMdText()
+        self.lt(text.index('The following libraries are available:'), text.index('dofunc'))
+
     def test_parseapidocstring_empty(self):
         self.eq(('', []), s_autodoc.parseApiDocstring(''))
         self.eq(('', []), s_autodoc.parseApiDocstring(None))
@@ -784,6 +807,11 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
         ''').rstrip()
         self.isin(exp, text)
 
+        # Regression: mdautodoc must not prepend a blank line after the ```text fence.
+        self.notin('```text\n\n', text)
+        # The command description must immediately follow the fence opener.
+        self.isin('```text\ntestpkgcmd', text)
+
         md = s_autodoc.MdHelp()
         await s_autodoc.processStormModulesMd(md, 'foo', pkgdef.get('modules'))
         text = md.getMdText()
@@ -874,3 +902,156 @@ class AutodocMdGeneratorsTest(s_t_utils.SynTest):
         typetext = typespage.getMdText()
 
         self.isin('# Storm Types', typetext)
+
+    async def test_docstormtypes_cortex_registers(self):
+        # A Cortex which embeds Storm libraries registers them by importing
+        # their modules at its own module scope, so --cortex resolves the class
+        # to get them into the registry. The page is then the whole Storm
+        # surface of that Cortex: its own libraries AND the core ones.
+
+        class TstExtLib(s_stormtypes.Lib):
+            '''An embedded test lib.'''
+            _storm_lib_path = ('tstext',)
+            _storm_locals = (
+                {'name': 'conn', 'desc': 'Open a connection.',
+                 'type': {'type': 'function', '_funcname': '_methConn',
+                          'args': (),
+                          'returns': {'type': 'tstext:conn', 'desc': 'The connection.'}}},
+                {'name': 'name', 'desc': 'Name the connection.',
+                 'type': {'type': 'function', '_funcname': '_methName',
+                          'args': (),
+                          'returns': {'type': 'str', 'desc': 'The name.'}}},
+            )
+
+            async def _methConn(self):
+                pass
+
+            async def _methName(self):
+                pass
+
+        class TstExtType(s_stormtypes.Prim):
+            '''An embedded test type.'''
+            _storm_typename = 'tstext:conn'
+            _storm_locals = ()
+
+        reg = s_stormtypes.registry
+        reg.registerLib(TstExtLib)
+        reg.registerType(TstExtType)
+
+        # the generator resolves these by name and reads their signature without
+        # calling them, so exercise the bodies here rather than excluding them
+        self.none(await TstExtLib._methConn(None))
+        self.none(await TstExtLib._methName(None))
+
+        try:
+            libspage = await s_autodoc.docStormTypesLibsMd(cortex='synapse.cortex.Cortex')
+            libtext = libspage.getMdText()
+
+            self.isin('## $lib.tstext', libtext)
+            self.isin('## $lib.time', libtext)
+
+            # every documented type is linkable, core and embedded alike
+            self.isin('[`tstext:conn`](stormtypes_prims.md#stormprims-tstext-conn-f527)', libtext)
+            self.isin('[`str`](stormtypes_prims.md#stormprims-str-f527)', libtext)
+
+            typespage = await s_autodoc.docStormTypesPrimsMd(cortex='synapse.cortex.Cortex')
+            typetext = typespage.getMdText()
+
+            self.isin('## tstext:conn', typetext)
+            self.isin('## cronjob', typetext)
+
+        finally:
+            reg.delStormLib(('tstext',))
+            reg.delStormType('TstExtType')
+
+    async def test_cortex_edition_notes(self):
+        # An item which is not part of every Cortex declares the edition that
+        # provides it, and the reference marks it. A member with no edition of
+        # its own inherits its parent's, since the nav lands a reader on a
+        # member heading rather than the library's own.
+
+        class TstEdLib(s_stormtypes.Lib):
+            '''A test lib from another edition.'''
+            _cortex_edition = 'Test Edition'
+            _storm_lib_path = ('tsted',)
+            _storm_locals = (
+                {'name': 'thing', 'desc': 'Do the thing.',
+                 'type': {'type': 'function', '_funcname': '_methThing',
+                          'args': (),
+                          'returns': {'type': 'str', 'desc': 'The thing.'}}},
+            )
+
+            async def _methThing(self):
+                pass
+
+        class TstEdType(s_stormtypes.Prim):
+            '''A test type from another edition.'''
+            _cortex_edition = 'Test Edition'
+            _storm_typename = 'tsted:thing'
+            _storm_locals = ()
+
+        reg = s_stormtypes.registry
+        reg.registerLib(TstEdLib)
+        reg.registerType(TstEdType)
+
+        # see test_docstormtypes_cortex_registers on why the body is called here
+        self.none(await TstEdLib._methThing(None))
+
+        try:
+            libtext = (await s_autodoc.docStormTypesLibsMd()).getMdText()
+
+            self.isin('> **Note:** `$lib.tsted` is only available in Test Edition.', libtext)
+
+            # the object's own note implies it for its members
+            self.notin('`$lib.tsted.thing` is only available', libtext)
+
+            # a library which declares no edition is left unmarked
+            self.notin('`$lib.time` is only available', libtext)
+
+            typetext = (await s_autodoc.docStormTypesPrimsMd()).getMdText()
+            self.isin('> **Note:** `tsted:thing` is only available in Test Edition.', typetext)
+
+            # and the registry only carries the key for an item that set one
+            libs = {'.'.join(d['path']): d for d in reg.getLibDocs()}
+            self.eq('Test Edition', libs['lib.tsted'].get('edition'))
+            self.none(libs['lib.time'].get('edition'))
+            self.notin('edition', libs['lib.time'])
+
+        finally:
+            reg.delStormLib(('tsted',))
+            reg.delStormType('TstEdType')
+
+    async def test_stormcmd_edition_note(self):
+        cdefs = (
+            {'name': 'tsted.run', 'desc': 'Run it.', '_edition': 'Test Edition'},
+            {'name': 'plain.run', 'desc': 'Run it plainly.'},
+        )
+
+        md = s_autodoc.MdHelp()
+        await s_autodoc._renderStormCmdsMd(md, None, cdefs, 1)
+        text = md.getMdText()
+
+        self.isin('> **Note:** `tsted.run` is only available in Test Edition.', text)
+        self.notin('`plain.run` is only available', text)
+
+    async def test_stormcmd_block_pkgname(self):
+        cdefs = (
+            {'name': 'tstext.run', 'desc': 'Run the test command.',
+             'perms': (('tstext', 'run'),),
+             'cmdargs': (('--name', {'help': 'A name.'}),)},
+        )
+
+        # a package reference namespaces a command's anchor with its package
+        md = s_autodoc.MdHelp()
+        await s_autodoc.processStormCmdsMd(md, 'tst:pkg', cdefs)
+        text = md.getMdText()
+
+        self.isin('<a id="stormcmd-tst-pkg-tstext-run"></a>', text)
+        self.isin('### tstext.run', text)
+        self.isin('Run the test command.', text)
+        self.isin('- `tstext.run`', text)
+
+        # ... while with no package there is nothing to namespace with
+        md = s_autodoc.MdHelp()
+        await s_autodoc._renderStormCmdsMd(md, None, cdefs, 1)
+        self.isin('<a id="stormcmd-tstext-run"></a>', md.getMdText())

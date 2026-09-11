@@ -362,6 +362,13 @@ class EntityModelTest(s_t_utils.SynTest):
             # entity:discovery was removed in favor of entity:discovered
             self.none(core.model.form('entity:discovery'))
 
+            # meta:usable lets an actor or an action record having used a name
+            self.true(core.model.form('entity:name').implements('meta:usable'))
+            self.len(1, await core.nodes(
+                '[ risk:threat=* :name=apt1 +(used)> {[ entity:name="Grace Holloway" ]} ]'))
+            self.len(1, await core.nodes('risk:threat:name=apt1 -(used)> meta:usable'))
+            self.len(1, await core.nodes('entity:name <(used)- risk:threat'))
+
     async def test_entity_title(self):
 
         async with self.getTestCore() as core:

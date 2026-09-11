@@ -19,7 +19,7 @@ What you need to do
 
 :   Replace every `ssl_verify=$x` with `ssl=({"verify": $x})` in your `$lib.inet.http.*` calls in Storm, macros, and power-ups. If you previously passed a `ssl_opts` dictionary, pass those same keys in the `ssl` dictionary instead (and fold any `ssl_verify` value into its `verify` key).
 
-    ``` text
+    ```text
     // 2.x -- boolean argument
     $resp = $lib.inet.http.get($url, ssl_verify=$verify)
 
@@ -29,7 +29,7 @@ What you need to do
 
 :   To disable verification:
 
-    ``` text
+    ```text
     // 2.x
     $resp = $lib.inet.http.get($url, ssl_verify=(false))
 
@@ -39,7 +39,7 @@ What you need to do
 
 :   To migrate a 2.x `ssl_opts` dictionary, merge it (and any `ssl_verify` value) into the new `ssl` argument:
 
-    ``` text
+    ```text
     // 2.x
     $resp = $lib.inet.http.get($url, ssl_verify=(true), ssl_opts=({"ca_cert": $ca}))
 

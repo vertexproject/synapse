@@ -308,12 +308,47 @@ class NexsRoot(s_base.Base):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
+
+        Args:
+            nexsiden (str): The iden of the Pusher whose handler will be run.
+            event (str): The name of the handler to run, as registered on that Pusher by onPush.
+            args (tuple): The positional arguments to pass to the handler.
+            kwargs (dict): The keyword arguments to pass to the handler.
+            meta (dict): Transaction metadata recorded with the log entry. A 'resp' key carries
+                         the iden of a follower's response future, which marks this as a write
+                         forwarded from a downstream mirror.
+            wait (bool): When True, wait for the apply to finish and return its result. When
+                         False, return as soon as the edit has been issued.
+            lock (bool): When True, cell.nexslock is acquired around the apply ( see eat ). When
+                         False, the caller must already hold it and hands ownership of it to us:
+                         it is released exactly once on every path out of this call, either here,
+                         in eat, or by the apply task. The caller must not release it. Only a
+                         leader may be issued to with lock=False, since such a caller has
+                         already computed its change against our own storage.
+
+        Returns:
+            A (nexsoffs, retn) tuple of the log offset and the handler's return value, or None
+            when wait is False.
+
+        Raises:
+            s_exc.BadState: When lock is False and we are no longer the leader.
         '''
         # pick up a reference to avoid race when we eventually can promote
         client = self.client
 
         if client is None:
             return await self.eat(nexsiden, event, args, kwargs, meta, s_common.now(), wait=wait, lock=lock)
+
+        # A lock=False caller has already computed its change against our own storage, which
+        # only a leader may do: that computed change is what lands in the nexus log for every
+        # mirror to replay. ( Today the one such caller is Layer.saveNodeEdits(), which runs
+        # calcEdits() before saveToNexs(). ) We were demoted after it took nexslock, so
+        # forwarding would have the new leader log and apply a change it did not compute.
+        # Release the caller's lock and refuse, before anything below can raise or await.
+        if not lock:
+            self.cell.nexslock.release()
+            mesg = f'Leadership changed while a write was in flight. iden={nexsiden} {event=}'
+            raise s_exc.BadState(mesg=mesg, iden=nexsiden, event=event)
 
         # check here because we shouldn't be sending an edit upstream if we
         # are in readonly mode because the mirror sync will never complete.
@@ -348,6 +383,29 @@ class NexsRoot(s_base.Base):
     async def eat(self, nexsiden, event, args, kwargs, meta, etime, wait=True, lock=True):
         '''
         Actually mutate for the given nexsiden instance.
+
+        Args:
+            nexsiden (str): The iden of the Pusher whose handler will be run.
+            event (str): The name of the handler to run, as registered on that Pusher by onPush.
+            args (tuple): The positional arguments to pass to the handler.
+            kwargs (dict): The keyword arguments to pass to the handler.
+            meta (dict): Transaction metadata recorded with the log entry. A 'resp' key carries
+                         the iden of a follower's response future.
+            etime (int): The time the edit was issued, recorded in the nexus log entry.
+            wait (bool): When True, wait for the apply task and return its result. When False,
+                         return as soon as that task has been created.
+            lock (bool): When True, acquire cell.nexslock here. When False, the caller already
+                         holds it and hands ownership of it to us.
+
+        Returns:
+            A (nexsoffs, retn) tuple of the log offset and the handler's return value, or None
+            when wait is False.
+
+        Note:
+            Ownership of cell.nexslock moves to the apply task the instant that task is
+            created: from there on _eat releases it in its own finally and we must not,
+            even if we raise. The checks below therefore run in their own try, and the
+            handoff happens after it.
         '''
         if meta is None:
             meta = {}
@@ -355,11 +413,10 @@ class NexsRoot(s_base.Base):
         if lock:
             await self.cell.nexslock.acquire()
 
-        if self.isfini:
-            self.cell.nexslock.release()
-            raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot propose {s_common.trimText(str((nexsiden, event, args, kwargs, meta)))}')
-
         try:
+            if self.isfini:
+                raise s_exc.IsFini(mesg=f'Nexus has been shutdown, cannot propose {s_common.trimText(str((nexsiden, event, args, kwargs, meta)))}')
+
             if (nexus := self._nexskids.get(nexsiden)) is None:
                 mesg = f'No Nexus Pusher with iden {nexsiden} {event=} args={s_common.trimText(repr(args))} ' \
                        f'kwargs={s_common.trimText(repr(kwargs))}'
@@ -372,17 +429,20 @@ class NexsRoot(s_base.Base):
 
             self.reqNotReadOnly()
 
-            # Keep a reference to the shielded task to ensure it isn't GC'd
-            item = (nexsiden, event, args, kwargs, meta, etime)
-            self.applytask = asyncio.create_task(self._eat(item))
-
-            # Clone the current scope to the applytask, so that log events in the scope
-            # would have access to any user / sess values which have been set.
-            s_scope.clone(self.applytask)
-
         except:
             self.cell.nexslock.release()
             raise
+
+        # past here the lock belongs to the apply task, which releases it in its own
+        # finally. Nothing below may release it, even if it raises.
+
+        # Keep a reference to the shielded task to ensure it isn't GC'd
+        item = (nexsiden, event, args, kwargs, meta, etime)
+        self.applytask = asyncio.create_task(self._eat(item))
+
+        # Clone the current scope to the applytask, so that log events in the scope
+        # would have access to any user / sess values which have been set.
+        s_scope.clone(self.applytask)
 
         if wait:
             return await asyncio.shield(self.applytask)

@@ -22,7 +22,7 @@ What you need to do
 
 :   Replace the old `hash:*` form names with `crypto:hash:*`. Existing nodes are reconciled when a Cortex is migrated to 3.x. Properties that were typed to the old forms still accept a raw hex string, so only the form name changes.
 
-    ``` text
+    ```text
     // 2.x
     hash:sha256=ad9f...
 
@@ -66,7 +66,7 @@ What you need to do
 
 :   Update Storm to the new form names. Existing data is reconciled when a Cortex is migrated to 3.x.
 
-    ``` text
+    ```text
     // 2.x
     it:dev:regkey="HKLM\\Software\\Foo"
     it:prod:softname="acme tool"
@@ -90,7 +90,7 @@ What you need to do
 
 :   Replace `ps:contact` with `entity:contact`. Existing nodes are reconciled when a Cortex is migrated to 3.x. Be aware that some properties were reshaped by the interface model --confirm the exact target property per field rather than assuming a flat one-to-one mapping. Verified reshapes include `:dob` / `:dod` -\> `:lifespan` (an ival, settable via `:lifespan:min` / `:lifespan:max`) and `:asof` -\> `:seen`.
 
-    ``` text
+    ```text
     // 2.x
     [ ps:contact=* :name="bob smith" ]
 
@@ -112,7 +112,7 @@ What you need to do
 
 :   Replace `media:news` with `doc:report`; existing data is reconciled when a Cortex is migrated to 3.x. Use `doc:report:type:taxonomy` instead of `media:news:taxonomy`. Because the report fields are now interface-supplied, verify each property name against the generated data model docs before porting ingest.
 
-    ``` text
+    ```text
     // 2.x
     [ media:news=* :title="APT1 report" ]
 
@@ -134,7 +134,7 @@ What you need to do
 
 :   Use `entity:campaign` and set `:actor` (from `entity:activity`) rather than a single org reference, and `:type` from `entity:campaign:type:taxonomy`. Treat this as a remodel -- there is no automatic one-to-one form rename; confirm the migration path for existing campaign nodes.
 
-    ``` text
+    ```text
     // 2.x
     [ ou:campaign=* :name="op cloudfall" :camptype=cyber ]
 
@@ -159,7 +159,7 @@ What you need to do
 
 :   Replace `ou:goal` with `entity:goal`. Drop any `:goal` / `:goals` property on an activity form and instead add an `entity:activity -(supported)> entity:goal` edge. Replace a 2.x actor-to-goal `-(has)>` edge with an `entity:motive` node that sets `:actor`, `:goal`, and `:period`.
 
-    ``` text
+    ```text
     // 2.x: a goal on the activity, and an actor "has" a goal
     [ ou:campaign=$campiden :goals+=$goaliden ]
     ou:org=$orgiden [ +(has)> { ou:goal=$goaliden } ]
@@ -183,7 +183,7 @@ What you need to do
 
 :   When modeling industry sectors in 3.x, use the `ind:industry` family instead of `ou:industry`. The `gen.ou.industry` Storm command is renamed to `gen.industry` and now builds an `ind:industry` node. Verify exact property names against the generated data model docs before porting industry ingest.
 
-    ``` text
+    ```text
     // 2.x -- built ou:industry
     gen.ou.industry "Aerospace"
 

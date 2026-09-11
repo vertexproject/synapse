@@ -17,14 +17,6 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
-rstlvls = [
-    ('#', {'over': True}),
-    ('*', {'over': True}),
-    ('=', {}),
-    ('-', {}),
-    ('^', {}),
-]
-
 stormtype_doc_schema = {
     'definitions': {
 
@@ -120,45 +112,16 @@ stormtype_doc_schema = {
             ],
             'description': 'Deprecation information for the object itself, if any.',
         },
+        'edition': {
+            'type': 'string',
+            'minLength': 1,
+            'description': 'The edition which provides the object, for one that is not part of '
+                           'every Cortex. Absent when the object is always available.',
+        },
     },
     'additionalProperties': False,
 }
 reqValidStormTypeDoc = s_config.getJsValidator(stormtype_doc_schema)
-
-class RstHelp:
-
-    def __init__(self):
-        self.lines = []
-
-    def addHead(self, name, lvl=0, link=None, addprefixline=True, addsuffixline=True):
-        char, info = rstlvls[lvl]
-        under = char * len(name)
-
-        lines = []
-
-        if addprefixline:
-            lines.append('')
-
-        if link:
-            lines.append('')
-            lines.append(link)
-            lines.append('')
-
-        if info.get('over'):
-            lines.append(under)
-
-        lines.append(name)
-        lines.append(under)
-        if addsuffixline:
-            lines.append('')
-
-        self.addLines(*lines)
-
-    def addLines(self, *lines):
-        self.lines.extend(lines)
-
-    def getRstText(self):
-        return '\n'.join(self.lines)
 
 def ljuster(ilines):
     '''Helper to lstrip lines of whitespace an appropriate amount.'''
@@ -181,78 +144,6 @@ def scrubLines(lines):
 
     return newlines
 
-def prepareRstLines(doc):
-    '''Prepare a desc string for RST lines.'''
-    lines = doc.split('\n')
-    lines = scrubLines(lines)
-    lines = ljuster(lines)
-    return lines
-
-def genDeprecationWarning(name, depr, runt=False):
-    assert name is not None
-    assert depr is not None
-    lines = []
-    if runt:
-        lines.append('.. warning::')
-    else:
-        lines.append('Warning:')
-
-    mesg = depr.get('mesg')
-    date = depr.get('eoldate')
-    vers = depr.get('eolvers')
-
-    ws = ''
-    if runt:
-        ws = '   '
-
-    if date:
-        lines.append(f'{ws}``{name}`` has been deprecated and will be removed on or after {date}.')
-    else:
-        lines.append(f'{ws}``{name}`` has been deprecated and will be removed in version {vers}.')
-    if mesg:
-        lines.append(f'{ws}{mesg}')
-
-    lines.append('\n')
-
-    return lines
-
-def runtimeGetArgLines(rtype):
-    lines = []
-    args = rtype.get('args', ())
-    assert args is not None
-
-    if args == ():
-        # Zero args
-        return lines
-
-    lines.append('Args:')
-    for arg in args:
-        name = arg.get('name')
-        desc = arg.get('desc')
-        atyp = arg.get('type')
-        assert name is not None
-        assert desc is not None
-        assert atyp is not None
-        if isinstance(atyp, str):
-            line = f'    {name} ({atyp}): {desc}'
-        elif isinstance(atyp, (list, tuple)):
-            assert len(atyp) > 1
-            for obj in atyp:
-                assert isinstance(obj, str)
-            tdata = ', '.join(atyp)
-            rline = f'The input type may one one of the following: {tdata}.'
-            line = f'    {name}: {desc} {rline}'
-        elif isinstance(atyp, dict):
-            logger.warning('Fully declarative input types are not yet supported.')
-            rline = f"The input type is derived from the declarative type ``{atyp}``."
-            line = f'    {name}: {desc} {rline}'
-        else:
-            raise AssertionError(f'unknown argtype: {atyp}')
-
-        lines.append(line)
-
-    return lines
-
 _callsig_escapes = {
     '\b': '\\b',
     '\t': '\\t',
@@ -269,7 +160,7 @@ def _genCallsigStr(defv):
 
     A string is always quoted. A bare token is valid Storm for many values but not all
     of them, and the ones it silently mangles ( an empty string, a comparison operator
-    such as ``=``, anything containing whitespace or a comma ) are not distinguishable
+    such as `=`, anything containing whitespace or a comma ) are not distinguishable
     from a safe value without reimplementing the grammar.
 
     Of the three Storm string forms, only the double quoted one can represent every
@@ -281,7 +172,7 @@ def _genCallsigStr(defv):
     total, rather than an enumeration of the cases someone has thought of. The single
     quoted form is kept only because it reads better for the values it can hold.
 
-    The one value that cannot be expressed is the text ``$lib.undef``, which is
+    The one value that cannot be expressed is the text `$lib.undef`, which is
     reserved below to document the undef constant.
     '''
     # $lib.undef is declared as a string but documents the undef constant, which is a
@@ -357,206 +248,6 @@ def genCallsig(rtype):
     ret = f"({', '.join(items)})"
     return ret
 
-def runtimeGetReturnLines(rtype, isstor=False):
-    # Allow someone to plumb in name=Yields as a return type.
-    lines = ['']
-    whitespace = '   '
-    if isinstance(rtype, str):
-        lines.append('Returns:')
-        lines.append(f'    The type is {rtype}.')
-    elif isinstance(rtype, (list, tuple)):
-        assert len(rtype) > 1
-        tdata = ', '.join(rtype)
-        lines.append('Returns:')
-        lines.append(f'    The type may be one of the following: {tdata}.')
-    elif isinstance(rtype, dict):
-        returns = rtype.get('returns')
-        assert returns is not None, f'Invalid returns for {rtype}'
-        name = returns.get('name', 'Returns')
-
-        desc = returns.get('desc')
-        rettype = returns.get('type')
-
-        lines.append(f'{name}:')
-        # Now switch on the type.
-
-        parts = [whitespace]
-        if desc:
-            parts.append(desc)
-
-        if isinstance(rettype, str):
-            parts.append(f"The return type is {rettype}.")
-        elif isinstance(rettype, (list, tuple)):
-            assert len(rettype) > 1
-            tdata = ', '.join(rettype)
-            rline = f'The return type may be one of the following: {tdata}.'
-            parts.append(rline)
-        elif isinstance(rettype, dict):
-            logger.warning('Fully declarative return types are not yet supported.')
-            rline = f"The return type is derived from the declarative type ``{rettype}``."
-            parts.append(rline)
-        else:
-            raise AssertionError(f'unknown return type: {rettype}')
-        line = ' '.join(parts)
-        lines.append(line)
-    if isstor:
-        line = f'{whitespace} When this is used to set the value, it does not have a return type.'
-        lines.append(line)
-    return lines
-
-def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
-                         oneline=False,
-                         addheader=True,
-                         preamble=None,
-                         ):
-    '''
-    Process a list of StormTypes doc information to add them to a RstHelp object.
-
-    Used for Storm runtime help generation.
-
-    Args:
-        page (RstHelp): The RST page to add .
-        docinfo (dict): A Stormtypes Doc.
-        linkprefix (str): The RST link prefix string to use.
-        islib (bool): Treat the data as a library. This will preface the header and
-            attribute values with ``$`` and use full paths for attributes.
-        lvl (int): The base header level to use when adding headers to the page.
-        oneline (bool): Only display the first line of description. Omits local headers.
-        preamble (list): Lines added after the header; and before locls.
-
-    Returns:
-        None
-    '''
-    if preamble is None:
-        preamble = []
-
-    for info in docinfo:
-        reqValidStormTypeDoc(info)
-
-        path = info.get('path')
-
-        sname = '.'.join(path)
-
-        if addheader:
-
-            if islib:
-                page.addHead(f"${sname}", lvl=lvl, addprefixline=False, addsuffixline=False)
-            else:
-                page.addHead(sname, lvl=lvl, addprefixline=False, addsuffixline=False)
-
-            typedoc = info.get('desc')
-            lines = prepareRstLines(typedoc)
-
-            page.addLines(*lines)
-
-        page.addLines(*preamble)
-
-        libdepr = info.get('deprecated')
-        locls = info.get('locals', ())
-        locls = sorted(locls, key=lambda x: x.get('name'))
-
-        funcs = []
-        nofuncs = []
-
-        for locl in locls:
-            name = locl.get('name')
-            loclname = '.'.join((sname, name))
-            rtype = locl.get('type')
-
-            if isinstance(rtype, dict):
-                rname = rtype.get('type')
-
-                if isinstance(rname, dict):
-                    raise AssertionError(f'rname as dict not supported loclname={loclname} rname={rname}')
-
-                isstor = False
-                isfunc = False
-                isgtor = False
-                isctor = False
-
-                if rname == 'ctor' or 'ctor' in rname:
-                    isctor = True
-                if rname == 'function' or 'function' in rname:
-                    isfunc = True
-                if rname == 'gtor' or 'gtor' in rname:
-                    isgtor = True
-                if rname == 'stor' or 'stor' in rname:
-                    isstor = True
-
-                if isfunc:
-                    funcs.append((locl, isstor, isfunc, isgtor, isctor))
-                else:
-                    nofuncs.append((locl, isstor, isfunc, isgtor, isctor))
-                continue
-
-            nofuncs.append((locl, False, False, False, False))
-
-        def renderer(locl, isstor, isfunc, isgtor, isctor):
-            name = locl.get('name')
-            loclname = '.'.join((sname, name))
-            desc = locl.get('desc')
-            rtype = locl.get('type')
-            assert desc is not None
-            assert rtype is not None
-
-            lines = []
-            if not oneline:
-                if (depr := locl.get('deprecated')):
-                    lines.extend(genDeprecationWarning(f'${loclname}', depr))
-                elif libdepr is not None:
-                    lines.extend(genDeprecationWarning(f'${loclname}', libdepr))
-
-            if isinstance(rtype, dict):
-                rname = rtype.get('type')
-
-                if isinstance(rname, dict):
-                    raise AssertionError(f'rname as dict not supported loclname={loclname} rname={rname}')
-
-                lines.extend(prepareRstLines(desc))
-                arglines = runtimeGetArgLines(rtype)
-                lines.extend(arglines)
-
-                retlines = runtimeGetReturnLines(rtype, isstor=isstor)
-                lines.extend(retlines)
-
-                callsig = ''
-                if isfunc:
-                    callsig = genCallsig(rtype)
-                header = f'{name}{callsig}'
-
-            else:
-                header = name
-                lines.extend(prepareRstLines(desc))
-
-                retlines = runtimeGetReturnLines(rtype)
-                lines.extend(retlines)
-
-            if islib:
-                header = '.'.join((sname, header))
-                header = f'${header}'
-
-            if oneline:
-                page.addLines(header, lines[0], '')
-            else:
-                page.addHead(header, lvl=lvl + 1, addsuffixline=False)
-                page.addLines(*lines)
-
-        more_than_one_item = (len(funcs) + len(nofuncs)) > 1
-
-        if funcs:
-            if more_than_one_item:
-                page.addLines('The following functions are available:', '')
-            for locl, isstor, isfunc, isgtor, isctor in funcs:
-                renderer(locl, isstor, isfunc, isgtor, isctor)
-
-        if nofuncs:
-            if more_than_one_item:
-                page.addLines('', 'The following references are available:', '')
-            for locl, isstor, isfunc, isgtor, isctor in nofuncs:
-                renderer(locl, isstor, isfunc, isgtor, isctor)
-
-        return
-
 _slug_strip_re = regex.compile(r'[^\p{L}\p{N}\-_\s]+', flags=regex.UNICODE)
 
 def mdSlugify(text, seen=None):
@@ -588,9 +279,8 @@ def mdSlugify(text, seen=None):
 
 class MdHelp:
     '''
-    Markdown analog of RstHelp, used by the doc*Md page generators below.
-    RstHelp itself is untouched -- it remains in live use by
-    synapse/lib/storm.py for interactive Storm CLI help text.
+    A simple markdown page builder, used by the doc*Md page generators below
+    and by synapse/lib/storm.py for interactive Storm CLI help text.
     '''
 
     def __init__(self):
@@ -739,6 +429,20 @@ def getReturnLinesMd(rtype, known_types=None, types_prefix=None, suffix=None, is
         lines.append('When this is used to set the value, it does not have a return type.')
     return lines
 
+def genEditionNoteMd(name, edition):
+    '''
+    Render the note marking an item as provided by a particular edition.
+
+    Args:
+        name (str): The item being marked, e.g. "$lib.db" or "inet.dns.lookup".
+        edition (str): The edition which provides it. Supplied by whatever
+            declares the item, so no edition is named here.
+
+    Returns:
+        list: The markdown lines.
+    '''
+    return [f'> **Note:** `{name}` is only available in {edition}.', '']
+
 def genDeprecationWarningMd(name, depr):
     lines = ['> **Warning:**']
 
@@ -763,25 +467,38 @@ def prepareMdLines(doc):
     lines = ljuster(lines)
     return lines
 
-def docStormTypesMd(md, docinfo, linkprefix, islib=False, lvl=1,
-                    known_types=None, types_prefix=None, types_suffix=None, mdfile=None):
+def docStormTypesMd(md, docinfo, linkprefix=None, islib=False, lvl=1,
+                    known_types=None, types_prefix=None, types_suffix=None, mdfile=None,
+                    oneline=False, addheader=True, preamble=None, group=False):
     '''
     Add a list of StormTypes doc information to an MdHelp page. Used by
     docStormTypesLibsMd/docStormTypesPrimsMd (whole-registry pages) and by
     the Storm runtime `help` command for individual libraries/types.
 
     Notes
-        This will create explicit anchor ids for each header item. The
-        anchor namespace prefix must be given with the ``linkprefix``
-        argument.
+        When `linkprefix` is given, this creates explicit anchor ids for
+        each header item, in that namespace prefix. Runtime `help` output
+        has no page of its own to anchor into, so it leaves `linkprefix`
+        unset and gets no anchors.
 
     Args:
         md (MdHelp): The markdown page to add to.
         docinfo (dict): A Stormtypes Doc.
-        linkprefix (str): The anchor namespace prefix string to use.
+        linkprefix (str): The anchor namespace prefix string to use. None to omit anchors.
         islib (bool): Treat the data as a library. This will preface the header and
-            attribute values with ``$`` and use full paths for attributes.
+            attribute values with `$` and use full paths for attributes.
         lvl (int): The base header level to use when adding headers to the page.
+        oneline (bool): Only display the first line of description for each local. Omits
+            per-local headers, deprecation warnings, and args/returns. Used for the Storm
+            runtime `help` command's non-verbose mode.
+        addheader (bool): Add the section header and its description. False when the
+            runtime `help` command is documenting a single bound method rather than a
+            whole library/type.
+        preamble (list): Lines added after the header and before the locals. Used by the
+            runtime `help` command to list child libraries.
+        group (bool): Split locals into functions and non-functions, with a
+            "The following functions/references are available:" lead-in when there is
+            more than one local. Used by the runtime `help` command.
 
     Returns:
         None
@@ -789,28 +506,48 @@ def docStormTypesMd(md, docinfo, linkprefix, islib=False, lvl=1,
     if known_types is None:
         known_types = set()
 
+    if preamble is None:
+        preamble = []
+
     for info in docinfo:
         reqValidStormTypeDoc(info)
 
         path = info.get('path')
         sname = '.'.join(path)
 
-        if islib:
-            anchor = getMdLink(sname, linkprefix)
-            md.addHead(f'${sname}', lvl=lvl, anchor=anchor)
-        else:
-            anchor = getMdLink(sname, linkprefix, suffix=types_suffix)
-            md.addHead(sname, lvl=lvl, anchor=anchor)
+        if addheader:
+            anchor = getMdLink(sname, linkprefix, suffix=None if islib else types_suffix) if linkprefix else None
 
-        typedoc = info.get('desc')
-        lines = prepareMdLines(typedoc)
-        md.addLines(*lines)
+            if islib:
+                md.addHead(f'${sname}', lvl=lvl, anchor=anchor)
+            else:
+                md.addHead(sname, lvl=lvl, anchor=anchor)
+
+            # the terse form is a one line summary per library, so the note
+            # belongs to the verbose form only, as the deprecation warning does
+            libedition = info.get('edition')
+            if not oneline and libedition is not None:
+                md.addLines(*genEditionNoteMd(f'${sname}' if islib else sname, libedition))
+
+            typedoc = info.get('desc')
+            lines = prepareMdLines(typedoc)
+            md.addLines(*lines)
+
+        md.addLines(*preamble)
 
         locls = info.get('locals', ())
         locls = sorted(locls, key=lambda x: x.get('name'))
         libdepr = info.get('deprecated')
 
+        funcs = []
+        nofuncs = []
+
         for locl in locls:
+            rtype = locl.get('type')
+            isfunc = isinstance(rtype, dict) and 'function' in rtype.get('type')
+            (funcs if isfunc else nofuncs).append(locl)
+
+        def renderLocal(locl):
 
             name = locl.get('name')
             loclname = '.'.join((sname, name))
@@ -818,13 +555,14 @@ def docStormTypesMd(md, docinfo, linkprefix, islib=False, lvl=1,
             rtype = locl.get('type')
 
             locl_anchor = _mdAnchorName(loclname)
-            local_anchor_id = f'{linkprefix}-{locl_anchor}'
+            local_anchor_id = f'{linkprefix}-{locl_anchor}' if linkprefix else None
 
             lines = []
-            if depr := locl.get('deprecated'):
-                lines.extend(genDeprecationWarningMd(f'${loclname}', depr))
-            elif libdepr is not None:
-                lines.extend(genDeprecationWarningMd(f'${loclname}', libdepr))
+            if not oneline:
+                if depr := locl.get('deprecated'):
+                    lines.extend(genDeprecationWarningMd(f'${loclname}', depr))
+                elif libdepr is not None:
+                    lines.extend(genDeprecationWarningMd(f'${loclname}', libdepr))
 
             if isinstance(rtype, dict):
                 rname = rtype.get('type')
@@ -836,9 +574,11 @@ def docStormTypesMd(md, docinfo, linkprefix, islib=False, lvl=1,
                 isfunc = 'function' in rname
 
                 lines.extend(prepareMdLines(desc))
-                lines.extend(getArgLinesMd(rtype))
-                lines.extend(getReturnLinesMd(rtype, known_types=known_types, types_prefix=types_prefix,
-                                              suffix=types_suffix, isstor=isstor, mdfile=mdfile))
+
+                if not oneline:
+                    lines.extend(getArgLinesMd(rtype))
+                    lines.extend(getReturnLinesMd(rtype, known_types=known_types, types_prefix=types_prefix,
+                                                  suffix=types_suffix, isstor=isstor, mdfile=mdfile))
 
                 callsig = genCallsig(rtype) if isfunc else ''
                 header = f'{name}{callsig}'
@@ -846,14 +586,38 @@ def docStormTypesMd(md, docinfo, linkprefix, islib=False, lvl=1,
             else:
                 header = name
                 lines.extend(prepareMdLines(desc))
-                lines.extend(getReturnLinesMd(rtype, known_types=known_types, types_prefix=types_prefix,
-                                              suffix=types_suffix, mdfile=mdfile))
+
+                if not oneline:
+                    lines.extend(getReturnLinesMd(rtype, known_types=known_types, types_prefix=types_prefix,
+                                                  suffix=types_suffix, mdfile=mdfile))
 
             if islib:
                 header = f'${sname}.{header}'
 
-            md.addHead(header, lvl=lvl + 1, anchor=local_anchor_id)
-            md.addLines(*lines)
+            if oneline:
+                md.addLines(header, lines[0], '')
+            else:
+                md.addHead(header, lvl=lvl + 1, anchor=local_anchor_id)
+                md.addLines(*lines)
+
+        if not group:
+            for locl in locls:
+                renderLocal(locl)
+            continue
+
+        more_than_one_item = (len(funcs) + len(nofuncs)) > 1
+
+        if funcs:
+            if more_than_one_item:
+                md.addLines('The following functions are available:', '')
+            for locl in funcs:
+                renderLocal(locl)
+
+        if nofuncs:
+            if more_than_one_item:
+                md.addLines('', 'The following references are available:', '')
+            for locl in nofuncs:
+                renderLocal(locl)
 
 # Google-style docstring sections recognized by parseApiDocstring/docApiMd.
 # This is a lightweight, deliberately narrow subset of what Sphinx's
@@ -1210,15 +974,15 @@ def processInterfacesMd(md, ifaces, knownnames=None):
     '''
     Emit markdown documentation for all model interfaces.
 
-    Each interface gets a ``dm-type-<name>`` anchor so that
-    ``processFormsPropsMd`` cross-references resolve correctly.
+    Each interface gets a `dm-type-<name>` anchor so that
+    `processFormsPropsMd` cross-references resolve correctly.
 
     Args:
         md (MdHelp): the markdown output helper (shared with
             processCtorsMd/processTypesMd).
         ifaces (list[tuple[str, dict]]): sorted (name, info) pairs from
-            ``core.getModelDict()['interfaces']``.
-        knownnames (set[str] or None): names that have a ``dm-type-<name>``
+            `core.getModelDict()['interfaces']`.
+        knownnames (set[str] or None): names that have a `dm-type-<name>`
             anchor in this build. Used to skip emitting broken links for
             typenames produced by unresolved interface template defaults
             (e.g. empty strings or bare placeholders).
@@ -1553,7 +1317,7 @@ async def docModelTypesMd(core):
 async def docModelFormsMd(core):
     '''
     Generate the "Synapse Data Model - Forms" page. Also validates every
-    form's ``ex`` example by running ``[form=example]`` against the Cortex.
+    form's `ex` example by running `[form=example]` against the Cortex.
 
     Args:
         core (s_cortex.Cortex):
@@ -1696,9 +1460,9 @@ def _stripSelfFromSignature(sig):
 async def docApiMd(ctor):
     '''
     Generate Markdown API documentation for a class's own public methods,
-    replacing the old Sphinx ``.. autoclass:: ... :members: :undoc-members:
-    :show-inheritance::`` directive used for hand-authored Telepath API
-    pages (e.g. a CellApi subclass). Absent ``:inherited-members:``, that
+    replacing the old Sphinx `.. autoclass:: ... :members: :undoc-members:
+    :show-inheritance::` directive used for hand-authored Telepath API
+    pages (e.g. a CellApi subclass). Absent `:inherited-members:`, that
     Sphinx directive only ever documented members defined directly in the
     class body -- this mirrors that scope exactly by walking cls.__dict__
     rather than the full MRO, so it works for any class, not just CellApi
@@ -1759,12 +1523,82 @@ async def docApiMd(ctor):
 
     return md
 
-async def processStormCmdsMd(md, pkgname, commands):
+def _addStormCmdMd(md, cname, mesgs, perms, lvl, pkgname=None, edition=None):
+    '''
+    Emit one Storm command's heading, rendered help block, and permissions.
+
+    Called once per command by _renderStormCmdsMd, which builds each command's
+    parser from its command definition for the Storm package reference.
+
+    Args:
+        md (MdHelp): The page to add to.
+        cname (str): The command name.
+        mesgs (list): The rendered help lines from the command's parser.
+        perms (list or None): Permission tuples gating the command, if any.
+        lvl (int): The header level for the command's own heading.
+        pkgname (str or None): The Storm package providing the command, used to
+            namespace its anchor. None for a command with no package to
+            namespace with.
+        edition (str or None): The edition which provides the command, for one
+            that is not part of every Cortex.
+
+    Returns:
+        None
+    '''
+    anchor = f'stormcmd-{cname.replace(".", "-")}'
+    if pkgname is not None:
+        anchor = f'stormcmd-{pkgname.replace(":", "-")}-{cname.replace(".", "-")}'
+
+    md.addHead(cname, lvl=lvl, anchor=anchor)
+
+    lines = []
+    if edition is not None:
+        lines.extend(genEditionNoteMd(cname, edition))
+
+    # Parser.help() leads with an empty line for CLI --help; in a fenced block
+    # it renders as a gap between the fence and the description (SYN-11446).
+    while mesgs and mesgs[0] == '':
+        mesgs = mesgs[1:]
+
+    lines.append('```text')
+    lines.extend(mesgs)
+    lines.append('```')
+    lines.append('')
+
+    if perms is not None:
+        lines.append('The command is accessible to users with one or more of the following permissions:')
+        lines.append('')
+        for perm in sorted('.'.join(perm) for perm in perms):
+            lines.append(f'- `{perm}`')
+        lines.append('')
+
+    # end the block flush. addHead() opens the next command with its own blank
+    # line, so a trailing one here renders as a double gap between commands.
+    while lines and lines[-1] == '':
+        lines.pop()
+
+    md.addLines(*lines)
+
+async def _renderStormCmdsMd(md, pkgname, commands, lvl):
+    '''
+    Render one heading and help block per Storm command, for the package
+    reference (processStormCmdsMd), which builds each command's parser from
+    its command definition.
+
+    Args:
+        md (MdHelp): The page to add to.
+        pkgname (str or None): The Storm package the commands belong to,
+            used to namespace each command's anchor. None for a command
+            registered directly by a service rather than by a package,
+            where there is no package name to namespace with.
+        commands (list): The command definitions to render.
+        lvl (int): The header level to use for each command.
+
+    Returns:
+        None
+    '''
     # Local import: synapse.lib.storm imports this module at module level.
     import synapse.lib.storm as s_storm
-
-    md.addHead('Storm Commands', lvl=1)
-    md.addLines('This package implements the following Storm Commands.', '')
 
     commands = sorted(commands, key=lambda x: x.get('name'))
 
@@ -1774,32 +1608,20 @@ async def processStormCmdsMd(md, pkgname, commands):
         cdesc = cdef.get('desc')
         cargs = cdef.get('cmdargs')
 
-        anchor = f'stormcmd-{pkgname.replace(":", "-")}-{cname.replace(".", "-")}'
-        md.addHead(cname, lvl=2, anchor=anchor)
-
-        lines = ['```text']
-
         pars = s_storm.Parser(prog=cname, descr=cdesc, cdef=cdef)
         if cargs:
             for (argname, arginfo) in cargs:
                 pars.add_argument(argname, **arginfo)
         pars.help()
 
-        for line in pars.mesgs:
-            lines.append(line)
+        _addStormCmdMd(md, cname, pars.mesgs, cdef.get('perms'), lvl, pkgname=pkgname,
+                       edition=cdef.get('_edition'))
 
-        lines.append('```')
-        lines.append('')
+async def processStormCmdsMd(md, pkgname, commands):
+    md.addHead('Storm Commands', lvl=1)
+    md.addLines('This package implements the following Storm Commands.')
 
-        if (perms := cdef.get('perms')) is not None:
-            perms = sorted('.'.join(perm) for perm in perms)
-            lines.append('The command is accessible to users with one or more of the following permissions:')
-            lines.append('')
-            for perm in perms:
-                lines.append(f'- `{perm}`')
-            lines.append('')
-
-        md.addLines(*lines)
+    await _renderStormCmdsMd(md, pkgname, commands, 2)
 
 async def processStormModulesMd(md, pkgname, modules):
     md.addHead('Storm Modules', lvl=1)
@@ -1950,13 +1772,25 @@ async def docStormpkgMd(pkgpath):
 # secondary properties of a type may overlap with the main name of the type.
 _stormtypes_suffix = 'f527'
 
-async def docStormTypesLibsMd():
+async def docStormTypesLibsMd(cortex=None):
     '''
     Generate the "Storm Libraries" reference page (every registered Storm library).
+
+    Args:
+        cortex (str or None): Dotted path to a Cortex class whose own Storm
+            libraries should be included alongside the core Synapse ones.
+            Resolving the class is what registers them: a Cortex which
+            embeds Storm libraries imports their modules at its own module
+            scope, so the registry decorators fire on import rather than at
+            Cortex boot. None documents whatever the calling process has
+            already imported.
 
     Returns:
         MdHelp: the rendered page.
     '''
+    if cortex is not None:
+        s_dyndeps.reqDynLocal(cortex)
+
     registry = s_stormtypes.registry
     libsinfo = registry.getLibDocs()
 
@@ -1970,13 +1804,21 @@ async def docStormTypesLibsMd():
 
     return libspage
 
-async def docStormTypesPrimsMd():
+async def docStormTypesPrimsMd(cortex=None):
     '''
     Generate the "Storm Types" reference page (every registered Storm primitive type).
+
+    Args:
+        cortex (str or None): Dotted path to a Cortex class whose own Storm
+            types should be included alongside the core Synapse ones. See
+            docStormTypesLibsMd for why resolving it is what registers them.
 
     Returns:
         MdHelp: the rendered page.
     '''
+    if cortex is not None:
+        s_dyndeps.reqDynLocal(cortex)
+
     registry = s_stormtypes.registry
     priminfo = registry.getTypeDocs()
 

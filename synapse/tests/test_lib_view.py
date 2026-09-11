@@ -627,6 +627,114 @@ class ViewTest(s_t_utils.SynTest):
             self.none(nodes[0].getTag('foo'))
             self.none(nodes[0].getTag('bar'))
 
+            # deleting a node in the fork subsumes the tombstones it holds over the
+            # parent values, so the triggers for those values do not fire
+            await core.nodes('[ test:str=masked :hehe=haha +#mask.tag ]')
+            await core.nodes('test:str=masked [ -:hehe -#mask.tag ]', opts={'view': view2.iden})
+
+            await view2.addTrigger({
+                'cond': 'prop:set',
+                'prop': 'test:str:hehe',
+                'storm': '[ test:str=revealprop ]',
+            })
+
+            await view2.addTrigger({
+                'cond': 'tag:add',
+                'tag': 'mask.tag',
+                'form': 'test:str',
+                'storm': '[ test:str=revealtag ]',
+            })
+
+            await view2.addTrigger({
+                'cond': 'node:del',
+                'form': 'test:str',
+                'storm': '[ test:str=nodedel ]',
+            })
+
+            await core.nodes('test:str=masked | delnode', opts={'view': view2.iden})
+
+            self.len(1, await view2.nodes('test:str=nodedel'))
+            self.len(0, await view2.nodes('test:str=revealprop'))
+            self.len(0, await view2.nodes('test:str=revealtag'))
+
+            # tombstone an edge in the fork, then remove the value underneath it
+            await core.nodes('[ test:int=1111 +(refs)> { [ test:int=2222 ] } ]')
+            await core.nodes('test:int=1111 [ -(refs)> { test:int=2222 } ]', opts={'view': view2.iden})
+            await core.nodes('test:int=1111 [ -(refs)> { test:int=2222 } ]')
+
+            await view2.addTrigger({
+                'cond': 'edge:add',
+                'verb': 'refs',
+                'storm': '[ test:guid=$lib.guid() ]',
+            })
+
+            # re-adding the edge removes that tombstone as part of the add, so edge:add
+            # fires once
+            await core.nodes('test:int=1111 [ +(refs)> { test:int=2222 } ]', opts={'view': view2.iden})
+
+            self.len(1, await view2.nodes('test:guid'))
+
+            # the fork gets its own edge row over a live one in the parent
+            await core.nodes('[ test:int=3333 test:int=4444 ]')
+            await core.nodes('test:int=3333 [ +(refs)> { test:int=4444 } ]', opts={'view': view2.iden})
+            await core.nodes('test:int=3333 [ +(refs)> { test:int=4444 } ]')
+
+            await view2.addTrigger({
+                'cond': 'edge:del',
+                'verb': 'refs',
+                'storm': '[ test:guid=$lib.guid() ]',
+            })
+
+            # the tombstone removes the fork's own row, so edge:del fires once
+            count = len(await view2.nodes('test:guid'))
+
+            await core.nodes('test:int=3333 [ -(refs)> { test:int=4444 } ]', opts={'view': view2.iden})
+
+            self.len(count + 1, await view2.nodes('test:guid'))
+
+            # the fork now holds an edge tombstone for that verb, which does not stop
+            # edge:del firing for another edge it holds with the same verb
+            await core.nodes('[ test:int=5555 ]')
+            await core.nodes('test:int=3333 [ +(refs)> { test:int=5555 } ]', opts={'view': view2.iden})
+
+            count = len(await view2.nodes('test:guid'))
+
+            await core.nodes('test:int=3333 [ -(refs)> { test:int=5555 } ]', opts={'view': view2.iden})
+
+            self.len(count + 1, await view2.nodes('test:guid'))
+
+            # the fork gets its own value for each kind, over a live one in the parent
+            await core.nodes('[ test:str=layered :hehe=aaa +#over.tag=2020 ]')
+            await core.nodes('test:str=layered [ :hehe=bbb +#over.tag=2021 ]', opts={'view': view2.iden})
+            await core.nodes('[ test:str=layerednode ]', opts={'view': view2.iden})
+            await core.nodes('[ test:str=layerednode ]')
+
+            for tdef in (
+                {'cond': 'prop:set', 'prop': 'test:str:hehe'},
+                {'cond': 'tag:del', 'tag': 'over.tag'},
+                {'cond': 'node:del', 'form': 'test:str'},
+            ):
+                await view2.addTrigger(tdef | {'storm': '[ test:guid=$lib.guid() ]'})
+
+            # a tombstone removes the fork's own value, so each of these fires once
+            count = len(await view2.nodes('test:guid'))
+            await core.nodes('test:str=layered [ -:hehe ]', opts={'view': view2.iden})
+            self.len(count + 1, await view2.nodes('test:guid'))
+
+            count += 1
+            await core.nodes('test:str=layered [ -#over.tag ]', opts={'view': view2.iden})
+            self.len(count + 1, await view2.nodes('test:guid'))
+
+            count += 1
+            await core.nodes('test:str=layerednode | delnode', opts={'view': view2.iden})
+            self.len(count + 1, await view2.nodes('test:guid'))
+
+            # and the parent keeps everything the fork hid
+            nodes = await core.view.nodes('test:str=layered')
+            self.propeq(nodes[0], 'hehe', 'aaa')
+            self.nn(nodes[0].getTag('over.tag'))
+            self.len(1, await core.view.nodes('test:str=layerednode'))
+
             view2_iden = view2.iden
             await view2.merge()
             self.true(await view2.waitfini(timeout=5))
@@ -2088,6 +2196,75 @@ class ViewTest(s_t_utils.SynTest):
 
             self.len(0, await alist(nodes[0].iterEdgeVerbs(n2node.nid)))
 
+            # the fork tombstones a batch of edges which the parent holds, then re-adds
+            # them by removing those tombstones
+            async with core.view.getEditor() as editor:
+                manynode = await editor.addNode('it:dev:str', 'manytombs')
+                for x in range(1001):
+                    self.true(await manynode.addEdge(f'_a{str(x)}', n2nid))
+
+            async with view2.getEditor() as editor:
+                manynode = await editor.getNodeByNdef(('it:dev:str', 'manytombs'))
+                for x in range(1001):
+                    self.true(await manynode.delEdge(f'_a{str(x)}', n2nid))
+
+            mnode = await view2.getNodeByNdef(('it:dev:str', 'manytombs'))
+            self.len(0, await alist(mnode.iterEdgeVerbs(n2nid)))
+
+            async with view2.getEditor() as editor:
+                manynode = await editor.getNodeByNdef(('it:dev:str', 'manytombs'))
+                for x in range(1001):
+                    self.true(await manynode.addEdge(f'_a{str(x)}', n2nid))
+
+            mnode = await view2.getNodeByNdef(('it:dev:str', 'manytombs'))
+            self.len(1001, await alist(mnode.iterEdgeVerbs(n2nid)))
+
+            # the fork holds its own batch of edges over live parent edges, so each
+            # delete stages both a del and the tombstone which replaces it
+            await core.nodes('[ it:dev:str=manysplit ]')
+
+            addq = 'it:dev:str=manysplit for $i in $lib.range(1001) { [ +(_a0)> { [ it:dev:str=`n2{$i}` ] } ] }'
+            await core.nodes(addq, opts=viewopts2)
+            await core.nodes(addq)
+
+            fired = []
+            runedgedel = view2.runEdgeDel
+
+            async def onEdgeDel(*args):
+                fired.append(args[1:4])
+                return await runedgedel(*args)
+
+            view2.runEdgeDel = onEdgeDel
+
+            try:
+                async with view2.getEditor() as editor:
+                    splitnode = await editor.getNodeByNdef(('it:dev:str', 'manysplit'))
+                    for x in range(1001):
+                        n2node = await view2.getNodeByNdef(('it:dev:str', f'n2{str(x)}'))
+                        self.true(await splitnode.delEdge('_a0', n2node.nid))
+            finally:
+                view2.runEdgeDel = runedgedel
+
+            # each edge fires the callbacks once, even across a batch boundary
+            self.len(1001, fired)
+            self.len(1001, set(fired))
+
+            snode = await view2.getNodeByNdef(('it:dev:str', 'manysplit'))
+            self.len(0, await alist(snode.iterEdgeVerbs(n2nid)))
+
+            # the fork holds a batch of edges with nothing underneath them, so each
+            # delete stages only the del
+            addq = 'it:dev:str=manysplit for $i in $lib.range(1001) { [ +(_a1)> { it:dev:str=`n2{$i}` } ] }'
+            await core.nodes(addq, opts=viewopts2)
+
+            async with view2.getEditor() as editor:
+                splitnode = await editor.getNodeByNdef(('it:dev:str', 'manysplit'))
+                for x in range(1001):
+                    n2node = await view2.getNodeByNdef(('it:dev:str', f'n2{str(x)}'))
+                    self.true(await splitnode.delEdge('_a1', n2node.nid))
+
+            self.len(0, await core.nodes('it:dev:str=manysplit -(_a1)> *', opts=viewopts2))
+
             async with view2.getEditor() as editor:
                 node = await editor.getNodeByNdef(nodes[0].ndef)
                 self.false(await node.delEdge('_foo', n2nid))
@@ -2101,6 +2278,17 @@ class ViewTest(s_t_utils.SynTest):
                 self.false(node.istomb())
                 await node.delete()
                 self.true(node.istomb())
+
+                # a whole node tombstone subsumes the tombstones this fork holds for
+                # :asn, #bar.tag and #bar.tag:_score
+                self.eq((s_common.int64un(node.nid), 'inet:ip', [
+                    (s_layer.EDIT_TAG_DEL, ('cool.tag',)),
+                    (s_layer.EDIT_TAG_DEL, ('cool',)),
+                    (s_layer.EDIT_TAG_DEL, ('baz',)),
+                    (s_layer.EDIT_TAGPROP_DEL, ('cool.tag', '_score')),
+                    (s_layer.EDIT_NODE_TOMB, ()),
+                ]), node.getNodeEdit())
+
                 await node.delete()
 
                 newnode = await editor.addNode('it:dev:str', 'new')
@@ -2706,6 +2894,43 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('test:str=hub [ -(test)> { test:int=2 } ]')
             self.eq(('refs',), tuple(await forkview.getNodeEdgeVerbsN1(hubnid)))
             self.eq((('refs', keepnid),), tuple(await alist(forkview.iterNodeEdgesN1(hubnid))))
+
+    async def test_view_gettagcount(self):
+
+        async with self.getTestCore() as core:
+
+            view00 = core.view
+
+            self.eq(0, await view00.getTagCount('foo.bar'))
+
+            await core.nodes('[ test:str=one test:str=two +#foo.bar ]')
+            await core.nodes('[ test:int=1 +#foo.bar ]')
+            await core.nodes('[ test:str=three +#foo.baz ]')
+
+            self.eq(3, await view00.getTagCount('foo.bar'))
+            self.eq(2, await view00.getTagCount('foo.bar', formname='test:str'))
+            self.eq(1, await view00.getTagCount('foo.bar', formname='test:int'))
+            self.eq(1, await view00.getTagCount('foo.baz'))
+
+            # an unknown tag has no index abrv, so it counts zero rather than raising
+            self.eq(0, await view00.getTagCount('newp.newp'))
+            self.eq(0, await view00.getTagCount('foo.bar', formname='newp:newp'))
+
+            # the count sums the layers of the view, so a fork adds its own rows to the total
+            view01 = core.getView((await view00.fork())['iden'])
+
+            self.eq(3, await view01.getTagCount('foo.bar'))
+
+            await core.nodes('[ test:str=four +#foo.bar ]', opts={'view': view01.iden})
+            self.eq(4, await view01.getTagCount('foo.bar'))
+            self.eq(3, await view00.getTagCount('foo.bar'))
+
+            # a tag carried in both layers of the fork is still counted in each layer that holds
+            # it: giving the tag an ival in the fork writes a row there while the base layer
+            # keeps its own
+            await core.nodes('test:str=one [ +#foo.bar=2020 ]', opts={'view': view01.iden})
+            self.eq(5, await view01.getTagCount('foo.bar'))
+            self.eq(3, await view00.getTagCount('foo.bar'))
 
     async def test_view_runt_bad_cmpr(self):
         async with self.getTestCore() as core:

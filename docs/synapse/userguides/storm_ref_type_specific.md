@@ -46,7 +46,7 @@ An `array` is a specialized type that consists of either a list or a set of type
 
 `Array` types can be used for secondary properties where that property may have multiple values. Examples of array secondary properties include `doc:report:topics`, `inet:email:message:headers`, and `ps:person:names`. You can view all secondary properties that are `array` types using the following Storm query:
 
-``` text
+```storm
 syn:prop:array=true
 ```
 
@@ -221,7 +221,7 @@ entity:name^=ministry <- *
 
 You can view all secondary properties that include `duration` types using the following Storm query:
 
-``` text
+```storm
 syn:prop:type*[=duration]
 ```
 
@@ -475,13 +475,13 @@ $name='the vertex project' $email=info@vertex.link [ ou:org=( { "name": $name, "
 
   Given the following query in dictionary syntax:
 
-  ``` text
+  ```text
   [ ou:org=( { "name": "The Vertex Project", "email": "info@vertex.link" } ) ]
   ```
 
   ...the dictionary is converted to the following list of tuples for purposes of creating a predictable guid:
 
-  ``` text
+  ```text
   [ ou:org=( (email, info@vertex.link), (name, 'the vertex project') ) ]
   ```
 
@@ -920,41 +920,41 @@ While IP addresses are stored and indexed as tuples of integers, they can be inp
 
 String: :
 
-``` text
+```storm
 inet:ip=192.168.0.1
 ```
 
-``` text
+```storm
 inet:ip=2606:4700:3035::ac43:cb25
 ```
 
 Range: :
 
-``` text
+```storm
 inet:ip=192.168.0.1-192.168.0.10
 ```
 
-``` text
+```storm
 inet:ip=2606:4700:3035::ac43:cb25-2606:4700:3035::ac43:cb48
 ```
 
 CIDR notation: :
 
-``` text
+```storm
 inet:ip=192.168.0.0/24
 ```
 
-``` text
+```storm
 inet:ip=2606:4700:3035:0000:0000:0000:ac43:cb00/120
 ```
 
 Tuple of version/value integers: :
 
-``` text
+```storm
 inet:ip=([4, 3232235521])
 ```
 
-``` text
+```storm
 inet:ip=([6, 50543257686979224944580090171408763685])
 ```
 
@@ -977,7 +977,7 @@ Create ten `inet:ip` nodes:
 [ inet:ip=2606:4700:20::681a:3780-2606:4700:20::681a:3789 ]
 ```
 
-``` text
+```storm
 [ inet:ip=2606:4700:20::681a:3780-2606:4700:20::681a:3789 ]
 ```
 
@@ -987,7 +987,7 @@ Create the 256 addresses in the range 192.168.0.0/24:
 [ inet:ip=192.168.0.0/24 ]
 ```
 
-``` text
+```storm
 [ inet:ip=192.168.0.0/24 ]
 ```
 
@@ -1772,7 +1772,7 @@ inet:dns:request +:time<2019/06/01
 > [!TIP]
 > The wildcard syntax is useful because it can provide a simplified, more intuitive means to specify certain time ranges / time intervals without needing to use the range ( `*range=` ) or interval ( `@=` ) operators. For example, the following three Storm queries are equivalent and will return all files compiled at any time within the year 2019:
 >
-> ``` text
+> ```storm
 > file:bytes:mime:pe:compiled=2019*
 >
 > file:bytes:mime:pe:compiled*range=('2019/01/01 00:00:00.000', '2019/12/31 23:59:59.999')

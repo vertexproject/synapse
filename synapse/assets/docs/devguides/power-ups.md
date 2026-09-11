@@ -20,7 +20,7 @@ As you can see in the minimal example below, the **Storm Package** is defined by
 
 `acme-hello.yaml`:
 
-``` yaml
+```yaml
 name: acme-hello
 version: 0.0.1
 title: Acme Hello
@@ -62,7 +62,7 @@ The `conflicts` field is similarly a dictionary, keyed by package name, of packa
 
 When you define commands and modules, they will be loaded from files using the location of the **Storm Package** YAML file to locate their contents:
 
-``` text
+```text
 acme-hello.yaml
 storm/
 
@@ -76,7 +76,7 @@ storm/
 
 `storm/modules/acme.hello.storm`:
 
-``` text
+```text
 function woot(text) {
     $lib.print($text)
     return((null))
@@ -85,7 +85,7 @@ function woot(text) {
 
 `storm/commands/acme.hello.sayhi.storm`:
 
-``` text
+```text
 $hello = $lib.import(acme.hello)
 $hello.woot("hello storm!")
 ```
@@ -96,7 +96,7 @@ $hello.woot("hello storm!")
 
 To build and load **Storm Packages**, use the `storm.pkg.gen` tool included within Synapse. For this example, we will assume you have deployed your Synapse environment according to the [Deployment Guide](../deploymentguide.md):
 
-``` text
+```text
 python -m synapse.tools.storm.pkg.gen acme-hello.yaml --push aha://cortex...
 ```
 
@@ -112,7 +112,7 @@ python -m synapse.tools.storm.pkg.gen acme-hello.yaml --push aha://cortex...
 
 Once your **Storm Package** has loaded successfully, you can use the **Storm** CLI to see it in action:
 
-``` text
+```text
 invisigoth@visi01:~$ python -m synapse.tools.storm aha://cortex...
 
 Welcome to the Storm interpreter!
@@ -133,7 +133,7 @@ Deploying **Storm Modules** allows you to author powerful library functions that
 
 A **Storm Module** is specified within the `modules:` section of the **Storm Package** YAML file.
 
-``` yaml
+```yaml
 modules:
 
   - name: acme.hello
@@ -144,7 +144,7 @@ modules:
 
 The `modconf:` key can be used to specify variables which will be mapped into the module's **Storm** runtime and accessible using the implicit variable `$modconf`:
 
-``` text
+```text
 function foo() {
     $lib.print($modconf.varname)
     return((10))
@@ -163,7 +163,7 @@ function bar() {
 
 In order to facilitate delegating permission for privileged operations, **Storm** modules may specify permissions which allow the module to be imported with admin privileges. It is a best-practice to declare these permissions within the **Storm** package using the `perms:` key before using them:
 
-``` yaml
+```yaml
 perms:
   - perm: [ acme, hello, user ]
     gate: cortex
@@ -214,7 +214,7 @@ Adding **Storm Commands** to your Cortex via a **Storm Package** is a great way 
 
 Every **Storm** command has the `--help` option added automatically. This means that it is always safe to execute any command with `--help` to get a usage statement and enumerate command line arguments. The `desc` field specified in the command is included in the output:
 
-``` text
+```text
 storm> acme.hello.sayhi --help
 
 Print the hello message.
@@ -232,7 +232,7 @@ storm>
 
 A more complex command declaration:
 
-``` yaml
+```yaml
 commands:
 
   - name: acme.hello.omgopts
@@ -264,7 +264,7 @@ commands:
 
 A more complete example of help output:
 
-``` text
+```text
 storm> acme.hello.omgopts --help
 
 This is a multi-line description containing usage examples.
@@ -341,7 +341,7 @@ if $lib.debug { $lib.print("debug mode detected!") }
 
 A **Storm Package** ships arbitrary data files, such as databases or models, by placing them in a `files` directory beside the **Storm Package** YAML file. The directory is walked recursively, so it may be organized however suits the package. A package's documentation is one common use of `files`: running `python -m synapse.tools.storm.pkg.doc acme-hello.yaml` renders a `docs/` source tree of Markdown pages (processing any ` ```mdstorm ` directives) into `files/docs`, so the built pages travel with the package like any other declared file.
 
-``` text
+```text
 acme-hello.yaml
 files/
     data.mmdb
@@ -351,7 +351,7 @@ files/
 
 When the package is built with `storm.pkg.gen`, a `files:` section is generated from that directory. It is keyed by the path each file is served under -- its path relative to the `files` directory -- and each entry carries the SHA256 of its contents:
 
-``` yaml
+```yaml
 files:
     data.mmdb:
         sha256: 0f4b3fa39e8f4bd4f2a1e35e2a83ff3d9c50a5c0ea6b0e29b1a3cb5eaf2d7f61
@@ -367,7 +367,7 @@ A package delivered by a **Storm Service** has no publisher to upload its files,
 
 To publish a package and its files to the **Vertex Hub**, use the `storm.pkg.publish` tool. It builds the documentation and the package, uploads any files it declares, and then publishes the package definition:
 
-``` text
+```text
 python -m synapse.tools.storm.pkg.publish acme-hello.yaml
 ```
 
@@ -426,7 +426,7 @@ class AcmeHelloTest(s_test.StormPkgTest):
 
 With the file `test_acme_hello.py` located in the same directory as `acme-hello.yaml` you can use the standard `pytest` invocation to run the test:
 
-``` text
+```text
 python -m pytest -svx test_acme_hello.py
 ```
 
@@ -438,7 +438,7 @@ The `--yield` option is typically used to allow a **Storm** command which takes 
 
 To implement a command with a `--yield` option is typically accomplished via the following pattern:
 
-``` yaml
+```yaml
 commands:
 
   - name: acme.hello.mayyield
@@ -475,7 +475,7 @@ If you have access to the **Synapse** commercial UI **Optic** you may find it he
 
 To define **Optic** actions, you declare them in the **Storm Package** YAML file:
 
-``` yaml
+```yaml
 optic:
     actions:
       - name: Hello Omgopts
@@ -488,7 +488,7 @@ By specifying the `forms:` key, you can control which node actions will be prese
 
 When selected, the query specified in the `storm:` key will be run with the currently selected nodes as input. For example, if you right-click on the node `inet:fqdn=vertex.link` and select `actions -> acme-hello -> Hello Omgopts` it will execute the specified query as though it were run like this:
 
-``` text
+```text
 inet:fqdn=vertex.link | acme.hello.omgopts --debug
 ```
 

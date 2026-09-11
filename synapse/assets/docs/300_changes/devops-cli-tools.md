@@ -19,7 +19,7 @@ What you need to do
 
 :   Update scripts, cron jobs, systemd units, container entrypoints, and Dockerfiles that call the old top-level module paths. The CLI arguments are otherwise unchanged. Common mappings: `csvtool` -\> `cortex.csv`, `feed` -\> `cortex.feed`, `genpkg` -\> `storm.pkg.gen`, `easycert` -\> `utils.easycert`, `guid` -\> `utils.guid`, `json2mpk` -\> `utils.json2mpk`, `apikey` -\> `service.apikey`, `backup` -\> `service.backup`, `snapshot` -\> `service.snapshot`, `reload` -\> `service.reload`, `shutdown` -\> `service.shutdown`, `demote` -\> `service.demote`, `promote` -\> `service.promote`, `healthcheck` -\> `service.healthcheck`, `moduser` -\> `service.moduser`, `modrole` -\> `service.modrole`, `pushfile` -\> `axon.put`, `pullfile` -\> `axon.get`, and `axon2axon` -\> `axon.copy`. `autodoc` has no mapping -- it is removed, not relocated.
 
-    ``` bash
+    ```bash
     # 2.x
     python -m synapse.tools.pushfile cell://axon ./report.pdf
     python -m synapse.tools.csvtool ./load.storm ./data.csv --cortex cell://core
@@ -45,7 +45,7 @@ What you need to do
 
 :   Replace any invocation of `python -m synapse.tools.cmdr <url>` with `python -m synapse.tools.storm <url>`. In the Storm CLI, lines beginning with `!` are routed to the local interpreter (e.g. `!help`); everything else is executed as Storm. Remove any code that imports `synapse.lib.cmdr`; it no longer exists.
 
-    ``` bash
+    ```bash
     # 2.x
     python -m synapse.tools.cmdr cell://vertex/storage
 
@@ -67,7 +67,7 @@ What you need to do
 
 :   Replace `cellauth` invocations with `moduser`/`modrole`. `moduser` takes the username as a positional argument and supports `--url`, `--add`/`--del`, `--list`, `--admin {true,false}`, `--passwd`, `--email`, `--locked {true,false}`, `--grant`/`--revoke` (roles), `--allow`/`--deny` (permission rules, repeatable), and `--gate` (target an auth gate iden). `modrole` offers the equivalent for roles. See [Permission Changes](admin-permissions.md#vtx_300_admin-permissions) for the renamed and removed permission strings to use with `--allow`/`--deny`.
 
-    ``` bash
+    ```bash
     # 2.x
     python -m synapse.tools.cellauth cell://core modify visi --addrule node.add
     python -m synapse.tools.cellauth cell://core modify visi --admin true
@@ -91,7 +91,7 @@ What you need to do
 
 :   Stop using `cryo.cat`/`cryo.list` and `hive.load`/`hive.save`. If you ran a Cryotank service, plan a migration off it before upgrading. Any code importing `synapse.lib.hive`, `synapse.cryotank`, or `synapse.servers.cryotank` must be removed -- they no longer exist.
 
-    ``` bash
+    ```bash
     # 2.x
     python -m synapse.tools.cryo.list cell://cryo
 
@@ -112,7 +112,7 @@ What you need to do
 
 :   Nothing; existing Telepath invocations are unchanged. To use the HTTP API, supply a user API key as the user portion of the URL. A key is required, because the Storm HTTP endpoints accept API key authentication only (see [HTTP API Endpoints Moved from /api/v1 to /api/v3](misc-http-api-v3.md#vtx_300_misc-http-api-v3)). See [API Key Support](../httpapi.md#http-api-apikey) for creating one and [storm](../userguides/syn_tools_storm.md#syn-tools-storm) for the full option list.
 
-    ``` bash
+    ```bash
     # telepath, unchanged
     python -m synapse.tools.storm cell://vertex/storage
 
@@ -137,7 +137,7 @@ What you need to do
 
 :   If you maintained your own `.rst`/`.rstorm` documentation using `rstorm`, port it to Markdown with fenced `mdstorm`/`mdstorm-setup`/`mdshell`/`mdautodoc` directives (see `synsrc/docs/README.md` for the directive mapping) and build it with `synapse.tools.utils.mdstorm` for a single file, or with `synapse.tools.storm.pkg.doc` if it is a Storm package's `docs/` tree.
 
-    ``` bash
+    ```bash
     # 2.x
     python -m synapse.tools.utils.rstorm mydoc.rst --save mydoc.out.rst
 

@@ -829,7 +829,7 @@ class User(s_stormtypes.Prim):
         {'name': 'roles', 'desc': 'Get the Roles for the User.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorUserRoles',
                   'returns': {'type': 'list',
-                              'desc': 'A list of ``auth:roles`` which the user is a member of.', }}},
+                              'desc': 'A list of `auth:roles` which the user is a member of.', }}},
         {'name': 'allowed', 'desc': '''
         Check if the user has a given permission.
 
@@ -981,7 +981,7 @@ class User(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_methGates',
                   'args': (),
                   'returns': {'type': 'list',
-                              'desc': 'A list of ``auth:gates`` that the user has rules for.', }}},
+                              'desc': 'A list of `auth:gates` that the user has rules for.', }}},
         {'name': 'name', 'desc': '''
         A user's name. This can also be used to set a user's name.
 
@@ -1368,7 +1368,7 @@ class Role(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_methGates',
                   'args': (),
                   'returns': {'type': 'list',
-                              'desc': 'A list of ``auth:gates`` that the role has rules for.', }}},
+                              'desc': 'A list of `auth:gates` that the role has rules for.', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the Role',
          'type': {'type': 'function', '_funcname': '_methRoleAddRule',
                   'args': (
@@ -1592,7 +1592,7 @@ class LibUsers(s_stormtypes.Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden to use to create the user.', 'default': None, }
                   ),
                   'returns': {'type': 'auth:user',
-                              'desc': 'The ``auth:user`` object for the new user.', }}},
+                              'desc': 'The `auth:user` object for the new user.', }}},
         {'name': 'del', 'desc': 'Delete a User from the Cortex.',
          'type': {'type': 'function', '_funcname': '_methUsersDel',
                   'args': (
@@ -1601,28 +1601,28 @@ class LibUsers(s_stormtypes.Lib):
                   'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a list of Users in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methUsersList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``auth:user`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of `auth:user` objects.', }}},
         {'name': 'get', 'desc': 'Get a specific User by iden.',
          'type': {'type': 'function', '_funcname': '_methUsersGet',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the user to retrieve. Returns the current user if not specified.', 'default': None},
                   ),
                   'returns': {'type': ['null', 'auth:user'],
-                              'desc': 'The ``auth:user`` object, or null if the user does not exist.', }}},
+                              'desc': 'The `auth:user` object, or null if the user does not exist.', }}},
         {'name': 'byname', 'desc': 'Get a specific user by name.',
          'type': {'type': 'function', '_funcname': '_methUsersByName',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the user to retrieve.', },
                   ),
                   'returns': {'type': ['null', 'auth:user'],
-                              'desc': 'The ``auth:user`` object, or null if the user does not exist.', }}},
+                              'desc': 'The `auth:user` object, or null if the user does not exist.', }}},
         {'name': 'byemail', 'desc': 'Get a specific user by email address.',
          'type': {'type': 'function', '_funcname': '_methUsersByEmail',
                   'args': (
                       {'name': 'email', 'type': 'str', 'desc': 'The email of the user to retrieve.'},
                   ),
                   'returns': {'type': ['null', 'auth:user'],
-                              'desc': 'The ``auth:user`` object, or null if the user does not exist.'}}},
+                              'desc': 'The `auth:user` object, or null if the user does not exist.'}}},
     )
     _storm_lib_path = ('auth', 'users')
     _storm_lib_perms = (
@@ -1783,14 +1783,14 @@ class LibRoles(s_stormtypes.Lib):
                   'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a list of Roles in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methRolesList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``auth:role`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of `auth:role` objects.', }}},
         {'name': 'get', 'desc': 'Get a specific Role by iden.',
          'type': {'type': 'function', '_funcname': '_methRolesGet',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the role to retrieve.', },
                   ),
                   'returns': {'type': ['null', 'auth:role'],
-                              'desc': 'The ``auth:role`` object; or null if the role does not exist.', }}},
+                              'desc': 'The `auth:role` object; or null if the role does not exist.', }}},
         {'name': 'byname', 'desc': 'Get a specific Role by name.',
          'type': {'type': 'function', '_funcname': '_methRolesByName',
                   'args': (
@@ -1848,16 +1848,16 @@ class LibGates(s_stormtypes.Lib):
     A Storm Library for interacting with Auth Gates in the Cortex.
     '''
     _storm_locals = (
-        {'name': 'get', 'desc': 'Get a specific Gate by iden.',
+        {'name': 'get', 'desc': 'Get a specific Auth Gate by iden.',
          'type': {'type': 'function', '_funcname': '_methGatesGet',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the gate to retrieve.', },
                   ),
                   'returns': {'type': ['null', 'auth:gate'],
-                              'desc': 'The ``auth:gate`` if it exists, otherwise null.', }}},
-        {'name': 'list', 'desc': 'Get a list of Gates in the Cortex.',
+                              'desc': 'The `auth:gate` if it exists, otherwise null.', }}},
+        {'name': 'list', 'desc': 'Get a list of Auth Gates in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methGatesList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``auth:gate`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of `auth:gate` objects.', }}},
     )
     _storm_lib_path = ('auth', 'gates')
 

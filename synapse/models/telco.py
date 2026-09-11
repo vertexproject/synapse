@@ -98,6 +98,7 @@ modeldefs = (
                 'template': {'title': 'phone number'},
                 'interfaces': (
                     ('meta:observable', {}),
+                    ('meta:usable', {}),
                 ),
                 'ex': '+15558675309',
                 'props': (

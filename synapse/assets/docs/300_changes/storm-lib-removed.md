@@ -19,7 +19,7 @@ What you need to do
 
 :   Replace `$lib.user.X` with `$lib.auth.users.get().X`. Capturing the user once is usually cleaner than re-fetching it.
 
-    ``` text
+    ```text
     // 2.x
     $name = $lib.user.name
     if $lib.user.allowed(power-ups.foo.user) { }
@@ -46,7 +46,7 @@ What you need to do
 
 :   Use the `.join` method on a separator string, and use backtick strings for interpolation.
 
-    ``` text
+    ```text
     // 2.x
     $s = $lib.str.join('.', $parts)
     $msg = $lib.str.format('hi {name}', name=$n)
@@ -70,7 +70,7 @@ What you need to do
 
 :   Append to a list and join it, or build a backtick string for interpolation.
 
-    ``` text
+    ```text
     // 2.x
     $t = $lib.text("start")
     $t.add(" more")
@@ -95,7 +95,7 @@ What you need to do
 
 :   Use `(true)` / `(false)` / `(null)` as standalone literals, and bare `true` / `false` / `null` inside expressions and comparisons.
 
-    ``` text
+    ```text
     // 2.x
     $ok = $lib.true
     if ($x = $lib.null) { }
@@ -119,7 +119,7 @@ What you need to do
 
 :   Use deref to read, setitem to write, and assign `$lib.undef` to remove. Replace `$lib.vars.type()` with `$lib.utils.type()`.
 
-    ``` text
+    ```text
     // 2.x
     $v = $lib.vars.get(foo)
     $lib.vars.set(foo, $bar)
@@ -145,7 +145,7 @@ What you need to do
 
 :   Replace the removed methods with the corresponding `$lib.axon` methods. To create a `file:bytes` node directly from bytes, use the new `$lib.file.frombytes()`. `$lib.bytes.fromints()` is unchanged.
 
-    ``` text
+    ```text
     // 2.x
     ($size, $sha256) = $lib.bytes.put($buf)
     $ok = $lib.bytes.has($sha256)
@@ -169,7 +169,7 @@ What you need to do
 
 :   Move to `$lib.task`. Note that `$lib.task.list()` and `$lib.task.kill()` operate across the Cortex and its mirrors.
 
-    ``` text
+    ```text
     // 2.x
     $tasks = $lib.ps.list()
     $lib.ps.kill($iden)
@@ -193,7 +193,7 @@ What you need to do
 
 :   Stop calling `calculate` / `calculateFromProps` / `vectToProps` / `saveVectToNode`. Compute a score with `$lib.infosec.cvss.vectToScore(vect)` and set the vector and score props directly on the node. The current `risk:vuln` CVSS props include `:cvss:v3` (the vector) and versioned score props such as `:cvss:v3_1:score`; confirm the exact prop name against the data model for your version.
 
-    ``` text
+    ```text
     // 2.x
     yield $lib.infosec.cvss.saveVectToNode($node, $vect)
 
@@ -216,7 +216,7 @@ What you need to do
 
 :   Stop calling `$lib.inet.whois.guid()` and build the node directly via GUID-constructor syntax that deconflicts on the record's identifying props. Power-up authors should prefer the pkgcommon helpers `genWhoisRec` / `genWhoisIpRec` / `genWhoisContact`. Confirm the exact 3.x whois form and prop names against the data model before porting.
 
-    ``` text
+    ```text
     // 2.x
     $guid = $lib.inet.whois.guid(({"fqdn": $fqdn, "asof": $asof}), inet:whois:rec)
     [ inet:whois:rec=$guid ]
@@ -241,7 +241,7 @@ What you need to do
 
 :   Remove any use of `$lib.notifications.*` and `$lib.projects.*`. There is no direct replacement; migrate project-style workflows to the 3.x `proj` model and remaining project Storm commands, and flag any reliance on the removed notification API for redesign.
 
-    ``` text
+    ```text
     // 2.x
     $lib.projects.add(myproj)
     $lib.notifications.list()
@@ -265,7 +265,7 @@ What you need to do
 
 :   Replace any `$lib.gen.<helper>()` call with the corresponding `gen.*` command or a direct GUID-constructor (gutor). Update Storm and macros to the new command names. The removed commands (for example the former `gen.it.av.scan.result`, `gen.ou.id.number`/`type`, `gen.ou.org.hq`, `gen.ps.contact.email`) have no direct replacement -- build the node with a GUID-constructor.
 
-    ``` text
+    ```text
     // 2.x
     gen.ou.org "Acme Inc"
     // or in a module:
@@ -293,7 +293,7 @@ What you need to do
 
 :   Remove any call to either function from upgrade runbooks, macros, cron jobs, and Storm packages. There is no replacement. Changes that require data migration are noted in the changelog for the relevant release and are performed automatically when deploying the new version.
 
-    ``` text
+    ```text
     // 2.x
     if $lib.cell.hotFixesCheck() { $lib.cell.hotFixesApply() }
 

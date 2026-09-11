@@ -137,7 +137,19 @@ will only set the `:asn` property on the `inet:ip` node if it is not already set
 
 `inet:ip=1.2.3.4 [ :asn *unset?=invalid ]`
 
-Variable values may also be used to control the conditional edit behavior, and allow two more values in addition to `unset`; `always` and `never`. For example:
+The `*min=` and `*max=` operators set a property to the minimum or maximum of its current value and the provided value. This allows re-ingesting data to keep the earliest or latest known value instead of overwriting whatever is already there. For example:
+
+`inet:ip=1.2.3.4 [ :seen.min*min=2019 :seen.max*max=now ]`
+
+will only widen the `:seen` interval, whereas setting the `.min` and `.max` virtual properties directly would replace either end with the provided value. When the property has no value the provided value is used. An unknown time ( `?` ) is treated as no value, so a real time replaces it and never replaces a real time.
+
+An unknown time is read differently by `*unset=` depending on where it sits, because it means different things: on a property, `?` asserts that something happened without dating it and counts as a value, so `*unset=` leaves it alone; on an interval end, `?` means that end has no value, so `*unset=` fills it.
+
+These operators require a type which supports greater-than / less-than comparison, and are also available on tag timestamps by parenthesizing the tag name:
+
+`inet:ip=1.2.3.4 [ +?#(rep.vendor.published).max*max=2023 ]`
+
+Variable values may also be used to control the conditional edit behavior, and allow two more values in addition to `unset`, `min`, and `max`; `always` and `never`. For example:
 
 `$asn=always $loc=never inet:ip=1.2.4.5 [ :place:loc *$loc=us :asn *$asn?=12345 ]`
 
@@ -182,7 +194,7 @@ Create a simple node (FQDN):
 [ inet:fqdn=woot.com ]
 ```
 
-``` text
+```storm
 [ inet:fqdn=woot.com ]
 ```
 
@@ -192,7 +204,7 @@ Create a composite (comp) node (DNS A record):
 [ inet:dns:a=( woot.com, 12.34.56.78 ) ]
 ```
 
-``` text
+```storm
 [ inet:dns:a=( woot.com, 12.34.56.78 ) ]
 ```
 
@@ -202,7 +214,7 @@ Create a GUID node by generating an arbitrary guid using the asterisk character:
 [ risk:threat=* ]
 ```
 
-``` text
+```storm
 [ risk:threat=* ]
 ```
 
@@ -212,7 +224,7 @@ Create a GUID node by specifying a list of string values used to generate a pred
 [ risk:threat=( apt1, mandiant ) ]
 ```
 
-``` text
+```storm
 [ risk:threat=( apt1, mandiant ) ]
 ```
 
@@ -222,7 +234,7 @@ Create a GUID node using dictionary syntax to create a predictable guid **and** 
 [ risk:threat=( { "name": "apt1", "reporter:name": "mandiant" } ) ]
 ```
 
-``` text
+```storm
 [ risk:threat=( { "name": "apt1", "reporter:name": "mandiant" } ) ]
 ```
 
@@ -237,7 +249,7 @@ Create multiple nodes in a single edit operation:
 [ inet:fqdn=woot.com inet:ip=12.34.56.78 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
 ```
 
-``` text
+```storm
 [ inet:fqdn=woot.com inet:ip=12.34.56.78 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
 ```
 
@@ -262,6 +274,8 @@ The same syntax is used to apply a new property or modify an existing property.
 
 *\<query\>* **\[ :** *\<prop\>* **\*unset=** \| **\*unset?** *\<pval\>* ... **\]**
 
+*\<query\>* **\[ :** *\<prop\>* **\*min=** \| **\*min?=** \| **\*max=** \| **\*max?=** *\<pval\>* ... **\]**
+
 *\<query\>* **\[ :** *\<prop\>* **\*\$\<varname\>=** \| **\*\$\<varname\>?=** *\<pval\>* ... **\]**
 
 > [!TIP]
@@ -278,7 +292,7 @@ Add (or modify) a secondary property:
 [ inet:ip=127.0.0.1 ] [ :place:loc=us.oh.wilmington ]
 ```
 
-``` text
+```text
 <inet:ip> [ :place:loc=us.oh.wilmington ]
 ```
 
@@ -360,7 +374,7 @@ Delete the `:place:loc` property from an `inet:ip` node:
 inet:ip=127.0.0.1 [ -:place:loc ]
 ```
 
-``` text
+```text
 <inet:ip> [ -:place:loc ]
 ```
 
@@ -374,7 +388,7 @@ $creator={ [ entity:contact=( { "name": "savage", "type": "vertex.employee" } ) 
 doc:report [ -:creator -:desc ]
 ```
 
-``` text
+```text
 <doc:report> [ -:creator -:desc ]
 ```
 
@@ -421,7 +435,7 @@ Link the specified FQDN and IP to the `doc:report` node referenced by the Storm 
 inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report:title="report about bad stuff" } ]
 ```
 
-``` text
+```storm
 inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { doc:report:title="report about bad stuff" } ]
 ```
 
@@ -435,7 +449,7 @@ Link the specified `doc:report` node to the set of indicators Mandiant associate
 doc:report:title="apt1 report" [ +(refs)> { #rep.mandiant.apt1 } ]
 ```
 
-``` text
+```storm
 doc:report:title="apt1 report" [ +(refs)> { #rep.mandiant.apt1 } ]
 ```
 
@@ -449,7 +463,7 @@ Link the specified threat cluster (`risk:threat`) to the technique used by the c
 risk:threat:name='forest blizzard' [ +(used)> { meta:technique:name=phishing } ]
 ```
 
-``` text
+```storm
 risk:threat:name='forest blizzard' [ +(used)> { meta:technique:name=phishing } ]
 ```
 
@@ -459,7 +473,7 @@ Link the specified threat cluster to a technique used by the cluster with a `-(u
 risk:threat:name='forest blizzard' [ +(used)> { [ meta:technique=( { "name": "phishing", "reporter:name": "mitre" } ) ] } ]
 ```
 
-``` text
+```storm
 risk:threat:name='forest blizzard' [ +(used)> { [ meta:technique=( { "name": "phishing", "reporter:name": "mitre" } ) ] }
 ```
 
@@ -476,7 +490,7 @@ Link the specified `doc:report` node to a node contained in a variable using a `
 $fqdn={ inet:fqdn=woot.com } doc:report:title="\"It's all WINNTI\" says researcher" [ +(refs)> $fqdn ]
 ```
 
-``` text
+```storm
 $fqdn={ inet:fqdn=woot.com } doc:report:title="\"It's all WINNTI\", says researcher" [ +(refs)> $fqdn ]
 ```
 
@@ -519,7 +533,7 @@ Delete the `-(refs)>` light edge linking the MD5 hash of the empty file to the s
 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report:title="report about bad stuff" } ]
 ```
 
-``` text
+```storm
 crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e [ <(refs)- { doc:report:title="report about bad stuff" } ]
 ```
 
@@ -533,7 +547,7 @@ Delete the `-(used)>` light edge linking the threat cluster Forest Blizzard to t
 risk:threat:name='forest blizzard' [ -(used)> { meta:technique:name=phishing } ]
 ```
 
-``` text
+```storm
 risk:threat:name='forest blizzard' [ -(used)> { meta:technique:name=phishing } ]
 ```
 
@@ -547,7 +561,7 @@ Delete the `-(refs)>` light edge linking the specified `doc:report` and a node c
 $fqdn={ inet:fqdn=woot.com } doc:report:title="\"It's all WINNTI\", says researcher" [ -(refs)> $fqdn ]
 ```
 
-``` text
+```storm
 $fqdn={ inet:fqdn=woot.com } doc:report:title="\"It's all WINNTI\", says researcher" [ -(refs)> $fqdn ]
 ```
 
@@ -581,7 +595,7 @@ Add a single tag:
 [ inet:ip=185.29.8.215 +#cno.infra.anon.tor.exit ]
 ```
 
-``` text
+```text
 <inet:ip> [ +#cno.infra.anon.tor.exit ]
 ```
 
@@ -591,7 +605,7 @@ Add multiple tags:
 [ inet:fqdn=blackcake.net ] [ +#rep.mandiant.apt1 +#cno.infra.dns.sink.holed ]
 ```
 
-``` text
+```text
 <inet:fqdn> [ +#rep.mandiant.apt1 +#cno.infra.dns.sink.holed ]
 ```
 
@@ -632,7 +646,7 @@ Add tag with single timestamp:
 inet:fqdn=unwashedsound.com [ +#cno.infra.dns.sink.holed=2018/11/27 ]
 ```
 
-``` text
+```text
 <inet:fqdn> [ +#cno.infra.dns.sink.holed=2018/11/27 ]
 ```
 
@@ -646,7 +660,7 @@ Add tag with a time interval (min / max):
 inet:fqdn=coffeehausblog.com [ +#cno.infra.dns.sink.holed=(2014/11/06, 2016/11/06) ]
 ```
 
-``` text
+```text
 <inet:fqdn> [ +#cno.infra.dns.sink.holed=(2014/11/06, 2016/11/06) ]
 ```
 
@@ -659,7 +673,7 @@ Add tag with custom tag property and value:
 $tagpropinfo=({"doc": "A risk tagprop."}) $lib.model.ext.addTagProp(_risk, (int, ({})), $tagpropinfo) [inet:fqdn=woot.com +#rep.symantec:_risk=87]
 ```
 
-``` text
+```text
 <inet:fqdn> [ +#rep.symantec:_risk=87 ]
 ```
 
@@ -715,7 +729,7 @@ Remove a leaf tag (i.e., the final or rightmost element of the tag):
 inet:ip [ -#cno.infra.anon.tor.exit ]
 ```
 
-``` text
+```text
 <inet:ip> [ -#cno.infra.anon.tor.exit ]
 ```
 
@@ -725,7 +739,7 @@ Remove a full tag (i.e., the entire tag):
 inet:ip [ -#cno ]
 ```
 
-``` text
+```text
 <inet:ip> [ -#cno ]
 ```
 
@@ -770,7 +784,7 @@ Remove the custom tag property `:_risk` from a tag:
 inet:fqdn=woot.com [ -#rep.symantec:_risk ]
 ```
 
-``` text
+```text
 <inet:fqdn> [ -#rep.symantec:_risk ]
 ```
 
@@ -789,7 +803,7 @@ Create a node and add secondary properties:
 [ inet:ip=94.75.194.194 :place:loc=nl :asn=60781 ]
 ```
 
-``` text
+```storm
 [ inet:ip=94.75.194.194 :place:loc=nl :asn=60781 ]
 ```
 
@@ -799,7 +813,7 @@ Create a node and add a tag:
 [ inet:fqdn=blackcake.net +#rep.mandiant.apt1 ]
 ```
 
-``` text
+```storm
 [ inet:fqdn=blackcake.net +#rep.mandiant.apt1 ]
 ```
 
@@ -821,7 +835,7 @@ Consider the following Storm query that uses only edit brackets:
 inet:fqdn#rep.mandiant.apt1 [ inet:fqdn=somedomain.com +#rep.eset.sednit ]
 ```
 
-``` text
+```storm
 inet:fqdn#rep.mandiant.apt1 [ inet:fqdn=somedomain.com +#rep.eset.sednit ]
 ```
 
@@ -847,7 +861,7 @@ inet:fqdn#rep.mandiant.apt1 [-#rep.eset]
 inet:fqdn#rep.mandiant.apt1 [ ( inet:fqdn=somedomain.com +#rep.eset.sednit ) ]
 ```
 
-``` text
+```storm
 inet:fqdn#rep.mandiant.apt1 [ ( inet:fqdn=somedomain.com +#rep.eset.sednit ) ]
 ```
 
@@ -871,7 +885,7 @@ Consider the following Storm query that uses only edit brackets:
 [ inet:ip=1.2.3.4 :asn=1111 inet:ip=5.6.7.8 :asn=2222 ]
 ```
 
-``` text
+```storm
 [ inet:ip=1.2.3.4 :asn=1111 inet:ip=5.6.7.8 :asn=2222 ]
 ```
 
@@ -894,7 +908,7 @@ Consider the same query using edit parens inside the brackets:
 [ ( inet:ip=1.2.3.4 :asn=1111 ) ( inet:ip=5.6.7.8 :asn=2222 ) ]
 ```
 
-``` text
+```storm
 [ ( inet:ip=1.2.3.4 :asn=1111 ) ( inet:ip=5.6.7.8 :asn=2222 ) ]
 ```
 

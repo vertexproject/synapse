@@ -138,7 +138,7 @@ The `$rows` variable refers to the set of rows in a CSV file. When ingesting dat
 
 For example:
 
-``` text
+```storm
 for ($var1, $var2, $var3, $var4) in $rows { <do stuff> }
 ```
 
@@ -169,7 +169,7 @@ All variable names in Storm (including built-in variables) begin with a dollar s
 
 Within Storm, a user-defined variable is defined using the syntax:
 
-``` text
+```text
 $<varname>=<value>
 ```
 
@@ -251,7 +251,7 @@ inet:service:account=7ab324ea3fc562ab820ff1e93dc9f4b7
 
 ```stormdoc
 storm> inet:fqdn=mail.mydomain.com $fqdn=$node $lib.print($fqdn)
-Node{(('inet:fqdn', 'mail.mydomain.com'), {'nid': 30, 'meta': {'created': 1786244017083565, 'updated': 1786244017086928}, 'tags': {}, 'props': {'host': ('str:lower', 'mail'), 'domain': ('inet:fqdn', 'mydomain.com'), 'issuffix': ('bool', 0), 'iszone': ('bool', 0), 'zone': ('inet:fqdn', 'mydomain.com')}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
+Node{(('inet:fqdn', 'mail.mydomain.com'), {'nid': 30, 'meta': {'created': 1788964368426006, 'updated': 1788964368427038}, 'tags': {}, 'props': {'host': ('mail', {'t': 'str:lower'}), 'domain': ('mydomain.com', {'t': 'inet:fqdn'}), 'issuffix': (0, {'t': 'bool'}), 'iszone': (0, {'t': 'bool'}), 'zone': ('mydomain.com', {'t': 'inet:fqdn'})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
 inet:fqdn=mail.mydomain.com
         :domain = mydomain.com
         :host = mail
@@ -348,7 +348,7 @@ The output above includes two instances of the same `file:bytes` node because th
 > [!TIP]
 > The above example explicitly creates and assigns the variable `$mytags` and then uses that variable in a [For Loop](storm_adv_control.md#flow-for). In this case you can shorten the syntax by skipping the explicit variable assignment and using the `$node.tags()` method directly:
 >
-> ``` text
+> ```storm
 > crypto:hash:md5=d41d8cd98f00b204e9800998ecf8427e for $tag in $node.tags(cno.mal.*) { -> file:bytes [ +#$tag ] }
 > ```
 
@@ -392,14 +392,14 @@ Assign the current time to the variable `$now` using `$lib.time.now()`:
 
 ```stormdoc
 storm> $now=$lib.time.now() $lib.print($now)
-1786244017244028
+1788964368465300
 ```
 
 Convert an epoch microseconds integer into a human-readable date/time string using `$lib.repr()`:
 
 ```stormdoc
 storm> $now=$lib.time.now() $lib.print($lib.repr(time,$now))
-2026-08-09T02:53:37.250276Z
+2026-09-09T14:32:48.466847Z
 ```
 
 **Expressions**
@@ -437,5 +437,5 @@ Assign an `ou:org` node to the variable `$org` by lifting the org node using its
 
 ```stormdoc
 storm> $org={ ou:org:name=vertex } $lib.print($org)
-Node{(('ou:org', '7918de6a997e984dbf966f8002df95ad'), {'nid': 57, 'meta': {'created': 1786244017292049, 'updated': 1786244017293683}, 'tags': {}, 'props': {'place:loc': ('loc', 'us.va'), 'name': ('entity:name', 'vertex'), 'names': (('entity:name', 'the vertex project'),)}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
+Node{(('ou:org', '7918de6a997e984dbf966f8002df95ad'), {'nid': 57, 'meta': {'created': 1788964368476739, 'updated': 1788964368477075}, 'tags': {}, 'props': {'place:loc': ('us.va', {'t': 'loc'}), 'name': ('vertex', {'t': 'entity:name'}), 'names': ((('the vertex project', {'t': 'entity:name'}),), {})}, 'tagprops': {}, 'n1verbs': {}, 'n2verbs': {}})}
 ```

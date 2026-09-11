@@ -15,7 +15,7 @@ In order to leverage core functionalities it is recommended that Storm services 
 
 A Storm service mixes `synapse.lib.stormsvc.StormSvc` into its Cell API and declares the single Storm package it delivers:
 
-``` python
+```python
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.tools.storm.pkg.gen as s_genpkg
 
@@ -39,7 +39,7 @@ A service delivers exactly one package. The Cortex identifies the service by its
 
 The package must declare `advanced: true`:
 
-``` yaml
+```yaml
 name: my-power-up
 version: 1.0.0
 advanced: true
@@ -49,7 +49,7 @@ advanced: true
 
 Because the package is delivered by the service, Storm inside it calls back into the service by naming it:
 
-``` storm
+```storm
 $svc = $lib.service.get(mypowerup)
 ```
 

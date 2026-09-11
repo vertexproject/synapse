@@ -23,7 +23,7 @@ What you need to do
 
 :   Standard services (Cortex, Axon, JSONStor, and the shipped Advanced Power-Ups) already declare a service type, so no action is required. If you run a custom `synapse.lib.cell.Cell` subclass that registered with AHA as a bare `cell`, give it a real `celltype`. Uniqueness is checked even for an **offline** instance, so when you permanently replace a distinct instance of a type, remove the old registration first:
 
-    ``` text
+    ```text
     # from inside the AHA container
     python -m synapse.tools.aha.list                # find the stale service name
     python -m synapse.tools.aha.del 000.cortex...   # remove the old entry from AHA
@@ -71,7 +71,7 @@ What you need to do
 
 :   Deploy a mirror by standing up another instance of the same type under the same provisioning secret; set `SYN_PROVISION_FOLLOWER` on it so it joins as a mirror rather than racing to become the first leader (see below). Promote and demote instances with the service tools:
 
-    ``` text
+    ```text
     python -m synapse.tools.service.promote
     python -m synapse.tools.service.demote
     ```
@@ -92,12 +92,12 @@ What you need to do
 
 :   Remove `mirror` from any service `cell.yaml`. Do not translate it to `parent` unless you specifically need to pin an instance to a fixed upstream; in the normal case a mirror needs no upstream configuration at all.
 
-    ``` yaml
+    ```yaml
     # 2.x cell.yaml -- mirror pinned to a fixed upstream
     mirror: aha://00.cortex.example.net
     ```
 
-    ``` yaml
+    ```yaml
     # 3.x cell.yaml -- no upstream config; the mirror follows the AHA-determined leader
     # ( deploy under the same SYN_PROVISION_SECRET and set SYN_PROVISION_FOLLOWER=1 )
     ```
@@ -140,7 +140,7 @@ What you need to do
 
 :   Set `SYN_PROVISION_FOLLOWER` on any additional instance you intend to be a mirror, and on a new AHA clone (together with `dns:name`). Ensure the leader is deployed so the follower can complete its bootstrap.
 
-    ``` yaml
+    ```yaml
     # 3.x mirror / clone -- deploy as a follower of the current leader
     environment:
         - SYN_PROVISION_SECRET=<shared-secret>

@@ -4,7 +4,7 @@
 
 **Storm** is the query language used to interact with data in Synapse. Storm allows you to ask about, retrieve, annotate, add, modify, and delete data within a Synapse Cortex. If you are using the [open source](https://github.com/vertexproject/synapse) or [Quickstart](https://github.com/vertexproject/synapse-quickstart) versions of Synapse, you will access Synapse via the Storm command-line interface (**Storm CLI**) (see [storm](syn_tools_storm.md#syn-tools-storm)):
 
-``` text
+```text
 storm> <query>
 ```
 
@@ -80,7 +80,7 @@ Most objects in Synapse are **nodes**. Most Storm operations start by **lifting*
 
 Users commonly interact with data (nodes) in Synapse using operations such as lift, filter, and pivot. Storm allows multiple operations to be **chained** together to form longer queries:
 
-``` text
+```storm
 storm> inet:fqdn=vertex.link
 
 storm> inet:fqdn=vertex.link -> inet:dns:a
@@ -175,13 +175,13 @@ When entering a query/command in Storm, one or more whitespace characters are **
 
 - A command (such as `max`) and command line parameters (in this case, the property `:created`):
 
-``` text
+```storm
 storm> inet:whois:record:fqdn=vertex.link | max :created
 ```
 
 - An unquoted literal and any subsequent argument or operator:
 
-``` text
+```storm
 storm> inet:email:fqdn=vertex.link | count
 
 storm> inet:email=support@vertex.link -> *
@@ -191,7 +191,7 @@ Whitespace characters can **optionally** be used when performing the following o
 
 - Comparison operations:
 
-``` text
+```storm
 storm> inet:ip=192.168.0.1
 
 storm> inet:ip = 192.168.0.1
@@ -203,7 +203,7 @@ storm> file:bytes:size > 65536
 
 - Assigning values within edit operations:
 
-``` text
+```storm
 storm> [inet:fqdn=vertex.link]
 
 storm> [inet:fqdn = vertex.link]
@@ -215,7 +215,7 @@ storm> inet:ip=8.8.8.8 [:asn = 15169]
 
 - Between brackets, parentheses, or curly braces and their contents:
 
-``` text
+```storm
 storm> [inet:fqdn=vertex.link]
 
 storm> [ inet:fqdn=vertex.link ]
@@ -233,7 +233,7 @@ Whitespace characters **cannot** be used between reserved characters when perfor
 
 - Add and remove tag operations. The plus ( `+` ) and minus ( `-` ) sign characters are used to add and remove tags. When performing tag operations using these characters, the character must be placed next to the tag name. That is, `+#<tag>` is correct; `+ #<tag>` is incorrect.
 
-``` text
+```storm
 storm> inet:ip=192.168.0.1 [ -#oldtag +#newtag ]
 ```
 

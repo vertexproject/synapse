@@ -19,7 +19,7 @@ What you need to do
 
 :   Use Storm to add nodes instead of `addNode` / `addNodes`, and add extended form and tag properties via the `$lib.model.ext` Storm APIs (e.g. `$lib.model.ext.addFormProp`). Note that universal extended properties (what `addUnivProp` created) are no longer supported in 3.x and have no direct replacement -- `$lib.model.ext` no longer exposes an `addUnivProp` method. Stop depending on `getCoreMods`. For replication between layers, use the supported Cortex mirroring / layer push-pull configuration rather than the `sync*` methods.
 
-    ``` python
+    ```python
     # 2.x
     await prox.addNode('inet:fqdn', 'foo.com')
 
@@ -41,7 +41,7 @@ What you need to do
 
 :   Stop calling these methods over Telepath. For auth, use the iden-based APIs: look up the user with `getUserDefByName` / `getUserDef`, then call `addUserRule` / `delUserRule` / `setUserAdmin` with the user iden. There is no Hive replacement.
 
-    ``` python
+    ```python
     # 2.x
     await prox.setHiveKey(('foo', 'bar'), 'baz')
     await prox.addAuthRule('visi', (True, ('node', 'add')))
@@ -66,7 +66,7 @@ What you need to do
 
 :   Change integration code that called `getModelDefs()` to call `getModelDef()` and consume a single model definition object instead of iterating a list.
 
-    ``` python
+    ```python
     # 2.x
     modeldefs = await prox.getModelDefs()
     for name, modl in modeldefs:
@@ -90,7 +90,7 @@ What you need to do
 
 :   Switch HTTP integrations from the removed `/api/v1/storm/nodes` to `/api/v3/storm` and filter the message stream for `('node', ...)` messages client-side, or use `/api/v3/storm/call` when you need a single return value. (The HTTP API version prefix also moved from `v1` to `v3` -- see [HTTP API Endpoints Moved from /api/v1 to /api/v3](misc-http-api-v3.md#vtx_300_misc-http-api-v3).)
 
-    ``` bash
+    ```bash
     # 2.x
     POST /api/v1/storm/nodes
     {"query": "inet:ipv4"}
@@ -115,7 +115,7 @@ What you need to do
 
 :   Stop catching `BadOperArg` -- it no longer exists. Update Python integrations and Storm `catch` clauses that relied on `StormRuntimeError` for these validation errors to catch `BadArg` instead (catching the common base `SynErr` also works).
 
-    ``` python
+    ```python
     # 2.x
     try:
         await prox.callStorm(text, opts=opts)
@@ -143,7 +143,7 @@ What you need to do
 
 :   Update code that treated `synapse.version` as a tuple (for example indexing `synapse.version[0]` or comparing tuples). `synapse.lib.version.parse()` returns a comparable version object and `release()` returns the `(major, minor, patch)` triple. Replace `synapse.lib.version.verstring` with `synapse.version`, and stop reading `verstring` from `getCellInfo()` output.
 
-    ``` python
+    ```python
     # 2.x
     major = synapse.version[0]
     verstr = synapse.lib.version.verstring
@@ -180,7 +180,7 @@ What you need to do
 
 :   Update any client matching on the literal strings `DupUser`, `DupRole`, `NotAuthenticated`, `MissingField`, or `BadHttpParam`. Clients that resolve the code against `synapse.exc` keep working, but note that `synapse.exc.NotAuthenticated`, `synapse.exc.BadHttpParam`, and `synapse.exc.MissingField` no longer exist, so code that imports or catches them by name must be updated.
 
-    ``` python
+    ```python
     # 2.x
     if item.get('code') == 'NotAuthenticated':
         reauth()
@@ -206,7 +206,7 @@ What you need to do
 
 :   Read the response one line at a time instead of parsing each HTTP chunk as a message. Clients that already sent `"stream": "jsonlines"` need no change beyond dropping the now-unused key.
 
-    ``` python
+    ```python
     # 2.x
     data = {'query': query, 'stream': 'jsonlines'}
     async with sess.get(url, json=data) as resp:
@@ -246,7 +246,7 @@ What you need to do
 
 :   Stop importing these modules. `RateLimit` and `SlabOffs` are the two most likely to have been borrowed by an external Storm package or service; copy the implementation into your own codebase if you still need it. To read a `.jsonl` file, iterate the file and decode each line -- which is all `iterdata(fd, format='jsonl')` did.
 
-    ``` python
+    ```python
     # 2.x
     import synapse.lib.encoding as s_encoding
     items = list(s_encoding.iterdata(fd, False, format='jsonl'))
@@ -272,7 +272,7 @@ What you need to do
 
 :   Nothing at runtime -- because Synapse never raised these, no `except` clause that names one has ever fired. The only thing that breaks is code that references the name directly, such as an import or a retry tuple; remove those references.
 
-    ``` python
+    ```python
     # 2.x
     from synapse.exc import NoSuchOpt, StepTimeout
     RETRY_ON = (s_exc.NotReady, s_exc.StepTimeout)
@@ -295,7 +295,7 @@ What you need to do
 
 :   Drop `outp=` from any call. This matters at startup: a service entry point that still passes it raises `TypeError` before the Cell is created. Nothing replaces it -- configure logging (`SYN_LOG_LEVEL`, `SYN_LOG_STRUCT`) to control what a starting service emits.
 
-    ``` python
+    ```python
     # 2.x
     await MyCell.execmain(sys.argv[1:], outp=outp)
 

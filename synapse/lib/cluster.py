@@ -35,7 +35,7 @@ async def bootAha(conf=None, dirn=None, ctor=None):
         conf (dict): Conf overrides for the AHA cell boot.
         dirn (str): Directory to boot the cell in. An ephemeral one is created
             ( and cleaned up ) if not given.
-        ctor: The AHA cell ctor. Defaults to ``synapse.lib.aha.AhaCell.anit``.
+        ctor: The AHA cell ctor. Defaults to `synapse.lib.aha.AhaCell.anit`.
 
     Yields:
         The booted AhaCell.
@@ -89,9 +89,9 @@ class Cluster(s_base.Base):
     Holds the set of services booted by getCluster().
 
     A Base which owns the fini() teardown of the booted services. Exposes one
-    attribute per service type ( the leader instance, eg ``clus.cortex`` /
-    ``clus.axon`` / ``clus.search`` ) and a ``svcs`` dict keyed by AHA short
-    name ( eg ``000.cortex`` / ``001.cortex`` ) for reaching individual
+    attribute per service type ( the leader instance, eg `clus.cortex` /
+    `clus.axon` / `clus.search` ) and a `svcs` dict keyed by AHA short
+    name ( eg `000.cortex` / `001.cortex` ) for reaching individual
     instances such as mirrors.
 
     Additional services can be booted onto the same AHA network after creation
@@ -126,8 +126,8 @@ class Cluster(s_base.Base):
     def getSvcDirn(self, svcname):
         '''
         Return the on-disk directory for a service by its AHA short name ( eg
-        ``000.cortex`` / ``001.search`` ). The convention is stable, so a
-        caller which passed an explicit ``dirn`` to getCluster() may
+        `000.cortex` / `001.search` ). The convention is stable, so a
+        caller which passed an explicit `dirn` to getCluster() may
         pre-populate a service directory ( eg restore a backup ) before the
         service boots.
         '''
@@ -174,10 +174,10 @@ class Cluster(s_base.Base):
     async def addSvc(self, ctor, conf=None, timeout=15):
         '''
         Boot a service onto the cluster's AHA network and return the booted cell.
-        The service type is taken from ``ctor.getCellType()``. The first instance
-        of a type is its leader ( reachable as ``clus.<celltype>`` ); each
+        The service type is taken from `ctor.getCellType()`. The first instance
+        of a type is its leader ( reachable as `clus.<celltype>` ); each
         subsequent same-type instance follows it as a mirror ( reachable by AHA
-        short name in ``svcs`` ).
+        short name in `svcs` ).
 
         The boot is not considered complete until the service is usable: a
         Storm service leader is awaited until the Cortex has auto-discovered it
@@ -187,7 +187,7 @@ class Cluster(s_base.Base):
             This is for a caller that must add a service dynamically ( eg after
             manipulating the cluster, or to observe discovery ). Most callers
             should instead declare the whole service topology up front in the
-            getCluster() ``svcs`` argument.
+            getCluster() `svcs` argument.
 
         Args:
             ctor: The cell class to boot.
@@ -228,7 +228,7 @@ class Cluster(s_base.Base):
         a caller may inspect or manipulate it by hand before a startup()/restart().
 
         Args:
-            svcname (str): The AHA short name of the service ( eg ``000.search`` ).
+            svcname (str): The AHA short name of the service ( eg `000.search` ).
         '''
         self._reqSvcInfo(svcname)
 
@@ -243,7 +243,7 @@ class Cluster(s_base.Base):
         return to the AHA network. Returns the new cell.
 
         Args:
-            svcname (str): The AHA short name of the service ( eg ``000.search`` ).
+            svcname (str): The AHA short name of the service ( eg `000.search` ).
         '''
         info = self._reqSvcInfo(svcname)
 
@@ -265,7 +265,7 @@ class Cluster(s_base.Base):
         shutdown() followed by a startup(). Returns the new cell.
 
         Args:
-            svcname (str): The AHA short name of the service ( eg ``000.search`` ).
+            svcname (str): The AHA short name of the service ( eg `000.search` ).
         '''
         await self.shutdown(svcname)
         return await self.startup(svcname)
@@ -277,17 +277,17 @@ async def getCluster(svcs=None, dirn=None, ahaconf=None):
 
     Args:
         svcs (dict): Maps a service type ( eg 'cortex', 'axon', 'search' ) to
-            an envelope dict with keys ``conf`` ( the service config dict ),
-            ``ctor`` ( the cell ctor to boot -- required, except for the
+            an envelope dict with keys `conf` ( the service config dict ),
+            `ctor` ( the cell ctor to boot -- required, except for the
             'axon'/'jsonstor' peers implicitly added for a 'cortex' entry
-            that does not specify its own ), and ``mirrors`` ( the number of
+            that does not specify its own ), and `mirrors` ( the number of
             mirrors to boot alongside the leader; defaults to 0, ie leader
-            only ). The special key ``aha`` configures the AHA cell via a
-            ``conf`` envelope; an AHA network is always created. Defaults to
-            a single 'cortex' entry using the base ``synapse.cortex.Cortex``.
+            only ). The special key `aha` configures the AHA cell via a
+            `conf` envelope; an AHA network is always created. Defaults to
+            a single 'cortex' entry using the base `synapse.cortex.Cortex`.
         dirn (str): Optional base directory for all services.
         ahaconf (dict): Conf defaults for the AHA cell, merged under any
-            ``svcs['aha']['conf']`` ( which wins on key conflicts ).
+            `svcs['aha']['conf']` ( which wins on key conflicts ).
 
     Notes:
         Services locate their peers by cell type via AHA. Requesting a
@@ -299,7 +299,7 @@ async def getCluster(svcs=None, dirn=None, ahaconf=None):
 
     Yields:
         Cluster: An object exposing the booted services ( one attribute per
-        service type for the leader, plus a ``svcs`` dict keyed by AHA name ).
+        service type for the leader, plus a `svcs` dict keyed by AHA name ).
     '''
     if svcs is None:
         svcs = {'cortex': {'ctor': s_cortex.Cortex}}
@@ -349,7 +349,7 @@ async def getCluster(svcs=None, dirn=None, ahaconf=None):
                     mesg = f'getCluster() service {celltype} requires an explicit ctor.'
                     raise s_exc.BadArg(mesg=mesg, celltype=celltype)
 
-                # boot the leader ( first instance ) plus ``mirrors`` mirrors;
+                # boot the leader ( first instance ) plus `mirrors` mirrors;
                 # addSvc() promotes the first to leader and follows it with
                 # each subsequent same-type instance as a mirror.
                 for _ in range(1 + mirrors):

@@ -19,7 +19,7 @@ What you need to do
 
 :   Ensure variable dereferences and tag segments have no space before the dot. A space before a dot is now read as a separate leading-dot virtual property.
 
-    ``` text
+    ```text
     // 2.x tolerated a space before the dot
     $foo .bar
 
@@ -43,7 +43,7 @@ What you need to do
 
 :   Use `in` / `not in` inside expressions for membership checks. These are expression operators, not lift/filter operators -- use them in `if` / `while` / `$(...)`, not as a bare pipeline filter.
 
-    ``` text
+    ```text
     // 2.x: had to test membership manually
     $found = (false)
     for $item in $mylist {
@@ -71,7 +71,7 @@ What you need to do
 
 :   Where you need to interpret a value or property as a specific type, use the `as` clause. This is new syntax with no 2.x equivalent; it is a cleaner alternative to `$lib.cast(...)` plus a pivot in some cases.
 
-    ``` text
+    ```text
     // 2.x: cast into a variable, then pivot
     $ip = $lib.cast(inet:ipv4, :somefield)
 
@@ -93,7 +93,7 @@ What you need to do
 
 :   Use a parenthesized list to pivot to multiple targets in one operator, or pivot into a virtual property. Existing single-target pivots are unchanged.
 
-    ``` text
+    ```text
     // 2.x: one target per pivot operator
     inet:dns:a -> inet:ipv4
     inet:dns:aaaa -> inet:ipv6
@@ -117,7 +117,7 @@ What you need to do
 
 :   Remove `storm:interface:search` from Cortex config; it is no longer recognized. If you relied on a package implementing the `search` Storm interface to enrich lookup mode, that mechanism is gone -- lookup mode now matches only via scrape plus model lookup hints. Move custom search logic into explicit Storm queries or commands.
 
-    ``` yaml
+    ```yaml
     # 2.x cortex cell.yaml
     storm:interface:search: true
 

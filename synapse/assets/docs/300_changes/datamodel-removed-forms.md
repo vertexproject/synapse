@@ -19,7 +19,7 @@ What you need to do
 
 :   Stop using `inet:ssl:cert`. For a server cert observed at an endpoint use `inet:tls:servercert=(server, cert)`; for a client cert use `inet:tls:clientcert=(client, cert)`. For full handshake context create an `inet:tls:handshake`. The certificate itself is a `crypto:x509:cert`.
 
-    ``` text
+    ```text
     // 2.x
     [ inet:ssl:cert=(1.2.3.4:443, $filesha256) ]
 
@@ -43,7 +43,7 @@ What you need to do
 
 :   Set the scanned thing on the single `:target` property instead of a per-type `:target:file` / `:target:fqdn` / ... property. Replace any remaining `it:av:filehit` / `it:av:sig` usage with `it:av:scan:result`. `:verdict` is an `it:av:verdict` enum, not a free string -- use one of `benign` / `unknown` / `suspicious` / `malicious`.
 
-    ``` text
+    ```text
     // 2.x: the scanned file lived on the per-type :target:file prop
     [ it:av:scan:result=* :target:file={ file:bytes:sha256=$filesha256 } :signame="Win.Trojan" ]
 
@@ -65,7 +65,7 @@ What you need to do
 
 :   Use `inet:whois:record` / `inet:whois:iprecord`. Model WHOIS contacts as `entity:contact` added to the record's `:contacts` array, and stop creating `inet:whois:contact` / `inet:whois:email` / `inet:whois:ipcontact`.
 
-    ``` text
+    ```text
     // 2.x
     [ inet:whois:rec=(woot.com, 2021) :registrar="NIC" ]
     [ inet:whois:contact=((woot.com, 2021), registrant) ]
@@ -88,7 +88,7 @@ What you need to do
 
 :   Stop using the `risk:availability` taxonomy and the `risk:tool:software:availability` property. Express the concept with a `meta:score` valued property such as a `:priority` on the relevant risk form.
 
-    ``` text
+    ```text
     // 2.x
     [ risk:tool:software=* :availability=public ]
 
@@ -109,7 +109,7 @@ What you need to do
 
 :   Stop using `it:domain`. Create the domain as an `inet:service:platform` with a `:type` such as `microsoft.activedirectory`, and point the host at it with `it:host:domain`. The pivot from the host is still a single hop. The 2.x `it:domain:org` becomes `inet:service:platform:provider`.
 
-    ``` text
+    ```text
     // 2.x
     [ it:host=* :domain={[ it:domain=* :name=vertex :org={[ ou:org=* ]} ]} ]
 
@@ -124,7 +124,7 @@ What you need to do
 
     The 2.x `it:account:domain` and `it:group:domain` properties have no direct replacement on `it:host:account` and `it:host:group`. Reach the domain through the account's or group's `:host`.
 
-    ``` text
+    ```text
     it:host:account :host -> it:host :domain -> inet:service:platform
     ```
 
@@ -146,7 +146,7 @@ What you need to do
 
 :   Set and lift executable metadata on the format-specific form, linked back to the file with `:file`.
 
-    ``` text
+    ```text
     // 2.x
     [ file:bytes=$sha256 :exe:packer={[ it:prod:softver=* :name=upx ]} ]
     file:bytes:mime:pe:imphash=$md5

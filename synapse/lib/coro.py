@@ -138,11 +138,11 @@ async def waittask(task, timeout=None):
 
 def deadline(timeout):
     '''
-    Return a callable that yields the seconds remaining until ``timeout``
+    Return a callable that yields the seconds remaining until `timeout`
     seconds from now have elapsed.
 
-    The returned callable yields ``None`` if ``timeout`` is ``None``
-    (unbounded), otherwise ``max(0.0, <seconds until deadline>)``.
+    The returned callable yields `None` if `timeout` is `None`
+    (unbounded), otherwise `max(0.0, <seconds until deadline>)`.
 
     This is useful for sharing a single timeout across multiple awaited
     operations.

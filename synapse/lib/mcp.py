@@ -2,31 +2,31 @@
 MCP (Model Context Protocol) server handlers for Synapse cells.
 
 MCP is JSON-RPC 2.0 over a Streamable HTTP transport. This module builds on the generic
-``synapse.lib.jsrpc.JsonRpcHandler`` to implement the MCP server methods: the lifecycle
-(``initialize``, ``notifications/initialized``, ``ping``), ``tools/list`` and
-``tools/call``, ``resources/list`` / ``resources/templates/list`` / ``resources/read``,
-``prompts/list`` / ``prompts/get``, and ``completion/complete``. Every method returns a
+`synapse.lib.jsrpc.JsonRpcHandler` to implement the MCP server methods: the lifecycle
+(`initialize`, `notifications/initialized`, `ping`), `tools/list` and
+`tools/call`, `resources/list` / `resources/templates/list` / `resources/read`,
+`prompts/list` / `prompts/get`, and `completion/complete`. Every method returns a
 single JSON response (no server-initiated SSE; large Storm results paginate via the
-``storm`` / ``storm_continue`` / ``storm_cancel`` tools).
+`storm` / `storm_continue` / `storm_cancel` tools).
 
-``CellMcp`` provides the MCP transport (POST for messages, GET returns 405, DELETE ends a
-session), the session lifecycle, and dispatch, and may be mounted on any cell. ``CortexMcp``
+`CellMcp` provides the MCP transport (POST for messages, GET returns 405, DELETE ends a
+session), the session lifecycle, and dispatch, and may be mounted on any cell. `CortexMcp`
 extends it to plumb Cortex specific tools, resources, prompts, and completers. A cell opts
-in to MCP by setting the ``_mcp_ctor`` class attribute, which the base Cell mounts at
-``/api/v3/mcp`` during HTTP API initialization.
+in to MCP by setting the `_mcp_ctor` class attribute, which the base Cell mounts at
+`/api/v3/mcp` during HTTP API initialization.
 
-Sessions are stateful and bound to the authenticating user: ``initialize`` issues an
-``Mcp-Session-Id`` (returned as a response header and required on subsequent requests),
+Sessions are stateful and bound to the authenticating user: `initialize` issues an
+`Mcp-Session-Id` (returned as a response header and required on subsequent requests),
 held in memory with an idle timeout. Every request is authenticated via the inherited
-handler auth (session cookie, HTTP Basic, or an ``X-API-KEY`` header).
+handler auth (session cookie, HTTP Basic, or an `X-API-KEY` header).
 
 Server features are exposed via opt-in decorators, each requiring a coroutine method:
 
-* ``@s_mcp.tool`` - a callable tool (invoked via ``tools/call``).
-* ``@s_mcp.resource`` - readable URI-addressed content; a URI with ``{var}`` segments is a
+* `@s_mcp.tool` - a callable tool (invoked via `tools/call`).
+* `@s_mcp.resource` - readable URI-addressed content; a URI with `{var}` segments is a
   template whose captured segments are passed to the method as keyword arguments.
-* ``@s_mcp.prompt`` - a user-selectable prompt template.
-* ``@s_mcp.completer`` - a named argument completer for prompt arguments and resource
+* `@s_mcp.prompt` - a user-selectable prompt template.
+* `@s_mcp.completer` - a named argument completer for prompt arguments and resource
   template variables.
 
 Capabilities are advertised dynamically based on which registries a handler class actually
@@ -149,7 +149,7 @@ async def _reapMcpSessions(cell):
 
 def tool(name=None, desc=None, schema=None):
     '''
-    Decorate a method to expose it as an MCP tool (invoked via ``tools/call``).
+    Decorate a method to expose it as an MCP tool (invoked via `tools/call`).
 
     Args:
         name (str): An optional tool name override. Defaults to the function name.
@@ -181,11 +181,11 @@ def tool(name=None, desc=None, schema=None):
 
 def resource(uri, name=None, desc=None, mimeType='application/json', completers=None):
     '''
-    Decorate a method to expose it as an MCP resource (read via ``resources/read``).
+    Decorate a method to expose it as an MCP resource (read via `resources/read`).
 
     Args:
-        uri (str): The resource URI. A URI containing ``{var}`` segments is a template
-            (listed via ``resources/templates/list``); the method receives the captured
+        uri (str): The resource URI. A URI containing `{var}` segments is a template
+            (listed via `resources/templates/list`); the method receives the captured
             segments as keyword arguments.
         name (str): An optional resource name. Defaults to the function name.
         desc (str): A human readable description of the resource.
@@ -214,13 +214,13 @@ def resource(uri, name=None, desc=None, mimeType='application/json', completers=
 
 def prompt(name=None, desc=None, arguments=()):
     '''
-    Decorate a method to expose it as an MCP prompt (rendered via ``prompts/get``).
+    Decorate a method to expose it as an MCP prompt (rendered via `prompts/get`).
 
     Args:
         name (str): An optional prompt name. Defaults to the function name.
         desc (str): A human readable description of the prompt.
-        arguments (list): A list of argument descriptors, each a dict with ``name`` and
-            optional ``description``, ``required``, and ``complete`` (a completer name).
+        arguments (list): A list of argument descriptors, each a dict with `name` and
+            optional `description`, `required`, and `complete` (a completer name).
 
     Notes:
         The method receives the prompt arguments as keyword arguments and returns either a
@@ -248,10 +248,10 @@ def completer(name=None):
     '''
     Decorate a method as a named argument completer.
 
-    The method has the signature ``async def(self, value, context) -> list[str]`` where
-    ``value`` is the partial value being completed and ``context`` is a dict of already
+    The method has the signature `async def(self, value, context) -> list[str]` where
+    `value` is the partial value being completed and `context` is a dict of already
     resolved argument values. It is referenced by name from prompt arguments
-    (``complete``) and resource template variables (``completers``).
+    (`complete`) and resource template variables (`completers`).
     '''
     def wrap(func):
         if not inspect.iscoroutinefunction(func):
@@ -264,7 +264,7 @@ def completer(name=None):
 
 class CellMcp(s_jsrpc.JsonRpcHandler):
     '''
-    An MCP server handler which exposes a cell's ``@s_mcp.tool`` methods over MCP.
+    An MCP server handler which exposes a cell's `@s_mcp.tool` methods over MCP.
     '''
     PROTOCOL_VERSION = PROTOCOL_VERSION
     SUPPORTED_VERSIONS = SUPPORTED_VERSIONS
@@ -287,8 +287,8 @@ class CellMcp(s_jsrpc.JsonRpcHandler):
         Introspect the handler class and return its MCP tool registry.
 
         Returns:
-            dict: A mapping of tool name to ``{'attr': attrname, 'info': info,
-            'validator': validator}`` where validator is a compiled args validator or None.
+            dict: A mapping of tool name to `{'attr': attrname, 'info': info,
+            'validator': validator}` where validator is a compiled args validator or None.
         '''
         tools = cls.__dict__.get('_mcp_tools')
         if tools is not None:
@@ -834,7 +834,7 @@ class CortexMcp(s_httpapi.ApiKeyOnlyMixin, CellMcp):
     An MCP server handler which plumbs Cortex specific tools.
 
     Like the other Cortex HTTP API handlers, the Cortex MCP endpoint authenticates via the
-    ``X-API-KEY`` header only (no session cookie or HTTP Basic) through ``ApiKeyOnlyMixin``.
+    `X-API-KEY` header only (no session cookie or HTTP Basic) through `ApiKeyOnlyMixin`.
     '''
     _mcp_instructions = _CORTEX_INSTRUCTIONS
 
@@ -889,7 +889,7 @@ before composing Storm; use the `syn://model` resource for the full model.
 
     _storm_desc = '''
 Run a Storm query and return a page of result messages. The result is
-``{"messages": [(type, info), ...], "cursor": <str-or-null>}``. If "cursor" is non-null the
+`{"messages": [(type, info), ...], "cursor": <str-or-null>}`. If "cursor" is non-null the
 query produced more messages than fit in one page and is still running on the server: you
 MUST either drain it by calling storm_continue(cursor) repeatedly until it returns a null
 cursor, or release it by calling storm_cancel(cursor). Never abandon a query with a non-null
@@ -905,7 +905,7 @@ pagination). Use this for function-style queries that compute one value.
     _storm_continue_desc = '''
 Fetch the next page of messages from a running Storm query started by the storm tool. Takes
 the "cursor" from the previous storm or storm_continue result and returns the same
-``{"messages": [...], "cursor": <str-or-null>}`` shape. Keep calling storm_continue until the
+`{"messages": [...], "cursor": <str-or-null>}` shape. Keep calling storm_continue until the
 returned cursor is null, which means the query is complete and the cursor has been released.
 '''.strip()
 
