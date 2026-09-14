@@ -1,0 +1,6 @@
+---
+desc: Deprecated ``$lib.gen.*`` functions.
+desc:literal: false
+prs: []
+type: deprecation
+...

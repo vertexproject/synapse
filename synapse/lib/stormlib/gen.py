@@ -7,18 +7,21 @@ class LibGen(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'orgByName', 'desc': 'Returns an ou:org by name, adding the node if it does not exist.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the org.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An ou:org node with the given name.'}}},
         {'name': 'orgHqByName', 'desc': 'Returns a ps:contact node for the ou:org, adding the node if it does not exist.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the org.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A ps:contact node for the ou:org with the given name.'}}},
         {'name': 'orgByFqdn', 'desc': 'Returns an ou:org node by FQDN, adding the node if it does not exist.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'fqdn', 'type': 'str', 'desc': 'The FQDN of the org.'},
@@ -27,12 +30,14 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'An ou:org node with the given FQDN.'}}},
         {'name': 'industryByName', 'desc': 'Returns an ou:industry by name, adding the node if it does not exist.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the industry.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An ou:industry node with the given name.'}}},
         {'name': 'newsByUrl', 'desc': 'Returns a media:news node by URL, adding the node if it does not exist.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'url', 'type': 'inet:url', 'desc': 'The URL where the news is published.'},
@@ -41,12 +46,14 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'A media:news node with the given URL.'}}},
         {'name': 'softByName', 'desc': 'Returns it:prod:soft node by name, adding the node if it does not exist.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the software.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An it:prod:soft node with the given name.'}}},
         {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE and reporter, adding the node if it does not exist.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'cve', 'type': 'str', 'desc': 'The CVE id.'},
@@ -58,6 +65,7 @@ class LibGen(s_stormtypes.Lib):
                   'returns': {'type': 'node', 'desc': 'A risk:vuln node with the given CVE.'}}},
 
         {'name': 'riskThreat',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'desc': 'Returns a risk:threat node based on the threat and reporter names, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -67,6 +75,7 @@ class LibGen(s_stormtypes.Lib):
                   'returns': {'type': 'node', 'desc': 'A risk:threat node.'}}},
 
         {'name': 'riskToolSoftware',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'desc': 'Returns a risk:tool:software node based on the tool and reporter names, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -76,6 +85,7 @@ class LibGen(s_stormtypes.Lib):
                   'returns': {'type': 'node', 'desc': 'A risk:tool:software node.'}}},
 
         {'name': 'psContactByEmail', 'desc': 'Returns a ps:contact by deconflicting the type and email address.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'type', 'type': 'str', 'desc': 'The ps:contact:type property.'},
@@ -86,6 +96,7 @@ class LibGen(s_stormtypes.Lib):
                   'returns': {'type': 'node', 'desc': 'A ps:contact node.'}}},
 
         {'name': 'polCountryByIso2', 'desc': 'Returns a pol:country node by deconflicting the :iso2 property.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'iso2', 'type': 'str', 'desc': 'The pol:country:iso2 property.'},
@@ -94,12 +105,14 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'A pol:country node.'}}},
         {'name': 'langByName', 'desc': 'Returns a lang:language node by name, adding the node if it does not exist.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the language.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A lang:language node with the given name.'}}},
         {'name': 'langByCode', 'desc': 'Returns a lang:language node by language code, adding the node if it does not exist.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The language code for the language.'},
@@ -108,6 +121,7 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'A lang:language node with the given code.'}}},
         {'name': 'campaign',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'desc': 'Returns an ou:campaign node based on the campaign and reporter names, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -116,6 +130,7 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'An ou:campaign node.'}}},
         {'name': 'itAvScanResultByTarget',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'desc': 'Returns an it:av:scan:result node by deconflicting with a target and signature name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -131,12 +146,14 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'An it:av:scan:result node.'}}},
         {'name': 'geoPlaceByName', 'desc': 'Returns a geo:place node by name, adding the node if it does not exist.',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the place.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A geo:place node with the given name.'}}},
         {'name': 'fileBytesBySha256',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'desc': 'Returns a file:bytes node by SHA256, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -146,6 +163,7 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'A file:bytes node with the given SHA256.'}}},
         {'name': 'cryptoX509CertBySha256',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'desc': 'Returns a crypto:x509:cert node by SHA256, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -155,6 +173,7 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'A crypto:x509:cert node with the given SHA256.'}}},
         {'name': 'inetTlsServerCertByServerAndSha256',
+         'deprecated': {'eolvers': '3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
          'desc': 'Returns an inet:tls:servercert node by server and SHA256, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -511,6 +530,7 @@ stormcmds = (
 
     {
         'name': 'gen.ou.id.number',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
         'descr': 'Lift (or create) an ou:id:number node based on the organization ID type and value.',
         'cmdargs': (
             ('type', {'help': 'The type of the organization ID.'}),
@@ -520,6 +540,7 @@ stormcmds = (
     },
     {
         'name': 'gen.ou.id.type',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
         'descr': 'Lift (or create) an ou:id:type node based on the name of the type.',
         'cmdargs': (
             ('name', {'help': 'The friendly name of the organization ID type.'}),
@@ -536,6 +557,7 @@ stormcmds = (
     },
     {
         'name': 'gen.ou.org.hq',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
         'descr': 'Lift (or create) the primary ps:contact node for the ou:org based on the organization name.',
         'cmdargs': (
             ('name', {'help': 'The name of the organization.'}),
@@ -655,6 +677,7 @@ stormcmds = (
     },
     {
         'name': 'gen.ps.contact.email',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
         'descr': '''
             Lift (or create) the ps:contact node by deconflicting the email and type.
 
@@ -682,6 +705,7 @@ stormcmds = (
     # todo: remove it:av:filehit example in 3.x.x
     {
         'name': 'gen.it.av.scan.result',
+        'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use dictionary constructor syntax instead.'},
         'descr': '''
             Lift (or create) the it:av:scan:result node by deconflicting the target and signature name.
 
