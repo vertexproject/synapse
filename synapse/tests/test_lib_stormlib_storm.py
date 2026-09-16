@@ -130,6 +130,76 @@ class LibStormTest(s_test.SynTest):
             ''')
             self.stormIsInPrint('mesg=hello', msgs)
 
+    async def test_lib_stormlib_storm_logging(self):
+
+        # storm.exec is gated on storm:log just like every other query path, at
+        # the default conf of storm:log=False.
+        async with self.getTestCore() as core:
+
+            with self.getLoggerStream('synapse.storm') as stream:
+                q = '''
+                $query = '[ inet:fqdn=vertex.link ]'
+                storm.exec $query
+                '''
+                self.len(1, await core.nodes(q))
+                self.eq('', stream.getvalue())
+
+        conf = {'storm:log': True, 'storm:log:level': 'DEBUG'}
+        async with self.getTestCore(conf=conf) as core:
+
+            self.len(3, await core.nodes('''[
+                (inet:ipv4=1.2.3.4 :asn=4)
+                (inet:ipv4=1.2.3.5 :asn=5)
+                (inet:ipv4=1.2.3.6 :asn=10)
+            ]'''))
+
+            # runtsafe storm.exec
+            with self.getLoggerStream('synapse.storm') as stream:
+                q = '''
+                $filter = '-:asn=10'
+                inet:ipv4:asn
+                storm.exec $filter
+                '''
+                nodes = await core.nodes(q)
+                self.len(2, nodes)
+
+                await stream.expect('Executing storm query via storm.exec {-:asn=10} as [root]')
+
+                mesgs = [m for m in stream.jsonlines() if 'via storm.exec' in m['message']]
+                self.len(1, mesgs)
+                self.eq(mesgs[0]['level'], 'DEBUG')
+                self.nn(mesgs[0]['params'].get('hash'))
+                self.eq(mesgs[0]['params'].get('view'), core.view.iden)
+
+            # non-runtsafe storm.exec: one record for the first item, one per
+            # subsequent item
+            with self.getLoggerStream('synapse.storm') as stream:
+                q = '''
+                inet:ipv4:asn
+                $filter = `+:asn={$node.repr().split('.').'-1'}`
+                storm.exec $filter
+                '''
+                nodes = await core.nodes(q)
+                self.len(2, nodes)
+
+                mesgs = [m for m in stream.jsonlines() if 'via storm.exec' in m['message']]
+                self.len(3, mesgs)
+                for mesg in mesgs:
+                    self.eq(mesg['level'], 'DEBUG')
+                    self.nn(mesg['params'].get('hash'))
+
+            # $lib.storm.eval()
+            with self.getLoggerStream('synapse.storm') as stream:
+                ret = await core.callStorm('return($lib.storm.eval(woot))')
+                self.eq(ret, 'woot')
+
+                await stream.expect('Executing storm query via $lib.storm.eval() {woot} as [root]')
+
+                mesgs = [m for m in stream.jsonlines() if 'via $lib.storm.eval()' in m['message']]
+                self.len(1, mesgs)
+                self.eq(mesgs[0]['level'], 'DEBUG')
+                self.nn(mesgs[0]['params'].get('hash'))
+
     async def test_lib_stormlib_storm_tasks(self):
 
         with self.getLoggerStream('synapse') as stream:

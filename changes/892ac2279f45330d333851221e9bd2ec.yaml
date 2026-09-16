@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where ``storm.exec`` and ``$lib.storm.eval()`` did not honor
+  the ``storm:log`` and ``storm:log:level`` configuration options.
+desc:literal: false
+prs: []
+type: bug
+...
