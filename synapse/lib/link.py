@@ -183,7 +183,7 @@ class Link(s_base.Base):
 
         if self.certhash is not None:
 
-            byts = info.get('ssl').telessl.getpeercert(True)
+            byts = self.writer.get_extra_info('ssl_object').getpeercert(True)
             cert = c_x509.load_der_x509_certificate(byts)
             thishash = s_common.ehex(cert.fingerprint(c_hashes.SHA256()))
             if thishash != self.certhash:

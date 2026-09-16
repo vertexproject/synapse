@@ -1,0 +1,8 @@
+---
+desc: Fixed a bug where the ``certhash`` check on a Telepath ``ssl://`` link could
+  read the peer certificate of a different connection when an ``SSLContext`` was shared
+  across links.
+desc:literal: false
+prs: []
+type: bug
+...
