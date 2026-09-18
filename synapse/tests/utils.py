@@ -784,7 +784,7 @@ class TstOutPut(s_output.OutPutStr):
 
         if not whitespace:
             outs = ' '.join(outs.split())
-            substr = ' '.join(outs.split())
+            substr = ' '.join(substr.split())
 
         if outs.find(substr) == -1:
             if throw:

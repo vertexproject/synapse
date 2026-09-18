@@ -348,11 +348,42 @@ Connection information:
                 self.stormIsInPrint('cell.synapse', msgs)
                 self.stormIsInPrint('00.cell.synapse', msgs)
                 self.stormIsInPrint('01.cell.synapse', msgs)
+                self.stormIsInPrint('Group Leader: 00.cell.synapse', msgs)
                 self.stormIsInPrint('Group Status: In Sync', msgs)
+
+                # Each member reports the service it mirrors from.
+                self.stormIsInPrint('follows', msgs)
+                self.stormIsInPrint('00.cell.synapse leader True True', msgs, whitespace=False)
+                self.stormIsInPrint('<none - write root>', msgs)
+                self.stormIsInPrint('aha://root@cell...', msgs)
 
                 msgs = await core00.stormlist('aha.svc.mirror --timeout 30')
                 self.stormIsInPrint('Service Mirror Groups:', msgs)
                 self.stormIsInPrint('Group Status: In Sync', msgs)
+
+                # AHA de-duplicates peer responses by run iden and may label the leader
+                # response with the leader alias name rather than the member name. The
+                # leader must still be attributed to its member row.
+                cell01_rid = (await cell01.getCellInfo())['cell']['run']
+
+                async def mock_alias_named(*args, **kwargs):
+                    yield ('cell.synapse', (True, {
+                        'cell': {'run': cell00_rid, 'ready': True, 'nexsindx': 99, 'active': True,
+                                 'verstring': '2.190.0', 'mirror': None},
+                        'synapse': {'verstring': '2.190.0'},
+                    }))
+                    yield ('01.cell.synapse', (True, {
+                        'cell': {'run': cell01_rid, 'ready': True, 'nexsindx': 99, 'active': False,
+                                 'verstring': '2.190.0', 'mirror': 'aha://root@cell...'},
+                        'synapse': {'verstring': '2.190.0'},
+                    }))
+
+                with mock.patch.object(aha, 'callAhaPeerApi', mock_alias_named):
+                    msgs = await core00.stormlist('aha.svc.mirror')
+                    self.stormIsInPrint('00.cell.synapse leader', msgs, whitespace=False)
+                    self.stormIsInPrint('01.cell.synapse follower', msgs, whitespace=False)
+                    self.stormIsInPrint('Group Status: In Sync', msgs)
+                    self.stormNotInPrint('<unknown>', msgs)
 
                 async def mockCellInfo():
                     return {
@@ -393,10 +424,102 @@ Connection information:
                         msgs = await core00.stormlist('aha.svc.mirror --timeout 1')
                         self.stormIsInPrint('Group Status: Out of Sync', msgs)
 
+                # No member reports as active, so the group has no claimed leader and
+                # there is nothing to wait on.
+                async def mockNoLeaderCellInfo():
+                    return {
+                        'cell': {'ready': True, 'nexsindx': 7, 'active': False},
+                        'synapse': {'verstring': '2.190.0'},
+                    }
+
+                with mock.patch.object(cell00, 'getCellInfo', mockNoLeaderCellInfo):
+                    with mock.patch.object(cell01, 'getCellInfo', mockOutOfSyncCellInfo):
+
+                        msgs = await core00.stormlist('aha.svc.mirror --timeout 1')
+                        self.stormIsInPrint('Group Leader: <none>', msgs)
+                        self.stormIsInPrint('Group Status: Out of Sync', msgs)
+                        self.stormNotInPrint('leader', msgs)
+
+                        msgs = await core00.stormlist('aha.svc.mirror --timeout 1 --wait')
+                        self.stormIsInWarn('Skipping --wait: the group has no active leader.', msgs)
+                        self.stormNotInPrint('Updated status:', msgs)
+
+                # Two services both claiming to be active is a split brain.
+                with mock.patch.object(cell00, 'getCellInfo', mockCellInfo):
+                    with mock.patch.object(cell01, 'getCellInfo', mockCellInfo):
+                        msgs = await core00.stormlist('aha.svc.mirror --timeout 1')
+                        self.stormIsInPrint('Group Leader: <multiple: 00.cell.synapse, 01.cell.synapse>', msgs)
+
+                # A group where no member responded tells us nothing about replication
+                # and must not be reported as in sync.
+                async def mock_all_failed(*args, **kwargs):
+                    yield ('00.cell.synapse', (False, 'error'))
+                    yield ('01.cell.synapse', (False, 'error'))
+
+                with mock.patch.object(aha, 'callAhaPeerApi', mock_all_failed):
+                    msgs = await core00.stormlist('aha.svc.mirror --timeout 1')
+                    self.stormIsInPrint('Group Status: Unknown', msgs)
+                    self.stormIsInPrint('Group Leader: <none>', msgs)
+
+                    msgs = await core00.stormlist('aha.svc.mirror --timeout 1 --wait')
+                    self.stormIsInWarn('Skipping --wait: the group has no active leader.', msgs)
+
+                # An unresponsive member can never satisfy the wait loop.
+                async def mock_partial(*args, **kwargs):
+                    yield ('00.cell.synapse', (True, {
+                        'cell': {'run': cell00_rid, 'ready': True, 'nexsindx': 12, 'active': True,
+                                 'verstring': '2.190.0', 'mirror': None},
+                        'synapse': {'verstring': '2.190.0'},
+                    }))
+
+                with mock.patch.object(aha, 'callAhaPeerApi', mock_partial):
+                    msgs = await core00.stormlist('aha.svc.mirror --timeout 1 --wait')
+                    self.stormIsInWarn('Skipping --wait: one or more group members did not respond.', msgs)
+
                 await cell01.nexsroot.client.fini()
                 msgs = await core00.stormlist('aha.svc.mirror')
                 self.stormIsInPrint('follower', msgs)
 
+                # A service which registered without the group leader name still belongs
+                # to the group, since mirrors share a cell iden.
+                svcinfo = dict((await aha.getAhaSvc('00.cell...'))['svcinfo'])
+                svcinfo.pop('leader', None)
+                svcinfo['run'] = s_common.guid()
+                svcinfo['urlinfo'] = dict(svcinfo['urlinfo'])
+                svcinfo['urlinfo']['hostname'] = '02.cell.synapse'
+                await aha.addAhaSvc('02.cell', info=svcinfo, network='synapse')
+
+                msgs = await core00.stormlist('aha.svc.mirror')
+                self.stormIsInPrint('02.cell.synapse', msgs)
+
+                await aha.delAhaSvc('02.cell', network='synapse')
+
+                # Entries with no cell iden or no run iden cannot be correlated at all.
+                await aha.addAhaSvc('noiden.cell', info={'urlinfo': {'scheme': 'tcp',
+                                                                    'host': '0.0.0.0',
+                                                                    'port': '3030'}},
+                                    network='synapse')
+                norun = dict(svcinfo)
+                norun.pop('run', None)
+                await aha.addAhaSvc('norun.cell', info=norun, network='synapse')
+
+                msgs = await core00.stormlist('aha.svc.mirror')
+                self.stormNotInPrint('noiden.cell.synapse', msgs)
+                self.stormNotInPrint('norun.cell.synapse', msgs)
+
+                await aha.delAhaSvc('norun.cell', network='synapse')
+
+                # The group is still reported when no service has claimed the leader
+                # name, which is when an operator most needs to see it.
+                await aha.delAhaSvc('cell', network='synapse')
+
+                msgs = await core00.stormlist('aha.svc.mirror')
+                self.stormIsInPrint('Service Mirror Groups:', msgs)
+                self.stormIsInPrint('cell.synapse (leader alias not registered)', msgs)
+                self.stormIsInPrint('00.cell.synapse', msgs)
+                self.stormIsInPrint('01.cell.synapse', msgs)
+
                 await aha.delAhaSvc('00.cell', network='synapse')
                 msgs = await core00.stormlist('aha.svc.mirror')
                 self.stormNotInPrint('Service Mirror Groups:', msgs)
+                self.stormIsInPrint('No mirror groups found.', msgs)
