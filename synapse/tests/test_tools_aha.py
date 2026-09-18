@@ -41,17 +41,15 @@ class AhaToolsTest(s_t_utils.SynTest):
                     retn, outp = await self.execToolMain(s_a_list.main, argv)
                     self.eq(retn, 0)
 
-                    outp.expect('''
-                        Service              network                        leader
-                        cell0                synapse                        None
-                        cell1                example.net                    None
-                    ''', whitespace=False)
+                    outp.expect('Service              network                        leader', whitespace=False)
+                    outp.expect('cell0                synapse                        None', whitespace=False)
+                    outp.expect('cell1                synapse                        None', whitespace=False)
 
                     argv = [ahaurl, 'demo.net']
                     retn, outp = await self.execToolMain(s_a_list.main, argv)
                     self.eq(retn, 0)
                     outp.expect('Service              network', whitespace=False)
-                    outp.expect('cell0                demo.net', whitespace=False)
+                    self.notin('cell0', str(outp))
 
         async with self.getTestCore() as core:
             curl = core.getLocalUrl()
@@ -196,7 +194,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                 argv = ['--url', aha.getLocalUrl()]
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                 self.eq(retn, 0)
-                outp.expect('Service Mirror Groups:')
+                outp.expect('No mirror groups found.')
                 self.notin('no.iden', str(outp))
 
             conf_no_host = {'aha:provision': await aha.addAhaSvcProv('no.host')}
@@ -208,7 +206,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                 argv = ['--url', aha.getLocalUrl()]
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                 self.eq(retn, 0)
-                outp.expect('Service Mirror Groups:')
+                outp.expect('No mirror groups found.')
                 self.notin('no.host', str(outp))
 
             conf_no_leader = {'aha:provision': await aha.addAhaSvcProv('no.leader')}
@@ -219,7 +217,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                 argv = ['--url', aha.getLocalUrl()]
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                 self.eq(retn, 0)
-                outp.expect('Service Mirror Groups:')
+                outp.expect('No mirror groups found.')
                 self.notin('no.leader', str(outp))
 
             conf_no_primary = {'aha:provision': await aha.addAhaSvcProv('no.primary')}
@@ -246,7 +244,13 @@ class AhaToolsTest(s_t_utils.SynTest):
             outp.expect('Service Mirror Groups:')
             outp.expect('00.cell.synapse')
             outp.expect('01.cell.synapse')
+            outp.expect('Group Leader: 00.cell.synapse')
             outp.expect('Group Status: In Sync')
+
+            # Each member reports the service it mirrors from.
+            outp.expect('follows')
+            outp.expect('<none - write root>')
+            outp.expect('aha://root@cell...')
 
             argv = ['--url', ahaurl, '--timeout', '30']
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
@@ -337,12 +341,87 @@ class AhaToolsTest(s_t_utils.SynTest):
             with mock.patch.object(aha, 'callAhaPeerApi', mock_failed_api):
                 argv = ['--url', ahaurl, '--timeout', '1']
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                outp.expect('00.cell.synapse                          leader     True     True    127.0.0.1', whitespace=False)
-                outp.expect('nexsindx      10', whitespace=False)
-                outp.expect('02.cell.synapse                          leader     True     True    127.0.0.1', whitespace=False)
-                outp.expect('nexsindx      12', whitespace=False)
+                # None of the mocked responses report themselves as active, and one peer
+                # failed outright, so the group has no leader and cannot be in sync.
+                outp.expect('00.cell.synapse                          follower   True     True    127.0.0.1', whitespace=False)
+                outp.expect('02.cell.synapse                          follower   True     True    127.0.0.1', whitespace=False)
                 outp.expect('01.cell.synapse                          <unknown>  True     True', whitespace=False)
-                outp.expect('<unknown>    <unknown>', whitespace=False)
+                outp.expect('Group Leader: <none>')
+                outp.expect('Group Status: Out of Sync')
+
+            # An error raised while querying the group members must not abort the report.
+            async def mock_raises(*args, **kwargs):
+                raise s_exc.SynErr(mesg='boom')
+                yield
+
+            with mock.patch.object(aha, 'callAhaPeerApi', mock_raises):
+
+                argv = ['--url', ahaurl, '--timeout', '1']
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                self.eq(retn, 0)
+                outp.expect('WARNING: Failed to query mirror group members: boom')
+
+                # Nothing responded, so we can say nothing about replication.
+                outp.expect('Group Leader: <none>')
+                outp.expect('Group Status: Unknown')
+
+                argv = ['--url', ahaurl, '--timeout', '1', '--wait']
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                self.eq(retn, 0)
+                outp.expect('WARNING: Skipping --wait: the group has no active leader.')
+
+            # Several services claiming to be active at once is a split brain.
+            async def mock_split_brain(*args, **kwargs):
+                info = {'cell': {'ready': True, 'nexsindx': 10, 'active': True,
+                                 'verstring': '2.190.0', 'mirror': None},
+                        'synapse': {'verstring': '2.190.0'}}
+                yield ('00.cell.synapse', (True, info))
+                yield ('01.cell.synapse', (True, info))
+                yield ('02.cell.synapse', (True, info))
+
+            with mock.patch.object(aha, 'callAhaPeerApi', mock_split_brain):
+                argv = ['--url', ahaurl, '--timeout', '1']
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                self.eq(retn, 0)
+                outp.expect('Group Leader: <multiple: 00.cell.synapse, 01.cell.synapse, 02.cell.synapse>')
+
+            # A member which never responded can never satisfy the wait loop.
+            async def mock_partial(*args, **kwargs):
+                yield ('00.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 10, 'active': True},
+                                                  'synapse': {'verstring': '2.190.0'}}))
+
+            with mock.patch.object(aha, 'callAhaPeerApi', mock_partial):
+                argv = ['--url', ahaurl, '--timeout', '1', '--wait']
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                self.eq(retn, 0)
+                outp.expect('WARNING: Skipping --wait: one or more group members did not respond.')
+
+            # A leader which did not report a nexus index gives us no offset to wait on.
+            async def mock_noindx(*args, **kwargs):
+                yield ('00.cell.synapse', (True, {'cell': {'ready': True, 'active': True},
+                                                  'synapse': {'verstring': '2.190.0'}}))
+                yield ('01.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 5, 'active': False},
+                                                  'synapse': {'verstring': '2.190.0'}}))
+                yield ('02.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 5, 'active': False},
+                                                  'synapse': {'verstring': '2.190.0'}}))
+
+            with mock.patch.object(aha, 'callAhaPeerApi', mock_noindx):
+                argv = ['--url', ahaurl, '--timeout', '1', '--wait']
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                self.eq(retn, 0)
+                outp.expect('WARNING: Skipping --wait: the leader did not report a nexus index.')
+
+            # The group is still reported when no service has claimed the leader name,
+            # which is when an operator most needs to see it.
+            await aha.delAhaSvc('cell', network='synapse')
+
+            argv = ['--url', ahaurl, '--timeout', '1']
+            retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+            self.eq(retn, 0)
+            outp.expect('cell.synapse (leader alias not registered)')
+            outp.expect('00.cell.synapse')
+            outp.expect('01.cell.synapse')
+            outp.expect('02.cell.synapse')
 
         self.eq(s_a_mirror.timeout_type('30'), 30)
         self.eq(s_a_mirror.timeout_type('0'), 0)
@@ -361,3 +440,56 @@ class AhaToolsTest(s_t_utils.SynTest):
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
             self.eq(retn, 1)
             outp.expect('ERROR: Oof')
+
+    async def test_aha_mirror_grouping(self):
+
+        def svcinfo(iden, run, hostname, **kwargs):
+            info = {
+                'iden': iden,
+                'run': run,
+                'urlinfo': {'scheme': 'tcp', 'host': '127.0.0.1', 'port': 0, 'hostname': hostname},
+            }
+            info.update(kwargs)
+            return info
+
+        async with self.getTestAha() as aha:
+
+            argv = ['--url', aha.getLocalUrl(), '--timeout', '1']
+
+            # A group whose members never registered a leader name has no name to
+            # synthesize from, so it is identified by the service iden instead.
+            await aha.addAhaSvc('00.noldr', info=svcinfo('iden00', 'run00', '00.noldr.synapse', online='x'),
+                                network='synapse')
+            await aha.addAhaSvc('01.noldr', info=svcinfo('iden00', 'run01', '01.noldr.synapse', online='x'),
+                                network='synapse')
+
+            retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+            self.eq(retn, 0)
+            outp.expect('<no leader alias> (service iden: iden00)')
+            outp.expect('00.noldr.synapse')
+            outp.expect('01.noldr.synapse')
+
+            # Entries which share a run iden are de-duplicated, preferring the entry
+            # whose service name matches its own hostname.
+            await aha.addAhaSvc('00.dupe', info=svcinfo('iden01', 'run10', '00.dupe.synapse', online='x'),
+                                network='synapse')
+            await aha.addAhaSvc('alias.dupe', info=svcinfo('iden01', 'run10', '00.dupe.synapse', online='x'),
+                                network='synapse')
+            await aha.addAhaSvc('01.dupe', info=svcinfo('iden01', 'run11', '01.dupe.synapse', online='x'),
+                                network='synapse')
+
+            retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+            self.eq(retn, 0)
+            outp.expect('00.dupe.synapse')
+            outp.expect('01.dupe.synapse')
+            self.notin('alias.dupe.synapse', str(outp))
+
+            # Aha never reaps service entries, so a group with no online service is a
+            # decommissioned cluster and is not reported.
+            await aha.addAhaSvc('00.gone', info=svcinfo('iden02', 'run20', '00.gone.synapse'), network='synapse')
+            await aha.addAhaSvc('01.gone', info=svcinfo('iden02', 'run21', '01.gone.synapse'), network='synapse')
+
+            retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+            self.eq(retn, 0)
+            self.notin('00.gone.synapse', str(outp))
+            self.notin('01.gone.synapse', str(outp))
