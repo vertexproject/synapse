@@ -1,6 +1,6 @@
 ---
 desc: Updated the ``aha.svc.mirror`` Storm command and the ``synapse.tools.aha.mirror``
-  tool to identify mirror group members by their shared cell iden. Mirror groups are
+  tool to identify mirror group members by their shared service iden. Mirror groups are
   now displayed even when no service has claimed the group leader name. Added a ``follows``
   column which displays the service that each member mirrors from, and a ``Group Leader``
   line which displays the service currently reporting itself as the leader. The two

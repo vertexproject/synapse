@@ -457,7 +457,7 @@ class AhaToolsTest(s_t_utils.SynTest):
             argv = ['--url', aha.getLocalUrl(), '--timeout', '1']
 
             # A group whose members never registered a leader name has no name to
-            # synthesize from, so it is identified by the cell iden instead.
+            # synthesize from, so it is identified by the service iden instead.
             await aha.addAhaSvc('00.noldr', info=svcinfo('iden00', 'run00', '00.noldr.synapse', online='x'),
                                 network='synapse')
             await aha.addAhaSvc('01.noldr', info=svcinfo('iden00', 'run01', '01.noldr.synapse', online='x'),
@@ -465,7 +465,7 @@ class AhaToolsTest(s_t_utils.SynTest):
 
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
             self.eq(retn, 0)
-            outp.expect('<no leader alias> (cell iden: iden00)')
+            outp.expect('<no leader alias> (service iden: iden00)')
             outp.expect('00.noldr.synapse')
             outp.expect('01.noldr.synapse')
 

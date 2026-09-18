@@ -674,7 +674,7 @@ The ready column indicates that a service has entered into the realtime change w
         'descr': textwrap.dedent('''\
             Query the AHA services and their mirror relationships.
 
-            Mirror group members are identified by the cell iden which they share, so a
+            Mirror group members are identified by the service iden which they share, so a
             group is displayed even when no service has claimed the group leader name.
 
             The role and follows columns reflect the status reported by each service,
@@ -683,7 +683,7 @@ The ready column indicates that a service has entered into the realtime change w
             Notes:
                 - Non-mirror services are not displayed, nor are groups which have no
                   online service.
-                - A service restored from another service's backup shares its cell iden
+                - A service restored from another service's backup shares its service iden
                   and is displayed as a member of that group.
         '''),
         'cmdargs': (
@@ -867,7 +867,7 @@ The ready column indicates that a service has entered into the realtime change w
                 }
             }
 
-            return(`<no leader alias> (cell iden: {$iden})`)
+            return(`<no leader alias> (service iden: {$iden})`)
         }
 
         function output_status(vname, group_status, printer) {
@@ -896,7 +896,7 @@ The ready column indicates that a service has entered into the realtime change w
 
         // The leader alias is only registered by an active service, so a group with no
         // claimed leader has no alias entry to group on. Every member of a mirror group
-        // shares the cell iden, so group on that instead.
+        // shares the service iden, so group on that instead.
         $leader_aliases = ({})
         $svcs_by_run = ({})
 
@@ -981,7 +981,7 @@ The ready column indicates that a service has entered into the realtime change w
             $alias = $leader_aliases.$iden
             $vname = $get_group_name($iden, $alias, $members)
 
-            // callPeerApi() resolves any group member to the shared cell iden, so a member
+            // callPeerApi() resolves any group member to the shared service iden, so a member
             // name works when no alias is registered.
             $svcname = $members.0.name
             if ($alias != null) {

@@ -196,7 +196,7 @@ def get_group_name(iden, alias, members):
         if leader is not None:
             return f'{leader}.{svc.get("svcnetw")} (leader alias not registered)'
 
-    return f'<no leader alias> (cell iden: {iden})'
+    return f'<no leader alias> (service iden: {iden})'
 
 def get_mirror_groups(svcdefs):
     '''

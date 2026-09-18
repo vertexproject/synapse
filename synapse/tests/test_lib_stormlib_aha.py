@@ -481,7 +481,7 @@ Connection information:
                 self.stormIsInPrint('follower', msgs)
 
                 # A service which registered without the group leader name still belongs
-                # to the group, since mirrors share a cell iden.
+                # to the group, since mirrors share a service iden.
                 svcinfo = dict((await aha.getAhaSvc('00.cell...'))['svcinfo'])
                 svcinfo.pop('leader', None)
                 svcinfo['run'] = s_common.guid()
@@ -494,7 +494,7 @@ Connection information:
 
                 await aha.delAhaSvc('02.cell', network='synapse')
 
-                # Entries with no cell iden or no run iden cannot be correlated at all.
+                # Entries with no service iden or no run iden cannot be correlated at all.
                 await aha.addAhaSvc('noiden.cell', info={'urlinfo': {'scheme': 'tcp',
                                                                     'host': '0.0.0.0',
                                                                     'port': '3030'}},
