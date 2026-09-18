@@ -24,9 +24,6 @@ async def get_cell_infos(prox, outp, iden, timeout):
     byrun = {}
     byname = {}
 
-    if iden is None:
-        return byrun, byname
-
     todo = s_common.todo('getCellInfo')
 
     try:
