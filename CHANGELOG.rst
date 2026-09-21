@@ -20,8 +20,8 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-- The Cortex now logs a message when a Storm package is loaded or unloaded,
-  including the package name and version as structured log fields.
+- Updated Cortex behavior to log a message when a Storm package is loaded or
+  unloaded, including the package name and version as structured log fields.
   (`#5011 <https://github.com/vertexproject/synapse/pull/5011>`_)
 - Updated the ``aha.svc.mirror`` Storm command and the
   ``synapse.tools.aha.mirror`` tool to identify mirror group members by their
