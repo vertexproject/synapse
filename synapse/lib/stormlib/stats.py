@@ -1,3 +1,4 @@
+import decimal
 import collections
 
 import synapse.exc as s_exc
@@ -86,17 +87,20 @@ class StatsCountByCmd(s_storm.Cmd):
             return
 
         if byname:
-            # Try to sort numerically instead of lexicographically
-            def coerce(indx):
-                def wrapped(valu):
-                    valu = valu[indx]
-                    try:
-                        return int(valu)
-                    except ValueError:
-                        return valu
-                return wrapped
+            # Sort numeric names numerically, then non-numeric names lexicographically.
+            def sortkey(item):
+                try:
+                    huge = s_common.hugenum(item[0])
+                except (ValueError, decimal.DecimalException):
+                    return (1, decimal.Decimal(0), item[0])
 
-            values = list(sorted(counts.items(), key=coerce(0)))
+                # non-finite values such as nan cannot be ordered
+                if not huge.is_finite():
+                    return (1, decimal.Decimal(0), item[0])
+
+                return (0, huge, '')
+
+            values = list(sorted(counts.items(), key=sortkey))
             maxv = max(val[1] for val in values)
 
         else:

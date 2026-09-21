@@ -1585,13 +1585,6 @@ def chopurl(url, **opts):
 
     return info
 
-class TeleSSLObject(ssl.SSLObject):
-
-    def do_handshake(self):
-        # steal a reference for later so we can get the cert
-        self.context.telessl = self
-        return ssl.SSLObject.do_handshake(self)
-
 async def openinfo(info):
 
     scheme = info.get('scheme')
@@ -1686,7 +1679,6 @@ async def openinfo(info):
                 sslctx = ssl.create_default_context()
                 sslctx.check_hostname = False
                 sslctx.verify_mode = ssl.CERT_NONE
-                sslctx.sslobject_class = TeleSSLObject
 
             # do hostname checking manually to avoid DNS lookups
             # ( to support dynamic IP addresses on services )

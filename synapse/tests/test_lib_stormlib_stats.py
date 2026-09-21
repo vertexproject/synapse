@@ -136,6 +136,44 @@ chartpercent_rev_byname = '''
 13 | 4 | 26.67% | ########################################
 '''.strip()
 
+chartunset_byname = '''
+None | 1 | #########################
+   4 | 1 | #########################
+   1 | 2 | ##################################################
+   0 | 1 | #########################
+'''.strip()
+
+chartunset_rev_byname = '''
+   0 | 1 | #########################
+   1 | 2 | ##################################################
+   4 | 1 | #########################
+None | 1 | #########################
+'''.strip()
+
+chartmixed_byname = '''
+ nan | 1 | ##################################################
+ abc | 1 | ##################################################
+None | 1 | ##################################################
+0xzz | 1 | ##################################################
+0x20 | 1 | ##################################################
+  10 | 1 | ##################################################
+   2 | 1 | ##################################################
+ 1.5 | 1 | ##################################################
+   1 | 1 | ##################################################
+'''.strip()
+
+chartmixed_rev_byname = '''
+   1 | 1 | ##################################################
+ 1.5 | 1 | ##################################################
+   2 | 1 | ##################################################
+  10 | 1 | ##################################################
+0x20 | 1 | ##################################################
+0xzz | 1 | ##################################################
+None | 1 | ##################################################
+ abc | 1 | ##################################################
+ nan | 1 | ##################################################
+'''.strip()
+
 
 class StatsTest(s_test.SynTest):
 
@@ -229,6 +267,30 @@ class StatsTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 self.len(15, await core.nodes('inet:ipv4 | stats.countby ({})'))
+
+            # a tally of numeric values where some nodes do not have the property
+            # set tallies the unset nodes under None. ( SYN-9957 )
+            q = '''[ (inet:ipv4=1.2.3.1 :asn=0) (inet:ipv4=1.2.3.2 :asn=1) (inet:ipv4=1.2.3.3 :asn=1)
+                     (inet:ipv4=1.2.3.4) (inet:ipv4=1.2.3.5 :asn=4) +#unset ]'''
+            self.len(5, await core.nodes(q))
+
+            msgs = await core.stormlist('inet:ipv4#unset | stats.countby :asn --by-name')
+            self.stormIsInPrint(chartunset_byname, msgs)
+
+            msgs = await core.stormlist('inet:ipv4#unset | stats.countby :asn --by-name --reverse')
+            self.stormIsInPrint(chartunset_rev_byname, msgs)
+
+            # numeric names sort numerically and non-numeric names sort
+            # lexicographically after them.
+            q = '''[ it:dev:str="1" it:dev:str="1.5" it:dev:str="2" it:dev:str="10" it:dev:str="nan"
+                     it:dev:str="0x20" it:dev:str="0xzz" it:dev:str="None" it:dev:str="abc" ]'''
+            self.len(9, await core.nodes(q))
+
+            msgs = await core.stormlist('it:dev:str | stats.countby --by-name')
+            self.stormIsInPrint(chartmixed_byname, msgs)
+
+            msgs = await core.stormlist('it:dev:str | stats.countby --by-name --reverse')
+            self.stormIsInPrint(chartmixed_rev_byname, msgs)
 
     async def test_stormlib_stats_tally(self):
 
