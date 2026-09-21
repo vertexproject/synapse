@@ -268,20 +268,16 @@ class StatsTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 self.len(15, await core.nodes('inet:ipv4 | stats.countby ({})'))
 
-    async def test_stormlib_stats_countby_byname_mixed(self):
-
-        async with self.getTestCore() as core:
-
             # a tally of numeric values where some nodes do not have the property
             # set tallies the unset nodes under None. ( SYN-9957 )
-            q = '''[ (inet:ipv4=0 :asn=0) (inet:ipv4=1 :asn=1)
-                     (inet:ipv4=2 :asn=1) (inet:ipv4=3) (inet:ipv4=4 :asn=4) ]'''
+            q = '''[ (inet:ipv4=1.2.3.1 :asn=0) (inet:ipv4=1.2.3.2 :asn=1) (inet:ipv4=1.2.3.3 :asn=1)
+                     (inet:ipv4=1.2.3.4) (inet:ipv4=1.2.3.5 :asn=4) +#unset ]'''
             self.len(5, await core.nodes(q))
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --by-name')
+            msgs = await core.stormlist('inet:ipv4#unset | stats.countby :asn --by-name')
             self.stormIsInPrint(chartunset_byname, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --by-name --reverse')
+            msgs = await core.stormlist('inet:ipv4#unset | stats.countby :asn --by-name --reverse')
             self.stormIsInPrint(chartunset_rev_byname, msgs)
 
             # numeric names sort numerically and non-numeric names sort
