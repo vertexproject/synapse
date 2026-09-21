@@ -1,8 +1,0 @@
----
-desc: Fixed an issue where the ``aha.svc.mirror`` Storm command and the ``synapse.tools.aha.mirror``
-  tool omitted mirror group members which had not registered themselves under the
-  group leader name.
-desc:literal: false
-prs: []
-type: bug
-...
