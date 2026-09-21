@@ -1,0 +1,9 @@
+---
+desc: Fixed an issue where the ``aha.svc.mirror`` Storm command and the ``synapse.tools.aha.mirror``
+  tool reported a mirror group as being in sync when no member of the group responded,
+  and where a service which responded under its leader alias name was reported with
+  an unknown status.
+desc:literal: false
+prs: []
+type: bug
+...

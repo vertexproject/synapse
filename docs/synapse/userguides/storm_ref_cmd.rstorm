@@ -175,6 +175,7 @@ service pools.
 - `aha.pool.svc.add`_
 - `aha.pool.svc.del`_
 - `aha.svc.list`_
+- `aha.svc.mirror`_
 - `aha.svc.stat`_
 
 Help for individual ``aha.*`` commands can be displayed using:
@@ -251,6 +252,18 @@ The ``aha.svc.list`` command lists AHA services.
 **Syntax:**
 
 .. storm-cli:: aha.svc.list --help
+
+
+.. _storm-aha-svc-mirror:
+
+aha.svc.mirror
+++++++++++++++
+
+The ``aha.svc.mirror`` command displays AHA mirror groups and the status of their members.
+
+**Syntax:**
+
+.. storm-cli:: aha.svc.mirror --help
 
 
 .. _storm-aha-svc-stat:
