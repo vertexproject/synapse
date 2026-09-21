@@ -1,8 +1,0 @@
----
-desc: Fixed an issue where the ``synapse.tests.utils.TstOutPut.expect()`` test helper
-  ignored the caller's string when called with ``whitespace=False``, causing those
-  assertions to always pass.
-desc:literal: false
-prs: []
-type: bug
-...
