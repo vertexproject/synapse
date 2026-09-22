@@ -348,7 +348,7 @@ You should see output that looks similar to this:
 ```text
 Successfully added API key with name=storm-cli.
 Iden: 30fdf7f7f1571f0abd5a41f0e37cf37f
-  API Key: XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
+  API Key: syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
   Name: storm-cli
   Created: 2026-07-26T15:52:13.250342Z
   Updated: 2026-07-26T15:52:13.250342Z

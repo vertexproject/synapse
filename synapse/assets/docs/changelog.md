@@ -1,5 +1,81 @@
 # Synapse Changelog
 
+## v3.3.0 - 2026-09-22
+
+### Model Changes
+
+- Added the `proj:project:id` property to record the ID of a project in its
+  tasking system.
+- Added the `it:exec:pipe:del`, `it:exec:pipe:read`, and `it:exec:pipe:write`
+  forms to model named pipe activity.
+- Updated the `geo:name` and `entity:name` forms to implement the
+  `meta:observable` interface.
+- Added the `it:os:windows:task` form to model Windows Scheduled Task entries.
+
+### Features and Enhancements
+
+- Added a `follows` column to `aha.svc.mirror` and `synapse.tools.aha.mirror`
+  which displays the service that each mirror group member replicates from.
+- The `aha.svc.mirror` command and the `synapse.tools.aha.mirror` tool now
+  report the holder of the AHA leadership term, flagging when it is offline or
+  is not the service actually running as leader.
+- Updated API key generator to use the prefix `syn-`. Existing API keys without
+  the `syn-` prefix will continue to function.
+- A doc build now writes its own `docs.sha256` manifest, so
+  `synapse.tools.storm.pkg.doc` produces the file the build already consulted
+  to decide whether a page could be reused.
+- Added `--https-ca-dir`, `--https-noverify`, and `--https-proxy` options to
+  `synapse.tools.storm.pkg.gen`, so `--push` may target a Cortex HTTP API URL
+  with a user API key.
+- Updated Storm `lookup` mode to resolve the input tokens it could not scrape
+  through the `search` Storm interface.
+
+### Bugfixes
+
+- Fixed an issue with documentation where links pointing to Synapse code and
+  example files were pointing to the incorrect branch.
+- Fixed a bug where the `stats.countby` Storm command could raise a `TypeError`
+  when using `--by-name` to sort a tally which contained a mix of numeric and
+  non-numeric values.
+- Fixed an issue where `aha.svc.mirror --wait` and `synapse.tools.aha.mirror
+  --wait` silently did nothing when the group had no active leader or a member
+  was unreachable.
+- Fixed an issue where `aha.svc.mirror` and `synapse.tools.aha.mirror` reported
+  a mirror group as being in sync when no member of the group responded.
+- Fixed an issue where `aha.svc.list --nexus` displayed no nexus offset.
+- Fixed an issue where `synapse.tools.aha.mirror` displayed no nexus offset for
+  mirror group members.
+- Fixed an issue where `aha.svc.mirror` displayed no nexus offset for mirror
+  group members.
+- Fixed an issue where referencing `#(mytag).precision` raised a `TypeError`
+  rather than `NoSuchVirt`, since a tag interval carries only the `.min`,
+  `.max`, and `.duration` virtual properties.
+- Fixed an issue where filtering nodes by a tag interval virtual property such
+  as `+#(mytag).max` raised an error when the inbound nodes did not have the
+  tag or the tag had no timestamps.
+- Edge walk operations now match nodes whose form inherits from the specified
+  form or property.
+- Fixed a bug where the Storm `<- *` refs in pivot did not traverse a reference
+  made by a virtual property of a node's primary property.
+- Fixed an issue where `storm.exec` and `$lib.storm.eval()` did not honor the
+  `storm:log` and `storm:log:level` configuration options.
+- Fixed a bug where a `synapse.lib.process.spawn()` timeout raised
+  `AttributeError` instead of `TimeoutError` if it fired before the subprocess
+  started.
+- Fixed an issue where removing a tag or tagprop tombstone did not remove the
+  tombstones on the parent tags.
+
+### Notes
+
+- Added `synapse.tools.utils.docmanifest`, which reconciles a doc bundle's
+  `docs.sha256` against what is on disk without rebuilding it.
+
+### Improved documentation
+
+- The `acme-hello` example Rapid Power-Up now ships a documentation bundle, and
+  the Rapid Power-Up development guide covers how a package's `docs` directory
+  is built and stored.
+
 ## v3.2.0 - 2026-09-11
 
 ### Model Changes

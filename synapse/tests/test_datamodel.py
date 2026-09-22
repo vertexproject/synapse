@@ -1232,6 +1232,21 @@ class DataModelTest(s_t_utils.SynTest):
                 vdef = ('newp', ('newp', {}), {})
                 core.model.addFormProp('test:str', 'bar', ('str', {}), {'virts': (vdef, )})
 
+            # the virts which reference a form are the refs in targets for that form
+            modl = core.model
+            self.eq((('inet:client', 'ip'), ('inet:server', 'ip')), tuple(sorted(modl.getVirtsByType('inet:ip'))))
+            self.eq((('file:path', 'dir'),), tuple(modl.getVirtsByType('file:path')))
+            self.eq((('file:path', 'base'),), tuple(modl.getVirtsByType('file:base')))
+            self.eq((), tuple(modl.getVirtsByType('test:str')))
+
+            # inet:port is a type rather than a form, so the inet:server port virt is not a ref
+            self.eq((), tuple(modl.getVirtsByType('inet:port')))
+
+            # a virt with no index may not be lifted, so it is not a ref
+            modl.form('inet:server').type.virtindx.pop('ip')
+            modl._virts_by_type = None
+            self.eq((('inet:client', 'ip'),), tuple(modl.getVirtsByType('inet:ip')))
+
     async def test_datamodel_form_inheritance(self):
 
         with self.getTestDir() as dirn:

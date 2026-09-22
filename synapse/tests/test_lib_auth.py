@@ -4,6 +4,7 @@ import pathlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.auth as s_auth
 import synapse.lib.cell as s_cell
 import synapse.telepath as s_telepath
 
@@ -327,6 +328,34 @@ class AuthTest(s_test.SynTest):
             # lookups re-populate it through the slab.
             auth.clearAuthCache()
             self.eq(frank.iden, await auth.getUserIdenByEmail('frank@example.com'))
+
+    async def test_auth_normemail(self):
+
+        self.none(await s_auth.normEmail(None))
+        self.none(await s_auth.normEmail(''))
+        self.none(await s_auth.normEmail('  '))
+        self.none(await s_auth.normEmailFqdn(None))
+        self.none(await s_auth.normEmailFqdn(''))
+
+        self.eq('alice@example.com', await s_auth.normEmail('Alice@Example.com'))
+        self.eq('example.com', await s_auth.normEmailFqdn('Alice@Example.com'))
+
+        # a plus-addressed, mixed-case local part: the fqdn sub is unaffected
+        # by plus-addressing and the case-preserving username sub does not leak
+        self.eq('alice+news@example.com', await s_auth.normEmail('Alice+News@Example.com'))
+        self.eq('example.com', await s_auth.normEmailFqdn('Alice+News@Example.com'))
+
+        with self.raises(s_exc.BadArg):
+            await s_auth.normEmail(1234)
+
+        with self.raises(s_exc.BadArg):
+            await s_auth.normEmailFqdn(1234)
+
+        with self.raises(s_exc.BadArg):
+            await s_auth.normEmail('notanemail')
+
+        with self.raises(s_exc.BadArg):
+            await s_auth.normEmailFqdn('notanemail')
 
     async def test_tele_auth(self):
 

@@ -1060,7 +1060,7 @@ class Node(NodeBase):
 
         return False
 
-    def getTag(self, name, defval=None):
+    def getTag(self, name, defval=None, getr=None):
         name = s_chop.tag(name)
         for sode in self.sodes:
             if sode.get('antivalu') is not None:
@@ -1073,6 +1073,13 @@ class Node(NodeBase):
                 continue
 
             if (valu := tags.get(name)) is not None:
+                if getr:
+                    # a tag with no timestamps has no virtual property values
+                    if valu[0] is None:
+                        return defval
+
+                    return getr(valu)
+
                 return valu
 
         return defval

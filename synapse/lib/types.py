@@ -3209,6 +3209,13 @@ class Ival(Type):
 
         return indx
 
+    def getTagVirtInfo(self, virt):
+        # a tag stores the interval alone, so only the virts derived from it are valid
+        if virt not in self.tagvirtindx:
+            raise s_exc.NoSuchVirt.init(virt, self)
+
+        return self.getVirtInfo(virt)
+
     async def _normPyInt(self, valu, opts):
         minv, mininfo = await self.ticktype._normPyInt(valu, opts)
         if minv == self.unksize:

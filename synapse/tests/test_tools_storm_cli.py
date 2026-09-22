@@ -20,12 +20,12 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cli as s_cli
 import synapse.lib.coro as s_coro
+import synapse.lib._http as s_http
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.crypto.passwd as s_passwd
 import synapse.tools.storm._cli as s_t_storm
-import synapse.tools.storm._http as s_t_http
 
 def run_cli_till_print(url, evt1):
     '''
@@ -63,44 +63,7 @@ def run_cli_till_print(url, evt1):
     asyncio.run(main())
     sys.exit(137)
 
-class FakeContent:
-    '''
-    Stand in for the content of an aiohttp response.
-    '''
-    def __init__(self, chunks):
-        self.chunks = chunks
-
-    async def iter_any(self):
-        for byts in self.chunks:
-            yield byts
-
-class FakeResp:
-    '''
-    Stand in for an aiohttp response context manager.
-    '''
-    def __init__(self, chunks, status=200):
-        self.status = status
-        self.content = FakeContent(chunks)
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *args):
-        return False
-
 class StormCliTest(s_test.SynTest):
-
-    async def getStormHttpInfo(self, core):
-        '''
-        Add an HTTPS listener to a Cortex and mint a root user API key.
-
-        Note:
-            The listener uses a self-signed certificate with a CN of the cell type,
-            so callers must disable TLS verification.
-        '''
-        host, port = await core.addHttpsPort(0, host='127.0.0.1')
-        apikey, _ = await core.addUserApiKey(core.auth.rootuser.iden, 'storm-cli')
-        return port, apikey
 
     async def runStormCliItem(self, item):
         '''
@@ -488,17 +451,6 @@ class StormCliTest(s_test.SynTest):
         self.eq('/path/to/cas', opts.https_ca_dir)
         self.true(opts.https_noverify)
 
-        # only https:// URLs are handled by the HTTP API client
-        self.true(s_t_http.isHttpsUrl('https://foo.bar.com:4443/'))
-        self.true(s_t_http.isHttpsUrl('HTTPS://foo.bar.com/'))
-        self.false(s_t_http.isHttpsUrl('http://foo.bar.com/'))
-        self.false(s_t_http.isHttpsUrl('cell:///vertex/storage'))
-
-        # the base URL is built without userinfo and with a default port
-        self.eq('https://foo.bar.com:443', s_t_http.getBaseUrl({'host': 'foo.bar.com', 'path': '/'}))
-        self.eq('https://foo.bar.com:443', s_t_http.getBaseUrl({'host': 'foo.bar.com', 'path': ''}))
-        self.eq('https://[::1]:4443/optic', s_t_http.getBaseUrl({'host': '::1', 'port': 4443, 'path': '/optic/'}))
-
         # the https only options require an https:// URL
         for argv in (('--https-proxy', 'socks5://127.0.0.1:9050'),
                      ('--https-ca-dir', '/path/to/cas'),
@@ -522,10 +474,10 @@ class StormCliTest(s_test.SynTest):
         async with self.getTestCluster() as clus:
             core = clus.cortex
 
-            port, apikey = await self.getStormHttpInfo(core)
+            port, apikey = await self.getHttpsApiInfo(core, name='storm-cli')
             url = f'https://{apikey}@127.0.0.1:{port}'
 
-            async with await s_t_http.HttpCortex.anit(url, verify=False) as prox:
+            async with await s_http.HttpCortex.anit(url, verify=False) as prox:
 
                 await self.runStormCliItem(prox)
 
@@ -563,7 +515,7 @@ class StormCliTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            port, apikey = await self.getStormHttpInfo(core)
+            port, apikey = await self.getHttpsApiInfo(core, name='storm-cli')
             url = f'https://{apikey}@127.0.0.1:{port}'
 
             await self.runStormCliView(core, url, args=('--https-noverify',))
@@ -577,10 +529,10 @@ class StormCliTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            port, apikey = await self.getStormHttpInfo(core)
+            port, apikey = await self.getHttpsApiInfo(core, name='storm-cli')
             url = f'https://{apikey}@127.0.0.1:{port}'
 
-            async with await s_t_http.HttpCortex.anit(url, verify=False) as prox:
+            async with await s_http.HttpCortex.anit(url, verify=False) as prox:
                 await self.runStormCliComplete(prox)
 
     async def test_storm_cmdloop_interrupt(self):
@@ -596,10 +548,10 @@ class StormCliTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            port, apikey = await self.getStormHttpInfo(core)
+            port, apikey = await self.getHttpsApiInfo(core, name='storm-cli')
             url = f'https://{apikey}@127.0.0.1:{port}'
 
-            async with await s_t_http.HttpCortex.anit(url, verify=False) as prox:
+            async with await s_http.HttpCortex.anit(url, verify=False) as prox:
                 await self.runStormCliInterrupt(prox)
 
     async def test_storm_cmdloop_sigint(self):
@@ -658,7 +610,7 @@ class StormCliTest(s_test.SynTest):
         '''
         async with self.getTestCore() as core:
 
-            port, apikey = await self.getStormHttpInfo(core)
+            port, apikey = await self.getHttpsApiInfo(core, name='storm-cli')
 
             url = f'https://{apikey}@127.0.0.1:{port}'
             await self.runStormCliInteractive(url, args=('--https-noverify',))
@@ -667,7 +619,7 @@ class StormCliTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            port, apikey = await self.getStormHttpInfo(core)
+            port, apikey = await self.getHttpsApiInfo(core, name='storm-cli')
             outp = s_output.OutPutStr()
 
             # an API key is required in the URL for https:// URLs
@@ -693,135 +645,25 @@ class StormCliTest(s_test.SynTest):
                 await s_t_storm.main(('--https-noverify', f'https://{badkey}@127.0.0.1:{port}', 'inet:ip'), outp=outp)
             self.isin('The session is not logged in.', cm.exception.get('mesg'))
 
-            # only https is supported by the HTTP client
-            for badurl in (f'cell://{apikey}@newp', f'http://{apikey}@127.0.0.1:{port}'):
-                with self.raises(s_exc.BadUrl) as cm:
-                    await s_t_http.HttpCortex.anit(badurl)
-                self.isin('requires an https:// URL', cm.exception.get('mesg'))
-
             # an http:// URL is not routed to the HTTP client, so telepath rejects the scheme
             with self.raises(s_exc.BadUrl) as cm:
                 await s_t_storm.main((f'http://{apikey}@127.0.0.1:{port}', 'inet:ip'), outp=outp)
             self.isin('Invalid URL scheme: http', cm.exception.get('mesg'))
 
-            # the TLS CA directory must exist
-            with self.raises(s_exc.BadArg) as cm:
-                await s_t_http.HttpCortex.anit(f'https://{apikey}@127.0.0.1:{port}', cadir='/newp')
-            self.isin('TLS CA directory does not exist', cm.exception.get('mesg'))
-
-            # a base path which does not host the API has no JSON envelope to report
-            with self.raises(s_exc.SynErr) as cm:
-                await s_t_http.HttpCortex.anit(f'https://{apikey}@127.0.0.1:{port}/newp', verify=False)
-            self.isin('REST API request failed (HTTP 404)', cm.exception.get('mesg'))
-
     async def test_tools_storm_http_keepalive(self):
 
         async with self.getTestCore() as core:
 
-            port, apikey = await self.getStormHttpInfo(core)
+            port, apikey = await self.getHttpsApiInfo(core, name='storm-cli')
             url = f'https://{apikey}@127.0.0.1:{port}'
 
-            async with await s_t_http.HttpCortex.anit(url, verify=False) as prox:
-
-                self.none(prox.sess.timeout.total)
-
-                calls = []
-                realpost = prox.sess.post
-
-                def post(url, **kwargs):
-                    calls.append((url, kwargs.get('json'), kwargs.get('timeout')))
-                    return realpost(url, **kwargs)
-
-                with mock.patch.object(prox.sess, 'post', post):
-
-                    await s_test.alist(prox.storm('$lib.print(woot)'))
-                    await prox.callStorm('return((0))')
-                    await s_test.alist(prox.exportStorm('inet:ip'))
-                    await s_test.alist(prox.storm('$lib.print(woot)', opts={'keepalive': 30}))
-
-                stormurl, body, timeout = calls[0]
-                self.eq(f'{url.split("@")[1]}/api/v3/storm', stormurl.split('//')[1])
-                self.eq(6, body['opts']['keepalive'])
-                self.notin('stream', body)
-                self.none(timeout)
-
-                # callStorm and exportStorm do not emit keepalive messages
-                self.notin('keepalive', calls[1][1].get('opts', {}))
-                self.notin('keepalive', calls[2][1].get('opts', {}))
-                self.none(calls[1][2])
-
-                # the export request is bounded rather than allowed to hang forever
-                self.eq(s_t_http.EXPORT_TIMEOUT, calls[2][2].total)
-
-                # an explicit keepalive wins over the default
-                self.eq(30, calls[3][1]['opts']['keepalive'])
-
-                # the Cortex really does emit ping messages
-                msgs = await s_test.alist(prox.storm('$lib.time.sleep(0.35)', opts={'keepalive': 0.1}))
-                pings = [m for m in msgs if m[0] == 'ping']
-                self.gt(len(pings), 0)
-                self.eq({}, pings[0][1])
+            async with await s_http.HttpCortex.anit(url, verify=False) as prox:
 
                 # ping messages produce no CLI output
                 outp = s_output.OutPutStr()
                 async with await s_t_storm.StormCli.anit(prox, outp=outp) as scli:
                     await scli.storm('$lib.time.sleep(0.35)', opts={'keepalive': 0.1})
                 self.notin('ping', str(outp))
-
-    async def test_tools_storm_http_bigmesg(self):
-
-        async with self.getTestCore() as core:
-
-            port, apikey = await self.getStormHttpInfo(core)
-            url = f'https://{apikey}@127.0.0.1:{port}'
-
-            # a single storm message larger than the aiohttp StreamReader high water mark
-            # ( 524288 bytes ) must survive the jsonlines reassembly. reading the stream
-            # with readline() raises LineTooLong for a message this size, which is why
-            # iterJsonLines() buffers over iter_any() instead.
-            size = 1000000
-            q = f'$valu = $lib.cast(str, A) $lib.fire(bigmesg, data=$valu.ljust({size}, A))'
-
-            async with await s_t_http.HttpCortex.anit(url, verify=False) as prox:
-
-                msgs = await s_test.alist(prox.storm(q))
-
-                fired = [m for m in msgs if m[0] == 'storm:fire']
-                self.len(1, fired)
-                self.eq('bigmesg', fired[0][1].get('type'))
-                self.eq('A' * size, fired[0][1]['data'].get('data'))
-
-                # the stream still terminated cleanly
-                self.eq('fini', msgs[-1][0])
-
-    async def test_tools_storm_http_redirect(self):
-
-        async with self.getTestCore() as core:
-
-            port, apikey = await self.getStormHttpInfo(core)
-            url = f'https://{apikey}@127.0.0.1:{port}'
-
-            core.addHttpApi('/api/v0/reflect', s_test.HttpReflector, {'cell': core})
-
-            async with await s_t_http.HttpCortex.anit(url, verify=False) as prox:
-
-                reflect = prox._getUrl('/api/v0/reflect')
-
-                # the X-API-KEY header is a session default, and aiohttp only strips
-                # Authorization / Cookie / Proxy-Authorization from a redirect. without
-                # allow_redirects=False the key would be replayed to the redirect target.
-                async with prox.sess.get(f'{reflect}?redirect={reflect}', **prox.reqinfo) as resp:
-                    self.eq(302, resp.status)
-
-                # the same request which follows the redirect does carry the key onward
-                info = dict(prox.reqinfo)
-                info['allow_redirects'] = True
-
-                async with prox.sess.get(f'{reflect}?redirect={reflect}', **info) as resp:
-                    self.eq(200, resp.status)
-                    item = await resp.json()
-
-                self.isin('x-api-key', [k.lower() for k in item['result']['headers']])
 
     async def test_tools_storm_http_tlscadir(self):
 
@@ -844,7 +686,7 @@ class StormCliTest(s_test.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                port, apikey = await self.getStormHttpInfo(core)
+                port, apikey = await self.getHttpsApiInfo(core, name='storm-cli')
                 url = f'https://{apikey}@localhost:{port}'
 
                 outp = s_output.OutPutStr()
@@ -861,7 +703,7 @@ class StormCliTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            port, apikey = await self.getStormHttpInfo(core)
+            port, apikey = await self.getHttpsApiInfo(core, name='storm-cli')
             url = f'https://{apikey}@127.0.0.1:{port}'
 
             # a real proxy, so the query is answered through the tunnel rather
@@ -905,109 +747,3 @@ class StormCliTest(s_test.SynTest):
                         self.notin('woot', str(outp))
                         self.eq([], proxy.connects)
                         self.lt(0, proxy.refused)
-
-    async def test_tools_storm_http_jsonlines(self):
-
-        async def genr(chunks):
-            for byts in chunks:
-                yield byts
-
-        # a message split across chunks is reassembled
-        chunks = (b'["pri', b'nt",{"mesg":"woot"}]\n["fini",{}]\n')
-        msgs = await s_test.alist(s_t_http.iterJsonLines(genr(chunks)))
-        self.eq([['print', {'mesg': 'woot'}], ['fini', {}]], msgs)
-
-        # empty chunks and multiple messages per chunk are handled
-        chunks = (b'', b'["init",{}]\n["print",{"mesg":"a"}]\n', b'', b'["fini",{}]\n')
-        msgs = await s_test.alist(s_t_http.iterJsonLines(genr(chunks)))
-        self.len(3, msgs)
-        self.eq('init', msgs[0][0])
-
-        # a trailing partial message is not yielded
-        msgs = await s_test.alist(s_t_http.iterJsonLines(genr((b'["init",{}]\n["pri',))))
-        self.eq([['init', {}]], msgs)
-
-    async def test_tools_storm_http_errors(self):
-
-        async with self.getTestCluster() as clus:
-            core = clus.cortex
-
-            port, apikey = await self.getStormHttpInfo(core)
-            url = f'https://{apikey}@127.0.0.1:{port}'
-
-            async with await s_t_http.HttpCortex.anit(url, verify=False) as prox:
-
-                # error envelopes are converted back into synapse exceptions
-                with self.raises(s_exc.NoSuchView):
-                    await prox.callStorm('return((0))', opts={'view': 'a' * 32})
-
-                with self.raises(s_exc.NoSuchView):
-                    await s_test.alist(prox.storm('inet:ip', opts={'view': 'a' * 32}))
-
-                with self.raises(s_exc.NoSuchView):
-                    await s_test.alist(prox.exportStorm('inet:ip', opts={'view': 'a' * 32}))
-
-                # a missing file is normalized to match the telepath API
-                with self.raises(s_exc.NoSuchFile) as cm:
-                    await s_test.alist(prox.getAxonBytes('00' * 32))
-                self.eq('Axon does not contain the requested file.', cm.exception.get('mesg'))
-                self.eq('00' * 32, cm.exception.get('sha256'))
-
-                # a truncated storm stream is reported rather than silently accepted
-                async def truncated(genr):
-                    yield ['init', {}]
-
-                with mock.patch.object(s_t_http, 'iterJsonLines', truncated):
-                    msgs = await s_test.alist(prox.storm('inet:ip'))
-
-                self.eq('err', msgs[-1][0])
-                self.eq('LinkShutDown', msgs[-1][1][0])
-
-                # a truncated export stream raises rather than returning a short result
-                pode = (('inet:ip', (4, 0x01020304)), {})
-                byts = s_msgpack.en(pode)
-
-                def post(url, **kwargs):
-                    return FakeResp((byts, byts[:-3]))
-
-                with mock.patch.object(prox.sess, 'post', post):
-                    with self.raises(s_exc.BadDataValu) as cm:
-                        await s_test.alist(prox.exportStorm('inet:ip'))
-                self.isin('partial node', cm.exception.get('mesg'))
-
-            # a user without the axon permissions gets a useful error rather than a hang
-            lowuser = await core.auth.addUser('lowuser')
-            lowkey, _ = await core.addUserApiKey(lowuser.iden, 'lowuser')
-
-            async with await s_t_http.HttpCortex.anit(f'https://{lowkey}@127.0.0.1:{port}', verify=False) as prox:
-
-                with self.raises(s_exc.AuthDeny):
-                    await s_test.alist(prox.getAxonBytes('00' * 32))
-
-                # the upload queue must not deadlock when the request fails early
-                with self.raises(s_exc.AuthDeny):
-                    async with await prox.getAxonUpload() as upload:
-                        for _ in range(s_t_http.UPLOAD_QSIZE + 1):
-                            await upload.write(b'A' * 10000000)
-                        await upload.save()
-
-            async with await s_t_http.HttpCortex.anit(url, verify=False) as prox:
-
-                # an upload which ends before all the bytes are sent is an error
-                async def _runUpload(self):
-                    return {'size': 0, 'sha256': '00' * 32}
-
-                with mock.patch.object(s_t_http.HttpUpload, '_runUpload', _runUpload):
-
-                    async with await prox.getAxonUpload() as upload:
-
-                        upload._initUpload()
-                        for _ in range(s_t_http.UPLOAD_QSIZE):
-                            upload.queue.put_nowait(b'A')
-
-                        await upload.task
-
-                        with self.raises(s_exc.BadDataValu) as cm:
-                            await upload.write(b'A')
-
-                self.isin('ended before all bytes were sent', cm.exception.get('mesg'))

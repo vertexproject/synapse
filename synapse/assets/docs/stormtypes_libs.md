@@ -3425,7 +3425,7 @@ Example:
 
     Retrieve the token and handle needing an auth code::
 
-        $provideriden = $lib.globals.get("oauth:myprovider")
+        $provideriden = $lib.globals."oauth:myprovider"
 
         ($ok, $data) = $lib.inet.http.oauth.v2.getUserAccessToken($provideriden)
 

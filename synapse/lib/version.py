@@ -383,5 +383,5 @@ def reqVersion(valu, reqver,
 ##############################################################################
 # The following are touched during the release process.
 # Edit version; commit is set during release.
-version = '3.2.0'
+version = '3.3.0'
 commit = ''

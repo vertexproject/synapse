@@ -3120,6 +3120,18 @@ class View(s_nexus.Pusher):  # type: ignore
     async def storNodeEdits(self, edits, meta):
         await self.saveNodeEdits(edits, meta=meta)
 
+    def _getTagTombDelEdits(self, tag):
+        '''
+        Get the edits which restore a tag along with each of the tags above it.
+
+        Notes:
+            A node may not carry a tag without also carrying the tags above it, so a
+            restore cascades up the way NodeEditor.addTag() does. It does not cascade
+            down, since a tag without the tags beneath it is a valid state.
+        '''
+        parts = tag.split('.')
+        return [(s_layer.EDIT_TAG_TOMB_DEL, ('.'.join(parts[:indx]),)) for indx in range(1, len(parts) + 1)]
+
     async def delTombstone(self, nid, tombtype, tombinfo, runt):
         '''
         Remove a tombstone from the write layer of this view.
@@ -3142,38 +3154,49 @@ class View(s_nexus.Pusher):  # type: ignore
             (_, propname) = tombinfo
 
             if propname is None:
-                edit = (s_layer.EDIT_NODE_TOMB_DEL, ())
+                tomb = (s_layer.EDIT_NODE_TOMB_DEL, ())
                 runt.layerConfirm(form.addperm)
             else:
                 if (prop := form.props.get(propname)) is None:
                     mesg = f'delTombstone() got an invalid property: {form.name}:{propname}'
                     raise s_exc.BadArg(mesg=mesg, form=form.name, prop=propname)
 
-                edit = (s_layer.EDIT_PROP_TOMB_DEL, (propname,))
+                tomb = (s_layer.EDIT_PROP_TOMB_DEL, (propname,))
                 runt.confirmPropSet(prop)
+
+            edits = [tomb]
 
         elif tombtype == s_layer.INDX_TAG:
 
             (_, tag) = tombinfo
-            edit = (s_layer.EDIT_TAG_TOMB_DEL, (tag,))
+            edits = self._getTagTombDelEdits(tag)
+            tomb = edits[-1]
             runt.layerConfirm(('node', 'tag', 'add', *tag.split('.')))
 
         elif tombtype == s_layer.INDX_TAGPROP:
 
             (_, tag, prop) = tombinfo
-            edit = (s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop))
+            tomb = (s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop))
+
+            # the tag comes back with the tagprop, since a node may not carry a
+            # tagprop for a tag it does not have
+            edits = self._getTagTombDelEdits(tag)
+            edits.append(tomb)
+
             runt.layerConfirm(('node', 'tag', 'add', *tag.split('.')))
 
         elif tombtype == s_layer.INDX_NODEDATA:
 
             (name,) = tombinfo
-            edit = (s_layer.EDIT_NODEDATA_TOMB_DEL, (name,))
+            tomb = (s_layer.EDIT_NODEDATA_TOMB_DEL, (name,))
+            edits = [tomb]
             runt.layerConfirm(('node', 'data', 'set', name))
 
         elif tombtype == s_layer.INDX_EDGE_VERB:
 
             (verb, n2nid) = tombinfo
-            edit = (s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid))
+            tomb = (s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid))
+            edits = [tomb]
             runt.layerConfirm(('node', 'edge', 'add', verb))
 
         else:
@@ -3185,11 +3208,12 @@ class View(s_nexus.Pusher):  # type: ignore
             'time': s_common.now()
         }
 
-        nodeedit = (s_common.int64un(nid), form.name, [edit])
-        edits = await self.saveNodeEdits([nodeedit], meta, bus=runt.bus)
+        nodeedit = (s_common.int64un(nid), form.name, edits)
+        nodeedits = await self.saveNodeEdits([nodeedit], meta, bus=runt.bus)
 
-        # the layer drops a *_TOMB_DEL edit which has no tombstone to remove
-        return len(edits) > 0
+        # the layer drops a *_TOMB_DEL edit which has no tombstone to remove, so the
+        # tombstone the caller named only comes back when it was really removed
+        return any(tomb in changes for (_, _, changes) in nodeedits)
 
     async def scrapeIface(self, text, unique=False, refang=True):
 

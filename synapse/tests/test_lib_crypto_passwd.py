@@ -169,3 +169,52 @@ class PasswdTest(s_t_utils.SynTest):
             isok, valu = s_passwd.parseApiKey(badkey)
             self.false(isok)
             self.isin('Invalid character in API key.', valu)
+
+    async def test_apikey_generation_prefix(self):
+        # every generated key now carries a fixed prefix, so it can never begin with
+        # '-' regardless of which iden bytes s_common.guid() happens to produce.
+        iden, key, shadow = await s_passwd.generateApiKey()
+        self.true(key.startswith(s_passwd.APIKEY_PREFIX))
+        self.false(key.startswith('-'))
+
+        isok, (iden2, secv) = s_passwd.parseApiKey(key)
+        self.true(isok)
+        self.eq(iden, iden2)
+        self.true(await s_passwd.checkShadowV2(secv, shadow))
+
+        # a key issued before the prefix existed carries none, and must still parse --
+        # this is the shape of every key issued before this change, including one whose
+        # iden happens to produce a leading '-' (an iden's first byte of 0xf8-0xfb does).
+        dash_iden = 'f8' + s_common.guid()[2:]
+        legacy_secv = s_common.guid()
+        legacy_key = base64.b64encode(s_common.uhex(dash_iden) + s_common.uhex(legacy_secv),
+                                       altchars=b'-_').decode('utf-8')
+        self.true(legacy_key.startswith('-'))
+
+        isok0, (iden0, secv0) = s_passwd.parseApiKey(legacy_key)
+        self.true(isok0)
+        self.eq(dash_iden, iden0)
+        self.eq(legacy_secv, secv0)
+
+        legacy_shadow = await s_passwd.getShadowV2(legacy_secv)
+        self.true(await s_passwd.checkShadowV2(secv0, legacy_shadow))
+
+        # a legacy (unprefixed) key can itself begin with the literal prefix -- 's', 'y',
+        # 'n' and '-' are all valid '-_' altchars -- so parseApiKey must not strip it
+        # unconditionally. An iden starting with the bytes b3:29:fe encodes to exactly
+        # that.
+        prefixlike_iden = 'b329fe' + s_common.guid()[6:]
+        prefixlike_secv = s_common.guid()
+        prefixlike_key = base64.b64encode(s_common.uhex(prefixlike_iden) + s_common.uhex(prefixlike_secv),
+                                           altchars=b'-_').decode('utf-8')
+        self.true(prefixlike_key.startswith(s_passwd.APIKEY_PREFIX))
+
+        isok1, (iden1, secv1) = s_passwd.parseApiKey(prefixlike_key)
+        self.true(isok1)
+        self.eq(prefixlike_iden, iden1)
+        self.eq(prefixlike_secv, secv1)
+
+        # a value that begins with the prefix but whose remainder does not parse falls
+        # back cleanly rather than raising, and is still rejected
+        isok2, _ = s_passwd.parseApiKey(s_passwd.APIKEY_PREFIX + 'newp')
+        self.false(isok2)

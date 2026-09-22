@@ -510,7 +510,8 @@ class CortexTest(s_t_utils.SynTest):
 
             await core.nodes('[ entity:name="vertex project" ]')
 
-            # hint-based results *are* deduplicated against themselves via lookup remainder
+            # remainder-token results ( the lookup hints and the search interface )
+            # *are* deduplicated against each other
             nodes = await core.nodes('vertex vertex', opts={'mode': 'lookup'})
             self.eq(['entity:name'], [n.ndef[0] for n in nodes])
 
@@ -2514,6 +2515,85 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0][0], ('test:pivcomp', (('test:pivtarg', 'foo'), ('test:str', 'bar'))))
             self.eq(nodes[1][0], ('test:str', 'bar'))
+
+            # refs in finds the nodes which reference us by a virtual property of
+            # their primary property
+            await core.nodes('[ inet:tunnel=* :egress=tcp://172.120.254.49 ]')
+            await core.nodes('[ inet:flow=* :client=tcp://172.120.254.49:4444 ]')
+
+            q = 'inet:ip=172.120.254.49 <- *'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('inet:client', 'tcp://172.120.254.49:4444'))
+            self.eq(nodes[1][0], ('inet:server', 'tcp://172.120.254.49'))
+
+            q = 'inet:ip=172.120.254.49 <+- *'
+            nodes = await getPackNodes(core, q)
+            self.len(3, nodes)
+
+            # the walk operator inherits the same behavior
+            q = 'inet:ip=172.120.254.49 <-- *'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+
+            nodes = await core.nodes('inet:ip=172.120.254.49 <- * +inet:server -> inet:tunnel')
+            self.len(1, nodes)
+            self.eq('inet:tunnel', nodes[0].ndef[0])
+
+            # a virt on a secondary property is not a ref, so the flow which has the
+            # IP as inet:flow:client.ip is reached through the inet:client node
+            nodes = await core.nodes('inet:ip=172.120.254.49 <- * +inet:client <- *')
+            self.len(1, nodes)
+            self.eq('inet:flow', nodes[0].ndef[0])
+
+            # refs in and refs out are symmetric for a virtual property reference
+            nodes = await core.nodes('inet:server=tcp://172.120.254.49 -> *')
+            self.len(1, nodes)
+            self.eq(('inet:ip', (4, 2893610545)), nodes[0].ndef)
+
+            # a virt may reference the same form as the node it is on
+            await core.nodes('[ file:path=/home/visi/foo.exe ]')
+
+            nodes = await core.nodes('file:path=/home/visi <- *')
+            self.len(1, nodes)
+            self.eq(('file:path', '/home/visi/foo.exe'), nodes[0].ndef)
+
+            nodes = await core.nodes('file:base=foo.exe <- *')
+            self.len(1, nodes)
+            self.eq(('file:path', '/home/visi/foo.exe'), nodes[0].ndef)
+
+            # a child form inherits the virts of its parent form type
+            await core.addForm('_ext:srv', 'inet:server', {}, {})
+            self.isin(('_ext:srv', 'ip'), core.model.getVirtsByType('inet:ip'))
+
+            await core.nodes('[ _ext:srv=tcp://7.7.7.7:1 ]')
+            nodes = await core.nodes('inet:ip=7.7.7.7 <- *')
+            self.len(1, nodes)
+            self.eq(('_ext:srv', 'tcp://7.7.7.7:1'), nodes[0].ndef)
+
+            # the loop's lift covers a single form: nodesByPropValu() passes the form
+            # name straight to liftByFormValu(), so a child form is covered by its own
+            # entry rather than by its parent's, and is yielded exactly once
+            ipvalu = (await core.model.type('inet:ip').norm('7.7.7.7'))[0]
+            view = core.getView()
+            self.len(0, [n async for n in view.nodesByPropValu('inet:server', '=', ipvalu,
+                                                               norm=False, virt='ip')])
+
+            await core.nodes('[ inet:server=tcp://8.8.8.8:53 ]')
+            await core.nodes('[ _ext:srv=tcp://8.8.8.8:5353 ]')
+            nodes = await core.nodes('inet:ip=8.8.8.8 <- *')
+            self.len(2, nodes)
+            self.sorteq([('_ext:srv', 'tcp://8.8.8.8:5353'), ('inet:server', 'tcp://8.8.8.8:53')],
+                        [n.ndef for n in nodes])
+
+            # a node whose form is a child of the virt type matches through formtypes
+            await core.addForm('_ext:ip', 'inet:ip', {}, {})
+            self.eq((), core.model.getVirtsByType('_ext:ip'))
+
+            await core.nodes('[ _ext:ip=7.7.7.7 ]')
+            nodes = await core.nodes('_ext:ip=7.7.7.7 <- *')
+            self.len(1, nodes)
+            self.eq(('_ext:srv', 'tcp://7.7.7.7:1'), nodes[0].ndef)
 
             # Add tag
             q = 'test:str=bar test:pivcomp=(foo,bar) [+#test.bar]'

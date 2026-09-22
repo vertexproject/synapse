@@ -176,6 +176,65 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('entity:name', 'Vertex Project'))
 
+    async def test_mode_lookup_search(self):
+
+        # the remainder tokens are also sent to the search Storm interface
+        async with self.getTestCore() as core:
+
+            nid00 = await core.callStorm('[ test:str="vertex str" ] return($node.nid)')
+            nid01 = await core.callStorm('[ entity:name="vertex project" ] return($node.nid)')
+
+            # with no package implementing the interface, the remainder tokens
+            # resolve via the data model lookup hints alone, and there is no warning
+            msgs = await core.stormlist('vertex', opts={'mode': 'lookup'})
+            self.len(0, [m for m in msgs if m[0] in ('warn', 'err')])
+            self.eq([('entity:name', 'vertex project')],
+                    [m[1][0] for m in msgs if m[0] == 'node'])
+
+            core.loadStormPkg({
+                'name': 'testsearch',
+                'modules': [
+                    {'name': 'testsearch', 'interfaces': ['search'],
+                     'modconf': {'nid00': nid00, 'nid01': nid01}, 'storm': '''
+                        function search(tokens) {
+                            $lib.queue.gen(searchtokns).put($tokens)
+                            emit ((10), $modconf.nid00)
+                            // a nid the lookup hints have already yielded
+                            emit ((20), $modconf.nid01)
+                            // a nid which resolves to no node in this view
+                            emit ((30), (99999999))
+                        }
+                    '''},
+                ],
+            })
+
+            # hint results come first, then the interface results in ascending
+            # score order. A nid the hints already yielded is not yielded again
+            # and a nid which resolves to no node is skipped.
+            nodes = await core.nodes('vertex', opts={'mode': 'lookup'})
+            self.eq([('entity:name', 'vertex project'), ('test:str', 'vertex str')],
+                    [n.ndef for n in nodes])
+
+            popq = '$item = $lib.queue.gen(searchtokns).pop() return($item.1)'
+            self.eq(('vertex',), await core.callStorm(popq))
+
+            # all the remainder tokens are sent in a single call, and the tokens
+            # consumed by a scrape match are not sent at all
+            await core.nodes('vertex "vertex project" 1.2.3.4', opts={'mode': 'lookup'})
+            self.eq(('vertex', 'vertex project'), await core.callStorm(popq))
+
+            # the interface is used even when the model has no lookup hints
+            core.model._lookup_hints = []
+            nodes = await core.nodes('vertex', opts={'mode': 'lookup'})
+            self.eq([('test:str', 'vertex str'), ('entity:name', 'vertex project')],
+                    [n.ndef for n in nodes])
+            core.model._lookup_hints = None
+            await core.callStorm(popq)
+
+            # a query with no remainder tokens never reaches the interface
+            self.len(0, await core.nodes('1.2.3.4', opts={'mode': 'lookup'}))
+            self.eq(0, await core.callStorm('return($lib.queue.gen(searchtokns).size())'))
+
     async def test_try_set(self):
         '''
         Test ?= assignment
@@ -4180,6 +4239,21 @@ class AstTest(s_test.SynTest):
             self.len(2, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source'))
             self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source:name'))
 
+            # a walk destination matches the forms which inherit from it
+            await core.nodes('[ meta:rule=(base,) :name=base :creator:name=ron ]')
+            await core.nodes('[ it:app:yara:rule=(yara,) :name=yara :creator:name=ron ]')
+            await core.nodes('[ it:app:snort:rule=(snort,) :name=snort :creator:name=ron ]')
+            await core.nodes('[ risk:threat=* :name=vertex +(used)> { meta:rule } ]')
+
+            self.len(3, await core.nodes('risk:threat:name=vertex -(used)> meta:rule'))
+            self.len(3, await core.nodes('risk:threat:name=vertex -(used)> meta:rule:creator:name'))
+            self.len(3, await core.nodes('risk:threat:name=vertex -(used)> meta:rule:creator:name=ron'))
+
+            self.len(1, await core.nodes('risk:threat:name=vertex -(used)> meta:rule:name=yara'))
+            self.len(1, await core.nodes('risk:threat:name=vertex -(used)> it:app:yara:rule'))
+            self.len(0, await core.nodes('risk:threat:name=vertex -(used)> it:app:sigma:rule'))
+            self.len(2, await core.nodes('risk:threat:name=vertex -(used)> (it:app:yara:rule, it:app:snort:rule)'))
+
     async def test_ast_contexts(self):
         async with self.getTestCore() as core:
 
@@ -5115,6 +5189,36 @@ class AstTest(s_test.SynTest):
             # Invalid cmpr on non-poly (Array) prop filter with virt
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:arrayprop +test:arrayprop:ints.size*newp=5')
+
+            await core.nodes('''[
+                (test:str=tagged +#foo=(2019, 2022))
+                (test:str=untagged)
+                (test:str=notime +#foo)
+            ]''')
+
+            # a tag virt filter matches only nodes which have the tag with timestamps
+            inbound = 'test:str=tagged test:str=untagged test:str=notime'
+            for filt in ('+#(foo).max>2021', '$tag=foo +#($tag).max>2021', '$valu=2021 +#(foo).max>$valu'):
+                nodes = await core.nodes(f'{inbound} {filt}')
+                self.eq(['tagged'], [node.ndef[1] for node in nodes])
+
+            # a negative tag virt filter passes the nodes which the filter does not match
+            for filt in ('-#(foo).max>2021', '$tag=foo -#($tag).max>2021', '$valu=2021 -#(foo).max>$valu'):
+                nodes = await core.nodes(f'{inbound} {filt}')
+                self.eq(['untagged', 'notime'], [node.ndef[1] for node in nodes])
+
+            self.len(1, await core.nodes(f'{inbound} +#(foo).duration>1D'))
+            self.len(2, await core.nodes(f'{inbound} -#(foo).duration>1D'))
+
+            self.none(await core.callStorm('test:str=untagged return(#(foo).max)'))
+            self.none(await core.callStorm('test:str=notime return(#(foo).max)'))
+
+            # a tag carries only the virts derived from its interval
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:str=tagged +#(foo).precision=day')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.callStorm('test:str=tagged return(#(foo).precision)')
 
     async def test_ast_tagpropvirtset_perms(self):
         '''

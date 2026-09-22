@@ -8,7 +8,7 @@ A Rapid Power-Up consists of a **Storm Package** which is a JSON object which de
 
 In this guide we will discuss the basics of **Storm Package** development and discuss a few best practices you can use to ensure they are secure, powerful, and easy to use.
 
-The example `acme-hello` power-up discussed in this guide is included in the **Synapse** repository within the `examples/power-ups/rapid/acme-hello` folder. You can find that at [Acme-Hello Example](https://github.com/vertexproject/synapse/tree/master/examples/power-ups/rapid/acme-hello).
+The example `acme-hello` power-up discussed in this guide is included in the **Synapse** repository within the `examples/power-ups/rapid/acme-hello` folder. You can find that at [Acme-Hello Example](https://github.com/vertexproject/synapse/tree/main/examples/power-ups/rapid/acme-hello).
 
 ## Anatomy of a Storm Package
 
@@ -104,6 +104,9 @@ python -m synapse.tools.storm.pkg.gen acme-hello.yaml --push aha://cortex...
 > If you added an alternate admin user or used a non-standard naming convention you may need to adjust the `aha://cortex...` telepath URL to connect to your Cortex.
 
 > [!NOTE]
+> A Cortex which is only reachable over HTTPS may be given an `https://<apikey>@host:port/` URL instead. See [Pushing with the HTTP API](../userguides/syn_tools_storm_pkg_gen.md#pushing-with-the-http-api).
+
+> [!NOTE]
 > The package definition schema rejects unknown keys, so a misspelled or stray key fails the build
 > with a `SchemaViolation` naming the offending key rather than being silently ignored. The `modconf`
 > and `cmdconf` values, a vault type `schema`, and the `optic` section are exempt, since they hold
@@ -178,13 +181,13 @@ modules:
 
 To minimize risk, you must very carefully consider what functions to implement within a privileged **Storm** module! Privileged modules should contain the absolute minimum required functionality.
 
-An excellent example use case for a privileged **Storm** module exists when you have an API key or password which you would like to use on a user's behalf without disclosing the actual API key. The **Storm** library `$lib.globals.set(<name>, <valu>)` and `$lib.globals.get(<name>)` can be used to access protected global variables which regular users may not access without special permissions. By implementing a privileged **Storm** module which retrieves the API key and uses it on the user's behalf without disclosing it, you may protect the API key from disclosure while also allowing users to use it. For example, `acme.hello.privsep.storm`:
+An excellent example use case for a privileged **Storm** module exists when you have an API key or password which you would like to use on a user's behalf without disclosing the actual API key. The **Storm** library `$lib.globals` is a dictionary of protected global variables which regular users may not access without special permissions, so `$lib.globals."<name>"` reads one and `$lib.globals."<name>" = <valu>` sets it. By implementing a privileged **Storm** module which retrieves the API key and uses it on the user's behalf without disclosing it, you may protect the API key from disclosure while also allowing users to use it. For example, `acme.hello.privsep.storm`:
 
 ```storm
 function getFooByBar(bar) {
 
     // Retrieve an API key from protected storage
-    $apikey = $lib.globals.get(acme:hello:apikey)
+    $apikey = $lib.globals."acme:hello:apikey"
 
     $headers = ({
         "apikey": $apikey
@@ -339,7 +342,7 @@ if $lib.debug { $lib.print("debug mode detected!") }
 
 ## Package Files
 
-A **Storm Package** ships arbitrary data files, such as databases or models, by placing them in a `files` directory beside the **Storm Package** YAML file. The directory is walked recursively, so it may be organized however suits the package. A package's documentation is one common use of `files`: running `python -m synapse.tools.storm.pkg.doc acme-hello.yaml` renders a `docs/` source tree of Markdown pages (processing any ` ```mdstorm ` directives) into `files/docs`, so the built pages travel with the package like any other declared file.
+A **Storm Package** ships arbitrary data files, such as databases or models, by placing them in a `files` directory beside the **Storm Package** YAML file. The directory is walked recursively, so it may be organized however suits the package. A package's documentation is one common use of `files`, and has a tool of its own -- see [Package Documentation](#package-documentation) below.
 
 ```text
 acme-hello.yaml
@@ -382,6 +385,82 @@ The `storm.pkg.gen --push` option behaves the same way for a package pushed dire
 > [!NOTE]
 > A file is located using the package YAML file, so it can only be uploaded when the package is built from its prototype. Pushing an already built package with `--no-build` warns for each file it cannot find locally.
 
+## Package Documentation
+
+A **Storm Package** documents itself with a `docs` directory beside the **Storm Package** YAML file. There is no `docs:` key in the package definition -- the pages are built into `files/docs` and ship as [Package Files](#package-files) like any other file the package declares, so adding documentation to a package requires no change to its YAML at all.
+
+Documentation is optional. A package with no `docs` directory simply builds nothing.
+
+```text
+acme-hello.yaml
+docs/
+    index.md
+    userguide.md
+    adminguide.md
+    stormpackage.md
+```
+
+`index.md` is the entry point. It carries the bundle's navigation as an ` ```mdtoc ` fence listing the other pages in the order they should appear:
+
+````text
+# acme-hello
+
+```mdtoc
+userguide.md
+adminguide.md
+stormpackage.md
+```
+````
+
+Every page needs an H1 heading, every page named by an ` ```mdtoc ` fence must exist, and every page must be reachable from `index.md` -- through the navigation or an ordinary Markdown link. A page that is not is an orphan and fails the build, as does a link or a `#anchor` that does not resolve.
+
+Pages are ordinary Markdown, except that a fenced code block may name a directive which the build replaces with generated content:
+
+` ```mdstorm-setup `
+:   Configures the **Cortex** the rest of the page runs against. `--load-pkg ../acme-hello.yaml` loads the package being documented, so a page demonstrates the package as an installed user would see it. One per page.
+
+` ```mdstorm `
+:   Executes a **Storm** query and captures its output into the built page.
+
+` ```mdautodoc `
+:   Generates reference content. `--stormpkg ../acme-hello.yaml` renders the package's own command and module reference from the pkgdef, so it never drifts from what the package actually declares. Commands are rendered from `cmdargs`; a module appears only if it declares `apidefs`, since that is what says which of its functions are exported and what they take. It is conventionally a page of its own, and in the example it is the whole of `stormpackage.md`:
+
+    ````text
+    ```mdautodoc --stormpkg ../acme-hello.yaml
+    ```
+    ````
+
+` ```mdshell `
+:   Executes a shell command and captures its output.
+
+Because those directives run against a real **Cortex** with the package loaded, a documentation build doubles as an integration test: a command that no longer behaves as the page claims fails the build rather than shipping a stale example.
+
+> [!NOTE]
+> A `mocks` directory beside the pages holds recorded HTTP responses for an ` ```mdstorm --mock-http ` fence. It is a build input only and never ships with the package, so cassettes -- and any credentials recorded in them -- are not published.
+
+Build the pages with the `storm.pkg.doc` tool, which renders `docs` into `files/docs` alongside a `metadata.json` describing the navigation:
+
+```text
+python -m synapse.tools.storm.pkg.doc acme-hello.yaml
+```
+
+> [!NOTE]
+> A page is rebuilt when its own source changes. An ` ```mdautodoc --stormpkg ` page reads the pkgdef rather than anything under `docs`, so editing a command or an `apidefs` block leaves the page looking up to date and it is reused as-is. Pass `--force` after such an edit.
+
+The build also writes a `docs.sha256` next to the `docs` directory, recording the SHA256 of every directive-bearing page and of the output it built into. A later build reuses any page whose source and built output both still match, rather than re-running its **Storm** -- which is what keeps a rebuild cheap once one page in a bundle changes. Commit it alongside the built pages.
+
+It is plain GNU `sha256sum` text, so a bundle can be checked for staleness without **Synapse** involved at all:
+
+```text
+cd acme-hello && sha256sum -c docs.sha256
+```
+
+From there the built pages are simply package files. `storm.pkg.gen` generates a `files:` entry for each one keyed `docs/<path>`, exactly as described in [Package Files](#package-files) above: the page contents are not embedded in the package definition, only their SHA256 values, and the bytes are uploaded into the **Cortex** [Axon](../glossary.md#gloss-axon) before the package is added. Uploads are content addressed, so a page whose contents did not change between releases is not uploaded again.
+
+A UI reads a page back by resolving its path to a SHA256 in the package definition and streaming those bytes from the **Axon**. Because those SHA256 values are part of the package definition, they are covered by the package's code signature, and a page cannot be altered independently of the package that declares it.
+
+The `acme-hello` example ships a minimal bundle of exactly this shape.
+
 ## Testing Storm Packages
 
 It is **highly** recommended that any production **Storm Packages** use development "best practices" including version control and unit testing. For the `acme-hello` example, we have included a test file (`test_acme_hello.py`) that you can use as an example to expand on:
@@ -389,7 +468,9 @@ It is **highly** recommended that any production **Storm Packages** use developm
 ```python3
 import os
 
+import synapse.lib.mddocs as s_mddocs
 import synapse.tests.utils as s_test
+import synapse.tools.storm.pkg.gen as s_genpkg
 
 dirname = os.path.abspath(os.path.dirname(__file__))
 
@@ -422,6 +503,36 @@ class AcmeHelloTest(s_test.StormPkgTest):
             self.len(2, nodes)
             self.eq(('inet:dns:a', (('inet:fqdn', 'vertex.link'), ('inet:ipv4', (4, 0x01020304)))), nodes[0][0])
             self.eq(('inet:dns:a', (('inet:fqdn', 'vertex.link'), ('inet:ipv4', (4, 0x7b7b7b7b)))), nodes[1][0])
+
+    async def test_acme_hello_docs(self):
+
+        pkgdef = s_genpkg.loadPkgProto(self.pkgprotos[0], readonly=True)
+        filedefs = pkgdef.get('files')
+
+        # the built docs ship as ordinary package files under a docs/ prefix. only
+        # the sha256 the Axon stores them by is carried in the package definition.
+        pages = [name for name in os.listdir(os.path.join(dirname, 'docs')) if name.endswith('.md')]
+        self.gt(len(pages), 0)
+
+        for name in pages:
+            filedef = filedefs.get(f'docs/{name}')
+            self.nn(filedef)
+            self.len(64, filedef.get('sha256'))
+
+        self.nn(filedefs.get('docs/metadata.json'))
+
+    async def test_acme_hello_docs_current(self):
+
+        docsdir = os.path.join(dirname, 'docs')
+
+        manifest = s_mddocs.getManifestPath(docsdir)
+        entries = s_mddocs.loadManifest(manifest)
+        self.gt(len(entries), 0)
+
+        # every page the last build recorded still hashes to what it recorded, so
+        # editing docs/ without rebuilding files/docs fails here rather than shipping
+        hint = 'python -m synapse.tools.storm.pkg.doc acme-hello.yaml'
+        self.eq([], s_mddocs.checkManifest('acme-hello', entries, os.path.dirname(manifest), hint=hint))
 ```
 
 With the file `test_acme_hello.py` located in the same directory as `acme-hello.yaml` you can use the standard `pytest` invocation to run the test:

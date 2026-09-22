@@ -21,14 +21,16 @@ def _write(dirn, relpath, text):
         fd.write(text)
     return path
 
+def _sha256(text):
+    return hashlib.sha256(text.encode()).hexdigest()
+
 def _writemanifest(path, entries):
     '''
     Write a docs.sha256-shaped manifest at path from (relpath, sha256hex)
-    entries -- the same shape gen_docs_manifest.saveManifest/loadManifest
-    read and write, built by hand here so a test can pin an entry to
-    whatever hash it wants (a real hashFile() call for a "matches" case, or
-    a deliberately wrong hex string for a "drifted" one) without needing the
-    enterprise-only gen_docs_manifest.py.
+    entries -- the same shape saveManifest/loadManifest read and write, built
+    by hand here so a test can pin an entry to whatever hash it wants (a real
+    hashFile() call for a "matches" case, or a deliberately wrong hex string
+    for a "drifted" one) rather than going through saveManifest.
     '''
     with open(path, 'w') as fd:
         fd.write('# test manifest\n')
@@ -1408,7 +1410,7 @@ class MdDocsTest(s_test.SynTest):
 
     def test_reusefiles_key_inversion_across_bundle_layouts(self):
         # a bundle's manifest relpaths are recorded relative to the
-        # manifest's OWN directory (see gen_docs_manifest.buildBundleEntries),
+        # manifest's OWN directory (see bundleManifestEntries),
         # which sits in a different place relative to docsdir/outdir for
         # each bundle kind -- a rapid/synmod's docs.sha256 sits next to both
         # docs/ and files/docs, while synapse's sits one level below
@@ -2162,3 +2164,262 @@ class DocDriftTest(s_test.SynTest):
 
             self.len(1, seen)
             self.false(os.path.isdir(seen[0]))
+
+
+class MdDocsManifestTest(s_test.SynTest):
+    '''
+    The manifest writer half of docs.sha256 -- bundleManifestEntries, saveManifest,
+    checkManifest and writeManifest. The reader half (loadManifest, hashFile,
+    reuseFiles) is covered in MdDocsTest above.
+    '''
+    def test_buildbundleentries_pairs_directive_bearing_staged_files(self):
+        with self.getTestDir() as repodir:
+            index_src = '# Index\n\n```mdstorm\nfoo\n```\n'
+            docsdir = _write(repodir, 'pkg/docs/index.md', index_src)
+            docsdir = os.path.dirname(docsdir)
+            _write(repodir, 'pkg/docs/sub/image.svg', '<svg/>')
+            outdir = _write(repodir, 'pkg/files/docs/index.md', '# Index (built)\n')
+            outdir = os.path.dirname(outdir)
+            _write(repodir, 'pkg/files/docs/sub/image.svg', '<svg/>')
+
+            basedir = os.path.join(repodir, 'pkg')
+            entries = s_mddocs.bundleManifestEntries(docsdir, outdir, basedir)
+
+            # the svg has no directive fence (it isn't even Markdown) and is excluded,
+            # leaving one entry each for the directive-bearing index.md's source and
+            # its built destination.
+            byrelpath = dict(entries)
+            self.eq(2, len(entries))
+            self.eq(_sha256(index_src), byrelpath['docs/index.md'])
+            self.eq(_sha256('# Index (built)\n'), byrelpath['files/docs/index.md'])
+
+    def test_buildbundleentries_excludes_directive_free_staged_pages(self):
+        # a plain page staged unchanged (no directive fence) needs no tracking:
+        # it has no build step, so there is no drift for the manifest to catch.
+        with self.getTestDir() as repodir:
+            docsdir = _write(repodir, 'pkg/docs/plain.md', '# Plain\n')
+            docsdir = os.path.dirname(docsdir)
+            outdir = _write(repodir, 'pkg/files/docs/plain.md', '# Plain\n')
+            outdir = os.path.dirname(outdir)
+
+            basedir = os.path.join(repodir, 'pkg')
+            self.eq([], s_mddocs.bundleManifestEntries(docsdir, outdir, basedir))
+
+    def test_buildbundleentries_excludes_directive_free_destination_only(self):
+        # changelog.md-style: never staged from docs/, lives only in outdir, no
+        # directive fence of its own -- excluded, not recorded self-referentially.
+        with self.getTestDir() as repodir:
+            docsdir = _write(repodir, 'pkg/docs/index.md', '# Index\n\n```mdstorm\nfoo\n```\n')
+            docsdir = os.path.dirname(docsdir)
+            outdir = _write(repodir, 'pkg/files/docs/changelog.md', '# Changelog\n')
+            outdir = os.path.dirname(outdir)
+            _write(repodir, 'pkg/files/docs/index.md', '# Index (built)\n')
+
+            basedir = os.path.join(repodir, 'pkg')
+            entries = s_mddocs.bundleManifestEntries(docsdir, outdir, basedir)
+
+            self.eq({'docs/index.md', 'files/docs/index.md'}, {relpath for relpath, _ in entries})
+
+    def test_buildbundleentries_excludes_mocks_build_and_git(self):
+        with self.getTestDir() as repodir:
+            docsdir = _write(repodir, 'pkg/docs/index.md', '# Index\n\n```mdstorm\nfoo\n```\n')
+            docsdir = os.path.dirname(docsdir)
+            _write(repodir, 'pkg/docs/mocks/cassette.yaml', 'interactions: []\n')
+            _write(repodir, 'pkg/docs/_build/stale.md', 'stale\n')
+            _write(repodir, 'pkg/docs/.git/HEAD', 'ref: refs/heads/main\n')
+            outdir = _write(repodir, 'pkg/files/docs/index.md', '# Index (built)\n')
+            outdir = os.path.dirname(outdir)
+
+            basedir = os.path.join(repodir, 'pkg')
+            entries = s_mddocs.bundleManifestEntries(docsdir, outdir, basedir)
+
+            self.eq({'docs/index.md', 'files/docs/index.md'}, {relpath for relpath, _ in entries})
+
+    def test_hasdirective(self):
+        with self.getTestDir() as repodir:
+            plain = _write(repodir, 'plain.md', '# Plain\n\n```python\nx = 1\n```\n')
+            self.false(s_mddocs._hasDirective(plain))
+
+            directive = _write(repodir, 'directive.md', '# Doc\n\n```mdstorm-setup --cortex default\n```\n')
+            self.true(s_mddocs._hasDirective(directive))
+
+            toc = _write(repodir, 'toc.md', "# Index\n\n```mdtoc --caption 'Contents:'\nfoo.md\n```\n")
+            self.true(s_mddocs._hasDirective(toc))
+
+            notmd = _write(repodir, 'notmd.txt', '```mdstorm\nfoo\n```\n')
+            self.false(s_mddocs._hasDirective(notmd))
+
+    def test_buildbundleentries_includes_mdtoc(self):
+        with self.getTestDir() as repodir:
+            src = "# Index\n\n```mdtoc --caption 'Contents:'\nfoo.md\n```\n"
+            docsdir = _write(repodir, 'pkg/docs/index.md', src)
+            docsdir = os.path.dirname(docsdir)
+            outdir = _write(repodir, 'pkg/files/docs/index.md', '# Index\n\n- [Foo](foo.md)\n')
+            outdir = os.path.dirname(outdir)
+
+            basedir = os.path.join(repodir, 'pkg')
+            entries = s_mddocs.bundleManifestEntries(docsdir, outdir, basedir)
+
+            byrelpath = dict(entries)
+            self.eq({'docs/index.md', 'files/docs/index.md'}, set(byrelpath))
+            self.eq(_sha256(src), byrelpath['docs/index.md'])
+
+    def test_buildbundleentries_missing_docsdir_or_outdir(self):
+        with self.getTestDir() as repodir:
+            docsdir = os.path.join(repodir, 'pkg', 'docs')
+            outdir = os.path.join(repodir, 'pkg', 'files', 'docs')
+            basedir = os.path.join(repodir, 'pkg')
+
+            # neither exists yet -- nothing to pair
+            self.eq([], s_mddocs.bundleManifestEntries(docsdir, outdir, basedir))
+
+            # docsdir exists, outdir doesn't -- still nothing to check a build against
+            _write(repodir, 'pkg/docs/index.md', '# Index\n')
+            self.eq([], s_mddocs.bundleManifestEntries(docsdir, outdir, basedir))
+
+    def test_checkmanifest_clean(self):
+        with self.getTestDir() as basedir:
+            _write(basedir, 'a.md', 'content\n')
+            entries = [('a.md', _sha256('content\n'))]
+            self.eq([], s_mddocs.checkManifest('bundle', entries, basedir))
+
+    def test_checkmanifest_hash_mismatch(self):
+        with self.getTestDir() as basedir:
+            _write(basedir, 'a.md', 'changed\n')
+            entries = [('a.md', _sha256('old\n'))]
+            errors = s_mddocs.checkManifest('bundle', entries, basedir)
+            self.eq(1, len(errors))
+            self.isin('bundle: hash mismatch for a.md', errors[0])
+            self.isin('rebuild the bundle', errors[0])
+
+            # a caller with build tooling of its own names the command that fixes it
+            errors = s_mddocs.checkManifest('bundle', entries, basedir, hint='make -C docs bundle')
+            self.isin('make -C docs bundle', errors[0])
+
+    def test_checkmanifest_missing_file(self):
+        with self.getTestDir() as basedir:
+            entries = [('nope.md', 'x' * 64)]
+            errors = s_mddocs.checkManifest('bundle', entries, basedir)
+            self.eq(1, len(errors))
+            self.isin('bundle: missing file nope.md', errors[0])
+
+    def test_checkmanifest_entry_order_preserved(self):
+        # checkManifest reports in the order it's handed -- saveManifest is the only
+        # place order is decided (see the sort-order tests below), not this function.
+        with self.getTestDir() as basedir:
+            entries = [('b.md', 'x' * 64), ('a.md', 'y' * 64)]
+            errors = s_mddocs.checkManifest('bundle', entries, basedir)
+            self.eq(2, len(errors))
+            self.isin('missing file b.md', errors[0])
+            self.isin('missing file a.md', errors[1])
+
+    async def test_buildbundle_writes_the_bundle_manifest(self):
+        # the build is what produces docs.sha256, so a bundle has one without any
+        # tooling beyond the build itself -- reuseFiles consults it on the next run
+        with self.getTestDir() as workdir:
+
+            srcdir = s_common.gendir(workdir, 'docs')
+            outdir = s_common.gendir(workdir, 'files', 'docs')
+
+            _write(srcdir, 'index.md', '# Index\n\n```mdtoc\npage1.md\n```\n')
+            _write(srcdir, 'page1.md', '# Page One\n')
+
+            manifest = s_mddocs.getManifestPath(srcdir)
+            self.false(os.path.isfile(manifest))
+
+            await s_mddocs.buildBundle(srcdir, outdir)
+
+            self.true(os.path.isfile(manifest))
+
+            # index.md carries an mdtoc fence, so both sides of it are tracked;
+            # page1.md carries no directive and is not
+            entries = dict(s_mddocs.loadManifest(manifest))
+            self.eq({'docs/index.md', 'files/docs/index.md'}, set(entries))
+            self.eq(s_mddocs.hashFile(s_common.genpath(outdir, 'index.md')),
+                    entries['files/docs/index.md'])
+
+    async def test_buildbundle_save_override_leaves_the_manifest_alone(self):
+        # a build merging somewhere other than the bundle's canonical directory
+        # (synapse.tools.storm.pkg.doc --save) must not record that throwaway
+        # output as the bundle's own state
+        with self.getTestDir() as workdir, self.getTestDir() as savedir:
+
+            srcdir = s_common.gendir(workdir, 'docs')
+            outdir = s_common.gendir(workdir, 'files', 'docs')
+
+            _write(srcdir, 'index.md', '# Index\n\n```mdtoc\npage1.md\n```\n')
+            _write(srcdir, 'page1.md', '# Page One\n')
+
+            manifest = s_mddocs.getManifestPath(srcdir)
+
+            await s_mddocs.buildBundle(srcdir, savedir, staticdir=outdir)
+
+            self.true(os.path.isfile(s_common.genpath(savedir, 'index.md')))
+            self.false(os.path.isfile(manifest))
+
+    def test_savemanifest_writes_header_two_space_separator_and_single_trailing_newline(self):
+        with self.getTestDir() as d:
+            path = os.path.join(d, 'docs.sha256')
+            s_mddocs.saveManifest(path, [('a.md', 'a' * 64)])
+
+            text = open(path).read()
+            lines = text.splitlines(keepends=True)
+            self.eq(3, len(lines))
+            self.true(lines[0].startswith('#'))
+            self.true(lines[1].startswith('#'))
+            self.eq(f'{"a" * 64}  a.md\n', lines[2])
+            self.true(text.endswith('\n'))
+            self.false(text.endswith('\n\n'))
+
+    # loadManifest's own parsing -- header and blank-line skipping, the GNU sha256sum
+    # binary-mode " *" separator, the malformed-line raise -- is covered by
+    # test_loadmanifest_roundtrips_and_rejects_malformed_line above. What this covers
+    # is that saveManifest's output reads back through it.
+
+    def test_savemanifest_loadmanifest_roundtrip(self):
+        with self.getTestDir() as d:
+            path = os.path.join(d, 'docs.sha256')
+            entries = [('b.md', 'b' * 64), ('a.md', 'a' * 64)]
+            s_mddocs.saveManifest(path, entries)
+
+            self.eq([('a.md', 'a' * 64), ('b.md', 'b' * 64)], s_mddocs.loadManifest(path))
+
+    def test_savemanifest_rejects_duplicate_relpath(self):
+        with self.getTestDir() as d:
+            path = os.path.join(d, 'docs.sha256')
+            self.raises(ValueError, s_mddocs.saveManifest, path,
+                        [('a.md', 'x' * 64), ('a.md', 'x' * 64)])
+
+    def test_savemanifest_sorts_regardless_of_input_order(self):
+        # order out of saveManifest must depend only on the relpaths, never on the order
+        # entries were handed in -- this is what keeps a manifest's git diff/merge behavior
+        # stable across two callers (or two builds) that happen to enumerate files
+        # differently.
+        with self.getTestDir() as d:
+            relpaths = ['z.md', 'a.md', 'm.md']
+            entries = [(r, _sha256(r)) for r in relpaths]
+
+            pathA = os.path.join(d, 'A.sha256')
+            pathB = os.path.join(d, 'B.sha256')
+            s_mddocs.saveManifest(pathA, entries)
+            s_mddocs.saveManifest(pathB, list(reversed(entries)))
+
+            gotA = [relpath for relpath, _ in s_mddocs.loadManifest(pathA)]
+            gotB = [relpath for relpath, _ in s_mddocs.loadManifest(pathB)]
+            self.eq(['a.md', 'm.md', 'z.md'], gotA)
+            self.eq(gotA, gotB)
+            self.eq(open(pathA).read(), open(pathB).read())
+
+    def test_savemanifest_sort_order_is_pinned_to_plain_codepoint_comparison(self):
+        # the expected order below is hand-written, not derived by calling sorted() on the
+        # same list -- so a future switch to a locale-dependent (e.g. shelling out to `sort`)
+        # or path-segment-aware comparison changes this test's outcome, not just its own
+        # implementation. '-'(0x2D) < '.'(0x2E) < 'B'(0x42) < '_'(0x5F) < 'b'(0x62) is what
+        # pins 'a-b.md' before 'a.md' before 'aB.md' before 'a_b.md' before 'ab.md'.
+        with self.getTestDir() as d:
+            path = os.path.join(d, 'docs.sha256')
+            relpaths = ['ab.md', 'a_b.md', 'aB.md', 'a.md', 'a-b.md']
+            s_mddocs.saveManifest(path, [(r, _sha256(r)) for r in relpaths])
+
+            got = [relpath for relpath, _ in s_mddocs.loadManifest(path)]
+            self.eq(['a-b.md', 'a.md', 'aB.md', 'a_b.md', 'ab.md'], got)

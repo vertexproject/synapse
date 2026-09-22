@@ -2,6 +2,8 @@ import sys
 import time
 import asyncio
 
+from unittest import mock
+
 import synapse.exc as s_exc
 
 import synapse.lib.process as s_process
@@ -65,3 +67,17 @@ class ProcessTest(s_t_utils.SynTest):
             await s_process.spawn(todo)
         self.eq(0, cm.exception.get('code'))
         self.isin('without a result', cm.exception.get('mesg'))
+
+    async def test_lib_process_spawn_timeout_unstarted(self):
+
+        # A timeout can fire before spawn()'s executor thread reaches
+        # proc.start(); terminating a process which was never started raises
+        # AttributeError, which must not replace the caller's TimeoutError.
+        async def slowexec(func, *args, **kwargs):
+            await asyncio.sleep(5)
+
+        todo = (spawnsleep, (), {})
+
+        with mock.patch('synapse.lib.coro.executor', slowexec):
+            with self.raises(asyncio.TimeoutError):
+                await s_process.spawn(todo, timeout=0.1)

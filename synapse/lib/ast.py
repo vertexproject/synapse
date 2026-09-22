@@ -312,9 +312,10 @@ class Lookup(Query):
                 return
 
             hints = runt.model.getLookupHints()
-            if not hints:
-                return
 
+            # the remainder tokens are resolved by the data model lookup hints and
+            # then by the search interface. Nodes from those two steps are
+            # deduplicated against each other.
             async with await s_spooled.Set.anit(dirn=view.core.dirn, cell=view.core) as nidset:
 
                 for tokn in remtokns:
@@ -330,6 +331,22 @@ class Lookup(Query):
 
                         except (s_exc.BadTypeValu, s_exc.BadCmprValu, s_exc.NoSuchCmpr):
                             continue
+
+                todo = s_common.todo('search', remtokns)
+                async for _, nid in view.mergeStormIface('search', todo):
+
+                    nid = s_common.int64en(nid)
+                    if nid in nidset:
+                        await asyncio.sleep(0)
+                        continue
+
+                    await nidset.add(nid)
+
+                    node = await view.getNodeByNid(nid)
+                    if node is None:
+                        continue
+
+                    yield node, runt.initPath(node)
 
         realgenr = lookgenr()
         if len(self.kids) > 1:
@@ -2715,6 +2732,13 @@ class PivotIn(PivotOper):
         name, valu = node.ndef
 
         for formtype in node.form.formtypes:
+            for formname, virtname in runt.model.getVirtsByType(formtype):
+                link = {'type': 'prop', 'prop': f'.{virtname}', 'reverse': True}
+
+                async for pivo in runt.view.nodesByPropValu(formname, '=', valu, norm=False, virt=virtname):
+                    yield pivo, path.fork(pivo, link)
+
+        for formtype in node.form.formtypes:
             for prop in runt.model.getPropsByType(formtype):
                 link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
 
@@ -4044,12 +4068,13 @@ class TagVirtCond(Cond):
                 valu = await rval.compute(runt, path)
                 virt = await vkid.compute(runt, path)
 
-                (ptyp, getr) = ival.getVirtInfo(virt)
+                (ptyp, getr) = ival.getTagVirtInfo(virt)
 
                 if (cmprctor := ptyp.getCmprCtor(cmpr)) is None:
                     raise self.kids[2].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
-                tval = getr(node.getTag(name))
+                if (tval := node.getTag(name, getr=getr)) is None:
+                    return False
 
                 return await (await cmprctor(valu))(tval)
 
@@ -4061,7 +4086,7 @@ class TagVirtCond(Cond):
             valu = await rval.compute(runt, None)
             virt = await vkid.compute(runt, None)
 
-            (ptyp, getr) = ival.getVirtInfo(virt)
+            (ptyp, getr) = ival.getTagVirtInfo(virt)
 
             if (cmprctor := ptyp.getCmprCtor(cmpr)) is None:
                 raise self.kids[2].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
@@ -4069,7 +4094,9 @@ class TagVirtCond(Cond):
             cmpr = await cmprctor(valu)
 
             async def cond(node, path):
-                tval = getr(node.getTag(name))
+                if (tval := node.getTag(name, getr=getr)) is None:
+                    return False
+
                 return await cmpr(tval)
 
             return cond
@@ -4079,12 +4106,13 @@ class TagVirtCond(Cond):
             valu = await rval.compute(runt, path)
             virt = await vkid.compute(runt, path)
 
-            (ptyp, getr) = ival.getVirtInfo(virt)
+            (ptyp, getr) = ival.getTagVirtInfo(virt)
 
             if (cmprctor := ptyp.getCmprCtor(cmpr)) is None:
                 raise self.kids[2].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
-            tval = getr(node.getTag(name))
+            if (tval := node.getTag(name, getr=getr)) is None:
+                return False
 
             return await (await cmprctor(valu))(tval)
 
@@ -4433,8 +4461,8 @@ class TagVirtValue(Value):
         name = await self.kids[0].compute(runt, path)
         virt = await self.kids[1].compute(runt, path)
 
-        getr = runt.model.type('ival').getVirtGetr(virt)
-        return getr(path.node.getTag(name))
+        (_, getr) = runt.model.type('ival').getTagVirtInfo(virt)
+        return path.node.getTag(name, getr=getr)
 
 class TagProp(Value):
 
@@ -5862,10 +5890,12 @@ class N1Walk(Oper):
         for destform in destforms:
             prop = runt.model.prop(destform)
             if prop is not None:
+                # a form or prop name also matches the forms which inherit from it
                 if prop.isform:
-                    forms.add(destform)
+                    forms.update(runt.model.getChildForms(destform))
                 else:
-                    formprops[prop.form.name][prop.name] = prop
+                    for cprop in runt.model.getChildProps(prop):
+                        formprops[cprop.form.name][cprop.name] = cprop
                 continue
 
             formlist = runt.model.reqFormsByLook(destform, extra=self.kids[0].addExcInfo)

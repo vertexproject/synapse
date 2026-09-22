@@ -614,7 +614,7 @@ Pivot operations navigate between sets of nodes that share a common property val
 
 Because Storm evaluates operations from left to right, the pivot out arrow is generally more intuitive and has been used to implement nearly all pivot operations in Storm (the second example, above, is not supported and will generate a `BadSyntax` error).
 
-The pivot in operation is a specialized operation that can only be used with the wildcard ( `*` ) as a target. This **wildcard pivot in** operation navigates from the primary property of the source node(s) to any nodes where that value is a secondary property. A wildcard pivot in is also known as a **refs in** pivot (for "references") because it pivots out to the nodes that reference the source nodes' primary property. Contrast this operation with the **wildcard pivot out**, described under [Secondary to Primary Property Pivot](storm_ref_pivot.md#pivot-secondary-primary).
+The pivot in operation is a specialized operation that can only be used with the wildcard ( `*` ) as a target. This **wildcard pivot in** operation navigates from the primary property of the source node(s) to any nodes where that value is a secondary property, or a virtual property of their primary property. A wildcard pivot in is also known as a **refs in** pivot (for "references") because it pivots out to the nodes that reference the source nodes' primary property. Contrast this operation with the **wildcard pivot out**, described under [Secondary to Primary Property Pivot](storm_ref_pivot.md#pivot-secondary-primary).
 
 **Syntax:**
 
@@ -632,7 +632,7 @@ inet:fqdn <- *
 <inet:fqdn nodes> <- *
 ```
 
-A wildcard pivot in will return any node with a secondary property value that matches any of the source FQDNs. For example, the above query could return various DNS records (`inet:dns:a`, `inet:dns:mx`), URLs (`inet:url`), email addresses (`inet:email`), and so on.
+A wildcard pivot in will return any node with a secondary property value, or a virtual property value of its primary property, that matches any of the source FQDNs. For example, the above query could return various DNS records (`inet:dns:a`, `inet:dns:mx`), URLs (`inet:url`), email addresses (`inet:email`), and so on.
 
 <a id="raw-pivot-syntax"></a>
 
@@ -1013,6 +1013,8 @@ Unless otherwise specified, the target ( *\<target\>* ) of an edge traversal can
 - an interface name (e.g., `it:host:event`);
 - a list of form names (e.g., `( crypto:hash:sha256, file:bytes )`); or
 - a wildcard / asterisk ( `*` ).
+
+A form or property name also matches the forms which inherit from it. For example, `-(used)> meta:rule` traverses to `meta:rule` nodes and to nodes of the forms which extend it (`it:app:yara:rule`, `it:app:snort:rule`, etc.).
 
 <a id="walk-single-edge"></a>
 

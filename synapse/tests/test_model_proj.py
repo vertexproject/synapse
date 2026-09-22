@@ -11,6 +11,7 @@ class ProjModelTest(s_test.SynTest):
 
             nodes = await core.nodes('''
                 [ proj:project=*
+                    :id=10000
                     :name=woot
                     :desc=Woot
                     :type=dfir.case
@@ -20,6 +21,7 @@ class ProjModelTest(s_test.SynTest):
                     :platform={[ inet:service:platform=* ]}
                 ]
             ''')
+            self.propeq(nodes[0], 'id', '10000')
             self.propeq(nodes[0], 'name', 'woot')
             self.propeq(nodes[0], 'desc', 'Woot')
             self.propeq(nodes[0], 'type', 'dfir.case.')

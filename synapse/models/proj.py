@@ -81,6 +81,9 @@ modeldefs = (
                 ),
                 'props': (
 
+                    ('id', ('base:id', {}), {
+                        'doc': 'The ID of the {title}.'}),
+
                     ('name', ('base:name', {}), {
                         'doc': 'The project name.'}),
 

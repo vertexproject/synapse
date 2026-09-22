@@ -80,4 +80,4 @@ Cosign output:
 Verified: vertexproject/synapse@sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b
 ```
 
-Devops teams can use this [tool](https://github.com/vertexproject/synapse/blob/master/synapse/tools/docker/validate.py) as the basis to create or update an admissions controller that can ensure that only signed images are allowed to be used in their environments.
+Devops teams can use this [tool](https://github.com/vertexproject/synapse/blob/main/synapse/tools/docker/validate.py) as the basis to create or update an admissions controller that can ensure that only signed images are allowed to be used in their environments.

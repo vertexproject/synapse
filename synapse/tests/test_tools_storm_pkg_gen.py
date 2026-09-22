@@ -4,6 +4,8 @@ import shutil
 import hashlib
 import unittest.mock as mock
 
+import aiohttp_socks
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -486,6 +488,144 @@ class GenPkgTest(s_test.SynTest):
             pkgcopy['name'] = 'newp'
             self.false(pubk.verifyitem(pkgcopy, s_common.uhex(codesign['sign'])))
 
+    async def test_tools_genpkg_https_args(self):
+
+        ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
+
+        # the https only options require an https:// --push URL
+        for argv in (('--https-proxy', 'socks5://127.0.0.1:9050'),
+                     ('--https-ca-dir', '/path/to/cas'),
+                     ('--https-noverify',)):
+
+            with self.raises(s_exc.BadArg) as cm:
+                await s_genpkg.main((*argv, '--push', 'cell://newp', ymlpath), outp=self.getTestOutp())
+            self.isin('may only be used with an https:// Cortex URL', cm.exception.get('mesg'))
+
+            # ...and are not silently ignored by a --save only run
+            with self.raises(s_exc.BadArg):
+                await s_genpkg.main((*argv, '--save', '/newp/newp.json', ymlpath), outp=self.getTestOutp())
+
+    async def test_tools_genpkg_https(self):
+
+        datapath = s_common.genpath(dirname, 'files', 'stormpkg', 'files', 'data.dat')
+        datasha256 = s_genpkg.getFileSha256(datapath)
+
+        ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
+
+        # the package declares a file, so --push needs a Cortex with a real Axon
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
+
+            port, apikey = await self.getHttpsApiInfo(core, name='pkg-gen')
+            url = f'https://{apikey}@127.0.0.1:{port}'
+
+            base = ('--push', url, '--https-noverify')
+            argv = (*base, ymlpath)
+
+            outp = self.getTestOutp()
+            self.eq(0, await s_genpkg.main(argv, outp=outp))
+
+            # the declared files are uploaded into the Axon over the HTTP API
+            outp.expect(f'Uploading file: {datapath} ({datasha256})')
+            self.true(await core.callStorm('return($lib.axon.has($s))', opts={'vars': {'s': datasha256}}))
+
+            # ...and the package itself is installed
+            self.nn(await core.getStormPkg('testpkg'))
+            msgs = await core.stormlist('$mod=$lib.import(testmod) $lib.print($mod)')
+            self.stormIsInPrint('Imported Module testmod', msgs)
+
+            # a re-push finds the content addressed file already in the Axon
+            outp = self.getTestOutp()
+            self.eq(0, await s_genpkg.main(argv, outp=outp))
+            outp.expect(f'Skipping existing file: {datapath} ({datasha256})')
+
+            # the Cortex verifies a code signature against its own certdir, which reads
+            # the CA back off disk per call, so seeding it after boot is enough
+            core.certdir.genCaCert('testca')
+            core.certdir.genCodeCert('coder@vertex.link', signas='testca')
+
+            # the Cortex is told to verify, and the package is not signed
+            with self.raises(s_exc.BadPkgDef) as cm:
+                await s_genpkg.main((*base, '--push-verify', ymlpath), outp=self.getTestOutp())
+            self.isin('not signed', cm.exception.get('mesg'))
+
+            # a signed package verifies, so the signature survives the JSON round trip
+            # the HTTP API puts the package definition through
+            signas = ('--push-verify', '--certdir', core.certpath, '--signas', 'coder@vertex.link')
+            self.eq(0, await s_genpkg.main((*base, *signas, ymlpath), outp=self.getTestOutp()))
+
+            pkgdef = await core.getStormPkg('testpkg')
+            self.nn(pkgdef['metadata']['codesign']['sign'])
+
+            # an API key whose user cannot add packages is denied
+            lowuser = await core.auth.addUser('lowuser')
+            lowkey, _ = await core.addUserApiKey(lowuser.iden, 'lowuser')
+
+            lowurl = f'https://{lowkey}@127.0.0.1:{port}'
+            with self.raises(s_exc.AuthDeny):
+                await s_genpkg.main(('--push', lowurl, '--https-noverify', ymlpath), outp=self.getTestOutp())
+
+    async def test_tools_genpkg_https_proxy(self):
+
+        datapath = s_common.genpath(dirname, 'files', 'stormpkg', 'files', 'data.dat')
+        datasha256 = s_genpkg.getFileSha256(datapath)
+
+        ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
+
+        # the package declares a file, so the push needs a Cortex with a real Axon
+        async with self.getTestCluster() as clus:
+            core = clus.cortex
+
+            port, apikey = await self.getHttpsApiInfo(core, name='pkg-gen')
+            url = f'https://{apikey}@127.0.0.1:{port}'
+
+            base = ('--push', url, '--https-noverify', '--https-proxy')
+
+            # a real proxy, so a push which quietly went direct fails rather than passing
+            for ctor in s_test.PROXIES:
+                with self.subTest(scheme=ctor.scheme):
+
+                    # drop the file so every scheme uploads rather than skipping
+                    await core.callStorm('$lib.axon.del($sha256)', opts={'vars': {'sha256': datasha256}})
+
+                    async with await ctor.anit() as proxy:
+
+                        outp = self.getTestOutp()
+                        self.eq(0, await s_genpkg.main((*base, proxy.url, ymlpath), outp=outp))
+
+                        # the streamed Axon upload rides the tunnel, not just the pkgdef
+                        outp.expect(f'Uploading file: {datapath} ({datasha256})')
+                        self.true(await core.callStorm('return($lib.axon.has($s))',
+                                                       opts={'vars': {'s': datasha256}}))
+                        self.nn(await core.getStormPkg('testpkg'))
+
+                        # every tunnel named the Cortex, and there was at least one
+                        self.lt(0, len(proxy.connects))
+                        self.eq({('127.0.0.1', port)}, set(proxy.connects))
+
+                    # credentials in the proxy URL reach a proxy which demands them
+                    async with await ctor.anit(auth='visi:secret') as proxy:
+
+                        proxyurl = proxy.url.replace('://', '://visi:secret@')
+
+                        outp = self.getTestOutp()
+                        self.eq(0, await s_genpkg.main((*base, proxyurl, ymlpath), outp=outp))
+
+                        outp.expect(f'Skipping existing file: {datapath} ({datasha256})')
+                        self.eq(0, proxy.refused)
+                        self.eq({('127.0.0.1', port)}, set(proxy.connects))
+
+                    # and the wrong ones fail rather than connecting directly
+                    async with await ctor.anit(auth='visi:secret') as proxy:
+
+                        proxyurl = proxy.url.replace('://', '://visi:newp@')
+
+                        with self.raises(aiohttp_socks.ProxyError):
+                            await s_genpkg.main((*base, proxyurl, ymlpath), outp=self.getTestOutp())
+
+                        self.eq([], proxy.connects)
+                        self.lt(0, proxy.refused)
+
     async def test_pkg_encryption_runtime(self):
 
         async with self.getTestCore() as core:
@@ -622,6 +762,14 @@ class TestStormPkgTest(s_test.StormPkgTest):
             msgs = await core.stormlist('testpkgcmd foo')
             self.stormHasNoWarnErr(msgs)
             self.eq('frob', await core.callStorm('return($lib.globals.inittestcore)'))
+
+            # a failing inits query is caught and logged rather than raised, so without
+            # asserting what it set, a broken one goes unnoticed on every package load
+            self.true(await core.callStorm('return($lib.globals."testpkg-first")'))
+
+            # 'second' is version 2 with no inaugural flag, so a fresh install records
+            # its version and skips the query (see Cortex._runStormPkgOnload)
+            self.none(await core.callStorm('return($lib.globals."testpkg-second")'))
 
     async def stormpkg_preppkghook(self, core):
         await core.callStorm('$lib.globals.stormpkg_preppkghook = boundmethod')

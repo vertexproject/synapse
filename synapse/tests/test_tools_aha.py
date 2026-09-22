@@ -234,7 +234,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                 argv = ['--url', aha.getLocalUrl()]
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                 self.eq(retn, 0)
-                outp.expect('Service Mirror Groups:')
+                outp.expect('No mirror groups found.')
                 self.notin('no.iden', str(outp))
 
             # remove the record so its ( now offline ) service type does not
@@ -254,7 +254,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                 argv = ['--url', aha.getLocalUrl()]
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                 self.eq(retn, 0)
-                outp.expect('Service Mirror Groups:')
+                outp.expect('No mirror groups found.')
                 self.notin('no.host', str(outp))
 
             await aha._waitAhaSvcDown('no.host...', timeout=10)
@@ -271,7 +271,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                 argv = ['--url', aha.getLocalUrl()]
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                 self.eq(retn, 0)
-                outp.expect('Service Mirror Groups:')
+                outp.expect('No mirror groups found.')
                 self.notin('no.parent', str(outp))
 
             await aha._waitAhaSvcDown('no.parent...', timeout=10)
@@ -331,13 +331,13 @@ class AhaToolsTest(s_t_utils.SynTest):
 
             async def mockCellInfo():
                 return {
-                    'cell': {'ready': True, 'nexsindx': 10, 'active': True},
+                    'cell': {'ready': True, 'nexus': {'indx': 10}, 'active': True},
                     'synapse': {'version': s_version.version},
                 }
 
             async def mockOutOfSyncCellInfo():
                 return {
-                    'cell': {'ready': True, 'nexsindx': 5, 'active': False},
+                    'cell': {'ready': True, 'nexus': {'indx': 5}, 'active': False},
                     'synapse': {'version': s_version.version},
                 }
 
@@ -386,19 +386,23 @@ class AhaToolsTest(s_t_utils.SynTest):
                 await cell02.sync()
 
             async def mock_failed_api(*args, **kwargs):
-                yield ('00.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 10, 'active': True}}))
+                yield ('00.cell.synapse', (True, {'cell': {'ready': True, 'nexus': {'indx': 10}, 'active': True}}))
                 yield ('01.cell.synapse', (False, 'error'))
-                yield ('02.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 12, 'active': False}}))
+                yield ('02.cell.synapse', (True, {'cell': {'ready': True, 'nexus': {'indx': 12}, 'active': False}}))
 
             with mock.patch.object(aha, 'callAhaPeerApi', mock_failed_api):
                 argv = ['--url', ahaurl, '--timeout', '1']
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                 outp.expect('00.cell.synapse                          leader     True     True    127.0.0.1', whitespace=False)
-                outp.expect('10 01.cell.synapse', whitespace=False)
                 outp.expect('02.cell.synapse                          follower   True     True    127.0.0.1', whitespace=False)
-                outp.expect('12 Group Status: Out of Sync', whitespace=False)
                 outp.expect('01.cell.synapse                          <unknown>  True     True', whitespace=False)
-                outp.expect('<unknown>    <unknown>', whitespace=False)
+
+                # the responding peers report their nexus offset; the failed one does
+                # not, so the group cannot be in sync. ( SYN-11129 )
+                outp.expect('10 <unknown>', whitespace=False)
+                outp.expect('12 <unknown>', whitespace=False)
+                outp.expect('Group Leader: 00.cell.synapse')
+                outp.expect('Group Status: Out of Sync')
 
         self.eq(s_a_mirror.timeout_type('30'), 30)
         self.eq(s_a_mirror.timeout_type('0'), 0)
@@ -417,3 +421,115 @@ class AhaToolsTest(s_t_utils.SynTest):
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
             self.eq(retn, 1)
             outp.expect('ERROR: Oof')
+
+    async def test_aha_mirror_leader_status(self):
+        '''
+        AHA derives the leader flag from the leadership term name alone, so it stays
+        set on a service which is down. Check that the reported leader distinguishes
+        the term holder from the service actually running as leader.
+        '''
+        def svcentry(name, iden, leader=False, online=True):
+            return {
+                'name': name,
+                'leader': leader,
+                'online': online,
+                'info': {
+                    'iden': iden,
+                    'run': f'run_{name}',
+                    'type': 'testcell00',
+                    'urlinfo': {'scheme': 'tcp', 'host': '127.0.0.1', 'port': 0, 'hostname': name},
+                },
+            }
+
+        def cellinfo(active, indx=10):
+            return {'cell': {'active': active, 'nexus': {'indx': indx}, 'version': '3.0.0',
+                             'parent': None},
+                    'synapse': {'version': '3.0.0'}}
+
+        async with self.getTestAha() as aha:
+
+            argv = ['--url', aha.getLocalUrl(), '--timeout', '1']
+
+            async def run(svcs, infos, extra=(), raises=None):
+                async def mock_svcs(*a, **k):
+                    for svc in svcs:
+                        yield svc
+
+                async def mock_peers(*a, **k):
+                    if raises is not None:
+                        raise raises
+                    for name, info in infos.items():
+                        yield (name, (True, info))
+
+                with mock.patch.object(aha, 'getAhaSvcs', mock_svcs):
+                    with mock.patch.object(aha, 'callAhaPeerApi', mock_peers):
+                        retn, outp = await self.execToolMain(s_a_mirror.main, argv + list(extra))
+                        self.eq(retn, 0)
+                        return outp
+
+            lead = svcentry('00.cell.synapse', 'iden00', leader=True)
+            mirr = svcentry('01.cell.synapse', 'iden00')
+
+            # the term holder is the service reporting itself active
+            outp = await run([lead, mirr],
+                             {'00.cell.synapse': cellinfo(True), '01.cell.synapse': cellinfo(False)})
+            outp.expect('Group Leader: 00.cell.synapse')
+            outp.expect('Group Status: In Sync')
+
+            # the term holder is live but another service is actually running as leader
+            outp = await run([lead, mirr],
+                             {'00.cell.synapse': cellinfo(False), '01.cell.synapse': cellinfo(True)})
+            outp.expect('Group Leader: 00.cell.synapse (inactive; 01.cell.synapse reports active)')
+
+            # nobody is running as leader
+            outp = await run([lead, mirr],
+                             {'00.cell.synapse': cellinfo(False), '01.cell.synapse': cellinfo(False)})
+            outp.expect('Group Leader: 00.cell.synapse (inactive)')
+
+            # two services both claiming to be active is a split brain
+            outp = await run([lead, mirr],
+                             {'00.cell.synapse': cellinfo(True), '01.cell.synapse': cellinfo(True)})
+            outp.expect('Group Leader: 00.cell.synapse (also active: 01.cell.synapse)')
+
+            # the term holder is registered but down
+            downlead = svcentry('00.cell.synapse', 'iden00', leader=True, online=False)
+            outp = await run([downlead, mirr], {'01.cell.synapse': cellinfo(False)})
+            outp.expect('Group Leader: 00.cell.synapse (offline)')
+
+            # no service of this type holds a leadership term
+            outp = await run([svcentry('00.cell.synapse', 'iden00'), mirr],
+                             {'00.cell.synapse': cellinfo(False), '01.cell.synapse': cellinfo(False)})
+            outp.expect('Group Leader: <no term>')
+
+            # no member responded, so nothing can be said about replication
+            outp = await run([lead, mirr], {})
+            outp.expect('Group Status: Unknown')
+
+            # AHA never reaps entries, so an entirely offline group is not reported
+            outp = await run([svcentry('00.cell.synapse', 'iden00', leader=True, online=False),
+                              svcentry('01.cell.synapse', 'iden00', online=False)], {})
+            outp.expect('No mirror groups found.')
+
+            # an error raised while querying the group members must not abort the report
+            outp = await run([lead, mirr], {}, raises=s_exc.SynErr(mesg='boom'))
+            outp.expect('WARNING: Failed to query mirror group members: boom')
+            outp.expect('Group Status: Unknown')
+
+            # without a single active leader there is no replication to wait on
+            # ( the offsets differ so the group is out of sync and --wait is reached )
+            outp = await run([lead, mirr],
+                             {'00.cell.synapse': cellinfo(False), '01.cell.synapse': cellinfo(False, indx=5)},
+                             extra=['--wait'])
+            outp.expect('WARNING: Skipping --wait: the group has no active leader.')
+
+            # a member which never responded can never satisfy the wait loop
+            outp = await run([lead, mirr], {'00.cell.synapse': cellinfo(True)}, extra=['--wait'])
+            outp.expect('WARNING: Skipping --wait: one or more group members did not respond.')
+
+            # a leader which reported no nexus offset gives us nothing to wait on
+            noindx = {'cell': {'active': True, 'version': '3.0.0', 'parent': None},
+                      'synapse': {'version': '3.0.0'}}
+            outp = await run([lead, mirr],
+                             {'00.cell.synapse': noindx, '01.cell.synapse': cellinfo(False, indx=5)},
+                             extra=['--wait'])
+            outp.expect('WARNING: Skipping --wait: the leader did not report a nexus index.')

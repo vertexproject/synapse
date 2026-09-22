@@ -222,7 +222,7 @@ Options:
 
 ### aha.svc.mirror
 
-The `aha.svc.mirror` command queries the AHA services and their mirror relationships. Services which are not mirrors are not displayed.
+The `aha.svc.mirror` command queries the AHA services and their mirror relationships. Group members are identified by the service iden which they share, and each group is named for the holder of the current AHA leadership term. Services which are not mirrors are not displayed, nor are groups which have no online service.
 
 **Syntax:**
 
@@ -231,7 +231,19 @@ storm> aha.svc.mirror --help
 
 Query the AHA services and their mirror relationships.
 
-Note: non-mirror services are not displayed.
+Mirror group members are identified by the service iden which they share. The
+group is named for the holder of the current AHA leadership term, which is
+reported separately from the live status of each service so that a stale or
+unreachable term holder is visible.
+
+The role and follows columns reflect the status reported by each service,
+where follows is the service which that member mirrors from.
+
+Notes:
+    - Non-mirror services are not displayed, nor are groups which have no
+      online service.
+    - A service restored from another service's backup shares its service iden
+      and is displayed as a member of that group.
 
 Usage: aha.svc.mirror [options] 
 
@@ -3973,6 +3985,9 @@ Execute text or an embedded query object as Storm in the current pipeline.
 NOTE: It is recommended to avoid using this where possible to avoid potential
 query injection risks. If you must use this, take care to ensure any values
 being executed have been properly sanitized.
+
+NOTE: If Storm logging is enabled, the query being executed will be logged
+separately.
 
 Examples:
 

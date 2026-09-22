@@ -20,10 +20,43 @@ perms:
     desc: Allows a user to call privileged APIs from Acme-Hello.
 
 modules:
+
+  # apidefs document a module's exported functions. They are what
+  # "mdautodoc --stormpkg" renders into the Storm Modules reference, so a
+  # function with no apidef is importable but undocumented.
   - name: acme.hello
+    apidefs:
+      - name: woot
+        desc: Print a message to the Storm runtime.
+        type:
+          type: function
+          args:
+            - name: text
+              type: str
+              desc: The message to print.
+          returns:
+            type: 'null'
+            desc: Always returns null.
+
   - name: acme.hello.privsep
     asroot:perms:
         - [ acme, hello, user ]
+    apidefs:
+      - name: getFooByBar
+        desc: |
+          Look up a foo by its bar using the Acme API.
+
+          The API key is read from protected storage and used on the caller's
+          behalf, so a caller who may import this module never sees the key.
+        type:
+          type: function
+          args:
+            - name: bar
+              type: str
+              desc: The bar value to look up.
+          returns:
+            type: dict
+            desc: The decoded JSON response, or null if the API call failed.
 
 commands:
 

@@ -484,6 +484,10 @@ modeldefs = (
                 'doc': 'GeoJSON structured JSON data.'}),
 
             ('geo:name', ('base:name', {}), {
+                'template': {'title': 'place name'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'props': (),
                 'doc': 'An unstructured place name or address.'}),
 

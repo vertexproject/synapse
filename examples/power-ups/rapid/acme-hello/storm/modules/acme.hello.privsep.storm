@@ -1,7 +1,7 @@
 function getFooByBar(bar) {
 
     // Retrieve an API key from protected storage
-    $apikey = $lib.globals.get(acme:hello:apikey)
+    $apikey = $lib.globals."acme:hello:apikey"
 
     $headers = ({
         "apikey": $apikey

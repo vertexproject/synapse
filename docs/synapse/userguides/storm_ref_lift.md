@@ -98,25 +98,14 @@ doc:report
 
 You can use the wildcard (asterisk) character ( `*` ) to specify all forms that match a partial form name. Use of the wildcard is **not** limited to form namespace boundaries.
 
+> [!NOTE]
+> If the wildcard expression matches the name of a [parent form](../glossary.md#gloss-form-parent), the query will **also** lift forms extended by the parent as part of [form inheritance](../glossary.md#gloss-form-inheritance), even if the extended form name does not match the wildcard expression. This is the same behavior as [Lift by Parent Form](storm_ref_lift.md#lift-form-parent) using an explicit form name.
+
 **Syntax**
 
 *\<partial_form_name\>* **\***
 
 **Examples**
-
-Lift all DNS A (`inet:dns:a`) and DNS AAAA (`inet:dns:aaaa`) nodes:
-
-```mdstorm --hide
-[ inet:dns:a=( woot.com, 1.1.1.1 ) inet:dns:aaaa=( woot.com, 2600:1419:9c00:283::356e )  ]
-```
-
-```storm
-inet:dns:a*
-```
-
-```mdstorm
-inet:dns:a*
-```
 
 Lift all hash nodes (e.g., `crypto:hash:md5`, `crypto:hash:sha256`, etc.):
 
@@ -134,22 +123,55 @@ crypto:hash:*
 
 **Note**: cryptographic hashes in Synapse implement the `crypto:hash` interface, and can alternatively be lifted using the [interface name](../glossary.md#gloss-interface).
 
+Lift all nodes whose form names match the wildcard expression `it:host:acc*`:
+
+```mdstorm --hide
+$host1={ [ it:host=( { "name": "ozzie's iphone", "os:name": "iOS 26.5.2"} ) ] } $host2={ [ it:host=( { "name": "ozzie-laptop", "os:name": "Ubuntu 24.04" } ) ] } $host3={ [ it:host=( { "name": "DESKTOP-8F2NL0R", "os:name": "Microsoft Windows 11 Home" } ) ] } [ it:host:account=( { "username": "ozzie", "host": $host1 } ) it:host:posix:account=( { "username": "ozzie", "host": $host2, "home": "/home/ozzie", "shell": "/bin/bash" } ) it:host:windows:account=( { "username": "ron the cat", "host": $host3, "id": "S-1-5-21-4772941793-982498634-1278416829-1074", "home": "c:\\users\\ron the cat" } ) ]
+```
+
+```storm
+it:host:acc*
+```
+
+```mdstorm
+it:host:acc*
+```
+
+> [!TIP]
+> The wildcard expression matches the form name `it:host:account`, which is a parent form extended by `it:host:posix:account` and `it:host:windows:account`. The extended forms are returned by the wildcard lift based on form inheritance, even though the form names do not explicitly match the wildcard expression. 
+
+Lift all nodes whose form names match the wildcard expression `inet:dns:a*`
+
+```mdstorm --hide
+$record1={ [ inet:dns:ns=(onemm.net, dns1.registrar-servers.com) ] } $record2={ [ inet:dns:mx=(onemm.net, eforward1.registrar-servers.com) ] } [ inet:dns:a=( woot.com, 1.1.1.1 ) inet:dns:aaaa=( woot.com, 2600:1419:9c00:283::356e ) inet:dns:answer=( { "record": $record1, "ttl": "300" } ) inet:dns:mx:answer=( { "record": $record2, "ttl": "600", "priority": "10" } ) ]
+```
+
+```storm
+inet:dns:a*
+```
+
+```mdstorm
+inet:dns:a*
+```
+> [!TIP]
+> The query above returns three nodes that match based on form name (`inet:dns:a`, `inet:dns:aaaa`, and `inet:dns:answer`). The query also returns an `inet:dns:mx:answer` node, whose form extends `inet:dns:answer`.
+
 **Usage Notes**
 
-- The wildcard character ( `*` ) can only be used to match literal form names. It cannot be used to match interface names or when lifting by [parent form](../glossary.md#gloss-form-inheritance) with the intent to also lift extended forms (the wildcard will match form names only; it has no awareness of form inheritance).
+- The wildcard character ( `*` ) can only be used to match form names; it cannot be used to match [interface](../glossary.md#gloss-interface) names.
 - The wildcard can only be used at the end of the partial form name match. It cannot be used at the beginning or in the middle of the form name. For example, the following are both **invalid**:
   
-```storm
+```text
 *:header
 ```
   
-```storm
+```text
 it:exec:*:add
 ```
   
-- The wildcard cannot be used to match property names. For example, `entity:contact` is a form that has multiple   `:place` secondary properties (e.g., `:place:name`, `:place:loc`). The following is **invalid** because it   tries to match a partial property name:
+- The wildcard cannot be used to match property names. For example, `entity:contact` is a form that has multiple `:place` secondary properties (e.g., `:place:name`, `:place:loc`). The following is **invalid** because it tries to match a partial property name:
   
-```storm
+```text
 entity:contact:place:*
 ```
 
@@ -779,7 +801,7 @@ file:bytes:_virustotal:reputation<-50
 If a form implements an [interface](../glossary.md#gloss-interface) that defines a set of properties, you can lift all nodes of all forms with a specific value for that property by using the name of the interface.
 
 > [!TIP]
-> Synapse returns results in lexical order (sorted, ascending to descending) based on the way the queried property is indexed. When using an interface to lift by secondary property, Synapse performs the lifts for each form in parallel, and yields the results in order. See the ["reverse" Keyword](storm_ref_lift.md#lift-reverse) section for additional discussion of this concept.
+> Synapse returns results in lexical order (sorted in ascending order) based on the way the queried property is indexed. When using an interface to lift by secondary property, Synapse performs the lifts for each form in parallel, and yields the results in order. See the ["reverse" Keyword](storm_ref_lift.md#lift-reverse) section for additional discussion of this concept.
 
 **Syntax**
 
@@ -1542,7 +1564,7 @@ inet:ip#(cno.infra.anon.tor.exit).min>=2026/06/01
 [Tag Properties](analytical_model.md#tag-properties) can be used to provide additional context to tags. Storm supports lifting nodes whose tags have a specific tag property (regardless of the value of the property).
 
 > [!TIP]
-> Synapse v3 includes two tag properties in its base data model: `:confidence` (of type and `meta:score`) and `:tlp` (of type `it:sec:tlp`). Tag properties can be added by [extending the data model](data_model.md#extending-the-data-model).
+> Synapse v3 includes two tag properties in its base data model: `:confidence` (of type `meta:score`) and `:tlp` (of type `it:sec:tlp`). Tag properties can be added by [extending the data model](data_model.md#extending-the-data-model).
 
 **Syntax**
 
@@ -1598,7 +1620,7 @@ The ["Try" Operator](storm_ref_lift.md#lift-try) ( `?=` ) can optionally be used
 Lift all of the nodes that Vertex associates with the threat group Vicious Wombat (`#cno.threat.vicious_wombat`) that are marked as **lower** than TLP: Amber (e.g., TLP: Green or TLP: Clear): 
 
 ```mdstorm --hide
-[ (inet:ip=5.6.7.8 +#cno.threat.vicious.wombat:tlp=amber-strict) (inet:fqdn=marsupialsrule.com +#cno.threat.vicious.wombat:tlp=amber) (inet:fqdn=combatwombat.net +#cno.threat.vicious_wombat:tlp=green) (inet:email=fuzzywuzzy@cutebutdeadly.org +#cno.threat.vicious_wombat:tlp=clear) ]
+[ (inet:ip=5.6.7.8 +#cno.threat.vicious_wombat:tlp=amber-strict) (inet:fqdn=marsupialsrule.com +#cno.threat.vicious_wombat:tlp=amber) (inet:fqdn=combatwombat.net +#cno.threat.vicious_wombat:tlp=green) (inet:email=fuzzywuzzy@cutebutdeadly.org +#cno.threat.vicious_wombat:tlp=clear) ]
 ```
 
 ```storm

@@ -550,7 +550,7 @@ Example:
 
 ### mode
 
-This is the mode that a Storm query is parsed in. Specifying `lookup` mode enables unified text input that combines scraping, lifting, and datamodel hint-based lookups.
+This is the mode that a Storm query is parsed in. Specifying `lookup` mode enables unified text input that combines scraping, lifting, datamodel hint-based lookups, and the pluggable `search` Storm interface.
 
 Example:
 
@@ -560,7 +560,9 @@ Example:
 > # any matching nodes. A look:miss message is fired for any scraped value that is not found
 > # in the current View. Any text that remains after scraping is matched against forms and
 > # properties that define lookup mode hints in the data model (via the modes.lookup info key),
-> # using the comparator specified by each hint (e.g. ^= for prefix matching).
+> # using the comparator specified by each hint (e.g. ^= for prefix matching), and is also sent
+> # to the search Storm interface implemented by any loaded package. Nodes matched by the hints
+> # and by the search interface are deduplicated against each other.
 > opts = {'mode': 'lookup'}
 > ```
 

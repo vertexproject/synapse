@@ -2241,6 +2241,25 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
                     yield clus
 
+    async def getHttpsApiInfo(self, cell, name='https-api'):
+        '''
+        Add an HTTPS listener to a Cell and mint a root user API key.
+
+        Note:
+            The listener uses a self-signed certificate with a CN of the cell type,
+            so callers must disable TLS verification.
+
+        Args:
+            cell (s_cell.Cell): The cell to add the listener to.
+            name (str): The name to mint the user API key under.
+
+        Returns:
+            (int, str): The listener port and the user API key.
+        '''
+        host, port = await cell.addHttpsPort(0, host='127.0.0.1')
+        apikey, _ = await cell.addUserApiKey(cell.auth.rootuser.iden, name)
+        return port, apikey
+
     def getTestUrl(self, dmon, name, **opts):
 
         host, port = dmon.addr

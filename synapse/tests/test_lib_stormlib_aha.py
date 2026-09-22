@@ -337,13 +337,13 @@ Connection information:
 
                 async def mockCellInfo():
                     return {
-                        'cell': {'ready': True, 'nexsindx': 10, 'active': True},
+                        'cell': {'ready': True, 'nexus': {'indx': 10}, 'active': True},
                         'synapse': {'version': '2.190.0'},
                     }
 
                 async def mockOutOfSyncCellInfo():
                     return {
-                        'cell': {'ready': True, 'nexsindx': 5, 'active': False},
+                        'cell': {'ready': True, 'nexus': {'indx': 5}, 'active': False},
                         'synapse': {'version': '2.190.0'},
                     }
 
@@ -381,3 +381,110 @@ Connection information:
                 await aha.delAhaSvc('00.cell...')
                 msgs = await core00.stormlist('aha.svc.mirror')
                 self.stormNotInPrint('Service Mirror Groups:', msgs)
+
+    async def test_stormlib_aha_mirror_leader_status(self):
+        '''
+        AHA derives the leader flag from the leadership term name alone, so it stays
+        set on a service which is down. Check that the reported leader distinguishes
+        the term holder from the service actually running as leader.
+        '''
+        def svcentry(name, iden, leader=False, online=True):
+            return {
+                'name': name,
+                'leader': leader,
+                'online': online,
+                'info': {
+                    'iden': iden,
+                    'run': f'run_{name}',
+                    'type': 'testcell00',
+                    'ready': True,
+                    'urlinfo': {'scheme': 'tcp', 'host': '127.0.0.1', 'port': 0, 'hostname': name},
+                },
+            }
+
+        def cellinfo(active, indx=10, parent=None):
+            return {'cell': {'active': active, 'nexus': {'indx': indx}, 'version': '3.0.0',
+                             'parent': parent},
+                    'synapse': {'version': '3.0.0'}}
+
+        async with self.getTestCluster() as clus:
+
+            aha = clus.aha
+            core00 = clus.cortex
+
+            async def run(svcs, infos, text='aha.svc.mirror --timeout 1'):
+                async def mock_svcs(*a, **k):
+                    for svc in svcs:
+                        yield svc
+
+                # $lib.aha.callPeerApi() resolves the name to a cell iden first
+                async def mock_svc(name, *a, **k):
+                    return next((svc for svc in svcs if svc['name'] == name), None)
+
+                async def mock_peers(*a, **k):
+                    for name, info in infos.items():
+                        yield (name, (True, info))
+
+                with mock.patch.object(aha, 'getAhaSvcs', mock_svcs):
+                    with mock.patch.object(aha, 'getAhaSvc', mock_svc):
+                        with mock.patch.object(aha, 'callAhaPeerApi', mock_peers):
+                            return await core00.stormlist(text)
+
+            lead = svcentry('00.cell.synapse', 'iden00', leader=True)
+            mirr = svcentry('01.cell.synapse', 'iden00')
+
+            both = {'00.cell.synapse': cellinfo(True),
+                    '01.cell.synapse': cellinfo(False, parent='aha://testcell00...')}
+
+            msgs = await run([lead, mirr], both)
+            self.stormIsInPrint('Group Leader: 00.cell.synapse', msgs)
+            self.stormIsInPrint('Group Status: In Sync', msgs)
+
+            # each member reports the service it mirrors from ( SYN-11299 ) and its
+            # nexus offset, which is read from cell.nexus.indx ( SYN-11129 )
+            self.stormIsInPrint('follows', msgs)
+            self.stormIsInPrint('<none - write root>', msgs)
+            self.stormIsInPrint('aha://testcell00...', msgs)
+            self.stormIsInPrint('00.cell.synapse leader True True', msgs, whitespace=False)
+            self.stormNotInPrint('<unknown>', msgs)
+
+            # the term holder is live but another service is running as leader
+            msgs = await run([lead, mirr],
+                             {'00.cell.synapse': cellinfo(False), '01.cell.synapse': cellinfo(True)})
+            self.stormIsInPrint('Group Leader: 00.cell.synapse (inactive; 01.cell.synapse reports active)', msgs)
+
+            # nobody is running as leader
+            msgs = await run([lead, mirr],
+                             {'00.cell.synapse': cellinfo(False), '01.cell.synapse': cellinfo(False)})
+            self.stormIsInPrint('Group Leader: 00.cell.synapse (inactive)', msgs)
+
+            # two services both claiming to be active is a split brain
+            msgs = await run([lead, mirr],
+                             {'00.cell.synapse': cellinfo(True), '01.cell.synapse': cellinfo(True)})
+            self.stormIsInPrint('Group Leader: 00.cell.synapse (also active: 01.cell.synapse)', msgs)
+
+            # the term holder is registered but down
+            downlead = svcentry('00.cell.synapse', 'iden00', leader=True, online=False)
+            msgs = await run([downlead, mirr], {'01.cell.synapse': cellinfo(False)})
+            self.stormIsInPrint('Group Leader: 00.cell.synapse (offline)', msgs)
+
+            # no service of this type holds a leadership term
+            msgs = await run([svcentry('00.cell.synapse', 'iden00'), mirr],
+                             {'00.cell.synapse': cellinfo(False), '01.cell.synapse': cellinfo(False)})
+            self.stormIsInPrint('Group Leader: <no term>', msgs)
+
+            # no member responded, so nothing can be said about replication
+            msgs = await run([lead, mirr], {})
+            self.stormIsInPrint('Group Status: Unknown', msgs)
+            self.stormIsInWarn('Skipping --wait: the group has no active leader.',
+                               await run([lead, mirr], {}, text='aha.svc.mirror --timeout 1 --wait'))
+
+            # a member which never responded can never satisfy the wait loop
+            msgs = await run([lead, mirr], {'00.cell.synapse': cellinfo(True)},
+                             text='aha.svc.mirror --timeout 1 --wait')
+            self.stormIsInWarn('Skipping --wait: one or more group members did not respond.', msgs)
+
+            # AHA never reaps entries, so an entirely offline group is not reported
+            msgs = await run([svcentry('00.cell.synapse', 'iden00', leader=True, online=False),
+                              svcentry('01.cell.synapse', 'iden00', online=False)], {})
+            self.stormIsInPrint('No mirror groups found.', msgs)

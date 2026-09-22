@@ -12,6 +12,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.json as s_json
+import synapse.lib._http as s_http
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.output as s_output
@@ -380,7 +381,7 @@ async def pushPkgFiles(outp, core, pkgdef, protopath):
 
     Args:
         outp (s_output.OutPut): The output object.
-        core: A Cortex telepath proxy.
+        core: A Cortex telepath proxy, or an s_http.HttpCortex client.
         pkgdef (dict): The built Storm package definition.
         protopath (str): Path to the package .yaml prototype.
     '''
@@ -420,13 +421,28 @@ async def pushPkgFiles(outp, core, pkgdef, protopath):
             mesg = f'Package file {fullpath} uploaded as {gotsha256}, expected {sha256}.'
             raise s_exc.BadPkgDef(mesg=mesg, sha256=sha256, gotsha256=gotsha256)
 
+async def pushStormPkg(outp, core, pkgdef, protopath, verify=False):
+    '''
+    Push a Storm Package to a Cortex.
+
+    Args:
+        outp (s_output.OutPut): The output object.
+        core: A Cortex telepath proxy, or an s_http.HttpCortex client.
+        pkgdef (dict): The built Storm package definition.
+        protopath (str): Path to the package .yaml prototype.
+        verify (bool): Tell the Cortex to verify the package signature.
+    '''
+    # the files must be in the Axon before an onload query may read them
+    await pushPkgFiles(outp, core, pkgdef, protopath)
+    await core.addStormPkg(pkgdef, verify=verify)
 
 desc = 'A tool for generating/pushing storm packages from YAML prototypes.'
 
 async def main(argv, outp=s_output.stdout):
 
     pars = s_cmd.Parser(prog='synapse.tools.storm.pkg.gen', outp=outp, description=desc)
-    pars.add_argument('--push', metavar='<url>', help='A telepath URL of a Cortex.')
+    pars.add_argument('--push', metavar='<url>',
+                      help='A telepath URL of a Cortex, or an https:// URL for the Cortex HTTP API.')
     pars.add_argument('--push-verify', default=False, action='store_true',
                       help='Tell the Cortex to verify the package signature.')
     pars.add_argument('--save', metavar='<path>', help='Save the completed package JSON to a file.')
@@ -440,10 +456,15 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--encrypt-pubkey', metavar='<path>',
                       help='Path to a PEM encoded RSA public key. Encrypts the package for that '
                            'specific deployment (implies --encrypt).')
+    s_http.addHttpsArgs(pars)
     pars.add_argument('pkgfile', metavar='<pkgfile>',
                       help='Path to a storm package prototype .yaml file, or a completed package .json/.yaml file.')
 
     opts = pars.parse_args(argv)
+
+    # checked up front so a --save only run does not silently ignore them
+    if opts.push is None or not s_http.isHttpsUrl(opts.push):
+        s_http.reqTeleOpts(opts)
 
     if opts.no_build:
         pkgdef = s_common.yamlload(opts.pkgfile)
@@ -472,12 +493,19 @@ async def main(argv, outp=s_output.stdout):
 
     if opts.push:
 
+        if s_http.isHttpsUrl(opts.push):
+
+            async with await s_http.openurl(opts.push, cadir=opts.https_ca_dir,
+                                            proxy=opts.https_proxy, verify=not opts.https_noverify) as core:
+
+                await pushStormPkg(outp, core, pkgdef, opts.pkgfile, verify=opts.push_verify)
+
+            return 0
+
         async with s_telepath.withTeleEnv():
 
             async with await s_telepath.openurl(opts.push) as core:
-                # the files must be in the Axon before an onload query may read them
-                await pushPkgFiles(outp, core, pkgdef, opts.pkgfile)
-                await core.addStormPkg(pkgdef, verify=opts.push_verify)
+                await pushStormPkg(outp, core, pkgdef, opts.pkgfile, verify=opts.push_verify)
 
     return 0
 

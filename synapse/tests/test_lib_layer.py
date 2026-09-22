@@ -2012,6 +2012,82 @@ class LayerTest(s_t_utils.SynTest):
                     'layr': parentlayr, 'nid': nid,
                     'type': s_layer.INDX_PROP, 'info': tombinfo}})
 
+    async def test_layer_del_tombstone_tag_cascade(self):
+        '''
+        Removing a tag tombstone also removes the tombstones on the tags above it,
+        since a node may not carry a tag without every tag above it. The cascade runs
+        up only: a tag without the tags beneath it is a valid state. A tagprop
+        tombstone carries its tag along the same way, so a restored tagprop may not
+        land on a tag the node does not have.
+
+        Each case gets its own node and its own tag tree so that one restore cannot
+        perturb the tombstones another case is asserting against.
+        '''
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('_score', ('int', {}), {})
+
+            await core.nodes('[ test:str=foo +#a.b.c ]')
+            await core.nodes('[ test:str=bar +#d.e.f ]')
+            await core.nodes('[ test:str=baz +#g.h:_score=7 ]')
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': viewiden}
+
+            await core.nodes('test:str=foo [ -#a ]', opts=opts)
+            await core.nodes('test:str=bar [ -#d ]', opts=opts)
+            await core.nodes('test:str=baz [ -#g ]', opts=opts)
+
+            self.eq((), await core.callStorm('test:str=foo return($node.tags())', opts=opts))
+            self.eq((), await core.callStorm('test:str=bar return($node.tags())', opts=opts))
+            self.eq((), await core.callStorm('test:str=baz return($node.tags())', opts=opts))
+
+            q = 'return($lib.layer.get().delTombstone($nid, $type, $info))'
+
+            tombq = '''
+                $retn = ()
+                for ($nid, $type, $info) in $lib.layer.get().getTombstones() { $retn.append($info) }
+                return($retn)
+            '''
+
+            # restoring the leaf restores the tags above it
+            nid = await core.callStorm('test:str=foo return($node.nid)', opts=opts)
+            varz = {'nid': nid, 'type': s_layer.INDX_TAG, 'info': (None, 'a.b.c')}
+
+            self.true(await core.callStorm(q, opts={'view': viewiden, 'vars': varz}))
+
+            self.eq(('a', 'a.b', 'a.b.c'), await core.callStorm('test:str=foo return($node.tags())', opts=opts))
+            self.len(1, await core.nodes('#a', opts=opts))
+            self.len(1, await core.nodes('#a.b', opts=opts))
+            self.len(1, await core.nodes('#a.b.c', opts=opts))
+
+            # none of that tag tree is left tombstoned
+            tombs = await core.callStorm(tombq, opts=opts)
+            self.notin((None, 'a'), tombs)
+            self.notin((None, 'a.b'), tombs)
+            self.notin((None, 'a.b.c'), tombs)
+
+            # restoring a tag does not restore the tags beneath it
+            nid = await core.callStorm('test:str=bar return($node.nid)', opts=opts)
+            varz = {'nid': nid, 'type': s_layer.INDX_TAG, 'info': (None, 'd.e')}
+
+            self.true(await core.callStorm(q, opts={'view': viewiden, 'vars': varz}))
+
+            self.eq(('d', 'd.e'), await core.callStorm('test:str=bar return($node.tags())', opts=opts))
+            self.len(0, await core.nodes('#d.e.f', opts=opts))
+
+            # the tag and its parents have no tombstones left, so a second call is a no-op
+            self.false(await core.callStorm(q, opts={'view': viewiden, 'vars': varz}))
+
+            # restoring a tagprop restores the tag it lives on, and that tag's parents
+            nid = await core.callStorm('test:str=baz return($node.nid)', opts=opts)
+            varz = {'nid': nid, 'type': s_layer.INDX_TAGPROP, 'info': (None, 'g.h', '_score')}
+
+            self.true(await core.callStorm(q, opts={'view': viewiden, 'vars': varz}))
+
+            self.eq(('g', 'g.h'), await core.callStorm('test:str=baz return($node.tags())', opts=opts))
+            self.len(1, await core.nodes('#g.h:_score=7', opts=opts))
+
     async def test_layer_del_stor_node_valuless(self):
         '''
         delStorNode() on a storage node with no valu of its own, which is what a fork

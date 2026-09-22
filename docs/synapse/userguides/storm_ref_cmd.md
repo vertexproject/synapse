@@ -180,7 +180,7 @@ aha.svc.list --help
 
 ### aha.svc.mirror
 
-The `aha.svc.mirror` command queries the AHA services and their mirror relationships. Services which are not mirrors are not displayed.
+The `aha.svc.mirror` command queries the AHA services and their mirror relationships. Group members are identified by the service iden which they share, and each group is named for the holder of the current AHA leadership term. Services which are not mirrors are not displayed, nor are groups which have no online service.
 
 **Syntax:**
 

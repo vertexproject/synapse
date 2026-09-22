@@ -233,8 +233,10 @@ modeldefs = (
                 'doc': 'A singular entity such as a person.'}),
 
             ('entity:name', ('base:name', {}), {
+                'template': {'title': 'entity name'},
                 'interfaces': (
                     ('meta:usable', {}),
+                    ('meta:observable', {}),
                 ),
                 'modes': {
                     'lookup': [

@@ -21,6 +21,9 @@ PBKDF2_ITERATIONS = 310_000  # OWASP recommended value 20221004
 
 DEFAULT_PTYP = PBKDF2
 
+APIKEY_PREFIX = 'syn-'
+APIKEY_PREFIX_SIZE = len(APIKEY_PREFIX)
+
 def _getPbkdf2(passwd):
     salt = os.urandom(32)
     func_params = {'salt': salt,
@@ -130,11 +133,11 @@ async def generateApiKey(iden=None):
         if not s_common.isguid(iden):
             raise s_exc.CryptoErr(mesg=f'Invalid iden provided: {iden}, must be a guid.')
     secv = s_common.guid()
-    key = base64.b64encode(s_common.uhex(iden) + s_common.uhex(secv), altchars=b'-_').decode('utf-8')
+    key = APIKEY_PREFIX + base64.b64encode(s_common.uhex(iden) + s_common.uhex(secv), altchars=b'-_').decode('utf-8')
     shadow = await getShadowV2(secv)
     return iden, key, shadow
 
-def parseApiKey(valu):
+def _parseApiKey(valu):
     if '+' in valu or '/' in valu:
         return False, 'Invalid character in API key.'
     try:
@@ -144,3 +147,15 @@ def parseApiKey(valu):
     if len(buf) != 32:
         return False, f'Incorrect length, got {len(valu)}'
     return True, (s_common.ehex(buf[:16]), s_common.ehex(buf[16:]))
+
+def parseApiKey(valu):
+    # keys issued before APIKEY_PREFIX was added carry no prefix and must still parse.
+    # '-_' is the altchars alphabet, so a legacy key can itself begin with the prefix
+    # ('s', 'y', 'n', '-' are all valid altchars); fall back to the unprefixed parse
+    # rather than stripping unconditionally.
+    if valu.startswith(APIKEY_PREFIX):
+        isok, retn = _parseApiKey(valu[APIKEY_PREFIX_SIZE:])
+        if isok:
+            return True, retn
+
+    return _parseApiKey(valu)

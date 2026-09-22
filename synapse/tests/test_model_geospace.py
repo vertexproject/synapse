@@ -277,6 +277,18 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ geo:place=(hehe, haha) :names=("Foo  Bar ", baz) ] -> geo:name')
             self.eq(('baz', 'Foo Bar'), [n.ndef[1] for n in nodes])
 
+            # meta:observable lets a place name record when it was observed
+            self.true(core.model.form('geo:name').implements('meta:observable'))
+            nodes = await core.nodes('[ geo:name="Foo Bar" :seen=(20200101, 20200201) ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('seen'))
+            self.len(1, await core.nodes('geo:name:seen.min=20200101'))
+            self.len(1, await core.nodes('''
+                geo:name="Foo Bar"
+                [ +(resembles)> {[ geo:name="Foo Baz" ]} ]
+            '''))
+            self.len(1, await core.nodes('geo:name="Foo Bar" -(resembles)> meta:observable'))
+
             nodes = await core.nodes('geo:place=(hehe, haha)')
             node = nodes[0]
 

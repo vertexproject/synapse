@@ -4167,6 +4167,7 @@ The `entity:name` type is derived from the base type: [`base:name`](#dm-type-bas
 This type implements the following interfaces:
 
 - `('meta:usable', {})`
+- `('meta:observable', {})`
 
 This type has the following options set:
 
@@ -6150,6 +6151,10 @@ This type has the following options set:
 
 An unstructured place name or address.
 The `geo:name` type is derived from the base type: [`base:name`](#dm-type-base-name).
+
+This type implements the following interfaces:
+
+- `('meta:observable', {})`
 
 This type has the following options set:
 
@@ -8984,6 +8989,19 @@ This type implements the following interfaces:
 
 - `('it:host:event', {})`
 
+<a id="dm-type-it-os-windows-task"></a>
+
+### it:os:windows:task
+
+A Windows Scheduled Task entry.
+The `it:os:windows:task` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('file:entry', {})`
+- `('meta:usable', {})`
+- `('base:activity', {})`
+
 <a id="dm-type-it-os-posix-id"></a>
 
 ### it:os:posix:id
@@ -9397,6 +9415,39 @@ This type implements the following interfaces:
 
 A named pipe created by a process at runtime.
 The `it:exec:pipe:add` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('it:host:event', {})`
+
+<a id="dm-type-it-exec-pipe-del"></a>
+
+### it:exec:pipe:del
+
+An event where a process deleted a named pipe.
+The `it:exec:pipe:del` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('it:host:event', {})`
+
+<a id="dm-type-it-exec-pipe-read"></a>
+
+### it:exec:pipe:read
+
+An event where a process read from a named pipe.
+The `it:exec:pipe:read` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('it:host:event', {})`
+
+<a id="dm-type-it-exec-pipe-write"></a>
+
+### it:exec:pipe:write
+
+An event where a process wrote to a named pipe.
+The `it:exec:pipe:write` type is derived from the base type: [`guid`](#dm-type-guid).
 
 This type implements the following interfaces:
 

@@ -12,11 +12,11 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
+import synapse.lib._http as s_http
 import synapse.lib.output as s_output
 import synapse.lib.parser as s_parser
 import synapse.lib.msgpack as s_msgpack
 
-import synapse.tools.storm._http as s_http
 import synapse.tools.storm._printer as s_printer
 
 logger = logging.getLogger(__name__)
@@ -507,29 +507,8 @@ def getArgParser(outp):
     pars.add_argument('onecmd', nargs='?', help='A single storm command to run and exit.')
     pars.add_argument('--view', default=None, help='The view iden to work in.')
     pars.add_argument('--optsfile', default=None, help='A JSON/YAML file which contains storm runtime options.')
-    pars.add_argument('--https-proxy', default=None,
-                      help='An aiohttp-socks compatible proxy URL to use for https:// URLs.')
-    pars.add_argument('--https-ca-dir', default=None,
-                      help='A directory of CAs which are added to the TLS CA chain for https:// URLs.')
-    pars.add_argument('--https-noverify', default=False, action='store_true',
-                      help='Ignore SSL certificate validation errors for https:// URLs.')
+    s_http.addHttpsArgs(pars)
     return pars
-
-def reqTeleOpts(opts):
-    '''
-    Require that the https only options are not used with a telepath URL.
-    '''
-    httponly = (
-        ('--https-proxy', opts.https_proxy),
-        ('--https-ca-dir', opts.https_ca_dir),
-        ('--https-noverify', opts.https_noverify or None),
-    )
-
-    for name, valu in httponly:
-
-        if valu is not None:
-            mesg = f'The {name} option may only be used with an https:// Cortex URL.'
-            raise s_exc.BadArg(mesg=mesg, arg=name)
 
 async def runItemStorm(prox, outp=None, color=True, opts=None):
 
@@ -568,7 +547,7 @@ async def main(argv, outp=s_output.stdout):
 
             return await runStormOpts(prox, opts, outp=outp)
 
-    reqTeleOpts(opts)
+    s_http.reqTeleOpts(opts)
 
     async with s_telepath.withTeleEnv():
 

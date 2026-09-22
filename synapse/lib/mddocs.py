@@ -34,10 +34,9 @@ TOC_MAX_DEPTH = 3
 
 # Directories stageTree never copies from a doc bundle's srcdir -- a stray local
 # _build/ or .git, and mocks/ (build INPUT only, VCR cassettes -- see stageTree's
-# docstring). docs/scripts/gen_docs_manifest.py's own _IGNORED_DIRNAMES mirrors
-# this set (it walks the same srcdir/outdir trees to build a bundle's manifest),
-# so it is defined here once and pointed to from there instead of kept in sync
-# by hand.
+# docstring). bundleManifestEntries below walks the same srcdir/outdir trees to
+# build a bundle's manifest and skips the same set, so none of the three can ever
+# become a manifest entry.
 STAGE_IGNORE = {'_build', '.git', 'mocks'}
 
 MANIFEST_NAME = 'docs.sha256'
@@ -255,9 +254,8 @@ def hashFile(path):
     '''
     Sha256 hexdigest of path's full contents -- the same hash a bundle's
     docs.sha256 manifest records for a doc source/built-output pair (see
-    docs/scripts/gen_docs_manifest.py's saveManifest, an enterprise-only
-    writer; this reader lives here so buildDocs' own reuseFiles below, an
-    OSS capability, can consult a manifest without importing that script).
+    saveManifest below, which writes it, and reuseFiles, which reads it back
+    to decide whether a page can skip mdstorm).
 
     Args:
         path (str): File to hash.
@@ -271,8 +269,7 @@ def hashFile(path):
 def loadManifest(path):
     '''
     Read a GNU sha256sum-format manifest (a bundle's docs.sha256, written by
-    docs/scripts/gen_docs_manifest.py's saveManifest) into (relpath,
-    sha256hex) entries.
+    saveManifest below) into (relpath, sha256hex) entries.
 
     Accepts either separator sha256sum itself can emit for a text-mode entry
     ("  ") or a binary-mode one (" *"), and skips blank lines and a leading
@@ -307,6 +304,185 @@ def loadManifest(path):
             entries.append((relpath, hexdigest))
 
     return entries
+
+# The two-line header saveManifest always writes and loadManifest above always
+# skips. A leading '#' is silently accepted by GNU sha256sum -c (no warning,
+# exit 0), so spending it on a pointer back here costs a reader nothing.
+MANIFEST_HEADER = (
+    '# doc source/build hashes -- written by the doc build (synapse.lib.mddocs.saveManifest).\n'
+    '# verify with: sha256sum -c docs.sha256\n'
+)
+
+def _hasDirective(path):
+    '''
+    True if path is a Markdown file carrying at least one top-level fenced code
+    block whose info string names an mdstorm-family directive or mdtoc.
+
+    Delegates the fence scan to fenceDirectiveNames, the one place that scan is
+    done, so "directive" means the same thing here as it does to the build and
+    to checkDrift.
+
+    Args:
+        path (str): File to test.
+
+    Returns:
+        bool: True if path is a .md file carrying a recognized directive fence.
+    '''
+    if not path.endswith('.md'):
+        return False
+
+    with open(path, 'r') as fd:
+        text = fd.read()
+
+    return bool(fenceDirectiveNames(text))
+
+def _walkBundleFiles(rootdir):
+    '''Yield every file's relpath under rootdir, skipping STAGE_IGNORE dirs.'''
+    for dirn, dirs, names in os.walk(rootdir):
+        dirs[:] = [d for d in dirs if d not in STAGE_IGNORE]
+        for name in names:
+            yield os.path.relpath(os.path.join(dirn, name), rootdir)
+
+def bundleManifestEntries(srcdir, outdir, basedir):
+    '''
+    A bundle's manifest entries: one for the source AND one for the built
+    output of every file staged from srcdir into outdir (paired by relpath)
+    whose SOURCE carries a directive fence.
+
+    Only a directive-bearing page needs tracking, because only there are src
+    and dst genuinely different content that a build reconciles -- so the
+    manifest is what catches one drifting without the other. A plain page
+    lives in the committed bundle dir and is edited there, with no separate
+    source to drift from.
+
+    Both sides of a tracked pair get their own entry. Nothing records the
+    pairing: checkManifest re-hashes each line independently, and the relpath
+    already says which side it is.
+
+    Args:
+        srcdir (str): The bundle's doc source directory.
+        outdir (str): The bundle's committed, built output directory.
+        basedir (str): Directory every entry's path is recorded relative to --
+            the manifest's own directory, not the repo root, so an entry
+            resolves the same way from any checkout.
+
+    Returns:
+        list: [(relpath, sha256hex), ...] in no particular order.
+            saveManifest is what sorts and de-duplicates on write.
+    '''
+    srcrelpaths = set(_walkBundleFiles(srcdir)) if os.path.isdir(srcdir) else set()
+    dstrelpaths = set(_walkBundleFiles(outdir)) if os.path.isdir(outdir) else set()
+
+    entries = []
+
+    for relpath in srcrelpaths & dstrelpaths:
+
+        srcpath = os.path.join(srcdir, relpath)
+        if not _hasDirective(srcpath):
+            continue
+
+        dstpath = os.path.join(outdir, relpath)
+        entries.append((os.path.relpath(srcpath, basedir), hashFile(srcpath)))
+        entries.append((os.path.relpath(dstpath, basedir), hashFile(dstpath)))
+
+    return entries
+
+def saveManifest(path, entries):
+    '''
+    Write entries as a GNU sha256sum-format manifest: MANIFEST_HEADER, then one
+    "<hex>  <relpath>" line per entry, sorted by relpath, single trailing
+    newline.
+
+    Sorting happens HERE, and only here -- a plain codepoint sorted() on the
+    relpath string, no locale, no str.lower(), no path-segment-aware comparison
+    -- so a manifest's line order can never depend on the machine that wrote it.
+    (Shell `sort` is locale-dependent; this avoids it by never shelling out.)
+    Stable order is what keeps these files git-friendly: one changed page moves
+    one line instead of reshuffling the file.
+
+    Args:
+        path (str): Manifest file to write.
+        entries (list): [(relpath, sha256hex), ...]; relpath must be unique
+            within entries.
+
+    Raises:
+        ValueError: entries names the same relpath twice.
+    '''
+    byrelpath = {}
+    for relpath, hexdigest in entries:
+
+        if relpath in byrelpath:
+            raise ValueError(f'duplicate relpath in manifest entries: {relpath}')
+
+        byrelpath[relpath] = hexdigest
+
+    with open(path, 'w') as fd:
+        fd.write(MANIFEST_HEADER)
+        for relpath in sorted(byrelpath):
+            fd.write(f'{byrelpath[relpath]}  {relpath}\n')
+
+def checkManifest(bundle, entries, basedir, hint=None):
+    '''
+    Re-hash every file a bundle's manifest names and compare against what it
+    recorded. Hashing rather than rebuilding and diffing is the check because a
+    page embedding a live ```mdstorm demo never renders byte-identical content
+    run to run.
+
+    Args:
+        bundle (str): The bundle name, used only to shape error messages.
+        entries (list): [(relpath, sha256hex), ...], as read by loadManifest.
+        basedir (str): Directory every entry's relpath is relative to -- the
+            manifest's own directory.
+        hint (str): The command a reader should run to fix a mismatch, named
+            in the error text. A caller with build tooling of its own passes
+            the invocation that regenerates this bundle.
+
+    Returns:
+        list: Human-readable error strings, one per mismatch (a missing file
+            counts as a mismatch), in entry order. Empty if every entry
+            still matches.
+    '''
+    if hint is None:
+        hint = 'rebuild the bundle'
+
+    errors = []
+
+    for relpath, hexdigest in entries:
+
+        fullpath = os.path.join(basedir, relpath)
+
+        if not os.path.isfile(fullpath):
+            errors.append(f'{bundle}: missing file {relpath} ({hint})')
+            continue
+
+        if hashFile(fullpath) != hexdigest:
+            errors.append(f'{bundle}: hash mismatch for {relpath} ({hint})')
+
+    return errors
+
+def writeManifest(srcdir, outdir):
+    '''
+    Write the bundle's own docs.sha256, next to srcdir (see getManifestPath),
+    recording every directive-bearing source/built-output pair.
+
+    This is what makes a manifest something the build produces rather than
+    something only external tooling can supply -- reuseFiles consults one on
+    every build, so a bundle that could never write one could never benefit
+    from it.
+
+    Args:
+        srcdir (str): The bundle's doc source directory.
+        outdir (str): The bundle's committed, built output directory.
+
+    Returns:
+        str: Path to the manifest written.
+    '''
+    path = getManifestPath(srcdir)
+    basedir = os.path.dirname(path)
+
+    saveManifest(path, bundleManifestEntries(srcdir, outdir, basedir))
+
+    return path
 
 def reuseFiles(srcdir, builtdir, manifest):
     '''
@@ -1233,6 +1409,13 @@ async def buildBundle(srcdir, outdir, staticdir=None, ci=False, warnfile=None, s
     finally:
         shutil.rmtree(stagedir, ignore_errors=True)
 
+    # Only when the build merged into the bundle's canonical committed directory.
+    # A caller building elsewhere (synapse.tools.storm.pkg.doc --save, whose
+    # staticdir stays pinned to the real files/docs) must not record hashes of
+    # that throwaway output in the bundle's own manifest.
+    if os.path.realpath(outdir) == os.path.realpath(staticdir):
+        writeManifest(srcdir, outdir)
+
     return metadata
 
 # The only two directives whose rendered output is a pure function of their
@@ -1246,7 +1429,7 @@ def fenceDirectiveNames(text):
     '''
     The set of top-level fence directive names in Markdown source text.
 
-    A "recognized" directive is anything gen_docs_manifest._isDirective also
+    A "recognized" directive is anything _hasDirective above also
     admits: 'mdtoc', or a name matching s_mdstorm.re_directive_name (the
     mdstorm family, mdshell, mdautodoc). An unrecognized info string (a plain
     language tag, or a typo'd directive name) is silently excluded -- this

@@ -369,6 +369,19 @@ class EntityModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:threat:name=apt1 -(used)> meta:usable'))
             self.len(1, await core.nodes('entity:name <(used)- risk:threat'))
 
+            # meta:observable lets a name record when it was observed
+            self.true(core.model.form('entity:name').implements('meta:observable'))
+            nodes = await core.nodes('[ entity:name="Grace Holloway" :seen=(20210101, 20210201) ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('seen'))
+            self.len(1, await core.nodes('entity:name:seen.min=20210101'))
+
+            self.len(1, await core.nodes('''
+                entity:name="Grace Holloway"
+                [ +(resembles)> {[ entity:name="Gracie Holloway" ]} ]
+            '''))
+            self.len(1, await core.nodes('entity:name="Grace Holloway" -(resembles)> meta:observable'))
+
     async def test_entity_title(self):
 
         async with self.getTestCore() as core:

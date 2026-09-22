@@ -40,7 +40,7 @@ Syntax and operator tightening (see [Storm Syntax and Operator Changes](storm-sy
 - Inbound pivot/join (`<-` / `<+-`) now only accepts `*`; named-property inbound variants removed. Fix: rewrite `<- <prop>` as `<- *`.
 - Property names -- including wildcard and relative forms -- no longer allow `.` segments. Fix: use colon sub-props or the virtual-property dot.
 - No whitespace allowed before `.` in derefs and tag segments; a space before a dot now parses as a leading-dot virtual property. Fix: make derefs/tag segments hug the dot (`$var.attr`, `#tag.seg`).
-- The lookup-mode `search` Storm interface and the `storm:interface:search` Cortex config key are removed. Fix: remove the config key; lookup mode now uses scrape plus model lookup hints.
+- The `storm:interface:search` Cortex config key is removed. The pluggable `search` Storm interface it gated remains, and lookup mode now runs it whenever a loaded package implements it. Fix: remove the config key; a package implementing the interface yields the integer node id rather than the node buid.
 - (Additive, non-breaking: `in` / `not in` operators, the `as` cast, parenthesized multi-target pivots, virtual-property pivot targets.)
 
 Other Storm-surface changes:

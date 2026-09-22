@@ -754,6 +754,12 @@ $x = (true)
 $y = (999)
 $dict = ({})
 $list = ([])
+
+// WRONG - redundant parens inside a JSON expression
+$props = ({"ids": ([$iden]), "opts": ({"asof": $asof})})
+
+// CORRECT
+$props = ({"ids": [$iden], "opts": {"asof": $asof}})
 ```
 
 ### 3. Forgetting `|` After Inline Commands

@@ -220,7 +220,7 @@ What you need to do
             mesg = json.loads(line)
     ```
 
-:   The `synapse.tools.storm` CLI and the `synapse.tools.storm._http.HttpCortex` client do this for you.
+:   The `synapse.tools.storm` CLI and the `synapse.lib._http.HttpCortex` client do this for you.
 
 ## Unused 2.x modules removed
 

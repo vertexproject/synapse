@@ -7,7 +7,7 @@ When viewed as a library, not just an application, Synapse is made of up a few c
 
 ## Library Architecture
 
-The Synapse library is broken out in a hierarchical fashion. The root of the library contains application level code, such as the implementations of the Cortex and Axon as well as the Telepath client and server components. There are also a set of common helper functions ([common.py](https://github.com/vertexproject/synapse/blob/master/synapse/common.py)) and exceptions ([exc.py](https://github.com/vertexproject/synapse/blob/master/synapse/exc.py)). There are several submodules available as well:
+The Synapse library is broken out in a hierarchical fashion. The root of the library contains application level code, such as the implementations of the Cortex and Axon as well as the Telepath client and server components. There are also a set of common helper functions ([common.py](https://github.com/vertexproject/synapse/blob/main/synapse/common.py)) and exceptions ([exc.py](https://github.com/vertexproject/synapse/blob/main/synapse/exc.py)). There are several submodules available as well:
 
 synapse.data
 
@@ -43,7 +43,7 @@ synapse.vendor
 
 ## Object hierarchies
 
-There is one base class that many objects inherit from, the `Base` ([base.py](https://github.com/vertexproject/synapse/blob/master/synapse/lib/base.py)) class. The `Base` class provides a few useful components (including, but not limited too):
+There is one base class that many objects inherit from, the `Base` ([base.py](https://github.com/vertexproject/synapse/blob/main/synapse/lib/base.py)) class. The `Base` class provides a few useful components (including, but not limited too):
 
 - A way to do asynchronous object construction by override the `__anit__` method. This method is executed inside the python ioloop, allowing the object construction to do async function calls. An implementer still needs to call `await s_base.Base.__anit__(self)` first in order to ensure that the `Base` is setup properly.
 - A way to register object teardown methods and perform object teardowns via the `onfini()` and `fini()`. These allow us to keep more granular control over how things are shut down and resources are released, versus relying solely on the garbage collector to handle teardowns properly. Often times, order matters, so we need to be sure that things are torn down cleanly. These routines can be registered during `__anit__`.
@@ -58,7 +58,7 @@ There are a few very important classes which use the `Base` object:
 - The Telepath `Daemon`. This serves as a RPC server component.
 - The Telepath `Proxy`. This serves as a RPC client component.
 
-The `Cell` ([cell.py](https://github.com/vertexproject/synapse/blob/master/synapse/lib/cell.py)) is a `Base` implementation which has several components available to it:
+The `Cell` ([cell.py](https://github.com/vertexproject/synapse/blob/main/synapse/lib/cell.py)) is a `Base` implementation which has several components available to it:
 
 - It is a `Base`, so it benefits from all the components a `Base` has.
 - It contains support for configuration directives at start time, so a cell can have well defined configuration options availble to it.

@@ -129,8 +129,7 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--url', metavar='<url>', default=HUB_URL,
                       help=f'The base URL of the Vertex Hub. Defaults to {HUB_URL}.')
     pars.add_argument('--apikey', metavar='<key>',
-                      help=f'A Vertex Hub api key with the builder role. Defaults to ${APIKEY_ENVAR}. '
-                           'A key beginning with "-" must be given as --apikey=<key>.')
+                      help=f'A Vertex Hub api key with the builder role. Defaults to ${APIKEY_ENVAR}.')
     pars.add_argument('--signas', metavar='<name>', help='Specify a code signing identity to use from ~/.syn/certs/code.')
     pars.add_argument('--certdir', metavar='<dir>', default='~/.syn/certs',
                       help='Specify an alternate certdir to ~/.syn/certs.')

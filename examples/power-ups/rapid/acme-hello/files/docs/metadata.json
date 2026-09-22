@@ -1,0 +1,90 @@
+{
+  "toc": [
+    {
+      "children": [
+        {
+          "href": "userguide.md#getting-started",
+          "title": "Getting Started"
+        },
+        {
+          "href": "userguide.md#saying-hi",
+          "title": "Saying Hi"
+        },
+        {
+          "href": "userguide.md#using-command-line-options",
+          "title": "Using Command Line Options"
+        },
+        {
+          "href": "userguide.md#yielding-new-nodes",
+          "title": "Yielding New Nodes"
+        },
+        {
+          "href": "userguide.md#calling-the-module-directly",
+          "title": "Calling the Module Directly"
+        }
+      ],
+      "href": "userguide.md",
+      "title": "Acme-Hello User Guide"
+    },
+    {
+      "children": [
+        {
+          "href": "adminguide.md#configuration",
+          "title": "Configuration"
+        },
+        {
+          "href": "adminguide.md#granting-access",
+          "title": "Granting Access"
+        },
+        {
+          "href": "adminguide.md#checking-the-installed-version",
+          "title": "Checking the Installed Version"
+        }
+      ],
+      "href": "adminguide.md",
+      "title": "Acme-Hello Admin Guide"
+    },
+    {
+      "children": [
+        {
+          "href": "stormpackage.md#dependencies",
+          "title": "Dependencies"
+        },
+        {
+          "children": [
+            {
+              "href": "stormpackage.md#acmehellomayyield",
+              "title": "acme.hello.mayyield"
+            },
+            {
+              "href": "stormpackage.md#acmehelloomgopts",
+              "title": "acme.hello.omgopts"
+            },
+            {
+              "href": "stormpackage.md#acmehellosayhi",
+              "title": "acme.hello.sayhi"
+            }
+          ],
+          "href": "stormpackage.md#storm-commands",
+          "title": "Storm Commands"
+        },
+        {
+          "children": [
+            {
+              "href": "stormpackage.md#acmehello",
+              "title": "acme.hello"
+            },
+            {
+              "href": "stormpackage.md#acmehelloprivsep",
+              "title": "acme.hello.privsep"
+            }
+          ],
+          "href": "stormpackage.md#storm-modules",
+          "title": "Storm Modules"
+        }
+      ],
+      "href": "stormpackage.md",
+      "title": "Storm Package: acme-hello"
+    }
+  ]
+}

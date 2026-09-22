@@ -28,7 +28,7 @@ Streaming HTTP API endpoints, such as the interface provided to retrieve nodes f
 
 The client example code in these docs is given with the Python "aiohttp" and "requests" modules. They should be enough to understand the basic operation of the APIs.
 
-For additional examples, see the code examples at [HTTPAPI Examples](https://github.com/vertexproject/synapse/tree/master/examples/httpapi).
+For additional examples, see the code examples at [HTTPAPI Examples](https://github.com/vertexproject/synapse/tree/main/examples/httpapi).
 
 <a id="http-api-authentication"></a>
 
@@ -48,13 +48,13 @@ A Cortex user can create their own API key via Storm. The following is an exampl
 
 > ```stormdoc
 > storm> ($key, $info)= $lib.auth.users.byname($lib.auth.users.get().name).genApiKey('Test Key') $lib.print($key)
-> XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
+> syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
 > ```
 
 This API Key can then be used to make HTTP API calls. The following example shows the use of `curl` and `jq` to make a Storm call with the API key and then format the response:
 
 > ```text
-> $ curl -k -s -H "X-API-KEY: XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=" \
+> $ curl -k -s -H "X-API-KEY: syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=" \
 > --data '{"query": "return($lib.auth.users.get().name)"}' \
 > https://localhost:4443/api/v3/storm/call | jq
 >
@@ -69,7 +69,7 @@ The API key may also be supplied as the username of an HTTP Basic authentication
 > ```text
 > $ curl -k -s \
 > --data '{"query": "return($lib.auth.users.get().name)"}' \
-> https://XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=@localhost:4443/api/v3/storm/call | jq
+> https://syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=@localhost:4443/api/v3/storm/call | jq
 > ```
 
 The following Python examples create a client session that sends the API key via the `X-API-KEY` header on every request. The remaining endpoint examples in this document assume a session created this way.
@@ -77,7 +77,7 @@ The following Python examples create a client session that sends the API key via
 ```python3
 import aiohttp
 
-apikey = 'XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA='
+apikey = 'syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA='
 
 def getApiKeySess():
     headers = {'X-API-KEY': apikey}
@@ -87,7 +87,7 @@ def getApiKeySess():
 ```python3
 import requests
 
-apikey = 'XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA='
+apikey = 'syn-XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA='
 
 def getApiKeySess():
     sess = requests.session()

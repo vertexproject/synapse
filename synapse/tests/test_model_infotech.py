@@ -1627,6 +1627,22 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(node, 'name', pipe)
             self.propeq(node, 'sandbox:file', sandfile)
 
+            for form in ('it:exec:pipe:del', 'it:exec:pipe:read', 'it:exec:pipe:write'):
+                pn = s_common.guid()
+                q = f'''[({form}=$valu :exe=$p.exe as file:bytes :proc=$p.proc as it:exec:proc :name=$p.name :host=$p.host as it:host :time=$p.time
+                        :sandbox:file=$p."sandbox:file" as file:bytes)]'''
+                nodes = await core.nodes(q, opts={'vars': {'valu': pn, 'p': pipeprops}})
+                self.len(1, nodes)
+                node = nodes[0]
+                self.eq(node.ndef, (form, pn))
+                self.propeq(node, 'exe', exe)
+                self.propeq(node, 'proc', proc)
+                self.propeq(node, 'host', host)
+                self.propeq(node, 'time', tick)
+                self.propeq(node, 'name', pipe)
+                self.propeq(node, 'sandbox:file', sandfile)
+                self.true(core.model.form(form).implements('it:host:event'))
+
             nodes = await core.nodes('''
                 [ it:exec:fetch=*
                     :proc=* as it:exec:proc
@@ -2772,6 +2788,59 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ file:bytes=* ]} ]'))
             self.len(1, await core.nodes('it:os:windows:registry:entry [ :value={[ it:dev:str=woot ]} ]'))
             self.len(1, await core.nodes('it:os:windows:registry:entry -> it:os:windows:registry:key'))
+
+    async def test_infotech_windows_task(self):
+
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'uri': '\\Microsoft\\Windows\\Woot\\Telemetry'}}
+
+            nodes = await core.nodes('''
+                [ it:os:windows:task=*
+                    :host=* as it:host
+                    :cmds=("cmd.exe /c woot.bat", "PowerShell.exe -Enc ZgBvAG8A", "cmd.exe /c woot.bat")
+                    :account=* as it:host:windows:account
+                    :period=(2020-01-01, 2021-01-01)
+                    :desc="Daily telemetry upload"
+                    :uri=$uri
+                    :path=c:/windows/system32/tasks/woot.xml
+                    :file=* as file:bytes
+                    :activity={[ it:os:posix:cron=* ]}
+                ]
+            ''', opts=opts)
+
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'desc', 'Daily telemetry upload')
+            self.propeq(nodes[0], 'uri', '/Microsoft/Windows/Woot/Telemetry')
+            self.propeq(nodes[0], 'path', 'c:/windows/system32/tasks/woot.xml')
+            self.propeq(nodes[0], 'period', (1577836800000000, 1609459200000000, 31622400000000))
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('account'))
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('activity'))
+
+            # the commands stay in order and the repeat is preserved, so the
+            # pivot walks three entries but resolves only two distinct nodes
+            self.propeq(nodes[0], 'cmds', ('cmd.exe /c woot.bat',
+                                           'PowerShell.exe -Enc ZgBvAG8A',
+                                           'cmd.exe /c woot.bat'))
+
+            self.len(1, await core.nodes('it:os:windows:task -> it:host'))
+            self.len(3, await core.nodes('it:os:windows:task -> it:cmd'))
+            self.len(2, await core.nodes('it:cmd'))
+            self.len(1, await core.nodes('it:os:windows:task :account -> it:host:windows:account'))
+            self.len(1, await core.nodes('it:os:windows:task -> file:bytes'))
+            self.len(2, await core.nodes('it:os:windows:task -> file:path'))
+            self.len(1, await core.nodes('it:os:windows:task :activity -> it:os:posix:cron'))
+            self.len(1, await core.nodes('it:os:windows:task:desc="daily telemetry upload"'))
+            self.len(1, await core.nodes('it:os:windows:task:period@=2020'))
+
+            # meta:causal arrives via base:activity rather than being declared
+            form = core.model.form('it:os:windows:task')
+            self.true(form.implements('file:entry'))
+            self.true(form.implements('meta:usable'))
+            self.true(form.implements('base:activity'))
+            self.true(form.implements('meta:causal'))
 
     async def test_infotech_posix_cron(self):
 

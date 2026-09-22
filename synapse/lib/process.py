@@ -89,5 +89,12 @@ async def spawn(todo, timeout=None, ctx=None, logconf=None, name=None):
         return retn
 
     except (asyncio.CancelledError, asyncio.TimeoutError):
-        proc.terminate()
+        # The timeout can fire before execspawn's executor thread reaches
+        # proc.start(), and Process.terminate() raises AttributeError rather
+        # than doing nothing when there is no child yet -- which would replace
+        # the caller's TimeoutError with a confusing AttributeError.
+        # is_alive() is False for a process which was never started.
+        if proc.is_alive():
+            proc.terminate()
+
         raise

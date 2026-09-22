@@ -80,14 +80,14 @@ inits:
     - name: first
       version: 0
       inaugural: true
-      query: "$lib.globals.set(testpkg-first, $myvar)"
+      query: '$lib.globals."testpkg-first" = $myvar'
       queryopts:
         vars:
           myvar: true
     - name: second
       desc: Another init
       version: 2
-      query: "$lib.globals.set(testpkg-second, (true))"
+      query: '$lib.globals."testpkg-second" = (true)'
 
 graphs:
     - name: testgraph

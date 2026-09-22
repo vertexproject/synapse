@@ -15,6 +15,8 @@ import synapse.lib.const as s_const
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.version as s_version
+import synapse.lib.httpclient as s_httpclient
 import synapse.lib.crypto.passwd as s_passwd
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,11 @@ EXPORT_TIMEOUT = 3600
 # The number of chunks buffered while streaming bytes into an Axon HTTP upload.
 UPLOAD_QSIZE = 4
 
+# The product token in the default outbound User-Agent. A Cell derives its own token
+# from its cell type ( see Cell._getUserAgentProd ); this client is not a Cell, and it
+# ships with Synapse, so its version is the Synapse version.
+USER_AGENT_PROD = 'Synapse-Client'
+
 apikeymesg = 'A user API key is required to connect to a Cortex over HTTP. ' \
              'Provide it in the URL as https://<apikey>@host:port/.'
 
@@ -48,6 +55,43 @@ def isHttpsUrl(url):
         bool: True if the URL uses the https scheme.
     '''
     return url.lower().startswith('https://')
+
+def addHttpsArgs(pars):
+    '''
+    Add the options which configure the Cortex HTTP API client to an argument parser.
+
+    Note:
+        Shared by every CLI tool which accepts an https:// Cortex URL, so the options
+        and their help text cannot drift apart between them.
+
+    Args:
+        pars (s_cmd.Parser): The argument parser.
+    '''
+    pars.add_argument('--https-proxy', default=None,
+                      help='An aiohttp-socks compatible proxy URL to use for https:// URLs.')
+    pars.add_argument('--https-ca-dir', default=None,
+                      help='A directory of CAs which are added to the TLS CA chain for https:// URLs.')
+    pars.add_argument('--https-noverify', default=False, action='store_true',
+                      help='Ignore SSL certificate validation errors for https:// URLs.')
+
+def reqTeleOpts(opts):
+    '''
+    Require that the https only options are not used with a telepath URL.
+
+    Args:
+        opts (argparse.Namespace): The parsed arguments.
+    '''
+    httponly = (
+        ('--https-proxy', opts.https_proxy),
+        ('--https-ca-dir', opts.https_ca_dir),
+        ('--https-noverify', opts.https_noverify or None),
+    )
+
+    for name, valu in httponly:
+
+        if valu is not None:
+            mesg = f'The {name} option may only be used with an https:// Cortex URL.'
+            raise s_exc.BadArg(mesg=mesg, arg=name)
 
 async def openurl(url, cadir=None, proxy=None, verify=True):
     '''
@@ -190,7 +234,8 @@ class HttpCortex(s_base.Base):
     '''
     A Cortex client which uses the HTTP API rather than Telepath.
 
-    This implements the subset of the Telepath CoreApi which is used by the Storm CLI.
+    This implements the subset of the Telepath CoreApi used by the CLI tools which
+    accept an https:// Cortex URL.
 
     Note:
         Messages are deserialized from JSON, so nested sequences are lists where the
@@ -237,9 +282,14 @@ class HttpCortex(s_base.Base):
         # running Storm queries.
         timeout = aiohttp.ClientTimeout(total=None)
 
+        headers = {
+            'X-API-KEY': apikey,
+            'User-Agent': s_httpclient.getUserAgent(USER_AGENT_PROD, s_version.version),
+        }
+
         sess = aiohttp.ClientSession(connector=connector,
                                      timeout=timeout,
-                                     headers={'X-API-KEY': apikey},
+                                     headers=headers,
                                      max_line_size=s_const.MAX_LINE_SIZE,
                                      max_field_size=s_const.MAX_FIELD_SIZE)
 
@@ -377,6 +427,18 @@ class HttpCortex(s_base.Base):
             if size != unpk.size:
                 mesg = 'The Cortex HTTP API export stream ended with a partial node.'
                 raise s_exc.BadDataValu(mesg=mesg)
+
+    async def addStormPkg(self, pkgdef, *, verify=False):
+        '''
+        Add a Storm package to the Cortex.
+
+        Note:
+            The HTTP API has no package endpoint, so this runs $lib.pkg.add() which
+            confirms the same pkg.add permission and calls the same Cortex API the
+            Telepath CoreApi method does.
+        '''
+        opts = {'vars': {'pkgdef': pkgdef, 'verify': verify}}
+        return await self.callStorm('return($lib.pkg.add($pkgdef, verify=$verify))', opts=opts)
 
     async def getCoreInfoV2(self):
 

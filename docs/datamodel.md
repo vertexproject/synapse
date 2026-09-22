@@ -2205,7 +2205,12 @@ A name used to refer to an entity.
 
 | Interface |
 |-----------|
+| `meta:observable` |
 | `meta:usable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:seen` | `ival` | The entity name was observed during the time interval. |
 
 ### `entity:offered`
 
@@ -3129,6 +3134,14 @@ A file entry contained by a host filesystem.
 ### `geo:name`
 
 An unstructured place name or address.
+
+| Interface |
+|-----------|
+| `meta:observable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:seen` | `ival` | The place name was observed during the time interval. |
 
 ### `geo:place`
 
@@ -6204,6 +6217,72 @@ A named pipe created by a process at runtime.
 | `:thread` | `it:exec:thread` | The thread which caused the pipe creation event. |
 | `:time` | `time` | The time the named pipe was created. |
 
+### `it:exec:pipe:del`
+
+An event where a process deleted a named pipe.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this pipe deletion event. |
+| `:exe` | `file:bytes` | The specific file containing code that deleted the named pipe. |
+| `:host` | `it:host` | The host running the process that deleted the named pipe. |
+| `:name` | `it:dev:str` | The named pipe string. |
+| `:proc` | `it:exec:proc` | The main process executing code that deleted the named pipe. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:thread` | `it:exec:thread` | The thread which caused the pipe deletion event. |
+| `:time` | `time` | The time the named pipe was deleted. |
+
+### `it:exec:pipe:read`
+
+An event where a process read from a named pipe.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this pipe read event. |
+| `:exe` | `file:bytes` | The specific file containing code that read from the named pipe. |
+| `:host` | `it:host` | The host running the process that read from the named pipe. |
+| `:name` | `it:dev:str` | The named pipe string. |
+| `:proc` | `it:exec:proc` | The main process executing code that read from the named pipe. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:thread` | `it:exec:thread` | The thread which caused the pipe read event. |
+| `:time` | `time` | The time the named pipe was read from. |
+
+### `it:exec:pipe:write`
+
+An event where a process wrote to a named pipe.
+
+| Interface |
+|-----------|
+| `base:event` |
+| `it:host:event` |
+| `it:host:exec` |
+| `meta:causal` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:activity` | `base:activity` | A parent activity which includes this pipe write event. |
+| `:exe` | `file:bytes` | The specific file containing code that wrote to the named pipe. |
+| `:host` | `it:host` | The host running the process that wrote to the named pipe. |
+| `:name` | `it:dev:str` | The named pipe string. |
+| `:proc` | `it:exec:proc` | The main process executing code that wrote to the named pipe. |
+| `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
+| `:thread` | `it:exec:thread` | The thread which caused the pipe write event. |
+| `:time` | `time` | The time the named pipe was written to. |
+
 ### `it:exec:proc`
 
 A process executing on a host.
@@ -7124,6 +7203,29 @@ A Microsoft Windows service configuration on a host.
 | `:sandbox:file` | `file:bytes` | The initial sample given to a sandbox environment to analyze. |
 | `:start` | `uint32` | The start configuration of the service from the Start registry key. |
 | `:type` | `uint32` | The type of service from the Type registry key. |
+
+### `it:os:windows:task`
+
+A Windows Scheduled Task entry.
+
+| Interface |
+|-----------|
+| `base:activity` |
+| `file:entry` |
+| `meta:causal` |
+| `meta:usable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:account` | `it:host:windows:account` | The account which the task runs as. |
+| `:activity` | `base:activity` | A parent activity which includes this task. |
+| `:cmds` | `array of it:cmd` | A set of ordered commands executed by the task. |
+| `:desc` | `text` | The description of the task. |
+| `:file` | `file:bytes` | The file containing the task metadata. |
+| `:host` | `it:host` | The host on which the task was configured. |
+| `:path` | `file:path` | The path of the task metadata file. |
+| `:period` | `it:lifespan` | The period when the task entry existed. |
+| `:uri` | `file:path` | The location of the task within the Windows Task Scheduler. |
 
 ### `it:physical:host`
 
@@ -9205,6 +9307,7 @@ A project in a tasking system.
 | `:creator` | `entity:actor` | The primary actor which created the project. |
 | `:creator:name` | `entity:name` | The name of the primary actor which created the project. |
 | `:desc` | `text` | The project description. |
+| `:id` | `base:id` | The ID of the project. |
 | `:name` | `base:name` | The project name. |
 | `:period` | `activity` | The period over which the project occurred. |
 | `:platform` | `inet:service:platform` | The platform where the project is hosted. |
@@ -11350,6 +11453,7 @@ Properties common to activity which occurs over a period.
 | `inet:flow` |
 | `inet:wifi:link` |
 | `it:os:posix:cron` |
+| `it:os:windows:task` |
 | `pol:election` |
 | `pol:race` |
 | `proj:sprint` |
@@ -11878,6 +11982,7 @@ Properties common to forms representing a file at a path.
 | `it:exec:file:read` |
 | `it:exec:file:write` |
 | `it:os:posix:cron` |
+| `it:os:windows:task` |
 
 ### `file:mime:exe`
 
@@ -12298,6 +12403,9 @@ An event which occurred on a host.
 | `it:exec:mmap:add` |
 | `it:exec:mutex:add` |
 | `it:exec:pipe:add` |
+| `it:exec:pipe:del` |
+| `it:exec:pipe:read` |
+| `it:exec:pipe:write` |
 | `it:exec:proc:create` |
 | `it:exec:proc:signal` |
 | `it:exec:proc:terminate` |
@@ -12432,6 +12540,7 @@ Properties common to forms which can be observed.
 | `econ:pay:card` |
 | `entity:campaign` |
 | `entity:contact` |
+| `entity:name` |
 | `file:archive:entry` |
 | `file:attachment` |
 | `file:base` |
@@ -12442,6 +12551,7 @@ Properties common to forms which can be observed.
 | `file:path` |
 | `file:stored:entry` |
 | `file:system:entry` |
+| `geo:name` |
 | `inet:asn` |
 | `inet:asnet` |
 | `inet:asnip` |
@@ -12746,6 +12856,7 @@ An interface implemented by forms which can be used by an actor.
 | `it:dev:str` |
 | `it:hardware` |
 | `it:os:posix:cron` |
+| `it:os:windows:task` |
 | `it:software` |
 | `meta:algorithm` |
 | `meta:rule` |

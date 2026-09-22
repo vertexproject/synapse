@@ -1906,9 +1906,40 @@ modeldefs = (
                 ),
                 'doc': 'An event where a Microsoft Windows service configuration was removed from a host.'}),
 
-            # TODO
-            # ('it:os:windows:task', ('guid', {}), {
-            #     'doc': 'A Microsoft Windows scheduled task configuration.'}),
+            ('it:os:windows:task', ('guid', {}), {
+                'template': {'title': 'task'},
+                'interfaces': (
+                    ('file:entry', {}),
+                    ('meta:usable', {}),
+                    ('base:activity', {}),
+                ),
+                'props': (
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host on which the task was configured.'}),
+
+                    ('cmds', ('it:cmd', {}), {
+                        'array': {'sorted': False, 'uniq': False},
+                        'doc': 'A set of ordered commands executed by the task.'}),
+
+                    ('account', ('it:host:windows:account', {}), {
+                        'doc': 'The account which the task runs as.'}),
+
+                    ('period', ('it:lifespan', {}), {
+                        'doc': 'The period when the task entry existed.'}),
+
+                    ('desc', ('text', {}), {
+                        'doc': 'The description of the task.'}),
+
+                    ('uri', ('file:path', {}), {
+                        'doc': 'The location of the task within the Windows Task Scheduler.'}),
+
+                    ('path', None, {
+                        'doc': 'The path of the task metadata file.'}),
+
+                    ('file', None, {
+                        'doc': 'The file containing the task metadata.'}),
+                ),
+                'doc': 'A Windows Scheduled Task entry.'}),
 
             ('it:os:posix:id', ('uint32', {}), {
                 'ex': '1001',
@@ -2369,32 +2400,97 @@ modeldefs = (
                 ),
                 'doc': 'An event where a process created a mutex.'}),
 
-            # TODO: pipe:del pipe:read pipe:write
             ('it:exec:pipe:add', ('guid', {}), {
                 'template': {'title': 'pipe creation event'},
                 'interfaces': (
                     ('it:host:event', {}),
                 ),
                 'props': (
-                    ('proc', ('it:exec:proc', {}), {
+                    ('proc', None, {
                         'doc': 'The main process executing code that created the named pipe.'}),
 
-                    ('host', ('it:host', {}), {
+                    ('host', None, {
                         'doc': 'The host running the process that created the named pipe.'}),
 
-                    ('exe', ('file:bytes', {}), {
+                    ('exe', None, {
                         'doc': 'The specific file containing code that created the named pipe.'}),
 
-                    ('time', ('time', {}), {
+                    ('time', None, {
                         'doc': 'The time the named pipe was created.'}),
 
                     ('name', ('it:dev:str', {}), {
                         'doc': 'The named pipe string.'}),
-
-                    ('sandbox:file', ('file:bytes', {}), {
-                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                 ),
                 'doc': 'A named pipe created by a process at runtime.'}),
+
+            ('it:exec:pipe:del', ('guid', {}), {
+                'template': {'title': 'pipe deletion event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('proc', None, {
+                        'doc': 'The main process executing code that deleted the named pipe.'}),
+
+                    ('host', None, {
+                        'doc': 'The host running the process that deleted the named pipe.'}),
+
+                    ('exe', None, {
+                        'doc': 'The specific file containing code that deleted the named pipe.'}),
+
+                    ('time', None, {
+                        'doc': 'The time the named pipe was deleted.'}),
+
+                    ('name', ('it:dev:str', {}), {
+                        'doc': 'The named pipe string.'}),
+                ),
+                'doc': 'An event where a process deleted a named pipe.'}),
+
+            ('it:exec:pipe:read', ('guid', {}), {
+                'template': {'title': 'pipe read event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('proc', None, {
+                        'doc': 'The main process executing code that read from the named pipe.'}),
+
+                    ('host', None, {
+                        'doc': 'The host running the process that read from the named pipe.'}),
+
+                    ('exe', None, {
+                        'doc': 'The specific file containing code that read from the named pipe.'}),
+
+                    ('time', None, {
+                        'doc': 'The time the named pipe was read from.'}),
+
+                    ('name', ('it:dev:str', {}), {
+                        'doc': 'The named pipe string.'}),
+                ),
+                'doc': 'An event where a process read from a named pipe.'}),
+
+            ('it:exec:pipe:write', ('guid', {}), {
+                'template': {'title': 'pipe write event'},
+                'interfaces': (
+                    ('it:host:event', {}),
+                ),
+                'props': (
+                    ('proc', None, {
+                        'doc': 'The main process executing code that wrote to the named pipe.'}),
+
+                    ('host', None, {
+                        'doc': 'The host running the process that wrote to the named pipe.'}),
+
+                    ('exe', None, {
+                        'doc': 'The specific file containing code that wrote to the named pipe.'}),
+
+                    ('time', None, {
+                        'doc': 'The time the named pipe was written to.'}),
+
+                    ('name', ('it:dev:str', {}), {
+                        'doc': 'The named pipe string.'}),
+                ),
+                'doc': 'An event where a process wrote to a named pipe.'}),
 
             ('it:exec:fetch', ('guid', {}), {
                 'template': {'title': 'fetch event'},

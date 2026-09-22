@@ -114,6 +114,44 @@ chartipv4_byname = '''
  0.0.0.1 | 1 | 25.00% | ##################################################
 '''.strip()
 
+chartunset_byname = '''
+None | 1 | 20.00% | #########################
+   4 | 1 | 20.00% | #########################
+   1 | 2 | 40.00% | ##################################################
+   0 | 1 | 20.00% | #########################
+'''.strip()
+
+chartunset_rev_byname = '''
+   0 | 1 | 20.00% | #########################
+   1 | 2 | 40.00% | ##################################################
+   4 | 1 | 20.00% | #########################
+None | 1 | 20.00% | #########################
+'''.strip()
+
+chartmixed_byname = '''
+ nan | 1 | 11.11% | ##################################################
+ abc | 1 | 11.11% | ##################################################
+None | 1 | 11.11% | ##################################################
+0xzz | 1 | 11.11% | ##################################################
+0x20 | 1 | 11.11% | ##################################################
+  10 | 1 | 11.11% | ##################################################
+   2 | 1 | 11.11% | ##################################################
+ 1.5 | 1 | 11.11% | ##################################################
+   1 | 1 | 11.11% | ##################################################
+'''.strip()
+
+chartmixed_rev_byname = '''
+   1 | 1 | 11.11% | ##################################################
+ 1.5 | 1 | 11.11% | ##################################################
+   2 | 1 | 11.11% | ##################################################
+  10 | 1 | 11.11% | ##################################################
+0x20 | 1 | 11.11% | ##################################################
+0xzz | 1 | 11.11% | ##################################################
+None | 1 | 11.11% | ##################################################
+ abc | 1 | 11.11% | ##################################################
+ nan | 1 | 11.11% | ##################################################
+'''.strip()
+
 
 class StatsTest(s_test.SynTest):
 
@@ -198,6 +236,30 @@ class StatsTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 self.len(15, await core.nodes('inet:ip | stats.countby ({})'))
+
+            # a tally of numeric values where some nodes do not have the property
+            # set tallies the unset nodes under None. ( SYN-9957 )
+            q = '''[ (inet:ip=1.2.3.1 :asn=0) (inet:ip=1.2.3.2 :asn=1) (inet:ip=1.2.3.3 :asn=1)
+                     (inet:ip=1.2.3.4) (inet:ip=1.2.3.5 :asn=4) +#unset ]'''
+            self.len(5, await core.nodes(q))
+
+            msgs = await core.stormlist('inet:ip#unset | stats.countby :asn --by-name')
+            self.stormIsInPrint(chartunset_byname, msgs)
+
+            msgs = await core.stormlist('inet:ip#unset | stats.countby :asn --by-name --reverse')
+            self.stormIsInPrint(chartunset_rev_byname, msgs)
+
+            # numeric names sort numerically and non-numeric names sort
+            # lexicographically after them.
+            q = '''[ it:dev:str="1" it:dev:str="1.5" it:dev:str="2" it:dev:str="10" it:dev:str="nan"
+                     it:dev:str="0x20" it:dev:str="0xzz" it:dev:str="None" it:dev:str="abc" ]'''
+            self.len(9, await core.nodes(q))
+
+            msgs = await core.stormlist('it:dev:str | stats.countby --by-name')
+            self.stormIsInPrint(chartmixed_byname, msgs)
+
+            msgs = await core.stormlist('it:dev:str | stats.countby --by-name --reverse')
+            self.stormIsInPrint(chartmixed_rev_byname, msgs)
 
     async def test_stormlib_stats_tally(self):
 

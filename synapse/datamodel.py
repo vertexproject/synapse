@@ -677,6 +677,7 @@ class Model:
         self.formprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
 
         self._lookup_hints = None
+        self._virts_by_type = None
 
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
@@ -747,6 +748,33 @@ class Model:
         if (props := self.tagpropsbytype.get(name)) is None:
             return ()
         return list(props.values())
+
+    def getVirtsByType(self, name):
+        '''
+        Return the (formname, virtname) tuples for the indexed virtual properties
+        of a form primary property which reference the given form name. A virt on
+        a secondary property is not a ref because the node for the property value
+        carries the ref, the same as Form.getRefsOut().
+        '''
+        if self._virts_by_type is None:
+
+            virtsbytype = collections.defaultdict(list)
+
+            for formname, form in self.forms.items():
+                for virtname, virtinfo in form.type.virts.items():
+
+                    typename = virtinfo[0].name
+                    if self.forms.get(typename) is None:
+                        continue
+
+                    if form.type.virtindx.get(virtname) is None:
+                        continue
+
+                    virtsbytype[typename].append((formname, virtname))
+
+            self._virts_by_type = virtsbytype
+
+        return self._virts_by_type.get(name, ())
 
     def getProps(self):
         return [pobj for pname, pobj in self.props.items()
@@ -1790,6 +1818,7 @@ class Model:
         self.formprefixcache.clear()
         self.pivchaincache.clear()
         self._lookup_hints = None
+        self._virts_by_type = None
 
         return form
 
@@ -1904,6 +1933,7 @@ class Model:
         self.formprefixcache.clear()
         self.pivchaincache.clear()
         self._lookup_hints = None
+        self._virts_by_type = None
 
         if parentform:
             self.childforms[parentform.name].remove(formname)

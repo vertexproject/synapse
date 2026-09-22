@@ -14,64 +14,280 @@ Examples:
 
 '''
 
-async def get_cell_infos(prox, iden, members, timeout):
+# Mirrors the column configuration used by the aha.svc.mirror Storm command so that
+# both renderings of this data stay identical. A column with no width is not padded.
+columns = (
+    ('name', 40),
+    ('role', 9),
+    ('online', 7),
+    ('ready', 6),
+    ('host', 16),
+    ('port', 8),
+    ('version', 12),
+    ('synapse', 12),
+    ('nexus idx', 10),
+    ('follows', None),
+)
+
+def format_row(values, pad=' '):
+    '''
+    Render a row the way $lib.tabular does with no column separator configured, which
+    is a leading pad, items joined by a doubled pad, and a trailing pad.
+    '''
+    items = []
+    for (name, width), valu in zip(columns, values):
+
+        valu = '' if valu is None else str(valu)
+        if width is not None:
+            valu = valu.ljust(width)
+
+        items.append(valu)
+
+    return f'{pad}{(pad * 2).join(items)}{pad}'
+
+async def get_cell_infos(prox, outp, iden, timeout):
+
     cell_infos = {}
-    if iden is not None:
-        todo = s_common.todo('getCellInfo')
+    todo = s_common.todo('getCellInfo')
+
+    try:
+
         async for svcname, (ok, info) in prox.callAhaPeerApi(iden, todo, timeout=timeout):
+
             if not ok:
                 continue
+
             cell_infos[svcname] = info
+
+    except Exception as e:
+        mesg = repr(e)
+        if isinstance(e, s_exc.SynErr):
+            mesg = e.errinfo.get('mesg', repr(e))
+
+        outp.printf(f'WARNING: Failed to query mirror group members: {mesg}')
+
     return cell_infos
 
 def build_status_list(members, cell_infos):
+
     group_status = []
+
     for svc in members:
+
         svcname = svc.get('name')
         if (svcinfo := svc.get('info')) is None: # pragma: no cover
             svcinfo = {}
 
+        ready = svcinfo.get('ready')
+
         status = {
             'name': svcname,
+            'responded': False,
             'role': '<unknown>',
             'online': str(svc.get('online', False)),
-            'ready': 'True',
+            'ready': '' if ready is None else str(ready),
             'host': svcinfo.get('urlinfo', {}).get('host', ''),
             'port': str(svcinfo.get('urlinfo', {}).get('port', '')),
             'version': '<unknown>',
             'synapse': '<unknown>',
-            'nexs_indx': 0
+            'nexs_indx': None,
+            'follows': '<unknown>',
         }
+
         if svcname in cell_infos:
+
             info = cell_infos[svcname]
             cell_info = info.get('cell', {})
+
             status.update({
-                'nexs_indx': cell_info.get('nexsindx', 0),
+                'responded': True,
+                'nexs_indx': cell_info.get('nexus', {}).get('indx'),
                 'role': 'leader' if cell_info.get('active') else 'follower',
-                'version': str(info.get('cell', {}).get('version', '')),
+                'version': str(cell_info.get('version', '')),
                 'synapse': str(info.get('synapse', {}).get('version', '')),
                 'online': 'True',
-                'ready': str(cell_info.get('ready', False))
             })
+
+            # The URL is sanitized by the service before it is returned to us.
+            if 'parent' in cell_info:
+                parent = cell_info.get('parent')
+                status['follows'] = '<none - write root>' if parent is None else parent
+
         group_status.append(status)
+
     return group_status
 
 def output_status(outp, vname, group_status):
-    header = ' {:<40} {:<10} {:<8} {:<7} {:<16} {:<9} {:<12} {:<12} {:<10}'.format(
-        'name', 'role', 'online', 'ready', 'host', 'port', 'version', 'synapse', 'nexus idx')
-    outp.printf(header)
-    outp.printf('#' * 120)
-    outp.printf(vname)
-    for status in group_status:
-        if status['nexs_indx'] == 0:
-            status['nexs_indx'] = '<unknown>'
-        line = ' {name:<40} {role:<10} {online:<8} {ready:<7} {host:<16} {port:<9} {version:<12} {synapse:<12} {nexs_indx:<10}'.format(**status)
-        outp.printf(line)
 
-def check_sync_status(group_status):
-    indices = {status['nexs_indx'] for status in group_status}
-    known_count = sum(1 for status in group_status)
-    return len(indices) == 1 and known_count == len(group_status)
+    outp.printf(format_row([name for name, width in columns]))
+    outp.printf(format_row([(width or len(name)) * '#' for name, width in columns], pad='#'))
+    outp.printf(vname)
+
+    for status in group_status:
+
+        nexs = status.get('nexs_indx')
+        if nexs is None:
+            nexs = '<unknown>'
+
+        outp.printf(format_row((
+            status['name'],
+            status['role'],
+            status['online'],
+            status['ready'],
+            status['host'],
+            status['port'],
+            status['version'],
+            status['synapse'],
+            nexs,
+            status['follows'],
+        )))
+
+def get_sync_status(group_status):
+
+    indices = {status['nexs_indx'] for status in group_status if status['nexs_indx'] is not None}
+    known = sum(1 for status in group_status if status['nexs_indx'] is not None)
+
+    # No member reported an index, so we can say nothing about replication.
+    if known == 0:
+        return 'Unknown'
+
+    if known == len(group_status) and len(indices) == 1:
+        return 'In Sync'
+
+    return 'Out of Sync'
+
+def output_group_leader(outp, members, group_status):
+    '''
+    Aha elects a leadership term per service type. The term flag is derived from the
+    term name alone, so it stays set on a service which is down. Report the term holder
+    and flag any disagreement with the live status.
+    '''
+    termname = None
+    termonline = False
+
+    for svc in members:
+        if svc.get('leader'):
+            termname = svc.get('name')
+            termonline = svc.get('online', False)
+
+    if termname is None:
+        outp.printf('Group Leader: <no term>')
+        return
+
+    actives = [status['name'] for status in group_status if status['role'] == 'leader']
+
+    termactive = termname in actives
+    others = [name for name in actives if name != termname]
+
+    if not termonline:
+        outp.printf(f'Group Leader: {termname} (offline)')
+        return
+
+    if not termactive:
+        if not others:
+            outp.printf(f'Group Leader: {termname} (inactive)')
+            return
+
+        outp.printf(f'Group Leader: {termname} (inactive; {", ".join(others)} reports active)')
+        return
+
+    if others:
+        outp.printf(f'Group Leader: {termname} (also active: {", ".join(others)})')
+        return
+
+    outp.printf(f'Group Leader: {termname}')
+
+def get_mirror_groups(svcdefs):
+    '''
+    A leader and its mirrors share an immutable service iden, so group on that.
+
+    Returns a list of (name, members) tuples.
+    '''
+    svc_groups = {}
+    for svc in svcdefs:
+
+        iden = svc.get('info', {}).get('iden')
+        if iden is None:
+            continue
+
+        svc_groups.setdefault(iden, []).append(svc)
+
+    mirror_groups = []
+    for iden, svcs in svc_groups.items():
+
+        if len(svcs) <= 1:
+            continue
+
+        # Aha never reaps service entries, so a decommissioned cluster lingers in the
+        # registry forever. Only report groups which still have a service online.
+        if not any(svc.get('online') for svc in svcs):
+            continue
+
+        # Name the group by its current ( term-holding ) leader and list it first.
+        leader = next((svc for svc in svcs if svc.get('leader')), svcs[0])
+        members = [leader] + [svc for svc in svcs if svc is not leader]
+
+        mirror_groups.append((leader.get('name'), members))
+
+    return mirror_groups
+
+async def output_group(outp, prox, vname, members, opts):
+
+    iden = members[0].get('info', {}).get('iden')
+
+    cell_infos = await get_cell_infos(prox, outp, iden, opts.timeout)
+    group_status = build_status_list(members, cell_infos)
+    output_status(outp, vname, group_status)
+    output_group_leader(outp, members, group_status)
+
+    syncstatus = get_sync_status(group_status)
+    outp.printf(f'Group Status: {syncstatus}')
+
+    if syncstatus == 'In Sync' or not opts.wait:
+        return
+
+    allresp = all(status['responded'] for status in group_status)
+    actives = sum(1 for status in group_status if status['role'] == 'leader')
+
+    leader_nexs = None
+    for status in group_status:
+        if status['role'] == 'leader' and status['nexs_indx'] is not None:
+            leader_nexs = status['nexs_indx']
+
+    # Without a single active leader there is no replication to wait on, and an
+    # unresponsive member can never satisfy the wait loop.
+    if actives != 1:
+        outp.printf('WARNING: Skipping --wait: the group has no active leader.')
+        return
+
+    if not allresp:
+        outp.printf('WARNING: Skipping --wait: one or more group members did not respond.')
+        return
+
+    if leader_nexs is None:
+        outp.printf('WARNING: Skipping --wait: the leader did not report a nexus index.')
+        return
+
+    while True:
+
+        responses = []
+        todo = s_common.todo('waitNexsOffs', leader_nexs - 1, timeout=opts.timeout)
+        async for svcname, (ok, info) in prox.callAhaPeerApi(iden, todo, timeout=opts.timeout):
+            if ok and info:
+                responses.append((svcname, info))
+
+        if len(responses) == len(members):
+
+            cell_infos = await get_cell_infos(prox, outp, iden, opts.timeout)
+            group_status = build_status_list(members, cell_infos)
+
+            outp.printf('')
+            outp.printf('Updated status:')
+            output_status(outp, vname, group_status)
+
+            if get_sync_status(group_status) == 'In Sync':
+                outp.printf('Group Status: In Sync')
+                return
 
 def timeout_type(valu):
     try:
@@ -99,64 +315,18 @@ async def main(argv, outp=s_output.stdout):
                     outp.printf(f'Service at {opts.url} is not an Aha server')
                     return 1
 
-                # a leader and its mirrors share an immutable service iden.
-                svc_groups = {}
-                async for svc in prox.getAhaSvcs():
-                    iden = svc.get('info', {}).get('iden')
-                    if iden is None:
-                        continue
+                svcdefs = [svc async for svc in prox.getAhaSvcs()]
 
-                    svc_groups.setdefault(iden, []).append(svc)
+                mirror_groups = get_mirror_groups(svcdefs)
 
-                mirror_groups = {}
-                for iden, svcs in svc_groups.items():
-
-                    if len(svcs) <= 1:
-                        continue
-
-                    # name the group by its current ( term-holding ) leader and
-                    # list the leader first.
-                    leader = next((svc for svc in svcs if svc.get('leader')), svcs[0])
-                    members = [leader] + [svc for svc in svcs if svc is not leader]
-
-                    mirror_groups[leader.get('name')] = members
+                if not mirror_groups:
+                    outp.printf('No mirror groups found.')
+                    return 0
 
                 outp.printf('Service Mirror Groups:')
-                for vname, members in mirror_groups.items():
-                    iden = members[0].get('info', {}).get('iden')
-
-                    cell_infos = await get_cell_infos(prox, iden, members, opts.timeout)
-                    group_status = build_status_list(members, cell_infos)
-                    output_status(outp, vname, group_status)
-
-                    if check_sync_status(group_status):
-                        outp.printf('Group Status: In Sync')
-                    else:
-                        outp.printf('Group Status: Out of Sync')
-                        if opts.wait:
-                            leader_nexs = None
-                            for status in group_status:
-                                if status['role'] == 'leader' and isinstance(status['nexs_indx'], int):
-                                    leader_nexs = status['nexs_indx']
-
-                            if leader_nexs is not None:
-                                while True:
-                                    responses = []
-                                    todo = s_common.todo('waitNexsOffs', leader_nexs - 1, timeout=opts.timeout)
-                                    async for svcname, (ok, info) in prox.callAhaPeerApi(iden, todo, timeout=opts.timeout):
-                                        if ok and info:
-                                            responses.append((svcname, info))
-
-                                    if len(responses) == len(members):
-                                        cell_infos = await get_cell_infos(prox, iden, members, opts.timeout)
-                                        group_status = build_status_list(members, cell_infos)
-
-                                        outp.printf('\nUpdated status:')
-                                        output_status(outp, vname, group_status)
-
-                                        if check_sync_status(group_status):
-                                            outp.printf('Group Status: In Sync')
-                                            break
+                for vname, members in mirror_groups:
+                    await output_group(outp, prox, vname, members, opts)
+                    outp.printf('')
 
                 return 0
 

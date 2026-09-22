@@ -103,24 +103,28 @@ What you need to do
     inet:flow -> inet:server.ip
     ```
 
-## Lookup-mode `search` interface and `storm:interface:search` removed
+## `storm:interface:search` removed and lookup mode unified
 
 What changed
 
-:   The pluggable `search` Storm interface used by lookup mode, and the Cortex config option `storm:interface:search` that enabled it, are removed. In 2.x, lookup mode merged results from any package implementing the `search` interface and warned when it was disabled. In 3.x, lookup mode instead runs the scrape interface plus data-model lookup hints.
+:   The Cortex config option `storm:interface:search`, which gated the pluggable `search` Storm interface, is removed. The interface itself remains. In 2.x it only ran when the option was enabled, and lookup mode warned `Storm search interface is not enabled!` when it was not. In 3.x, lookup mode always offers its remaining input to any loaded package which implements the `search` interface, and is silent when no package does.
+
+    The separate `search` and `autoadd` input modes are also removed. A single `lookup` pass scrapes the input text and lifts the scraped values, firing `look:miss` for any which are not present in the View, then sends the tokens which no scrape match consumed both to the data model lookup hints and to the `search` interface. Nodes from the hint and search steps are deduplicated against each other.
+
+    The `search` interface now yields `(score, nid)` tuples where `nid` is the integer node id. In 2.x it yielded the node buid.
 
 Why
 
-:   Lookup mode now resolves tokens deterministically by scraping known node forms and falling back to model-defined lookup-hint properties, removing the need for a separately configured external search backend and its on/off switch.
+:   The set of loaded packages already says whether a search backend is available, so a second on/off switch, and the warning it produced, added no information. Folding scrape, model lookup hints, and search into one `lookup` mode means a single mode resolves free text rather than the caller choosing which resolution strategy to run.
 
 What you need to do
 
-:   Remove `storm:interface:search` from Cortex config; it is no longer recognized. If you relied on a package implementing the `search` Storm interface to enrich lookup mode, that mechanism is gone -- lookup mode now matches only via scrape plus model lookup hints. Move custom search logic into explicit Storm queries or commands.
+:   Remove `storm:interface:search` from Cortex config; it is no longer a recognized key. Replace `opts={'mode': 'search'}` and `opts={'mode': 'autoadd'}` with `opts={'mode': 'lookup'}`. A package which implements the `search` interface needs no change other than yielding the integer node id instead of the node buid.
 
     ```yaml
     # 2.x cortex cell.yaml
     storm:interface:search: true
 
     # 3.x: storm:interface:search is no longer a valid Cortex config key; remove it.
-    # lookup mode now uses scrape + model lookup hints automatically.
+    # lookup mode runs the search interface whenever a loaded package implements it.
     ```

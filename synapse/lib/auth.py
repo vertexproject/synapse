@@ -44,14 +44,7 @@ async def _getEmailType():
 
     return _emailtype
 
-async def normEmail(email):
-    '''
-    Normalize an email address for use as a unique key via the inet:email type.
-
-    Returns the normalized form or None if the input is None or normalizes
-    to an empty string. Raises BadArg if the value is not a string or does
-    not parse as an email address.
-    '''
+async def _normEmail(email):
     if email is None:
         return None
 
@@ -64,11 +57,37 @@ async def normEmail(email):
 
     try:
         etype = await _getEmailType()
-        norm, _info = await etype.norm(valu)
+        return await etype.norm(valu)
     except s_exc.BadTypeValu as e:
         raise s_exc.BadArg(mesg=e.get('mesg'), name='email') from None
 
-    return norm
+async def normEmail(email):
+    '''
+    Normalize an email address for use as a unique key via the inet:email type.
+
+    Returns the normalized form or None if the input is None or normalizes
+    to an empty string. Raises BadArg if the value is not a string or does
+    not parse as an email address.
+    '''
+    retn = await _normEmail(email)
+    if retn is None:
+        return None
+
+    return retn[0]
+
+async def normEmailFqdn(email):
+    '''
+    Extract the normalized FQDN from an email address via the inet:email type.
+
+    Returns the normalized FQDN or None if the input is None or normalizes
+    to an empty string. Raises BadArg if the value is not a string or does
+    not parse as an email address.
+    '''
+    retn = await _normEmail(email)
+    if retn is None:
+        return None
+
+    return retn[1]['subs']['fqdn'][1]
 
 @dataclasses.dataclass(slots=True)
 class _allowedReason:

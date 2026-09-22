@@ -6075,7 +6075,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         except Exception as e:
             return s_common.retnexc(e)
 
-    def _logStormQuery(self, text, user, info=None, meta=None):
+    def _logStormQuery(self, text, user, info=None, meta=None, via=None):
         '''
         Log a storm query.
 
@@ -6084,6 +6084,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             user: The User who ran the query.
             info (dict): Fields to record alongside the query.
             meta (dict): The caller supplied meta opt, if any.
+            via (str): The name of the Storm command or library which dispatched the query.
         '''
         if self.stormlog:
             if info is None:
@@ -6097,8 +6098,12 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             if meta is not None:
                 info['meta'] = meta
 
-            stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra=self.getLogExtra(**info))
+            if via is None:
+                stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
+                                extra=self.getLogExtra(**info))
+            else:
+                stormlogger.log(self.stormloglvl, 'Executing storm query via %s {%s} as [%s]', via, text, user.name,
+                                extra=self.getLogExtra(**info))
 
     async def getCoreInfoV2(self):
         return {

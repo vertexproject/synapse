@@ -1,0 +1,10 @@
+# doc source/build hashes -- written by the doc build (synapse.lib.mddocs.saveManifest).
+# verify with: sha256sum -c docs.sha256
+c1c7cdff0b57a1b728fc913e7e2d674c1e71338f087079d0c2e2b7003f02aad4  docs/adminguide.md
+5edb19ff8405ff4410fdc477e4dee48fc017ecde678e9a27af3ae69df06092a6  docs/index.md
+b9ab39441a97e698384c447554d09ce0a2eb3c1f7f72a362766b165c63118b13  docs/stormpackage.md
+83f932f0001ab37f7f4045705aba1dadc46b59cf2d4bdafe3b6abe054098a6f7  docs/userguide.md
+23469cc75918110ae996aa0ede70a2700b1f30f25a2a93f091011a8b75e61e4f  files/docs/adminguide.md
+4e13771ab8e868c05ed1180f669b36a17c66b1dae0998c86008fa9058b292cfd  files/docs/index.md
+504e511cb96dc9710a4b29f723a7096aa14518605a26adf037ac2cfcc14a7238  files/docs/stormpackage.md
+ed81ebd36e0276d60324437bb2e7c527489609c913ee5237aa655f7c75d15062  files/docs/userguide.md

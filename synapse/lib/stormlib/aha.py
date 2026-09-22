@@ -317,7 +317,7 @@ The ready column indicates that a service has entered into the realtime change w
             try {
                 $_prox = $lib.telepath.open($_url)
                 $_info = $_prox.getCellInfo()
-                return ( $_info.cell.nexsindx )
+                return ( $_info.cell.nexus.indx )
             } catch * as _err {
                 $_emsg = $_err.mesg
                 if ($_emsg = null ) {
@@ -412,7 +412,19 @@ The ready column indicates that a service has entered into the realtime change w
         'desc': textwrap.dedent('''\
             Query the AHA services and their mirror relationships.
 
-            Note: non-mirror services are not displayed.
+            Mirror group members are identified by the service iden which they share. The
+            group is named for the holder of the current AHA leadership term, which is
+            reported separately from the live status of each service so that a stale or
+            unreachable term holder is visible.
+
+            The role and follows columns reflect the status reported by each service,
+            where follows is the service which that member mirrors from.
+
+            Notes:
+                - Non-mirror services are not displayed, nor are groups which have no
+                  online service.
+                - A service restored from another service's backup shares its service iden
+                  and is displayed as a member of that group.
         '''),
         'cmdargs': (
             ('--timeout', {'help': 'The timeout in seconds for individual service API calls.',
@@ -433,6 +445,7 @@ The ready column indicates that a service has entered into the realtime change w
                     {"name": "version", "width": 12},
                     {"name": "synapse", "width": 12},
                     {"name": "nexus idx", "width": 10},
+                    {"name": "follows"},
                 ],
                 "separators": {
                     "row:outline": false,
@@ -450,13 +463,18 @@ The ready column indicates that a service has entered into the realtime change w
         function get_cell_infos(vname, timeout) {
             $cell_infos = ({})
             $todo = $lib.utils.todo('getCellInfo')
-            for $info in $lib.aha.callPeerApi($vname, $todo, timeout=$timeout) {
-                $svcname = $info.0
-                ($ok, $info) = $info.1
-                if $ok {
-                    $cell_infos.$svcname = $info
+            try {
+                for $info in $lib.aha.callPeerApi($vname, $todo, timeout=$timeout) {
+                    $svcname = $info.0
+                    ($ok, $info) = $info.1
+                    if $ok {
+                        $cell_infos.$svcname = $info
+                    }
                 }
+            } catch * as err {
+                $lib.warn(`Failed to query mirror group members for {$vname}: {$err.mesg}`)
             }
+
             return($cell_infos)
         }
 
@@ -467,6 +485,7 @@ The ready column indicates that a service has entered into the realtime change w
                 $svcname = $svcentry.name
                 $status = ({
                     'name': $svcname,
+                    'responded': (false),
                     'role': '<unknown>',
                     'online': $svcentry.online,
                     'ready': $svcinfo.ready,
@@ -474,12 +493,14 @@ The ready column indicates that a service has entered into the realtime change w
                     'port': $svcinfo.urlinfo.port,
                     'version': '<unknown>',
                     'synapse_version': '<unknown>',
-                    'nexs_indx': (0)
+                    'nexs_indx': (null),
+                    'follows': '<unknown>'
                 })
                 if ($cell_infos.$svcname) {
                     $info = $cell_infos.$svcname
                     $cell_info = $info.cell
-                    $status.nexs_indx = $cell_info.nexsindx
+                    $status.responded = (true)
+                    $status.nexs_indx = $cell_info.nexus.indx
                     if ($cell_info.active) {
                         $status.role = 'leader'
                     } else {
@@ -487,32 +508,114 @@ The ready column indicates that a service has entered into the realtime change w
                     }
                     $status.version = $info.cell.version
                     $status.synapse_version = $info.synapse.version
+
+                    // The URL is sanitized by the service before it is returned to us.
+                    if $lib.dict.has($cell_info, 'parent') {
+                        $parent = $cell_info.parent
+                        if ($parent = null) {
+                            $status.follows = '<none - write root>'
+                        } else {
+                            $status.follows = $parent
+                        }
+                    }
                 }
                 $group_status.append($status)
             }
             return($group_status)
         }
 
-        function check_sync_status(group_status) {
+        function get_sync_status(group_status) {
+
             $indices = $lib.set()
-            $known_count = (0)
+            $known = (0)
+
             for $status in $group_status {
-                $indices.add($status.nexs_indx)
-                $known_count = ($known_count + (1))
+                $indx = $status.nexs_indx
+                if ($indx = null) {
+                    continue
+                }
+                $indices.add($indx)
+                $known = ($known + (1))
             }
-            if ($lib.len($indices) = 1) {
-                if ($known_count = $lib.len($group_status)) {
-                    return(true)
+
+            // No member reported an index, so we can say nothing about replication.
+            if ($known = 0) {
+                return('Unknown')
+            }
+
+            if (($known = $lib.len($group_status)) and ($lib.len($indices) = 1)) {
+                return('In Sync')
+            }
+
+            return('Out of Sync')
+        }
+
+        // AHA elects a leadership term per service type. The term flag is derived from
+        // the term name alone, so it stays set on a service which is down. Report the
+        // term holder and flag any disagreement with the live status.
+        function output_group_leader(members, group_status) {
+
+            $termname = (null)
+            $termonline = (false)
+            for $svcentry in $members {
+                if $svcentry.leader {
+                    $termname = $svcentry.name
+                    $termonline = $svcentry.online
                 }
             }
+
+            if ($termname = null) {
+                $lib.print('Group Leader: <no term>')
+                return()
+            }
+
+            $actives = ()
+            for $status in $group_status {
+                if ($status.role = 'leader') {
+                    $actives.append($status.name)
+                }
+            }
+
+            $others = ()
+            $termactive = (false)
+            for $name in $actives {
+                if ($name = $termname) {
+                    $termactive = (true)
+                } else {
+                    $others.append($name)
+                }
+            }
+
+            if (not $termonline) {
+                $lib.print(`Group Leader: {$termname} (offline)`)
+                return()
+            }
+
+            if (not $termactive) {
+                if ($lib.len($others) = 0) {
+                    $lib.print(`Group Leader: {$termname} (inactive)`)
+                } else {
+                    $lib.print(`Group Leader: {$termname} (inactive; {(', ').join($others)} reports active)`)
+                }
+                return()
+            }
+
+            if ($lib.len($others) > 0) {
+                $lib.print(`Group Leader: {$termname} (also active: {(', ').join($others)})`)
+                return()
+            }
+
+            $lib.print(`Group Leader: {$termname}`)
+            return()
         }
 
         function output_status(vname, group_status, printer) {
             $lib.print($printer.header())
             $lib.print($vname)
             for $status in $group_status {
-                if ($status.nexs_indx = 0) {
-                    $status.nexs_indx = '<unknown>'
+                $nexs = $status.nexs_indx
+                if ($nexs = null) {
+                    $nexs = '<unknown>'
                 }
                 $row = (
                     $status.name,
@@ -523,14 +626,15 @@ The ready column indicates that a service has entered into the realtime change w
                     $status.port,
                     $status.version,
                     $status.synapse_version,
-                    $status.nexs_indx
+                    $nexs,
+                    $status.follows
                 )
                 $lib.print($printer.row($row))
             }
             return()
         }
 
-        // group services by their shared cell iden ( a leader and its clones ).
+        // group services by their shared service iden ( a leader and its mirrors ).
         $svc_groups = ({})
         for $svcentry in $lib.aha.list() {
             $iden = $svcentry.info.iden
@@ -554,6 +658,7 @@ The ready column indicates that a service has entered into the realtime change w
             }
             $leadername = (null)
             $firstname = (null)
+            $anyonline = (false)
             for $svcentry in $svcs {
                 if (not $firstname) {
                     $firstname = $svcentry.name
@@ -561,33 +666,67 @@ The ready column indicates that a service has entered into the realtime change w
                 if $svcentry.leader {
                     $leadername = $svcentry.name
                 }
+                if $svcentry.online {
+                    $anyonline = (true)
+                }
             }
+
+            // AHA never reaps service entries, so a decommissioned cluster lingers in
+            // the registry forever. Only report groups which still have a service online.
+            if (not $anyonline) {
+                continue
+            }
+
             if (not $leadername) {
                 $leadername = $firstname
             }
             $mirror_groups.$leadername = $svcs
         }
 
-        if ($lib.len($mirror_groups)) {
+        if ($lib.len($mirror_groups) = 0) {
+            $lib.print('No mirror groups found.')
+        } else {
             $lib.print('Service Mirror Groups:')
         }
         for ($vname, $members) in $mirror_groups {
             $cell_infos = $get_cell_infos($vname, $timeout)
             $group_status = $build_status_list($members, $cell_infos)
             $output_status($vname, $group_status, $printer)
+            $output_group_leader($members, $group_status)
 
-            if $check_sync_status($group_status) {
-                $lib.print('Group Status: In Sync')
-            } else {
-                $lib.print(`Group Status: Out of Sync`)
+            $syncstatus = $get_sync_status($group_status)
+            $lib.print(`Group Status: {$syncstatus}`)
+
+            if ($syncstatus != 'In Sync') {
                 if $wait {
-                    $leader_nexs = (0)
+
+                    $allresp = (true)
+                    $actives = (0)
                     for $status in $group_status {
-                        if (($status.role = 'leader') and ($status.nexs_indx > 0)) {
+                        if (not $status.responded) {
+                            $allresp = (false)
+                        }
+                        if ($status.role = 'leader') {
+                            $actives = ($actives + (1))
+                        }
+                    }
+
+                    $leader_nexs = (null)
+                    for $status in $group_status {
+                        if (($status.role = 'leader') and ($status.nexs_indx != null)) {
                             $leader_nexs = $status.nexs_indx
                         }
                     }
-                    if ($leader_nexs > 0) {
+
+                    // Without a single active leader there is no replication to wait on,
+                    // and an unresponsive member can never satisfy the wait loop.
+                    if ($actives != 1) {
+                        $lib.warn('Skipping --wait: the group has no active leader.')
+                    } elif (not $allresp) {
+                        $lib.warn('Skipping --wait: one or more group members did not respond.')
+                    } elif ($leader_nexs = null) {
+                        $lib.warn('Skipping --wait: the leader did not report a nexus index.')
+                    } else {
                         while (true) {
                             $responses = ()
                             $todo = $lib.utils.todo(waitNexsOffs, ($leader_nexs - 1), timeout=$timeout)
@@ -607,7 +746,7 @@ The ready column indicates that a service has entered into the realtime change w
                                 $lib.print('Updated status:')
                                 $output_status($vname, $group_status, $printer)
 
-                                if $check_sync_status($group_status) {
+                                if ($get_sync_status($group_status) = 'In Sync') {
                                     $lib.print('Group Status: In Sync')
                                     break
                                 }

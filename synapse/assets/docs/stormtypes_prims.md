@@ -2443,6 +2443,9 @@ tombstone makes the value it masks visible again, so it requires the "add"
 permission for that value (`node.add`, `node.prop.set`, `node.tag.add`,
 `node.data.set`, or `node.edge.add`) rather than the "del" permission.
 
+Deleting a tag or tagprop tombstone also deletes the tombstones on the tags
+above it, since a node may not carry a tag without the tags above it.
+
 
 **Args:**
 
