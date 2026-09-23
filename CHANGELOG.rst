@@ -6,6 +6,55 @@
 Synapse Changelog
 *****************
 
+v2.252.0 - 2026-09-21
+=====================
+
+Model Changes
+-------------
+- Added ``it:app:sigma:rule`` and ``it:app:sigma:matched`` forms.
+  (`#5010 <https://github.com/vertexproject/synapse/pull/5010>`_)
+- Added the ``it:os:windows:task`` form to model Windows Scheduled Task
+  entries.
+  (`#5012 <https://github.com/vertexproject/synapse/pull/5012>`_)
+- See :ref:`userguide_model_v2_252_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated Cortex behavior to log a message when a Storm package is loaded or
+  unloaded, including the package name and version as structured log fields.
+  (`#5011 <https://github.com/vertexproject/synapse/pull/5011>`_)
+- Updated the ``aha.svc.mirror`` Storm command and the
+  ``synapse.tools.aha.mirror`` tool to identify mirror group members by their
+  shared service iden. Mirror groups are now displayed even when no service has
+  claimed the group leader name. Added a ``follows`` column which displays the
+  service that each member mirrors from, and a ``Group Leader`` line which
+  displays the service currently reporting itself as the leader. Both report
+  ``No mirror groups found.`` when there are no mirror groups to display.
+  (`#5016 <https://github.com/vertexproject/synapse/pull/5016>`_)
+
+Bugfixes
+--------
+- Fixed an issue where ``storm.exec`` and ``$lib.storm.eval()`` did not honor
+  the ``storm:log`` and ``storm:log:level`` configuration options.
+  (`#5014 <https://github.com/vertexproject/synapse/pull/5014>`_)
+- Fixed a bug where the ``certhash`` check on a Telepath ``ssl://`` link could
+  read the peer certificate of a different connection when an ``SSLContext``
+  was shared across links.
+  (`#5015 <https://github.com/vertexproject/synapse/pull/5015>`_)
+- Fixed an issue where the ``synapse.tests.utils.TstOutPut.expect()`` test
+  helper ignored the caller's string when called with ``whitespace=False``,
+  causing those assertions to always pass.
+  (`#5016 <https://github.com/vertexproject/synapse/pull/5016>`_)
+- Fixed an issue where the ``aha.svc.mirror`` Storm command and the
+  ``synapse.tools.aha.mirror`` tool reported a mirror group as being in sync
+  when no member of the group responded, and where a service which responded
+  under its leader alias name was reported with an unknown status.
+  (`#5016 <https://github.com/vertexproject/synapse/pull/5016>`_)
+- Fixed a bug where the ``stats.countby`` Storm command could raise a
+  ``TypeError`` when using ``--by-name`` to sort a tally which contained a mix
+  of numeric and non-numeric values.
+  (`#5017 <https://github.com/vertexproject/synapse/pull/5017>`_)
+
 v2.251.0 - 2026-09-02
 =====================
 

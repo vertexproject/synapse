@@ -674,7 +674,17 @@ The ready column indicates that a service has entered into the realtime change w
         'descr': textwrap.dedent('''\
             Query the AHA services and their mirror relationships.
 
-            Note: non-mirror services are not displayed.
+            Mirror group members are identified by the service iden which they share, so a
+            group is displayed even when no service has claimed the group leader name.
+
+            The role and follows columns reflect the status reported by each service,
+            where follows is the service which that member mirrors from.
+
+            Notes:
+                - Non-mirror services are not displayed, nor are groups which have no
+                  online service.
+                - A service restored from another service's backup shares its service iden
+                  and is displayed as a member of that group.
         '''),
         'cmdargs': (
             ('--timeout', {'help': 'The timeout in seconds for individual service API calls.',
@@ -695,6 +705,7 @@ The ready column indicates that a service has entered into the realtime change w
                     {"name": "version", "width": 12},
                     {"name": "synapse", "width": 12},
                     {"name": "nexus idx", "width": 10},
+                    {"name": "follows"},
                 ],
                 "separators": {
                     "row:outline": false,
@@ -709,17 +720,32 @@ The ready column indicates that a service has entered into the realtime change w
             $wait = $cmdopts.wait
         }
 
-        function get_cell_infos(vname, timeout) {
-            $cell_infos = ({})
+        // AHA de-duplicates peer responses by run iden and labels each with whichever
+        // service entry it resolved first, which may be the leader alias rather than the
+        // member entry. Key responses by run iden and fall back to the name for peers
+        // which did not report one.
+        function get_cell_infos(svcname, timeout) {
+            $byrun = ({})
+            $byname = ({})
             $todo = $lib.utils.todo('getCellInfo')
-            for $info in $lib.aha.callPeerApi($vname, $todo, timeout=$timeout) {
-                $svcname = $info.0
-                ($ok, $info) = $info.1
-                if $ok {
-                    $cell_infos.$svcname = $info
+            try {
+                for $item in $lib.aha.callPeerApi($svcname, $todo, timeout=$timeout) {
+                    $peername = $item.0
+                    ($ok, $info) = $item.1
+                    if (not $ok) { continue }
+
+                    $byname.$peername = $info
+
+                    $run = $info.cell.run
+                    if ($run != null) {
+                        $byrun.$run = $info
+                    }
                 }
+            } catch * as err {
+                $lib.warn(`Failed to query mirror group members for {$svcname}: {$err.mesg}`)
             }
-            return($cell_infos)
+
+            return(({"byrun": $byrun, "byname": $byname}))
         }
 
         function build_status_list(members, cell_infos) {
@@ -729,6 +755,7 @@ The ready column indicates that a service has entered into the realtime change w
                 $svcname = $svc.name
                 $status = ({
                     'name': $svcname,
+                    'responded': (false),
                     'role': '<unknown>',
                     'online': $lib.dict.has($svcinfo, 'online'),
                     'ready': $svcinfo.ready,
@@ -736,10 +763,24 @@ The ready column indicates that a service has entered into the realtime change w
                     'port': $svcinfo.urlinfo.port,
                     'version': '<unknown>',
                     'synapse_version': '<unknown>',
-                    'nexs_indx': (0)
+                    'nexs_indx': (null),
+                    'follows': '<unknown>'
                 })
-                if ($cell_infos.$svcname) {
-                    $info = $cell_infos.$svcname
+                $info = (null)
+
+                $byrun = $cell_infos.byrun
+                $run = $svcinfo.run
+                if ($run != null) {
+                    $info = $byrun.$run
+                }
+
+                if ($info = null) {
+                    $byname = $cell_infos.byname
+                    $info = $byname.$svcname
+                }
+
+                if ($info != null) {
+                    $status.responded = (true)
                     $cell_info = $info.cell
                     $status.nexs_indx = $cell_info.nexsindx
                     if ($cell_info.active) {
@@ -749,32 +790,93 @@ The ready column indicates that a service has entered into the realtime change w
                     }
                     $status.version = $info.cell.verstring
                     $status.synapse_version = $info.synapse.verstring
+
+                    // The URL is sanitized by the service before it is returned to us.
+                    if $lib.dict.has($cell_info, 'mirror') {
+                        $mirror = $cell_info.mirror
+                        if ($mirror = null) {
+                            $status.follows = '<none - write root>'
+                        } else {
+                            $status.follows = $mirror
+                        }
+                    }
                 }
                 $group_status.append($status)
             }
             return($group_status)
         }
 
-        function check_sync_status(group_status) {
+        function get_sync_status(group_status) {
+
             $indices = $lib.set()
-            $known_count = (0)
+            $known = (0)
+
             for $status in $group_status {
-                $indices.add($status.nexs_indx)
-                $known_count = ($known_count + (1))
+                $indx = $status.nexs_indx
+                if ($indx = null) {
+                    continue
+                }
+                $indices.add($indx)
+                $known = ($known + (1))
             }
-            if ($lib.len($indices) = 1) {
-                if ($known_count = $lib.len($group_status)) {
-                    return(true)
+
+            // No member reported an index, so we can say nothing about replication.
+            if ($known = 0) {
+                return('Unknown')
+            }
+
+            if (($known = $lib.len($group_status)) and ($lib.len($indices) = 1)) {
+                return('In Sync')
+            }
+
+            return('Out of Sync')
+        }
+
+        // Leadership is reported by the service itself, so it stays accurate when the
+        // leader alias is missing or stale.
+        function get_group_leaders(group_status) {
+            $leaders = ()
+            for $status in $group_status {
+                if ($status.role = 'leader') {
+                    $leaders.append($status.name)
                 }
             }
+            return($leaders)
+        }
+
+        function output_group_leaders(leaders) {
+            if ($lib.len($leaders) = 0) {
+                $lib.print('Group Leader: <none>')
+            } elif ($lib.len($leaders) = 1) {
+                $lib.print(`Group Leader: {$leaders.0}`)
+            } else {
+                $lib.print(`Group Leader: <multiple: {(', ').join($leaders)}>`)
+            }
+        }
+
+        function get_group_name(iden, alias, members) {
+
+            if ($alias != null) {
+                return($alias.name)
+            }
+
+            for $svc in $members {
+                $leader = $svc.svcinfo.leader
+                if ($leader != null) {
+                    return(`{$leader}.{$svc.svcnetw} (leader alias not registered)`)
+                }
+            }
+
+            return(`<no leader alias> (service iden: {$iden})`)
         }
 
         function output_status(vname, group_status, printer) {
             $lib.print($printer.header())
             $lib.print($vname)
             for $status in $group_status {
-                if ($status.nexs_indx = 0) {
-                    $status.nexs_indx = '<unknown>'
+                $nexs = $status.nexs_indx
+                if ($nexs = null) {
+                    $nexs = '<unknown>'
                 }
                 $row = (
                     $status.name,
@@ -785,97 +887,164 @@ The ready column indicates that a service has entered into the realtime change w
                     $status.port,
                     $status.version,
                     $status.synapse_version,
-                    $status.nexs_indx
+                    $nexs,
+                    $status.follows
                 )
                 $lib.print($printer.row($row))
             }
         }
 
-        $virtual_services = ({})
-        $member_servers = ({})
+        // The leader alias is only registered by an active service, so a group with no
+        // claimed leader has no alias entry to group on. Every member of a mirror group
+        // shares the service iden, so group on that instead.
+        $leader_aliases = ({})
+        $svcs_by_run = ({})
 
         for $svc in $lib.aha.list() {
-            $name = $svc.name
-            $svcinfo = $svc.svcinfo
-            $urlinfo = $svcinfo.urlinfo
-            $hostname = $urlinfo.hostname
 
-            if ($name != $hostname) {
-                $virtual_services.$name = $svc
-            } else {
-                $member_servers.$name = $svc
+            $svcinfo = $svc.svcinfo
+
+            $iden = $svcinfo.iden
+            $run = $svcinfo.run
+            if (($iden = null) or ($run = null)) {
+                continue
             }
+
+            // A service registers its alias with addAhaSvc($leader, $info), so the alias
+            // entry is the one whose service name matches the leader name it carries.
+            $leader = $svcinfo.leader
+            if (($leader != null) and ($svc.svcname = $leader)) {
+                if (not $lib.dict.has($leader_aliases, $iden)) {
+                    $leader_aliases.$iden = $svc
+                }
+                continue
+            }
+
+            // Several entries may share a run iden. Prefer the one which names itself.
+            $runkey = `{$iden}|{$run}`
+            $seen = $svcs_by_run.$runkey
+            if (($seen != null) and ($seen.name = $seen.svcinfo.urlinfo.hostname)) {
+                continue
+            }
+
+            $svcs_by_run.$runkey = $svc
         }
 
-        $mirror_groups = ({})
-        for ($vname, $vsvc) in $virtual_services {
-            $vsvc_info = $vsvc.svcinfo
-            $vsvc_iden = $vsvc_info.iden
-            $vsvc_leader = $vsvc_info.leader
-            $vsvc_hostname = $vsvc_info.urlinfo.hostname
+        $members_by_iden = ({})
+        for ($runkey, $svc) in $svcs_by_run {
+            $iden = $svc.svcinfo.iden
+            $members = $members_by_iden.$iden
+            if ($members = null) {
+                $members = ({})
+            }
+            $name = $svc.name
+            $members.$name = $svc
+            $members_by_iden.$iden = $members
+        }
 
-            if (not $vsvc_iden or not $vsvc_hostname or not $vsvc_leader) {
+        $mirror_groups = ()
+        for ($iden, $membermap) in $members_by_iden {
+
+            $names = $lib.dict.keys($membermap)
+            if ($lib.len($names) <= 1) {
                 continue
             }
+            $names.sort()
 
-            $primary_member = $member_servers.$vsvc_hostname
-            if (not $primary_member) {
-                continue
-            }
-
-            $members = ([$primary_member])
-            for ($mname, $msvc) in $member_servers {
-                if ($mname != $vsvc_hostname) {
-                    $msvc_info = $msvc.svcinfo
-                    if ($msvc_info.iden = $vsvc_iden and $msvc_info.leader = $vsvc_leader) {
-                        $members.append($msvc)
-                    }
+            $members = ()
+            $anyonline = (false)
+            for $name in $names {
+                $svc = $membermap.$name
+                $members.append($svc)
+                if $lib.dict.has($svc.svcinfo, 'online') {
+                    $anyonline = (true)
                 }
             }
 
-            if ($lib.len($members) > 1) {
-                $mirror_groups.$vname = $members
+            // AHA never reaps service entries, so a decommissioned cluster lingers in the
+            // registry forever. Only report groups which still have a service online.
+            if (not $anyonline) {
+                continue
             }
+
+            $mirror_groups.append(($iden, $members))
         }
 
-        for ($vname, $members) in $mirror_groups {
-            $cell_infos = $get_cell_infos($vname, $timeout)
-            $group_status = $build_status_list($members, $cell_infos)
+        if ($lib.len($mirror_groups) = 0) {
+            $lib.print('No mirror groups found.')
+        } else {
             $lib.print('Service Mirror Groups:')
+        }
+
+        for ($iden, $members) in $mirror_groups {
+
+            $alias = $leader_aliases.$iden
+            $vname = $get_group_name($iden, $alias, $members)
+
+            // callPeerApi() resolves any group member to the shared service iden, so a member
+            // name works when no alias is registered.
+            $svcname = $members.0.name
+            if ($alias != null) {
+                $svcname = $alias.name
+            }
+
+            $cell_infos = $get_cell_infos($svcname, $timeout)
+            $group_status = $build_status_list($members, $cell_infos)
             $output_status($vname, $group_status, $printer)
 
-            if $check_sync_status($group_status) {
-                $lib.print('Group Status: In Sync')
-            } else {
-                $lib.print(`Group Status: Out of Sync`)
+            $leaders = $get_group_leaders($group_status)
+            $output_group_leaders($leaders)
+
+            $syncstatus = $get_sync_status($group_status)
+            $lib.print(`Group Status: {$syncstatus}`)
+
+            if ($syncstatus != 'In Sync') {
                 if $wait {
-                    $leader_nexs = (0)
+
+                    $allresp = (true)
                     for $status in $group_status {
-                        if (($status.role = 'leader') and ($status.nexs_indx > 0)) {
+                        if (not $status.responded) {
+                            $allresp = (false)
+                        }
+                    }
+
+                    $leader_nexs = (null)
+                    for $status in $group_status {
+                        if (($status.role = 'leader') and ($status.nexs_indx != null)) {
                             $leader_nexs = $status.nexs_indx
                         }
                     }
-                    if ($leader_nexs > 0) {
+
+                    // Without a single leader there is no replication to wait on, and
+                    // an unresponsive member can never satisfy the wait loop.
+                    if ($lib.len($leaders) != 1) {
+                        $lib.warn('Skipping --wait: the group has no active leader.')
+                    } elif (not $allresp) {
+                        $lib.warn('Skipping --wait: one or more group members did not respond.')
+                    } elif ($leader_nexs = null) {
+                        $lib.warn('Skipping --wait: the leader did not report a nexus index.')
+                    } else {
                         while (true) {
                             $responses = ()
                             $todo = $lib.utils.todo(waitNexsOffs, ($leader_nexs - 1), timeout=$timeout)
-                            for $info in $lib.aha.callPeerApi($vname, $todo, timeout=$timeout) {
-                                $svcname = $info.0
+                            for $info in $lib.aha.callPeerApi($svcname, $todo, timeout=$timeout) {
+                                $peername = $info.0
                                 ($ok, $info) = $info.1
                                 if ($ok and $info) {
-                                    $responses.append(($svcname, $info))
+                                    $responses.append(($peername, $info))
                                 }
                             }
 
                             if ($lib.len($responses) = $lib.len($members)) {
-                                $cell_infos = $get_cell_infos($vname, $timeout)
+                                $cell_infos = $get_cell_infos($svcname, $timeout)
                                 $group_status = $build_status_list($members, $cell_infos)
 
                                 $lib.print('')
                                 $lib.print('Updated status:')
                                 $output_status($vname, $group_status, $printer)
 
-                                if $check_sync_status($group_status) {
+                                $syncstatus = $get_sync_status($group_status)
+                                if ($syncstatus = 'In Sync') {
                                     $lib.print('Group Status: In Sync')
                                     break
                                 }

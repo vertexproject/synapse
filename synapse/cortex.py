@@ -6635,17 +6635,28 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         except Exception as e:
             return s_common.retnexc(e)
 
-    def _logStormQuery(self, text, user, info=None):
+    def _logStormQuery(self, text, user, info=None, via=None):
         '''
         Log a storm query.
+
+        Args:
+            text (str): The query text.
+            user: The User who ran the query.
+            info (dict): Fields to record alongside the query.
+            via (str): The name of the Storm command or library which dispatched the query.
         '''
         if self.stormlog:
             if info is None:
                 info = {}
             info['text'] = text
             info['hash'] = s_storm.queryhash(text)
-            stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra=self.getLogExtra(**info))
+
+            if via is None:
+                stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
+                                extra=self.getLogExtra(**info))
+            else:
+                stormlogger.log(self.stormloglvl, 'Executing storm query via %s {%s} as [%s]', via, text, user.name,
+                                extra=self.getLogExtra(**info))
 
     async def getNodeByNdef(self, ndef, view=None):
         '''

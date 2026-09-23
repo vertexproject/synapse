@@ -486,6 +486,137 @@ class TeleTest(s_t_utils.SynTest):
                     foo.link.set('certhash', certhash)
                     self.eq('woot', await foo.echo('woot'))
 
+    async def test_telepath_tls_certhash_shared_ctx(self):
+        # One SSLContext is shared across a proxy pool's links ( see
+        # Proxy._initPoolLink ), so the certhash check must read the peer cert
+        # from each connection's own ssl object. Prove that holds under many
+        # concurrent handshakes to different-cert servers over one SSLContext.
+
+        self.thisHostMustNot(platform='darwin')
+
+        hostname = socket.gethostname()
+
+        with self.getTestDir() as dirn:
+
+            patha = (s_common.gendir(dirn, 'certsa'),)
+            pathb = (s_common.gendir(dirn, 'certsb'),)
+
+            certdira = s_certdir.CertDir(path=patha)
+            certdirb = s_certdir.CertDir(path=pathb)
+
+            certdira.genCaCert('loopya')
+            certdirb.genCaCert('loopyb')
+
+            _, hostcerta = certdira.genHostCert(hostname, signas='loopya')
+            _, hostcertb = certdirb.genHostCert(hostname, signas='loopyb')
+
+            hasha = s_common.ehex(hostcerta.fingerprint(c_hashes.SHA256()))
+            hashb = s_common.ehex(hostcertb.fingerprint(c_hashes.SHA256()))
+
+            # two servers on the same host with distinct certs / certhashes
+            self.ne(hasha, hashb)
+
+            async with await s_daemon.Daemon.anit(certdir=certdira) as dmona:
+                async with await s_daemon.Daemon.anit(certdir=certdirb) as dmonb:
+
+                    _, porta = await dmona.listen(f'ssl://{hostname}:0')
+                    _, portb = await dmonb.listen(f'ssl://{hostname}:0')
+
+                    # a single SSLContext shared across every connection, exactly
+                    # as a telepath proxy link pool reuses self.link['ssl'].
+                    sslctx = ssl.create_default_context()
+                    sslctx.check_hostname = False
+                    sslctx.verify_mode = ssl.CERT_NONE
+
+                    async def openlink(port, certhash):
+                        info = {'certhash': certhash, 'hostname': hostname}
+                        return await s_link.connect(hostname, port, ssl=sslctx, linkinfo=info)
+
+                    # interleave many concurrent handshakes to BOTH servers over
+                    # the one shared context; each link must pin its own peer cert.
+                    coros = []
+                    for _ in range(20):
+                        coros.append(openlink(porta, hasha))
+                        coros.append(openlink(portb, hashb))
+
+                    links = await asyncio.gather(*coros)
+                    self.len(40, links)
+                    for link in links:
+                        self.false(link.isfini)
+                        await link.fini()
+
+                    # a mismatched pin still fails, even while sharing the context
+                    # concurrently ( no cross-connection cert leakage ).
+                    errs = await asyncio.gather(
+                        openlink(porta, hashb),
+                        openlink(portb, hasha),
+                        return_exceptions=True,
+                    )
+                    for err in errs:
+                        self.isinstance(err, s_exc.LinkBadCert)
+
+    async def test_telepath_tls_certhash_pool_concurrent(self):
+        # The same invariant, but driven through the SSLContext that openinfo()
+        # actually builds for a certhash URL and reuses for every pool link.
+
+        self.thisHostMustNot(platform='darwin')
+
+        foo = Foo()
+        hostname = socket.gethostname()
+
+        with self.getTestDir() as dirn:
+
+            patha = (s_common.gendir(dirn, 'certsa'),)
+            pathb = (s_common.gendir(dirn, 'certsb'),)
+
+            certdira = s_certdir.CertDir(path=patha)
+            certdirb = s_certdir.CertDir(path=pathb)
+
+            certdira.genCaCert('loopya')
+            certdirb.genCaCert('loopyb')
+
+            _, hostcerta = certdira.genHostCert(hostname, signas='loopya')
+            _, hostcertb = certdirb.genHostCert(hostname, signas='loopyb')
+
+            hasha = s_common.ehex(hostcerta.fingerprint(c_hashes.SHA256()))
+            hashb = s_common.ehex(hostcertb.fingerprint(c_hashes.SHA256()))
+
+            self.ne(hasha, hashb)
+
+            async with await s_daemon.Daemon.anit(certdir=certdira) as dmona:
+                async with await s_daemon.Daemon.anit(certdir=certdirb) as dmonb:
+
+                    _, porta = await dmona.listen(f'ssl://{hostname}:0')
+                    _, portb = await dmonb.listen(f'ssl://{hostname}:0')
+
+                    dmona.share('foo', foo)
+
+                    url = f'ssl://{hostname}/foo'
+                    async with await s_telepath.openurl(url, port=porta, certhash=hasha) as prox:
+
+                        # the context openinfo() built, which every pool link reuses
+                        sslctx = prox.link.get('ssl')
+
+                        async def openlink(port, certhash):
+                            info = {'certhash': certhash, 'hostname': hostname}
+                            return await s_link.connect(hostname, port, ssl=sslctx, linkinfo=info)
+
+                        # pool links to server A race handshakes to server B over the
+                        # one context. each must validate against its own peer cert.
+                        coros = []
+                        for _ in range(20):
+                            coros.append(prox._initPoolLink())
+                            coros.append(openlink(portb, hashb))
+
+                        links = await asyncio.gather(*coros)
+                        self.len(40, links)
+                        for link in links:
+                            self.false(link.isfini)
+                            await link.fini()
+
+                        # the proxy is still usable over a fresh pool link
+                        self.eq('woot', await prox.echo('woot'))
+
     async def test_telepath_ssl_client_cert(self):
 
         foo = Foo()

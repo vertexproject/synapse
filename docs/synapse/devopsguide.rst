@@ -1410,8 +1410,13 @@ When enabled, the log message contains the query text and username::
 
     2021-06-28 16:17:55,775 [INFO] Executing storm query {inet:ipv4=1.2.3.4} as [root] [cortex.py:_logStormQuery:MainThread:MainProcess]
 
-When structured logging is also enabled for a Cortex, the query text, username, and user iden are included as individual
-fields in the logged message as well::
+Queries dispatched by the ``storm.exec`` command or ``$lib.storm.eval()`` are logged through this same
+configuration, with the message noting which command or library ran the query::
+
+    2021-06-28 16:17:55,775 [INFO] Executing storm query via storm.exec {-:asn=10} as [root] [cortex.py:_logStormQuery:MainThread:MainProcess]
+
+When structured logging is also enabled for a Cortex, the username and user iden are included as top level
+fields, and the query text, its hash, and the view it ran in are included under ``params``::
 
     {
       "message": "Executing storm query {inet:ipv4=1.2.3.4} as [root]",
@@ -1423,9 +1428,14 @@ fields in the logged message as well::
       },
       "level": "INFO",
       "time": "2021-06-28 16:18:47,232",
-      "text": "inet:ipv4=1.2.3.4",
       "username": "root",
-      "user": "3189065f95d3ab0a6904e604260c0be2"
+      "user": "3189065f95d3ab0a6904e604260c0be2",
+      "params": {
+        "text": "inet:ipv4=1.2.3.4",
+        "hash": "d5104ba9d0f213c4be7795a2ffb2f890",
+        "mode": "storm",
+        "view": "2018eb90b3e5b7756e94219a34a3ad4d"
+      }
     }
 
 This logging does interplay with the underlying log configuration ( :ref:`devops-task-logging` ). The

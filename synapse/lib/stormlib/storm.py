@@ -1,5 +1,3 @@
-import logging
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -21,8 +19,6 @@ Note:
     If Storm logging is enabled, the query being run will be logged separately.
 '''
 
-stormlogger = logging.getLogger('synapse.storm')
-
 class StormExecCmd(s_storm.Cmd):
     '''
     Execute text or an embedded query object as Storm in the current pipeline.
@@ -30,6 +26,9 @@ class StormExecCmd(s_storm.Cmd):
     NOTE: It is recommended to avoid using this where possible to avoid potential
     query injection risks. If you must use this, take care to ensure any values
     being executed have been properly sanitized.
+
+    NOTE: If Storm logging is enabled, the query being executed will be logged
+    separately.
 
     Examples:
 
@@ -60,8 +59,8 @@ class StormExecCmd(s_storm.Cmd):
             text = await s_stormtypes.tostr(self.opts.query)
             query = await runt.getStormQuery(text)
 
-            extra = self.runt.snap.core.getLogExtra(text=text, view=self.runt.snap.view.iden)
-            stormlogger.info(f'Executing storm query via storm.exec {{{text}}} as [{self.runt.user.name}]', extra=extra)
+            self.runt.snap.core._logStormQuery(text, self.runt.user, info={'view': self.runt.snap.view.iden},
+                                               via='storm.exec')
 
             async with runt.getSubRuntime(query) as subr:
                 async for subp in subr.execute(genr=genr):
@@ -76,8 +75,8 @@ class StormExecCmd(s_storm.Cmd):
             text = await s_stormtypes.tostr(self.opts.query)
             query = await runt.getStormQuery(text)
 
-            extra = self.runt.snap.core.getLogExtra(text=text, view=self.runt.snap.view.iden)
-            stormlogger.info(f'Executing storm query via storm.exec {{{text}}} as [{self.runt.user.name}]', extra=extra)
+            self.runt.snap.core._logStormQuery(text, self.runt.user, info={'view': self.runt.snap.view.iden},
+                                               via='storm.exec')
 
             async with runt.getSubRuntime(query) as subr:
                 async for subp in subr.execute(genr=s_common.agen(item)):
@@ -91,8 +90,8 @@ class StormExecCmd(s_storm.Cmd):
                     subr.query = query
                     subr._initRuntVars(query)
 
-                    extra = self.runt.snap.core.getLogExtra(text=text, view=self.runt.snap.view.iden)
-                    stormlogger.info(f'Executing storm query via storm.exec {{{text}}} as [{self.runt.user.name}]', extra=extra)
+                    self.runt.snap.core._logStormQuery(text, self.runt.user, info={'view': self.runt.snap.view.iden},
+                                                       via='storm.exec')
 
                     async for subp in subr.execute(genr=s_common.agen(item)):
                         yield subp
@@ -152,9 +151,8 @@ class LibStorm(s_stormtypes.Lib):
         text = await s_stormtypes.tostr(text)
         cast = await s_stormtypes.tostr(cast, noneok=True)
 
-        if self.runt.snap.core.stormlog:
-            extra = self.runt.snap.core.getLogExtra(text=text, view=self.runt.snap.view.iden)
-            stormlogger.info(f'Executing storm query via $lib.storm.eval() {{{text}}} as [{self.runt.user.name}]', extra=extra)
+        self.runt.snap.core._logStormQuery(text, self.runt.user, info={'view': self.runt.snap.view.iden},
+                                           via='$lib.storm.eval()')
 
         casttype = None
         if cast:
