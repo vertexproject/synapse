@@ -1013,6 +1013,14 @@ quorum voting.
     # from the request that started it -- the storm generator is bound to its producing task,
     # so it cannot be suspended in one request and resumed in another. The bounded queue also
     # provides backpressure so a slow client cannot make the producer buffer the whole result.
+    #
+    # The cursor token returned to the client is minted fresh per page (f'{iden}:{guid}'), not
+    # reused for a stream's whole lifetime, so storm_continue can tell a genuine "give me the
+    # next page" request apart from a client retrying a request whose response it never saw (a
+    # timeout, a dropped connection): the most recently *consumed* token and the response it
+    # produced are cached on the stream entry (keyed by 'iden', the stable dict key used for
+    # reaping/eviction/session-teardown, parsed back out of the token's prefix) so re-presenting
+    # it replays that exact page instead of silently advancing past it.
 
     async def _closeStormCursor(self, cursors, iden):
         info = cursors.pop(iden, None)
@@ -1024,6 +1032,15 @@ quorum voting.
         for iden in list(cursors):
             if now - cursors[iden]['touched'] > STORM_CURSOR_TIMEOUT * 1000:
                 await self._closeStormCursor(cursors, iden)
+
+    def _mkPageTok(self, iden):
+        return f'{iden}:{s_common.guid()}'
+
+    def _splitPageTok(self, cursor):
+        iden, sep, pageid = cursor.partition(':')
+        if not sep or not pageid:
+            return None
+        return iden
 
     async def _startStormCursor(self, query, opts):
         cursors = self.mcpsess.setdefault('cursors', {})
@@ -1058,27 +1075,38 @@ quorum voting.
                 await agen.aclose()
 
         iden = s_common.guid()
-        cursors[iden] = {'queue': queue, 'task': self.cell.schedCoro(produce()), 'touched': s_common.now()}
+        cursors[iden] = {
+            'queue': queue,
+            'task': self.cell.schedCoro(produce()),
+            'touched': s_common.now(),
+            'curtok': None,    # the page-token the client must present next to advance
+            'lasttok': None,   # the page-token most recently consumed (replayed on retry)
+            'lastresp': None,  # the response produced by consuming 'lasttok'
+        }
         return iden
 
-    async def _reqStormCursor(self, cursor):
+    async def _reqStormCursorEntry(self, cursor):
+        # Resolve a client-provided page token to its underlying stream entry, validating the
+        # token's stream identity and TTL. Does not judge whether the token itself is the one
+        # currently consumable (info['curtok']) vs. the one just replayed (info['lasttok']) --
+        # that distinction is the caller's job, since the correct response differs between them.
         cursors = self.mcpsess.get('cursors', {})
 
-        info = cursors.get(cursor)
+        iden = self._splitPageTok(cursor)
+        if iden is None:
+            raise s_exc.BadArg(mesg=f'Unknown or expired storm cursor: {cursor}')
+
+        info = cursors.get(iden)
         if info is None:
             raise s_exc.BadArg(mesg=f'Unknown or expired storm cursor: {cursor}')
 
         if s_common.now() - info['touched'] > STORM_CURSOR_TIMEOUT * 1000:
-            await self._closeStormCursor(cursors, cursor)
+            await self._closeStormCursor(cursors, iden)
             raise s_exc.BadArg(mesg=f'Storm cursor expired: {cursor}')
 
-        # Refresh on access so an in-flight storm_continue is not reaped while paging.
-        info['touched'] = s_common.now()
-        return info
+        return iden, info
 
-    async def _stormCursorPage(self, cursor):
-        cursors = self.mcpsess.get('cursors', {})
-        info = cursors[cursor]
+    async def _stormCursorPage(self, iden, info):
         queue = info['queue']
 
         msgs = []
@@ -1096,34 +1124,61 @@ quorum voting.
                 done = True
                 break
         except Exception:
-            await self._closeStormCursor(cursors, cursor)
+            cursors = self.mcpsess.get('cursors', {})
+            await self._closeStormCursor(cursors, iden)
             raise
 
+        info['touched'] = s_common.now()
+
         if done:
-            await self._closeStormCursor(cursors, cursor)
+            # Make sure the producer task (and its agen.aclose()) has fully finished before
+            # telling the client we're done, same as the pre-existing teardown guarantee --
+            # but keep the entry itself (not popped) so a retry of *this* final call can still
+            # be replayed instead of seeing a confusing "unknown cursor". It is cleaned up by
+            # the normal idle-cursor TTL sweep / cap eviction like any other cursor.
+            await _finiStormCursor(info)
+            info['curtok'] = None
             return {'messages': msgs, 'cursor': None}
 
-        info['touched'] = s_common.now()
-        return {'messages': msgs, 'cursor': cursor}
+        info['curtok'] = self._mkPageTok(iden)
+        return {'messages': msgs, 'cursor': info['curtok']}
 
     @tool(desc=_storm_desc, schema=_storm_schema)
     async def storm(self, query, opts=None):
         opts = await self._stormOpts(opts)
-        cursor = await self._startStormCursor(query, opts)
-        return await self._stormCursorPage(cursor)
+        iden = await self._startStormCursor(query, opts)
+        cursors = self.mcpsess['cursors']
+        return await self._stormCursorPage(iden, cursors[iden])
 
     @tool(desc=_storm_continue_desc, schema=_storm_cursor_schema)
     async def storm_continue(self, cursor):
-        await self._reqStormCursor(cursor)
-        return await self._stormCursorPage(cursor)
+        iden, info = await self._reqStormCursorEntry(cursor)
+
+        if cursor == info.get('lasttok'):
+            # Idempotent replay: the client already consumed this token once, but (per this
+            # call) never saw the response -- a timeout, a dropped connection, a retried
+            # request. Hand back the exact same page again rather than silently advancing
+            # past whatever it missed.
+            info['touched'] = s_common.now()
+            return info['lastresp']
+
+        if cursor != info.get('curtok'):
+            raise s_exc.BadArg(mesg=f'Unknown or expired storm cursor: {cursor}')
+
+        resp = await self._stormCursorPage(iden, info)
+        info['lasttok'] = cursor
+        info['lastresp'] = resp
+        return resp
 
     @tool(desc=_storm_cancel_desc, schema=_storm_cursor_schema)
     async def storm_cancel(self, cursor):
         cursors = self.mcpsess.get('cursors', {})
-        if cursor not in cursors:
+
+        iden = self._splitPageTok(cursor)
+        if iden is None or iden not in cursors:
             raise s_exc.BadArg(mesg=f'Unknown or expired storm cursor: {cursor}')
 
-        await self._closeStormCursor(cursors, cursor)
+        await self._closeStormCursor(cursors, iden)
         return {'cancelled': cursor}
 
     @tool(desc=_call_storm_desc, schema=_storm_schema)
