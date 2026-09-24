@@ -738,20 +738,29 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[4].get('deprecated:mesg'), 'Please use ``ohhai``.')
 
                 nodes = await core.nodes('syn:cmd:deprecated')
-                self.len(5, nodes)
-                self.sorteq(['deprvers', 'deprdate', 'deprmesg', 'ps.list', 'ps.kill'], [k.ndef[1] for k in nodes])
+                self.len(10, nodes)
+                self.sorteq([
+                    'deprvers', 'deprdate', 'deprmesg', 'ps.list', 'ps.kill', 'gen.it.av.scan.result',
+                    'gen.ou.id.number', 'gen.ou.id.type', 'gen.ps.contact.email', 'gen.ou.org.hq',
+                ], [k.ndef[1] for k in nodes])
 
                 nodes = await core.nodes('syn:cmd:deprecated:version')
-                self.len(3, nodes)
-                self.sorteq(['deprvers', 'ps.list', 'ps.kill'], [k.ndef[1] for k in nodes])
+                self.len(8, nodes)
+                self.sorteq([
+                    'deprvers', 'ps.list', 'ps.kill', 'gen.it.av.scan.result',
+                    'gen.ou.id.number', 'gen.ou.id.type', 'gen.ps.contact.email', 'gen.ou.org.hq',
+                ], [k.ndef[1] for k in nodes])
 
                 nodes = await core.nodes('syn:cmd:deprecated:date')
                 self.len(2, nodes)
                 self.sorteq(['deprdate', 'deprmesg'], [k.ndef[1] for k in nodes])
 
                 nodes = await core.nodes('syn:cmd:deprecated:mesg')
-                self.len(3, nodes)
-                self.sorteq(['deprmesg', 'ps.list', 'ps.kill'], [k.ndef[1] for k in nodes])
+                self.len(8, nodes)
+                self.sorteq([
+                    'deprmesg', 'ps.list', 'ps.kill', 'gen.it.av.scan.result',
+                    'gen.ou.id.number', 'gen.ou.id.type', 'gen.ps.contact.email', 'gen.ou.org.hq',
+                ], [k.ndef[1] for k in nodes])
 
                 # Pivot from cmds to their forms
                 nodes = await core.nodes('syn:cmd=foobar -> *')

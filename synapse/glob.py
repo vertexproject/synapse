@@ -3,6 +3,7 @@ import pprint
 import signal
 import asyncio
 import logging
+import warnings
 import threading
 import faulthandler
 
@@ -13,6 +14,12 @@ logger = logging.getLogger(__name__)
 
 _glob_loop = None
 _glob_thrd = None
+
+# TODO Remove me in 3xx - this is just to avoid a circular import on synapse.common
+def _deprecated(name, curv='2.x', eolv='3.0.0'):
+    mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
+    warnings.warn(mesg, DeprecationWarning)
+    return mesg
 
 def _asynciostacks(*args, **kwargs):  # pragma: no cover
     '''
@@ -95,6 +102,7 @@ def sync(coro, timeout=None):
     Notes:
         This API is thread safe and should only be called by non-loop threads.
     '''
+    _deprecated('synapse.glob.sync - synchronous wrapping of coroutines is not supported: {f.__name__}')
     loop = initloop()
     return asyncio.run_coroutine_threadsafe(coro, loop).result(timeout)
 
@@ -127,6 +135,7 @@ def synchelp(f):
         coro = f(*args, **kwargs)
 
         if not iAmLoop():
+            _deprecated('synapse.glob.synchelp - synchronous wrapping of coroutines is not supported: {f.__name__}')
             return sync(coro)
 
         return coro
