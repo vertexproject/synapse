@@ -53,7 +53,7 @@ MAX_LINE_SIZE = kibibyte * 64
 MAX_FIELD_SIZE = kibibyte * 64
 
 # Axon constants
-AXON_READY_TIMEOUT = 60  # seconds
+AXON_READY_TIMEOUT = 300  # seconds
 
 # Socket constants
 UNIX_SOCKET_PATH_MAX = 103
