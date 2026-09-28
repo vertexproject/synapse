@@ -1,7 +1,9 @@
 ---
-desc: Fixed a KeyError in Storm Axon APIs, and in $lib.inet.http requests which upload
-  files from the Axon, when the Axon version was unavailable. A FeatureNotSupported
-  exception is now raised.
+desc: Fixed a ``KeyError`` in the Storm ``$lib.axon.wget()``, ``$lib.axon.wput()``, and
+  ``$lib.axon.urlfile()`` APIs, and in ``$lib.inet.http`` requests which upload files from
+  the Axon, when the Axon was not connected. These APIs and ``$lib.axon.unpack()`` now wait
+  up to 60 seconds for the Axon to be ready before raising a ``TimeOut`` error, and raise a
+  ``FeatureNotSupported`` error if the Axon version is unavailable.
 desc:literal: false
 prs: []
 type: bug

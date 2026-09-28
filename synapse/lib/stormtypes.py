@@ -120,7 +120,10 @@ async def getAxonVersion(runt):
 
     Raises:
         s_exc.FeatureNotSupported: If the Axon version is unavailable.
+        s_exc.TimeOut: If the Axon is not ready within AXON_READY_TIMEOUT seconds.
     '''
+    await runt.snap.core.waitAxonReady()
+
     if (axonvers := runt.snap.core.axoninfo.get('synapse', {}).get('version')) is None:
         mesg = 'Unable to determine the Synapse version of the Axon.'
         raise s_exc.FeatureNotSupported(mesg=mesg)
@@ -2566,7 +2569,7 @@ class LibAxon(Lib):
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.snap.core.waitAxonReady()
 
         kwargs = {}
 
@@ -2607,7 +2610,7 @@ class LibAxon(Lib):
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.snap.core.waitAxonReady()
 
         kwargs = {}
 
@@ -2811,6 +2814,8 @@ class LibAxon(Lib):
         '''
         Unpack bytes from a file in the Axon using struct.
         '''
+        await self.runt.snap.core.waitAxonReady()
+
         if self.runt.snap.core.axoninfo.get('features', {}).get('unpack', 0) < 1:
             mesg = 'The connected Axon does not support the the unpack API. Please update your Axon.'
             raise s_exc.FeatureNotSupported(mesg=mesg)
@@ -2822,7 +2827,6 @@ class LibAxon(Lib):
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
 
-        await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.unpack(s_common.uhex(sha256), fmt, offs)
 
 @registry.registerLib

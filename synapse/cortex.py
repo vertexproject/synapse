@@ -6172,6 +6172,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.axready.wait()
         return self.axon.iden
 
+    async def waitAxonReady(self):
+        '''
+        Wait for the Axon to be ready.
+
+        Raises:
+            s_exc.TimeOut: If the Axon is not ready within AXON_READY_TIMEOUT seconds.
+        '''
+        if self.axready.is_set():
+            return
+
+        timeout = s_const.AXON_READY_TIMEOUT
+        if not await s_coro.event_wait(self.axready, timeout=timeout):
+            mesg = f'Timed out waiting {timeout} seconds for the Axon to be ready.'
+            raise s_exc.TimeOut(mesg=mesg, timeout=timeout)
+
     def setFeedFunc(self, name, func):
         '''
         Set a data ingest function.

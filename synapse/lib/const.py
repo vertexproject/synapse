@@ -52,5 +52,8 @@ assert layer_pdef_qsize <= layer_pdef_qsize_max
 MAX_LINE_SIZE = kibibyte * 64
 MAX_FIELD_SIZE = kibibyte * 64
 
+# Axon constants
+AXON_READY_TIMEOUT = 60  # seconds
+
 # Socket constants
 UNIX_SOCKET_PATH_MAX = 103

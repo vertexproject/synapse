@@ -6900,6 +6900,60 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(await axon.metrics(),
                             await core.axon.metrics())
 
+    async def test_cortex_axon_ready_timeout(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestAxon(dirn=dirn) as axon:
+                aurl = axon.getLocalUrl()
+
+            async with self.getTestCore(conf={'axon': aurl}) as core:
+
+                self.false(core.axready.is_set())
+                self.eq(core.axoninfo, {})
+
+                sha256 = s_common.ehex(hashlib.sha256(b'vertex').digest())
+                opts = {'vars': {'sha256': sha256, 'url': 'http://127.0.0.1:1/'}}
+                queries = (
+                    'return($lib.axon.wget($url))',
+                    'return($lib.axon.wput($sha256, $url))',
+                    'return($lib.axon.unpack($sha256, fmt=">Q"))',
+                    'yield $lib.axon.urlfile($url)',
+                    '''
+                    $fields = ([{"name": "file", "sha256": $sha256}])
+                    return($lib.inet.http.post($url, fields=$fields))
+                    ''',
+                )
+
+                with patch('synapse.lib.const.AXON_READY_TIMEOUT', 0.1):
+
+                    with self.raises(s_exc.TimeOut) as cm:
+                        await core.waitAxonReady()
+                    self.eq(cm.exception.get('mesg'), 'Timed out waiting 0.1 seconds for the Axon to be ready.')
+                    self.eq(cm.exception.get('timeout'), 0.1)
+
+                    for query in queries:
+                        with self.raises(s_exc.TimeOut):
+                            await core.callStorm(query, opts=opts)
+
+                async with self.getTestAxon(dirn=dirn) as axon:
+
+                    self.true(await s_coro.event_wait(core.axready, timeout=10))
+                    self.nn(core.axoninfo['synapse']['version'])
+
+                    await core.axon.put(b'vertex')
+
+                    self.none(await core.waitAxonReady())
+
+                    resp = await core.callStorm(queries[0], opts=opts)
+                    self.false(resp.get('ok'))
+
+                    resp = await core.callStorm(queries[1], opts=opts)
+                    self.false(resp.get('ok'))
+
+                    resp = await core.callStorm(queries[4], opts=opts)
+                    self.eq(resp.get('code'), -1)
+
     async def test_cortex_delLayerView(self):
 
         with self.getTestDir() as dirn:
