@@ -9,7 +9,7 @@ The Synapse `service.shutdown` tool can be used to initiate a graceful shutdown 
 
 `service.shutdown` is executed using `python -m synapse.tools.service.shutdown`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.service.shutdown -h
 ```
 

@@ -456,8 +456,7 @@ Where forms make use of [inheritance](../glossary.md#gloss-form-inheritance), li
 
 **Examples**
 
-Lift the `it:host:account` nodes and all nodes of all forms that extend `it:host:account` that have a `:home`
-property:
+Lift the `it:host:account` nodes and all nodes of all forms that extend `it:host:account` that have a `:home` property:
 
 ```mdstorm --hide
 $host1={ [ it:host=( { "name": "ozzie's iphone", "os:name": "iOS 26.5.2"} ) ] } $host2={ [ it:host=( { "name": "ozzie-laptop", "os:name": "Ubuntu 24.04" } ) ] } $host3={ [ it:host=( { "name": "DESKTOP-8F2NL0R", "os:name": "Microsoft Windows 11 Home" } ) ] } [ it:host:account=( { "username": "ozzie", "host": $host1 } ) it:host:posix:account=( { "username": "ozzie", "host": $host2, "home": "/home/ozzie", "shell": "/bin/bash" } ) it:host:windows:account=( { "username": "ron the cat", "host": $host3, "id": "S-1-5-21-4772941793-982498634-1278416829-1074", "home": "c:\\users\\ron the cat" } ) ]
@@ -1266,7 +1265,7 @@ entity:name*in=(fsb, 'yevgeniy prigozhin', 'vladimir putin')
 Lift the IP addresses associated with any of the specified Autonomous System (AS) numbers:
 
 ```mdstorm --hide
-[ ( inet:asn=44477 :registrant:name='stark industries solutions ltd' ) ( inet:asn=20473 :registrant:name=as-choopa ) ( inet:asn=9009 :registrant:name='m247 europe srl' ) ]
+$asn1={ [ inet:asn=44477 :registrant:name='stark industries solutions ltd' ] } $asn2={ [ inet:asn=20473 :registrant:name=as-choopa] } $asn3={ [ inet:asn=9009 :registrant:name='m247 europe srl' ] } $asn4={ [ inet:asn=15169 :registrant:name='google llc' ] } [ ( inet:ip=213.226.100.106 :asn=44477 ) ( inet:ip=216.238.103.62 :asn=20473 ) ( inet:ip=217.148.143.196 :asn=9009 ) ( inet:ip=8.8.8.8 :asn=15169 ) ]
 ```
 
 ```mdstorm --hide

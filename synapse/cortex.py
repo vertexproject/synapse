@@ -742,6 +742,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         self.viewsbylayer = collections.defaultdict(list)
 
         self.stormcmds = {}
+        self._stormdocs = None
 
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
@@ -2103,9 +2104,11 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
+        self._stormdocs = None
 
     def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
+        self._stormdocs = None
 
     async def delStormCmd(self, name):
         '''
@@ -2135,6 +2138,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         if not self.readonly:
             self.cmddefs.pop(name)
         self.stormcmds.pop(name, None)
+        self._stormdocs = None
 
     async def addStormPkg(self, pkgdef, verify=False):
         '''
@@ -2332,13 +2336,13 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         '''
         Resolve a dependency/conflict name to a currently loaded package def.
 
-        The reserved names in self.PKG_PROVIDES refer to the running Synapse version rather
-        than a loaded Storm package.
+        The reserved names in self.PKG_PROVIDES refer to self.VERSION rather than to a
+        loaded Storm package.
         '''
         if pkgname in self.PKG_PROVIDES:
             return {
                 'name': pkgname,
-                'version': s_version.version
+                'version': self.VERSION
             }
 
         return await self.getStormPkg(pkgname)
@@ -5344,6 +5348,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             raise s_exc.BadCmdName(name=ctor.name)
 
         self.stormcmds[ctor.name] = ctor
+        self._stormdocs = None
 
     async def addStormDmon(self, ddef):
         '''
@@ -6116,9 +6121,17 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
         '''
         Get a struct containing the Storm Types documentation.
 
+        Notes:
+            The return value is a cached structure shared across callers and
+            must not be mutated.
+
         Returns:
             dict: A Dictionary of storm documentation information.
         '''
+
+        stormdocs = self._stormdocs
+        if stormdocs is not None:
+            return stormdocs
 
         cmds = []
 
@@ -6142,6 +6155,7 @@ class Cortex(s_oauth.OAuthMixin, s_axon.HasAxon, s_jsonstor.HasJsonStor, s_cell.
             'commands': cmds,
             # 'packages': ...  # TODO - Support inline information for packages?
         }
+        self._stormdocs = ret
         return ret
 
     async def reqFeedDataAllowed(self, items, user, viewiden=None):

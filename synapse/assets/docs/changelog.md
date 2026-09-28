@@ -1,5 +1,40 @@
 # Synapse Changelog
 
+## v3.4.0 - 2026-09-28
+
+### Model Changes
+
+- Updated the `it:sec:cwe` form to implement the `meta:observable` interface,
+  adding the `:seen` property.
+- Added the `auth:apikey` form to model API keys.
+
+### Features and Enhancements
+
+- Added `$lib.pkg.docs.list()` and `$lib.pkg.docs.get()` to read a Storm
+  package's documentation.
+- Added the `synapse.tools.utils.optimize` tool, which precompiles Python
+  bytecode and the Storm grammar parser cache for a Python install, and
+  verifies them with `--check`.
+- Services in the Docker images now start faster, with their Python code and
+  the Storm query parser precompiled.
+- `Cortex.getStormDocs()` and `getModelDict()` now cache their results,
+  invalidating on the events that change them.
+- `pkg.docs` now lists a package's documents and takes a document name (path,
+  stem, or title) to display just that one.
+
+### Bugfixes
+
+- Fixed Synapse CLI tools exiting with code 1 for `--help`. They now exit 0 for
+  `--help` and 2 for invalid arguments.
+- Fixed guid constructors and `$lib.lift.byPropsDict` missing an existing node,
+  and creating a duplicate, when a case insensitive property such as `:name`
+  differed only in case.
+
+### Notes
+
+- The `ParserExit` exception raised by `synapse.lib.cmd.Parser` now carries its
+  exit code in the `exitcode` key instead of `status`.
+
 ## v3.3.0 - 2026-09-22
 
 ### Model Changes

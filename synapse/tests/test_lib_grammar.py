@@ -1,10 +1,15 @@
+import logging
+import unittest.mock as mock
+
 import lark  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.data as s_data
+import synapse.common as s_common
 
 import synapse.lib.parser as s_parser
 import synapse.lib.grammar as s_grammar
+import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_t_utils
 
@@ -1627,6 +1632,65 @@ class GrammarTest(s_t_utils.SynTest):
             parser = s_parser.Parser(query)
             tree = parser.query()
             self.eq(str(tree), _ParseResults[i])
+
+    async def test_parser_larkcache(self):
+
+        badqueries = ('[inet:ipv4=1.2.3.4', '$x = (', '{{{', '[ inet:fqdn=a :b=', 'for $x in { } {')
+
+        def geterrinfo(text):
+            with self.raises(s_exc.BadSyntax) as cm:
+                s_parser.Parser(text).query()
+            return cm.exception.errinfo
+
+        builterrs = [geterrinfo(text) for text in badqueries]
+
+        with self.getTestDir() as dirn:
+
+            path = s_common.genpath(dirn, 'storm.lark.mpk')
+
+            parser, cached = s_parser.loadLarkParser(path=path)
+            self.false(cached)
+
+            s_parser.saveLarkParser(path=path)
+
+            parser, cached = s_parser.loadLarkParser(path=path)
+            self.true(cached)
+
+            # a loaded parser produces the same AST and syntax errors as a built one
+            with mock.patch('synapse.lib.parser.LarkParser', parser):
+                for i, query in enumerate(Queries):
+                    self.eq(str(s_parser.Parser(query).query()), _ParseResults[i])
+
+                self.eq(builterrs, [geterrinfo(text) for text in badqueries])
+
+            with open(path, 'rb') as fd:
+                byts = fd.read()
+
+            # a cache from a different grammar, options, or lark version is rebuilt silently
+            info = s_msgpack.un(byts, use_list=True)
+            info['iden'] = s_common.guid()
+            with open(path, 'wb') as fd:
+                fd.write(s_msgpack.en(info))
+
+            with self.getLoggerStream('synapse.lib.parser', level=logging.WARNING) as stream:
+                parser, cached = s_parser.loadLarkParser(path=path)
+            self.false(cached)
+            self.eq('', stream.getvalue())
+            self.nn(parser.parse('inet:fqdn', start='query'))
+
+            for badbyts in (byts[:1000], s_msgpack.en(10)):
+                with open(path, 'wb') as fd:
+                    fd.write(badbyts)
+
+                with self.getLoggerStream('synapse.lib.parser') as stream:
+                    parser, cached = s_parser.loadLarkParser(path=path)
+                self.false(cached)
+                self.isin('Failed to load the Storm grammar cache', stream.getvalue())
+                self.nn(parser.parse('inet:fqdn', start='query'))
+
+            with mock.patch('synapse.lib.parser.loadLarkParser', return_value=(None, False)):
+                with self.raises(s_exc.BadState):
+                    s_parser.saveLarkParser(path=path)
 
     def test_cmdrargs(self):
         q = '''add {inet:fqdn | graph 2 --filter { -#nope } } inet:f-M +1 { [ meta:note='*' :type=m1]}'''

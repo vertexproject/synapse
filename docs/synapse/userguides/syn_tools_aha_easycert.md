@@ -9,6 +9,6 @@ The Synapse `aha.easycert` tool can be used to generate simple X509 certificates
 
 `aha.easycert` is executed using `python -m synapse.tools.aha.easycert`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.aha.easycert -h
 ```

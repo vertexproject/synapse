@@ -9,6 +9,6 @@ The Synapse `cortex.layer.load` tool can be used to import node edits to a Synap
 
 `cortex.layer.load` is executed using `python -m synapse.tools.cortex.layer.load`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.cortex.layer.load -h
 ```

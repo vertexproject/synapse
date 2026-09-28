@@ -9,7 +9,7 @@ The Synapse `service.moduser` tool can be used to add, modify, or list users of 
 
 `service.moduser` is executed using `python -m synapse.tools.service.moduser`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.service.moduser -h
 ```
 

@@ -85,11 +85,12 @@ def getParser():
 
     Notes:
         Building the LALR tables costs about two seconds per process, but do NOT try to
-        cache it through lark.Lark.save()/load(): a deserialized parser yields trees
-        whose data is a Token('RULE', ...) rather than a str, so str(tree) -- which is
-        what findStormFiles() and handleAst() hash to identify a query -- differs
-        between a built parser and a loaded one. Coverage would then attribute nothing
-        at all, silently, since no runtime query would hash to a guid in guid_map.
+        cache it through lark.Lark.save()/load(): a built parser yields trees whose
+        data is a Token('RULE', ...) while a deserialized one yields a str, so
+        str(tree) -- which is what findStormFiles() and handleAst() hash to identify
+        a query -- differs between a built parser and a loaded one. Coverage would
+        then attribute nothing at all, silently, since no runtime query would hash to
+        a guid in guid_map.
     '''
     grammar = s_data.getLark('storm')
     return lark.Lark(grammar, start='query', regex=True, parser='lalr', keep_all_tokens=True,

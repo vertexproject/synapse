@@ -9,6 +9,22 @@
 
 ## Forms
 
+### `auth:apikey`
+
+An API key.
+
+| Interface |
+|-----------|
+| `auth:credential` |
+| `meta:observable` |
+
+| Property | Type | Doc |
+|----------|------|-----|
+| `:issuer` | `entity:actor` | The entity that issued the API key. |
+| `:period` | `ival` | The period when the API key is valid. |
+| `:seen` | `ival` | The API key was observed during the time interval. |
+| `:value` | `it:dev:str` | The value of the API key. |
+
 ### `auth:passwd`
 
 A password string.
@@ -7336,11 +7352,16 @@ A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) nu
 
 NIST NVD Common Weaknesses Enumeration Specification.
 
+| Interface |
+|-----------|
+| `meta:observable` |
+
 | Property | Type | Doc |
 |----------|------|-----|
 | `:desc` | `text` | The CWE description field. |
 | `:name` | `title` | The CWE name. |
 | `:parents` | `array of it:sec:cwe` | An array of ChildOf CWE Relationships. |
+| `:seen` | `ival` | The CWE was observed during the time interval. |
 | `:url` | `inet:url` | A URL linking this CWE to a full description. |
 
 ### `it:sec:metrics`
@@ -11433,6 +11454,7 @@ An interface implemented by authentication credential forms.
 
 | Form |
 |------|
+| `auth:apikey` |
 | `auth:passwd` |
 | `crypto:salthash` |
 
@@ -12519,6 +12541,7 @@ Properties common to forms which can be observed.
 
 | Form |
 |------|
+| `auth:apikey` |
 | `auth:passwd` |
 | `crypto:currency:address` |
 | `crypto:currency:client` |
@@ -12611,6 +12634,7 @@ Properties common to forms which can be observed.
 | `it:hostname` |
 | `it:os:windows:registry:entry` |
 | `it:os:windows:registry:key` |
+| `it:sec:cwe` |
 | `it:softid` |
 | `it:software` |
 | `lang:hashtag` |

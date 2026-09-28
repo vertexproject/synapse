@@ -363,16 +363,33 @@ class NodeBase:
     def valuvirts(self, defv=None):
         return defv
 
+    def _nidNormValu(self, ptyp, valu):
+        # fold a normalized value of type ptyp the same way the index and nid
+        # deconfliction do (e.g. case folding a text value)
+        if valu is None:
+            return None
+
+        if ptyp.isarray:
+            # a whole array value is a tuple of typed values
+            return self.view.wlyr.arraytype.nidNorm(valu)
+
+        typename, tvalu = valu
+        if (ntyp := self.view.core.model.type(typename)) is None:
+            return valu
+
+        return (typename, self.view.wlyr.stortypes[ntyp.stortype].nidNorm(tvalu))
+
     def hasPropAltsValu(self, prop, valu):
         # valu must be normalized in advance
+        valu = self._nidNormValu(prop.type, valu)
         prophash = prop.type.typehash
         for prop in prop.getAlts():
             if prop.type.isarray and prop.type.arraytype.typehash is prophash:
                 arryvalu = self.get(prop.name)
-                if arryvalu is not None and valu in arryvalu:
+                if arryvalu is not None and any(self._nidNormValu(prop.type.arraytype, v) == valu for v in arryvalu):
                     return True
             else:
-                if self.get(prop.name) == valu:
+                if self._nidNormValu(prop.type, self.get(prop.name)) == valu:
                     return True
 
         return False

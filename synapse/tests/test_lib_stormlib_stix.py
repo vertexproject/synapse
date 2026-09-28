@@ -1,4 +1,6 @@
+import sys
 import copy
+import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -53,6 +55,12 @@ class StormLibStixTest(s_test.SynTest):
             self.true(success)
 
     async def test_stormlib_libstix(self, conf=None):
+
+        # stix2validator is only imported by the process which validates a bundle
+        script = 'import sys, synapse.cortex; print("stix2validator" in sys.modules)'
+        proc = await asyncio.create_subprocess_exec(sys.executable, '-c', script, stdout=asyncio.subprocess.PIPE)
+        stdout, _ = await proc.communicate()
+        self.eq(b'False\n', stdout)
 
         async with self.getTestCore(conf=conf) as core:
             visi = await core.auth.addUser('visi')

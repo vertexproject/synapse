@@ -178,10 +178,7 @@ async def runCsvImport(opts, outp, text, stormopts):
 async def main(argv, outp=s_output.stdout):
     pars = makeargparser(outp)
 
-    try:
-        opts = pars.parse_args(argv)
-    except s_exc.ParserExit as e:
-        return e.get('status')
+    opts = pars.parse_args(argv)
 
     with open(opts.stormfile, 'r', encoding='utf8') as fd:
         text = fd.read()

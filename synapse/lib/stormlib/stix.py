@@ -15,8 +15,6 @@ import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.processpool as s_processpool
 
-import stix2validator
-
 logger = logging.getLogger(__name__)
 
 def uuid5(valu=None):
@@ -594,6 +592,10 @@ def _validateConfig(runt, config):
                             raise s_exc.BadConfValu(mesg=mesg)
 
 def validateStix(bundle, version='2.1'):
+
+    # stix2validator is slow to import, so it only loads in the process which validates a bundle.
+    import stix2validator
+
     ret = {
         'ok': False,
         'mesg': '',

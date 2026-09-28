@@ -9,7 +9,7 @@ The Synapse `service.modrole` tool can be used to add or modify a role in a Syna
 
 `service.modrole` is executed using `python -m synapse.tools.service.modrole`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.service.modrole -h
 ```
 

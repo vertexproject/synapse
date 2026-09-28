@@ -679,6 +679,8 @@ class Model:
         self._lookup_hints = None
         self._virts_by_type = None
 
+        self._modeldict = None
+
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
             'types': [],
@@ -1210,6 +1212,20 @@ class Model:
         return resolved
 
     def getModelDict(self):
+        '''
+        Get a dictionary which describes the data model.
+
+        Notes:
+            The return value is a cached structure shared across callers and
+            must not be mutated.
+
+        Returns:
+            dict: A dictionary representation of the data model.
+        '''
+        modeldict = self._modeldict
+        if modeldict is not None:
+            return modeldict
+
         retn = {
             'metas': (
                 ('created', ('time', {}), {
@@ -1240,6 +1256,7 @@ class Model:
         for eobj in self.edges.values():
             retn['edges'].append(eobj.pack())
 
+        self._modeldict = retn
         return retn
 
     def convertPolyinfo(self, propdef):
@@ -1589,6 +1606,12 @@ class Model:
             self.metatypes['created'] = self.getTypeClone(('time', {'ismin': True}))
             self.metatypes['updated'] = self.getTypeClone(('time', {}))
 
+        # addType()/addForm()/addEdge()/addTagProp()/addIface() above each
+        # already clear the cache, but the ctor-based type pass above (which
+        # writes self.types / self.ifacepolys directly) does not, so clear
+        # once more to be certain.
+        self._modeldict = None
+
     def _getFormsMaybeIface(self, name):
 
         form = self.forms.get(name)
@@ -1636,6 +1659,8 @@ class Model:
             for n2form in n2forms:
                 self._valid_edges[(n1form, verb, n2form)] = edge
 
+        self._modeldict = None
+
     def delEdge(self, edgetype):
 
         edge = self.edges.get(edgetype)
@@ -1661,6 +1686,8 @@ class Model:
         for n1form in n1forms:
             for n2form in n2forms:
                 self._valid_edges.pop((n1form, verb, n2form), None)
+
+        self._modeldict = None
 
     def _reqFormName(self, name):
         form = self.forms.get(name)
@@ -1693,6 +1720,8 @@ class Model:
 
         if not skipinit:
             self._modeldef['types'].append(newtype.getTypeDef())
+
+        self._modeldict = None
 
     def reqVirtTypes(self, virts):
 
@@ -1819,6 +1848,7 @@ class Model:
         self.pivchaincache.clear()
         self._lookup_hints = None
         self._virts_by_type = None
+        self._modeldict = None
 
         return form
 
@@ -1934,6 +1964,7 @@ class Model:
         self.pivchaincache.clear()
         self._lookup_hints = None
         self._virts_by_type = None
+        self._modeldict = None
 
         if parentform:
             self.childforms[parentform.name].remove(formname)
@@ -1947,6 +1978,7 @@ class Model:
             raise s_exc.DupName(mesg=f'Interface name conflicts with existing interface: {name}')
 
         self.ifaces[name] = info
+        self._modeldict = None
 
     def reqTypeNotInUse(self, typename):
         if self.propsbytype.get(typename):
@@ -1978,6 +2010,7 @@ class Model:
         self.propsbytype.pop(typename, None)
         self.arraysbytype.pop(typename, None)
         self.tagpropsbytype.pop(typename, None)
+        self._modeldict = None
 
     def addFormProp(self, formname, propname, tdef, info):
         form = self.forms.get(formname)
@@ -2090,6 +2123,7 @@ class Model:
         self.childpropcache.clear()
         self.pivchaincache.clear()
         self._lookup_hints = None
+        self._modeldict = None
 
         return prop
 
@@ -2238,6 +2272,7 @@ class Model:
     def delTagProp(self, name):
         if (prop := self.tagprops.pop(name, None)) is not None:
             self.tagpropsbytype[prop.type.name].pop(name, None)
+            self._modeldict = None
         return prop
 
     def addTagProp(self, name, tdef, info):
@@ -2251,6 +2286,8 @@ class Model:
             mesg = f'The tag property {prop.name} is using a deprecated type {prop.type.name} which will' \
                    f' be removed in 4.0.0'
             logger.warning(mesg)
+
+        self._modeldict = None
 
         return prop
 
@@ -2302,6 +2339,7 @@ class Model:
         self.childpropcache.clear()
         self.pivchaincache.clear()
         self._lookup_hints = None
+        self._modeldict = None
 
     def type(self, name):
         '''

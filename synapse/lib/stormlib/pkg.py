@@ -1,8 +1,13 @@
 import asyncio
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
+import synapse.lib.json as s_json
+import synapse.lib.const as s_const
 import synapse.lib.stormtypes as s_stormtypes
+
+MAX_DOC_SIZE = 25 * s_const.mebibyte
 
 stormcmds = [
     {
@@ -127,26 +132,98 @@ stormcmds = [
         'name': 'pkg.docs',
         'desc': 'Display documentation included in a storm package.',
         'cmdargs': (
-            ('name', {'help': 'The name (or name prefix) of the package.'}),
+            ('name', {'help': 'The name of the package.'}),
+            ('doc', {'nargs': '?', 'default': None,
+                'help': 'The path or title of a single document to display.'}),
         ),
         'storm': '''
-            $pdef = (null)
-            for $pkg in $lib.pkg.list() {
-                if $pkg.name.startswith($cmdopts.name) {
-                    $pdef = $pkg
-                    break
+            function printDocs(docs) {
+                $conf = ({
+                    "columns": [
+                        {"name": "Path", "width": 30},
+                        {"name": "Title"},
+                    ],
+                })
+                $printer = $lib.tabular.printer($conf)
+
+                $lib.print($printer.header())
+
+                for $doc in $docs {
+                    $title = $doc.title
+                    if (not $title) { $title = '' }
+                    $lib.print($printer.row(($doc.path, $title)))
                 }
+
+                return()
             }
+
+            $pdef = $lib.pkg.get($cmdopts.name)
 
             if (not $pdef) {
                 $lib.warn(`Package ({$cmdopts.name}) not found!`)
+                $lib.exit()
+            }
+
+            $docs = $lib.pkg.docs.list($pdef.name)
+
+            if ($lib.len($docs) = 0) {
+                $lib.print(`Package ({$pdef.name}) contains no documentation.`)
+                $lib.exit()
+            }
+
+            if (not $cmdopts.doc) {
+
+                $lib.print(`Documentation for package ({$pdef.name}):`)
+                $lib.print('')
+
+                $printDocs($docs)
+
+                $lib.print('')
+                $lib.print(`Use: pkg.docs {$pdef.name} <doc>`)
+
             } else {
-                if $pdef.docs {
-                    for $doc in $pdef.docs {
-                        $lib.print($doc.content)
+
+                $needle = $cmdopts.doc.lower()
+                $matches = ([])
+
+                for $doc in $docs {
+
+                    $relpath = $doc.path
+                    $stem = $relpath
+                    if $stem.endswith('.md') { $stem = $stem.slice(0, -3) }
+                    $title = $doc.title
+
+                    $fullpath = `docs/{$relpath}`
+                    $cands = ([$fullpath.lower(), $relpath.lower(), $stem.lower()])
+                    if $title { $cands.append($title.lower()) }
+
+                    if ($needle in $cands) {
+                        $matches.append($relpath)
                     }
+                }
+
+                if ($lib.len($matches) = 0) {
+
+                    $lib.warn(`No document matches "{$cmdopts.doc}" in package ({$pdef.name}).`)
+                    $lib.print('')
+                    $printDocs($docs)
+
+                } elif ($lib.len($matches) > 1) {
+
+                    $lib.warn(`Multiple documents match "{$cmdopts.doc}" in package ({$pdef.name}):`)
+                    for $relpath in $matches {
+                        $lib.print($relpath)
+                    }
+
                 } else {
-                    $lib.print(`Package ({$cmdopts.name}) contains no documentation.`)
+
+                    $relpath = $matches.index(0)
+                    try {
+                        $doctext = $lib.pkg.docs.get($pdef.name, doc=$relpath)
+                        $lib.print($doctext.$relpath)
+                    } catch NoSuchFile as err {
+                        $lib.warn($err.mesg)
+                    }
                 }
             }
         '''
@@ -335,6 +412,147 @@ class LibPkg(s_stormtypes.Lib):
     async def _libPkgState(self, name):
         name = await s_stormtypes.tostr(name)
         return PkgState(self.runt, name)
+
+@s_stormtypes.registry.registerLib
+class LibPkgDocs(s_stormtypes.Lib):
+    '''
+    A Storm Library for reading a Storm Package's documentation.
+    '''
+    _storm_locals = (
+        {'name': 'list', 'desc': "List a Storm Package's documentation pages.",
+         'type': {'type': 'function', '_funcname': '_libPkgDocsList',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'A Storm Package name.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of `{"path": ..., "title": ...}` dicts, or null if '
+                              'the package does not exist.', }}},
+        {'name': 'get', 'desc': "Get a Storm Package's documentation.",
+         'type': {'type': 'function', '_funcname': '_libPkgDocsGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'A Storm Package name.', },
+                      {'name': 'doc', 'type': 'str', 'default': None,
+                       'desc': 'The path (relative to docs/) of a single document to retrieve.', },
+                  ),
+                  'returns': {'type': 'dict',
+                              'desc': 'A dict of {path: text} -- every document, or just the named one '
+                              'if doc was specified -- or null if the package or document does not exist.', }}},
+    )
+    _storm_lib_path = ('pkg', 'docs')
+
+    def getObjLocals(self):
+        return {
+            'list': self._libPkgDocsList,
+            'get': self._libPkgDocsGet,
+        }
+
+    async def _getPkgDocs(self, name):
+
+        pkgdef = await self.runt.view.core.getStormPkg(name)
+        if pkgdef is None:
+            return None
+
+        # a package's documentation ships as ordinary files under docs/
+        # rather than inline pkgdef content -- a doc page is a files:
+        # entry whose path starts with docs/ and ends in .md, which
+        # excludes docs/metadata.json (not .md) and any images.
+        docs = {}
+        for docpath, filedef in (pkgdef.get('files') or {}).items():
+            if docpath.startswith('docs/') and docpath.endswith('.md'):
+                docs[docpath[5:]] = filedef.get('sha256')
+
+        return pkgdef, docs
+
+    async def _readPkgFile(self, axon, relpath, sha256):
+
+        sha256b = s_common.uhex(sha256)
+
+        size = await axon.size(sha256b)
+        if size is None:
+            mesg = f'Document ({relpath}) is missing from the Axon.'
+            raise s_exc.NoSuchFile(mesg=mesg)
+
+        if size > MAX_DOC_SIZE:
+            mesg = f'Document ({relpath}) is larger than the {MAX_DOC_SIZE} byte limit.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        byts = b''
+        async for chunk in axon.get(sha256b):
+            byts += chunk
+
+        return byts
+
+    async def _getDocTitles(self, axon, pkgdef):
+
+        titles = {}
+
+        metafiledef = (pkgdef.get('files') or {}).get('docs/metadata.json')
+        if metafiledef is None:
+            return titles
+
+        metasha256 = metafiledef['sha256']
+
+        try:
+            byts = await self._readPkgFile(axon, 'metadata.json', metasha256)
+            meta = s_json.loads(byts)
+        except (s_exc.NoSuchFile, s_exc.StormRuntimeError, s_exc.BadJsonText):
+            return titles
+
+        queue = list(meta.get('toc') or ())
+        while queue:
+            entry = queue.pop(0)
+            href = entry.get('href')
+            if href:
+                titles[href] = entry.get('title')
+            queue.extend(entry.get('children') or ())
+
+        return titles
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _libPkgDocsList(self, name):
+
+        name = await s_stormtypes.tostr(name)
+
+        retn = await self._getPkgDocs(name)
+        if retn is None:
+            return None
+
+        pkgdef, docs = retn
+
+        if not docs:
+            return []
+
+        axon = await self.runt.view.core.getAxon()
+        titles = await self._getDocTitles(axon, pkgdef)
+
+        return [{'path': relpath, 'title': titles.get(relpath)} for relpath in sorted(docs.keys())]
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _libPkgDocsGet(self, name, doc=None):
+
+        name = await s_stormtypes.tostr(name)
+        doc = await s_stormtypes.tostr(doc, noneok=True)
+
+        retn = await self._getPkgDocs(name)
+        if retn is None:
+            return None
+
+        _, docs = retn
+
+        axon = await self.runt.view.core.getAxon()
+
+        if doc is not None:
+            sha256 = docs.get(doc)
+            if sha256 is None:
+                return None
+            byts = await self._readPkgFile(axon, doc, sha256)
+            return {doc: byts.decode('utf8', errors='ignore')}
+
+        retn = {}
+        for relpath, sha256 in docs.items():
+            byts = await self._readPkgFile(axon, relpath, sha256)
+            retn[relpath] = byts.decode('utf8', errors='ignore')
+
+        return retn
 
 @s_stormtypes.registry.registerType
 class PkgVars(s_stormtypes.Prim):

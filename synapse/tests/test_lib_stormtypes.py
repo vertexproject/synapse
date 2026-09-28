@@ -147,6 +147,12 @@ class StormTypesTest(s_test.SynTest):
         # actually has.
         async with self.getTestCore() as core:
 
+            # prime the getStormDocs() cache before the package is added, so a
+            # cache that fails to invalidate on addStormPkg would still show
+            # the pre-package command set below.
+            predocs = await core.getStormDocs()
+            self.notin('tsted.marked', {c.get('name') for c in predocs['commands']})
+
             await core.addStormPkg({
                 'name': 'tsted',
                 'version': '1.1.1',
@@ -189,6 +195,121 @@ class StormTypesTest(s_test.SynTest):
             core.addStormCmd(TstEdCmd)
 
             self.len(1, await core.nodes('syn:cmd=tsted.classy +:edition="Other Edition"'))
+
+            # addStormCmd() must invalidate the getStormDocs() cache too
+            docs = await core.getStormDocs()
+            cmds = {c.get('name'): c for c in docs['commands']}
+            self.eq('Other Edition', cmds['tsted.classy'].get('edition'))
+
+            await core.delStormPkg('tsted')
+
+            # delStormPkg() must invalidate the getStormDocs() cache
+            docs = await core.getStormDocs()
+            cmds = {c.get('name'): c for c in docs['commands']}
+            self.notin('tsted.marked', cmds)
+            self.notin('tsted.plain', cmds)
+
+    async def test_stormtypes_docs_cache(self):
+        # getLibDocs()/getTypeDocs() cache their full-surface (no argument)
+        # result on the registry, invalidated only by (de)registration; a
+        # selector call always returns a freshly built list.
+
+        reg = s_stormtypes.registry
+
+        libdocs1 = reg.getLibDocs()
+        libdocs2 = reg.getLibDocs()
+        self.true(libdocs1 is libdocs2)
+
+        typedocs1 = reg.getTypeDocs()
+        typedocs2 = reg.getTypeDocs()
+        self.true(typedocs1 is typedocs2)
+
+        # a selector call never returns the cached full-surface object, and
+        # never populates or consults the cache either
+        timelib = reg._LIBREG[('time',)]
+        sel1 = reg.getLibDocs(timelib)
+        sel2 = reg.getLibDocs(timelib)
+        self.false(sel1 is sel2)
+        self.true(reg.getLibDocs() is libdocs1)
+
+        class TstCacheLib(s_stormtypes.Lib):
+            '''A test lib for cache invalidation.'''
+            _storm_lib_path = ('tstcachelib',)
+
+        reg.registerLib(TstCacheLib)
+        try:
+            libdocs3 = reg.getLibDocs()
+            self.false(libdocs3 is libdocs1)
+            paths = [tuple(d['path']) for d in libdocs3]
+            self.isin(('lib', 'tstcachelib'), paths)
+
+            # a second call is cached again until the next mutation
+            self.true(reg.getLibDocs() is libdocs3)
+        finally:
+            reg.delStormLib(('tstcachelib',))
+
+        libdocs4 = reg.getLibDocs()
+        self.false(libdocs4 is libdocs3)
+        paths = [tuple(d['path']) for d in libdocs4]
+        self.notin(('lib', 'tstcachelib'), paths)
+
+        class TstCacheType(s_stormtypes.Prim):
+            '''A test type for cache invalidation.'''
+            _storm_typename = 'tstcachetype'
+            _storm_locals = ()
+
+        reg.registerType(TstCacheType)
+        try:
+            typedocs3 = reg.getTypeDocs()
+            self.false(typedocs3 is typedocs1)
+            paths = [tuple(d['path']) for d in typedocs3]
+            self.isin(('tstcachetype',), paths)
+        finally:
+            reg.delStormType('TstCacheType')
+
+        typedocs4 = reg.getTypeDocs()
+        self.false(typedocs4 is typedocs3)
+        paths = [tuple(d['path']) for d in typedocs4]
+        self.notin(('tstcachetype',), paths)
+
+    async def test_stormtypes_storm_docs_cache_svc(self):
+        # a service-delivered package bypasses the public addStormPkg/
+        # delStormPkg wrappers ( _runStormSvcInit / _delStormSvcPkg push
+        # pkg:add / pkg:del and call _delStormPkg directly ), so the
+        # getStormDocs() cache must still invalidate on that path.
+
+        class DocsCacheSvc(s_test.StubStormSvc):
+            celltype = 'docscachesvc'
+            _storm_svc_pkg = {  # type: ignore
+                'name': 'docscachepkg',
+                'version': '0.0.1',
+                'commands': (
+                    {'name': 'docscache.cmd', 'storm': '[ ]'},
+                ),
+            }
+
+        async with self.getTestDmon() as dmon:
+
+            dmon.share('docscachesvc', DocsCacheSvc())
+            host, port = dmon.addr
+            url = f'tcp://127.0.0.1:{port}/docscachesvc'
+
+            async with self.getTestCore() as core:
+
+                # prime the cache before the service is added
+                predocs = await core.getStormDocs()
+                self.notin('docscache.cmd', {c.get('name') for c in predocs['commands']})
+
+                await core.nodes(f'service.add docscachesvc {url}')
+                await core.nodes('$lib.service.wait(docscachesvc)')
+
+                docs = await core.getStormDocs()
+                self.isin('docscache.cmd', {c.get('name') for c in docs['commands']})
+
+                await core.nodes('service.del docscachesvc')
+
+                docs = await core.getStormDocs()
+                self.notin('docscache.cmd', {c.get('name') for c in docs['commands']})
 
     async def test_stormtypes_copy(self):
 
@@ -6726,6 +6847,15 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('yield $lib.lift.byPropsDict(test:guid, ({"size": "foo"}), errok=(true))')
             self.len(0, nodes)
+
+            # text props match case insensitively regardless of which prop is lifted
+            await core.nodes('''[
+                (entity:goal=* :name=espionage :reporter:name=other)
+                (entity:goal=* :name=Espionage :reporter:name=acme)
+            ]''')
+            nodes = await core.nodes('yield $lib.lift.byPropsDict(entity:goal, ({"name": "ESPIONAGE", "reporter:name": "acme"}))')
+            self.len(1, nodes)
+            self.propeq(nodes[0], 'name', 'Espionage')
 
     async def test_storm_lib_lift_bytagpref(self):
 

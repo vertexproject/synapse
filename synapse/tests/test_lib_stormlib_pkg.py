@@ -1,6 +1,9 @@
+from unittest import mock
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 
@@ -556,3 +559,255 @@ class StormLibPkgTest(s_test.SynTest):
                 self.eq('dog', await core.callStorm('return($lib.pkg.state(pkg0).baz)'))
                 self.eq('emu', await core.callStorm('return($lib.pkg.state(pkg1).bar)'))
                 self.eq('groot', await core.callStorm('return($lib.pkg.state(pkg1).baz)'))
+
+    async def test_stormlib_pkg_docs(self):
+
+        # a doc page's content lives in the Axon, so this needs a real
+        # cluster (getTestCore() boots a bare Cortex with no Axon peer).
+        async with self.getTestCluster() as clus:
+
+            core = clus.cortex
+            axon = await core.getAxon()
+
+            async def putfile(text):
+                (size, sha256) = await axon.put(text.encode())
+                return {'sha256': sha256.hex()}
+
+            # a package with no files at all
+            await core.addStormPkg({'name': 'nofiles', 'version': '0.0.1'})
+
+            # a package with files but none under docs/
+            await core.addStormPkg({
+                'name': 'nodocs',
+                'version': '0.0.1',
+                'files': {
+                    'foo.txt': await putfile('not a doc'),
+                },
+            })
+
+            # a package with docs/ but no docs/metadata.json (hand rolled, no doc build)
+            await core.addStormPkg({
+                'name': 'nometa',
+                'version': '0.0.1',
+                'files': {
+                    'docs/index.md': await putfile('# Index\n'),
+                },
+            })
+
+            # a fully built package: an index page outside the nav, a nested toc
+            # entry (setup.md -> reference.md), and two docs sharing one title
+            # to exercise the ambiguous-match branch.
+            toc = {'toc': [
+                {'href': 'guide/setup.md', 'title': 'Setup Guide', 'children': [
+                    {'href': 'reference.md', 'title': 'Reference'},
+                ]},
+                {'href': 'dup1.md', 'title': 'Same'},
+                {'href': 'dup2.md', 'title': 'Same'},
+            ]}
+
+            pkgdef = {
+                'name': 'testpkg',
+                'version': '1.2.3',
+                'files': {
+                    'docs/index.md': await putfile('# Index\n'),
+                    'docs/guide/setup.md': await putfile('# Setup\n\nSetup content.\n'),
+                    'docs/reference.md': await putfile('# Reference\n\nReference content.\n'),
+                    'docs/dup1.md': await putfile('# Dup One\n\nDup one content.\n'),
+                    'docs/dup2.md': await putfile('# Dup Two\n\nDup two content.\n'),
+                    'docs/metadata.json': {'sha256': (await axon.put(s_json.dumps(toc)))[1].hex()},
+                },
+            }
+            await core.addStormPkg(pkgdef)
+
+            # package not found
+            msgs = await core.stormlist('pkg.docs nosuchpkg')
+            self.stormIsInWarn('Package (nosuchpkg) not found!', msgs)
+
+            # no doc files at all
+            msgs = await core.stormlist('pkg.docs nofiles')
+            self.stormIsInPrint('Package (nofiles) contains no documentation.', msgs)
+
+            msgs = await core.stormlist('pkg.docs nodocs')
+            self.stormIsInPrint('Package (nodocs) contains no documentation.', msgs)
+
+            # docs with no metadata.json: listing falls back to bare paths
+            msgs = await core.stormlist('pkg.docs nometa')
+            self.stormIsInPrint('Documentation for package (nometa):', msgs)
+            self.stormIsInPrint('index.md', msgs)
+
+            msgs = await core.stormlist('pkg.docs nometa index.md')
+            self.stormIsInPrint('Index', msgs)
+
+            # listing: all docs present, index.md has no title (not in the toc),
+            # nested children flattened into the title map
+            msgs = await core.stormlist('pkg.docs testpkg')
+            self.stormIsInPrint('Documentation for package (testpkg):', msgs)
+            self.stormIsInPrint('index.md', msgs)
+            self.stormIsInPrint('guide/setup.md', msgs)
+            self.stormIsInPrint('Setup Guide', msgs)
+            self.stormIsInPrint('reference.md', msgs)
+            self.stormIsInPrint('Reference', msgs)
+            self.stormIsInPrint('dup1.md', msgs)
+            self.stormIsInPrint('dup2.md', msgs)
+            self.stormIsInPrint('Use: pkg.docs testpkg <doc>', msgs)
+
+            # select by relative path
+            msgs = await core.stormlist('pkg.docs testpkg guide/setup.md')
+            self.stormIsInPrint('Setup content.', msgs)
+
+            # select by stem (no .md suffix)
+            msgs = await core.stormlist('pkg.docs testpkg guide/setup')
+            self.stormIsInPrint('Setup content.', msgs)
+
+            # select by full path
+            msgs = await core.stormlist('pkg.docs testpkg docs/guide/setup.md')
+            self.stormIsInPrint('Setup content.', msgs)
+
+            # select by title, case-insensitively -- also proves the nested
+            # toc child (reference.md) was flattened into the title map
+            msgs = await core.stormlist('pkg.docs testpkg "SETUP GUIDE"')
+            self.stormIsInPrint('Setup content.', msgs)
+
+            msgs = await core.stormlist('pkg.docs testpkg reference')
+            self.stormIsInPrint('Reference content.', msgs)
+
+            # the package name must match exactly -- unlike pkg.list/pkg.del,
+            # pkg.docs looks it up with $lib.pkg.get(), which does not do
+            # prefix matching
+            msgs = await core.stormlist('pkg.docs test')
+            self.stormIsInWarn('Package (test) not found!', msgs)
+
+            # no selector match
+            msgs = await core.stormlist('pkg.docs testpkg nope')
+            self.stormIsInWarn('No document matches "nope" in package (testpkg).', msgs)
+            self.stormIsInPrint('index.md', msgs)
+
+            # ambiguous selector match
+            msgs = await core.stormlist('pkg.docs testpkg same')
+            self.stormIsInWarn('Multiple documents match "same" in package (testpkg):', msgs)
+            self.stormIsInPrint('dup1.md', msgs)
+            self.stormIsInPrint('dup2.md', msgs)
+
+            # a sha256 the pkgdef declares but the Axon never actually got --
+            # exercises the axon.has() guard in the pkg.docs storm helper for
+            # both metadata.json and a doc page.
+            ghost = 'ab' * 32
+
+            await core.addStormPkg({
+                'name': 'ghostmeta',
+                'version': '0.0.1',
+                'files': {
+                    'docs/index.md': await putfile('# Index\n'),
+                    'docs/metadata.json': {'sha256': ghost},
+                },
+            })
+            msgs = await core.stormlist('pkg.docs ghostmeta')
+            self.stormIsInPrint('Documentation for package (ghostmeta):', msgs)
+            self.stormIsInPrint('index.md', msgs)
+
+            await core.addStormPkg({
+                'name': 'ghostdoc',
+                'version': '0.0.1',
+                'files': {
+                    'docs/index.md': {'sha256': ghost},
+                },
+            })
+            msgs = await core.stormlist('pkg.docs ghostdoc index.md')
+            self.stormIsInWarn('Document (index.md) is missing from the Axon.', msgs)
+
+            # pkg.docs and $lib.pkg.docs.* require no permissions -- a low
+            # privilege user can list and read package documentation without
+            # the axon.get/axon.has perms that $lib.axon.* would otherwise need.
+            lowuser = await core.addUser('lowuser')
+            aslow = {'user': lowuser.get('iden')}
+
+            msgs = await core.stormlist('pkg.docs testpkg', opts=aslow)
+            self.stormIsInPrint('Documentation for package (testpkg):', msgs)
+
+            msgs = await core.stormlist('pkg.docs testpkg guide/setup.md', opts=aslow)
+            self.stormIsInPrint('Setup content.', msgs)
+
+            docs = await core.callStorm('return($lib.pkg.docs.list(testpkg))', opts=aslow)
+            self.eq(sorted(d['path'] for d in docs), ['dup1.md', 'dup2.md', 'guide/setup.md',
+                                                        'index.md', 'reference.md'])
+
+            titles = {d['path']: d['title'] for d in docs}
+            self.none(titles['index.md'])
+            self.eq(titles['guide/setup.md'], 'Setup Guide')
+            self.eq(titles['reference.md'], 'Reference')
+
+            onedoc = await core.callStorm('return($lib.pkg.docs.get(testpkg, doc="guide/setup.md"))', opts=aslow)
+            self.eq(['guide/setup.md'], list(onedoc.keys()))
+            self.isin('Setup content.', onedoc['guide/setup.md'])
+
+            alldocs = await core.callStorm('return($lib.pkg.docs.get(testpkg))', opts=aslow)
+            self.eq(sorted(alldocs.keys()), ['dup1.md', 'dup2.md', 'guide/setup.md', 'index.md', 'reference.md'])
+            self.isin('Setup content.', alldocs['guide/setup.md'])
+
+            # a missing package returns null from both functions
+            self.none(await core.callStorm('return($lib.pkg.docs.list(nosuchpkg))'))
+            self.none(await core.callStorm('return($lib.pkg.docs.get(nosuchpkg))'))
+
+            # a package with no doc files returns an empty list, and get()
+            # with no selector returns an empty dict
+            self.eq([], await core.callStorm('return($lib.pkg.docs.list(nofiles))'))
+            self.eq([], await core.callStorm('return($lib.pkg.docs.list(nodocs))'))
+            self.eq({}, await core.callStorm('return($lib.pkg.docs.get(nofiles))'))
+
+            # a doc selector that does not exist on the package returns null
+            self.none(await core.callStorm('return($lib.pkg.docs.get(testpkg, doc=nope))'))
+
+            # get() only matches an exact path relative to docs/ -- the full
+            # path (with the docs/ prefix) does not match
+            self.none(await core.callStorm('return($lib.pkg.docs.get(testpkg, doc="docs/guide/setup.md"))'))
+
+            # a hand rolled package with no metadata.json has null titles for every doc
+            nometadocs = await core.callStorm('return($lib.pkg.docs.list(nometa))')
+            self.eq([{'path': 'index.md', 'title': None}], nometadocs)
+
+            # a pkgdef that declares a metadata.json sha256 the Axon never
+            # actually got falls back to null titles rather than raising
+            ghostmetadocs = await core.callStorm('return($lib.pkg.docs.list(ghostmeta))')
+            self.eq([{'path': 'index.md', 'title': None}], ghostmetadocs)
+
+            # a pkgdef that declares a doc sha256 the Axon never got raises
+            # NoSuchFile out of get(), both for a single doc and for the full dict
+            await self.asyncraises(s_exc.NoSuchFile,
+                core.callStorm('return($lib.pkg.docs.get(ghostdoc, doc="index.md"))'))
+            await self.asyncraises(s_exc.NoSuchFile,
+                core.callStorm('return($lib.pkg.docs.get(ghostdoc))'))
+
+            # metadata.json that is not valid JSON also falls back to null titles
+            await core.addStormPkg({
+                'name': 'badmeta',
+                'version': '0.0.1',
+                'files': {
+                    'docs/index.md': await putfile('# Index\n'),
+                    'docs/metadata.json': await putfile('not json'),
+                },
+            })
+            badmetadocs = await core.callStorm('return($lib.pkg.docs.list(badmeta))')
+            self.eq([{'path': 'index.md', 'title': None}], badmetadocs)
+
+            # a toc entry with no href is skipped when building the title map
+            notoc = {'toc': [{'title': 'No Href'}]}
+            await core.addStormPkg({
+                'name': 'nohreftoc',
+                'version': '0.0.1',
+                'files': {
+                    'docs/index.md': await putfile('# Index\n'),
+                    'docs/metadata.json': {'sha256': (await axon.put(s_json.dumps(notoc)))[1].hex()},
+                },
+            })
+            nohrefdocs = await core.callStorm('return($lib.pkg.docs.list(nohreftoc))')
+            self.eq([{'path': 'index.md', 'title': None}], nohrefdocs)
+
+            # a document over the size limit raises StormRuntimeError out of
+            # get() -- list() still succeeds, but metadata.json is also over
+            # the limit now, so every title falls back to null
+            with mock.patch('synapse.lib.stormlib.pkg.MAX_DOC_SIZE', 4):
+                await self.asyncraises(s_exc.StormRuntimeError,
+                    core.callStorm('return($lib.pkg.docs.get(testpkg, doc="guide/setup.md"))'))
+                oksizedocs = await core.callStorm('return($lib.pkg.docs.list(testpkg))')
+                self.len(5, oksizedocs)
+                self.true(all(d['title'] is None for d in oksizedocs))

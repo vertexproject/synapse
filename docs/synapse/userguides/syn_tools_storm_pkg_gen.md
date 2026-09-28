@@ -11,7 +11,7 @@ For additional details on using the `storm.pkg.gen` tool see [Building / Loading
 
 `storm.pkg.gen` is executed using `python -m synapse.tools.storm.pkg.gen`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.storm.pkg.gen -h
 ```
 

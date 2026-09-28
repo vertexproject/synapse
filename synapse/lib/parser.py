@@ -1,8 +1,12 @@
+import os
 import ast
+import logging
 import collections
 
 import lark  # type: ignore
 import regex  # type: ignore
+import lark.lexer  # type: ignore
+import lark.grammar  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.data as s_data
@@ -10,7 +14,10 @@ import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
 import synapse.lib.cache as s_cache
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.processpool as s_processpool
+
+logger = logging.getLogger(__name__)
 
 # TL;DR:  *rules* are the internal nodes of an abstract syntax tree (AST), *terminals* are the leaves
 
@@ -543,8 +550,61 @@ class AstConverter(lark.Transformer):
         return s_ast.TryCatch(astinfo, kids)
 
 _grammar = s_data.getLark('storm')
-LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdargs', 'evalvalu'],
-                       maybe_placeholders=False, propagate_positions=True, parser='lalr')
+_larkopts = {
+    'regex': True,
+    'start': ['query', 'lookup', 'cmdargs', 'evalvalu'],
+    'maybe_placeholders': False,
+    'propagate_positions': True,
+    'parser': 'lalr',
+}
+
+LARK_CACHE_PATH = s_data.path('lark', 'storm.lark.mpk')
+
+def _getLarkIden():
+    return s_common.guid((lark.__version__, _grammar, sorted(_larkopts.items())))
+
+def loadLarkParser(path=LARK_CACHE_PATH):
+    '''
+    Load the Storm grammar parser from a cache written by saveLarkParser(), or build it.
+
+    Notes:
+        Building the LALR tables takes seconds per process. The cache is only used when
+        it was written from the same grammar, options, and lark version.
+
+    Returns:
+        (lark.Lark, bool): The parser and True if it was loaded from the cache.
+    '''
+    if os.path.isfile(path):
+        try:
+            with open(path, 'rb') as fd:
+                info = s_msgpack.un(fd.read(), use_list=True)
+
+            if info.get('iden') == _getLarkIden():
+                return lark.Lark.load({'data': info['data'], 'memo': info['memo']}), True
+
+        except Exception as e:
+            logger.warning(f'Failed to load the Storm grammar cache at {path}: {e}')
+
+    return lark.Lark(_grammar, **_larkopts), False
+
+def saveLarkParser(path=LARK_CACHE_PATH):
+    '''
+    Write the Storm grammar parser to a cache which loadLarkParser() reads.
+
+    Notes:
+        The cache is msgpack rather than lark.Lark.save() so that loading it does not
+        unpickle anything.
+    '''
+    parser = lark.Lark(_grammar, **_larkopts)
+    data, memo = parser.memo_serialize([lark.lexer.TerminalDef, lark.grammar.Rule])
+
+    with open(path, 'wb') as fd:
+        fd.write(s_msgpack.en({'iden': _getLarkIden(), 'data': data, 'memo': memo}))
+
+    if not loadLarkParser(path=path)[1]:
+        raise s_exc.BadState(mesg=f'The Storm grammar cache at {path} could not be loaded.')
+
+LarkParser, larkcached = loadLarkParser()
 
 class Parser:
     '''

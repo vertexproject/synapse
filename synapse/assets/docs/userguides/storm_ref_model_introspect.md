@@ -106,6 +106,12 @@ Display all forms:
 
 ```stormdoc
 storm> syn:form | limit 3
+syn:form=auth:apikey
+        :doc = An API key.
+        :extmodel = false
+        :interfaces = ['auth:credential', 'meta:observable']
+        :runt = false
+        :type = auth:apikey
 syn:form=auth:passwd
         :doc = A password string.
         :extmodel = false
@@ -117,12 +123,6 @@ syn:form=syn:tag
         :extmodel = false
         :runt = false
         :type = syn:tag
-syn:form=meta:topic
-        :doc = A topic string.
-        :extmodel = false
-        :interfaces = ['risk:targetable']
-        :runt = false
-        :type = meta:topic
 ```
 
 Display a specific form:
@@ -217,30 +217,30 @@ Display all properties:
 
 ```stormdoc
 storm> syn:prop | limit 3
-syn:prop=auth:passwd
+syn:prop=auth:apikey
         :array = false
-        :doc = A password string.
+        :doc = An API key.
         :extmodel = false
-        :form = auth:passwd
-        :type = ['auth:passwd']
-syn:prop=auth:passwd:md5
+        :form = auth:apikey
+        :type = ['auth:apikey']
+syn:prop=auth:apikey:issuer
         :array = false
-        :base = md5
-        :computed = true
-        :doc = The MD5 hash of the password.
+        :base = issuer
+        :computed = false
+        :doc = The entity that issued the API key.
         :extmodel = false
-        :form = auth:passwd
-        :relname = md5
-        :type = ['crypto:hash:md5']
-syn:prop=auth:passwd:sha1
+        :form = auth:apikey
+        :relname = issuer
+        :type = ['syn:user', 'ou:org', 'inet:service:account', 'inet:service:agent', 'entity:contact', 'ps:person', 'risk:threat']
+syn:prop=auth:apikey:period
         :array = false
-        :base = sha1
-        :computed = true
-        :doc = The SHA1 hash of the password.
+        :base = period
+        :computed = false
+        :doc = The period when the API key is valid.
         :extmodel = false
-        :form = auth:passwd
-        :relname = sha1
-        :type = ['crypto:hash:sha1']
+        :form = auth:apikey
+        :relname = period
+        :type = ['ival']
 ```
 
 Display all properties that are **computed** by Synapse:

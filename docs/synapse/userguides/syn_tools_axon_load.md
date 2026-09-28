@@ -9,6 +9,6 @@ The Synapse `axon.load` tool can be used to load blobs into a Synapse Axon.
 
 `axon.load` is executed using `python -m synapse.tools.axon.load`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.axon.load -h
 ```

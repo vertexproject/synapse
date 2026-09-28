@@ -3,6 +3,8 @@ import logging
 
 import unittest.mock as mock
 
+import synapse.exc as s_exc
+
 import synapse.lib.json as s_json
 
 import synapse.tests.utils as s_t_utils
@@ -12,6 +14,20 @@ import synapse.tools.service.healthcheck as s_t_healthcheck
 logger = logging.getLogger(__name__)
 
 class HealthcheckTest(s_t_utils.SynTest):
+
+    async def test_healthcheck_parser(self):
+
+        outp = self.getTestOutp()
+        with self.raises(s_exc.ParserExit) as cm:
+            await s_t_healthcheck.main(['--help'], outp)
+        self.eq(0, cm.exception.get('exitcode'))
+        outp.expect('usage: synapse.tools.service.healthcheck')
+
+        outp = self.getTestOutp()
+        with self.raises(s_exc.ParserExit) as cm:
+            await s_t_healthcheck.main([], outp)
+        self.eq(2, cm.exception.get('exitcode'))
+        outp.expect('the following arguments are required: --cell/-c')
 
     # Patch out the default password handler iterations to a value that runs quickly.
     @mock.patch('synapse.lib.crypto.passwd.PBKDF2_ITERATIONS', 10_000)

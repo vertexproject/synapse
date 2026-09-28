@@ -5125,6 +5125,42 @@ Get a dictionary representing the package's persistent variables.
 **Returns:**
 A dictionary representing the package variables. The return type is [`pkg:vars`](stormtypes_prims.md#stormprims-pkg-vars-f527).
 
+<a id="stormlibs-lib-pkg-docs"></a>
+
+## $lib.pkg.docs
+
+A Storm Library for reading a Storm Package's documentation.
+
+
+<a id="stormlibs-lib-pkg-docs-get"></a>
+
+### $lib.pkg.docs.get(name, doc=(null))
+
+Get a Storm Package's documentation.
+
+**Args:**
+
+- `name` (`str`): A Storm Package name.
+- `doc` (`str`): The path (relative to docs/) of a single document to retrieve.
+
+
+**Returns:**
+A dict of {path: text} -- every document, or just the named one if doc was specified -- or null if the package or document does not exist. The return type is [`dict`](stormtypes_prims.md#stormprims-dict-f527).
+
+<a id="stormlibs-lib-pkg-docs-list"></a>
+
+### $lib.pkg.docs.list(name)
+
+List a Storm Package's documentation pages.
+
+**Args:**
+
+- `name` (`str`): A Storm Package name.
+
+
+**Returns:**
+A list of `{"path": ..., "title": ...}` dicts, or null if the package does not exist. The return type is [`list`](stormtypes_prims.md#stormprims-list-f527).
+
 <a id="stormlibs-lib-queue"></a>
 
 ## $lib.queue

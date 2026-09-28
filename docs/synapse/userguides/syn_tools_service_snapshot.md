@@ -9,7 +9,7 @@ The Synapse `service.snapshot` tool can be used to freeze/resume service operati
 
 `service.snapshot` is executed using `python -m synapse.tools.service.snapshot`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.service.snapshot -h
 ```
 

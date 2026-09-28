@@ -28,10 +28,7 @@ def format_component(e, mesg: str) -> dict:
 
 async def main(argv, outp=s_output.stdout):
     pars = getArgParser(outp)
-    try:
-        opts = pars.parse_args(argv)
-    except s_exc.ParserExit as e:  # pragma: no cover
-        return e.get('status')
+    opts = pars.parse_args(argv)
 
     url = opts.cell
     sanitized_url = s_urlhelp.sanitizeUrl(url)

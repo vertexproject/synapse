@@ -9,7 +9,7 @@ The Synapse `service.promote` tool can be used to promote a mirror to the leader
 
 `service.promote` is executed using `python -m synapse.tools.service.promote`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.service.promote -h
 ```
 

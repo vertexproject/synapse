@@ -31,7 +31,7 @@ Where:
 
 The detailed help (`-h`) output for the `axon.put` tool is shown below.
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.axon.put -h
 ```
 

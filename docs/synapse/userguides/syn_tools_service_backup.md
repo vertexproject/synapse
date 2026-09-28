@@ -9,7 +9,7 @@ The Synapse `service.backup` tool can be used to create an optimized backup of a
 
 `service.backup` is executed using `python -m synapse.tools.service.backup`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.service.backup -h
 ```
 

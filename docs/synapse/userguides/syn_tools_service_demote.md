@@ -9,7 +9,7 @@ The Synapse `service.demote` tool can be used to automatically select a new lead
 
 `service.demote` is executed using `python -m synapse.tools.service.demote`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.service.demote -h
 ```
 

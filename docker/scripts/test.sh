@@ -36,6 +36,12 @@ trap stop_all EXIT
 # Up-front sanity check on the synapse base entrypoint.
 docker run --rm --entrypoint python vertexproject/synapse:${TAG} -m synapse.servers.cortex --help
 
+# The image ships current bytecode and the Storm grammar parser cache.
+docker run --rm --entrypoint python vertexproject/synapse:${TAG} -m synapse.tools.utils.optimize --check
+
+# Modules which are only imported on first use, so a service boot does not load them.
+docker run --rm --entrypoint python vertexproject/synapse:${TAG} -c 'import stix2validator'
+
 # Spin up the service-variant containers.
 echo "Spinning up images"
 docker run -d --rm --name test-aha -e "SYN_AHA_AHA_NETWORK=synapse.ci" -e "SYN_AHA_DNS_NAME=aha.synapse.ci" vertexproject/synapse-aha:${TAG}

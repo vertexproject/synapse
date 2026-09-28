@@ -12,6 +12,6 @@ The Synapse `aha.provision.service` tool can be used to prepare provisioning ent
 
 `aha.provision.service` is executed using `python -m synapse.tools.aha.provision.service`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.aha.provision.service -h
 ```

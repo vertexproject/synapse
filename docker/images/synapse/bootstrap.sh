@@ -30,6 +30,10 @@ if [ -d /build/dist ]; then
     python -m pip install /build/dist/*.whl
 fi
 
+# Precompile Python bytecode and the Storm grammar parser cache. Services run with python -O
+# as a user who cannot write either, so they are built here.
+python -m synapse.tools.utils.optimize || exit 1
+
 # Cleanup build time deps and remove problematic files
 apt-get remove -y --purge build-essential
 apt-get remove -y --allow-remove-essential --purge e2fsprogs

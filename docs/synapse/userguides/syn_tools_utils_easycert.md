@@ -9,7 +9,7 @@ The Synapse `utils.easycert` tool can be used to manage CA, host, and user certi
 
 `utils.easycert` is executed using `python -m synapse.tools.utils.easycert`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.utils.easycert -h
 ```
 

@@ -660,6 +660,11 @@ class TypesTest(s_t_utils.SynTest):
             self.propeq(nodes08[0], 'emails', ('bar@vertex.link', 'foo@vertex.link'))
             self.eq(nodes07[0].ndef, nodes08[0].ndef)
 
+            # array keys of any length deconflict on repeat
+            for emails in ('["one@vertex.link"]', '["a@vertex.link", "b@vertex.link", "c@vertex.link"]'):
+                nodes = await core.nodes(f'[ ou:org=({{"name": "array len", "emails": {emails}}}) ]')
+                self.eq(nodes[0].ndef, (await core.nodes(f'[ ou:org=({{"name": "array len", "emails": {emails}}}) ]'))[0].ndef)
+
             nodes09 = await core.nodes('[ ou:org=({"name": "vertex"}) :name=foobar :names=() ]')
             nodes10 = await core.nodes('[ ou:org=({"name": "vertex"}) :type=lulz ]')
             self.len(1, nodes09)
@@ -1304,6 +1309,66 @@ class TypesTest(s_t_utils.SynTest):
             # $unsets: dotted virt names are not accepted (prop-only in v1)
             msgs = await core.stormlist('[ test:guid=({"name": "ival-unsets", "$unsets": ["seen.min"]}) ]')
             self.stormIsInErr('No property named', msgs)
+
+    async def test_guid_text_case(self):
+
+        # guid deconfliction on a case insensitive (text) prop must not depend on
+        # which prop the lowest count optimization lifts by
+        async with self.getTestCore() as core:
+
+            # the name is shared by an unrelated node, so the lift runs on :reporter:name
+            # and the case differing :name is checked against the lifted node
+            await core.nodes('[ entity:goal=({"name": "espionage", "reporter:name": "other"}) ]')
+            nodes00 = await core.nodes('[ entity:goal=({"name": "Espionage", "reporter:name": "acme"}) ]')
+            nodes01 = await core.nodes('[ entity:goal=({"name": "ESPIONAGE", "reporter:name": "acme"}) ]')
+            self.len(1, nodes01)
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.propeq(nodes01[0], 'name', 'Espionage')
+            self.len(1, await core.nodes('entity:goal:reporter:name=acme'))
+
+            # the case differs on the prop which is checked rather than lifted
+            await core.nodes('[ entity:goal=({"name": "recon", "reporter:name": "acme"}) ]')
+            nodes02 = await core.nodes('[ entity:goal=({"name": "espionage", "reporter:name": "ACME"}) ]')
+            self.eq(nodes00[0].ndef, nodes02[0].ndef)
+
+            # every key differs in case from the existing node
+            nodes03 = await core.nodes('[ risk:threat=* :name="FANCY BEAR" :reporter:name=CrowdStrike ]')
+            nodes04 = await core.nodes('''[
+                risk:threat=({"name": "Fancy Bear", "reporter:name": "Crowdstrike"})
+                risk:threat=({"name": "fancy bear", "reporter:name": "crowdstrike"})
+            ]''')
+            self.len(2, nodes04)
+            self.eq(nodes03[0].ndef, nodes04[0].ndef)
+            self.eq(nodes03[0].ndef, nodes04[1].ndef)
+            self.len(1, await core.nodes('risk:threat'))
+
+            # an array alt (:names) is also compared case insensitively
+            nodes05 = await core.nodes('[ ou:org=({"name": "vertex", "type": "woot"}) :names+="the vertex project" ]')
+            nodes06 = await core.nodes('[ ou:org=({"type": "woot", "name": "THE VERTEX PROJECT"}) ]')
+            self.eq(nodes05[0].ndef, nodes06[0].ndef)
+
+            # values which differ by more than case still do not deconflict
+            nodes07 = await core.nodes('[ entity:goal=({"name": "espionage2", "reporter:name": "acme"}) ]')
+            self.ne(nodes00[0].ndef, nodes07[0].ndef)
+
+            # a whole array key is folded per member, including text inside a comp member
+            await core.nodes('[ crypto:x509:cert=({"subject:rdns": [["cn", "hello world"]], "serial": "02"}) ]')
+            nodes08 = await core.nodes('[ crypto:x509:cert=({"subject:rdns": [["cn", "Hello World"]], "serial": "01"}) ]')
+            nodes09 = await core.nodes('[ crypto:x509:cert=({"subject:rdns": [["cn", "HELLO WORLD"]], "serial": "01"}) ]')
+            self.len(1, nodes09)
+            self.eq(nodes08[0].ndef, nodes09[0].ndef)
+            self.len(1, await core.nodes('crypto:x509:cert:serial=01'))
+
+            # a lifted node which lacks one of the other props does not match
+            await core.nodes('[ entity:goal=* :name=phishing ]')
+            nodes10 = await core.nodes('[ entity:goal=* :name=phishing :reporter:name=acme ]')
+            nodes11 = await core.nodes('[ entity:goal=({"name": "PHISHING", "reporter:name": "acme"}) ]')
+            self.eq(nodes10[0].ndef, nodes11[0].ndef)
+
+            # a value whose type is not in the model is compared as is
+            prop = core.model.prop('entity:goal:name')
+            self.false(nodes10[0].hasPropAltsValu(prop, ('newp:newp', 'phishing')))
+
     async def test_poly(self):
 
         async with self.getTestCore() as core:

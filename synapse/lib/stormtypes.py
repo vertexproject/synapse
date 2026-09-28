@@ -146,16 +146,24 @@ class StormTypesRegistry:
     def __init__(self):
         self._LIBREG = {}
         self._TYPREG = {}
+        self._libdocs = None
+        self._typedocs = None
+
+    def _clearDocsCache(self):
+        self._libdocs = None
+        self._typedocs = None
 
     def addStormLib(self, path, ctor):
         if path in self._LIBREG:
             raise Exception('cannot register a library twice')
         assert isinstance(path, tuple)
         self._LIBREG[path] = ctor
+        self._clearDocsCache()
 
     def delStormLib(self, path):
         if not self._LIBREG.pop(path, None):
             raise Exception('no such path!')
+        self._clearDocsCache()
 
     def addStormType(self, path, ctor):
         if path in self._TYPREG:
@@ -164,6 +172,7 @@ class StormTypesRegistry:
         self._TYPREG[path] = ctor
         self.known_types.add(ctor._storm_typename)
         self.undefined_types.discard(ctor._storm_typename)
+        self._clearDocsCache()
 
     def delStormType(self, path):
         ctor = self._TYPREG.pop(path, None)
@@ -171,6 +180,7 @@ class StormTypesRegistry:
             raise Exception('no such path!')
         self.known_types.discard(ctor._storm_typename)
         self.undefined_types.add(ctor._storm_typename)
+        self._clearDocsCache()
 
     def registerLib(self, ctor):
         '''Decorator to register a StormLib'''
@@ -356,10 +366,28 @@ class StormTypesRegistry:
         assert len(callsig_args) == 0, f'gtor funcs must only have one argument for {obj} {info.get("name")}'
 
     def getLibDocs(self, lib=None):
+        '''
+        Get the docs for a Storm library, or all registered libraries.
+
+        Args:
+            lib: The Storm library to get docs for. If not specified, docs for
+                 all registered libraries are returned.
+
+        Notes:
+            When called with no argument, the return value is a cached
+            structure shared across callers and must not be mutated.
+
+        Returns:
+            list: A list of library documentation dictionaries.
+        '''
         # Ensure type docs are loaded/verified.
-        _ = self.getTypeDocs()
+        self.getTypeDocs()
 
         if lib is None:
+            libdocs = self._libdocs
+            if libdocs is not None:
+                return libdocs
+
             libs = self.iterLibs()
             libs.sort(key=lambda x: x[0])
         else:
@@ -411,10 +439,35 @@ class StormTypesRegistry:
                 if rtyp not in self.known_types and rtyp not in self.undefined_types:  # pragma: no cover
                     raise s_exc.NoSuchType(mesg=f'The return type {rtyp} for {path} is unknown.', type=rtyp)
 
+        if lib is None:
+            self._libdocs = docs
+
         return docs
 
-    def getTypeDocs(self, styp: str =None):
-        if styp is None:
+    def getTypeDocs(self, styp=None):
+        '''
+        Get the docs for a Storm type, or all registered types.
+
+        Args:
+            styp: The name of the Storm type to get docs for. If not
+                  specified, docs for all registered types are returned.
+
+        Notes:
+            When called with no argument, the return value is a cached
+            structure shared across callers and must not be mutated.
+
+        Returns:
+            list: A list of type documentation dictionaries.
+        '''
+        # styp is reused below as the loop variable, so capture whether the
+        # caller wants the full (cacheable) set before it gets shadowed.
+        wantall = styp is None
+
+        if wantall:
+            typedocs = self._typedocs
+            if typedocs is not None:
+                return typedocs
+
             types = self.iterTypes()
             types.sort(key=lambda x: x[1]._storm_typename)
         else:
@@ -460,6 +513,9 @@ class StormTypesRegistry:
             for rtyp in rtyps:
                 if rtyp not in self.known_types and rtyp not in self.undefined_types:  # pragma: no cover
                     raise s_exc.NoSuchType(mesg=f'The return type {rtyp} for {path} is unknown.', type=rtyp)
+
+        if wantall:
+            self._typedocs = docs
 
         return docs
 

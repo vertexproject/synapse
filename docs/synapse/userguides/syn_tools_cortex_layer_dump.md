@@ -9,6 +9,6 @@ The Synapse `cortex.layer.dump` tool can be used to export node edits from a Syn
 
 `cortex.layer.dump` is executed using `python -m synapse.tools.cortex.layer.dump`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.cortex.layer.dump -h
 ```

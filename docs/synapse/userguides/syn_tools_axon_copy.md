@@ -9,7 +9,7 @@ The Synapse `axon.copy` tool can be used to copy blobs from one Axon to another 
 
 `copy` is executed using `python -m synapse.tools.axon.copy`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.axon.copy -h
 ```
 

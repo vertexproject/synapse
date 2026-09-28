@@ -36,7 +36,7 @@ class Parser(argparse.ArgumentParser):
         if message is not None:
             self.outp.printf(message)
 
-        raise s_exc.ParserExit(mesg=message, status=status)
+        raise s_exc.ParserExit(mesg=message, exitcode=status)
 
     def _print_message(self, text, fd=None):
         '''
@@ -54,8 +54,8 @@ async def wrapmain(func, logconf=None): # pragma: no cover
     try:
         return await func(sys.argv[1:])
 
-    except s_exc.ParserExit:
-        return 1
+    except s_exc.ParserExit as e:
+        return e.get('exitcode', 1)
 
     except Exception as e:
         print(f'ERROR: {s_exc.reprexc(e)}')

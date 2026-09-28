@@ -29,7 +29,7 @@ Exit codes:
   1 - the shutdown was aborted because the timeout was reached; the
       service may be in a partially shutdown state as a result of this
       timeout.
-  2 - an unexpected error occurred
+  2 - invalid arguments, or an unexpected error occurred
 
 NOTE: This will also demote the service if run on a leader with mirrors.
 

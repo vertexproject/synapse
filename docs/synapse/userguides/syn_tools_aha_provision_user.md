@@ -9,6 +9,6 @@ The Synapse `aha.provision.user` tool can be used to create a new user auto-enro
 
 `aha.provision.user` is executed using `python -m synapse.tools.aha.provision.user`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.aha.provision.user -h
 ```

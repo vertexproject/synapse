@@ -501,7 +501,7 @@ In the Synapse [data model](glossary.md#gloss-data-model), a specialized case of
 <a id="gloss-form-parent"></a>
 
 
-### Parent Form
+### Form, Parent
 
 In Synapse's [form inheritance](glossary.md#gloss-form-inheritance), a parent form is a form that other form(s) inherit from. A parent form may have its own parent form, or may be a [base form](glossary.md#gloss-base-form).
 
@@ -922,7 +922,7 @@ A package is a set of commands and library code used to implement a [Storm Servi
 
 ### Parent Form
 
-See [Parent Form](glossary.md#gloss-form-parent).
+See [Form, Parent](glossary.md#gloss-form-parent).
 
 <a id="gloss-path-var-col"></a>
 

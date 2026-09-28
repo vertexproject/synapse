@@ -1,3 +1,5 @@
+import synapse.exc as s_exc
+
 import synapse.tests.utils as s_test
 import synapse.tools.axon.copy as s_copy
 
@@ -29,5 +31,13 @@ class Axon2AxonTest(s_test.SynTest):
                 outp.expect('[         1] - e1b683e26a3aad218df6aa63afe9cf57fdb5dfaf5eb20cddac14305d67f48a02 (6)')
 
                 outp = self.getTestOutp()
-                self.eq(1, await s_copy.main([], outp=outp))
+                with self.raises(s_exc.ParserExit) as cm:
+                    await s_copy.main([], outp=outp)
+                self.eq(2, cm.exception.get('exitcode'))
                 outp.expect('arguments are required:')
+
+                outp = self.getTestOutp()
+                with self.raises(s_exc.ParserExit) as cm:
+                    await s_copy.main(['--help'], outp=outp)
+                self.eq(0, cm.exception.get('exitcode'))
+                outp.expect('usage: synapse.tools.axon.copy')

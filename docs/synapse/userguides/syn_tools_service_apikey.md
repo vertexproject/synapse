@@ -9,7 +9,7 @@ The Synapse `service.apikey` tool can be used to add, list, or delete user API k
 
 `apikey` is executed using `python -m synapse.tools.service.apikey`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.service.apikey -h
 ```
 

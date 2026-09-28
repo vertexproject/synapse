@@ -32,7 +32,7 @@ Where: - `-h` displays detailed help and these command line options - `CORTEX` s
 
 The detailed help (`-h`) output for the `cortex.feed` tool is shown below.
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.cortex.feed -h
 ```
 

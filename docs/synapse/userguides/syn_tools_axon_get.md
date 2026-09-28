@@ -27,7 +27,7 @@ Where:
 
 The detailed help (`-h`) output for the `axon.get` tool is shown below.
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.axon.get -h
 ```
 

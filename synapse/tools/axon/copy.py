@@ -3,7 +3,6 @@ import logging
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.exc as s_exc
 import synapse.lib.cmd as s_cmd
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
@@ -17,10 +16,7 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('src_axon', help='The telepath URL of the source axon.')
     pars.add_argument('dst_axon', help='The telepath URL of the destination axon.')
 
-    try:
-        opts = pars.parse_args(argv)
-    except s_exc.ParserExit:
-        return 1
+    opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():
         async with await s_base.Base.anit() as base:

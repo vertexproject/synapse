@@ -75,3 +75,5 @@ venv
 # Linter files
 .mypy_cache/
 
+# Storm grammar parser cache written by synapse.lib.parser.saveLarkParser()
+synapse/data/lark/*.mpk

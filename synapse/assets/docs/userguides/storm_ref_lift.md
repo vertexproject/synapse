@@ -456,8 +456,7 @@ Where forms make use of [inheritance](../glossary.md#gloss-form-inheritance), li
 
 **Examples**
 
-Lift the `it:host:account` nodes and all nodes of all forms that extend `it:host:account` that have a `:home`
-property:
+Lift the `it:host:account` nodes and all nodes of all forms that extend `it:host:account` that have a `:home` property:
 
 ```storm
 it:host:account:home
@@ -1625,7 +1624,8 @@ inet:ip=255.255.255.255
 inet:ip=223.159.33.195
         :type = unicast
         :version = 4
-inet:ip=206.57.19.28
+inet:ip=217.148.143.196
+        :asn = 9009
         :type = unicast
         :version = 4
 ```
@@ -1680,6 +1680,7 @@ When using the try operator ( `?=` ), Synapse will to attempt (try) to lift the 
 ```stormdoc
 storm> inet:ip?=evil.com inet:ip?=8.8.8.8
 inet:ip=8.8.8.8
+        :asn = 15169
         :type = unicast
         :version = 4
 ```

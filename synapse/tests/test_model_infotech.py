@@ -24,6 +24,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :desc=omgwtfbbq
                     :url=https://cwe.mitre.org/data/definitions/120.html
                     :parents=(CWE-119,)
+                    :seen=(20210202, 20210203)
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:sec:cwe', 'CWE-120'))
@@ -31,6 +32,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.propeq(nodes[0], 'desc', 'omgwtfbbq')
             self.propeq(nodes[0], 'url', 'https://cwe.mitre.org/data/definitions/120.html')
             self.propeq(nodes[0], 'parents', ('CWE-119',))
+            self.propeq(nodes[0], 'seen', (1612224000000000, 1612310400000000, 86400000000))
 
             nodes = await core.nodes('''[
                 it:exec:thread=*

@@ -1201,6 +1201,10 @@ modeldefs = (
 
             ('it:sec:cwe', ('base:id', {'regex': r'^CWE-[0-9]{1,8}$'}), {
                 'ex': 'CWE-120',
+                'template': {'title': 'CWE'},
+                'interfaces': (
+                    ('meta:observable', {}),
+                ),
                 'props': (
                     ('name', ('title', {}), {
                         'doc': 'The CWE name.',

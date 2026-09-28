@@ -1444,6 +1444,18 @@ The base type `velocity` has the following default options set:
 Regular types are derived from BaseTypes.
 
 
+<a id="dm-type-auth-apikey"></a>
+
+### auth:apikey
+
+An API key.
+The `auth:apikey` type is derived from the base type: [`guid`](#dm-type-guid).
+
+This type implements the following interfaces:
+
+- `('auth:credential', {})`
+- `('meta:observable', {})`
+
 <a id="dm-type-duration-seconds"></a>
 
 ### duration:seconds
@@ -8358,6 +8370,10 @@ This type has the following options set:
 
 NIST NVD Common Weaknesses Enumeration Specification.
 The `it:sec:cwe` type is derived from the base type: [`base:id`](#dm-type-base-id).
+
+This type implements the following interfaces:
+
+- `('meta:observable', {})`
 
 An example of `it:sec:cwe`:
 

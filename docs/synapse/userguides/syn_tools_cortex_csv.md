@@ -55,7 +55,7 @@ Where:
 
 The detailed help (`-h`) output for `cortex.csv` is shown below.
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.cortex.csv -h
 ```
 

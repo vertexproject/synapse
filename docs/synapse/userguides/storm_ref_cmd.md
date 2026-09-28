@@ -1790,7 +1790,9 @@ pkg.del --help
 
 ### pkg.docs
 
-The `pkg.docs` command displays the documentation for a Storm package.
+The `pkg.docs` command displays the documentation for a Storm package. With no document
+given it lists the package's available documents; naming one -- by its path under `docs/`,
+that path without its `.md` suffix, or its title -- displays that document alone.
 
 **Syntax:**
 

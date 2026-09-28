@@ -12,6 +12,6 @@ The Synapse `aha.clone` tool can be used to generate a new clone URL to deploy a
 
 `aha.clone` is executed using `python -m synapse.tools.aha.clone`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.aha.clone -h
 ```

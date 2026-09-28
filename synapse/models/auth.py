@@ -26,6 +26,25 @@ modeldefs = (
     {
 
         'types': (
+            ('auth:apikey', ('guid', {}), {
+                'template': {'title': 'API key'},
+                'interfaces': (
+                    ('auth:credential', {}),
+                    ('meta:observable', {}),
+                ),
+                'props': (
+
+                    ('issuer', ('entity:actor', {}), {
+                        'doc': 'The entity that issued the API key.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period when the API key is valid.'}),
+
+                    ('value', ('it:dev:str', {}), {
+                        'doc': 'The value of the API key.'}),
+                ),
+                'doc': 'An API key.'}),
+
             ('auth:passwd', (None, {'ctor': 'synapse.models.auth.Passwd', 'strip': False}), {
                 'template': {'title': 'password'},
                 'interfaces': (

@@ -9,6 +9,6 @@ The Synapse `aha.list` tool can be used to list AHA services.
 
 `aha.list` is executed using `python -m synapse.tools.aha.list`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.aha.list -h
 ```

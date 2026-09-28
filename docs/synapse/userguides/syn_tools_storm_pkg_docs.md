@@ -9,6 +9,6 @@ The Synapse `storm.pkg.doc` tool can be used to build Storm package documents fr
 
 `storm.pkg.doc` is executed using `python -m synapse.tools.storm.pkg.doc`. The command usage is as follows:
 
-```mdshell --fail-ok
+```mdshell
 python -m synapse.tools.storm.pkg.doc -h
 ```

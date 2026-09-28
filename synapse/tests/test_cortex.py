@@ -3519,6 +3519,28 @@ class CortexBasicTest(s_t_utils.SynTest):
             info = await view.pack()
             self.eq(info['name'], 'default')
 
+            # getStormDocs() caches its result and invalidates on command
+            # add/del (the proxy round trip above can't observe identity,
+            # so this part runs in-process against the same core)
+            docs0 = await core.getStormDocs()
+            docs1 = await core.getStormDocs()
+            self.true(docs0 is docs1)
+
+            cdef = {'name': 'tstdocscache', 'storm': '[ ]'}
+
+            await core.setStormCmd(cdef)
+            docs2 = await core.getStormDocs()
+            self.false(docs2 is docs1)
+            self.isin('tstdocscache', {c.get('name') for c in docs2['commands']})
+
+            # a repeat call is cached again until the next mutation
+            self.true((await core.getStormDocs()) is docs2)
+
+            await core.delStormCmd('tstdocscache')
+            docs3 = await core.getStormDocs()
+            self.false(docs3 is docs2)
+            self.notin('tstdocscache', {c.get('name') for c in docs3['commands']})
+
     async def test_cortex_model_dict(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -3575,6 +3597,72 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(mimemeta)
             self.isin('props', mimemeta)
             self.eq('file', mimemeta['props'][0][0])
+
+            # getModelDict() caches its result and invalidates on every
+            # mutator that changes packed output (the proxy round trip
+            # above can't observe identity, so this part runs in-process
+            # against the same core)
+            model0 = await core.getModelDict()
+            model1 = await core.getModelDict()
+            self.true(model0 is model1)
+
+            await core.addType('_test:cachetype', 'str', {}, {})
+            model2 = await core.getModelDict()
+            self.false(model2 is model1)
+            self.isin('_test:cachetype', model2['types'])
+
+            await core.addForm('_test:cacheform', 'str', {}, {})
+            model3 = await core.getModelDict()
+            self.false(model3 is model2)
+            self.isin('_test:cacheform', model3['forms'])
+
+            await core.addFormProp('_test:cacheform', '_prop', ('str', {}), {})
+            model4 = await core.getModelDict()
+            self.false(model4 is model3)
+            self.isin('_prop', model4['forms']['_test:cacheform']['props'])
+
+            await core.addTagProp('_cachetp', ('int', {}), {})
+            model5 = await core.getModelDict()
+            self.false(model5 is model4)
+            self.isin('_cachetp', model5['tagprops'])
+
+            await core.addEdge(('_test:cacheform', '_cacheedge', None), {})
+            model6 = await core.getModelDict()
+            self.false(model6 is model5)
+            self.isin((('_test:cacheform', '_cacheedge', None), {}), model6['edges'])
+
+            # setPropLocked/setDeprLock do not change getModelDict() output,
+            # so they need no cache invalidation of their own
+            model7 = await core.getModelDict()
+            await core.setPropLocked('inet:ip:asn', True)
+            model8 = await core.getModelDict()
+            self.true(model7 is model8)
+            await core.setPropLocked('inet:ip:asn', False)
+
+            await core.delEdge(('_test:cacheform', '_cacheedge', None))
+            model9 = await core.getModelDict()
+            self.false(model9 is model8)
+            self.notin((('_test:cacheform', '_cacheedge', None), {}), model9['edges'])
+
+            await core.delTagProp('_cachetp')
+            model10 = await core.getModelDict()
+            self.false(model10 is model9)
+            self.notin('_cachetp', model10['tagprops'])
+
+            await core.delFormProp('_test:cacheform', '_prop')
+            model11 = await core.getModelDict()
+            self.false(model11 is model10)
+            self.notin('_prop', model11['forms']['_test:cacheform']['props'])
+
+            await core.delForm('_test:cacheform')
+            model12 = await core.getModelDict()
+            self.false(model12 is model11)
+            self.notin('_test:cacheform', model12['forms'])
+
+            await core.delType('_test:cachetype')
+            model13 = await core.getModelDict()
+            self.false(model13 is model12)
+            self.notin('_test:cachetype', model13['types'])
 
     async def test_storm_graph(self):
 
@@ -7683,6 +7771,20 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormPkgRequires):
                 await core.addStormPkg(pkg)
             self.none(await core.getStormPkg('depsynentnotprovided'))
+
+            # a reserved name resolves to this Cell's own VERSION rather than to
+            # synapse.lib.version.version. They are the same object on a Cortex, since
+            # Cell.VERSION is that version, so a subclass which sets VERSION and adds a
+            # reserved name of its own is what tells them apart.
+            self.eq(s_version.version, core.VERSION)
+
+            with mock.patch.object(core, 'VERSION', '1.2.3'):
+                with mock.patch.object(core, 'PKG_PROVIDES', ('synapse', 'newthing')):
+
+                    for pkgname in ('synapse', 'newthing'):
+                        pkgdef = await core._getStormDepPkg(pkgname)
+                        self.eq(pkgname, pkgdef.get('name'))
+                        self.eq('1.2.3', pkgdef.get('version'))
 
     async def test_stormpkg_schema(self):
 

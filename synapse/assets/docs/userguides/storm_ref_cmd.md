@@ -3467,7 +3467,9 @@ Arguments:
 
 ### pkg.docs
 
-The `pkg.docs` command displays the documentation for a Storm package.
+The `pkg.docs` command displays the documentation for a Storm package. With no document
+given it lists the package's available documents; naming one -- by its path under `docs/`,
+that path without its `.md` suffix, or its title -- displays that document alone.
 
 **Syntax:**
 
@@ -3476,7 +3478,7 @@ storm> pkg.docs --help
 
 Display documentation included in a storm package.
 
-Usage: pkg.docs [options] <name>
+Usage: pkg.docs [options] <name> <doc>
 
 Options:
 
@@ -3484,7 +3486,8 @@ Options:
 
 Arguments:
 
-  <name>                      : The name (or name prefix) of the package.
+  <name>                      : The name of the package.
+  [doc]                       : The path or title of a single document to display.
 ```
 
 <a id="storm-pkg-perms-list"></a>

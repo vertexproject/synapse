@@ -1,6 +1,7 @@
 import csv
 from unittest import mock
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
@@ -63,7 +64,9 @@ class CsvToolTest(s_t_utils.SynTest):
             # Bad args
             argv = ['--newp']
             outp = self.getTestOutp()
-            self.eq(2, await s_csvtool.main(argv, outp=outp))
+            with self.raises(s_exc.ParserExit) as cm:
+                await s_csvtool.main(argv, outp=outp)
+            self.eq(2, cm.exception.get('exitcode'))
 
             argv = ['--csv-header', '--debug', '--cortex', url, '--logfile', logpath, stormpath, csvpath]
             outp = self.getTestOutp()
@@ -161,6 +164,20 @@ class CsvToolTest(s_t_utils.SynTest):
 
             await s_csvtool.main(argv, outp=outp)
             outp.expect('2 nodes')
+
+    async def test_csvtool_parser(self):
+
+        outp = self.getTestOutp()
+        with self.raises(s_exc.ParserExit) as cm:
+            await s_csvtool.main(['--help'], outp=outp)
+        self.eq(0, cm.exception.get('exitcode'))
+        outp.expect('usage: synapse.tools.cortex.csv')
+
+        outp = self.getTestOutp()
+        with self.raises(s_exc.ParserExit) as cm:
+            await s_csvtool.main([], outp=outp)
+        self.eq(2, cm.exception.get('exitcode'))
+        outp.expect('arguments are required:')
 
     async def test_csvtool_cli(self):
 
