@@ -6289,7 +6289,23 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
 
-                await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+                core.axready.clear()
+                try:
+                    with mock.patch('synapse.lib.const.AXON_READY_TIMEOUT', 0.1):
+
+                        # permission checks run before waiting on the Axon
+                        with self.raises(s_exc.AuthDeny):
+                            await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+
+                        await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+
+                        with self.raises(s_exc.TimeOut):
+                            await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+
+                        self.len(1, await core.nodes(f'file:bytes={sha256}'))
+
+                finally:
+                    core.axready.set()
 
                 await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
                 self.len(0, await core.nodes(f'file:bytes={sha256}'))

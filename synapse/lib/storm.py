@@ -4429,7 +4429,7 @@ class DelNodeCmd(Cmd):
 
         if delbytes:
             runt.confirm(('storm', 'lib', 'axon', 'del'))
-            await runt.snap.core.getAxon()
+            await runt.snap.core.waitAxonReady()
             axon = runt.snap.core.axon
 
         async for node, path in genr:
