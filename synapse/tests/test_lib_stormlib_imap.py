@@ -883,6 +883,32 @@ class ImapTest(s_test.SynTest):
 
             self.eq(ret, (True, (rfc822, header, b'(UID 1 RFC822 BODY[HEADER])')))
 
+    async def test_storm_imap_fetch_axon_timeout(self):
+
+        async with self.getTestCoreAndImapPort() as (core, port):
+            user = 'user00@vertex.link'
+            opts = {'vars': {'port': port, 'user': user}}
+
+            scmd = '''
+                $server = $lib.inet.imap.connect(127.0.0.1, port=$port, ssl=(false))
+                $server.login($user, "pass00")
+                $server.select("INBOX")
+                yield $server.fetch("1")
+            '''
+
+            core.axready.clear()
+            try:
+                with mock.patch('synapse.lib.const.AXON_READY_TIMEOUT', 0.1):
+                    with self.raises(s_exc.TimeOut):
+                        await core.nodes(scmd, opts=opts)
+
+            finally:
+                core.axready.set()
+
+            nodes = await core.nodes(scmd, opts=opts)
+            self.len(1, nodes)
+            self.eq('file:bytes', nodes[0].ndef[0])
+
     async def test_storm_imap_logout(self):
 
         async with self.getTestCoreAndImapPort() as (core, port):
