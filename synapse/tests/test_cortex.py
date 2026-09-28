@@ -6863,6 +6863,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(size, 8)
             self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
             self.true(core.nexsroot is core.axon.nexsroot)
+
+            info = await core.getCellInfo()
+            self.true(info['cell']['axon:ready'])
+            self.eq(info['cell']['axon:version'], s_version.version)
         self.true(core.axon.isfini)
         self.false(core.axready.is_set())
 
@@ -6911,6 +6915,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.false(core.axready.is_set())
                 self.eq(core.axoninfo, {})
+
+                info = await core.getCellInfo()
+                self.false(info['cell']['axon:ready'])
+                self.none(info['cell']['axon:version'])
 
                 sha256 = s_common.ehex(hashlib.sha256(b'vertex').digest())
                 opts = {'vars': {'sha256': sha256, 'url': 'http://127.0.0.1:1/'}}
@@ -6962,6 +6970,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.true(await s_coro.event_wait(core.axready, timeout=10))
                     self.nn(core.axoninfo['synapse']['version'])
 
+                    info = await core.callStorm('return($lib.cell.getCellInfo())')
+                    self.true(info['cell']['axon:ready'])
+                    self.eq(info['cell']['axon:version'], s_version.version)
+
                     await core.axon.put(b'vertex')
 
                     self.none(await core.waitAxonReady())
@@ -6974,6 +6986,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     resp = await core.callStorm(queries[4], opts=opts)
                     self.eq(resp.get('code'), -1)
+
+                # the last version reported by the Axon remains after it disconnects
+                for _ in range(20):
+                    if not core.axready.is_set():
+                        break
+                    await asyncio.sleep(0.1)
+
+                info = await core.getCellInfo()
+                self.false(info['cell']['axon:ready'])
+                self.eq(info['cell']['axon:version'], s_version.version)
 
     async def test_cortex_delLayerView(self):
 

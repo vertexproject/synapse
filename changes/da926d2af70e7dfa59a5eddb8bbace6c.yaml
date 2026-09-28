@@ -1,0 +1,8 @@
+---
+desc: Added ``axon:ready`` and ``axon:version`` keys to the ``cell`` section of the
+  Cortex ``getCellInfo()`` API, which report whether the Axon is ready and the Synapse
+  version most recently reported by the Axon.
+desc:literal: false
+prs: []
+type: feat
+...

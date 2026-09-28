@@ -6187,6 +6187,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Timed out waiting {timeout} seconds for the Axon to be ready.'
             raise s_exc.TimeOut(mesg=mesg, timeout=timeout)
 
+    async def getCellInfo(self):
+        '''
+        Return metadata specific for the Cortex.
+
+        Notes:
+            In addition to the base Cell information, the ``cell`` section
+            includes ``axon:ready``, which is True when the Axon is ready, and
+            ``axon:version``, the Synapse version most recently reported by
+            the Axon or None if the Cortex has not connected to it.
+
+        Returns:
+            Dict: A Dictionary of metadata.
+        '''
+        info = await super().getCellInfo()
+
+        axonvers = None
+        if (syninfo := self.axoninfo.get('synapse')) is not None:
+            axonvers = syninfo.get('version')
+
+        info['cell']['axon:ready'] = self.axready.is_set()
+        info['cell']['axon:version'] = axonvers
+        return info
+
     def setFeedFunc(self, name, func):
         '''
         Set a data ingest function.
