@@ -2196,28 +2196,49 @@ class HttpApiTest(s_tests.SynTest):
 
                 host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
+                root = await core.auth.getUserByName('root')
+                await root.setPasswd('root')
+
+                newb = await core.auth.addUser('newb')
+                await newb.setPasswd('secret')
+
+                await axon.fini()
+
+                sha256 = s_common.ehex(s_t_axon.asdfhash)
+                hasurl = f'https://localhost:{port}/api/v1/axon/files/has/sha256/{sha256}'
+                puturl = f'https://localhost:{port}/api/v1/axon/files/put'
+
+                # auth and permission checks run before waiting on the Axon
                 async with self.getHttpSess() as sess:
-                    await axon.fini()
+                    async with sess.get(hasurl, timeout=timeout) as resp:
+                        self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
+
+                async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
+
+                    async with sess.get(hasurl, timeout=timeout) as resp:
+                        self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
+
+                    async with sess.post(puturl, data=b'asdfasdf', timeout=timeout) as resp:
+                        self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
+
+                async with self.getHttpSess(auth=('root', 'root'), port=port) as sess:
 
                     with self.raises(TimeoutError):
-                        sha256 = s_common.ehex(s_t_axon.asdfhash)
-                        url = f'https://localhost:{port}/api/v1/axon/files/has/sha256/{sha256}'
-                        async with sess.get(url, timeout=timeout) as resp:
+                        async with sess.get(hasurl, timeout=timeout) as resp:
                             pass
 
                     with mock.patch.object(core, 'getAxon', functools.partial(core.getAxon, timeout=0.1)):
 
-                        async with sess.get(url) as resp:
+                        async with sess.get(hasurl) as resp:
                             self.eq(resp.status, http.HTTPStatus.SERVICE_UNAVAILABLE)
                             item = await resp.json()
                             self.eq(item.get('status'), 'err')
                             self.eq(item.get('code'), 'TimeOut')
                             self.eq(item.get('mesg'), 'Timed out waiting 0.1 seconds for the Axon to be ready.')
 
-                        # the upload handler cleans up without a prepared upload
-                        url = f'https://localhost:{port}/api/v1/axon/files/put'
+                        # the upload handler finishes without starting an upload
                         with self.getLoggerStream('tornado.application') as stream:
-                            async with sess.post(url, data=b'asdfasdf') as resp:
+                            async with sess.post(puturl, data=b'asdfasdf') as resp:
                                 self.eq(resp.status, http.HTTPStatus.SERVICE_UNAVAILABLE)
                                 item = await resp.json()
                                 self.eq(item.get('code'), 'TimeOut')

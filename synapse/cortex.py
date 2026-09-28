@@ -176,15 +176,18 @@ async def wrap_liftgenr(iden, genr):
 
 class CortexAxonMixin:
 
-    async def prepare(self):
+    async def allowed(self, perm, default=False, gateiden=None):
+        # wait for the Axon only once the user has the permission
+        if not await super().allowed(perm, default=default, gateiden=gateiden):
+            return False
+
         try:
             await self.cell.getAxon()
         except s_exc.TimeOut as e:
             self.sendRestExc(e, status_code=http.HTTPStatus.SERVICE_UNAVAILABLE)
-            await self.finish()
-            return
+            return False
 
-        await s_coro.ornot(super().prepare)
+        return True
 
     def getAxon(self):
         return self.cell.axon
@@ -199,8 +202,7 @@ class CortexAxonHttpDelV1(CortexAxonMixin, s_axon.AxonHttpDelV1):
     pass
 
 class CortexAxonHttpUploadV1(CortexAxonMixin, s_axon.AxonHttpUploadV1):
-    # set in prepare(), which is skipped if the Axon is not ready
-    upfd = None
+    pass
 
 class CortexAxonHttpBySha256V1(CortexAxonMixin, s_axon.AxonHttpBySha256V1):
     pass

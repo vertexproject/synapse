@@ -612,10 +612,13 @@ bar baz",vv
                 item = await resp.json()
                 self.eq('err', item.get('status'))
 
-            async with sess.post(url_ul, data=abuf) as resp:
-                self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
-                item = await resp.json()
-                self.eq('err', item.get('status'))
+            # a denied upload does not start an upload in the Axon
+            with mock.patch.object(realaxon, 'upload', wraps=realaxon.upload) as upload:
+                async with sess.post(url_ul, data=abuf) as resp:
+                    self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                upload.assert_not_called()
 
             # Stream file
             byts = io.BytesIO(bbuf)
