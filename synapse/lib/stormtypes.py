@@ -2964,7 +2964,7 @@ class LibBytes(Lib):
 
         self.runt.confirm(('axon', 'upload'), default=True)
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.snap.core.waitAxonReady()
         async with await self.runt.snap.core.axon.upload() as upload:
             async for byts in s_coro.agen(genr):
                 await upload.write(byts)
@@ -2991,7 +2991,7 @@ class LibBytes(Lib):
 
         self.runt.confirm(('axon', 'has'), default=True)
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.snap.core.waitAxonReady()
         todo = s_common.todo('has', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret
@@ -3003,7 +3003,7 @@ class LibBytes(Lib):
 
         self.runt.confirm(('axon', 'has'), default=True)
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.snap.core.waitAxonReady()
         todo = s_common.todo('size', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret
@@ -3016,7 +3016,7 @@ class LibBytes(Lib):
 
         self.runt.confirm(('axon', 'upload'), default=True)
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.snap.core.waitAxonReady()
         todo = s_common.todo('put', byts)
         size, sha2 = await self.dyncall('axon', todo)
 
@@ -3029,7 +3029,7 @@ class LibBytes(Lib):
 
         self.runt.confirm(('axon', 'has'), default=True)
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.snap.core.waitAxonReady()
         todo = s_common.todo('hashset', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret

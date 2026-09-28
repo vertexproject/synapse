@@ -6943,10 +6943,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'return($lib.axon.put($buf))',
                     'return($lib.axon.hashset($sha256))',
                     'return($lib.axon.read($sha256))',
+                    'return($lib.bytes.put($buf))',
+                    'return($lib.bytes.has($sha256))',
+                    'return($lib.bytes.size($sha256))',
+                    'return($lib.bytes.hashset($sha256))',
+                    'return($lib.bytes.upload(([])))',
                 )
                 opts['vars']['buf'] = b'vertex'
 
+                # $lib.bytes permissions are allowed by default, so deny them explicitly
                 visi = await core.auth.addUser('visi')
+                await visi.addRule((False, ('axon',)))
                 visiopts = {'user': visi.iden, 'vars': opts['vars']}
 
                 with patch('synapse.lib.const.AXON_READY_TIMEOUT', 0.1):
