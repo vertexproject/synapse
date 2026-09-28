@@ -108,6 +108,25 @@ async def resolveCoreProxyUrl(valu):
         case _:
             raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
 
+async def getAxonVersion(runt):
+    '''
+    Get the Synapse version of the Cortex's Axon.
+
+    Args:
+        runt (Runtime): The Storm runtime.
+
+    Returns:
+        tuple: The Synapse version of the Axon.
+
+    Raises:
+        s_exc.FeatureNotSupported: If the Axon version is unavailable.
+    '''
+    if (axonvers := runt.snap.core.axoninfo.get('synapse', {}).get('version')) is None:
+        mesg = 'Unable to determine the Synapse version of the Axon.'
+        raise s_exc.FeatureNotSupported(mesg=mesg)
+
+    return axonvers
+
 async def resolveAxonProxyArg(valu):
     '''
     Resolve a proxy value to the kwarg to set for an Axon HTTP call.
@@ -120,7 +139,7 @@ async def resolveAxonProxyArg(valu):
     '''
     runt = s_scope.get('runt')
 
-    axonvers = runt.snap.core.axoninfo['synapse']['version']
+    axonvers = await getAxonVersion(runt)
     if axonvers < AXON_MINVERS_PROXY:
         await runt.snap.warnonce(f'Axon version does not support proxy argument: {axonvers} < {AXON_MINVERS_PROXY}')
         return False, None
@@ -2556,7 +2575,7 @@ class LibAxon(Lib):
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
-            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+            axonvers = await getAxonVersion(self.runt)
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
@@ -2597,7 +2616,7 @@ class LibAxon(Lib):
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
-            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+            axonvers = await getAxonVersion(self.runt)
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)

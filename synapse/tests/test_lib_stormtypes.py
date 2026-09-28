@@ -8199,6 +8199,38 @@ words\tword\twrd'''
             with self.raises(s_exc.BadState):
                 await core.callStorm(merging)
 
+    async def test_storm_lib_axon_info_missing(self):
+
+        async with self.getTestCore() as core:
+
+            size, sha256 = await core.axon.put(b'vertex')
+            opts = {'vars': {'sha256': s_common.ehex(sha256), 'url': 'http://127.0.0.1:1/'}}
+
+            queries = (
+                'return($lib.axon.wget($url))',
+                'return($lib.axon.wget($url, proxy=(false)))',
+                'return($lib.axon.wget($url, ssl_opts=({"verify": (false)})))',
+                'return($lib.axon.wput($sha256, $url))',
+                'return($lib.axon.wput($sha256, $url, ssl_opts=({"verify": (false)})))',
+                'yield $lib.axon.urlfile($url)',
+            )
+
+            originfo = core.axoninfo
+            try:
+                for axoninfo in ({}, {'synapse': {}}):
+                    core.axoninfo = axoninfo
+                    for query in queries:
+                        with self.raises(s_exc.FeatureNotSupported) as cm:
+                            await core.callStorm(query, opts=opts)
+                        self.eq(cm.exception.get('mesg'), 'Unable to determine the Synapse version of the Axon.')
+
+            finally:
+                core.axoninfo = originfo
+
+            for query in queries[:-1]:
+                resp = await core.callStorm(query, opts=opts)
+                self.false(resp.get('ok'))
+
     async def test_storm_lib_axon_read_unpack(self):
 
         async with self.getTestCore() as core:

@@ -1,0 +1,8 @@
+---
+desc: Fixed a KeyError in Storm Axon APIs, and in $lib.inet.http requests which upload
+  files from the Axon, when the Axon version was unavailable. A FeatureNotSupported
+  exception is now raised.
+desc:literal: false
+prs: []
+type: bug
+...
