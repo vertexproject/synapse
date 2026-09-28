@@ -6191,9 +6191,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Raises:
             s_exc.TimeOut: If the Axon is not ready within the timeout.
         '''
-        if not self.axready.is_set() and not await s_coro.event_wait(self.axready, timeout=timeout):
-            mesg = f'Timed out waiting {timeout} seconds for the Axon to be ready.'
-            raise s_exc.TimeOut(mesg=mesg, timeout=timeout)
+        if not self.axready.is_set():
+            try:
+                await s_common.wait_for(self.axready.wait(), timeout)
+            except asyncio.TimeoutError:
+                mesg = f'Timed out waiting {timeout} seconds for the Axon to be ready.'
+                raise s_exc.TimeOut(mesg=mesg, timeout=timeout) from None
 
         if (cellinfo := self.axoninfo.get('cell')) is None:
             return None
