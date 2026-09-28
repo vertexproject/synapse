@@ -6923,7 +6923,23 @@ class CortexBasicTest(s_t_utils.SynTest):
                     $fields = ([{"name": "file", "sha256": $sha256}])
                     return($lib.inet.http.post($url, fields=$fields))
                     ''',
+                    'for $line in $lib.axon.readlines($sha256) {}',
+                    'for $item in $lib.axon.jsonlines($sha256) {}',
+                    'for $row in $lib.axon.csvrows($sha256) {}',
+                    'for $item in $lib.axon.list() {}',
+                    'return($lib.axon.dels(($sha256,)))',
+                    'return($lib.axon.del($sha256))',
+                    'return($lib.axon.upload(([])))',
+                    'return($lib.axon.has($sha256))',
+                    'return($lib.axon.size($sha256))',
+                    'return($lib.axon.put($buf))',
+                    'return($lib.axon.hashset($sha256))',
+                    'return($lib.axon.read($sha256))',
                 )
+                opts['vars']['buf'] = b'vertex'
+
+                visi = await core.auth.addUser('visi')
+                visiopts = {'user': visi.iden, 'vars': opts['vars']}
 
                 with patch('synapse.lib.const.AXON_READY_TIMEOUT', 0.1):
 
@@ -6935,6 +6951,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     for query in queries:
                         with self.raises(s_exc.TimeOut):
                             await core.callStorm(query, opts=opts)
+
+                    # permission checks run before waiting on the Axon
+                    for query in queries:
+                        with self.raises(s_exc.AuthDeny):
+                            await core.callStorm(query, opts=visiopts)
 
                 async with self.getTestAxon(dirn=dirn) as axon:
 
