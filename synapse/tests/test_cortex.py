@@ -6870,7 +6870,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             info = await core.getCellInfo()
             self.true(info['cell']['axon:ready'])
-            self.eq(info['cell']['axon:version'], s_version.version)
+            self.notin('axon:version', info['cell'])
         self.true(core.axon.isfini)
         self.false(core.axready.is_set())
 
@@ -6922,7 +6922,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 info = await core.getCellInfo()
                 self.false(info['cell']['axon:ready'])
-                self.none(info['cell']['axon:version'])
 
                 sha256 = s_common.ehex(hashlib.sha256(b'vertex').digest())
                 opts = {'vars': {'sha256': sha256, 'url': 'http://127.0.0.1:1/'}}
@@ -6947,6 +6946,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'return($lib.axon.put($buf))',
                     'return($lib.axon.hashset($sha256))',
                     'return($lib.axon.read($sha256))',
+                    'return($lib.axon.metrics())',
+                    'return($lib.feed.fromAxon($sha256))',
                     'return($lib.bytes.put($buf))',
                     'return($lib.bytes.has($sha256))',
                     'return($lib.bytes.size($sha256))',
@@ -6979,6 +6980,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                             async for byts in proxy.getAxonBytes(sha256):
                                 pass
 
+                        with self.raises(s_exc.TimeOut):
+                            await proxy.feedFromAxon(sha256)
+
                     for query in queries:
                         with self.raises(s_exc.TimeOut):
                             await core.callStorm(query, opts=opts)
@@ -6988,6 +6992,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                         with self.raises(s_exc.AuthDeny):
                             await core.callStorm(query, opts=visiopts)
 
+                    # an export has no permission of its own to check first
+                    with self.raises(s_exc.TimeOut):
+                        await core.callStorm('return($lib.export.toaxon("inet:fqdn"))')
+
                 async with self.getTestAxon(dirn=dirn) as axon:
 
                     self.true(await s_coro.event_wait(core.axready, timeout=10))
@@ -6995,7 +7003,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     info = await core.callStorm('return($lib.cell.getCellInfo())')
                     self.true(info['cell']['axon:ready'])
-                    self.eq(info['cell']['axon:version'], s_version.version)
 
                     await core.axon.put(b'vertex')
 
@@ -7020,7 +7027,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     resp = await core.callStorm(queries[4], opts=opts)
                     self.eq(resp.get('code'), -1)
 
-                # the last version reported by the Axon remains after it disconnects
+                # the Axon is reported as not ready after it disconnects
                 for _ in range(20):
                     if not core.axready.is_set():
                         break
@@ -7028,7 +7035,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 info = await core.getCellInfo()
                 self.false(info['cell']['axon:ready'])
-                self.eq(info['cell']['axon:version'], s_version.version)
 
     async def test_cortex_delLayerView(self):
 

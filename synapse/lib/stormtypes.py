@@ -108,7 +108,7 @@ async def resolveCoreProxyUrl(valu):
         case _:
             raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
 
-async def getAxonVersion(runt):
+async def getAxonSynapseVersion(runt):
     '''
     Get the Synapse version of the Cortex's Axon.
 
@@ -142,7 +142,7 @@ async def resolveAxonProxyArg(valu):
     '''
     runt = s_scope.get('runt')
 
-    axonvers = await getAxonVersion(runt)
+    axonvers = await getAxonSynapseVersion(runt)
     if axonvers < AXON_MINVERS_PROXY:
         await runt.snap.warnonce(f'Axon version does not support proxy argument: {axonvers} < {AXON_MINVERS_PROXY}')
         return False, None
@@ -2578,7 +2578,7 @@ class LibAxon(Lib):
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
-            axonvers = await getAxonVersion(self.runt)
+            axonvers = await getAxonSynapseVersion(self.runt)
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
@@ -2619,7 +2619,7 @@ class LibAxon(Lib):
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
-            axonvers = await getAxonVersion(self.runt)
+            axonvers = await getAxonSynapseVersion(self.runt)
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
@@ -2728,6 +2728,8 @@ class LibAxon(Lib):
     async def metrics(self):
         if not self.runt.allowed(('axon', 'has')):
             self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+
+        await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.metrics()
 
     async def upload(self, genr):
@@ -2819,7 +2821,7 @@ class LibAxon(Lib):
 
         await self.runt.snap.core.getAxon()
 
-        if self.runt.snap.core.axoninfo.get('features', {}).get('unpack', 0) < 1:
+        if (features := self.runt.snap.core.axoninfo.get('features')) is None or features.get('unpack', 0) < 1:
             mesg = 'The connected Axon does not support the the unpack API. Please update your Axon.'
             raise s_exc.FeatureNotSupported(mesg=mesg)
 

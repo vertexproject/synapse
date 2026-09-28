@@ -1341,8 +1341,7 @@ Docker Image: ``vertexproject/synapse-axon:v2.x.x``
     access by other Advanced Power-Ups.
 
 The Cortex reports the status of its Axon in the ``cell`` section of the dictionary returned by ``getCellInfo()``.
-The ``axon:ready`` key is ``true`` when the Axon is ready, and the ``axon:version`` key contains the Synapse version
-most recently reported by the Axon, or ``null`` if the Cortex has not connected to it.
+The ``axon:ready`` key is ``true`` when the Axon is ready.
 
 **Configuration**
 

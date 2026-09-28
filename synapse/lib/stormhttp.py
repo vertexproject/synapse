@@ -425,7 +425,7 @@ class LibHttp(s_stormtypes.Lib):
                     kwargs['proxy'] = proxy
 
                 if ssl_opts is not None:
-                    axonvers = await s_stormtypes.getAxonVersion(self.runt)
+                    axonvers = await s_stormtypes.getAxonSynapseVersion(self.runt)
                     mesg = f'The ssl_opts argument requires an Axon Synapse version {s_stormtypes.AXON_MINVERS_SSLOPTS}, ' \
                            f'but the Axon is running {axonvers}'
                     s_version.reqVersion(axonvers, s_stormtypes.AXON_MINVERS_SSLOPTS, mesg=mesg)

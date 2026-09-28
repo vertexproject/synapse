@@ -6206,21 +6206,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Notes:
             In addition to the base Cell information, the ``cell`` section
-            includes ``axon:ready``, which is True when the Axon is ready, and
-            ``axon:version``, the Synapse version most recently reported by
-            the Axon or None if the Cortex has not connected to it.
+            includes ``axon:ready``, which is True when the Axon is ready.
 
         Returns:
             Dict: A Dictionary of metadata.
         '''
         info = await super().getCellInfo()
-
-        axonvers = None
-        if (syninfo := self.axoninfo.get('synapse')) is not None:
-            axonvers = syninfo.get('version')
-
         info['cell']['axon:ready'] = self.axready.is_set()
-        info['cell']['axon:version'] = axonvers
         return info
 
     def setFeedFunc(self, name, func):
@@ -6544,6 +6536,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         yield pode
 
     async def exportStormToAxon(self, text, opts=None):
+        await self.getAxon()
         async with await self.axon.upload() as fd:
             async for pode in self.exportStorm(text, opts=opts):
                 await fd.write(s_msgpack.en(pode))
@@ -6563,6 +6556,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # ensure that the user can make all node edits in the layer
         user.confirm(('node',), gateiden=view.layers[0].iden)
+
+        await self.getAxon()
 
         q = s_queue.Queue(maxsize=10000)
         feedexc = None
