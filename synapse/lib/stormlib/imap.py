@@ -786,7 +786,7 @@ class ImapServer(s_stormtypes.StormType):
         # to prevent retrieving a very large blob of data.
         uid = await s_stormtypes.toint(uid)
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
 
         coro = self.imap_cli.uid_fetch(str(uid), '(RFC822)')

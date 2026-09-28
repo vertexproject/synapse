@@ -3,6 +3,7 @@ import fnmatch
 import imaplib
 import logging
 import textwrap
+import functools
 import contextlib
 
 import regex
@@ -898,7 +899,7 @@ class ImapTest(s_test.SynTest):
 
             core.axready.clear()
             try:
-                with mock.patch('synapse.lib.const.AXON_READY_TIMEOUT', 0.1):
+                with mock.patch.object(core, 'getAxon', functools.partial(core.getAxon, timeout=0.1)):
                     with self.raises(s_exc.TimeOut):
                         await core.nodes(scmd, opts=opts)
 

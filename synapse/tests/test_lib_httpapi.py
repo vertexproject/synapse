@@ -1,5 +1,8 @@
 import ssl
 import http
+import functools
+
+from unittest import mock
 
 import aiohttp
 import aiohttp.client_exceptions as a_exc
@@ -2201,6 +2204,25 @@ class HttpApiTest(s_tests.SynTest):
                         url = f'https://localhost:{port}/api/v1/axon/files/has/sha256/{sha256}'
                         async with sess.get(url, timeout=timeout) as resp:
                             pass
+
+                    with mock.patch.object(core, 'getAxon', functools.partial(core.getAxon, timeout=0.1)):
+
+                        async with sess.get(url) as resp:
+                            self.eq(resp.status, http.HTTPStatus.SERVICE_UNAVAILABLE)
+                            item = await resp.json()
+                            self.eq(item.get('status'), 'err')
+                            self.eq(item.get('code'), 'TimeOut')
+                            self.eq(item.get('mesg'), 'Timed out waiting 0.1 seconds for the Axon to be ready.')
+
+                        # the upload handler cleans up without a prepared upload
+                        url = f'https://localhost:{port}/api/v1/axon/files/put'
+                        with self.getLoggerStream('tornado.application') as stream:
+                            async with sess.post(url, data=b'asdfasdf') as resp:
+                                self.eq(resp.status, http.HTTPStatus.SERVICE_UNAVAILABLE)
+                                item = await resp.json()
+                                self.eq(item.get('code'), 'TimeOut')
+
+                        self.notin('Uncaught exception', stream.getvalue())
 
     async def test_http_login_broken(self):
         async with self.getTestCore() as core:

@@ -1,6 +1,7 @@
 import copy
 import asyncio
 import textwrap
+import functools
 import itertools
 import urllib.parse as u_parse
 import unittest.mock as mock
@@ -6291,7 +6292,7 @@ class StormTest(s_t_utils.SynTest):
 
                 core.axready.clear()
                 try:
-                    with mock.patch('synapse.lib.const.AXON_READY_TIMEOUT', 0.1):
+                    with mock.patch.object(core, 'getAxon', functools.partial(core.getAxon, timeout=0.1)):
 
                         # permission checks run before waiting on the Axon
                         with self.raises(s_exc.AuthDeny):

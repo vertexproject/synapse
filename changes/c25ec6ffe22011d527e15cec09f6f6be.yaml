@@ -1,11 +1,12 @@
 ---
 desc: Fixed a ``KeyError`` in the Storm ``$lib.axon.wget()``, ``$lib.axon.wput()``, and
   ``$lib.axon.urlfile()`` APIs, and in ``$lib.inet.http`` requests which upload files from
-  the Axon, when the Axon was not connected. Storm APIs which use the Axon, including
-  ``$lib.axon``, ``$lib.bytes``, ``$lib.inet.http`` file uploads, IMAP message fetches, and
-  ``delnode --delbytes``,
-  now wait up to 300 seconds for the Axon to be ready before raising a ``TimeOut`` error,
-  and raise a ``FeatureNotSupported`` error if the Axon version is unavailable.
+  the Axon, when the Axon was not connected. Cortex Storm, Telepath, and HTTP APIs which
+  use the Axon now wait up to 300 seconds for the Axon to be ready before raising a
+  ``TimeOut`` error, and Storm APIs raise a ``FeatureNotSupported`` error if the Axon
+  version is unavailable. The Cortex ``getAxon()`` method now accepts a ``timeout``
+  argument, which defaults to 300 seconds, and returns the Axon iden when the Axon is
+  remote.
 desc:literal: false
 prs: []
 type: bug

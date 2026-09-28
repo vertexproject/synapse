@@ -120,9 +120,9 @@ async def getAxonVersion(runt):
 
     Raises:
         s_exc.FeatureNotSupported: If the Axon version is unavailable.
-        s_exc.TimeOut: If the Axon is not ready within AXON_READY_TIMEOUT seconds.
+        s_exc.TimeOut: If the Axon is not ready within the default Axon timeout.
     '''
-    await runt.snap.core.waitAxonReady()
+    await runt.snap.core.getAxon()
 
     if (syninfo := runt.snap.core.axoninfo.get('synapse')) is None or (axonvers := syninfo.get('version')) is None:
         mesg = 'Unable to determine the Synapse version of the Axon.'
@@ -2502,7 +2502,7 @@ class LibAxon(Lib):
     async def readlines(self, sha256, errors='ignore'):
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
         async for line in self.runt.snap.core.axon.readlines(sha256, errors=errors):
@@ -2512,7 +2512,7 @@ class LibAxon(Lib):
     async def jsonlines(self, sha256, errors='ignore'):
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
         async for line in self.runt.snap.core.axon.jsonlines(sha256):
@@ -2530,7 +2530,7 @@ class LibAxon(Lib):
 
         hashes = [s_common.uhex(s) for s in sha256s]
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
 
         axon = self.runt.snap.core.axon
         return await axon.dels(hashes)
@@ -2543,7 +2543,7 @@ class LibAxon(Lib):
         sha256 = await tostr(sha256)
 
         sha256b = s_common.uhex(sha256)
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
 
         axon = self.runt.snap.core.axon
         return await axon.del_(sha256b)
@@ -2569,7 +2569,7 @@ class LibAxon(Lib):
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
 
         kwargs = {}
 
@@ -2610,7 +2610,7 @@ class LibAxon(Lib):
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
 
         kwargs = {}
 
@@ -2702,7 +2702,7 @@ class LibAxon(Lib):
         if not self.runt.allowed(('axon', 'has')):
             self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
 
         async for item in axon.hashes(offs, wait=wait, timeout=timeout):
@@ -2714,7 +2714,7 @@ class LibAxon(Lib):
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
         dialect = await tostr(dialect)
@@ -2734,7 +2734,7 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'upload'))
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         async with await self.runt.snap.core.axon.upload() as upload:
             async for byts in s_coro.agen(genr):
                 await upload.write(byts)
@@ -2749,7 +2749,7 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.has(s_common.uhex(sha256))
 
     @stormfunc(readonly=True)
@@ -2758,7 +2758,7 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.size(s_common.uhex(sha256))
 
     async def put(self, byts):
@@ -2770,7 +2770,7 @@ class LibAxon(Lib):
 
         sha256 = hashlib.sha256(byts).digest()
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         if await self.runt.snap.core.axon.has(sha256):
             return (len(byts), s_common.ehex(sha256))
 
@@ -2783,7 +2783,7 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
 
     @stormfunc(readonly=True)
@@ -2802,7 +2802,7 @@ class LibAxon(Lib):
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
 
         byts = b''
         async for chunk in self.runt.snap.core.axon.get(s_common.uhex(sha256), offs=offs, size=size):
@@ -2817,7 +2817,7 @@ class LibAxon(Lib):
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
 
         if self.runt.snap.core.axoninfo.get('features', {}).get('unpack', 0) < 1:
             mesg = 'The connected Axon does not support the the unpack API. Please update your Axon.'
@@ -2964,7 +2964,7 @@ class LibBytes(Lib):
 
         self.runt.confirm(('axon', 'upload'), default=True)
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         async with await self.runt.snap.core.axon.upload() as upload:
             async for byts in s_coro.agen(genr):
                 await upload.write(byts)
@@ -2991,7 +2991,7 @@ class LibBytes(Lib):
 
         self.runt.confirm(('axon', 'has'), default=True)
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         todo = s_common.todo('has', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret
@@ -3003,7 +3003,7 @@ class LibBytes(Lib):
 
         self.runt.confirm(('axon', 'has'), default=True)
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         todo = s_common.todo('size', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret
@@ -3016,7 +3016,7 @@ class LibBytes(Lib):
 
         self.runt.confirm(('axon', 'upload'), default=True)
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         todo = s_common.todo('put', byts)
         size, sha2 = await self.dyncall('axon', todo)
 
@@ -3029,7 +3029,7 @@ class LibBytes(Lib):
 
         self.runt.confirm(('axon', 'has'), default=True)
 
-        await self.runt.snap.core.waitAxonReady()
+        await self.runt.snap.core.getAxon()
         todo = s_common.todo('hashset', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret

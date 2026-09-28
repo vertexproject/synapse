@@ -4,7 +4,9 @@ import http
 import time
 import asyncio
 import hashlib
+import inspect
 import logging
+import functools
 
 import regex
 
@@ -20,6 +22,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
@@ -6863,6 +6866,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(size, 8)
             self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
             self.true(core.nexsroot is core.axon.nexsroot)
+            self.eq(await core.getAxon(), core.axon.iden)
 
             info = await core.getCellInfo()
             self.true(info['cell']['axon:ready'])
@@ -6956,12 +6960,24 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await visi.addRule((False, ('axon',)))
                 visiopts = {'user': visi.iden, 'vars': opts['vars']}
 
-                with patch('synapse.lib.const.AXON_READY_TIMEOUT', 0.1):
+                timeout = inspect.signature(core.getAxon).parameters['timeout'].default
+                self.eq(timeout, s_const.AXON_READY_TIMEOUT)
 
-                    with self.raises(s_exc.TimeOut) as cm:
-                        await core.waitAxonReady()
-                    self.eq(cm.exception.get('mesg'), 'Timed out waiting 0.1 seconds for the Axon to be ready.')
-                    self.eq(cm.exception.get('timeout'), 0.1)
+                with self.raises(s_exc.TimeOut) as cm:
+                    await core.getAxon(timeout=0.1)
+                self.eq(cm.exception.get('mesg'), 'Timed out waiting 0.1 seconds for the Axon to be ready.')
+                self.eq(cm.exception.get('timeout'), 0.1)
+
+                with patch.object(core, 'getAxon', functools.partial(core.getAxon, timeout=0.1)):
+
+                    async with core.getLocalProxy() as proxy:
+
+                        with self.raises(s_exc.TimeOut):
+                            await proxy.getAxonUpload()
+
+                        with self.raises(s_exc.TimeOut):
+                            async for byts in proxy.getAxonBytes(sha256):
+                                pass
 
                     for query in queries:
                         with self.raises(s_exc.TimeOut):
@@ -6983,7 +6999,17 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     await core.axon.put(b'vertex')
 
-                    self.none(await core.waitAxonReady())
+                    self.eq(await core.getAxon(), axon.iden)
+                    self.eq(await core.getAxon(timeout=None), axon.iden)
+
+                    originfo = core.axoninfo
+                    try:
+                        for axoninfo in ({}, {'cell': {}}):
+                            core.axoninfo = axoninfo
+                            self.none(await core.getAxon())
+
+                    finally:
+                        core.axoninfo = originfo
 
                     resp = await core.callStorm(queries[0], opts=opts)
                     self.false(resp.get('ok'))

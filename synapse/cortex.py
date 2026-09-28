@@ -1,5 +1,6 @@
 import os
 import copy
+import http
 import regex
 import asyncio
 import logging
@@ -176,7 +177,13 @@ async def wrap_liftgenr(iden, genr):
 class CortexAxonMixin:
 
     async def prepare(self):
-        await self.cell.axready.wait()
+        try:
+            await self.cell.getAxon()
+        except s_exc.TimeOut as e:
+            self.sendRestExc(e, status_code=http.HTTPStatus.SERVICE_UNAVAILABLE)
+            await self.finish()
+            return
+
         await s_coro.ornot(super().prepare)
 
     def getAxon(self):
@@ -192,7 +199,8 @@ class CortexAxonHttpDelV1(CortexAxonMixin, s_axon.AxonHttpDelV1):
     pass
 
 class CortexAxonHttpUploadV1(CortexAxonMixin, s_axon.AxonHttpUploadV1):
-    pass
+    # set in prepare(), which is skipped if the Axon is not ready
+    upfd = None
 
 class CortexAxonHttpBySha256V1(CortexAxonMixin, s_axon.AxonHttpBySha256V1):
     pass
@@ -760,13 +768,13 @@ class CoreApi(s_cell.CellApi):
 
     async def getAxonUpload(self):
         self.user.confirm(('axon', 'upload'))
-        await self.cell.axready.wait()
+        await self.cell.getAxon()
         upload = await self.cell.axon.upload()
         return await s_axon.UpLoadProxy.anit(self.link, upload)
 
     async def getAxonBytes(self, sha256):
         self.user.confirm(('axon', 'get'))
-        await self.cell.axready.wait()
+        await self.cell.getAxon()
         async for byts in self.cell.axon.get(s_common.uhex(sha256)):
             yield byts
 
@@ -6168,24 +6176,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getStormCmds(self):
         return list(self.stormcmds.items())
 
-    async def getAxon(self):
-        await self.axready.wait()
-        return self.axon.iden
-
-    async def waitAxonReady(self):
+    async def getAxon(self, timeout=s_const.AXON_READY_TIMEOUT):
         '''
-        Wait for the Axon to be ready.
+        Wait for the Axon to be ready and return its iden.
+
+        Args:
+            timeout (int): The maximum number of seconds to wait, or None to wait indefinitely.
+
+        Returns:
+            str: The iden of the Axon, or None if the Axon did not report one.
 
         Raises:
-            s_exc.TimeOut: If the Axon is not ready within AXON_READY_TIMEOUT seconds.
+            s_exc.TimeOut: If the Axon is not ready within the timeout.
         '''
-        if self.axready.is_set():
-            return
-
-        timeout = s_const.AXON_READY_TIMEOUT
-        if not await s_coro.event_wait(self.axready, timeout=timeout):
+        if not self.axready.is_set() and not await s_coro.event_wait(self.axready, timeout=timeout):
             mesg = f'Timed out waiting {timeout} seconds for the Axon to be ready.'
             raise s_exc.TimeOut(mesg=mesg, timeout=timeout)
+
+        if (cellinfo := self.axoninfo.get('cell')) is None:
+            return None
+
+        return cellinfo.get('iden')
 
     async def getCellInfo(self):
         '''
