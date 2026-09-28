@@ -1340,9 +1340,6 @@ Docker Image: ``vertexproject/synapse-axon:v2.x.x``
     it is **highly** recommended that you install it as a separated service to help distribute load and allow direct
     access by other Advanced Power-Ups.
 
-The Cortex reports the status of its Axon in the ``cell`` section of the dictionary returned by ``getCellInfo()``.
-The ``axon:ready`` key is ``true`` when the Axon is ready.
-
 **Configuration**
 
 A typical Axon deployment does not require any additional configuration. For the full list supported options, see the
