@@ -4,7 +4,9 @@ import http
 import time
 import asyncio
 import hashlib
+import inspect
 import logging
+import functools
 
 import regex
 
@@ -20,6 +22,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
@@ -6863,6 +6866,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(size, 8)
             self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
             self.true(core.nexsroot is core.axon.nexsroot)
+            self.eq(await core.getAxon(), core.axon.iden)
+
+            info = await core.getCellInfo()
+            self.true(info['cell']['axon:ready'])
+            self.notin('axon:version', info['cell'])
         self.true(core.axon.isfini)
         self.false(core.axready.is_set())
 
@@ -6899,6 +6907,134 @@ class CortexBasicTest(s_t_utils.SynTest):
                     # ensure we can use the proxy
                     self.eq(await axon.metrics(),
                             await core.axon.metrics())
+
+    async def test_cortex_axon_ready_timeout(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestAxon(dirn=dirn) as axon:
+                aurl = axon.getLocalUrl()
+
+            async with self.getTestCore(conf={'axon': aurl}) as core:
+
+                self.false(core.axready.is_set())
+                self.eq(core.axoninfo, {})
+
+                info = await core.getCellInfo()
+                self.false(info['cell']['axon:ready'])
+
+                sha256 = s_common.ehex(hashlib.sha256(b'vertex').digest())
+                opts = {'vars': {'sha256': sha256, 'url': 'http://127.0.0.1:1/'}}
+                queries = (
+                    'return($lib.axon.wget($url))',
+                    'return($lib.axon.wput($sha256, $url))',
+                    'return($lib.axon.unpack($sha256, fmt=">Q"))',
+                    'yield $lib.axon.urlfile($url)',
+                    '''
+                    $fields = ([{"name": "file", "sha256": $sha256}])
+                    return($lib.inet.http.post($url, fields=$fields))
+                    ''',
+                    'for $line in $lib.axon.readlines($sha256) {}',
+                    'for $item in $lib.axon.jsonlines($sha256) {}',
+                    'for $row in $lib.axon.csvrows($sha256) {}',
+                    'for $item in $lib.axon.list() {}',
+                    'return($lib.axon.dels(($sha256,)))',
+                    'return($lib.axon.del($sha256))',
+                    'return($lib.axon.upload(([])))',
+                    'return($lib.axon.has($sha256))',
+                    'return($lib.axon.size($sha256))',
+                    'return($lib.axon.put($buf))',
+                    'return($lib.axon.hashset($sha256))',
+                    'return($lib.axon.read($sha256))',
+                    'return($lib.axon.metrics())',
+                    'return($lib.feed.fromAxon($sha256))',
+                    'return($lib.bytes.put($buf))',
+                    'return($lib.bytes.has($sha256))',
+                    'return($lib.bytes.size($sha256))',
+                    'return($lib.bytes.hashset($sha256))',
+                    'return($lib.bytes.upload(([])))',
+                )
+                opts['vars']['buf'] = b'vertex'
+
+                # $lib.bytes permissions are allowed by default, so deny them explicitly
+                visi = await core.auth.addUser('visi')
+                await visi.addRule((False, ('axon',)))
+                visiopts = {'user': visi.iden, 'vars': opts['vars']}
+
+                timeout = inspect.signature(core.getAxon).parameters['timeout'].default
+                self.eq(timeout, s_const.AXON_READY_TIMEOUT)
+
+                with self.raises(s_exc.TimeOut) as cm:
+                    await core.getAxon(timeout=0.1)
+                self.eq(cm.exception.get('mesg'), 'Timed out waiting 0.1 seconds for the Axon to be ready.')
+                self.eq(cm.exception.get('timeout'), 0.1)
+
+                with patch.object(core, 'getAxon', functools.partial(core.getAxon, timeout=0.1)):
+
+                    async with core.getLocalProxy() as proxy:
+
+                        with self.raises(s_exc.TimeOut):
+                            await proxy.getAxonUpload()
+
+                        with self.raises(s_exc.TimeOut):
+                            async for byts in proxy.getAxonBytes(sha256):
+                                pass
+
+                        with self.raises(s_exc.TimeOut):
+                            await proxy.feedFromAxon(sha256)
+
+                    for query in queries:
+                        with self.raises(s_exc.TimeOut):
+                            await core.callStorm(query, opts=opts)
+
+                    # permission checks run before waiting on the Axon
+                    for query in queries:
+                        with self.raises(s_exc.AuthDeny):
+                            await core.callStorm(query, opts=visiopts)
+
+                    # an export has no permission of its own to check first
+                    with self.raises(s_exc.TimeOut):
+                        await core.callStorm('return($lib.export.toaxon("inet:fqdn"))')
+
+                async with self.getTestAxon(dirn=dirn) as axon:
+
+                    self.true(await s_coro.event_wait(core.axready, timeout=10))
+                    self.nn(core.axoninfo['synapse']['version'])
+
+                    info = await core.callStorm('return($lib.cell.getCellInfo())')
+                    self.true(info['cell']['axon:ready'])
+
+                    await core.axon.put(b'vertex')
+
+                    self.eq(await core.getAxon(), axon.iden)
+                    self.eq(await core.getAxon(timeout=None), axon.iden)
+
+                    originfo = core.axoninfo
+                    try:
+                        for axoninfo in ({}, {'cell': {}}):
+                            core.axoninfo = axoninfo
+                            self.none(await core.getAxon())
+
+                    finally:
+                        core.axoninfo = originfo
+
+                    resp = await core.callStorm(queries[0], opts=opts)
+                    self.false(resp.get('ok'))
+
+                    resp = await core.callStorm(queries[1], opts=opts)
+                    self.false(resp.get('ok'))
+
+                    resp = await core.callStorm(queries[4], opts=opts)
+                    self.eq(resp.get('code'), -1)
+
+                # the Axon is reported as not ready after it disconnects
+                for _ in range(20):
+                    if not core.axready.is_set():
+                        break
+                    await asyncio.sleep(0.1)
+
+                info = await core.getCellInfo()
+                self.false(info['cell']['axon:ready'])
 
     async def test_cortex_delLayerView(self):
 

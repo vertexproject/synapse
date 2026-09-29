@@ -108,6 +108,28 @@ async def resolveCoreProxyUrl(valu):
         case _:
             raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
 
+async def getAxonSynapseVersion(runt):
+    '''
+    Get the Synapse version of the Cortex's Axon.
+
+    Args:
+        runt (Runtime): The Storm runtime.
+
+    Returns:
+        tuple: The Synapse version of the Axon.
+
+    Raises:
+        s_exc.FeatureNotSupported: If the Axon version is unavailable.
+        s_exc.TimeOut: If the Axon is not ready within the default Axon timeout.
+    '''
+    await runt.snap.core.getAxon()
+
+    if (syninfo := runt.snap.core.axoninfo.get('synapse')) is None or (axonvers := syninfo.get('version')) is None:
+        mesg = 'Unable to determine the Synapse version of the Axon.'
+        raise s_exc.FeatureNotSupported(mesg=mesg)
+
+    return axonvers
+
 async def resolveAxonProxyArg(valu):
     '''
     Resolve a proxy value to the kwarg to set for an Axon HTTP call.
@@ -120,7 +142,7 @@ async def resolveAxonProxyArg(valu):
     '''
     runt = s_scope.get('runt')
 
-    axonvers = runt.snap.core.axoninfo['synapse']['version']
+    axonvers = await getAxonSynapseVersion(runt)
     if axonvers < AXON_MINVERS_PROXY:
         await runt.snap.warnonce(f'Axon version does not support proxy argument: {axonvers} < {AXON_MINVERS_PROXY}')
         return False, None
@@ -2556,7 +2578,7 @@ class LibAxon(Lib):
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
-            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+            axonvers = await getAxonSynapseVersion(self.runt)
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
@@ -2597,7 +2619,7 @@ class LibAxon(Lib):
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
-            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+            axonvers = await getAxonSynapseVersion(self.runt)
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
@@ -2706,6 +2728,8 @@ class LibAxon(Lib):
     async def metrics(self):
         if not self.runt.allowed(('axon', 'has')):
             self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+
+        await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.metrics()
 
     async def upload(self, genr):
@@ -2792,7 +2816,12 @@ class LibAxon(Lib):
         '''
         Unpack bytes from a file in the Axon using struct.
         '''
-        if self.runt.snap.core.axoninfo.get('features', {}).get('unpack', 0) < 1:
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
+        await self.runt.snap.core.getAxon()
+
+        if (features := self.runt.snap.core.axoninfo.get('features')) is None or features.get('unpack', 0) < 1:
             mesg = 'The connected Axon does not support the the unpack API. Please update your Axon.'
             raise s_exc.FeatureNotSupported(mesg=mesg)
 
@@ -2800,10 +2829,6 @@ class LibAxon(Lib):
         fmt = await tostr(fmt)
         offs = await toint(offs)
 
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
-
-        await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.unpack(s_common.uhex(sha256), fmt, offs)
 
 @registry.registerLib

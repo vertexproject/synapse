@@ -1,5 +1,6 @@
 import os
 import copy
+import http
 import regex
 import asyncio
 import logging
@@ -175,9 +176,18 @@ async def wrap_liftgenr(iden, genr):
 
 class CortexAxonMixin:
 
-    async def prepare(self):
-        await self.cell.axready.wait()
-        await s_coro.ornot(super().prepare)
+    async def allowed(self, perm, default=False, gateiden=None):
+        # wait for the Axon only once the user has the permission
+        if not await super().allowed(perm, default=default, gateiden=gateiden):
+            return False
+
+        try:
+            await self.cell.getAxon()
+        except s_exc.TimeOut as e:
+            self.sendRestExc(e, status_code=http.HTTPStatus.SERVICE_UNAVAILABLE)
+            return False
+
+        return True
 
     def getAxon(self):
         return self.cell.axon
@@ -760,13 +770,13 @@ class CoreApi(s_cell.CellApi):
 
     async def getAxonUpload(self):
         self.user.confirm(('axon', 'upload'))
-        await self.cell.axready.wait()
+        await self.cell.getAxon()
         upload = await self.cell.axon.upload()
         return await s_axon.UpLoadProxy.anit(self.link, upload)
 
     async def getAxonBytes(self, sha256):
         self.user.confirm(('axon', 'get'))
-        await self.cell.axready.wait()
+        await self.cell.getAxon()
         async for byts in self.cell.axon.get(s_common.uhex(sha256)):
             yield byts
 
@@ -6168,9 +6178,45 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getStormCmds(self):
         return list(self.stormcmds.items())
 
-    async def getAxon(self):
-        await self.axready.wait()
-        return self.axon.iden
+    async def getAxon(self, timeout=s_const.AXON_READY_TIMEOUT):
+        '''
+        Wait for the Axon to be ready and return its iden.
+
+        Args:
+            timeout (int): The maximum number of seconds to wait, or None to wait indefinitely.
+
+        Returns:
+            str: The iden of the Axon, or None if the Axon did not report one.
+
+        Raises:
+            s_exc.TimeOut: If the Axon is not ready within the timeout.
+        '''
+        if not self.axready.is_set():
+            try:
+                await s_common.wait_for(self.axready.wait(), timeout)
+            except asyncio.TimeoutError:
+                mesg = f'Timed out waiting {timeout} seconds for the Axon to be ready.'
+                raise s_exc.TimeOut(mesg=mesg, timeout=timeout) from None
+
+        if (cellinfo := self.axoninfo.get('cell')) is None:
+            return None
+
+        return cellinfo.get('iden')
+
+    async def getCellInfo(self):
+        '''
+        Return metadata specific for the Cortex.
+
+        Notes:
+            In addition to the base Cell information, the ``cell`` section
+            includes ``axon:ready``, which is True when the Axon is ready.
+
+        Returns:
+            Dict: A Dictionary of metadata.
+        '''
+        info = await super().getCellInfo()
+        info['cell']['axon:ready'] = self.axready.is_set()
+        return info
 
     def setFeedFunc(self, name, func):
         '''
@@ -6493,6 +6539,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         yield pode
 
     async def exportStormToAxon(self, text, opts=None):
+        await self.getAxon()
         async with await self.axon.upload() as fd:
             async for pode in self.exportStorm(text, opts=opts):
                 await fd.write(s_msgpack.en(pode))
@@ -6512,6 +6559,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # ensure that the user can make all node edits in the layer
         user.confirm(('node',), gateiden=view.layers[0].iden)
+
+        await self.getAxon()
 
         q = s_queue.Queue(maxsize=10000)
         feedexc = None
