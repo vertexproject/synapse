@@ -16,6 +16,15 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
+scoreenums = (
+    (0, 'none'),
+    (10, 'lowest'),
+    (20, 'low'),
+    (30, 'medium'),
+    (40, 'high'),
+    (50, 'highest'),
+)
+
 # This is the regular expression pattern for CPE 2.2. It's kind of a hybrid
 # between compatible binding and preferred binding. Differences are here:
 # - Use only the list of percent encoded values specified by preferred binding.
@@ -3477,7 +3486,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The virtual address of the first codeblock of the function.'}),
                     ('rank', ('int', {}), {
                         'doc': 'The function rank score used to evaluate if it exhibits interesting behavior.'}),
-                    ('complexity', ('int', {}), {
+                    ('complexity', ('int', {'enums': scoreenums, 'enums:strict': False}), {
                         'doc': 'The complexity of the function.'}),
                     ('funccalls', ('array', {'type': 'it:reveng:filefunc', 'uniq': True, 'sorted': True}), {
                         'doc': 'Other function calls within the scope of the function.',

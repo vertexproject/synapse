@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
@@ -115,6 +116,38 @@ class DnsModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[inet:dns:request=* :reply:code=1138]')
             self.eq(nodes[0].get('reply:code'), 1138)
             self.eq(nodes[0].repr('reply:code'), '1138')
+
+            # query types are non-strict enums
+            self.eq('ANY', node.repr('type'))
+            self.eq(('tcp://1.2.3.4', 'vertex.link', 'ANY'), node.repr())
+
+            nodes = await core.nodes('[inet:dns:request=* :query:type=aaaa]')
+            self.eq(nodes[0].get('query:type'), 28)
+            self.eq(nodes[0].repr('query:type'), 'AAAA')
+
+            nodes = await core.nodes('[inet:dns:request=* :query:type=1138]')
+            self.eq(nodes[0].get('query:type'), 1138)
+            self.eq(nodes[0].repr('query:type'), '1138')
+
+            self.len(1, await core.nodes('inet:dns:request:query:type=AAAA'))
+            self.len(1, await core.nodes('inet:dns:request:query:type=28'))
+
+            nodes = await core.nodes('[inet:dns:query=("tcp://1.2.3.4", vertex.link, ANY)]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:dns:query', ('tcp://1.2.3.4', 'vertex.link', 255)))
+            self.eq(nodes[0].get('type'), 255)
+
+            nodes = await core.nodes('[inet:dns:query=("tcp://1.2.3.4", vertex.link, 1138)]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('type'), 1138)
+            self.eq(nodes[0].repr('type'), '1138')
+            self.eq(('tcp://1.2.3.4', 'vertex.link', '1138'), nodes[0].repr())
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:dns:request=* :query:type=newp]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:dns:query=("tcp://1.2.3.4", vertex.link, newp)]')
 
             nodes = await core.nodes('[inet:dns:query=("tcp://1.2.3.4", 4.3.2.1.in-addr.arpa, 255)]')
             self.len(1, nodes)
