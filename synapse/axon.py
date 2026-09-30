@@ -48,6 +48,7 @@ class AxonHttpUploadV1(AxonHandlerMixin, s_httpapi.StreamHandler):
 
         if not await self.allowed(('axon', 'upload')):
             await self.finish()
+            return
 
         # max_body_size defaults to 100MB and requires a value
         self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)

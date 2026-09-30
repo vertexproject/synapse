@@ -1,6 +1,7 @@
 import copy
 import asyncio
 import textwrap
+import functools
 import itertools
 import urllib.parse as u_parse
 import unittest.mock as mock
@@ -6289,7 +6290,23 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
 
-                await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+                core.axready.clear()
+                try:
+                    with mock.patch.object(core, 'getAxon', functools.partial(core.getAxon, timeout=0.1)):
+
+                        # permission checks run before waiting on the Axon
+                        with self.raises(s_exc.AuthDeny):
+                            await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+
+                        await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+
+                        with self.raises(s_exc.TimeOut):
+                            await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+
+                        self.len(1, await core.nodes(f'file:bytes={sha256}'))
+
+                finally:
+                    core.axready.set()
 
                 await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
                 self.len(0, await core.nodes(f'file:bytes={sha256}'))

@@ -662,6 +662,40 @@ class StormHttpTest(s_test.SynTest):
             self.eq(code, -1)
             self.eq('ValueError', errname)
 
+    async def test_storm_http_post_file_axon_info_missing(self):
+
+        async with self.getTestCore() as core:
+
+            size, sha256 = await core.axon.put(b'vertex')
+            opts = {'vars': {'sha256': s_common.ehex(sha256), 'url': 'http://127.0.0.1:1/'}}
+
+            queries = (
+                '''
+                $fields = ([{"name": "file", "sha256": $sha256}])
+                return($lib.inet.http.post($url, fields=$fields))
+                ''',
+                '''
+                $fields = ([{"name": "file", "sha256": $sha256}])
+                return($lib.inet.http.post($url, fields=$fields, ssl_opts=({"verify": (false)})))
+                ''',
+            )
+
+            originfo = core.axoninfo
+            try:
+                for axoninfo in ({}, {'synapse': {}}):
+                    core.axoninfo = axoninfo
+                    for query in queries:
+                        with self.raises(s_exc.FeatureNotSupported) as cm:
+                            await core.callStorm(query, opts=opts)
+                        self.eq(cm.exception.get('mesg'), 'Unable to determine the Synapse version of the Axon.')
+
+            finally:
+                core.axoninfo = originfo
+
+            for query in queries:
+                resp = await core.callStorm(query, opts=opts)
+                self.eq(resp.get('code'), -1)
+
     async def test_storm_http_proxy(self):
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestCore(conf=conf) as core:

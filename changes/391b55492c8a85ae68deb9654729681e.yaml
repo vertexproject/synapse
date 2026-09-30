@@ -1,0 +1,7 @@
+---
+desc: Fixed the Axon HTTP upload API starting an upload in the Axon for a request
+  which was denied.
+desc:literal: false
+prs: []
+type: bug
+...
