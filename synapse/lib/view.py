@@ -1447,9 +1447,96 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.core._calcViewsByLayer()
 
+        await self._copyGatePerms(forkiden)
+
+        return await self.parent.pack()
+
+    async def insertChildFork(self, useriden, name=None):
+        '''
+        Insert a new View between this View and all of its child Views.
+
+        Returns:
+            New view definition with the same perms as the current view.
+        '''
+        async for view in self.children():
+            if view.merging:
+                mesg = f'View ({view.iden}) is currently merging, cannot insert a new fork between it and parent.'
+                raise s_exc.BadState(mesg=mesg)
+
+        ctime = s_common.now()
+        layriden = s_common.guid()
+
+        ldef = {
+            'iden': layriden,
+            'created': ctime,
+            'creator': useriden,
+            'lockmemory': self.core.conf.get('layers:lockmemory'),
+            'logedits': self.core.conf.get('layers:logedits'),
+            'readonly': False
+        }
+
+        if name is None:
+            if (vname := self.info.get('name')) is not None:
+                name = f'inserted fork of {vname}'
+            else:
+                name = f'inserted fork of {self.iden}'
+
+        vdef = {
+            'iden': s_common.guid(),
+            'name': name,
+            'created': ctime,
+            'creator': useriden,
+            'parent': self.iden,
+            'layers': [layriden] + [lyr.iden for lyr in self.layers]
+        }
+
+        s_layer.reqValidLdef(ldef)
+        s_schemas.reqValidView(vdef)
+
+        return await self._push('view:forkchild', ldef, vdef)
+
+    @s_nexus.Pusher.onPush('view:forkchild', passitem=True)
+    async def _insertChildFork(self, ldef, vdef, nexsitem):
+
+        s_layer.reqValidLdef(ldef)
+        s_schemas.reqValidView(vdef)
+
+        forkiden = vdef.get('iden')
+
+        kids = [view async for view in self.children() if view.iden != forkiden]
+
+        await self.core._addLayer(ldef, nexsitem)
+        await self.core._addView(vdef)
+
+        fork = self.core.reqView(forkiden)
+
+        for kid in kids:
+
+            if kid.getMergeRequest() is not None:
+                await kid._delMergeRequest()
+
+            kid.info['parent'] = forkiden
+            kid.parent = fork
+            self.core.viewdefs.set(kid.iden, kid.info)
+
+            mesg = {'iden': kid.iden, 'name': 'parent', 'valu': forkiden}
+            await self.core.feedBeholder('view:set', mesg, gates=[kid.iden, kid.layers[0].iden])
+
+        await fork._calcChildViews()
+
+        self.core._calcViewsByLayer()
+
+        await self._copyGatePerms(forkiden)
+
+        return await fork.pack()
+
+    async def _copyGatePerms(self, gateiden):
+        '''
+        Copy the user and role rules from this View's AuthGate to another AuthGate.
+        '''
         authgate = await self.core.getAuthGate(self.iden)
         if authgate is None:  # pragma: no cover
-            return await self.parent.pack()
+            return
 
         for userinfo in authgate.get('users'):
             useriden = userinfo.get('iden')
@@ -1457,8 +1544,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 logger.warning(f'View {self.iden} AuthGate refers to unknown user {useriden}')
                 continue
 
-            await user.setRules(userinfo.get('rules'), gateiden=forkiden, nexs=False)
-            await user.setAdmin(userinfo.get('admin'), gateiden=forkiden, logged=False)
+            await user.setRules(userinfo.get('rules'), gateiden=gateiden, nexs=False)
+            await user.setAdmin(userinfo.get('admin'), gateiden=gateiden, logged=False)
 
         for roleinfo in authgate.get('roles'):
             roleiden = roleinfo.get('iden')
@@ -1466,9 +1553,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 logger.warning(f'View {self.iden} AuthGate refers to unknown role {roleiden}')
                 continue
 
-            await role.setRules(roleinfo.get('rules'), gateiden=forkiden, nexs=False)
-
-        return await self.parent.pack()
+            await role.setRules(roleinfo.get('rules'), gateiden=gateiden, nexs=False)
 
     async def fork(self, ldef=None, vdef=None):
         '''

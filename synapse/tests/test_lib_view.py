@@ -1001,6 +1001,124 @@ class ViewTest(s_t_utils.SynTest):
             vdef = await view03.insertParentFork(visi.iden)
             self.eq(vdef.get('name'), f'inserted fork of {piden}')
 
+    async def test_view_insert_child_fork(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                role = await core.auth.addRole('ninjas')
+                visi = await core.auth.addUser('visi')
+                asvisi = {'user': visi.iden}
+
+                view00 = core.getView()
+                viewa = core.getView((await view00.fork())['iden'])
+                viewb = core.getView((await view00.fork())['iden'])
+                viewa2 = core.getView((await viewa.fork())['iden'])
+
+                await view00.nodes('[ inet:fqdn=vertex.link ]')
+                await viewa.nodes('inet:fqdn=vertex.link [ +#foo ]')
+
+                opts = {'vars': {'role': role.iden}}
+                await core.callStorm('return($lib.view.get().set(quorum, ({"count": 1, "roles": [$role]})))', opts=opts)
+
+                aopts = {'view': viewa.iden}
+                await core.callStorm('return($lib.view.get().setMergeRequest(comment=woot))', opts=aopts)
+
+                merging = 'return($lib.view.get().getMergingViews()) '
+                self.eq([viewa.iden], await core.callStorm(merging))
+
+                await core.nodes('auth.role.addrule ninjas node.add --gate $lib.view.get().iden')
+                rolerules = role.getRules(gateiden=view00.iden)
+
+                q = 'return($lib.view.get().insertChildFork(name=staging).iden)'
+
+                # admin on the view is required, but not on its children
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(q, opts=asvisi)
+
+                await core.nodes('auth.user.mod visi --admin $lib.true --gate $lib.view.get().iden')
+                userrules = visi.getRules(gateiden=view00.iden)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(q, opts=asvisi)
+
+                await core.nodes('auth.user.addrule visi view.add')
+
+                # a child which is mid-merge may not be re-parented
+                viewb.merging = True
+                with self.raises(s_exc.BadState):
+                    await core.callStorm(q, opts=asvisi)
+
+                viewb.merging = False
+
+                newiden = await core.callStorm(q, opts=asvisi)
+                viewd = core.getView(newiden)
+
+                self.eq('staging', viewd.info.get('name'))
+                self.eq(visi.iden, viewd.info.get('creator'))
+
+                self.eq(view00, viewd.parent)
+                self.eq(viewd, viewa.parent)
+                self.eq(viewd, viewb.parent)
+                self.eq(viewa, viewa2.parent)
+
+                self.eq([viewd.iden], [v.iden async for v in view00.children()])
+                self.sorteq([viewa.iden, viewb.iden], [v.iden async for v in viewd.children()])
+
+                self.len(2, viewd.layers)
+                self.len(3, viewa.layers)
+                self.len(3, viewb.layers)
+                self.len(4, viewa2.layers)
+                self.eq(viewd.layers[0], viewa.layers[1])
+                self.eq(viewd.layers[0], viewb.layers[1])
+                self.eq(viewd.layers[0], viewa2.layers[2])
+                self.eq([lyr.iden for lyr in viewa2.layers], viewa2.info.get('layers'))
+                self.sorteq([viewd.iden, viewa.iden, viewb.iden, viewa2.iden],
+                            [v.iden for v in core.viewsbylayer[viewd.layers[0].iden]])
+
+                # the pending merge request targeted the old parent
+                self.eq([], await core.callStorm(merging))
+                self.none(viewa.getMergeRequest())
+
+                self.eq(userrules, visi.getRules(gateiden=viewd.iden))
+                self.eq(rolerules, role.getRules(gateiden=viewd.iden))
+                self.true(visi.isAdmin(gateiden=viewd.iden))
+                self.false(visi.isAdmin(gateiden=viewa.iden))
+
+                nodes = await viewa2.nodes('inet:fqdn=vertex.link')
+                self.nn(nodes[0].getTag('foo'))
+
+                await core.nodes('merge --diff --apply', opts=aopts)
+
+                nodes = await viewd.nodes('inet:fqdn=vertex.link')
+                self.nn(nodes[0].getTag('foo'))
+
+                nodes = await core.nodes('inet:fqdn=vertex.link')
+                self.none(nodes[0].getTag('foo'))
+
+                # a view with no children gets a plain fork
+                vdef = await viewa2.insertChildFork(visi.iden)
+                self.eq(vdef.get('name'), f'inserted fork of {viewa2.iden}')
+                self.eq(viewa2.iden, vdef.get('parent'))
+                self.eq([vdef.get('iden')], [v.iden async for v in viewa2.children()])
+
+                await viewb.setViewInfo('name', 'bview')
+                vdef = await viewb.insertChildFork(visi.iden)
+                self.eq(vdef.get('name'), 'inserted fork of bview')
+
+                layridens = [lyr.iden for lyr in viewa2.layers]
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                viewa2 = core.getView(viewa2.iden)
+                self.eq(newiden, viewa2.parent.parent.iden)
+                self.eq(view00.iden, viewa2.parent.parent.parent.iden)
+                self.eq(layridens, [lyr.iden for lyr in viewa2.layers])
+
+                nodes = await viewa2.nodes('inet:fqdn=vertex.link')
+                self.nn(nodes[0].getTag('foo'))
+
     async def test_view_children(self):
 
         async with self.getTestCore() as core:
