@@ -2593,6 +2593,35 @@ class StormTest(s_t_utils.SynTest):
 
             self.true(base2.isfini)
 
+    async def test_storm_runtime_popvar_scope(self):
+
+        async with self.getTestCore() as core:
+
+            query = await core.getStormQuery('inet:ipv4')
+            async with core.getStormRuntime(query) as runt:
+
+                base0 = await s_base.Base.anit()
+                base0._syn_refs = 0
+                await runt.setVar('base0', base0)
+                await runt.setVar('foo', 'root')
+
+                async with runt.getSubRuntime(query) as subr:
+                    self.true(await subr.popVar('base0') is base0)
+                    self.true(base0.isfini)
+                    self.notin('base0', runt.vars)
+
+                async with runt.getSubRuntime(query, opts={'vars': {'foo': 'subr'}}) as subr:
+                    self.eq('subr', await subr.popVar('foo'))
+                    self.notin('foo', subr.vars)
+                    self.eq('root', runt.getVar('foo'))
+
+            # deleting a parent scope var from a sub-runtime removes it
+            q = '$x = (1) storm.exec "$lib.vars.del(x)" | return($lib.vars.get(x))'
+            self.none(await core.callStorm(q))
+
+            q = '$x = (1) $y = { $lib.vars.del(x) } return($lib.vars.get(x))'
+            self.none(await core.callStorm(q))
+
     async def test_storm_dmon_user_locked(self):
         async with self.getTestCore() as core:
             visi = await core.auth.addUser('visi')
