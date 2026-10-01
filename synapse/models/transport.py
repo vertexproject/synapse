@@ -405,6 +405,8 @@ class TransportModule(s_module.CoreModule):
                 ('transport:air:telem', {}, (
                     ('flight', ('transport:air:flight', {}), {
                         'doc': 'The flight being measured.'}),
+                    ('vehicle', ('transport:vehicle', {}), {
+                        'doc': 'The aircraft being measured.'}),
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The lat/lon of the aircraft at the time.'}),
                     ('loc', ('loc', {}), {
