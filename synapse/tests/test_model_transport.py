@@ -56,6 +56,7 @@ class TransportTest(s_test.SynTest):
             telem = (await core.nodes('''
                 [ transport:air:telem=*
                     :flight=*
+                    :vehicle={[ transport:air:craft=* ]}
                     :latlong=(20.22, 80.1111)
                     :loc=us
                     :place=*
@@ -70,6 +71,7 @@ class TransportTest(s_test.SynTest):
                     :time=20200202
                 ]'''))[0]
             self.nn(telem.get('flight'))
+            self.eq('transport:air:craft', telem.get('vehicle')[0])
             self.nn(telem.get('place'))
             self.eq((20.22, 80.1111), telem.get('latlong'))
             self.eq('us', telem.get('loc'))
@@ -80,6 +82,7 @@ class TransportTest(s_test.SynTest):
             self.eq(6380152800, telem.get('altitude'))
             self.eq(10000, telem.get('altitude:accuracy'))
             self.eq(1580601600000, telem.get('time'))
+            self.len(1, await core.nodes('transport:air:telem :vehicle -> transport:air:craft'))
             self.eq('79.1', telem.get('course'))
             self.eq('99.02', telem.get('heading'))
 
