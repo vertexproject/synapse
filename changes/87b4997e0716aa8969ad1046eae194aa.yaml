@@ -1,6 +1,7 @@
 ---
 desc: Added the ``:vehicle`` property to the ``transport:air:telem`` form.
 desc:literal: false
-prs: []
+prs:
+- 5021
 type: model
 ...
