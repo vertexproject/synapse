@@ -1916,7 +1916,28 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(fva, fnode[0].get('va'))
             self.eq(rank, fnode[0].get('rank'))
             self.eq(complexity, fnode[0].get('complexity'))
+            self.eq('60', fnode[0].repr('complexity'))
             self.eq((f'sha256:{baseFile}', func), fnode[0].get('funccalls')[0])
+
+            # complexity enums are not strict
+            nodes = await core.nodes('it:reveng:filefunc [ :complexity=HIGH ]')
+            self.len(1, nodes)
+            self.eq(40, nodes[0].get('complexity'))
+            self.eq('high', nodes[0].repr('complexity'))
+
+            nodes = await core.nodes('it:reveng:filefunc [ :complexity=27 ]')
+            self.len(1, nodes)
+            self.eq(27, nodes[0].get('complexity'))
+            self.eq('27', nodes[0].repr('complexity'))
+
+            self.len(1, await core.nodes('it:reveng:filefunc:complexity>=low'))
+            self.len(0, await core.nodes('it:reveng:filefunc:complexity>=medium'))
+            self.len(1, await core.nodes('it:reveng:filefunc +:complexity*range=(low, medium)'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('it:reveng:filefunc [ :complexity=newp ]')
+
+            await core.nodes('it:reveng:filefunc [ :complexity=$cmplx ]', opts=fopt)
 
             self.len(1, snode)
             self.eq(fnode[0].get('function'), snode[0].get('function'))
