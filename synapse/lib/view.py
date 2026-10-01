@@ -235,6 +235,9 @@ class View(s_nexus.Pusher):  # type: ignore
     @s_nexus.Pusher.onPush('merge:del')
     async def _delMergeRequest(self):
         self.reqParentQuorum()
+        return await self._popMergeRequest()
+
+    async def _popMergeRequest(self):
         byts = self.core.slab.pop(self.bidn + b'merge:req', db='view:meta')
 
         await self._delMergeMeta()
@@ -1387,6 +1390,8 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'View ({self.iden}) is not a fork, cannot insert a new fork between it and parent.'
             raise s_exc.BadState(mesg=mesg)
 
+        self._reqNotMerging()
+
         ctime = s_common.now()
         layriden = s_common.guid()
 
@@ -1425,6 +1430,9 @@ class View(s_nexus.Pusher):  # type: ignore
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
+        # a merge may have started since the request was validated
+        self._reqNotMerging()
+
         if self.getMergeRequest() is not None:
             await self._delMergeRequest()
 
@@ -1447,7 +1455,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.core._calcViewsByLayer()
 
-        await self._copyGatePerms(forkiden)
+        await self._copyGatePerms(self.iden, forkiden)
 
         return await self.parent.pack()
 
@@ -1505,15 +1513,18 @@ class View(s_nexus.Pusher):  # type: ignore
 
         kids = [view async for view in self.children() if view.iden != forkiden and not view.merging]
 
+        # the forks' merge requests targeted this view. they are void either way, so
+        # remove them without the quorum checks which could fail part way through.
+        for kid in kids:
+            if kid.getMergeRequest() is not None:
+                await kid._popMergeRequest()
+
         await self.core._addLayer(ldef, nexsitem)
         await self.core._addView(vdef)
 
         fork = self.core.reqView(forkiden)
 
         for kid in kids:
-
-            if kid.getMergeRequest() is not None:
-                await kid._delMergeRequest()
 
             kid.info['parent'] = forkiden
             kid.parent = fork
@@ -1526,36 +1537,39 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.core._calcViewsByLayer()
 
-        await self._copyGatePerms(forkiden)
+        await self._copyGatePerms(self.iden, forkiden)
+        await self._copyGatePerms(self.layers[0].iden, ldef.get('iden'))
 
         return await fork.pack()
 
     def _reqNotMerging(self):
         if self.merging:
-            mesg = f'View ({self.iden}) is currently merging, cannot insert a new fork between it and its children.'
+            mesg = f'View ({self.iden}) is currently merging, cannot insert a new fork.'
             raise s_exc.BadState(mesg=mesg)
 
-    async def _copyGatePerms(self, gateiden):
+    async def _copyGatePerms(self, srciden, gateiden):
         '''
-        Copy the user and role rules from this View's AuthGate to another AuthGate.
+        Copy the user and role rules from one AuthGate to another AuthGate.
         '''
-        authgate = await self.core.getAuthGate(self.iden)
+        authgate = await self.core.getAuthGate(srciden)
         if authgate is None:  # pragma: no cover
             return
 
         for userinfo in authgate.get('users'):
             useriden = userinfo.get('iden')
             if (user := self.core.auth.user(useriden)) is None:  # pragma: no cover
-                logger.warning(f'View {self.iden} AuthGate refers to unknown user {useriden}')
+                logger.warning(f'AuthGate {srciden} refers to unknown user {useriden}')
                 continue
 
             await user.setRules(userinfo.get('rules'), gateiden=gateiden, nexs=False)
-            await user.setAdmin(userinfo.get('admin'), gateiden=gateiden, logged=False)
+            # grant only, so the creator never loses admin on a new gate
+            if userinfo.get('admin'):
+                await user.setAdmin(True, gateiden=gateiden, logged=False)
 
         for roleinfo in authgate.get('roles'):
             roleiden = roleinfo.get('iden')
             if (role := self.core.auth.role(roleiden)) is None:  # pragma: no cover
-                logger.warning(f'View {self.iden} AuthGate refers to unknown role {roleiden}')
+                logger.warning(f'AuthGate {srciden} refers to unknown role {roleiden}')
                 continue
 
             await role.setRules(roleinfo.get('rules'), gateiden=gateiden, nexs=False)

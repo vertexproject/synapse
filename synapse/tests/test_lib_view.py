@@ -1002,6 +1002,27 @@ class ViewTest(s_t_utils.SynTest):
             vdef = await view03.insertParentFork(visi.iden)
             self.eq(vdef.get('name'), f'inserted fork of {piden}')
 
+            # a view which is merging may not be re-parented
+            view03.merging = True
+            with self.raises(s_exc.BadState):
+                await view03.insertParentFork(visi.iden)
+
+            view03.merging = False
+
+            # nor may one whose merge started after the request was validated
+            push = view03._push
+
+            async def mergingpush(*args):
+                view03.merging = True
+                return await push(*args)
+
+            with mock.patch.object(view03, '_push', mergingpush):
+                with self.raises(s_exc.BadState):
+                    await view03.insertParentFork(visi.iden)
+
+            view03.merging = False
+            self.eq(piden, view03.parent.parent.iden)
+
     async def test_view_insert_child_fork(self):
 
         with self.getTestDir() as dirn:
@@ -1032,17 +1053,28 @@ class ViewTest(s_t_utils.SynTest):
                 await core.nodes('auth.role.addrule ninjas node.add --gate $lib.view.get().iden')
                 rolerules = role.getRules(gateiden=view00.iden)
 
+                await core.nodes('auth.role.addrule ninjas node --gate $lib.view.get().layers.0.iden')
+                await core.nodes('auth.user.addrule visi node.tag --gate $lib.view.get().layers.0.iden')
+                layrroleiden = view00.layers[0].iden
+                layrrolerules = role.getRules(gateiden=layrroleiden)
+                layruserrules = visi.getRules(gateiden=layrroleiden)
+
                 q = 'return($lib.view.get().insertChildFork(name=staging).iden)'
 
                 # admin on the view is required, but not on its children
-                with self.raises(s_exc.AuthDeny):
+                with self.raises(s_exc.AuthDeny) as cm:
                     await core.callStorm(q, opts=asvisi)
+
+                self.none(cm.exception.get('perm'))
+                self.isin('admin', cm.exception.get('mesg'))
 
                 await core.nodes('auth.user.mod visi --admin $lib.true --gate $lib.view.get().iden')
                 userrules = visi.getRules(gateiden=view00.iden)
 
-                with self.raises(s_exc.AuthDeny):
+                with self.raises(s_exc.AuthDeny) as cm:
                     await core.callStorm(q, opts=asvisi)
+
+                self.eq('view.add', cm.exception.get('perm'))
 
                 await core.nodes('auth.user.addrule visi view.add')
 
@@ -1079,6 +1111,12 @@ class ViewTest(s_t_utils.SynTest):
                 self.eq(rolerules, role.getRules(gateiden=viewd.iden))
                 self.true(visi.isAdmin(gateiden=viewd.iden))
                 self.false(visi.isAdmin(gateiden=viewa.iden))
+
+                # the write layer gate is copied too, and the creator stays admin on it
+                self.eq(layrrolerules, role.getRules(gateiden=viewd.layers[0].iden))
+                self.eq(layruserrules, visi.getRules(gateiden=viewd.layers[0].iden))
+                self.true(visi.isAdmin(gateiden=viewd.layers[0].iden))
+                self.false(visi.isAdmin(gateiden=layrroleiden))
 
                 nodes = await viewa2.nodes('inet:fqdn=vertex.link')
                 self.nn(nodes[0].getTag('foo'))

@@ -8246,7 +8246,13 @@ class View(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the new View.', 'default': None},
                   ),
                   'returns': {'type': 'view', 'desc': 'The ``view`` object for the new View.', }}},
-        {'name': 'insertChildFork', 'desc': 'Insert a new View between this View and all of its child Views.',
+        {'name': 'insertChildFork', 'desc': '''
+            Insert a new View between this View and all of its child Views.
+
+            Only admin permissions on this View are required, and every child View is
+            re-parented, including Views owned by other users. Pending merge requests on
+            the re-parented child Views are deleted. Child Views which are currently
+            merging are left under this View.''',
          'type': {'type': 'function', '_funcname': '_methViewInsertChildFork',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the new View.', 'default': None},
@@ -8783,8 +8789,6 @@ class View(Prim):
         self.runt.reqAdmin(gateiden=viewiden)
 
         self.runt.confirm(('view', 'add'))
-        self.runt.confirm(('view', 'read'), gateiden=viewiden)
-        self.runt.confirm(('view', 'fork'), gateiden=viewiden)
 
         view = self.runt.snap.core.reqView(viewiden)
 
