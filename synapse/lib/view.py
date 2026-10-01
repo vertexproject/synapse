@@ -1458,10 +1458,7 @@ class View(s_nexus.Pusher):  # type: ignore
         Returns:
             New view definition with the same perms as the current view.
         '''
-        async for view in self.children():
-            if view.merging:
-                mesg = f'View ({view.iden}) is currently merging, cannot insert a new fork between it and parent.'
-                raise s_exc.BadState(mesg=mesg)
+        self._reqNotMerging()
 
         ctime = s_common.now()
         layriden = s_common.guid()
@@ -1501,9 +1498,12 @@ class View(s_nexus.Pusher):  # type: ignore
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
+        # a merge may have started since the request was validated
+        self._reqNotMerging()
+
         forkiden = vdef.get('iden')
 
-        kids = [view async for view in self.children() if view.iden != forkiden]
+        kids = [view async for view in self.children() if view.iden != forkiden and not view.merging]
 
         await self.core._addLayer(ldef, nexsitem)
         await self.core._addView(vdef)
@@ -1529,6 +1529,11 @@ class View(s_nexus.Pusher):  # type: ignore
         await self._copyGatePerms(forkiden)
 
         return await fork.pack()
+
+    def _reqNotMerging(self):
+        if self.merging:
+            mesg = f'View ({self.iden}) is currently merging, cannot insert a new fork between it and its children.'
+            raise s_exc.BadState(mesg=mesg)
 
     async def _copyGatePerms(self, gateiden):
         '''

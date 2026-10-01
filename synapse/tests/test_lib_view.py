@@ -1,5 +1,6 @@
 import asyncio
 import collections
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -1045,13 +1046,6 @@ class ViewTest(s_t_utils.SynTest):
 
                 await core.nodes('auth.user.addrule visi view.add')
 
-                # a child which is mid-merge may not be re-parented
-                viewb.merging = True
-                with self.raises(s_exc.BadState):
-                    await core.callStorm(q, opts=asvisi)
-
-                viewb.merging = False
-
                 newiden = await core.callStorm(q, opts=asvisi)
                 viewd = core.getView(newiden)
 
@@ -1096,6 +1090,42 @@ class ViewTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('inet:fqdn=vertex.link')
                 self.none(nodes[0].getTag('foo'))
+
+                # a child which is merging stays put, so its merge completes into its parent
+                viewa.merging = True
+                vdef = await viewd.insertChildFork(visi.iden)
+                viewa.merging = False
+
+                viewe = core.getView(vdef.get('iden'))
+                self.eq(viewd, viewe.parent)
+                self.eq(viewd, viewa.parent)
+                self.eq(viewe, viewb.parent)
+                self.len(4, viewb.layers)
+                self.len(3, viewa.layers)
+                self.len(4, viewa2.layers)
+
+                # a view which is merging may not gain a child
+                viewd.merging = True
+                with self.raises(s_exc.BadState):
+                    await viewd.insertChildFork(visi.iden)
+
+                viewd.merging = False
+
+                # nor may one whose merge started after the request was validated
+                push = viewd._push
+
+                async def mergingpush(*args):
+                    viewd.merging = True
+                    return await push(*args)
+
+                with mock.patch.object(viewd, '_push', mergingpush):
+                    with self.raises(s_exc.BadState):
+                        await viewd.insertChildFork(visi.iden)
+
+                viewd.merging = False
+
+                # the failed request left the tree untouched
+                self.sorteq([viewe.iden, viewa.iden], [v.iden async for v in viewd.children()])
 
                 # a view with no children gets a plain fork
                 vdef = await viewa2.insertChildFork(visi.iden)
