@@ -1050,6 +1050,13 @@ class ViewTest(s_t_utils.SynTest):
                 merging = 'return($lib.view.get().getMergingViews()) '
                 self.eq([viewa.iden], await core.callStorm(merging))
 
+                ninja = await core.auth.addUser('ninja')
+                await ninja.grant(role.iden)
+                await ninja.allow(('view', 'read'))
+
+                veto = 'return($lib.view.get().setMergeVote(approved=(false)))'
+                await core.callStorm(veto, opts=aopts | {'user': ninja.iden})
+
                 await core.nodes('auth.role.addrule ninjas node.add --gate $lib.view.get().iden')
                 rolerules = role.getRules(gateiden=view00.iden)
 
@@ -1103,9 +1110,14 @@ class ViewTest(s_t_utils.SynTest):
                 self.sorteq([viewd.iden, viewa.iden, viewb.iden, viewa2.iden],
                             [v.iden for v in core.viewsbylayer[viewd.layers[0].iden]])
 
-                # the pending merge request targeted the old parent
+                # the pending merge request and its votes now target the new view,
+                # which carries the quorum of the view it was inserted below
+                self.eq(view00.info.get('quorum'), viewd.info.get('quorum'))
                 self.eq([], await core.callStorm(merging))
-                self.none(viewa.getMergeRequest())
+                self.eq([viewa.iden], await core.callStorm(merging, opts={'view': newiden}))
+                self.nn(viewa.getMergeRequest())
+                self.eq([ninja.iden], [vote['user'] async for vote in viewa.getMergeVotes()])
+                self.false(await viewa.isMergeReady())
 
                 self.eq(userrules, visi.getRules(gateiden=viewd.iden))
                 self.eq(rolerules, role.getRules(gateiden=viewd.iden))

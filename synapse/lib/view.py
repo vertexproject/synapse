@@ -235,9 +235,6 @@ class View(s_nexus.Pusher):  # type: ignore
     @s_nexus.Pusher.onPush('merge:del')
     async def _delMergeRequest(self):
         self.reqParentQuorum()
-        return await self._popMergeRequest()
-
-    async def _popMergeRequest(self):
         byts = self.core.slab.pop(self.bidn + b'merge:req', db='view:meta')
 
         await self._delMergeMeta()
@@ -1495,6 +1492,11 @@ class View(s_nexus.Pusher):  # type: ignore
             'layers': [layriden] + [lyr.iden for lyr in self.layers]
         }
 
+        # the forks' pending merge requests now target the new view, so it
+        # carries this view's quorum to keep them (and their votes) valid.
+        if (quorum := self.info.get('quorum')) is not None:
+            vdef['quorum'] = s_msgpack.deepcopy(quorum, use_list=True)
+
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
@@ -1512,12 +1514,6 @@ class View(s_nexus.Pusher):  # type: ignore
         forkiden = vdef.get('iden')
 
         kids = [view async for view in self.children() if view.iden != forkiden and not view.merging]
-
-        # the forks' merge requests targeted this view. they are void either way, so
-        # remove them without the quorum checks which could fail part way through.
-        for kid in kids:
-            if kid.getMergeRequest() is not None:
-                await kid._popMergeRequest()
 
         await self.core._addLayer(ldef, nexsitem)
         await self.core._addView(vdef)

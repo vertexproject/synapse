@@ -8250,8 +8250,9 @@ class View(Prim):
             Insert a new View between this View and all of its child Views.
 
             Only admin permissions on this View are required, and every child View is
-            re-parented, including Views owned by other users. Pending merge requests on
-            the re-parented child Views are deleted. Child Views which are currently
+            re-parented, including Views owned by other users. The new View receives a
+            copy of this View's quorum, so pending merge requests on the re-parented
+            child Views now target the new View. Child Views which are currently
             merging are left under this View.''',
          'type': {'type': 'function', '_funcname': '_methViewInsertChildFork',
                   'args': (
