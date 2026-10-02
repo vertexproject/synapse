@@ -1085,6 +1085,11 @@ class ViewTest(s_t_utils.SynTest):
 
                 await core.nodes('auth.user.addrule visi view.add')
 
+                # a read-only write layer on the view holds its forks' merge requests
+                await core.callStorm('$lib.layer.get().set(readonly, (true))')
+                with self.raises(s_exc.BadState):
+                    await viewa.isMergeReady()
+
                 newiden = await core.callStorm(q, opts=asvisi)
                 viewd = core.getView(newiden)
 
@@ -1117,7 +1122,13 @@ class ViewTest(s_t_utils.SynTest):
                 self.eq([viewa.iden], await core.callStorm(merging, opts={'view': newiden}))
                 self.nn(viewa.getMergeRequest())
                 self.eq([ninja.iden], [vote['user'] async for vote in viewa.getMergeVotes()])
+
+                # the request now answers to the new view, whose write layer is not read-only
+                self.true(view00.layers[0].readonly)
+                self.false(viewd.layers[0].readonly)
                 self.false(await viewa.isMergeReady())
+
+                await core.callStorm('$lib.layer.get().set(readonly, (false))')
 
                 self.eq(userrules, visi.getRules(gateiden=viewd.iden))
                 self.eq(rolerules, role.getRules(gateiden=viewd.iden))
@@ -1186,6 +1197,30 @@ class ViewTest(s_t_utils.SynTest):
                 await viewb.setViewInfo('name', 'bview')
                 vdef = await viewb.insertChildFork(visi.iden)
                 self.eq(vdef.get('name'), 'inserted fork of bview')
+
+                # a fork owner whose node rules are scoped to the parent's write layer can
+                # still merge once a view is inserted, since the new layer gets those rules
+                raz = await core.auth.addUser('raz')
+                razopts = {'user': raz.iden, 'view': viewa2.iden}
+                await core.nodes('''
+                    auth.user.addrule raz view.add |
+                    auth.user.addrule raz view.read --gate $lib.view.get().iden |
+                    auth.user.addrule raz view.fork --gate $lib.view.get().iden |
+                    auth.user.addrule raz node --gate $lib.view.get().layers.0.iden
+                ''', opts={'view': viewa2.iden})
+
+                raziden = await core.callStorm('return($lib.view.get().fork().iden)', opts=razopts)
+                razview = core.getView(raziden)
+                await core.nodes('[ test:str=raz ]', opts={'user': raz.iden, 'view': raziden})
+
+                vdef = await viewa2.insertChildFork(visi.iden)
+                self.eq(vdef.get('iden'), razview.parent.iden)
+                self.false(raz.isAdmin(gateiden=vdef['layers'][0]['iden']))
+
+                await core.callStorm('$lib.view.get().merge()', opts={'user': raz.iden, 'view': raziden})
+
+                self.len(1, await core.nodes('test:str=raz', opts={'view': vdef.get('iden')}))
+                self.len(0, await core.nodes('test:str=raz', opts={'view': viewa2.iden}))
 
                 layridens = [lyr.iden for lyr in viewa2.layers]
 
