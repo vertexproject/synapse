@@ -1,0 +1,7 @@
+---
+desc: Fixed ``$lib.vars.del()`` not removing a variable from the parent scope when
+  called from a sub-query.
+desc:literal: false
+prs: []
+type: bug
+...

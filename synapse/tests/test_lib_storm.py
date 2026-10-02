@@ -2587,11 +2587,34 @@ class StormTest(s_t_utils.SynTest):
                 await runt.popVar('base1')
                 self.true(base1.isfini)
 
+                # popVar() from a sub-runtime delegates to the parent scope
+                base3 = await s_base.Base.anit()
+                base3._syn_refs = 0
+                await runt.setVar('base3', base3)
+                await runt.setVar('foo', 'root')
+
+                async with runt.getSubRuntime(query) as subr:
+                    self.true(await subr.popVar('base3') is base3)
+                    self.true(base3.isfini)
+                    self.notin('base3', runt.vars)
+
+                async with runt.getSubRuntime(query, opts={'vars': {'foo': 'subr'}}) as subr:
+                    self.eq('subr', await subr.popVar('foo'))
+                    self.notin('foo', subr.vars)
+                    self.eq('root', runt.getVar('foo'))
+
                 base2 = await s_base.Base.anit()
                 base2._syn_refs = 0
                 await runt.setVar('base2', base2)
 
             self.true(base2.isfini)
+
+            # deleting a parent scope var from a sub-runtime removes it
+            q = '$x = (1) storm.exec "$lib.vars.del(x)" | return($lib.vars.get(x))'
+            self.none(await core.callStorm(q))
+
+            q = '$x = (1) $y = { $lib.vars.del(x) } return($lib.vars.get(x))'
+            self.none(await core.callStorm(q))
 
     async def test_storm_dmon_user_locked(self):
         async with self.getTestCore() as core:
