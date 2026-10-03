@@ -1085,6 +1085,39 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                       {'name': 'n', 'type': 'node', 'desc': 'The inet:sevice:message node to migrate.'},
                  ),
                  'returns': {'type': 'null'}}},
+        {'name': 'inetServiceInstanceToPlatform', 'desc': '''
+            Create an inet:service:platform node from the provided inet:service:instance node.
+
+            Edits will be made in the current write layer.
+
+            The inet:service:platform node is created with the same guid as the
+            inet:service:instance node and its :parent property is set to the
+            :platform of the instance. The :owner and :app properties are stored
+            in node data under the keys 'migration:inet:service:instance:owner'
+            and 'migration:inet:service:instance:app'.
+
+            Tags, tag properties, edges, and node data will be copied
+            to the inet:service:platform node. However, existing tag properties and
+            node data will not be overwritten.
+
+            Nodes in the current view which reference the instance using a
+            :instance or :service:instance property are updated to use the
+            :platform or :service:platform property instead. If that property is
+            already set to a platform other than the new platform or the :parent,
+            the existing value is kept and the instance is stored in node data
+            under the key 'migration:<form>:<prop>'. Extended properties are only
+            updated if a matching inet:service:platform property exists.
+
+            The inet:service:instance node is not deleted and may be removed
+            once the migration has been verified.
+        ''',
+        'type': {'type': 'function', '_funcname': '_storm_query',
+                 'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The inet:service:instance node to migrate.'},
+                      {'name': 'nodata', 'type': 'boolean', 'default': False,
+                       'desc': 'Do not copy nodedata to the inet:service:platform node.'},
+                 ),
+                 'returns': {'type': 'node', 'desc': 'The inet:service:platform node.'}}},
 
     )
     _storm_lib_path = ('model', 'migration', 's')
@@ -1146,6 +1179,63 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             [ -:client:address ]
 
             return()
+        }
+
+        function inetServiceInstanceToPlatform(n, nodata=$lib.false) {
+            $form = $n.form()
+            if ($form != 'inet:service:instance') {
+                $mesg = `$lib.model.migration.s.inetServiceInstanceToPlatform() only accepts inet:service:instance nodes, not {$form}`
+                $lib.raise(BadArg, $mesg)
+            }
+
+            $iden = $n.value()
+            $parent = $n.props.platform
+
+            $plat = {[ inet:service:platform=$iden ]}
+
+            if ($parent != $lib.null) { $plat.props.set(parent, $parent) }
+
+            for $name in (id, url, name, desc, period, status, creator, tenant, ".seen") {
+                $valu = $n.props.$name
+                if ($valu != $lib.null) { $plat.props.set($name, $valu) }
+            }
+
+            for $name in (owner, app) {
+                $valu = $n.props.$name
+                if ($valu != $lib.null) { $plat.data.set(`migration:inet:service:instance:{$name}`, $valu) }
+            }
+
+            $lib.model.migration.copyTags($n, $plat, overwrite=$lib.false)
+            $lib.model.migration.copyEdges($n, $plat)
+            if (not $nodata) {
+                $lib.model.migration.copyData($n, $plat, overwrite=$lib.false)
+            }
+
+            yield $n <- *
+
+            $refform = $node.form()
+            for ($name, $valu) in $node.props {
+                if ($valu != $iden) { continue }
+
+                if ($lib.model.prop(`{$refform}:{$name}`).type.name != 'inet:service:instance') { continue }
+
+                $pname = $lib.regex.replace('instance$', 'platform', $name)
+                $pprop = $lib.model.prop(`{$refform}:{$pname}`)
+                if ($pprop = $lib.null or $pprop.type.name != 'inet:service:platform') { continue }
+
+                $curv = $node.props.$pname
+                if ($curv = $lib.null or $curv = $parent or $curv = $iden) {
+                    $node.props.set($pname, $iden)
+                } else {
+                    $node.data.set(`migration:{$refform}:{$name}`, $valu)
+                }
+
+                $node.props.set($name, $lib.undef)
+            }
+
+            | spin |
+
+            return($plat)
         }
     '''
 
