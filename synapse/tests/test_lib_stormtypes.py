@@ -3354,6 +3354,7 @@ class StormTypesTest(s_test.SynTest):
                 ('$lib.math.number(inf)', 'Infinity'),
                 ('$lib.math.number(nan)', 'NaN'),
                 ("'1e308'", '1e308'),
+                (f"$lib.json.load('1{'0' * 400}')", '1000'),
             )
             for text, valu in badvals:
                 with self.raises(s_exc.BadArg) as cm:
@@ -6627,8 +6628,9 @@ class StormTypesTest(s_test.SynTest):
         self.eq(20.1, await s_stormtypes.tofloat(numb))
         self.eq(1.5, await s_stormtypes.tofloat(s_stormtypes.Str('1.5')))
         self.eq(1.5, await s_stormtypes.tofloat(s_stormtypes.Bytes(b'1.5')))
+        self.eq(float('inf'), await s_stormtypes.tofloat(10 ** 400))
 
-        for valu in ('newp', None, []):
+        for valu in ('newp', None, [], b'\xff'):
             with self.raises(s_exc.BadCast) as cm:
                 await s_stormtypes.tofloat(valu)
             self.isin('Failed to make a float from', cm.exception.get('mesg'))
