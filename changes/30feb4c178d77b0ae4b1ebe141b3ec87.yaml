@@ -1,0 +1,7 @@
+---
+desc: Added ``$view.insertChildFork()`` Storm API to insert a new View between a View
+  and all of its child Views.
+desc:literal: false
+prs: []
+type: feat
+...
