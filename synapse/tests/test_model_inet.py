@@ -3152,12 +3152,20 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:service:tenant:id=VS-31337 -> inet:service:platform:tenant'))
 
             self.true(core.model.form('inet:service:instance').deprecated)
-            for propname in ('inet:service:account:instance', 'inet:service:login:instance', 'inet:service:message:instance',
-                             'risk:alert:service:instance', 'it:log:event:service:instance', 'it:exec:query:service:instance'):
+            for propname in ('inet:service:account:instance',
+                             'inet:service:login:instance',
+                             'inet:service:message:instance',
+                             'risk:alert:service:instance',
+                             'it:log:event:service:instance',
+                             'it:exec:query:service:instance'):
                 prop = core.model.prop(propname)
                 self.true(prop.deprecated)
-                self.eq('Deprecated. Please use :platform.' if propname.startswith('inet:') else 'Deprecated. Please use :service:platform.',
-                        prop.info.get('doc'))
+
+                doc = 'Deprecated. Please use :service:platform.'
+                if propname.startswith('inet:'):
+                    doc = 'Deprecated. Please use :platform.'
+
+                self.eq(doc, prop.info.get('doc'))
 
             nodes = await core.nodes('[ inet:service:platform=({"name": "slack chat"}) ]')
             self.eq(nodes[0].ndef, platform.ndef)

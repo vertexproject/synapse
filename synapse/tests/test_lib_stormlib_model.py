@@ -785,7 +785,8 @@ class StormlibModelTest(s_test.SynTest):
                 | spin |
 
                 [
-                    (inet:service:account=(acct,) :instance=(vtx,) :platform=(slack,) :id=24156b84d7dcb4517c5b5444f00cd25e)
+                    (inet:service:account=(acct,) :instance=(vtx,) :platform=(slack,)
+                        :id=24156b84d7dcb4517c5b5444f00cd25e)
                     (inet:service:message=(mesg,) :instance=(vtx,))
                     (inet:service:login=(login,) :instance=(vtx,) :platform=(other,))
                     (risk:alert=(alert,) :service:instance=(vtx,) :service:platform=(slack,)
