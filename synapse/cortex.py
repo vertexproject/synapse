@@ -1236,23 +1236,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 subkv.set(iden, ddef)
         logger.warning('...storm dmon ddef migration complete!')
 
-    def _backfillCreated(self, subkv):
-        for iden, info in subkv.items():
-            if info.get('created') is None:
-                info['created'] = 0
-                subkv.set(iden, info)
-
     async def _storBackfillCreated(self):
         logger.warning('backfilling created on views, layers, cron jobs, and triggers')
 
-        self._backfillCreated(self.cortexdata.getSubKeyVal('layer:info:'))
-        self._backfillCreated(self.cortexdata.getSubKeyVal('agenda:appt:'))
+        def backfill(subkv):
+            for iden, info in subkv.items():
+                if info.get('created') is None:
+                    info['created'] = 0
+                    subkv.set(iden, info)
+
+        backfill(self.cortexdata.getSubKeyVal('layer:info:'))
+        backfill(self.cortexdata.getSubKeyVal('agenda:appt:'))
 
         viewdefs = self.cortexdata.getSubKeyVal('view:info:')
-        self._backfillCreated(viewdefs)
+        backfill(viewdefs)
 
         for iden in list(viewdefs.keys()):
-            self._backfillCreated(self.cortexdata.getSubKeyVal(f'view:{iden}:trigger:'))
+            backfill(self.cortexdata.getSubKeyVal(f'view:{iden}:trigger:'))
 
         logger.warning('...created backfill complete!')
 
