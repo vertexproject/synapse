@@ -1,6 +1,7 @@
 import bz2
 import copy
 import gzip
+import math
 import time
 import regex
 import types
@@ -3471,8 +3472,17 @@ class LibTime(Lib):
                 break
 
     async def _fromunix(self, secs):
-        secs = float(secs)
-        return int(secs * 1000)
+
+        try:
+            valu = await tofloat(secs) * 1000
+        except s_exc.BadCast:
+            valu = None
+
+        if valu is None or not math.isfinite(valu):
+            mesg = f'Invalid unix epoch time: {s_common.trimText(await torepr(secs))}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return int(valu)
 
 @registry.registerLib
 class LibRegx(Lib):
@@ -10618,6 +10628,22 @@ async def toint(valu, noneok=False):
         return int(valu)
     except Exception as e:
         mesg = f'Failed to make an integer from {s_common.trimText(repr(valu))}.'
+        raise s_exc.BadCast(mesg=mesg) from e
+
+async def tofloat(valu, noneok=False):
+
+    if noneok and valu is None:
+        return None
+
+    try:
+        return float(valu)
+    except (TypeError, ValueError, OverflowError):
+        pass
+
+    try:
+        return float(await tostr(valu))
+    except (s_exc.BadCast, ValueError) as e:
+        mesg = f'Failed to make a float from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toiter(valu, noneok=False):
