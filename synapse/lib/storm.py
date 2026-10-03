@@ -1692,8 +1692,8 @@ class Runtime(s_base.Base):
 
     async def popVar(self, name):
 
-        if self._isRootScope(name):
-            return self.root.popVar(name)
+        if name not in self.vars and self._isRootScope(name):
+            return await self.root.popVar(name)
 
         oldv = self.vars.pop(name, s_common.novalu)
         if isinstance(oldv, s_base.Base):

@@ -1,0 +1,7 @@
+---
+desc: Added enumeration labels for common values to ``it:reveng:filefunc:complexity``.
+  Arbitrary integer values are still accepted.
+desc:literal: false
+prs: []
+type: model
+...
