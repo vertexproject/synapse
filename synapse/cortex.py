@@ -1054,6 +1054,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (5, self._storCleanQueueAuthGates),
             (6, self._storCleanCronAuthGates),
             (7, self._storMigrDmonDdefView),
+            (8, self._storBackfillCreated),
         ), nexs=False)
 
         # Perform module loading
@@ -1234,6 +1235,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     ddef.pop(k)
                 subkv.set(iden, ddef)
         logger.warning('...storm dmon ddef migration complete!')
+
+    def _backfillCreated(self, subkv):
+        for iden, info in subkv.items():
+            if info.get('created') is None:
+                info['created'] = 0
+                subkv.set(iden, info)
+
+    async def _storBackfillCreated(self):
+        logger.warning('backfilling created on views, layers, cron jobs, and triggers')
+
+        self._backfillCreated(self.cortexdata.getSubKeyVal('layer:info:'))
+        self._backfillCreated(self.cortexdata.getSubKeyVal('agenda:appt:'))
+
+        viewdefs = self.cortexdata.getSubKeyVal('view:info:')
+        self._backfillCreated(viewdefs)
+
+        for iden in list(viewdefs.keys()):
+            self._backfillCreated(self.cortexdata.getSubKeyVal(f'view:{iden}:trigger:'))
+
+        logger.warning('...created backfill complete!')
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
