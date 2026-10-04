@@ -1,0 +1,7 @@
+---
+desc: Fixed ``cron.mod`` re-enabling a disabled cron job when its query or period
+  was modified.
+desc:literal: false
+prs: []
+type: bug
+...

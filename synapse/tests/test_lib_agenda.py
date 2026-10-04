@@ -316,6 +316,22 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.mod(guid2, {'query': '#baz'})
                 self.eq(agenda.appts[guid2].query, '#baz')
 
+                # Modifying a disabled appointment does not re-enable it
+                appt = agenda.appts[guid2]
+                await agenda.disable(guid2)
+                await agenda.mod(guid2, {'query': '#faz'})
+                self.eq(appt.query, '#faz')
+                self.false(appt.enabled)
+
+                self.true(agenda.apptheap[0] is appt)
+                agenda._wake_event.clear()
+                await agenda.enable(guid2)
+                self.true(appt.enabled)
+                self.true(agenda._wake_event.is_set())
+
+                with self.raises(s_exc.NoSuchIden):
+                    await agenda.enable('newp')
+
                 # Delete the other recurring appointment
                 await agenda.delete(guid2)
 
@@ -1448,6 +1464,16 @@ class AgendaTest(s_t_utils.SynTest):
             appt = agenda.appts[guid]
             self.eq(appt.recs[0].reqdict[s_tu.HOUR], 12)
             self.eq(appt.recs[0].reqdict[s_tu.MINUTE], 0)
+
+            # modifying a disabled cron job does not re-enable it
+            await core.disableCronJob(guid)
+            await core.updateCronJob(guid, '#disabled', reqs={'hour': 13, 'minute': 0}, incunit='day', incvals=1)
+            self.false(appt.enabled)
+            self.eq(appt.query, '#disabled')
+            self.eq(appt.recs[0].reqdict[s_tu.HOUR], 13)
+
+            await core.enableCronJob(guid)
+            self.true(appt.enabled)
 
             # modify without a cdef is a no-op
             self.none(await core.updateCronJob(guid))
