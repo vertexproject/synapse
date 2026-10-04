@@ -1588,7 +1588,7 @@ Managing HTTP APIs
 ++++++++++++++++++
 
 When creating an Extended HTTP API, the request path must be provided. This path component is matched against any
-path components after ``/api/etx/*`` when determing which API endpoint will service the request. The API endpoints are
+path components after ``/api/ext/*`` when determining which API endpoint will service the request. The API endpoints are
 matched in order, comparing their ``path`` against the requested path using a case sensitive fullmatch_ regular
 expression comparison. Newly created API endpoints are added to the end of the list for matching. It is best for
 these endpoints to be ordered from most specific to least specific.
