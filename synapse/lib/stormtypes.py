@@ -8256,6 +8256,19 @@ class View(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the new View.', 'default': None},
                   ),
                   'returns': {'type': 'view', 'desc': 'The ``view`` object for the new View.', }}},
+        {'name': 'insertChildFork', 'desc': '''
+            Insert a new View between this View and all of its child Views.
+
+            Only admin permissions on this View are required, and every child View is
+            re-parented, including Views owned by other users. The new View receives a
+            copy of this View's quorum, so pending merge requests on the re-parented
+            child Views now target the new View. Child Views which are currently
+            merging are left under this View.''',
+         'type': {'type': 'function', '_funcname': '_methViewInsertChildFork',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the new View.', 'default': None},
+                  ),
+                  'returns': {'type': 'view', 'desc': 'The ``view`` object for the new View.', }}},
         {'name': 'pack', 'desc': 'Get the View definition.',
          'type': {'type': 'function', '_funcname': '_methViewPack',
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the View definition.', }}},
@@ -8487,6 +8500,7 @@ class View(Prim):
 
             'fork': self._methViewFork,
             'insertParentFork': self._methViewInsertParentFork,
+            'insertChildFork': self._methViewInsertChildFork,
 
             'getMerges': self.getMerges,
             'delMergeVote': self.delMergeVote,
@@ -8774,6 +8788,22 @@ class View(Prim):
         self.runt.confirm(('view', 'fork'), gateiden=view.parent.iden)
 
         newv = await view.insertParentFork(useriden, name=name)
+
+        return View(self.runt, newv, path=self.path)
+
+    async def _methViewInsertChildFork(self, name=None):
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+
+        name = await tostr(name, noneok=True)
+
+        self.runt.reqAdmin(gateiden=viewiden)
+
+        self.runt.confirm(('view', 'add'))
+
+        view = self.runt.snap.core.reqView(viewiden)
+
+        newv = await view.insertChildFork(useriden, name=name)
 
         return View(self.runt, newv, path=self.path)
 
