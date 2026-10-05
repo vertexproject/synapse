@@ -892,6 +892,15 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def getDiagInfo(self):
+        '''
+        Get diagnostic information about the Cell.
+
+        Returns:
+            dict: A dictionary with a ``slabs`` list containing a dict for each open LMDB slab. Each slab
+            dict includes the ``path``, map size settings, and a ``commitstats`` list of up to 1000
+            ``(starttime, xactopslen, delta)`` tuples for recent commits, oldest first. Times are in
+            milliseconds.
+        '''
         return {
             'slabs': await s_lmdbslab.Slab.getSlabStats(),
         }
