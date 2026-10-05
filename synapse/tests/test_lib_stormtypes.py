@@ -6628,9 +6628,8 @@ class StormTypesTest(s_test.SynTest):
         self.eq(20.1, await s_stormtypes.tofloat(numb))
         self.eq(1.5, await s_stormtypes.tofloat(s_stormtypes.Str('1.5')))
         self.eq(1.5, await s_stormtypes.tofloat(s_stormtypes.Bytes(b'1.5')))
-        self.eq(float('inf'), await s_stormtypes.tofloat(10 ** 400))
 
-        for valu in ('newp', None, [], b'\xff'):
+        for valu in ('newp', None, [], b'\xff', 10 ** 400, -10 ** 400):
             with self.raises(s_exc.BadCast) as cm:
                 await s_stormtypes.tofloat(valu)
             self.isin('Failed to make a float from', cm.exception.get('mesg'))
