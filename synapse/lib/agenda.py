@@ -681,11 +681,10 @@ class Agenda(s_base.Base):
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
+        await self.core.getStormQuery(appt.query)
+
         appt.enabled = True
         await appt.save()
-
-        if appt.nexttime and self.apptheap and self.apptheap[0] is appt:
-            self._wake_event.set()
 
     async def disable(self, iden):
         appt = self.appts.get(iden)

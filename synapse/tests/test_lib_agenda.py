@@ -323,11 +323,15 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appt.query, '#faz')
                 self.false(appt.enabled)
 
-                self.true(agenda.apptheap[0] is appt)
-                agenda._wake_event.clear()
+                # Enabling an appointment with an unparsable query fails and leaves it disabled
+                appt.query = '|||'
+                with self.raises(s_exc.BadSyntax):
+                    await agenda.enable(guid2)
+                self.false(appt.enabled)
+
+                appt.query = '#faz'
                 await agenda.enable(guid2)
                 self.true(appt.enabled)
-                self.true(agenda._wake_event.is_set())
 
                 with self.raises(s_exc.NoSuchIden):
                     await agenda.enable('newp')
