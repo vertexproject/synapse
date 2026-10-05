@@ -3335,6 +3335,36 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(20000, nodes[0].get('dob'))
 
+            self.eq(20000, await core.callStorm('return($lib.time.fromunix(20))'))
+            self.eq(1500, await core.callStorm("return($lib.time.fromunix('1.5'))"))
+            self.eq(1500, await core.callStorm('return($lib.time.fromunix((1.5)))'))
+            self.eq(10000, await core.callStorm("return($lib.time.fromunix('1e1'))"))
+
+            badvals = (
+                ("'newp'", 'newp'),
+                ('(null)', '$lib.null'),
+                ('([])', '[]'),
+                ("'inf'", 'inf'),
+                ("'-inf'", '-inf'),
+                ("'nan'", 'nan'),
+                ("$lib.json.load('Infinity')", 'inf'),
+                ("$lib.json.load('-Infinity')", '-inf'),
+                ("$lib.json.load('NaN')", 'nan'),
+                ("$lib.json.load('1e400')", 'inf'),
+                ('$lib.math.number(inf)', 'Infinity'),
+                ('$lib.math.number(nan)', 'NaN'),
+                ("'1e308'", '1e308'),
+                (f"$lib.json.load('1{'0' * 400}')", '1000'),
+            )
+            for text, valu in badvals:
+                with self.raises(s_exc.BadArg) as cm:
+                    await core.callStorm(f'return($lib.time.fromunix({text}))')
+                self.isin('Invalid unix epoch time', cm.exception.get('mesg'))
+                self.isin(valu, cm.exception.get('mesg'))
+
+            q = 'try { $lib.time.fromunix(newp) } catch BadArg as err { return($err.mesg) }'
+            self.eq("Invalid unix epoch time: 'newp'", await core.callStorm(q))
+
             query = '''$valu="10/1/2017 2:52"
             $parsed=$lib.time.parse($valu, "%m/%d/%Y %H:%M")
             [test:int=$parsed]
@@ -6041,6 +6071,30 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
                     self.stormIsInPrint('enabled:         N', mesgs)
 
+                    # Modifying a disabled cron job does not re-enable it
+                    mesgs = await core.stormlist(f'cron.mod {guid[:6]} {{$lib.queue.get(foo).put(at3mod)}}')
+                    self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
+
+                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
+                    self.stormIsInPrint('enabled:         N', mesgs)
+                    self.stormIsInPrint('query:           $lib.queue.get(foo).put(at3mod)', mesgs)
+
+                    q = 'return($lib.cron.add(query="$lib.queue.get(foo).put(hourly)", hourly=30).iden)'
+                    recur = await core.callStorm(q)
+
+                    mesgs = await core.stormlist(f'cron.disable {recur}')
+                    self.stormIsInPrint(f'Disabled cron job: {recur}', mesgs)
+
+                    mesgs = await core.stormlist(f'cron.mod {recur} --period hourly@:25')
+                    self.stormIsInPrint(f'Modified cron job: {recur}', mesgs)
+
+                    mesgs = await core.stormlist(f'cron.stat {recur}')
+                    self.stormIsInPrint('enabled:         N', mesgs)
+                    self.stormIsInPrint("{'minute': 25}", mesgs)
+
+                    mesgs = await core.stormlist(f'cron.del {recur}')
+                    self.stormIsInPrint(f'Deleted cron job: {recur}', mesgs)
+
                     mesgs = await core.stormlist(f'cron.enable {guid[:6]}')
                     self.stormIsInPrint(f'Enabled cron job: {guid}', mesgs)
 
@@ -6590,6 +6644,19 @@ class StormTypesTest(s_test.SynTest):
         self.none(await s_stormtypes.toint(None, noneok=True))
         self.none(await s_stormtypes.tobool(None, noneok=True))
         self.none(await s_stormtypes.tonumber(None, noneok=True))
+        self.none(await s_stormtypes.tofloat(None, noneok=True))
+
+        self.eq(20.0, await s_stormtypes.tofloat(20))
+        self.eq(20.1, await s_stormtypes.tofloat(20.1))
+        self.eq(20.1, await s_stormtypes.tofloat('20.1'))
+        self.eq(20.1, await s_stormtypes.tofloat(numb))
+        self.eq(1.5, await s_stormtypes.tofloat(s_stormtypes.Str('1.5')))
+        self.eq(1.5, await s_stormtypes.tofloat(s_stormtypes.Bytes(b'1.5')))
+
+        for valu in ('newp', None, [], b'\xff', 10 ** 400, -10 ** 400):
+            with self.raises(s_exc.BadCast) as cm:
+                await s_stormtypes.tofloat(valu)
+            self.isin('Failed to make a float from', cm.exception.get('mesg'))
 
     async def test_stormtypes_layer_edits(self):
 

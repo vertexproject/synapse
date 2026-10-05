@@ -1,0 +1,7 @@
+---
+desc: Fixed the Extended HTTP API path in the devops guide; it is ``/api/ext/*``,
+  not ``/api/etx/*``.
+desc:literal: false
+prs: []
+type: doc
+...
