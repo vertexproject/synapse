@@ -844,7 +844,7 @@ class Slab(s_base.Base):
                 'maxsize': slab.maxsize,
                 'growsize': slab.growsize,
                 'mapasync': True,
-
+                'commitstats': list(slab.commitstats),
             })
         return retn
 
