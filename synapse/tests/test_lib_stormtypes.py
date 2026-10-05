@@ -6071,6 +6071,30 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
                     self.stormIsInPrint('enabled:         N', mesgs)
 
+                    # Modifying a disabled cron job does not re-enable it
+                    mesgs = await core.stormlist(f'cron.mod {guid[:6]} {{$lib.queue.get(foo).put(at3mod)}}')
+                    self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
+
+                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
+                    self.stormIsInPrint('enabled:         N', mesgs)
+                    self.stormIsInPrint('query:           $lib.queue.get(foo).put(at3mod)', mesgs)
+
+                    q = 'return($lib.cron.add(query="$lib.queue.get(foo).put(hourly)", hourly=30).iden)'
+                    recur = await core.callStorm(q)
+
+                    mesgs = await core.stormlist(f'cron.disable {recur}')
+                    self.stormIsInPrint(f'Disabled cron job: {recur}', mesgs)
+
+                    mesgs = await core.stormlist(f'cron.mod {recur} --period hourly@:25')
+                    self.stormIsInPrint(f'Modified cron job: {recur}', mesgs)
+
+                    mesgs = await core.stormlist(f'cron.stat {recur}')
+                    self.stormIsInPrint('enabled:         N', mesgs)
+                    self.stormIsInPrint("{'minute': 25}", mesgs)
+
+                    mesgs = await core.stormlist(f'cron.del {recur}')
+                    self.stormIsInPrint(f'Deleted cron job: {recur}', mesgs)
+
                     mesgs = await core.stormlist(f'cron.enable {guid[:6]}')
                     self.stormIsInPrint(f'Enabled cron job: {guid}', mesgs)
 
