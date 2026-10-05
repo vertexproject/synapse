@@ -1,6 +1,7 @@
 import os
 import http
 import asyncio
+import collections
 
 from unittest import mock
 
@@ -1562,8 +1563,9 @@ class AhaTest(s_test.SynTest):
 
             # test active AHA peer
             todo = s_common.todo('getCellInfo')
-            items = dict([item async for item in aha0.callAhaPeerApi(cell00.iden, todo, timeout=3)])
-            self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+            items = [item async for item in aha0.callAhaPeerApi(cell00.iden, todo, timeout=3)]
+            self.len(2, items)
+            self.sorteq([item[0] for item in items], ('00.cell.synapse', '01.cell.synapse'))
 
             todo = s_common.todo('getNexusChanges', 0, wait=False)
             items = dict([item async for item in aha0.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
@@ -1585,9 +1587,13 @@ class AhaTest(s_test.SynTest):
 
                 # test non-active AHA peer
                 todo = s_common.todo('getCellInfo')
-                items = dict([item async for item in aha1.callAhaPeerApi(cell00.iden, todo, timeout=3)])
-                self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+                items = [item async for item in aha1.callAhaPeerApi(cell00.iden, todo, timeout=3)]
+                self.len(2, items)
+                self.sorteq([item[0] for item in items], ('00.cell.synapse', '01.cell.synapse'))
 
+                # the follower forwards to the leader and must not also fan out locally
                 todo = s_common.todo('getNexusChanges', 0, wait=False)
-                items = dict([item async for item in aha1.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
-                self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+                counts0 = collections.Counter([n async for n, i in aha0.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
+                counts1 = collections.Counter([n async for n, i in aha1.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
+                self.sorteq(counts1.keys(), ('00.cell.synapse', '01.cell.synapse'))
+                self.eq(counts0, counts1)
