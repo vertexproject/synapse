@@ -6348,6 +6348,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                 user = await core.auth.getUserByName('user')
                 asuser = {'user': user.iden}
 
+                ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(bar)}))')
+                stopped = ddef.get('iden')
+                ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(baz)}))')
+                running = ddef.get('iden')
+                self.true(await core.callStorm('return($lib.dmon.stop($iden))', opts={'vars': {'iden': stopped}}))
+
+                # a ddef persisted without an enabled key loads as enabled
+                ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(faz)}))')
+                legacy = ddef.get('iden')
+                ddef = core.stormdmondefs.get(legacy)
+                ddef.pop('enabled')
+                core.stormdmondefs.set(legacy, ddef)
+
                 ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(foo)}))')
                 iden = ddef.get('iden')
                 asuser['vars'] = {'iden': iden}
@@ -6366,6 +6379,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # although the dmon would get successfully started
                 self.nn(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
                 self.nn(core.stormdmondefs.get(iden))
+
+                dmon = core.stormdmons.getDmon(stopped)
+                self.false(dmon.enabled)
+                self.none(dmon.task)
+                self.nn(core.stormdmons.getDmon(running).task)
+
+                dmon = core.stormdmons.getDmon(legacy)
+                self.true(dmon.enabled)
+                self.nn(dmon.task)
+                self.notin('enabled', core.stormdmondefs.get(legacy))
+
+                task = dmon.task
+                self.true(await core.bumpStormDmon(legacy))
+                self.nn(dmon.task)
+                self.ne(task, dmon.task)
 
     async def test_cortex_storm_dmon_view(self):
 

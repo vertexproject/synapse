@@ -6017,7 +6017,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('storm:dmon:bump')
     async def bumpStormDmon(self, iden):
         ddef = self.stormdmondefs.get(iden)
-        if ddef is None:
+        if ddef is None or not ddef.get('enabled', True):
             return False
 
         if self.isactive:

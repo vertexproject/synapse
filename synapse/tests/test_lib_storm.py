@@ -1255,6 +1255,15 @@ class StormTest(s_t_utils.SynTest):
             self.none(core.stormdmons.getDmon(ddef0['iden']).task)
             self.false(await core.callStorm('return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
             self.false(await core.callStorm('return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.eq('stopped', await core.callStorm('return($lib.dmon.get($iden).status)', opts={'vars': {'iden': ddef0['iden']}}))
+
+            self.false(await core.callStorm('return($lib.dmon.bump($iden))', opts={'vars': {'iden': ddef0['iden']}}))
+            self.none(core.stormdmons.getDmon(ddef0['iden']).task)
+            self.false(await core.callStorm('return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
+
+            async with core.getLocalProxy() as proxy:
+                self.false(await proxy.bumpStormDmon(ddef0['iden']))
+                self.none(core.stormdmons.getDmon(ddef0['iden']).task)
 
             self.true(await core.callStorm('return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.nn(core.stormdmons.getDmon(ddef0['iden']).task)
@@ -2631,6 +2640,25 @@ class StormTest(s_t_utils.SynTest):
                 self.true(await core.callStorm(q, opts={'vars': {'iden': ddef0['iden']}}))
                 await stream.expect('user is locked', timeout=2)
 
+            opts = {'vars': {'iden': ddef0['iden']}}
+            self.true(await core.callStorm('return($lib.dmon.stop($iden))', opts=opts))
+
+            await core.setUserLocked(visi.iden, False)
+            await core.setUserLocked(visi.iden, True)
+            await core.setUserLocked(visi.iden, False)
+
+            dmon = core.stormdmons.getDmon(ddef0['iden'])
+            self.none(dmon.task)
+            self.false(dmon.enabled)
+            self.eq('stopped', dmon.status)
+            self.false(await core.callStorm('return($lib.dmon.get($iden).enabled)', opts=opts))
+            self.false(await core.callStorm('return($lib.dmon.stop($iden))', opts=opts))
+
+            self.true(await core.callStorm('return($lib.dmon.start($iden))', opts=opts))
+            self.nn(dmon.task)
+            self.true(await core.callStorm('return($lib.dmon.stop($iden))', opts=opts))
+            self.none(dmon.task)
+
     async def test_storm_dmon_user_autobump(self):
         async with self.getTestCore() as core:
             visi = await core.auth.addUser('visi')
@@ -2651,6 +2679,13 @@ class StormTest(s_t_utils.SynTest):
 
                     await core.setUserLocked(visi.iden, False)
                     await stream.expect('Dmon query exited', timeout=2)
+
+                    dmon = list(core.stormdmons.dmons.values())[0]
+                    self.eq('sleeping', dmon.status)
+
+                    self.true(await core.disableStormDmon(dmon.iden))
+                    self.none(dmon.task)
+                    self.eq('stopped', dmon.status)
 
     async def test_storm_dmon_caching(self):
 

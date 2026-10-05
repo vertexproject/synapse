@@ -1,0 +1,8 @@
+---
+desc: Fixed an issue which caused ``$lib.dmon.bump()``, locking or unlocking a user,
+  or restarting the Cortex to restart a stopped Storm dmon, which ``$lib.dmon.stop()``
+  could then no longer stop.
+desc:literal: false
+prs: []
+type: bug
+...

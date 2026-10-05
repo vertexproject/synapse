@@ -773,7 +773,7 @@ class LibDmon(Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to restart.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': 'True if the Dmon is restarted; False if the iden does not exist.'}}},
+                              'desc': 'True if the Dmon is restarted; False if the iden does not exist or the Dmon is disabled.'}}},
         {'name': 'stop', 'desc': 'Stop a Storm Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStop',
                   'args': (
@@ -880,8 +880,7 @@ class LibDmon(Lib):
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        await self.runt.snap.core.bumpStormDmon(iden)
-        return True
+        return await self.runt.snap.core.bumpStormDmon(iden)
 
     async def _libDmonStop(self, iden):
         iden = await tostr(iden)
