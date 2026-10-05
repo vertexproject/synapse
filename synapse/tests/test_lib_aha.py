@@ -1,7 +1,6 @@
 import os
 import http
 import asyncio
-import collections
 
 from unittest import mock
 
@@ -1593,7 +1592,7 @@ class AhaTest(s_test.SynTest):
 
                 # the follower forwards to the leader and must not also fan out locally
                 todo = s_common.todo('getNexusChanges', 0, wait=False)
-                counts0 = collections.Counter([n async for n, i in aha0.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
-                counts1 = collections.Counter([n async for n, i in aha1.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
-                self.sorteq(counts1.keys(), ('00.cell.synapse', '01.cell.synapse'))
-                self.eq(counts0, counts1)
+                names0 = [n async for n, i in aha0.callAhaPeerGenr(cell00.iden, todo, timeout=3)]
+                names1 = [n async for n, i in aha1.callAhaPeerGenr(cell00.iden, todo, timeout=3)]
+                self.sorteq(set(names1), ('00.cell.synapse', '01.cell.synapse'))
+                self.sorteq(names0, names1)
