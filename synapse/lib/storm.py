@@ -169,7 +169,7 @@ Modify an existing cron job's query or period.
 
 Notes:
     All times are interpreted as UTC.
-    Modifying a disabled cron job re-enables it.
+    Modifying a disabled cron job does not re-enable it. Use cron.enable to re-enable it.
 
     The --period argument uses the same syntax as cron.add:
         <periodicity>[/<value>...][@<time>]

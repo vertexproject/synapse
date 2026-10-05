@@ -1,0 +1,7 @@
+---
+desc: Fixed ``cron.mod`` re-enabling a disabled cron job when its query or period
+  was modified. Use ``cron.enable`` to re-enable a disabled cron job.
+desc:literal: false
+prs: []
+type: bug
+...
