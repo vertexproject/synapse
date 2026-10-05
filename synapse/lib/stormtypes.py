@@ -10667,7 +10667,10 @@ async def tofloat(valu, noneok=False):
 
     try:
         return float(valu)
-    except (TypeError, ValueError, OverflowError):
+    except OverflowError as e:
+        mesg = f'Failed to make a float from {s_common.trimText(repr(valu))}.'
+        raise s_exc.BadCast(mesg=mesg) from e
+    except (TypeError, ValueError):
         pass
 
     try:
