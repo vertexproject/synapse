@@ -1094,7 +1094,8 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             inet:service:instance node and its :parent property is set to the
             :platform of the instance. The :owner and :app properties are stored
             in node data under the keys 'migration:inet:service:instance:owner'
-            and 'migration:inet:service:instance:app'.
+            and 'migration:inet:service:instance:app'. Extended properties on the
+            inet:service:instance node are not copied to the inet:service:platform node.
 
             Tags, tag properties, edges, and node data will be copied
             to the inet:service:platform node. However, existing tag properties and
