@@ -1099,6 +1099,9 @@ class StormLibAuthTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}}))
             self.none(await core.callStorm('return($lib.auth.roles.get($iden))', opts={'vars': {'iden': 'newp'}}))
+            self.none(await core.callStorm('return($lib.auth.roles.get((null)))'))
+            self.none(await core.callStorm('return($lib.auth.users.get((1)))'))
+            self.none(await core.callStorm('return($lib.auth.roles.get((1)))'))
             self.none(await core.callStorm('return($lib.auth.users.byname(newp))'))
             self.none(await core.callStorm('return($lib.auth.roles.byname(newp))'))
 

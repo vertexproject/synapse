@@ -204,6 +204,10 @@ class SafeKeyVal:
 
     def reqValidName(self, name):
 
+        if not isinstance(name, str):
+            mesg = f'SafeKeyVal key names must be strings, got {type(name).__name__}.'
+            raise s_exc.BadArg(mesg=mesg, name=s_common.trimText(repr(name)))
+
         _name = name.encode('utf-8')
 
         if self._prefix:
