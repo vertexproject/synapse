@@ -775,6 +775,7 @@ class AhaCell(s_cell.Cell):
             proxy = await self.nexsroot.client.proxy(timeout=timeout)
             async for item in proxy.callAhaPeerApi(iden, todo, timeout=timeout, skiprun=skiprun):
                 yield item
+            return
 
         queue = asyncio.Queue()
         async with await s_base.Base.anit() as base:
@@ -797,6 +798,7 @@ class AhaCell(s_cell.Cell):
             proxy = await self.nexsroot.client.proxy(timeout=timeout)
             async for item in proxy.callAhaPeerGenr(iden, todo, timeout=timeout, skiprun=skiprun):
                 yield item
+            return
 
         queue = asyncio.Queue()
         async with await s_base.Base.anit() as base:
