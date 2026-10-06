@@ -2008,6 +2008,7 @@ class LibUsers(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methUsersGet(self, iden=None):
+        iden = await s_stormtypes.tostr(iden, noneok=True)
         if iden is None:
             iden = self.runt.user.iden
 
@@ -2103,6 +2104,10 @@ class LibRoles(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methRolesGet(self, iden):
+        iden = await s_stormtypes.tostr(iden, noneok=True)
+        if iden is None:
+            return None
+
         if self.runt.snap.core.hasRoleIden(iden):
             return Role(self.runt, iden)
 
