@@ -1,0 +1,7 @@
+---
+desc: Added the recent commit history of each LMDB slab to the ``getDiagInfo()`` API
+  response.
+desc:literal: false
+prs: []
+type: feat
+...

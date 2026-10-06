@@ -997,6 +997,26 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(slab['readahead'])
                 self.nn(slab['lockmemory'])
                 self.nn(slab['recovering'])
+                self.nn(slab['commitstats'])
+
+            path = s_common.genpath(core.dirn, 'slabs', 'diagtest.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as testslab:
+                db = testslab.initdb('test')
+                testslab.forcecommit()
+
+                for i in range(5):
+                    testslab.put(s_common.int64en(i), b'asdf', db=db)
+
+                testslab.forcecommit()
+
+                async with core.getLocalProxy() as proxy:
+                    diag = await proxy.getDiagInfo()
+
+                stats = [s for s in diag['slabs'] if s['path'] == str(testslab.path)][0]['commitstats']
+                starttime, xactopslen, delta = stats[-1]
+                self.eq(5, xactopslen)
+                self.lt(0, starttime)
+                self.le(0, delta)
 
     async def test_cell_system_info(self):
         with self.getTestDir() as dirn:

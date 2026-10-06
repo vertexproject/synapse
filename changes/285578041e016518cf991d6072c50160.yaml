@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue which caused ``$lib.aha.callPeerApi()`` and ``$lib.aha.callPeerGenr()``
+  to return duplicate results and call each peer twice when run against an AHA follower.
+desc:literal: false
+prs: []
+type: bug
+...

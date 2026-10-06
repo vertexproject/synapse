@@ -437,6 +437,7 @@ class HotCount(HotKeyVal):
         byts = name.encode()
         self.cache[byts] += valu
         self.dirty.add(byts)
+        self.slab.dirty = True
 
     def set(self, name: str, valu):
         byts = name.encode()
@@ -843,7 +844,7 @@ class Slab(s_base.Base):
                 'maxsize': slab.maxsize,
                 'growsize': slab.growsize,
                 'mapasync': True,
-
+                'commitstats': list(slab.commitstats),
             })
         return retn
 
