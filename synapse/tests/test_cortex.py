@@ -6348,6 +6348,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                 user = await core.auth.getUserByName('user')
                 asuser = {'user': user.iden}
 
+                ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(bar)}))')
+                stopped = ddef.get('iden')
+                ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(baz)}))')
+                running = ddef.get('iden')
+                self.true(await core.callStorm('return($lib.dmon.stop($iden))', opts={'vars': {'iden': stopped}}))
+
+                # a ddef persisted without an enabled key loads as enabled
+                ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(faz)}))')
+                legacy = ddef.get('iden')
+                ddef = core.stormdmondefs.get(legacy)
+                ddef.pop('enabled')
+                core.stormdmondefs.set(legacy, ddef)
+
                 ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(foo)}))')
                 iden = ddef.get('iden')
                 asuser['vars'] = {'iden': iden}
@@ -6366,6 +6379,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # although the dmon would get successfully started
                 self.nn(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
                 self.nn(core.stormdmondefs.get(iden))
+
+                dmon = core.stormdmons.getDmon(stopped)
+                self.false(dmon.enabled)
+                self.none(dmon.task)
+                self.nn(core.stormdmons.getDmon(running).task)
+
+                dmon = core.stormdmons.getDmon(legacy)
+                self.true(dmon.enabled)
+                self.nn(dmon.task)
+                self.notin('enabled', core.stormdmondefs.get(legacy))
+
+                task = dmon.task
+                self.true(await core.bumpStormDmon(legacy))
+                self.nn(dmon.task)
+                self.ne(task, dmon.task)
 
     async def test_cortex_storm_dmon_view(self):
 
@@ -8273,6 +8301,119 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(migrated['storm'], '$lib.print(hi)')
                 self.eq(migrated['user'], core.auth.rootuser.iden)
                 self.true(migrated['enabled'])
+
+    async def test_cortex_stor_migr_backfill_created(self):
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+
+                deflayr = core.getLayer().iden
+                defview = core.getView().iden
+
+                layr00 = (await core.addLayer()).get('iden')
+                layr01 = (await core.addLayer()).get('iden')
+
+                view00 = (await core.addView({'layers': (layr00,)})).get('iden')
+                view01 = (await core.addView({'layers': (layr01,)})).get('iden')
+
+                q = 'return($lib.trigger.add(({"cond": "node:add", "form": "inet:fqdn", "storm": "[ +#foo ]"})).iden)'
+                trig00 = await core.callStorm(q, opts={'view': view00})
+                trig01 = await core.callStorm(q, opts={'view': view00})
+                trig02 = await core.callStorm(q, opts={'view': view01})
+
+                q = 'return($lib.cron.add(query="$lib.print(hi)", hourly=30).iden)'
+                cron00 = await core.callStorm(q)
+                cron01 = await core.callStorm(q)
+                cron02 = await core.callStorm(q)
+
+                layrdefs = core.cortexdata.getSubKeyVal('layer:info:')
+                viewdefs = core.cortexdata.getSubKeyVal('view:info:')
+                apptdefs = core.cortexdata.getSubKeyVal('agenda:appt:')
+                trigdefs00 = core.cortexdata.getSubKeyVal(f'view:{view00}:trigger:')
+                trigdefs01 = core.cortexdata.getSubKeyVal(f'view:{view01}:trigger:')
+
+                created = {
+                    'layr01': layrdefs.get(layr01)['created'],
+                    'view01': viewdefs.get(view01)['created'],
+                    'trig01': trigdefs00.get(trig01)['created'],
+                    'cron02': apptdefs.get(cron02)['created'],
+                }
+                self.true(all(v > 0 for v in created.values()))
+
+                def strip(subkv, iden, delkey=True):
+                    info = subkv.get(iden)
+                    if delkey:
+                        info.pop('created')
+                    else:
+                        info['created'] = None
+                    subkv.set(iden, info)
+
+                strip(layrdefs, deflayr)
+                strip(layrdefs, layr00)
+                strip(viewdefs, defview)
+                strip(viewdefs, view00)
+                strip(trigdefs00, trig00)
+                strip(trigdefs01, trig02)
+                strip(apptdefs, cron00, delkey=False)
+                strip(apptdefs, cron01)
+
+                self.notin('created', layrdefs.get(layr00))
+                self.none(apptdefs.get(cron00)['created'])
+
+                # Regress the storage version so migration 8 runs on next start
+                core.cellvers.set('cortex:storage', 7)
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                self.eq(8, core.cellvers.get('cortex:storage'))
+
+                layrdefs = core.cortexdata.getSubKeyVal('layer:info:')
+                viewdefs = core.cortexdata.getSubKeyVal('view:info:')
+                apptdefs = core.cortexdata.getSubKeyVal('agenda:appt:')
+                trigdefs00 = core.cortexdata.getSubKeyVal(f'view:{view00}:trigger:')
+                trigdefs01 = core.cortexdata.getSubKeyVal(f'view:{view01}:trigger:')
+
+                for iden in (deflayr, layr00):
+                    self.eq(0, layrdefs.get(iden)['created'])
+                    self.eq(0, core.getLayer(iden).layrinfo['created'])
+
+                self.eq(created['layr01'], layrdefs.get(layr01)['created'])
+                self.eq(created['layr01'], core.getLayer(layr01).layrinfo['created'])
+
+                for iden in (defview, view00):
+                    self.eq(0, viewdefs.get(iden)['created'])
+                    self.eq(0, core.getView(iden).info['created'])
+
+                self.eq(created['view01'], viewdefs.get(view01)['created'])
+                self.eq(created['view01'], core.getView(view01).info['created'])
+
+                self.eq(0, trigdefs00.get(trig00)['created'])
+                self.eq(0, trigdefs01.get(trig02)['created'])
+                self.eq(created['trig01'], trigdefs00.get(trig01)['created'])
+
+                self.eq(0, core.getView(view00).triggers.get(trig00).tdef['created'])
+                self.eq(0, core.getView(view01).triggers.get(trig02).tdef['created'])
+                self.eq(created['trig01'], core.getView(view00).triggers.get(trig01).tdef['created'])
+
+                self.eq(0, apptdefs.get(cron00)['created'])
+                self.eq(0, apptdefs.get(cron01)['created'])
+                self.eq(created['cron02'], apptdefs.get(cron02)['created'])
+
+                self.eq(0, core.agenda.appts[cron00].created)
+                self.eq(0, core.agenda.appts[cron01].created)
+                self.eq(created['cron02'], core.agenda.appts[cron02].created)
+
+                nodes = await core.nodes(f'syn:cron={cron00}')
+                self.eq(0, nodes[0].get('.created'))
+
+                nodes = await core.nodes(f'syn:cron={cron02}')
+                self.eq(created['cron02'], nodes[0].get('.created'))
+
+                nodes = await core.nodes(f'syn:trigger={trig00}', opts={'view': view00})
+                self.eq(0, nodes[0].get('.created'))
+
+                nodes = await core.nodes(f'syn:trigger={trig01}', opts={'view': view00})
+                self.eq(created['trig01'], nodes[0].get('.created'))
 
     async def test_cortex_taxonomy_migr(self):
 

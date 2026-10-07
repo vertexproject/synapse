@@ -204,6 +204,10 @@ class SafeKeyVal:
 
     def reqValidName(self, name):
 
+        if not isinstance(name, str):
+            mesg = f'SafeKeyVal key names must be strings, got {type(name).__name__}.'
+            raise s_exc.BadArg(mesg=mesg, name=s_common.trimText(repr(name)))
+
         _name = name.encode('utf-8')
 
         if self._prefix:
@@ -437,6 +441,7 @@ class HotCount(HotKeyVal):
         byts = name.encode()
         self.cache[byts] += valu
         self.dirty.add(byts)
+        self.slab.dirty = True
 
     def set(self, name: str, valu):
         byts = name.encode()
@@ -843,7 +848,7 @@ class Slab(s_base.Base):
                 'maxsize': slab.maxsize,
                 'growsize': slab.growsize,
                 'mapasync': True,
-
+                'commitstats': list(slab.commitstats),
             })
         return retn
 

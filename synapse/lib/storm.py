@@ -169,7 +169,7 @@ Modify an existing cron job's query or period.
 
 Notes:
     All times are interpreted as UTC.
-    Modifying a disabled cron job re-enables it.
+    Modifying a disabled cron job does not re-enable it. Use cron.enable to re-enable it.
 
     The --period argument uses the same syntax as cron.add:
         <periodicity>[/<value>...][@<time>]
@@ -1266,7 +1266,9 @@ class DmonManager(s_base.Base):
             return
         logger.debug('Starting Dmons')
         for dmon in dmons:
-            await dmon.run()
+            if dmon.enabled:
+                await dmon.run()
+
         self.enabled = True
         logger.debug('Started Dmons')
 
@@ -1307,6 +1309,7 @@ class StormDmon(s_base.Base):
         if self.task is not None:
             self.task.cancel()
         self.task = None
+        self.status = 'stopped'
         logger.debug(f'Stopped Dmon {self.iden}', extra=self.core.getLogExtra(iden=self.iden))
 
     async def run(self):
@@ -1317,7 +1320,8 @@ class StormDmon(s_base.Base):
 
     async def bump(self):
         await self.stop()
-        await self.run()
+        if self.enabled:
+            await self.run()
 
     def pack(self):
         retn = dict(self.ddef)

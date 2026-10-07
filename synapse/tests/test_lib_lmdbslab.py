@@ -1489,6 +1489,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.len(1, [k for k, v in cache if k == b'foo'])
                 self.len(1, [k for k, v in cache if k == b'bar'])
 
+                await slab.sync()
+                self.false(slab.dirty)
+
+                ctr.inc('foo')
+                self.true(slab.dirty)
+
+                await s_lmdbslab.Slab.syncLoopOnce()
+                self.false(slab.dirty)
+
+                self.eq(4, s_common.signedint64un(slab.get(b'foo', db='counts')))
+
     async def test_lmdbslab_doubleopen(self):
 
         with self.getTestDir() as dirn:
@@ -1727,6 +1738,28 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadArg):
                     safekv.getSubKeyVal('')
+
+                for badn in (None, 1):
+
+                    with self.raises(s_exc.BadArg) as cm:
+                        safekv.get(badn)
+                    self.eq(cm.exception.get('name'), repr(badn))
+                    self.isin(type(badn).__name__, cm.exception.get('mesg'))
+
+                    with self.raises(s_exc.BadArg):
+                        safekv.set(badn, 'newp')
+
+                    with self.raises(s_exc.BadArg):
+                        subkv2.get(badn)
+
+                    with self.raises(s_exc.BadArg):
+                        subkv2.set(badn, 'newp')
+
+                    with self.raises(s_exc.BadArg):
+                        list(safekv.keys(pref=badn))
+
+                    with self.raises(s_exc.BadArg):
+                        list(subkv2.items(pref=badn))
 
                 with self.raises(s_exc.BadArg):
                     slab.getSafeKeyVal('newp', create=False)

@@ -1,6 +1,7 @@
 import bz2
 import copy
 import gzip
+import math
 import time
 import regex
 import types
@@ -772,7 +773,7 @@ class LibDmon(Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to restart.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': 'True if the Dmon is restarted; False if the iden does not exist.'}}},
+                              'desc': 'True if the Dmon is restarted; False if the iden does not exist or the Dmon is disabled.'}}},
         {'name': 'stop', 'desc': 'Stop a Storm Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStop',
                   'args': (
@@ -879,8 +880,7 @@ class LibDmon(Lib):
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        await self.runt.snap.core.bumpStormDmon(iden)
-        return True
+        return await self.runt.snap.core.bumpStormDmon(iden)
 
     async def _libDmonStop(self, iden):
         iden = await tostr(iden)
@@ -3471,8 +3471,17 @@ class LibTime(Lib):
                 break
 
     async def _fromunix(self, secs):
-        secs = float(secs)
-        return int(secs * 1000)
+
+        try:
+            valu = await tofloat(secs) * 1000
+        except s_exc.BadCast:
+            valu = None
+
+        if valu is None or not math.isfinite(valu):
+            mesg = f'Invalid unix epoch time: {s_common.trimText(await torepr(secs))}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return int(valu)
 
 @registry.registerLib
 class LibRegx(Lib):
@@ -10648,6 +10657,25 @@ async def toint(valu, noneok=False):
         return int(valu)
     except Exception as e:
         mesg = f'Failed to make an integer from {s_common.trimText(repr(valu))}.'
+        raise s_exc.BadCast(mesg=mesg) from e
+
+async def tofloat(valu, noneok=False):
+
+    if noneok and valu is None:
+        return None
+
+    try:
+        return float(valu)
+    except OverflowError as e:
+        mesg = f'Failed to make a float from {s_common.trimText(repr(valu))}.'
+        raise s_exc.BadCast(mesg=mesg) from e
+    except (TypeError, ValueError):
+        pass
+
+    try:
+        return float(await tostr(valu))
+    except (s_exc.BadCast, ValueError) as e:
+        mesg = f'Failed to make a float from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toiter(valu, noneok=False):

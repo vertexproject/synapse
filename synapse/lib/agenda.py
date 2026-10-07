@@ -681,7 +681,10 @@ class Agenda(s_base.Base):
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
-        await self.mod(iden, {'query': appt.query})
+        await self.core.getStormQuery(appt.query)
+
+        appt.enabled = True
+        await appt.save()
 
     async def disable(self, iden):
         appt = self.appts.get(iden)
@@ -736,8 +739,6 @@ class Agenda(s_base.Base):
                     mesg = 'Cannot modify the schedule of a finished non-recurring cron job.'
                     raise s_exc.BadConfValu(mesg=mesg)
                 heapq.heapify(self.apptheap)
-
-        appt.enabled = True  # in case it was disabled for a bad query
 
         await appt.save()
 
