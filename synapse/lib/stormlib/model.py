@@ -1239,9 +1239,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                 $node.props.set($name, $lib.undef)
             }
 
-            | spin |
-
-            return($plat)
+            fini { return($plat) }
         }
     '''
 
