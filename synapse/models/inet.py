@@ -266,6 +266,10 @@ class Cidr6(s_types.Str):
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
+
+        if '/' not in valu:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg='Invalid/Missing CIDR Mask')
+
         try:
             network = ipaddress.IPv6Network(valu)
         except Exception as e:

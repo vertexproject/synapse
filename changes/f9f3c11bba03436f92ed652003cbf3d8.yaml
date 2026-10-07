@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue which caused ``inet:cidr6`` and ``inet:net6`` to accept a single
+  IPv6 address without a CIDR mask.
+desc:literal: false
+prs: []
+type: bug
+...
