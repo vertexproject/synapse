@@ -1,8 +1,0 @@
----
-desc: Added a Cortex storage migration that sets ``created`` to ``0`` on Views, Layers,
-  Cron Jobs, and Triggers which do not have a creation time. A ``created`` value of
-  ``0`` indicates the creation time was not recorded.
-desc:literal: false
-prs: []
-type: migration
-...

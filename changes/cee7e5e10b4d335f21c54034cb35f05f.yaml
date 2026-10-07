@@ -1,7 +1,0 @@
----
-desc: Fixed ``$lib.time.fromunix()`` raising uncatchable errors for non-numeric or
-  non-finite values; it now raises ``BadArg``.
-desc:literal: false
-prs: []
-type: bug
-...

@@ -1,9 +1,0 @@
----
-desc: Added IANA DNS record type enumeration values to ``inet:dns:query:type``, ``inet:dns:request:query:type``,
-  and the ``type`` field of the ``inet:dns:query`` form. Known record types now display
-  by mnemonic (e.g. ``ANY`` rather than ``255``), including in the ``inet:dns:query``
-  primary value, and arbitrary numeric values are still accepted.
-desc:literal: false
-prs: []
-type: model
-...
