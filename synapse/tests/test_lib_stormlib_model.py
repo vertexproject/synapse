@@ -875,7 +875,7 @@ class StormlibModelTest(s_test.SynTest):
             # an instance with no props and nodata
             q = '''
                 inet:service:instance=(bare,) $node.data.set(nope, nope)
-                return($lib.model.migration.s.inetServiceInstanceToPlatform($node, nodata=$lib.true))
+                return($lib.model.migration.s.inetServiceInstanceToPlatform($node, nodata=(true)))
             '''
             await core.callStorm(q)
             nodes = await core.nodes('inet:service:platform=(bare,)')
@@ -888,6 +888,35 @@ class StormlibModelTest(s_test.SynTest):
             nodes = await core.nodes('inet:service:account=(acct2,)')
             self.none(nodes[0].get('instance'))
             self.eq(nodes[0].get('platform'), s_common.guid(('bare',)))
+
+            # an instance whose :platform shares its guid does not become its own parent
+            acme = await core.callStorm('''
+                $plat = {[ inet:service:platform=({"name": "acme chat"}) ]}
+                $inst = {[ inet:service:instance=({"name": "acme chat"}) :platform=$plat :name="acme chat" ]}
+                [ inet:service:account=(acmeacct,) :instance=$inst :platform=$plat ]
+                return($plat.value())
+            ''')
+            nodes = await core.nodes('inet:service:instance=({"name": "acme chat"})')
+            self.eq(acme, nodes[0].ndef[1])
+            self.eq(acme, nodes[0].get('platform'))
+
+            msgs = await core.stormlist('''
+                inet:service:instance=({"name": "acme chat"})
+                $lib.model.migration.s.inetServiceInstanceToPlatform($node)
+            ''')
+            self.stormIsInWarn(f'inet:service:instance={acme} has the same guid as the instance', msgs)
+            self.stormIsInWarn(':parent was not set', msgs)
+
+            nodes = await core.nodes('inet:service:platform=({"name": "acme chat"})')
+            self.len(1, nodes)
+            self.eq(acme, nodes[0].ndef[1])
+            self.none(nodes[0].get('parent'))
+            self.eq(nodes[0].get('name'), 'acme chat')
+
+            nodes = await core.nodes('inet:service:account=(acmeacct,)')
+            self.none(nodes[0].get('instance'))
+            self.eq(nodes[0].get('platform'), acme)
+            self.none(await nodes[0].getData('migration:inet:service:account:instance'))
 
             with self.raises(s_exc.BadArg) as exc:
                 await core.callStorm('inet:web:instance | $lib.model.migration.s.inetServiceInstanceToPlatform($node)')

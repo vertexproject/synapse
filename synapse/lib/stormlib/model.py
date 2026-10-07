@@ -1092,9 +1092,11 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
             The inet:service:platform node is created with the same guid as the
             inet:service:instance node and its :parent property is set to the
-            :platform of the instance. The :owner and :app properties are stored
-            in node data under the keys 'migration:inet:service:instance:owner'
-            and 'migration:inet:service:instance:app'. Extended properties on the
+            :platform of the instance. If the :platform of the instance has the same
+            guid as the instance, :parent is not set and a warning is emitted.
+            The :owner and :app properties are stored in node data under the keys
+            'migration:inet:service:instance:owner' and
+            'migration:inet:service:instance:app'. Extended properties on the
             inet:service:instance node are not copied to the inet:service:platform node.
 
             Tags, tag properties, edges, and node data will be copied
@@ -1123,7 +1125,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
     )
     _storm_lib_path = ('model', 'migration', 's')
     _storm_query = '''
-        function inetSslCertToTlsServerCert(n, nodata=$lib.false) {
+        function inetSslCertToTlsServerCert(n, nodata=(false)) {
             $form = $n.form()
             if ($form != 'inet:ssl:cert') {
                 $mesg = `$lib.model.migration.s.inetSslCertToTlsServerCert() only accepts inet:ssl:cert nodes, not {$form}`
@@ -1151,10 +1153,10 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
             [ .seen ?= $n.props.".seen" ]
 
-            $lib.model.migration.copyTags($n, $node, overwrite=$lib.false)
+            $lib.model.migration.copyTags($n, $node, overwrite=(false))
             $lib.model.migration.copyEdges($n, $node)
             if (not $nodata) {
-                $lib.model.migration.copyData($n, $node, overwrite=$lib.false)
+                $lib.model.migration.copyData($n, $node, overwrite=(false))
             }
 
             return($node)
@@ -1182,10 +1184,9 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             return()
         }
 
-        function inetServiceInstanceToPlatform(n, nodata=$lib.false) {
-            $form = $n.form()
-            if ($form != 'inet:service:instance') {
-                $mesg = `$lib.model.migration.s.inetServiceInstanceToPlatform() only accepts inet:service:instance nodes, not {$form}`
+        function inetServiceInstanceToPlatform(n, nodata=(false)) {
+            if (not $n.isform(inet:service:instance)) {
+                $mesg = `$lib.model.migration.s.inetServiceInstanceToPlatform() only accepts inet:service:instance nodes, not {$n.form()}`
                 $lib.raise(BadArg, $mesg)
             }
 
@@ -1194,22 +1195,26 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
             $plat = {[ inet:service:platform=$iden ]}
 
-            if ($parent != $lib.null) { $plat.props.set(parent, $parent) }
+            if ($parent = $iden) {
+                $lib.warn(`The :platform of inet:service:instance={$iden} has the same guid as the instance, so :parent was not set on the inet:service:platform.`)
+            } elif ($parent != null) {
+                $plat.props.set(parent, $parent)
+            }
 
             for $name in (id, url, name, desc, period, status, creator, tenant, ".seen") {
                 $valu = $n.props.$name
-                if ($valu != $lib.null) { $plat.props.set($name, $valu) }
+                if ($valu != null) { $plat.props.set($name, $valu) }
             }
 
             for $name in (owner, app) {
                 $valu = $n.props.$name
-                if ($valu != $lib.null) { $plat.data.set(`migration:inet:service:instance:{$name}`, $valu) }
+                if ($valu != null) { $plat.data.set(`migration:inet:service:instance:{$name}`, $valu) }
             }
 
-            $lib.model.migration.copyTags($n, $plat, overwrite=$lib.false)
+            $lib.model.migration.copyTags($n, $plat, overwrite=(false))
             $lib.model.migration.copyEdges($n, $plat)
             if (not $nodata) {
-                $lib.model.migration.copyData($n, $plat, overwrite=$lib.false)
+                $lib.model.migration.copyData($n, $plat, overwrite=(false))
             }
 
             yield $n <- *
@@ -1222,10 +1227,10 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
                 $pname = $lib.regex.replace('instance$', 'platform', $name)
                 $pprop = $lib.model.prop(`{$refform}:{$pname}`)
-                if ($pprop = $lib.null or $pprop.type.name != 'inet:service:platform') { continue }
+                if ($pprop = null or $pprop.type.name != 'inet:service:platform') { continue }
 
                 $curv = $node.props.$pname
-                if ($curv = $lib.null or $curv = $parent or $curv = $iden) {
+                if ($curv = null or $curv = $parent or $curv = $iden) {
                     $node.props.set($pname, $iden)
                 } else {
                     $node.data.set(`migration:{$refform}:{$name}`, $valu)
