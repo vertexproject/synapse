@@ -534,6 +534,22 @@ bar baz",vv
 
             self.eq(bbufretn[0], await axon.save(bbufhash, emptygen(), size=bbufretn[0]))
 
+            # deleting a blob removes its offset index rows
+            byts = b'V' * 200
+            sha256 = hashlib.sha256(byts).digest()
+            await axon.save(sha256, [byts[:100], byts[100:]], 200)
+            self.len(2, list(axon.blobslab.scanKeysByPref(sha256, db=axon.blobs)))
+            self.len(2, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
+
+            self.true(await axon.del_(sha256))
+            self.len(0, list(axon.blobslab.scanKeysByPref(sha256, db=axon.blobs)))
+            self.len(0, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
+
+            await axon.save(sha256, [byts], 200)
+            self.len(1, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
+            retn = b''.join([chunk async for chunk in axon.get(sha256, offs=50, size=150)])
+            self.eq(byts[50:], retn)
+
     async def test_axon_proxy(self):
         async with self.getTestAxon() as axon:
             async with axon.getLocalProxy() as prox:
