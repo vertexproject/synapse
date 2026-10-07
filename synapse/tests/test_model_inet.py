@@ -325,7 +325,17 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(t.norm(valu), expected)
 
+            valu = '2001:db8::/128'
+            expected = ('2001:db8::/128', {'subs': {
+                'broadcast': '2001:db8::',
+                'network': '2001:db8::',
+                'mask': 128,
+            }})
+            self.eq(t.norm(valu), expected)
+
             self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
+            self.raises(s_exc.BadTypeValu, t.norm, '2001:db8:3333:4444:5555:6666:7777:8888')
+            self.raises(s_exc.BadTypeValu, t.norm, '2001:db8::')
 
     async def test_client(self):
         data = (
@@ -1321,6 +1331,8 @@ class InetModelTest(s_t_utils.SynTest):
             valu = ('1.2.3.4', '5.6.7.8', '7.8.9.10')
             self.raises(s_exc.BadTypeValu, t.norm, valu)
 
+            self.raises(s_exc.BadTypeValu, t.norm, '1.2.3.4')
+
     async def test_net6(self):
         tname = 'inet:net6'
         async with self.getTestCore() as core:
@@ -1350,6 +1362,11 @@ class InetModelTest(s_t_utils.SynTest):
 
             valu = ('fd00::', 'fe00::', 'ff00::')
             self.raises(s_exc.BadTypeValu, t.norm, valu)
+
+            self.raises(s_exc.BadTypeValu, t.norm, '2001:db8:3333:4444:5555:6666:7777:8888')
+            self.raises(s_exc.BadTypeValu, t.norm, '2001:db8::')
+
+            self.eq((False, None), await core.callStorm('return($lib.trycast(inet:net6, "2001:db8::"))'))
 
     async def test_passwd(self):
         async with self.getTestCore() as core:
