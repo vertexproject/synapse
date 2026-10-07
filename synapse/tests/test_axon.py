@@ -514,41 +514,96 @@ bar baz",vv
             await axon.unpack(sha256, '>Q', offs=24)
 
     async def test_axon_base(self):
-        async with self.getTestAxon() as axon:
-            self.isin('axon', axon.dmon.shared)
-            await self.runAxonTestBase(axon)
+        with self.getTestDir() as dirn:
+            async with self.getTestAxon(dirn=dirn) as axon:
+                self.isin('axon', axon.dmon.shared)
+                self.eq(2, axon._getStorVers())
+                await self.runAxonTestBase(axon)
 
-            # test behavior for two concurrent uploads where the file exists once the lock is released
-            self.eq(bbufretn, await axon.put(bbuf))
-            self.true(await axon.has(bbufhash))
+                # test behavior for two concurrent uploads where the file exists once the lock is released
+                self.eq(bbufretn, await axon.put(bbuf))
+                self.true(await axon.has(bbufhash))
 
-            with self.raises(ValueError) as cm:
-                async with axon.holdHashLock(bbufhash):
-                    raise ValueError('oops')
-            self.none(axon.hashlocks.get(bbufhash))
+                with self.raises(ValueError) as cm:
+                    async with axon.holdHashLock(bbufhash):
+                        raise ValueError('oops')
+                self.none(axon.hashlocks.get(bbufhash))
 
-            def emptygen():
-                if False:
-                    yield None
-                return
+                def emptygen():
+                    if False:
+                        yield None
+                    return
 
-            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen(), size=bbufretn[0]))
+                self.eq(bbufretn[0], await axon.save(bbufhash, emptygen(), size=bbufretn[0]))
 
-            # deleting a blob removes its offset index rows
-            byts = b'V' * 200
-            sha256 = hashlib.sha256(byts).digest()
-            await axon.save(sha256, [byts[:100], byts[100:]], 200)
-            self.len(2, list(axon.blobslab.scanKeysByPref(sha256, db=axon.blobs)))
-            self.len(2, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
+                # deleting a blob removes its offset index rows
+                byts = b'V' * 200
+                sha256 = hashlib.sha256(byts).digest()
+                await axon.save(sha256, [byts[:100], byts[100:]], 200)
+                self.len(2, list(axon.blobslab.scanKeysByPref(sha256, db=axon.blobs)))
+                self.len(2, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
 
-            self.true(await axon.del_(sha256))
-            self.len(0, list(axon.blobslab.scanKeysByPref(sha256, db=axon.blobs)))
-            self.len(0, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
+                self.true(await axon.del_(sha256))
+                self.len(0, list(axon.blobslab.scanKeysByPref(sha256, db=axon.blobs)))
+                self.len(0, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
 
-            await axon.save(sha256, [byts], 200)
-            self.len(1, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
-            retn = b''.join([chunk async for chunk in axon.get(sha256, offs=50, size=150)])
-            self.eq(byts[50:], retn)
+                await axon.save(sha256, [byts], 200)
+                self.len(1, list(axon.blobslab.scanKeysByPref(sha256, db=axon.offsets)))
+                retn = b''.join([chunk async for chunk in axon.get(sha256, offs=50, size=150)])
+                self.eq(byts[50:], retn)
+
+                # storage version 2 removes orphan and stale offset index rows
+                def i64(valu):
+                    return valu.to_bytes(8, 'big')
+
+                clean00 = b'\x01' * 32
+                orphan00 = b'\x02' * 32
+                stale00 = b'\x03' * 32
+                clean01 = b'\x04' * 32
+                orphan01 = b'\xff' * 32
+
+                stalebyts = bytes(range(200))
+
+                rows = (
+                    (clean00, (b'a' * 100, b'b' * 100), ((100, 0), (200, 1))),
+                    (orphan00, (), ((100, 0), (200, 1))),
+                    (stale00, (stalebyts,), ((100, 0), (200, 0))),
+                    (clean01, (b'c' * 10, b'd' * 10, b'e' * 10), ((10, 0), (20, 1), (30, 2))),
+                    (orphan01, (), ((50, 0),)),
+                )
+
+                for sha256, blobs, offsets in rows:
+                    if blobs:
+                        await axon.save(sha256, blobs, sum(len(b) for b in blobs))
+
+                    for offs, indx in offsets:
+                        axon.blobslab.put(sha256 + i64(offs), i64(indx), db=axon.offsets)
+
+                axon._setStorVers(1)
+
+            async with self.getTestAxon(dirn=dirn) as axon:
+
+                self.eq(2, axon._getStorVers())
+
+                shas = (clean00, orphan00, stale00, clean01, orphan01)
+                offsitems = [item for item in axon.blobslab.scanByFull(db=axon.offsets) if item[0][:32] in shas]
+                self.eq(offsitems, [
+                    (clean00 + i64(100), i64(0)),
+                    (clean00 + i64(200), i64(1)),
+                    (stale00 + i64(200), i64(0)),
+                    (clean01 + i64(10), i64(0)),
+                    (clean01 + i64(20), i64(1)),
+                    (clean01 + i64(30), i64(2)),
+                ])
+
+                retn = b''.join([chunk async for chunk in axon.get(stale00, offs=50, size=150)])
+                self.eq(stalebyts[50:], retn)
+
+                retn = b''.join([chunk async for chunk in axon.get(clean00, offs=50, size=100)])
+                self.eq(b'a' * 50 + b'b' * 50, retn)
+
+                retn = b''.join([chunk async for chunk in axon.get(clean01, offs=15, size=10)])
+                self.eq(b'd' * 5 + b'e' * 5, retn)
 
     async def test_axon_proxy(self):
         async with self.getTestAxon() as axon:
@@ -1196,6 +1251,8 @@ bar baz",vv
 
             metrics = await axon.metrics()
             self.eq(metrics, {'size:bytes': 12, 'file:count': 1})
+
+            self.eq(2, axon._getStorVers())
 
     async def test_axon_mirror(self):
 
