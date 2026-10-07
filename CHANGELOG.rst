@@ -6,6 +6,90 @@
 Synapse Changelog
 *****************
 
+v2.253.0 - 2026-10-07
+=====================
+
+Automatic Migrations
+--------------------
+- Added a Cortex storage migration that sets ``created`` to ``0`` on Views,
+  Layers, Cron Jobs, and Triggers which do not have a creation time. A
+  ``created`` value of ``0`` indicates the creation time was not recorded.
+  (`#5025 <https://github.com/vertexproject/synapse/pull/5025>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added IANA DNS record type enumeration values to ``inet:dns:query:type``,
+  ``inet:dns:request:query:type``, and the ``type`` field of the
+  ``inet:dns:query`` form. Known record types now display by mnemonic (e.g.
+  ``ANY`` rather than ``255``), including in the ``inet:dns:query`` primary
+  value, and arbitrary numeric values are still accepted.
+  (`#5020 <https://github.com/vertexproject/synapse/pull/5020>`_)
+- Added enumeration labels for common values to
+  ``it:reveng:filefunc:complexity``. Arbitrary integer values are still
+  accepted.
+  (`#5020 <https://github.com/vertexproject/synapse/pull/5020>`_)
+- Added the ``:vehicle`` property to the ``transport:air:telem`` form.
+  (`#5021 <https://github.com/vertexproject/synapse/pull/5021>`_)
+- See :ref:`userguide_model_v2_253_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added an ``axon:ready`` key to the ``cell`` section of the Cortex
+  ``getCellInfo()`` API, which reports whether the Axon is ready.
+  (`#5019 <https://github.com/vertexproject/synapse/pull/5019>`_)
+- Added ``$view.insertChildFork()`` Storm API to insert a new View between a
+  View and all of its child Views.
+  (`#5022 <https://github.com/vertexproject/synapse/pull/5022>`_)
+- Added the recent commit history of each LMDB slab to the ``getDiagInfo()``
+  API response.
+  (`#5032 <https://github.com/vertexproject/synapse/pull/5032>`_)
+
+Bugfixes
+--------
+- Fixed the Axon HTTP upload API starting an upload in the Axon for a request
+  which was denied.
+  (`#5019 <https://github.com/vertexproject/synapse/pull/5019>`_)
+- Fixed a ``KeyError`` in Storm APIs which interacted with the Axon. Cortex
+  Storm, Telepath, and HTTP APIs which use the Axon now wait up to 300 seconds
+  for the Axon to be ready before raising a ``TimeOut`` error.
+  (`#5019 <https://github.com/vertexproject/synapse/pull/5019>`_)
+- Fixed ``$view.insertParentFork()`` allowing a View which is merging to be re-
+  parented.
+  (`#5022 <https://github.com/vertexproject/synapse/pull/5022>`_)
+- Fixed ``$lib.vars.del()`` not removing a variable from the parent scope when
+  called from a sub-query.
+  (`#5023 <https://github.com/vertexproject/synapse/pull/5023>`_)
+- Fixed ``$lib.time.fromunix()`` raising uncatchable errors for non-numeric or
+  non-finite values; it now raises ``BadArg``.
+  (`#5024 <https://github.com/vertexproject/synapse/pull/5024>`_)
+- Fixed ``cron.mod`` re-enabling a disabled cron job when its query or period
+  was modified. Use ``cron.enable`` to re-enable a disabled cron job.
+  (`#5028 <https://github.com/vertexproject/synapse/pull/5028>`_)
+- Fixed ``HotCount.inc()`` not marking its slab dirty, which could delay
+  persisting counter updates such as layer form counts and Axon metrics.
+  (`#5029 <https://github.com/vertexproject/synapse/pull/5029>`_)
+- Fixed an issue which caused ``$lib.dmon.bump()``, locking or unlocking a
+  user, or restarting the Cortex to restart a stopped Storm dmon, which
+  ``$lib.dmon.stop()`` could then no longer stop.
+  (`#5031 <https://github.com/vertexproject/synapse/pull/5031>`_)
+- Fixed an issue which caused ``$lib.aha.callPeerApi()`` and
+  ``$lib.aha.callPeerGenr()`` to return duplicate results and call each peer
+  twice when run against an AHA follower.
+  (`#5033 <https://github.com/vertexproject/synapse/pull/5033>`_)
+- Fixed ``$lib.auth.roles.get()`` and ``$lib.auth.users.get()`` raising a
+  Python error when given a null or non-string iden.
+  (`#5034 <https://github.com/vertexproject/synapse/pull/5034>`_)
+- Fixed an issue which caused ``inet:cidr6`` and ``inet:net6`` to accept a
+  single IPv6 address without a CIDR mask.
+  (`#5035 <https://github.com/vertexproject/synapse/pull/5035>`_)
+
+Improved documentation
+----------------------
+- Fixed the Extended HTTP API path in the devops guide; it is ``/api/ext/*``,
+  not ``/api/etx/*``.
+  (`#5027 <https://github.com/vertexproject/synapse/pull/5027>`_)
+
 v2.252.0 - 2026-09-21
 =====================
 
