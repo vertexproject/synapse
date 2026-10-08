@@ -559,6 +559,8 @@ bar baz",vv
                 orphan00 = b'\x02' * 32
                 stale00 = b'\x03' * 32
                 clean01 = b'\x04' * 32
+                missing00 = b'\x05' * 32
+                wrongval00 = b'\x06' * 32
                 orphan01 = b'\xff' * 32
 
                 stalebyts = bytes(range(200))
@@ -566,8 +568,10 @@ bar baz",vv
                 rows = (
                     (clean00, (b'a' * 100, b'b' * 100), ((100, 0), (200, 1))),
                     (orphan00, (), ((100, 0), (200, 1))),
-                    (stale00, (stalebyts,), ((100, 0), (200, 0))),
+                    (stale00, (stalebyts,), ((100, 0), (150, 1), (300, 1))),
                     (clean01, (b'c' * 10, b'd' * 10, b'e' * 10), ((10, 0), (20, 1), (30, 2))),
+                    (missing00, (b'f' * 10, b'g' * 10, b'h' * 10), ()),
+                    (wrongval00, (b'i' * 10, b'j' * 10), ((10, 1),)),
                     (orphan01, (), ((50, 0),)),
                 )
 
@@ -578,13 +582,20 @@ bar baz",vv
                     for offs, indx in offsets:
                         axon.blobslab.put(sha256 + i64(offs), i64(indx), db=axon.offsets)
 
+                # missing rows before, between, and after the remaining rows
+                axon.blobslab.delete(missing00 + i64(10), db=axon.offsets)
+                axon.blobslab.delete(missing00 + i64(30), db=axon.offsets)
+
+                clean00rows = list(axon.blobslab.scanByPref(clean00, db=axon.offsets))
+                clean01rows = list(axon.blobslab.scanByPref(clean01, db=axon.offsets))
+
                 axon._setStorVers(1)
 
             async with self.getTestAxon(dirn=dirn) as axon:
 
                 self.eq(2, axon._getStorVers())
 
-                shas = (clean00, orphan00, stale00, clean01, orphan01)
+                shas = (clean00, orphan00, stale00, clean01, missing00, wrongval00, orphan01)
                 offsitems = [item for item in axon.blobslab.scanByFull(db=axon.offsets) if item[0][:32] in shas]
                 self.eq(offsitems, [
                     (clean00 + i64(100), i64(0)),
@@ -593,7 +604,21 @@ bar baz",vv
                     (clean01 + i64(10), i64(0)),
                     (clean01 + i64(20), i64(1)),
                     (clean01 + i64(30), i64(2)),
+                    (missing00 + i64(10), i64(0)),
+                    (missing00 + i64(20), i64(1)),
+                    (missing00 + i64(30), i64(2)),
+                    (wrongval00 + i64(10), i64(0)),
+                    (wrongval00 + i64(20), i64(1)),
                 ])
+
+                self.eq(clean00rows, list(axon.blobslab.scanByPref(clean00, db=axon.offsets)))
+                self.eq(clean01rows, list(axon.blobslab.scanByPref(clean01, db=axon.offsets)))
+
+                retn = b''.join([chunk async for chunk in axon.get(missing00, offs=5, size=20)])
+                self.eq(b'f' * 5 + b'g' * 10 + b'h' * 5, retn)
+
+                retn = b''.join([chunk async for chunk in axon.get(wrongval00, offs=5, size=10)])
+                self.eq(b'i' * 5 + b'j' * 5, retn)
 
                 retn = b''.join([chunk async for chunk in axon.get(stale00, offs=50, size=150)])
                 self.eq(stalebyts[50:], retn)
