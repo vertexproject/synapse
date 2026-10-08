@@ -718,7 +718,10 @@ class NexsRoot(s_base.Base):
                     except Exception as e:
                         if respfutu is not None:
                             assert not respfutu.done()
-                            respfutu.set_exception(e)
+
+                            # the head of the traceback is our own still running frame
+                            # and the caller may clear the frames of the traceback it gets.
+                            respfutu.set_exception(e.with_traceback(e.__traceback__.tb_next))
                         else:  # pragma: no cover
                             logger.exception(e)
 
