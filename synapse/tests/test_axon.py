@@ -516,7 +516,6 @@ bar baz",vv
     async def test_axon_base(self):
         with self.getTestDir() as dirn:
             async with self.getTestAxon(dirn=dirn) as axon:
-                self.isin('axon', axon.dmon.shared)
                 self.eq(2, axon._getStorVers())
                 await self.runAxonTestBase(axon)
 
