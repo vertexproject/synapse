@@ -1,5 +1,5 @@
 ---
-desc: Fixed `Cell.demote()` failing when two mirrors are at the same Nexus index,
+desc: Fixed ``Cell.demote()`` failing when two mirrors are at the same Nexus index,
   and changed it to try the most current mirror first.
 desc:literal: false
 prs: []
